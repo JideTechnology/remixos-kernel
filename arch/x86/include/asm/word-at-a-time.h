@@ -1,6 +1,8 @@
 #ifndef _ASM_WORD_AT_A_TIME_H
 #define _ASM_WORD_AT_A_TIME_H
 
+#include <linux/kernel.h>
+
 /*
  * This is largely generic for little-endian machines, but the
  * optimal byte mask counting is probably going to be something
@@ -39,8 +41,6 @@ static inline long count_masked_bytes(long mask)
 }
 
 #endif
-
-#define REPEAT_BYTE(x)	((~0ul / 0xff) * (x))
 
 /* Return nonzero if it has a zero */
 static inline unsigned long has_zero(unsigned long a, unsigned long *bits, const struct word_at_a_time *c)

@@ -16,6 +16,7 @@
 
 #include <linux/init.h>
 #include <linux/export.h>
+#include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/fs.h>
 #include <linux/namei.h>
@@ -1407,9 +1408,9 @@ static inline int can_lookup(struct inode *inode)
  */
 #ifdef CONFIG_DCACHE_WORD_ACCESS
 
-#ifdef CONFIG_64BIT
-
 #include <asm/word-at-a-time.h>
+
+#ifdef CONFIG_64BIT
 
 /*
  * Jan Achrenius on G+: microoptimized version of
@@ -1466,16 +1467,9 @@ done:
 }
 EXPORT_SYMBOL(full_name_hash);
 
-#define REPEAT_BYTE(x)	((~0ul / 0xff) * (x))
 #define ONEBYTES	REPEAT_BYTE(0x01)
 #define SLASHBYTES	REPEAT_BYTE('/')
 #define HIGHBITS	REPEAT_BYTE(0x80)
-
-/* Return the high bit set in the first byte that is a zero */
-static inline unsigned long has_zero(unsigned long a)
-{
-	return ((a - ONEBYTES) & ~a) & HIGHBITS;
-}
 
 /*
  * Calculate the length and hash of the path component, and
