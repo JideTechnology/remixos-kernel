@@ -33,6 +33,8 @@ static int arch_timer_ppi2;
 
 static struct clock_event_device __percpu **arch_timer_evt;
 
+extern void init_current_timer_delay(unsigned long freq);
+
 /*
  * Architected system timer support.
  */
@@ -355,6 +357,7 @@ static int __init arch_timer_common_register(void)
 	if (err)
 		goto out_free_irq;
 
+	init_current_timer_delay(arch_timer_rate);
 	return 0;
 
 out_free_irq:

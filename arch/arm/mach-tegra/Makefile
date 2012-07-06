@@ -54,7 +54,7 @@ endif
 endif
 
 obj-y                                   += pinmux.o
-obj-y                                   += delay.o
+obj-$(CONFIG_ARCH_PROVIDES_UDELAY)      += delay.o
 obj-y                                   += pm.o
 obj-$(CONFIG_TEGRA_WDT_RECOVERY)        += wdt-recovery.o
 obj-$(CONFIG_PM_SLEEP)                  += pm-irq.o

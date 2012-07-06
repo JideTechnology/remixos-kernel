@@ -696,7 +696,6 @@ config ARCH_TEGRA
 	select NEED_MACH_IO_H if PCI
 	select NEED_MACH_MEMORY_H
 	select ARCH_HAS_CPUFREQ
-	select ARCH_PROVIDES_UDELAY
 	select FIQ
 	select PCI
 	help

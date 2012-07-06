@@ -18,7 +18,7 @@ lib-y		:= backtrace.o changebit.o csumipv6.o csumpartial.o   \
 mmu-y	:= clear_user.o copy_page.o getuser.o putuser.o
 
 ifneq ($(CONFIG_ARCH_PROVIDES_UDELAY),y)
-  lib-y += delay.o
+  lib-y += delay.o delay-loop.o
 endif
 
 # the code in uaccess.S is not preemption safe and
