@@ -14,6 +14,9 @@ struct arch_timer {
 int arch_timer_of_register(void);
 int arch_timer_sched_clock_init(void);
 
+// @jide keep in sync with clocksource.h
+typedef u64 cycle_t;
+
 static __always_inline cycle_t arch_counter_get_cntpct(void)
 {
 	u32 cvall, cvalh;
