@@ -167,6 +167,9 @@ module_param(global_cursor_default, int, S_IRUGO | S_IWUSR);
 static int cur_default = CUR_DEFAULT;
 module_param(cur_default, int, S_IRUGO | S_IWUSR);
 
+static bool init_hide;
+module_param(init_hide, bool, S_IRUGO);
+
 /*
  * ignore_poke: don't unblank the screen when things are typed.  This is
  * mainly for the privacy of braille terminal users.
@@ -738,6 +741,7 @@ static void visual_init(struct vc_data *vc, int num, int init)
 	__module_get(vc->vc_sw->owner);
 	vc->vc_num = num;
 	vc->vc_display_fg = &master_display_fg;
+	vc->vc_hidden = init_hide;
 	vc->vc_uni_pagedir_loc = &vc->vc_uni_pagedir;
 	vc->vc_uni_pagedir = NULL;
 	vc->vc_hi_font_mask = 0;
@@ -2430,6 +2434,9 @@ static void console_callback(struct work_struct *ignored)
 	if (want_console >= 0) {
 		if (want_console != fg_console &&
 		    vc_cons_allocated(want_console)) {
+			if (want_console != SUSPEND_CONSOLE &&
+					fg_console != SUSPEND_CONSOLE)
+				vc_cons[want_console].d->vc_hidden = 0;
 			hide_cursor(vc_cons[fg_console].d);
 			change_console(vc_cons[want_console].d);
 			/* we only changed when the console had already
