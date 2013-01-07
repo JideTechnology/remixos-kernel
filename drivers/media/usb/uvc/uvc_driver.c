@@ -1855,6 +1855,35 @@ static int uvc_register_chains(struct uvc_device *dev)
 	return 0;
 }
 
+static void uvc_shutdown(struct notifier_block *nb)
+{
+	struct uvc_device *dev = container_of(nb, struct uvc_device, uvc_notifier);
+	struct uvc_streaming *stream;
+
+	list_for_each_entry(stream, &dev->streams, list) {
+		if (stream->vdev == NULL)
+			continue;
+		uvc_video_shutdown(stream);
+		stream->vdev = NULL;
+	}
+}
+
+static int uvc_system_reboot(struct notifier_block *nb, unsigned long event, void *unused)
+{
+	switch (event) {
+	case SYS_RESTART:
+		uvc_shutdown(nb);
+		break;
+	default:
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block uvc_reboot_notifier = {
+	.notifier_call     = uvc_system_reboot,
+};
+
 /* ------------------------------------------------------------------------
  * USB probe, disconnect, suspend and resume
  */
@@ -1890,6 +1919,7 @@ static int uvc_probe(struct usb_interface *intf,
 	dev->intfnum = intf->cur_altsetting->desc.bInterfaceNumber;
 	dev->quirks = (uvc_quirks_param == -1)
 		    ? id->driver_info : uvc_quirks_param;
+	dev->uvc_notifier = uvc_reboot_notifier;
 
 	if (udev->product != NULL)
 		strlcpy(dev->name, udev->product, sizeof dev->name);
@@ -1959,6 +1989,11 @@ static int uvc_probe(struct usb_interface *intf,
 			"supported.\n", ret);
 	}
 
+	/* add ourselves to the reboot_notifier_list */
+	ret = register_reboot_notifier(&dev->uvc_notifier);
+	if (ret != 0)
+		printk(KERN_INFO "can't register reboot notifier\n");
+
 	uvc_trace(UVC_TRACE_PROBE, "UVC device initialized.\n");
 	usb_enable_autosuspend(udev);
 	return 0;
@@ -1983,6 +2018,7 @@ static void uvc_disconnect(struct usb_interface *intf)
 
 	dev->state |= UVC_DEV_DISCONNECTED;
 
+	unregister_reboot_notifier(&dev->uvc_notifier);
 	uvc_unregister_video(dev);
 }
 
