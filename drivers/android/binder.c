@@ -2217,8 +2217,13 @@ retry:
 		proc->ready_threads--;
 	thread->looper &= ~BINDER_LOOPER_STATE_WAITING;
 
+	/* We cannot return -ERESTARTSYS here.  This code is called
+	 * after binder_thread_write() has already interpreted the
+	 * input buffer.  A restart will result in a doubled set of
+	 * commands.  Just return success, having consumed zero
+	 * bytes. */
 	if (ret)
-		return ret;
+		return ret == -ERESTARTSYS ? 0 : ret;
 
 	while (1) {
 		uint32_t cmd;
