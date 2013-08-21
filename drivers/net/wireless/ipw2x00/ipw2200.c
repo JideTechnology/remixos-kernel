@@ -89,6 +89,7 @@ MODULE_FIRMWARE("ipw2200-ibss.fw");
 MODULE_FIRMWARE("ipw2200-sniffer.fw");
 #endif
 MODULE_FIRMWARE("ipw2200-bss.fw");
+MODULE_ALIAS_NETDEV("wlan0");
 
 static int cmdlog = 0;
 static int debug = 0;
@@ -11639,7 +11640,7 @@ static int ipw_pci_probe(struct pci_dev *pdev,
 		err = -ENOMEM;
 		goto out;
 	}
-
+	strcpy(net_dev->name, "wlan%d");
 	priv = libipw_priv(net_dev);
 	priv->ieee = netdev_priv(net_dev);
 
