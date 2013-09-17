@@ -3187,6 +3187,9 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 	wl_extjoin_params_t *ext_join_params;
 	struct wl_join_params join_params;
 	size_t join_params_size;
+#if defined(ROAM_ENABLE) && defined(ROAM_AP_ENV_DETECTION)
+	dhd_pub_t *dhd =  (dhd_pub_t *)(wl->pub);
+#endif /* ROAM_AP_ENV_DETECTION */
 	s32 err = 0;
 	wpa_ie_fixed_t *wpa_ie;
 	bcm_tlv_t *wpa2_ie;
@@ -3314,6 +3317,17 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 			return err;
 		}
 	}
+#if defined(ROAM_ENABLE) && defined(ROAM_AP_ENV_DETECTION)
+	if (dhd->roam_env_detection && (wldev_iovar_setint(dev, "roam_env_detection",
+		AP_ENV_DETECT_NOT_USED) == BCME_OK)) {
+		s32 roam_trigger[2] = {WL_AUTO_ROAM_TRIGGER, WLC_BAND_ALL};
+		err = wldev_ioctl(dev, WLC_SET_ROAM_TRIGGER, roam_trigger,
+			sizeof(roam_trigger), true);
+		if (unlikely(err)) {
+			WL_ERR((" failed to restore roam_trigger for auto env detection\n"));
+		}
+	}
+#endif /* ROAM_AP_ENV_DETECTION */
 	if (chan) {
 		wl->channel = ieee80211_frequency_to_channel(chan->center_freq);
 		chan_cnt = 1;
@@ -7627,6 +7641,9 @@ wl_bss_connect_done(struct wl_priv *wl, struct net_device *ndev,
 {
 	struct wl_connect_info *conn_info = wl_to_conn(wl);
 	struct wl_security *sec = wl_read_prof(wl, ndev, WL_PROF_SEC);
+#if defined(ROAM_ENABLE) && defined(ROAM_AP_ENV_DETECTION)
+	dhd_pub_t *dhd =  (dhd_pub_t *)(wl->pub);
+#endif /* ROAM_AP_ENV_DETECTION */
 	s32 err = 0;
 	u8 *curbssid = wl_read_prof(wl, ndev, WL_PROF_BSSID);
 	if (!sec) {
@@ -7663,6 +7680,11 @@ wl_bss_connect_done(struct wl_priv *wl, struct net_device *ndev,
 			wl_update_bss_info(wl, ndev);
 			wl_update_pmklist(ndev, wl->pmk_list, err);
 			wl_set_drv_status(wl, CONNECTED, ndev);
+#if defined(ROAM_ENABLE) && defined(ROAM_AP_ENV_DETECTION)
+			if (dhd->roam_env_detection)
+				wldev_iovar_setint(ndev, "roam_env_detection",
+					AP_ENV_INDETERMINATE);
+#endif /* ROAM_AP_ENV_DETECTION */
 			if (ndev != wl_to_prmry_ndev(wl)) {
 				/* reinitialize completion to clear previous count */
 				INIT_COMPLETION(wl->iface_disable);
