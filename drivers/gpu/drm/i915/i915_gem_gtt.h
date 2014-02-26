@@ -261,7 +261,7 @@ struct i915_hw_ppgtt {
 	};
 	union {
 		dma_addr_t *pt_dma_addr;
-		dma_addr_t *gen8_pt_dma_addr[4];
+		dma_addr_t *gen8_pt_dma_addr[GEN8_LEGACY_PDPES];
 	};
 
 	struct list_head vma_list;
