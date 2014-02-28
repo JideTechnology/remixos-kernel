@@ -274,7 +274,8 @@ static void gen8_ppgtt_clear_range(struct i915_address_space *vm,
 				      I915_CACHE_LLC, use_scratch);
 
 	while (num_entries) {
-		struct page *page_table = ppgtt->gen8_pt_pages[pdpe][pde];
+		struct i915_page_directory_entry *pd = &ppgtt->pdp.page_directory[pdpe];
+		struct page *page_table = pd->page_tables[pde].page;
 
 		last_pte = pte + num_entries;
 		if (last_pte > GEN8_PTES_PER_PAGE)
@@ -319,8 +320,12 @@ static void gen8_ppgtt_insert_entries(struct i915_address_space *vm,
 		if (WARN_ON(pdpe >= GEN8_LEGACY_PDPES))
 			break;
 
-		if (pt_vaddr == NULL)
-			pt_vaddr = kmap_atomic(ppgtt->gen8_pt_pages[pdpe][pde]);
+		if (pt_vaddr == NULL) {
+			struct i915_page_directory_entry *pd = &ppgtt->pdp.page_directory[pdpe];
+			struct page *page_table = pd->page_tables[pde].page;
+
+			pt_vaddr = kmap_atomic(page_table);
+		}
 
 		pt_vaddr[pte] =
 			gen8_pte_encode(sg_page_iter_dma_address(&sg_iter),
@@ -344,29 +349,33 @@ static void gen8_ppgtt_insert_entries(struct i915_address_space *vm,
 	}
 }
 
-static void gen8_free_page_tables(struct page **pt_pages)
+static void gen8_free_page_tables(struct i915_page_directory_entry *pd)
 {
 	int i;
 
-	if (pt_pages == NULL)
+	if (pd->page_tables == NULL)
 		return;
 
 	for (i = 0; i < GEN8_PDES_PER_PAGE; i++)
-		if (pt_pages[i])
-			__free_pages(pt_pages[i], 0);
+		if (pd->page_tables[i].page)
+			__free_page(pd->page_tables[i].page);
 }
 
-static void gen8_ppgtt_free(const struct i915_hw_ppgtt *ppgtt)
+static void gen8_free_page_directories(struct i915_page_directory_entry *pd)
+{
+	kfree(pd->page_tables);
+	__free_page(pd->page);
+}
+
+static void gen8_ppgtt_free(struct i915_hw_ppgtt *ppgtt)
 {
 	int i;
 
 	for (i = 0; i < ppgtt->num_pd_pages; i++) {
-		gen8_free_page_tables(ppgtt->gen8_pt_pages[i]);
-		kfree(ppgtt->gen8_pt_pages[i]);
+		gen8_free_page_tables(&ppgtt->pdp.page_directory[i]);
+		gen8_free_page_directories(&ppgtt->pdp.page_directory[i]);
 		kfree(ppgtt->gen8_pt_dma_addr[i]);
 	}
-
-	__free_pages(ppgtt->pd_pages, get_order(ppgtt->num_pd_pages << PAGE_SHIFT));
 }
 
 static void gen8_ppgtt_unmap_pages(struct i915_hw_ppgtt *ppgtt)
@@ -401,60 +410,6 @@ static void gen8_ppgtt_cleanup(struct i915_address_space *vm)
 	gen8_ppgtt_free(ppgtt);
 }
 
-static struct page **__gen8_alloc_page_tables(void)
-{
-	struct page **pt_pages;
-	int i;
-
-	pt_pages = kcalloc(GEN8_PDES_PER_PAGE, sizeof(struct page *), GFP_KERNEL);
-	if (!pt_pages)
-		return ERR_PTR(-ENOMEM);
-
-	for (i = 0; i < GEN8_PDES_PER_PAGE; i++) {
-		pt_pages[i] = alloc_page(GFP_KERNEL);
-		if (!pt_pages[i])
-			goto bail;
-	}
-
-	return pt_pages;
-
-bail:
-	gen8_free_page_tables(pt_pages);
-	kfree(pt_pages);
-	return ERR_PTR(-ENOMEM);
-}
-
-static int gen8_ppgtt_allocate_page_tables(struct i915_hw_ppgtt *ppgtt,
-					   const int max_pdp)
-{
-	struct page **pt_pages[GEN8_LEGACY_PDPES];
-	int i, ret;
-
-	for (i = 0; i < max_pdp; i++) {
-		pt_pages[i] = __gen8_alloc_page_tables();
-		if (IS_ERR(pt_pages[i])) {
-			ret = PTR_ERR(pt_pages[i]);
-			goto unwind_out;
-		}
-	}
-
-	/* NB: Avoid touching gen8_pt_pages until last to keep the allocation,
-	 * "atomic" - for cleanup purposes.
-	 */
-	for (i = 0; i < max_pdp; i++)
-		ppgtt->gen8_pt_pages[i] = pt_pages[i];
-
-	return 0;
-
-unwind_out:
-	while (i--) {
-		gen8_free_page_tables(pt_pages[i]);
-		kfree(pt_pages[i]);
-	}
-
-	return ret;
-}
-
 static int gen8_ppgtt_allocate_dma(struct i915_hw_ppgtt *ppgtt)
 {
 	int i;
@@ -470,17 +425,60 @@ static int gen8_ppgtt_allocate_dma(struct i915_hw_ppgtt *ppgtt)
 	return 0;
 }
 
+static int gen8_ppgtt_allocate_page_tables(struct i915_hw_ppgtt *ppgtt)
+{
+	int i, j;
+
+	for (i = 0; i < ppgtt->num_pd_pages; i++) {
+		for (j = 0; j < GEN8_PDES_PER_PAGE; j++) {
+			struct i915_page_table_entry *pt = &ppgtt->pdp.page_directory[i].page_tables[j];
+
+			pt->page = alloc_page(GFP_KERNEL | __GFP_ZERO);
+			if (!pt->page)
+				goto unwind_out;
+		}
+	}
+
+	return 0;
+
+unwind_out:
+	while (i--)
+		gen8_free_page_tables(&ppgtt->pdp.page_directory[i]);
+
+	return -ENOMEM;
+}
+
 static int gen8_ppgtt_allocate_page_directories(struct i915_hw_ppgtt *ppgtt,
 						const int max_pdp)
 {
-	ppgtt->pd_pages = alloc_pages(GFP_KERNEL, get_order(max_pdp << PAGE_SHIFT));
-	if (!ppgtt->pd_pages)
-		return -ENOMEM;
+	int i;
 
-	ppgtt->num_pd_pages = 1 << get_order(max_pdp << PAGE_SHIFT);
+	for (i = 0; i < max_pdp; i++) {
+		struct i915_page_table_entry *pt;
+
+		pt = kcalloc(GEN8_PDES_PER_PAGE, sizeof(*pt), GFP_KERNEL);
+		if (!pt)
+			goto unwind_out;
+
+		ppgtt->pdp.page_directory[i].page = alloc_page(GFP_KERNEL);
+		if (!ppgtt->pdp.page_directory[i].page)
+			goto unwind_out;
+
+		ppgtt->pdp.page_directory[i].page_tables = pt;
+	}
+
+	ppgtt->num_pd_pages = max_pdp;
 	BUG_ON(ppgtt->num_pd_pages > GEN8_LEGACY_PDPES);
 
 	return 0;
+
+unwind_out:
+	while (i--) {
+		kfree(ppgtt->pdp.page_directory[i].page_tables);
+		__free_page(ppgtt->pdp.page_directory[i].page);
+	}
+
+	return -ENOMEM;
 }
 
 static int gen8_ppgtt_alloc(struct i915_hw_ppgtt *ppgtt,
@@ -492,18 +490,19 @@ static int gen8_ppgtt_alloc(struct i915_hw_ppgtt *ppgtt,
 	if (ret)
 		return ret;
 
-	ret = gen8_ppgtt_allocate_page_tables(ppgtt, max_pdp);
-	if (ret) {
-		__free_pages(ppgtt->pd_pages, get_order(max_pdp << PAGE_SHIFT));
-		return ret;
-	}
+	ret = gen8_ppgtt_allocate_page_tables(ppgtt);
+	if (ret)
+		goto err_out;
 
 	ppgtt->num_pd_entries = max_pdp * GEN8_PDES_PER_PAGE;
 
 	ret = gen8_ppgtt_allocate_dma(ppgtt);
-	if (ret)
-		gen8_ppgtt_free(ppgtt);
+	if (!ret)
+		return ret;
 
+	/* TODO: Check this for all cases */
+err_out:
+	gen8_ppgtt_free(ppgtt);
 	return ret;
 }
 
@@ -514,7 +513,7 @@ static int gen8_ppgtt_setup_page_directories(struct i915_hw_ppgtt *ppgtt,
 	int ret;
 
 	pd_addr = pci_map_page(ppgtt->base.dev->pdev,
-			       &ppgtt->pd_pages[pd], 0,
+			       ppgtt->pdp.page_directory[pd].page, 0,
 			       PAGE_SIZE, PCI_DMA_BIDIRECTIONAL);
 
 	ret = pci_dma_mapping_error(ppgtt->base.dev->pdev, pd_addr);
@@ -534,7 +533,7 @@ static int gen8_ppgtt_setup_page_tables(struct i915_hw_ppgtt *ppgtt,
 	struct page *p;
 	int ret;
 
-	p = ppgtt->gen8_pt_pages[pd][pt];
+	p = ppgtt->pdp.page_directory[pd].page_tables[pt].page;
 	pt_addr = pci_map_page(ppgtt->base.dev->pdev,
 			       p, 0, PAGE_SIZE, PCI_DMA_BIDIRECTIONAL);
 	ret = pci_dma_mapping_error(ppgtt->base.dev->pdev, pt_addr);
@@ -595,7 +594,7 @@ static int gen8_ppgtt_init(struct i915_hw_ppgtt *ppgtt, uint64_t size)
 	 */
 	for (i = 0; i < max_pdp; i++) {
 		gen8_ppgtt_pde_t *pd_vaddr;
-		pd_vaddr = kmap_atomic(&ppgtt->pd_pages[i]);
+		pd_vaddr = kmap_atomic(ppgtt->pdp.page_directory[i].page);
 		for (j = 0; j < GEN8_PDES_PER_PAGE; j++) {
 			dma_addr_t addr = ppgtt->gen8_pt_dma_addr[i][j];
 			pd_vaddr[j] = gen8_pde_encode(ppgtt->base.dev, addr,
@@ -658,7 +657,7 @@ static void gen6_dump_ppgtt(struct i915_hw_ppgtt *ppgtt, struct seq_file *m)
 				   expected);
 		seq_printf(m, "\tPDE: %x\n", pd_entry);
 
-		pt_vaddr = kmap_atomic(ppgtt->pt_pages[pde]);
+		pt_vaddr = kmap_atomic(ppgtt->pd.page_tables[pde].page);
 		for (pte = 0; pte < I915_PPGTT_PT_ENTRIES; pte+=4) {
 			unsigned long va =
 				(pde * PAGE_SIZE * I915_PPGTT_PT_ENTRIES) +
@@ -904,7 +903,7 @@ static void gen6_ppgtt_clear_range(struct i915_address_space *vm,
 		if (last_pte > I915_PPGTT_PT_ENTRIES)
 			last_pte = I915_PPGTT_PT_ENTRIES;
 
-		pt_vaddr = kmap_atomic(ppgtt->pt_pages[act_pt]);
+		pt_vaddr = kmap_atomic(ppgtt->pd.page_tables[act_pt].page);
 
 		for (i = first_pte; i < last_pte; i++)
 			pt_vaddr[i] = scratch_pte;
@@ -934,7 +933,7 @@ static void gen6_ppgtt_insert_entries(struct i915_address_space *vm,
 	pt_vaddr = NULL;
 	for_each_sg_page(pages->sgl, &sg_iter, pages->nents, 0) {
 		if (pt_vaddr == NULL)
-			pt_vaddr = kmap_atomic(ppgtt->pt_pages[act_pt]);
+			pt_vaddr = kmap_atomic(ppgtt->pd.page_tables[act_pt].page);
 
 		pt_vaddr[act_pte] =
 			vm->pte_encode(sg_page_iter_dma_address(&sg_iter),
@@ -969,8 +968,8 @@ static void gen6_ppgtt_free(struct i915_hw_ppgtt *ppgtt)
 
 	kfree(ppgtt->pt_dma_addr);
 	for (i = 0; i < ppgtt->num_pd_entries; i++)
-		__free_page(ppgtt->pt_pages[i]);
-	kfree(ppgtt->pt_pages);
+		__free_page(ppgtt->pd.page_tables[i].page);
+	kfree(ppgtt->pd.page_tables);
 }
 
 static void gen6_ppgtt_cleanup(struct i915_address_space *vm)
@@ -1027,22 +1026,22 @@ alloc:
 
 static int gen6_ppgtt_allocate_page_tables(struct i915_hw_ppgtt *ppgtt)
 {
+	struct i915_page_table_entry *pt;
 	int i;
 
-	ppgtt->pt_pages = kcalloc(ppgtt->num_pd_entries, sizeof(struct page *),
-				  GFP_KERNEL);
-
-	if (!ppgtt->pt_pages)
+	pt = kcalloc(ppgtt->num_pd_entries, sizeof(*pt), GFP_KERNEL);
+	if (!pt)
 		return -ENOMEM;
 
 	for (i = 0; i < ppgtt->num_pd_entries; i++) {
-		ppgtt->pt_pages[i] = alloc_page(GFP_KERNEL);
-		if (!ppgtt->pt_pages[i]) {
+		pt[i].page = alloc_page(GFP_KERNEL);
+		if (!pt->page) {
 			gen6_ppgtt_free(ppgtt);
 			return -ENOMEM;
 		}
 	}
 
+	ppgtt->pd.page_tables = pt;
 	return 0;
 }
 
@@ -1077,9 +1076,11 @@ static int gen6_ppgtt_setup_page_tables(struct i915_hw_ppgtt *ppgtt)
 	int i;
 
 	for (i = 0; i < ppgtt->num_pd_entries; i++) {
+		struct page *page;
 		dma_addr_t pt_addr;
 
-		pt_addr = pci_map_page(dev->pdev, ppgtt->pt_pages[i], 0, 4096,
+		page = ppgtt->pd.page_tables[i].page;
+		pt_addr = pci_map_page(dev->pdev, page, 0, 4096,
 				       PCI_DMA_BIDIRECTIONAL);
 
 		if (pci_dma_mapping_error(dev->pdev, pt_addr)) {
@@ -1123,7 +1124,7 @@ static int gen6_ppgtt_init(struct i915_hw_ppgtt *ppgtt)
 	ppgtt->base.insert_entries = gen6_ppgtt_insert_entries;
 	ppgtt->base.cleanup = gen6_ppgtt_cleanup;
 	ppgtt->base.start = 0;
-	ppgtt->base.total =  ppgtt->num_pd_entries * I915_PPGTT_PT_ENTRIES * PAGE_SIZE;
+	ppgtt->base.total = ppgtt->num_pd_entries * I915_PPGTT_PT_ENTRIES * PAGE_SIZE;
 	ppgtt->debug_dump = gen6_dump_ppgtt;
 
 	ppgtt->pd_offset =
