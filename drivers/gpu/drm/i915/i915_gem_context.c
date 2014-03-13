@@ -651,8 +651,20 @@ static inline bool should_skip_switch(struct intel_engine_cs *ring,
 				      struct intel_context *from,
 				      struct intel_context *to)
 {
-	if (from == to && !to->remap_slice)
-		return true;
+	struct drm_i915_private *dev_priv = ring->dev->dev_private;
+
+	if (to->remap_slice)
+		return false;
+
+	if (to->ppgtt) {
+		if (from == to && !test_bit(ring->id,
+				&to->ppgtt->pd_dirty_rings))
+			return true;
+	} else if (dev_priv->mm.aliasing_ppgtt) {
+		if (from == to && !test_bit(ring->id,
+				&dev_priv->mm.aliasing_ppgtt->pd_dirty_rings))
+			return true;
+	}
 
 	return false;
 }
@@ -669,9 +681,8 @@ needs_pd_load_pre(struct intel_engine_cs *ring, struct intel_context *to)
 static bool
 needs_pd_load_post(struct intel_engine_cs *ring, struct intel_context *to)
 {
-	return (!to->legacy_hw_ctx.initialized ||
-			i915_gem_context_is_default(to)) &&
-			to->ppgtt && IS_GEN8(ring->dev);
+	return IS_GEN8(ring->dev) &&
+			(to->ppgtt || &to->ppgtt->pd_dirty_rings);
 }
 
 static int do_switch(struct intel_engine_cs *ring,
@@ -714,6 +725,12 @@ static int do_switch(struct intel_engine_cs *ring,
 		ret = to->ppgtt->switch_mm(to->ppgtt, ring, false);
 		if (ret)
 			goto unpin_out;
+
+		/* Doing a PD load always reloads the page dirs */
+		if (to->ppgtt)
+			clear_bit(ring->id, &to->ppgtt->pd_dirty_rings);
+		else
+			clear_bit(ring->id, &dev_priv->mm.aliasing_ppgtt->pd_dirty_rings);
 	}
 
 	if (ring != &dev_priv->ring[RCS]) {
@@ -748,6 +765,8 @@ static int do_switch(struct intel_engine_cs *ring,
 	 */
 	if (!to->legacy_hw_ctx.initialized || i915_gem_context_is_default(to))
 		hw_flags |= MI_RESTORE_INHIBIT;
+	else if (to->ppgtt && test_and_clear_bit(ring->id, &to->ppgtt->pd_dirty_rings))
+		hw_flags |= MI_FORCE_RESTORE;
 
 	ret = mi_set_context(ring, to, hw_flags);
 	if (ret)
