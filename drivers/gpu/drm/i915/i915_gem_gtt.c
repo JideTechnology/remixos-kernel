@@ -545,19 +545,6 @@ static void gen8_free_page_tables(struct i915_page_directory_entry *pd, struct d
 	}
 }
 
-static void gen8_ppgtt_free(struct i915_hw_ppgtt *ppgtt)
-{
-	int i;
-
-	for (i = 0; i < ppgtt->num_pd_pages; i++) {
-		if (WARN_ON(!ppgtt->pdp.page_directory[i]))
-			continue;
-
-		gen8_free_page_tables(ppgtt->pdp.page_directory[i], ppgtt->base.dev);
-		unmap_and_free_pd(ppgtt->pdp.page_directory[i]);
-	}
-}
-
 static void gen8_ppgtt_unmap_pages(struct i915_hw_ppgtt *ppgtt)
 {
 	struct pci_dev *hwdev = ppgtt->base.dev->pdev;
@@ -587,6 +574,19 @@ static void gen8_ppgtt_unmap_pages(struct i915_hw_ppgtt *ppgtt)
 				pci_unmap_page(hwdev, addr, PAGE_SIZE,
 					       PCI_DMA_BIDIRECTIONAL);
 		}
+	}
+}
+
+static void gen8_ppgtt_free(struct i915_hw_ppgtt *ppgtt)
+{
+	int i;
+
+	for (i = 0; i < ppgtt->num_pd_pages; i++) {
+		if (WARN_ON(!ppgtt->pdp.page_directory[i]))
+			continue;
+
+		gen8_free_page_tables(ppgtt->pdp.page_directory[i], ppgtt->base.dev);
+		unmap_and_free_pd(ppgtt->pdp.page_directory[i]);
 	}
 }
 
