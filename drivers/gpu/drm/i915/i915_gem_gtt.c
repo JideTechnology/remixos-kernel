@@ -599,22 +599,27 @@ static void gen8_ppgtt_cleanup(struct i915_address_space *vm)
 	gen8_ppgtt_free(ppgtt);
 }
 
-static int gen8_ppgtt_allocate_page_tables(struct i915_hw_ppgtt *ppgtt)
+static int gen8_ppgtt_alloc_pagetabs(struct i915_page_directory_entry *pd,
+				     uint64_t start,
+				     uint64_t length,
+				     struct drm_device *dev)
 {
-	int i, ret;
+	struct i915_page_table_entry *unused;
+	uint64_t temp;
+	uint32_t pde;
 
-	for (i = 0; i < ppgtt->num_pd_pages; i++) {
-		ret = alloc_pt_range(ppgtt->pdp.page_directory[i],
-				     0, GEN8_PDES_PER_PAGE, ppgtt->base.dev);
-		if (ret)
+	gen8_for_each_pde(unused, pd, start, length, temp, pde) {
+		BUG_ON(unused);
+		pd->page_tables[pde] = alloc_pt_single(dev);
+		if (IS_ERR(pd->page_tables[pde]))
 			goto unwind_out;
 	}
 
 	return 0;
 
 unwind_out:
-	while (i--)
-		gen8_free_page_tables(ppgtt->pdp.page_directory[i], ppgtt->base.dev);
+	while (pde--)
+		unmap_and_free_pt(pd->page_tables[pde], dev);
 
 	return -ENOMEM;
 }
@@ -657,20 +662,28 @@ unwind_out:
 }
 
 static int gen8_ppgtt_alloc(struct i915_hw_ppgtt *ppgtt,
-			    const int max_pdp)
+			    uint64_t start,
+			    uint64_t length)
 {
+	struct i915_page_directory_entry *pd;
+	uint64_t temp;
+	uint32_t pdpe;
 	int ret;
 
-	ret = gen8_ppgtt_alloc_page_directories(&ppgtt->pdp, ppgtt->base.start,
-					ppgtt->base.total);
+	ret = gen8_ppgtt_alloc_page_directories(&ppgtt->pdp, start, length);
 	if (ret)
 		return ret;
 
-	ret = gen8_ppgtt_allocate_page_tables(ppgtt);
-	if (ret)
-		goto err_out;
+	gen8_for_each_pdpe(pd, &ppgtt->pdp, start, length, temp, pdpe) {
+		ret = gen8_ppgtt_alloc_pagetabs(pd, start, length,
+						ppgtt->base.dev);
+		if (ret)
+			goto err_out;
 
-	ppgtt->num_pd_entries = max_pdp * GEN8_PDES_PER_PAGE;
+		ppgtt->num_pd_entries += GEN8_PDES_PER_PAGE;
+	}
+
+	BUG_ON(pdpe > ppgtt->num_pd_pages);
 
 	return 0;
 
@@ -741,10 +754,9 @@ static int gen8_ppgtt_init(struct i915_hw_ppgtt *ppgtt, uint64_t size)
 
 	ppgtt->base.start = 0;
 	ppgtt->base.total = size;
-	BUG_ON(ppgtt->base.total == 0);
 
 	/* 1. Do all our allocations for page directories and page tables. */
-	ret = gen8_ppgtt_alloc(ppgtt, max_pdp);
+	ret = gen8_ppgtt_alloc(ppgtt, ppgtt->base.start, ppgtt->base.total);
 	if (ret)
 		return ret;
 
