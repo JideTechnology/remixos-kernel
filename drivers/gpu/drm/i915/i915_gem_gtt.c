@@ -619,25 +619,39 @@ unwind_out:
 	return -ENOMEM;
 }
 
-static int gen8_ppgtt_allocate_page_directories(struct i915_hw_ppgtt *ppgtt,
-						const int max_pdp)
+static int gen8_ppgtt_alloc_page_directories(struct i915_page_directory_pointer_entry *pdp,
+				     uint64_t start,
+				     uint64_t length)
 {
-	int i;
+	struct i915_hw_ppgtt *ppgtt =
+		container_of(pdp, struct i915_hw_ppgtt, pdp);
+	struct i915_page_directory_entry *unused;
+	uint64_t temp;
+	uint32_t pdpe;
 
-	for (i = 0; i < max_pdp; i++) {
-		ppgtt->pdp.page_directory[i] = alloc_pd_single();
-		if (IS_ERR(ppgtt->pdp.page_directory[i]))
+	/* FIXME: PPGTT container_of won't work for 64b */
+	BUG_ON((start + length) > 0x800000000ULL);
+
+	gen8_for_each_pdpe(unused, pdp, start, length, temp, pdpe) {
+		BUG_ON(unused);
+		pdp->page_directory[pdpe] = alloc_pd_single();
+		if (IS_ERR(ppgtt->pdp.page_directory[pdpe]))
 			goto unwind_out;
+
+		ppgtt->num_pd_pages++;
 	}
 
-	ppgtt->num_pd_pages = max_pdp;
 	BUG_ON(ppgtt->num_pd_pages > GEN8_LEGACY_PDPES);
 
 	return 0;
 
 unwind_out:
-	while (i--)
-		unmap_and_free_pd(ppgtt->pdp.page_directory[i]);
+	while (pdpe--) {
+		unmap_and_free_pd(ppgtt->pdp.page_directory[pdpe]);
+		ppgtt->num_pd_pages--;
+	}
+
+	WARN_ON(ppgtt->num_pd_pages);
 
 	return -ENOMEM;
 }
@@ -647,7 +661,8 @@ static int gen8_ppgtt_alloc(struct i915_hw_ppgtt *ppgtt,
 {
 	int ret;
 
-	ret = gen8_ppgtt_allocate_page_directories(ppgtt, max_pdp);
+	ret = gen8_ppgtt_alloc_page_directories(&ppgtt->pdp, ppgtt->base.start,
+					ppgtt->base.total);
 	if (ret)
 		return ret;
 
@@ -724,6 +739,10 @@ static int gen8_ppgtt_init(struct i915_hw_ppgtt *ppgtt, uint64_t size)
 	if (size % (1<<30))
 		DRM_INFO("Pages will be wasted unless GTT size (%llu) is divisible by 1GB\n", size);
 
+	ppgtt->base.start = 0;
+	ppgtt->base.total = size;
+	BUG_ON(ppgtt->base.total == 0);
+
 	/* 1. Do all our allocations for page directories and page tables. */
 	ret = gen8_ppgtt_alloc(ppgtt, max_pdp);
 	if (ret)
@@ -771,8 +790,6 @@ static int gen8_ppgtt_init(struct i915_hw_ppgtt *ppgtt, uint64_t size)
 	ppgtt->base.clear_range = gen8_ppgtt_clear_range;
 	ppgtt->base.insert_entries = gen8_ppgtt_insert_entries;
 	ppgtt->base.cleanup = gen8_ppgtt_cleanup;
-	ppgtt->base.start = 0;
-	ppgtt->base.total = ppgtt->num_pd_entries * GEN8_PTES_PER_PAGE * PAGE_SIZE;
 
 	ppgtt->base.clear_range(&ppgtt->base, 0, ppgtt->base.total, true);
 
