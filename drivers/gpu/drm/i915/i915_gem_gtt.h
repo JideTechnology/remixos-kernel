@@ -277,8 +277,6 @@ struct i915_hw_ppgtt {
 	struct kref ref;
 	struct drm_mm_node node;
 	unsigned long pd_dirty_rings;
-	unsigned num_pd_entries;
-	unsigned num_pd_pages; /* gen8+ */
 	union {
 		struct i915_page_directory_pointer_entry pdp;
 		struct i915_page_directory_entry pd;
@@ -318,6 +316,11 @@ struct i915_hw_ppgtt {
 	     temp = ALIGN(start+1, 1 << GEN6_PDE_SHIFT) - start, \
 	     temp = min_t(unsigned, temp, length), \
 	     start += temp, length -= temp)
+
+#define gen6_for_all_pdes(pt, ppgtt, iter)  \
+	for (iter = 0, pt = ppgtt->pd.page_tables[iter];			\
+	     iter < gen6_pde_index(ppgtt->base.total);			\
+	     pt =  ppgtt->pd.page_tables[++iter])
 
 static inline uint32_t i915_pte_index(uint64_t address, uint32_t pde_shift)
 {
