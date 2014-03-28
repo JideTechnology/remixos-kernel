@@ -371,8 +371,9 @@ static struct i915_page_directory_entry *alloc_pd_single(void)
 }
 
 /* Broadwell Page Directory Pointer Descriptors */
-static int gen8_write_pdp(struct intel_engine_cs *ring, unsigned entry,
-			   uint64_t val, bool synchronous)
+static int gen8_write_pdp(struct intel_engine_cs *ring,
+			  unsigned entry, dma_addr_t addr,
+			  bool synchronous)
 {
 	struct drm_i915_private *dev_priv = ring->dev->dev_private;
 	int ret;
@@ -380,8 +381,8 @@ static int gen8_write_pdp(struct intel_engine_cs *ring, unsigned entry,
 	BUG_ON(entry >= 4);
 
 	if (synchronous) {
-		I915_WRITE(GEN8_RING_PDP_UDW(ring, entry), val >> 32);
-		I915_WRITE(GEN8_RING_PDP_LDW(ring, entry), (u32)val);
+		I915_WRITE(GEN8_RING_PDP_UDW(ring, entry), upper_32_bits(addr));
+		I915_WRITE(GEN8_RING_PDP_LDW(ring, entry), lower_32_bits(addr));
 		return 0;
 	}
 
@@ -391,10 +392,10 @@ static int gen8_write_pdp(struct intel_engine_cs *ring, unsigned entry,
 
 	intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
 	intel_ring_emit(ring, GEN8_RING_PDP_UDW(ring, entry));
-	intel_ring_emit(ring, (u32)(val >> 32));
+	intel_ring_emit(ring, upper_32_bits(addr));
 	intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
 	intel_ring_emit(ring, GEN8_RING_PDP_LDW(ring, entry));
-	intel_ring_emit(ring, (u32)(val));
+	intel_ring_emit(ring, lower_32_bits(addr));
 	intel_ring_advance(ring);
 
 	return 0;
@@ -406,12 +407,12 @@ static int gen8_mm_switch(struct i915_hw_ppgtt *ppgtt,
 {
 	int i, ret;
 
-	/* bit of a hack to find the actual last used pd */
-	int used_pd = ppgtt->num_pd_entries / GEN8_PDES_PER_PAGE;
-
-	for (i = used_pd - 1; i >= 0; i--) {
-		dma_addr_t addr = ppgtt->pdp.page_directory[i]->daddr;
-		ret = gen8_write_pdp(ring, i, addr, synchronous);
+	for (i = GEN8_LEGACY_PDPES - 1; i >= 0; i--) {
+		struct i915_page_directory_entry *pd = ppgtt->pdp.page_directory[i];
+		dma_addr_t pd_daddr = pd ? pd->daddr : ppgtt->scratch_pd->daddr;
+		/* The page directory might be NULL, but we need to clear out
+		 * whatever the previous context might have used. */
+		ret = gen8_write_pdp(ring, i, pd_daddr, synchronous);
 		if (ret)
 			return ret;
 	}
@@ -588,6 +589,8 @@ static void gen8_ppgtt_free(struct i915_hw_ppgtt *ppgtt)
 		gen8_free_page_tables(ppgtt->pdp.page_directory[i], ppgtt->base.dev);
 		unmap_and_free_pd(ppgtt->pdp.page_directory[i]);
 	}
+
+	unmap_and_free_pt(ppgtt->scratch_pd, ppgtt->base.dev);
 }
 
 static void gen8_ppgtt_cleanup(struct i915_address_space *vm)
@@ -755,10 +758,16 @@ static int gen8_ppgtt_init(struct i915_hw_ppgtt *ppgtt, uint64_t size)
 	ppgtt->base.start = 0;
 	ppgtt->base.total = size;
 
+	ppgtt->scratch_pd = alloc_pt_scratch(ppgtt->base.dev);
+	if (IS_ERR(ppgtt->scratch_pd))
+		return PTR_ERR(ppgtt->scratch_pd);
+
 	/* 1. Do all our allocations for page directories and page tables. */
 	ret = gen8_ppgtt_alloc(ppgtt, ppgtt->base.start, ppgtt->base.total);
-	if (ret)
+	if (ret) {
+		unmap_and_free_pt(ppgtt->scratch_pd, ppgtt->base.dev);
 		return ret;
+	}
 
 	/*
 	 * 2. Create DMA mappings for the page directories and page tables.
