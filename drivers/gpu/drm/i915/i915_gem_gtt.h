@@ -286,7 +286,10 @@ struct i915_hw_ppgtt {
 
 	struct list_head vma_list;
 
-	struct i915_page_table_entry *scratch_pt;
+	union {
+		struct i915_page_table_entry *scratch_pt;
+		struct i915_page_table_entry *scratch_pd; /* Just need the daddr */
+	};
 
 	struct drm_i915_file_private *file_priv;
 
