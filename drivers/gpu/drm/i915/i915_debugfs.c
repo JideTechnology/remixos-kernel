@@ -2433,8 +2433,6 @@ static void gen8_ppgtt_info(struct seq_file *m, struct drm_device *dev)
 
 
 	if (ppgtt) {
-		seq_printf(m, "Page directories: %d\n", ppgtt->num_pd_pages);
-		seq_printf(m, "Page tables: %d\n", ppgtt->num_pd_entries);
 		for_each_ring(ring, dev_priv, unused) {
 			seq_printf(m, "%s\n", ring->name);
 			for (i = 0; i < 4; i++) {
@@ -2453,10 +2451,6 @@ static void gen8_ppgtt_info(struct seq_file *m, struct drm_device *dev)
 			i++;
 			ppgtt = i915_vm_to_ppgtt(vm);
 			seq_printf(m, "PPGTT %p - references\n", ppgtt);
-			seq_printf(m, "Page directories: %d\n",
-							ppgtt->num_pd_pages);
-			seq_printf(m, "Page tables: %d\n",
-							ppgtt->num_pd_entries);
 		}
 		seq_printf(m, "Number of PPGTTs active: %d\n", i);
 	}
