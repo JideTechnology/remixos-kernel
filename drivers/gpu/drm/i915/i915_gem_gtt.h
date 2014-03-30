@@ -183,11 +183,13 @@ struct i915_page_directory_entry {
 		dma_addr_t daddr;
 	};
 
+	unsigned long *used_pdes;
 	struct i915_page_table_entry *page_tables[GEN6_PPGTT_PD_ENTRIES]; /* PDEs */
 };
 
 struct i915_page_directory_pointer_entry {
 	/* struct page *page; */
+	DECLARE_BITMAP(used_pdpes, GEN8_LEGACY_PDPES);
 	struct i915_page_directory_entry *page_directory[GEN8_LEGACY_PDPES];
 };
 
@@ -415,6 +417,28 @@ static inline uint32_t gen8_pdpe_index(uint64_t address)
 static inline uint32_t gen8_pml4e_index(uint64_t address)
 {
 	BUG(); /* For 64B */
+}
+
+static inline size_t gen8_pte_count(uint64_t addr, uint64_t length)
+{
+	return i915_pte_count(addr, length, GEN8_PDE_SHIFT);
+}
+
+static inline size_t gen8_pde_count(uint64_t addr, uint64_t length)
+{
+	const uint32_t pdp_shift = GEN8_PDE_SHIFT + 9;
+	const uint64_t mask = ~((1 << pdp_shift) - 1);
+	uint64_t end;
+
+	BUG_ON(length == 0);
+	BUG_ON(offset_in_page(addr|length));
+
+	end = addr + length;
+
+	if ((addr & mask) != (end & mask))
+		return GEN8_PDES_PER_PAGE - i915_pde_index(addr, GEN8_PDE_SHIFT);
+
+	return i915_pde_index(end, GEN8_PDE_SHIFT) - i915_pde_index(addr, GEN8_PDE_SHIFT);
 }
 
 int i915_gem_gtt_init(struct drm_device *dev);

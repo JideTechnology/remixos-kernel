@@ -351,6 +351,7 @@ static void unmap_and_free_pd(struct i915_page_directory_entry *pd,
 	if (pd->page) {
 		i915_dma_unmap_single(pd, dev);
 		__free_page(pd->page);
+		kfree(pd->used_pdes);
 		kfree(pd);
 	}
 }
@@ -358,26 +359,35 @@ static void unmap_and_free_pd(struct i915_page_directory_entry *pd,
 static struct i915_page_directory_entry *alloc_pd_single(struct drm_device *dev)
 {
 	struct i915_page_directory_entry *pd;
-	int ret;
+	int ret = -ENOMEM;
 
 	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
 	if (!pd)
 		return ERR_PTR(-ENOMEM);
 
+	pd->used_pdes = kcalloc(BITS_TO_LONGS(GEN8_PDES_PER_PAGE),
+				sizeof(*pd->used_pdes), GFP_KERNEL);
+	if (!pd->used_pdes)
+		goto free_pd;
+
 	pd->page = alloc_page(GFP_KERNEL | __GFP_ZERO);
-	if (!pd->page) {
-		kfree(pd);
-		return ERR_PTR(-ENOMEM);
-	}
+	if (!pd->page)
+		goto free_bitmap;
 
 	ret = i915_dma_map_px_single(pd, dev);
-	if (ret) {
-		__free_page(pd->page);
-		kfree(pd);
-		return ERR_PTR(ret);
-	}
+	if (ret)
+		goto free_page;
 
 	return pd;
+
+free_page:
+	__free_page(pd->page);
+free_bitmap:
+	kfree(pd->used_pdes);
+free_pd:
+	kfree(pd);
+
+	return ERR_PTR(ret);
 }
 
 /* Broadwell Page Directory Pointer Descriptors */
@@ -577,7 +587,7 @@ static void gen8_free_page_tables(struct i915_page_directory_entry *pd, struct d
 	if (!pd->page)
 		return;
 
-	for (i = 0; i < GEN8_PDES_PER_PAGE; i++) {
+	for_each_set_bit(i, pd->used_pdes, GEN8_PDES_PER_PAGE) {
 		if (WARN_ON(!pd->page_tables[i]))
 			continue;
 
@@ -591,15 +601,18 @@ static void gen8_ppgtt_unmap_pages(struct i915_hw_ppgtt *ppgtt)
 	struct pci_dev *hwdev = ppgtt->base.dev->pdev;
 	int i, j;
 
-	for (i = 0; i < GEN8_LEGACY_PDPES; i++) {
-		if (!ppgtt->pdp.page_directory[i]->daddr)
+	for_each_set_bit(i, ppgtt->pdp.used_pdpes, GEN8_LEGACY_PDPES) {
+		struct i915_page_directory_entry *pd;
+
+		if (WARN_ON(!ppgtt->pdp.page_directory[i]))
 			continue;
 
-		pci_unmap_page(hwdev, ppgtt->pdp.page_directory[i]->daddr, PAGE_SIZE,
-			       PCI_DMA_BIDIRECTIONAL);
+		pd = ppgtt->pdp.page_directory[i];
+		if (!pd->daddr)
+			pci_unmap_page(hwdev, pd->daddr, PAGE_SIZE,
+					PCI_DMA_BIDIRECTIONAL);
 
-		for (j = 0; j < GEN8_PDES_PER_PAGE; j++) {
-			struct i915_page_directory_entry *pd = ppgtt->pdp.page_directory[i];
+		for_each_set_bit(j, pd->used_pdes, GEN8_PDES_PER_PAGE) {
 			struct i915_page_table_entry *pt;
 			dma_addr_t addr;
 
@@ -620,7 +633,7 @@ static void gen8_ppgtt_free(struct i915_hw_ppgtt *ppgtt)
 {
 	int i;
 
-	for (i = 0; i < GEN8_LEGACY_PDPES; i++) {
+	for_each_set_bit(i, ppgtt->pdp.used_pdpes, GEN8_LEGACY_PDPES) {
 		if (WARN_ON(!ppgtt->pdp.page_directory[i]))
 			continue;
 
@@ -665,6 +678,7 @@ unwind_out:
 	return -ENOMEM;
 }
 
+/* bitmap of new page_directories */
 static int gen8_ppgtt_alloc_page_directories(struct i915_page_directory_pointer_entry *pdp,
 				     uint64_t start,
 				     uint64_t length,
@@ -680,6 +694,7 @@ static int gen8_ppgtt_alloc_page_directories(struct i915_page_directory_pointer_
 	gen8_for_each_pdpe(unused, pdp, start, length, temp, pdpe) {
 		BUG_ON(unused);
 		pdp->page_directory[pdpe] = alloc_pd_single(dev);
+
 		if (IS_ERR(pdp->page_directory[pdpe]))
 			goto unwind_out;
 	}
@@ -700,10 +715,13 @@ static int gen8_alloc_va_range(struct i915_address_space *vm,
 	struct i915_hw_ppgtt *ppgtt =
 		container_of(vm, struct i915_hw_ppgtt, base);
 	struct i915_page_directory_entry *pd;
+	const uint64_t orig_start = start;
+	const uint64_t orig_length = length;
 	uint64_t temp;
 	uint32_t pdpe;
 	int ret;
 
+	/* Do the allocations first so we can easily bail out */
 	ret = gen8_ppgtt_alloc_page_directories(&ppgtt->pdp, start, length,
 					ppgtt->base.dev);
 	if (ret)
@@ -714,6 +732,27 @@ static int gen8_alloc_va_range(struct i915_address_space *vm,
 						ppgtt->base.dev);
 		if (ret)
 			goto err_out;
+	}
+
+	/* Now mark everything we've touched as used. This doesn't allow for
+	 * robust error checking, but it makes the code a hell of a lot simpler.
+	 */
+	start = orig_start;
+	length = orig_length;
+
+	gen8_for_each_pdpe(pd, &ppgtt->pdp, start, length, temp, pdpe) {
+		struct i915_page_table_entry *pt;
+		uint64_t pd_len = gen8_clamp_pd(start, length);
+		uint64_t pd_start = start;
+		uint32_t pde;
+
+		gen8_for_each_pde(pt, &ppgtt->pd, pd_start, pd_len, temp, pde) {
+			bitmap_set(pd->page_tables[pde]->used_ptes,
+				   gen8_pte_index(start),
+				   gen8_pte_count(start, length));
+			set_bit(pde, pd->used_pdes);
+		}
+		set_bit(pdpe, ppgtt->pdp.used_pdpes);
 	}
 
 	return 0;
