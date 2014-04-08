@@ -629,8 +629,6 @@ static int gen8_ppgtt_alloc_page_directories(struct i915_page_directory_pointer_
 				     uint64_t start,
 				     uint64_t length)
 {
-	struct i915_hw_ppgtt *ppgtt =
-		container_of(pdp, struct i915_hw_ppgtt, pdp);
 	struct i915_page_directory_entry *unused;
 	uint64_t temp;
 	uint32_t pdpe;
@@ -641,7 +639,7 @@ static int gen8_ppgtt_alloc_page_directories(struct i915_page_directory_pointer_
 	gen8_for_each_pdpe(unused, pdp, start, length, temp, pdpe) {
 		BUG_ON(unused);
 		pdp->page_directory[pdpe] = alloc_pd_single();
-		if (IS_ERR(ppgtt->pdp.page_directory[pdpe]))
+		if (IS_ERR(pdp->page_directory[pdpe]))
 			goto unwind_out;
 	}
 
@@ -649,7 +647,7 @@ static int gen8_ppgtt_alloc_page_directories(struct i915_page_directory_pointer_
 
 unwind_out:
 	while (pdpe--)
-		unmap_and_free_pd(ppgtt->pdp.page_directory[pdpe]);
+		unmap_and_free_pd(pdp->page_directory[pdpe]);
 
 	return -ENOMEM;
 }
