@@ -782,6 +782,55 @@ void __meminit __free_pages_bootmem(struct page *page, unsigned int order)
 }
 
 #ifdef CONFIG_CMA
+void adjust_managed_cma_page_count(struct zone *zone, long count)
+{
+	unsigned long flags;
+	long total, cma, movable;
+
+	spin_lock_irqsave(&zone->lock, flags);
+	zone->managed_cma_pages += count;
+
+	total = zone->managed_pages;
+	cma = zone->managed_cma_pages;
+	movable = total - cma - high_wmark_pages(zone);
+
+	/* No cma pages, so do only movable allocation */
+	if (cma <= 0) {
+		zone->max_try_movable = pageblock_nr_pages;
+		zone->max_try_cma = 0;
+		goto out;
+	}
+
+	/*
+	 * We want to consume cma pages with well balanced ratio so that
+	 * we have consumed enough cma pages before the reclaim. For this
+	 * purpose, we can use the ratio, movable : cma. And we doesn't
+	 * want to switch too frequently, because it prevent allocated pages
+	 * from beging successive and it is bad for some sorts of devices.
+	 * I choose pageblock_nr_pages for the minimum amount of successive
+	 * allocation because it is the size of a huge page and fragmentation
+	 * avoidance is implemented based on this size.
+	 *
+	 * To meet above criteria, I derive following equation.
+	 *
+	 * if (movable > cma) then; movable : cma = X : pageblock_nr_pages
+	 * else (movable <= cma) then; movable : cma = pageblock_nr_pages : X
+	 */
+	if (movable > cma) {
+		zone->max_try_movable =			(movable * pageblock_nr_pages) / cma;
+		zone->max_try_cma = pageblock_nr_pages;
+	} else {
+		zone->max_try_movable = pageblock_nr_pages;
+		zone->max_try_cma = cma * pageblock_nr_pages / movable;
+	}
+
+out:
+	zone->nr_try_movable = zone->max_try_movable;
+	zone->nr_try_cma = zone->max_try_cma;
+
+	spin_unlock_irqrestore(&zone->lock, flags);
+}
+
 /* Free whole pageblock and set it's migration type to MIGRATE_CMA. */
 void __init init_cma_reserved_pageblock(struct page *page)
 {
@@ -1104,6 +1153,35 @@ __rmqueue_fallback(struct zone *zone, int order, int start_migratetype)
 
 	return NULL;
 }
+#ifdef CONFIG_CMA
+static struct page *__rmqueue_cma(struct zone *zone, unsigned int order)
+{
+	struct page *page;
+
+	if (zone->nr_try_movable > 0)
+		goto alloc_movable;
+
+	if (zone->nr_try_cma > 0) {
+		/* Okay. Now, we can try to allocate the page from cma region */
+		zone->nr_try_cma -= 1 << order;
+		page = __rmqueue_smallest(zone, order, MIGRATE_CMA);
+
+		/* CMA pages can vanish through CMA allocation */
+		if (unlikely(!page && order == 0))
+			zone->nr_try_cma = 0;
+
+		return page;
+	}
+
+	/* Reset counter */
+	zone->nr_try_movable = zone->max_try_movable;
+	zone->nr_try_cma = zone->max_try_cma;
+
+alloc_movable:
+	zone->nr_try_movable -= 1 << order;
+	return NULL;
+}
+#endif
 
 /*
  * Do the hard work of removing an element from the buddy allocator.
@@ -1112,10 +1190,15 @@ __rmqueue_fallback(struct zone *zone, int order, int start_migratetype)
 static struct page *__rmqueue(struct zone *zone, unsigned int order,
 						int migratetype)
 {
-	struct page *page;
+	struct page *page = NULL;
+
+	if (IS_ENABLED(CONFIG_CMA) &&
+		migratetype == MIGRATE_MOVABLE && zone->managed_cma_pages)
+		page = __rmqueue_cma(zone, order);
 
 retry_reserve:
-	page = __rmqueue_smallest(zone, order, migratetype);
+	if (!page)
+		page = __rmqueue_smallest(zone, order, migratetype);
 
 	if (unlikely(!page) && migratetype != MIGRATE_RESERVE) {
 		page = __rmqueue_fallback(zone, order, migratetype);
@@ -4690,6 +4773,8 @@ static void __paginginit free_area_init_core(struct pglist_data *pgdat,
 		zone->zone_pgdat = pgdat;
 
 		zone_pcp_init(zone);
+		if (IS_ENABLED(CONFIG_CMA))
+			zone->managed_cma_pages = 0;		
 		lruvec_init(&zone->lruvec);
 		if (!size)
 			continue;

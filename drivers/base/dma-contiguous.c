@@ -160,6 +160,7 @@ static int __init cma_activate_area(struct cma *cma)
 		}
 		init_cma_reserved_pageblock(pfn_to_page(base_pfn));
 	} while (--i);
+	adjust_managed_cma_page_count(zone, cma->count);
 
 	return 0;
 }
@@ -307,6 +308,7 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 		if (ret == 0) {
 			bitmap_set(cma->bitmap, pageno, count);
 			page = pfn_to_page(pfn);
+			adjust_managed_cma_page_count(page_zone(page), count);
 			break;
 		} else if (ret != -EBUSY) {
 			break;
@@ -353,6 +355,7 @@ bool dma_release_from_contiguous(struct device *dev, struct page *pages,
 	mutex_lock(&cma_mutex);
 	bitmap_clear(cma->bitmap, pfn - cma->base_pfn, count);
 	free_contig_range(pfn, count);
+	adjust_managed_cma_page_count(page_zone(pages), count);
 	mutex_unlock(&cma_mutex);
 
 	return true;
