@@ -196,7 +196,7 @@ ENTRY(tegra_flush_l1_cache)
 	isb
 	dsb
 	ldmfd	sp!, {r4-r5, r7, r9-r11, lr}
-	mov	pc, lr
+	ret	lr
 ENDPROC(tegra_flush_l1_cache)
 
 #ifdef CONFIG_PM_SLEEP
@@ -261,7 +261,7 @@ ENTRY(tegra_turn_off_mmu)
 	mov32	r3, tegra_shut_off_mmu
 	add	r3, r3, r0
 	mov	r0, r1
-	mov	pc, r3
+	ret	r3
 ENDPROC(tegra_turn_off_mmu)
 
 tegra_pgd_phys_address:
@@ -283,7 +283,7 @@ tegra_shut_off_mmu:
 	dsb
 	mcr	p15, 0, r3, c1, c0, 0
 	isb
-	mov	pc, r0
+	ret	r0
 
 /*
  * tegra_cpu_clk32k
@@ -298,7 +298,7 @@ ENTRY(tegra_cpu_pllp)
 	str	r0, [r5, #CLK_RESET_CCLK_BURST]
 	mov	r0, #0
 	str	r0, [r5, #CLK_RESET_CCLK_DIVIDER]
-	mov	pc, lr
+	ret	lr
 ENDPROC(tegra_cpu_pllp)
 #endif
 

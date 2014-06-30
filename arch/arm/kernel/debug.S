@@ -176,7 +176,7 @@ ENTRY(printascii)
 		ldrneb	r1, [r0], #1
 		teqne	r1, #0
 		bne	1b
-		mov	pc, lr
+		ret	lr
 ENDPROC(printascii)
 
 ENTRY(printch)
@@ -191,6 +191,15 @@ ENTRY(printch)
 		b	1b
 ENDPROC(printch)
 
+#ifdef CONFIG_MMU
+ENTRY(debug_ll_addr)
+		addruart r2, r3, ip
+		str	r2, [r0]
+		str	r3, [r1]
+		ret	lr
+ENDPROC(debug_ll_addr)
+#endif
+
 #else
 
 ENTRY(printascii)
@@ -198,7 +207,7 @@ ENTRY(printascii)
 		mov	r0, #0x04		@ SYS_WRITE0
 	ARM(	svc	#0x123456	)
 	THUMB(	svc	#0xab		)
-		mov	pc, lr
+		ret	lr
 ENDPROC(printascii)
 
 ENTRY(printch)
@@ -207,7 +216,14 @@ ENTRY(printch)
 		mov	r0, #0x03		@ SYS_WRITEC
 	ARM(	svc	#0x123456	)
 	THUMB(	svc	#0xab		)
-		mov	pc, lr
+		ret	lr
 ENDPROC(printch)
+
+ENTRY(debug_ll_addr)
+		mov	r2, #0
+		str	r2, [r0]
+		str	r2, [r1]
+		ret	lr
+ENDPROC(debug_ll_addr)
 
 #endif

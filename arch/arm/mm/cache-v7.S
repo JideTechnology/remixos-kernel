@@ -30,7 +30,7 @@ ENTRY(v7_flush_icache_all)
 	mov	r0, #0
 	ALT_SMP(mcr	p15, 0, r0, c7, c1, 0)		@ invalidate I-cache inner shareable
 	ALT_UP(mcr	p15, 0, r0, c7, c5, 0)		@ I+BTB cache invalidate
-	mov	pc, lr
+	ret	lr
 ENDPROC(v7_flush_icache_all)
 
 /*
@@ -95,7 +95,7 @@ ENDPROC(v7_flush_icache_all)
 	mcr	p15, 2, r10, c0, c0, 0		@ select current cache level in cssr
 	dsb
 	isb
-	mov	pc, lr
+	ret	lr
 .endm
 
 ENTRY(v7_flush_dcache_all)
@@ -145,7 +145,7 @@ ENTRY(v7_flush_kern_cache_all)
 	ALT_UP(mcr	p15, 0, r0, c7, c5, 0)	@ I+BTB cache invalidate
  ARM(	ldmfd	sp!, {r4-r5, r7, r9-r11, lr}	)
  THUMB(	ldmfd	sp!, {r4-r7, r9-r11, lr}	)
-	mov	pc, lr
+	ret	lr
 ENDPROC(v7_flush_kern_cache_all)
 
  /*
@@ -163,7 +163,7 @@ ENTRY(v7_flush_kern_cache_louis)
 	ALT_UP(mcr	p15, 0, r0, c7, c5, 0)	@ I+BTB cache invalidate
  ARM(	ldmfd	sp!, {r4-r5, r7, r9-r11, lr}	)
  THUMB(	ldmfd	sp!, {r4-r7, r9-r11, lr}	)
-	mov	pc, lr
+	ret	lr
 ENDPROC(v7_flush_kern_cache_louis)
 
 /*
@@ -207,7 +207,7 @@ ENTRY(v7_flush_user_cache_all)
  *	- we have a VIPT cache.
  */
 ENTRY(v7_flush_user_cache_range)
-	mov	pc, lr
+	ret	lr
 ENDPROC(v7_flush_user_cache_all)
 ENDPROC(v7_flush_user_cache_range)
 
@@ -269,7 +269,7 @@ ENTRY(v7_coherent_user_range)
 	ALT_UP(mcr	p15, 0, r0, c7, c5, 6)	@ invalidate BTB
 	dsb
 	isb
-	mov	pc, lr
+	ret	lr
 
 /*
  * Fault handling for the cache operation above. If the virtual address in r0
@@ -311,7 +311,7 @@ ENTRY(v7_flush_kern_dcache_area)
 	cmp	r0, r1
 	blo	1b
 	dsb
-	mov	pc, lr
+	ret	lr
 ENDPROC(v7_flush_kern_dcache_area)
 
 /*
@@ -344,7 +344,7 @@ v7_dma_inv_range:
 	cmp	r0, r1
 	blo	1b
 	dsb
-	mov	pc, lr
+	ret	lr
 ENDPROC(v7_dma_inv_range)
 
 /*
@@ -366,7 +366,7 @@ v7_dma_clean_range:
 	cmp	r0, r1
 	blo	1b
 	dsb
-	mov	pc, lr
+	ret	lr
 ENDPROC(v7_dma_clean_range)
 
 /*
@@ -388,7 +388,7 @@ ENTRY(v7_dma_flush_range)
 	cmp	r0, r1
 	blo	1b
 	dsb
-	mov	pc, lr
+	ret	lr
 ENDPROC(v7_dma_flush_range)
 
 /*
@@ -414,7 +414,7 @@ ENTRY(v7_dma_unmap_area)
 	add	r1, r1, r0
 	teq	r2, #DMA_TO_DEVICE
 	bne	v7_dma_inv_range
-	mov	pc, lr
+	ret	lr
 ENDPROC(v7_dma_unmap_area)
 
 	__INITDATA
