@@ -654,6 +654,9 @@ static int do_switch(struct intel_engine_cs *ring,
 	struct intel_context *from = ring->last_context;
 	u32 hw_flags = 0;
 	bool uninitialized = false;
+	bool needs_pd_load_pre = ((INTEL_INFO(ring->dev)->gen < 8) ||
+			(ring != &dev_priv->ring[RCS])) && to->ppgtt;
+	bool needs_pd_load_post = false;
 	int ret, i;
 
 	if (from != NULL && ring == &dev_priv->ring[RCS]) {
@@ -679,7 +682,11 @@ static int do_switch(struct intel_engine_cs *ring,
 	 */
 	from = ring->last_context;
 
-	if (to->ppgtt) {
+	if (needs_pd_load_pre) {
+		/* Older GENs and non render rings still want the load first,
+		 * "PP_DCLV followed by PP_DIR_BASE register through Load
+		 * Register Immediate commands in Ring Buffer before submitting
+		 * a context."*/
 		ret = to->ppgtt->switch_mm(to->ppgtt, ring, false);
 		if (ret)
 			goto unpin_out;
@@ -709,12 +716,33 @@ static int do_switch(struct intel_engine_cs *ring,
 		vma->bind_vma(vma, to->legacy_hw_ctx.rcs_state->cache_level, GLOBAL_BIND);
 	}
 
-	if (!to->legacy_hw_ctx.initialized || i915_gem_context_is_default(to))
+	/* GEN8 does *not* require an explicit reload if the PDPs have been
+	 * setup, and we do not wish to move them.
+	 *
+	 * XXX: If we implemented page directory eviction code, this
+	 * optimization needs to be removed.
+	 */
+	if (!to->legacy_hw_ctx.initialized || i915_gem_context_is_default(to)) {
 		hw_flags |= MI_RESTORE_INHIBIT;
+		needs_pd_load_post = to->ppgtt && IS_GEN8(ring->dev);
+	}
 
 	ret = mi_set_context(ring, to, hw_flags);
 	if (ret)
 		goto unpin_out;
+
+	if (needs_pd_load_post) {
+		ret = to->ppgtt->switch_mm(to->ppgtt, ring, false);
+		/* The hardware context switch is emitted, but we haven't
+		 * actually changed the state - so it's probably safe to bail
+		 * here. Still, let the user know something dangerous has
+		 * happened.
+		 */
+		if (ret) {
+			DRM_ERROR("Failed to change address space on context switch\n");
+			goto unpin_out;
+		}
+	}
 
 	for (i = 0; i < MAX_L3_SLICES; i++) {
 		if (!(to->remap_slice & (1<<i)))
