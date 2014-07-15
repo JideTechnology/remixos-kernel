@@ -311,6 +311,8 @@ int snd_soc_put_strobe(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol);
 int snd_soc_info_bytes_ext(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_info *ucontrol);
+int snd_soc_bytes_tlv_callback(struct snd_kcontrol *kcontrol,
+	int op_flag, unsigned int size, unsigned int __user *tlv);
 
 /**
  * struct snd_soc_jack_pin - Describes a pin to update based on jack detection
@@ -885,6 +887,10 @@ struct soc_bytes_ext {
 	struct list_head list;
 	struct snd_kcontrol *dcontrol;
 	int index;
+
+	/* used for TLV byte control */
+	int (*get)(unsigned int __user *bytes, unsigned int size);
+	int (*put)(const unsigned int __user *bytes, unsigned int size);
 
 	unsigned int pvt_data_len;
 	char *pvt_data;
