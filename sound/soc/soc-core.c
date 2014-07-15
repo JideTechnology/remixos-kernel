@@ -3402,6 +3402,27 @@ int snd_soc_info_xr_sx(struct snd_kcontrol *kcontrol,
 }
 EXPORT_SYMBOL_GPL(snd_soc_info_xr_sx);
 
+int snd_soc_bytes_tlv_callback(struct snd_kcontrol *kcontrol, int op_flag,
+				unsigned int size, unsigned int __user *tlv)
+{
+	struct soc_bytes_ext *params = (void *)kcontrol->private_value;
+	unsigned int count = size < params->max ? size : params->max;
+	int ret = -ENXIO;
+
+	switch (op_flag) {
+	case SNDRV_CTL_TLV_OP_READ:
+		if (params->get)
+			ret = params->get(tlv, count);
+		break;
+	case SNDRV_CTL_TLV_OP_WRITE:
+		if (params->put)
+			ret = params->put(tlv, count);
+		break;
+	}
+	return ret;
+}
+EXPORT_SYMBOL_GPL(snd_soc_bytes_tlv_callback);
+
 /**
  * snd_soc_get_xr_sx - signed multi register get callback
  * @kcontrol: mreg control
