@@ -110,10 +110,18 @@ static inline void update_vsyscall_tz(void)
 }
 #endif
 
+#ifdef CONFIG_CLOCKSOURCE_VALIDATE_LAST_CYCLE
+static inline cycle_t clocksource_delta(cycle_t now, cycle_t last, cycle_t mask)
+{
+	cycle_t ret = (now - last) & mask;
+
+	return (s64) ret > 0 ? ret : 0;
+}
+#else
 static inline cycle_t clocksource_delta(cycle_t now, cycle_t last, cycle_t mask)
 {
 	return (now - last) & mask;
 }
-
+#endif
 
 #endif /* _LINUX_TIMEKEEPER_INTERNAL_H */
