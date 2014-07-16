@@ -110,4 +110,10 @@ static inline void update_vsyscall_tz(void)
 }
 #endif
 
+static inline cycle_t clocksource_delta(cycle_t now, cycle_t last, cycle_t mask)
+{
+	return (now - last) & mask;
+}
+
+
 #endif /* _LINUX_TIMEKEEPER_INTERNAL_H */
