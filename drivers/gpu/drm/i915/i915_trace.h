@@ -116,7 +116,7 @@ TRACE_EVENT(i915_vma_bind,
 	    TP_STRUCT__entry(
 			     __field(struct drm_i915_gem_object *, obj)
 			     __field(struct i915_address_space *, vm)
-			     __field(u32, offset)
+			     __field(u64, offset)
 			     __field(u32, size)
 			     __field(unsigned, flags)
 			     ),
@@ -129,7 +129,7 @@ TRACE_EVENT(i915_vma_bind,
 			   __entry->flags = flags;
 			   ),
 
-	    TP_printk("obj=%p, offset=%08x size=%x%s vm=%p",
+	    TP_printk("obj=%p, offset=%016llx size=%x%s vm=%p",
 		      __entry->obj, __entry->offset, __entry->size,
 		      __entry->flags & PIN_MAPPABLE ? ", mappable" : "",
 		      __entry->vm)
@@ -142,7 +142,7 @@ TRACE_EVENT(i915_vma_unbind,
 	    TP_STRUCT__entry(
 			     __field(struct drm_i915_gem_object *, obj)
 			     __field(struct i915_address_space *, vm)
-			     __field(u32, offset)
+			     __field(u64, offset)
 			     __field(u32, size)
 			     ),
 
@@ -153,7 +153,7 @@ TRACE_EVENT(i915_vma_unbind,
 			   __entry->size = vma->node.size;
 			   ),
 
-	    TP_printk("obj=%p, offset=%08x size=%x vm=%p",
+	    TP_printk("obj=%p, offset=%016llx size=%x vm=%p",
 		      __entry->obj, __entry->offset, __entry->size, __entry->vm)
 );
 
