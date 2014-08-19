@@ -678,13 +678,6 @@ needs_pd_load_pre(struct intel_engine_cs *ring, struct intel_context *to)
 			(ring != &dev_priv->ring[RCS])) && to->ppgtt;
 }
 
-static bool
-needs_pd_load_post(struct intel_engine_cs *ring, struct intel_context *to)
-{
-	return IS_GEN8(ring->dev) &&
-			(to->ppgtt || &to->ppgtt->pd_dirty_rings);
-}
-
 static int do_switch(struct intel_engine_cs *ring,
 		     struct intel_context *to)
 {
@@ -759,20 +752,24 @@ static int do_switch(struct intel_engine_cs *ring,
 
 	/* GEN8 does *not* require an explicit reload if the PDPs have been
 	 * setup, and we do not wish to move them.
-	 *
-	 * XXX: If we implemented page directory eviction code, this
-	 * optimization needs to be removed.
 	 */
-	if (!to->legacy_hw_ctx.initialized || i915_gem_context_is_default(to))
+	if (!to->legacy_hw_ctx.initialized) {
 		hw_flags |= MI_RESTORE_INHIBIT;
-	else if (to->ppgtt && test_and_clear_bit(ring->id, &to->ppgtt->pd_dirty_rings))
+		/* NB: If we inhibit the restore, the context is not allowed to
+		 * die because future work may end up depending on valid address
+		 * space. This means we must enforce that a page table load
+		 * occur when this occurs. */
+	} else if (to->ppgtt && test_and_clear_bit(ring->id, &to->ppgtt->pd_dirty_rings))
 		hw_flags |= MI_FORCE_RESTORE;
 
 	ret = mi_set_context(ring, to, hw_flags);
 	if (ret)
 		goto unpin_out;
 
-	if (needs_pd_load_post(ring, to)) {
+	if (IS_GEN8(ring->dev) && to->ppgtt && (hw_flags & MI_RESTORE_INHIBIT)) {
+		/* We have a valid page directory (scratch) to switch to. This
+		 * allows the old VM to be freed. Note that if anything occurs
+		 * between the set context, and here, we are f*cked */
 		ret = to->ppgtt->switch_mm(to->ppgtt, ring, false);
 		/* The hardware context switch is emitted, but we haven't
 		 * actually changed the state - so it's probably safe to bail
@@ -822,7 +819,7 @@ static int do_switch(struct intel_engine_cs *ring,
 		i915_gem_context_unreference(from);
 	}
 
-	uninitialized = !to->legacy_hw_ctx.initialized && from == NULL;
+	uninitialized = !to->legacy_hw_ctx.initialized;
 	to->legacy_hw_ctx.initialized = true;
 
 done:
