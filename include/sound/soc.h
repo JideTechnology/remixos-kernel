@@ -889,8 +889,10 @@ struct soc_bytes_ext {
 	int index;
 
 	/* used for TLV byte control */
-	int (*get)(unsigned int __user *bytes, unsigned int size);
-	int (*put)(const unsigned int __user *bytes, unsigned int size);
+	int (*get)(struct snd_kcontrol *kcontrol,
+			unsigned int __user *bytes, unsigned int size);
+	int (*put)(struct snd_kcontrol *kcontrol,
+			const unsigned int __user *bytes, unsigned int size);
 
 	unsigned int pvt_data_len;
 	char *pvt_data;
