@@ -402,9 +402,15 @@ __SYSCALL(377, compat_sys_process_vm_writev)
 __SYSCALL(378, sys_kcmp)
 __SYSCALL(379, sys_finit_module)
 __SYSCALL(380, sys_sched_setattr)
-__SYSCALL(381, sys_sched_getattr)
-
-#define __NR_compat_syscalls		382
+/* #define __NR_sched_setattr 380 */
+__SYSCALL(381, sys_ni_syscall)
+/* #define __NR_sched_getattr 381 */
+__SYSCALL(382, sys_ni_syscall)
+/* #define __NR_renameat2 382 */
+__SYSCALL(383, sys_ni_syscall)
+#define __NR_seccomp 384
+__SYSCALL(__NR_seccomp, sys_ni_syscall)
+#define __NR_compat_syscalls		386
 
 /*
  * Compat syscall numbers used by the AArch64 kernel.
