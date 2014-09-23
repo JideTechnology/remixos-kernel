@@ -658,6 +658,7 @@ unlock:
 
 static int execlists_update_context(struct drm_i915_gem_object *ctx_obj,
 				    struct drm_i915_gem_object *ring_obj,
+				    struct i915_hw_ppgtt *ppgtt,
 				    u32 tail)
 {
 	struct page *page;
@@ -668,6 +669,40 @@ static int execlists_update_context(struct drm_i915_gem_object *ctx_obj,
 
 	reg_state[CTX_RING_TAIL+1] = tail;
 	reg_state[CTX_RING_BUFFER_START+1] = i915_gem_obj_ggtt_offset(ring_obj);
+
+	/* True PPGTT with dynamic page allocation: update PDP registers and
+	 * point the unallocated PDPs to the scratch page
+	 */
+	if (ppgtt) {
+		if (test_bit(3, ppgtt->pdp.used_pdpes)) {
+			reg_state[CTX_PDP3_UDW+1] = upper_32_bits(ppgtt->pdp.page_directory[3]->daddr);
+			reg_state[CTX_PDP3_LDW+1] = lower_32_bits(ppgtt->pdp.page_directory[3]->daddr);
+		} else {
+			reg_state[CTX_PDP3_UDW+1] = upper_32_bits(ppgtt->scratch_pd->daddr);
+			reg_state[CTX_PDP3_LDW+1] = lower_32_bits(ppgtt->scratch_pd->daddr);
+		}
+		if (test_bit(2, ppgtt->pdp.used_pdpes)) {
+			reg_state[CTX_PDP2_UDW+1] = upper_32_bits(ppgtt->pdp.page_directory[2]->daddr);
+			reg_state[CTX_PDP2_LDW+1] = lower_32_bits(ppgtt->pdp.page_directory[2]->daddr);
+		} else {
+			reg_state[CTX_PDP2_UDW+1] = upper_32_bits(ppgtt->scratch_pd->daddr);
+			reg_state[CTX_PDP2_LDW+1] = lower_32_bits(ppgtt->scratch_pd->daddr);
+		}
+		if (test_bit(1, ppgtt->pdp.used_pdpes)) {
+			reg_state[CTX_PDP1_UDW+1] = upper_32_bits(ppgtt->pdp.page_directory[1]->daddr);
+			reg_state[CTX_PDP1_LDW+1] = lower_32_bits(ppgtt->pdp.page_directory[1]->daddr);
+		} else {
+			reg_state[CTX_PDP1_UDW+1] = upper_32_bits(ppgtt->scratch_pd->daddr);
+			reg_state[CTX_PDP1_LDW+1] = lower_32_bits(ppgtt->scratch_pd->daddr);
+		}
+		if (test_bit(0, ppgtt->pdp.used_pdpes)) {
+			reg_state[CTX_PDP0_UDW+1] = upper_32_bits(ppgtt->pdp.page_directory[0]->daddr);
+			reg_state[CTX_PDP0_LDW+1] = lower_32_bits(ppgtt->pdp.page_directory[0]->daddr);
+		} else {
+			reg_state[CTX_PDP0_UDW+1] = upper_32_bits(ppgtt->scratch_pd->daddr);
+			reg_state[CTX_PDP0_LDW+1] = lower_32_bits(ppgtt->scratch_pd->daddr);
+		}
+	}
 
 	kunmap_atomic(reg_state);
 
@@ -687,7 +722,7 @@ static int execlists_submit_context(struct intel_engine_cs *ring,
 	WARN_ON(!i915_gem_obj_is_pinned(ctx_obj0));
 	WARN_ON(!i915_gem_obj_is_pinned(ringbuf0->obj));
 
-	execlists_update_context(ctx_obj0, ringbuf0->obj, tail0);
+	execlists_update_context(ctx_obj0, ringbuf0->obj, to0->ppgtt, tail0);
 
 	if (to1) {
 		ringbuf1 = to1->engine[ring->id].ringbuf;
@@ -696,7 +731,7 @@ static int execlists_submit_context(struct intel_engine_cs *ring,
 		WARN_ON(!i915_gem_obj_is_pinned(ctx_obj1));
 		WARN_ON(!i915_gem_obj_is_pinned(ringbuf1->obj));
 
-		execlists_update_context(ctx_obj1, ringbuf1->obj, tail1);
+		execlists_update_context(ctx_obj1, ringbuf1->obj, to1->ppgtt, tail1);
 	}
 
 	execlists_elsp_write(ring, ctx_obj0, ctx_obj1);
@@ -3149,14 +3184,39 @@ populate_lr_context(struct intel_context *ctx, struct drm_i915_gem_object *ctx_o
 	reg_state[CTX_PDP1_LDW] = GEN8_RING_PDP_LDW(ring, 1);
 	reg_state[CTX_PDP0_UDW] = GEN8_RING_PDP_UDW(ring, 0);
 	reg_state[CTX_PDP0_LDW] = GEN8_RING_PDP_LDW(ring, 0);
-	reg_state[CTX_PDP3_UDW+1] = upper_32_bits(ppgtt->pdp.page_directory[3]->daddr);
-	reg_state[CTX_PDP3_LDW+1] = lower_32_bits(ppgtt->pdp.page_directory[3]->daddr);
-	reg_state[CTX_PDP2_UDW+1] = upper_32_bits(ppgtt->pdp.page_directory[2]->daddr);
-	reg_state[CTX_PDP2_LDW+1] = lower_32_bits(ppgtt->pdp.page_directory[2]->daddr);
-	reg_state[CTX_PDP1_UDW+1] = upper_32_bits(ppgtt->pdp.page_directory[1]->daddr);
-	reg_state[CTX_PDP1_LDW+1] = lower_32_bits(ppgtt->pdp.page_directory[1]->daddr);
-	reg_state[CTX_PDP0_UDW+1] = upper_32_bits(ppgtt->pdp.page_directory[0]->daddr);
-	reg_state[CTX_PDP0_LDW+1] = lower_32_bits(ppgtt->pdp.page_directory[0]->daddr);
+
+	/* With dynamic page allocation, PDPs may not be allocated at this point,
+	 * Point the unallocated PDPs to the scratch page
+	 */
+	if (test_bit(3, ppgtt->pdp.used_pdpes)) {
+		reg_state[CTX_PDP3_UDW+1] = upper_32_bits(ppgtt->pdp.page_directory[3]->daddr);
+		reg_state[CTX_PDP3_LDW+1] = lower_32_bits(ppgtt->pdp.page_directory[3]->daddr);
+	} else {
+		reg_state[CTX_PDP3_UDW+1] = upper_32_bits(ppgtt->scratch_pd->daddr);
+		reg_state[CTX_PDP3_LDW+1] = lower_32_bits(ppgtt->scratch_pd->daddr);
+	}
+	if (test_bit(2, ppgtt->pdp.used_pdpes)) {
+		reg_state[CTX_PDP2_UDW+1] = upper_32_bits(ppgtt->pdp.page_directory[2]->daddr);
+		reg_state[CTX_PDP2_LDW+1] = lower_32_bits(ppgtt->pdp.page_directory[2]->daddr);
+	} else {
+		reg_state[CTX_PDP2_UDW+1] = upper_32_bits(ppgtt->scratch_pd->daddr);
+		reg_state[CTX_PDP2_LDW+1] = lower_32_bits(ppgtt->scratch_pd->daddr);
+	}
+	if (test_bit(1, ppgtt->pdp.used_pdpes)) {
+		reg_state[CTX_PDP1_UDW+1] = upper_32_bits(ppgtt->pdp.page_directory[1]->daddr);
+		reg_state[CTX_PDP1_LDW+1] = lower_32_bits(ppgtt->pdp.page_directory[1]->daddr);
+	} else {
+		reg_state[CTX_PDP1_UDW+1] = upper_32_bits(ppgtt->scratch_pd->daddr);
+		reg_state[CTX_PDP1_LDW+1] = lower_32_bits(ppgtt->scratch_pd->daddr);
+	}
+	if (test_bit(0, ppgtt->pdp.used_pdpes)) {
+		reg_state[CTX_PDP0_UDW+1] = upper_32_bits(ppgtt->pdp.page_directory[0]->daddr);
+		reg_state[CTX_PDP0_LDW+1] = lower_32_bits(ppgtt->pdp.page_directory[0]->daddr);
+	} else {
+		reg_state[CTX_PDP0_UDW+1] = upper_32_bits(ppgtt->scratch_pd->daddr);
+		reg_state[CTX_PDP0_LDW+1] = lower_32_bits(ppgtt->scratch_pd->daddr);
+	}
+
 	if (ring->id == RCS) {
 		reg_state[CTX_LRI_HEADER_2] = MI_LOAD_REGISTER_IMM(1);
 		reg_state[CTX_R_PWR_CLK_STATE] = 0x20c8;
