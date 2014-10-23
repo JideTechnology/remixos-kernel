@@ -1,0 +1,52 @@
+/*
+ * arch/arm/boot/dts/kirkwood.dtsi
+ *
+ * Copyright (C) 2012-2014 NVIDIA Corporation. All rights reserved.
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ */
+
+/include/ "skeleton.dtsi"
+
+/ {
+	compatible = "mrvl,kirkwood";
+
+	ocp@f1000000 {
+		compatible = "simple-bus";
+		ranges = <0 0xf1000000 0x1000000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		serial@12000 {
+			compatible = "ns16550a";
+			reg = <0x12000 0x100>;
+			reg-shift = <2>;
+			interrupts = <33>;
+			/* set clock-frequency in board dts */
+			status = "disabled";
+		};
+
+		serial@12100 {
+			compatible = "ns16550a";
+			reg = <0x12100 0x100>;
+			reg-shift = <2>;
+			interrupts = <34>;
+			/* set clock-frequency in board dts */
+			status = "disabled";
+		};
+
+		rtc@10300 {
+			compatible = "mrvl,kirkwood-rtc", "mrvl,orion-rtc";
+			reg = <0x10300 0x20>;
+			interrupts = <53>;
+		};
+	};
+};
