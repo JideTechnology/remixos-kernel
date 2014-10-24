@@ -686,6 +686,8 @@ static void hidinput_configure_usage(struct hid_input *hidinput, struct hid_fiel
 		case 0x06b: map_key_clear(KEY_BLUE);		break;
 		case 0x06c: map_key_clear(KEY_YELLOW);		break;
 		case 0x06d: map_key_clear(KEY_ZOOM);		break;
+		case 0x06f: map_key_clear(KEY_BRIGHTNESSUP);    break;
+		case 0x070: map_key_clear(KEY_BRIGHTNESSDOWN);	break;
 
 		case 0x082: map_key_clear(KEY_VIDEO_NEXT);	break;
 		case 0x083: map_key_clear(KEY_LAST);		break;
@@ -725,6 +727,7 @@ static void hidinput_configure_usage(struct hid_input *hidinput, struct hid_fiel
 		case 0x0bc: map_key_clear(KEY_MEDIA_REPEAT);	break;
 		case 0x0b9: map_key_clear(KEY_SHUFFLE);		break;
 		case 0x0bf: map_key_clear(KEY_SLOW);		break;
+		case 0x0c0: map_key_clear(KEY_MENU);		break;
 
 		case 0x0cd: map_key_clear(KEY_PLAYPAUSE);	break;
 		case 0x0e0: map_abs_clear(ABS_VOLUME);		break;
@@ -799,10 +802,6 @@ static void hidinput_configure_usage(struct hid_input *hidinput, struct hid_fiel
 		case 0x289: map_key_clear(KEY_REPLY);		break;
 		case 0x28b: map_key_clear(KEY_FORWARDMAIL);	break;
 		case 0x28c: map_key_clear(KEY_SEND);		break;
-
-		case 0x3e: map_key_clear(KEY_BRIGHTNESSDOWN);	break;
-		case 0x3f: map_key_clear(KEY_BRIGHTNESSUP);		break;
-		case 0xc0: map_key_clear(KEY_MENU);		break;
 
 		default:    goto ignore;
 		}
