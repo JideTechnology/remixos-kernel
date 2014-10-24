@@ -305,6 +305,7 @@ static void __init setup_machine_fdt(phys_addr_t dt_phys)
 		while (true)
 			cpu_relax();
 	}
+	dump_stack_set_arch_desc("%s (DT)", of_flat_dt_get_machine_name());
 }
 
 /*
@@ -460,6 +461,15 @@ static const char *compat_hwcap_str[] = {
 	"lpae",
 	"evtstrm"
 };
+
+static const char *compat_hwcap2_str[] = {
+	"aes",
+	"pmull",
+	"sha1",
+	"sha2",
+	"crc32",
+	NULL
+};
 #endif /* CONFIG_COMPAT */
 
 static int c_show(struct seq_file *m, void *v)
@@ -496,14 +506,37 @@ static int c_show(struct seq_file *m, void *v)
 			for (j = 0; hwcap_str[j]; j++)
 				if (elf_hwcap & (1 << j))
 					seq_printf(m, " %s", hwcap_str[j]);
-	}
+
+		/*
+		 * Dump out the common processor features in a single line.
+		 * Userspace should read the hwcaps with getauxval(AT_HWCAP)
+		 * rather than attempting to parse this, but there's a body of
+		 * software which does already (at least for 32-bit).
+		 */
+		seq_puts(m, "Features\t:");
+		if (personality(current->personality) == PER_LINUX32) {
+#ifdef CONFIG_COMPAT
+			for (j = 0; compat_hwcap_str[j]; j++)
+				if (compat_elf_hwcap & (1 << j))
+					seq_printf(m, " %s", compat_hwcap_str[j]);
+
+			for (j = 0; compat_hwcap2_str[j]; j++)
+				if (compat_elf_hwcap2 & (1 << j))
+					seq_printf(m, " %s", compat_hwcap2_str[j]);
+#endif /* CONFIG_COMPAT */
+		} else {
+			for (j = 0; hwcap_str[j]; j++)
+				if (elf_hwcap & (1 << j))
+					seq_printf(m, " %s", hwcap_str[j]);
+		}
 		seq_puts(m, "\n");
 
-		seq_printf(m, "CPU implementer\t: 0x%02x\n", (midr >> 24));
-		seq_printf(m, "CPU architecture: AArch64\n");
-		seq_printf(m, "CPU variant\t: 0x%x\n", ((midr >> 20) & 0xf));
-		seq_printf(m, "CPU part\t: 0x%03x\n", ((midr >> 4) & 0xfff));
-		seq_printf(m, "CPU revision\t: %d\n\n", (midr & 0xf));
+		seq_printf(m, "CPU implementer\t: 0x%02x\n",
+			   MIDR_IMPLEMENTOR(midr));
+		seq_printf(m, "CPU architecture: 8\n");
+		seq_printf(m, "CPU variant\t: 0x%x\n", MIDR_VARIANT(midr));
+		seq_printf(m, "CPU part\t: 0x%03x\n", MIDR_PARTNUM(midr));
+		seq_printf(m, "CPU revision\t: %d\n\n", MIDR_REVISION(midr));
 	}
 
 	return 0;
