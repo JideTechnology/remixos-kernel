@@ -32,6 +32,7 @@ modules.builtin
 *.lzo
 *.patch
 *.gcno
+*.swp
 
 #
 # Top-level generic files
@@ -91,3 +92,6 @@ extra_certificates
 signing_key.priv
 signing_key.x509
 x509.genkey
+
+output/
+rootfs.cpio.gz
