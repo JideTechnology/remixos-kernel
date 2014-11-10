@@ -146,6 +146,10 @@
 
 #define UART_SCR	7	/* I/O: Scratch Register */
 
+#define UART_USR	31	/* I/O: uart status Register */
+#define UART_USR_NF	0x02    /* Tansmit fifo not full */
+
+
 /*
  * DLAB=1
  */
