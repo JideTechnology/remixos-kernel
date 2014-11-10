@@ -1,0 +1,86 @@
+/*
+ * Allwinner Technology CO., Ltd. sun50iw1p1 platform
+ *
+ * fpga support
+ * modify base on juno.dts
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+/memreserve/ 0x40000000 0x00010000; /* dts */
+/memreserve/ 0x40010000 0x00010000; /* sys_config.fex */
+
+/ {
+	model = "sun50iw1p1";
+	compatible = "arm,sun50iw1p1", "arm,sun50iw1p1";
+	interrupt-parent = <&gic>;
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	//aliases {
+		//serial0 = &soc_uart0;
+	//};
+
+	chosen {
+		bootargs = "earlyprintk=sunxi-uart,0x01c28000 loglevel=8 initcall_debug=1 memblock=debug console=ttyS0 init=/init";
+    };
+
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53","arm,armv8";
+			reg = <0x0 0x0>;
+			enable-method = "psci";
+		};
+	};
+
+	memory@40000000 {
+		device_type = "memory";
+		reg = <0x00000000 0x40000000 0x00000000 0x40000000>;
+	};
+
+	gic: interrupt-controller@1c81000 {
+		compatible = "arm,cortex-a15-gic", "arm,cortex-a9-gic";
+		#interrupt-cells = <3>;
+		#address-cells = <0>;
+		interrupt-controller;
+		reg = <0x0 0x01c81000 0 0x1000>, /* GIC Dist */
+		      <0x0 0x01c82000 0 0x2000>, /* GIC CPU */
+		      <0x0 0x01c84000 0 0x2000>, /* GIC VCPU Control */
+		      <0x0 0x01c86000 0 0x2000>; /* GIC VCPU */
+		interrupts = <GIC_PPI 9 0xf04>; /* GIC Maintenence IRQ */
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI 13 0xff01>, /* Secure Phys IRQ */
+			     <GIC_PPI 14 0xff01>, /* Non-secure Phys IRQ */
+			     <GIC_PPI 11 0xff01>, /* Virt IRQ */
+			     <GIC_PPI 10 0xff01>; /* Hyp IRQ */
+		clock-frequency = <24000000>;
+	};
+
+	pmu {
+		compatible = "arm,armv8-pmuv3";
+		interrupts = <GIC_SPI 120 4>,
+			     <GIC_SPI 121 4>,
+			     <GIC_SPI 122 4>,
+			     <GIC_SPI 123 4>;
+	};
+
+	//soc_uart0: uart@01c28000 {
+		//compatible = "arm,pl011", "arm,primecell";
+		//reg = <0x0 0x01c28000 0x0 0x400>; /* only uart0 */
+		//interrupts = <GIC_SPI 0 0x0104>;  /* only distribute to cpu0 */
+		//clocks = <&soc_uartclk>, <&soc_refclk100mhz>;
+		//clock-names = "uartclk", "apb2_pclk";
+		//dmas = <&dma0 1
+			//&dma0 2>;
+		//dma-names = "rx", "tx";
+	//};
+};
