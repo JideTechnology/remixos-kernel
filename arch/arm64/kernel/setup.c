@@ -42,6 +42,7 @@
 #include <linux/of_fdt.h>
 #include <linux/of_platform.h>
 #include <linux/efi.h>
+#include <linux/sys_config.h>
 
 #include <asm/fixmap.h>
 #include <asm/cputype.h>
@@ -428,6 +429,9 @@ void __init setup_arch(char **cmdline_p)
 	efi_idmap_init();
 
 	unflatten_device_tree();
+
+	/* init sys_config script parse */
+	script_init();
 
 	psci_init();
 
