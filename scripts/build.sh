@@ -207,17 +207,23 @@ build_ramfs()
 	local BIMAGE="output/bImage";
 	local RAMDISK="output/rootfs.cpio.gz";
 	local BASE="";
-	local OFFSET="";
+	local RAMDISK_OFFSET="";
+	local KERNEL_OFFSET="";
 
 	# update rootfs.cpio.gz with new module files
 	regen_rootfs_cpio
 
-	CHIP=`echo ${LICHEE_CHIP} | sed -e 's/.*\(sun[0-9x]i\).*/\1/g'`;
+	CHIP=`echo ${LICHEE_CHIP} | sed -e 's/.*\(sun[0-9x]*i\).*/\1/g'`;
 
 	if [ "${CHIP}" = "sun9i" ]; then
 		BASE="0x20000000";
+		KERNEL_OFFSET="0x8000";
+	elif [ "${CHIP}" = "sun50i" ]; then
+		BASE="0x40000000";
+		KERNEL_OFFSET="0x80000";
 	else
 		BASE="0x40000000";
+		KERNEL_OFFSET="0x8000";
 	fi
 
 	if [ -f vmlinux ]; then
@@ -229,28 +235,29 @@ build_ramfs()
 	# If the size of bImage larger than 16M, will offset 0x02000000
 	#
 	if [ ${bss_sz} -gt $((16#1000000)) ]; then
-		OFFSET="0x02000000";
+		RAMDISK_OFFSET="0x02000000";
 	else
-		OFFSET="0x01000000";
+		RAMDISK_OFFSET="0x01000000";
 	fi
 
-	${MKBOOTIMG} --kernel ${BIMAGE} \
+	{MKBOOTIMG} --kernel ${BIMAGE} \
 		--ramdisk ${RAMDISK} \
 		--board ${CHIP} \
 		--base ${BASE} \
-		--ramdisk_offset ${OFFSET} \
+		--kernel_offset ${KERNEL_OFFSET} \
+		--ramdisk_offset ${RAMDISK_OFFSET} \
 		-o output/boot.img
 	
 	# If uboot use *bootm* to boot kernel, we should use uImage.
 	echo build_ramfs
-    	echo "Copy boot.img to output directory ..."
-    	cp output/boot.img ${LICHEE_PLAT_OUT}
+	echo "Copy boot.img to output directory ..."
+	cp output/boot.img ${LICHEE_PLAT_OUT}
 	cp output/vmlinux.tar.bz2 ${LICHEE_PLAT_OUT}
 
-        if [ ! -f output/arisc ]; then
-        	echo "arisc" > output/arisc
-        fi
-        cp output/arisc    ${LICHEE_PLAT_OUT}
+	if [ ! -f output/arisc ]; then
+		echo "arisc" > output/arisc
+	fi
+	cp output/arisc    ${LICHEE_PLAT_OUT}
 }
 
 gen_output()
