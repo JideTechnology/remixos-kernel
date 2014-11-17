@@ -240,7 +240,7 @@ build_ramfs()
 		RAMDISK_OFFSET="0x01000000";
 	fi
 
-	{MKBOOTIMG} --kernel ${BIMAGE} \
+	${MKBOOTIMG} --kernel ${BIMAGE} \
 		--ramdisk ${RAMDISK} \
 		--board ${CHIP} \
 		--base ${BASE} \
