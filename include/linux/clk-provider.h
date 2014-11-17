@@ -27,7 +27,13 @@
 #define CLK_IS_ROOT		BIT(4) /* root clk, has no parent */
 #define CLK_IS_BASIC		BIT(5) /* Basic clk, can't do a to_clk_foo() */
 #define CLK_GET_RATE_NOCACHE	BIT(6) /* do not use the cached clk rate */
-
+#define CLK_IGNORE_AUTORESET	BIT(7) /* for sunxi use */
+#define CLK_REVERT_ENABLE       BIT(8) /* for sunxi use */
+#define CLK_IGNORE_SYNCBOOT     BIT(9) /* for sunxi use */
+#define CLK_READONLY            BIT(10) /* for sunxi use */
+#define CLK_IGNORE_DISABLE      BIT(11) /* for sunxi use */
+#define CLK_RATE_FLAT_FACTORS   BIT(12) /* for sunxi use */
+#define CLK_RATE_FLAT_DELAY     BIT(13) /* for sunxi use */
 struct clk_hw;
 
 /**

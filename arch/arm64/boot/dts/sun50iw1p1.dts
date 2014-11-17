@@ -7,10 +7,12 @@
 
 /dts-v1/;
 
-#include <dt-bindings/interrupt-controller/arm-gic.h>
-
 /memreserve/ 0x40000000 0x00010000; /* dts */
 /memreserve/ 0x40010000 0x00010000; /* sys_config.fex */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+/include/"sun50iw1p1-clk.dtsi"
+
 / {
 	model = "sun50iw1p1";
 	compatible = "arm,sun50iw1p1", "arm,sun50iw1p1";
