@@ -22,9 +22,11 @@
 
 struct sw_uart_pdata {
 	unsigned int used;
+#ifndef CONFIG_OF
 	unsigned int base;
 	unsigned int irq;
 	unsigned int max_ios;
+#endif
 	unsigned int io_num;
 	unsigned int port_no;
 	char			  regulator_id[16];
@@ -174,6 +176,9 @@ struct sw_uart_port {
 #if defined(CONFIG_ARCH_SUN9IW1P1)
 #define SUNXI_UART_NUM			6
 #endif
+#if defined(CONFIG_ARCH_SUN50I)
+#define SUNXI_UART_NUM			6
+#endif
 
 #ifndef SUNXI_UART_NUM
 #define SUNXI_UART_NUM			1
@@ -189,13 +194,11 @@ struct sw_uart_port {
 #define SUNXI_UART_DEV_NAME			"uart"
 
 /* Memory mapping. */
-#define SUNXI_UART0_PBASE               0x01c28000
 #define SUNXI_UART_MEM_BASE		SUNXI_UART0_PBASE
 #define SUNXI_UART_MEM_RANGE		0x400
 #define SUNXI_UART_MEM_START(ch)	(SUNXI_UART_MEM_BASE + ch * SUNXI_UART_MEM_RANGE)
 
 /* The IRQ number. */
-#define SUNXI_IRQ_UART0             32
 #define SUNXI_UART_IRQ(ch)	    (SUNXI_IRQ_UART0 + ch)
 
 /* Support to use r_uart on sun8iw5 */
@@ -240,16 +243,9 @@ struct sw_uart_port {
 #define UART_FORCE_CFG                   (1 << 1)
 #define UART_FORCE_UPDATE                (1 << 2)
 
-#define SUNXI_UART_LOG(fmt, args...) do {} while(0)
-
-#define SUNXI_R_UART_LOG(fmt, args...)      \
-        do {                             \
-                aw_printk((u32)SUNXI_R_UART_PBASE, "[%s]"fmt"\n", __FUNCTION__, ##args); \
-        } while (0)
-
-
 /* About the number of IO */
 
+#ifndef CONFIG_OF
 #ifdef CONFIG_EVB_PLATFORM
 
 #ifdef CONFIG_ARCH_SUN8IW1P1
@@ -278,6 +274,7 @@ static int gs_uart_io_num[SUNXI_UART_NUM] = {2};
 
 static int gs_uart_io_num[SUNXI_UART_NUM] = {2};
 
+#endif
 #endif
 
 struct platform_device *sw_uart_get_pdev(int uart_id);

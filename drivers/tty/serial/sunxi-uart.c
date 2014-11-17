@@ -33,20 +33,24 @@
 #include <linux/serial.h>
 #include <linux/clk.h>
 #include <linux/clk-private.h>
-//#include <linux/clk/sunxi.h>
+#include <linux/clk/sunxi.h>
 #include <linux/pinctrl/consumer.h>
-#include <linux/kthread.h>
 
+#include <linux/of.h>
+#include <linux/of_irq.h>
+#include <linux/of_address.h>
+
+#ifndef CONFIG_OF
+#include <linux/sys_config.h>
 //#include <mach/hardware.h>
 //#include <mach/platform.h>
-#include <linux/sys_config.h>
 //#include <mach/gpio.h>
+#endif
 
 #include "sunxi-uart.h"
 
 #define CONFIG_SW_UART_FORCE_LCR
 //#define CONFIG_SW_UART_DUMP_DATA
-#define SUNXI_UART_CONSOLE_POLL	0
 /*
  * ********************* Note **********************
  * CONFIG_SW_UART_DUMP_DATA may cause some problems
@@ -133,13 +137,12 @@ static inline bool sw_is_console_port(struct uart_port *port)
 
 static inline void sw_uart_reset(struct sw_uart_port *sw_uport)
 {
-	//sunxi_periph_reset_assert(sw_uport->mclk);
-	//sunxi_periph_reset_deassert(sw_uport->mclk);
+	sunxi_periph_reset_assert(sw_uport->mclk);
+	sunxi_periph_reset_deassert(sw_uport->mclk);
 }
 
 static unsigned int sw_uart_handle_rx(struct sw_uart_port *sw_uport, unsigned int lsr)
 {
-	struct tty_struct *tty = sw_uport->port.state->port.tty;
 	unsigned char ch = 0;
 	int max_count = 256;
 	char flag;
@@ -561,18 +564,6 @@ static void sw_uart_break_ctl(struct uart_port *port, int break_state)
 	spin_unlock_irqrestore(&port->lock, flags);
 }
 
-#if SUNXI_UART_CONSOLE_POLL
-int sunxi_uart_poll_thread(void *para)
-{
-	while (1) {
-		sw_uart_irq(SUNXI_UART_IRQ(0), para);
-		msleep(20);
-	}
-
-	return 0;
-}
-#endif
-
 static int sw_uart_startup(struct uart_port *port)
 {
 	struct sw_uart_port *sw_uport = UART_TO_SPORT(port);
@@ -580,21 +571,10 @@ static int sw_uart_startup(struct uart_port *port)
 
 	SERIAL_DBG("start up ...\n");
 
-#if SUNXI_UART_CONSOLE_POLL
-	if (sw_is_console_port(port)) {
-		struct task_struct *tsk = NULL;
-		tsk = kthread_run(sunxi_uart_poll_thread, port, "uart_poll");
-		if (IS_ERR(tsk))
-			return PTR_ERR(tsk);
-	}
-	else
-#endif
-	{
-		ret = request_irq(port->irq, sw_uart_irq, 0, sw_uport->name, port);
-		if (unlikely(ret)) {
-			SERIAL_MSG("uart%d cannot get irq %d\n", sw_uport->id, port->irq);
-			return ret;
-		}
+	ret = request_irq(port->irq, sw_uart_irq, 0, sw_uport->name, port);
+	if (unlikely(ret)) {
+		SERIAL_MSG("uart%d cannot get irq %d\n", sw_uport->id, port->irq);
+		return ret;
 	}
 
 	sw_uport->msr_saved_flags = 0;
@@ -626,9 +606,6 @@ static void sw_uart_shutdown(struct uart_port *port)
 	sw_uport->lcr = 0;
 	sw_uport->mcr = 0;
 	sw_uport->fcr = 0;
-#if SUNXI_UART_CONSOLE_POLL
-	if (!sw_is_console_port(port))
-#endif
 	free_irq(port->irq, port);
 }
 
@@ -795,7 +772,6 @@ static const char *sw_uart_type(struct uart_port *port)
 static int sw_uart_select_gpio_state(struct pinctrl *pctrl, char *name, u32 no)
 {
 	int ret = 0;
-#if 0
 	struct pinctrl_state *pctrl_state = NULL;
 
 	pctrl_state = pinctrl_lookup_state(pctrl, name);
@@ -807,13 +783,12 @@ static int sw_uart_select_gpio_state(struct pinctrl *pctrl, char *name, u32 no)
 	ret = pinctrl_select_state(pctrl, pctrl_state);
 	if (ret < 0)
 		SERIAL_MSG("UART%d pinctrl_select_state(%s) failed! return %d \n", no, name, ret);
-#endif
+
 	return ret;
 }
 
 static int sw_uart_request_gpio(struct sw_uart_port *sw_uport)
 {
-#if 0
 #ifdef SUNXI_S_UART
 	if (sw_uport->id == (SUNXI_UART_NUM - 1)) {
 		/* use name s_uart0 to get pinctrl */
@@ -833,16 +808,14 @@ static int sw_uart_request_gpio(struct sw_uart_port *sw_uport)
 		SERIAL_MSG("UART%d devm_pinctrl_get() failed! return %ld\n", sw_uport->id, PTR_ERR(sw_uport->pctrl));
 		return -1;
 	}
-#endif
+
 	return sw_uart_select_gpio_state(sw_uport->pctrl, PINCTRL_STATE_DEFAULT, sw_uport->id);
 }
 
 static void sw_uart_release_gpio(struct sw_uart_port *sw_uport)
 {
-#if 0
 	devm_pinctrl_put(sw_uport->pctrl);
 	sw_uport->pctrl = NULL;
-#endif
 }
 
 static void sw_uart_release_port(struct uart_port *port)
@@ -870,8 +843,11 @@ static int sw_uart_request_port(struct uart_port *port)
 		SERIAL_MSG("uart%d, request mem region failed\n", sw_uport->id);
 		return -EBUSY;
 	}
+#ifdef CONFIG_OF
+	port->membase = of_iomap(port->dev->of_node, 0);
+#else
 	port->membase = ioremap(port->mapbase, SUNXI_UART_MEM_RANGE);
-	SERIAL_MSG("[superm]:port->membase:%p\n", port->membase);
+#endif
 	if (!port->membase) {
 		SERIAL_MSG("uart%d, ioremap failed\n", sw_uport->id);
 		release_mem_region(port->mapbase, SUNXI_UART_MEM_RANGE);
@@ -916,7 +892,7 @@ static void sw_uart_pm(struct uart_port *port, unsigned int state,
 	struct sw_uart_port *sw_uport = UART_TO_SPORT(port);
 
 	SERIAL_DBG("PM state %d -> %d\n", oldstate, state);
-#if 0
+
 	switch (state) {
 	case 0: /* Power up */
 		if (sw_uport->mclk->enable_count > 0) {
@@ -940,7 +916,6 @@ static void sw_uart_pm(struct uart_port *port, unsigned int state,
 	default:
 		SERIAL_MSG("uart%d, Unknown PM state %d\n", sw_uport->id, state);
 	}
-#endif
 }
 
 static struct uart_ops sw_uart_ops = {
@@ -1012,9 +987,10 @@ static int sw_uart_regulator_disable(struct sw_uart_pdata *pdata)
 	return 0;
 }
 
-static struct sw_uart_pdata sw_uport_pdata[SUNXI_UART_NUM];
-static struct platform_device sw_uport_device[SUNXI_UART_NUM];
 static struct sw_uart_port sw_uart_ports[SUNXI_UART_NUM];
+static struct sw_uart_pdata sw_uport_pdata[SUNXI_UART_NUM];
+#ifndef CONFIG_OF
+static struct platform_device sw_uport_device[SUNXI_UART_NUM];
 
 static void __init sunxi_uart_device_scan(void)
 {
@@ -1048,6 +1024,7 @@ static void __init sunxi_uart_device_scan(void)
 #endif
 
 }
+#endif
 
 static ssize_t sunxi_uart_dev_info_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -1061,9 +1038,9 @@ static ssize_t sunxi_uart_dev_info_show(struct device *dev,
 	   	"name   = %s \n"
 	   	"irq    = %d \n"
 	   	"io_num = %d \n"
-	   	"port->mapbase = 0x%ull \n"
+		"port->mapbase = 0x%016llx \n"
 	   	"port->membase = 0x%p \n"
-		"port->iobase  = 0x%lx \n"
+		"port->iobase  = 0x%08lx \n"
 		"pdata->regulator    = 0x%p \n"
 		"pdata->regulator_id = %s \n",
 		sw_uport->id, sw_uport->name, port->irq,
@@ -1071,6 +1048,7 @@ static ssize_t sunxi_uart_dev_info_show(struct device *dev,
 		port->mapbase, port->membase, port->iobase,
 		pdata->regulator, pdata->regulator_id);
 }
+
 static struct device_attribute sunxi_uart_dev_info_attr =
 	__ATTR(dev_info, S_IRUGO, sunxi_uart_dev_info_show, NULL);
 
@@ -1186,13 +1164,12 @@ static void sunxi_uart_sysfs(struct platform_device *_pdev)
 static struct uart_port *sw_console_get_port(struct console *co)
 {
 	struct uart_port *port = NULL;
-	struct sw_uart_pdata *pdata;
-	int i;
+	int i, used;
 
 	for (i=0; i<SUNXI_UART_NUM; i++) {
-		pdata = sw_uart_ports[i].pdata;
-		if ((pdata->used) && (pdata->port_no == co->index)) {
-			port = &sw_uart_ports[i].port;
+		used = sw_uport_pdata[i].used;
+		port = &sw_uart_ports[i].port;
+		if ((used == 1) && (port->line == co->index)) {
 			break;
 		}
 	}
@@ -1294,21 +1271,25 @@ static struct uart_driver sw_uart_driver = {
 
 static int sw_uart_request_resource(struct sw_uart_port* sw_uport, struct sw_uart_pdata *pdata)
 {
+#ifndef CONFIG_OF
 	struct uart_port *port = &sw_uport->port;
+#endif
 
 	SERIAL_DBG("get system resource(clk & IO)\n");
-#if 0
+
 	if (sw_uart_regulator_request(sw_uport, pdata) < 0) {
 		SERIAL_MSG("uart%d request regulator failed!\n", sw_uport->id);
 		return -ENXIO;
 	}
 	sw_uart_regulator_enable(pdata);
 
+#ifndef CONFIG_OF
 	sw_uport->mclk = clk_get(port->dev, sw_uport->name);
 	if (IS_ERR_OR_NULL(sw_uport->mclk)) {
 		SERIAL_MSG("uart%d get mclk failed\n", sw_uport->id);
 		return PTR_ERR(sw_uport->mclk);
 	}
+#endif
 
 	#ifdef CONFIG_SW_UART_DUMP_DATA
 	sw_uport->dump_buff = (char*)kmalloc(MAX_DUMP_SIZE, GFP_KERNEL);
@@ -1316,7 +1297,7 @@ static int sw_uart_request_resource(struct sw_uart_port* sw_uport, struct sw_uar
 		SERIAL_MSG("uart%d fail to alloc dump buffer\n", sw_uport->id);
 	}
 	#endif
-#endif
+
 	return 0;
 }
 
@@ -1330,11 +1311,11 @@ static int sw_uart_release_resource(struct sw_uart_port* sw_uport, struct sw_uar
 	sw_uport->dump_len = 0;
 	#endif
 
-	//clk_disable_unprepare(sw_uport->mclk);
-	//clk_put(sw_uport->mclk);
+	clk_disable_unprepare(sw_uport->mclk);
+	clk_put(sw_uport->mclk);
 
-	//sw_uart_regulator_disable(pdata);
-	//sw_uart_regulator_release(pdata);
+	sw_uart_regulator_disable(pdata);
+	sw_uart_regulator_release(pdata);
 
 	return 0;
 }
@@ -1350,9 +1331,11 @@ EXPORT_SYMBOL(sw_uart_get_pdev);
 
 static int sw_uart_probe(struct platform_device *pdev)
 {
+#ifndef CONFIG_OF
 	struct uart_port *port;
 	struct sw_uart_port *sw_uport;
 	int ret = -1;
+
 
 	port = &sw_uart_ports[pdev->id].port;
 	port->dev = &pdev->dev;
@@ -1375,8 +1358,7 @@ static int sw_uart_probe(struct platform_device *pdev)
 		SERIAL_MSG("uart%d error to get resource\n", pdev->id);
 		return -ENXIO;
 	}
-	//port->uartclk = clk_get_rate(sw_uport->mclk);
-	port->uartclk = 24000000;
+	port->uartclk = clk_get_rate(sw_uport->mclk);
 
 	/* bug: clk_get_rate can't get s_uart clk rate in real-time,
 		 so set it to actual value */
@@ -1397,7 +1379,95 @@ static int sw_uart_probe(struct platform_device *pdev)
 	SERIAL_DBG("add uart%d port, port_type %d, uartclk %d\n",
 			pdev->id, port->type, port->uartclk);
 	return uart_add_one_port(&sw_uart_driver, port);
+
+#else	/* if defined CONFIG_OF */
+
+	struct device_node *np = pdev->dev.of_node;
+	struct uart_port *port;
+	struct sw_uart_port *sw_uport;
+	struct sw_uart_pdata *pdata;
+	struct resource res;
+	int ret = -1;
+
+	pdev->id = of_alias_get_id(np, "serial");
+	if (pdev->id < 0) {
+		SERIAL_MSG("failed to get alias id\n");
+		return -EINVAL;
+	}
+
+	SERIAL_DBG("uart.%d probe ... \n", pdev->id);
+
+	port = &sw_uart_ports[pdev->id].port;
+	port->dev = &pdev->dev;
+	pdata = &sw_uport_pdata[pdev->id];
+	sw_uport = UART_TO_SPORT(port);
+	sw_uport->pdata = pdata;
+	sw_uport->id = pdev->id;
+	sw_uport->ier = 0;
+	sw_uport->lcr = 0;
+	sw_uport->mcr = 0;
+	sw_uport->fcr = 0;
+	sw_uport->dll = 0;
+	sw_uport->dlh = 0;
+	snprintf(sw_uport->name, 16, SUNXI_UART_DEV_NAME"%d", pdev->id);
+	pdev->dev.init_name = sw_uport->name;
+	pdev->dev.platform_data = sw_uport->pdata;
+
+	/* request system resource and init them */
+	ret = sw_uart_request_resource(sw_uport, pdev->dev.platform_data);
+	if (unlikely(ret)) {
+		SERIAL_MSG("uart%d error to get resource\n", pdev->id);
+		return -ENXIO;
+	}
+
+	sw_uport->mclk = of_clk_get(np, 0);
+	if (IS_ERR(sw_uport->mclk)) {
+		SERIAL_MSG("uart%d error to get clk\n", pdev->id);
+		return -EINVAL;
+	}
+	port->uartclk = clk_get_rate(sw_uport->mclk);
+
+	ret = of_address_to_resource(np, 0, &res);
+	if (ret || !res.start) {
+		SERIAL_MSG("uart%d error to get reg property\n", pdev->id);
+		return -EINVAL;
+	}
+	port->mapbase = res.start;
+
+	port->irq = irq_of_parse_and_map(np, 0);
+	if (port->irq == 0) {
+		SERIAL_MSG("uart%d error to get reg property\n", pdev->id);
+		return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "port-number", &port->line);
+	if (ret) {
+		SERIAL_MSG("uart%d error to get reg property\n", pdev->id);
+		return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "io-number", &pdata->io_num);
+	if (ret) {
+		SERIAL_MSG("uart%d error to get reg property\n", pdev->id);
+		return -EINVAL;
+	}
+
+	pdata->used = 1;
+	port->iotype = UPIO_MEM;
+	port->type = PORT_SUNXI;
+	port->flags = UPF_BOOT_AUTOCONF;
+	port->ops = &sw_uart_ops;
+	port->fifosize = 64;
+	platform_set_drvdata(pdev, port);
+
+	sunxi_uart_sysfs(pdev);
+
+	SERIAL_DBG("add uart%d port, port_type %d, uartclk %d\n",
+			pdev->id, port->type, port->uartclk);
+	return uart_add_one_port(&sw_uart_driver, port);
+#endif
 }
+
 
 static int sw_uart_remove(struct platform_device *pdev)
 {
@@ -1417,7 +1487,6 @@ static int sw_uart_remove(struct platform_device *pdev)
 
 static int sw_uart_suspend(struct device *dev)
 {
-#if 0
 	struct uart_port *port = dev_get_drvdata(dev);
 	struct sw_uart_port *sw_uport = UART_TO_SPORT(port);
 
@@ -1430,13 +1499,12 @@ static int sw_uart_suspend(struct device *dev)
 			sw_uart_regulator_disable(dev->platform_data);
 		}
 	}
-#endif
+
 	return 0;
 }
 
 static int sw_uart_resume(struct device *dev)
 {
-#if 0
 #ifdef CONFIG_EVB_PLATFORM
 	unsigned long flags = 0;
 #endif
@@ -1467,7 +1535,7 @@ static int sw_uart_resume(struct device *dev)
 		uart_resume_port(&sw_uart_driver, port);
 		SERIAL_MSG("uart%d resume. DLH: %d, DLL: %d. \n", port->line, sw_uport->dlh, sw_uport->dll);
 	}
-#endif
+
 	return 0;
 }
 
@@ -1482,6 +1550,13 @@ static const struct dev_pm_ops sw_uart_pm_ops = {
 #define SERIAL_SW_PM_OPS	NULL
 #endif /* CONFIG_PM_SLEEP */
 
+static const struct of_device_id sunxi_uart_match[] = {
+	{ .compatible = "allwinner,sun50i-uart", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, sunxi_uart_match);
+
+
 static struct platform_driver sw_uport_platform_driver = {
 	.probe  = sw_uart_probe,
 	.remove = sw_uart_remove,
@@ -1489,9 +1564,11 @@ static struct platform_driver sw_uport_platform_driver = {
 		.name  = SUNXI_UART_DEV_NAME,
 		.pm    = SERIAL_SW_PM_OPS,
 		.owner = THIS_MODULE,
+		.of_match_table = sunxi_uart_match,
 	},
 };
 
+#ifndef CONFIG_OF
 static int sw_uart_get_devinfo(void)
 {
 	u32 i;
@@ -1499,8 +1576,6 @@ static int sw_uart_get_devinfo(void)
 	struct sw_uart_pdata *pdata = NULL;
 	script_item_u val = {0};
 	script_item_value_type_e type = 0;
-
-	printk("[superm]:compile time:%s\n", __TIME__);
 
 	for (i=0; i<SUNXI_UART_NUM; i++) {
 		pdata = &sw_uport_pdata[i];
@@ -1565,10 +1640,12 @@ static int sw_uart_get_devinfo(void)
 
 	return 0;
 }
+#endif
 
 static int __init sunxi_uart_init(void)
 {
 	int ret;
+#ifndef CONFIG_OF
 	u32 i;
 	struct sw_uart_pdata *pdata;
 
@@ -1576,6 +1653,7 @@ static int __init sunxi_uart_init(void)
 	ret = sw_uart_get_devinfo();
 	if (unlikely(ret))
 		return ret;
+#endif
 
 	ret = uart_register_driver(&sw_uart_driver);
 	if (unlikely(ret)) {
@@ -1583,6 +1661,7 @@ static int __init sunxi_uart_init(void)
 		return ret;
 	}
 
+#ifndef CONFIG_OF 
 	for (i=0; i<SUNXI_UART_NUM; i++) {
 		pdata = &sw_uport_pdata[i];
 		if (!pdata->used)
@@ -1590,6 +1669,7 @@ static int __init sunxi_uart_init(void)
 		platform_device_register(&sw_uport_device[i]);
 		sunxi_uart_sysfs(&sw_uport_device[i]);
 	}
+#endif
 
 	return platform_driver_register(&sw_uport_platform_driver);
 }
