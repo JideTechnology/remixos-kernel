@@ -84,6 +84,14 @@
 			//&dma0 2>;
 		//dma-names = "rx", "tx";
 	//};
+	dma0:dma-controller@01c02000 {
+		compatible = "allwinner,sun50i-dma";
+		reg = <0x0 0x01c02000 0x0 0x1000>;
+		interrupts = <0 50 4>;
+		clocks = <&dma>;
+		//resets = <&ahb1_rst 6>;
+		#dma-cells = <1>;
+	};
 	pinctrl@01c20800 {
 		compatible = "allwinner,sun50i-pinctrl";
 		reg = <0x0 0x01c20800 0x0 0x400>,

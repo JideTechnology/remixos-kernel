@@ -352,6 +352,24 @@ config ASYNC_TX_DMA
 
 	  If unsure, say N.
 
+config SUNXI_DMA
+	tristate "Sunxi SOC DMA support"
+	depends on ARCH_SUNXI
+	select DMA_ENGINE
+	select DMA_VIRTUAL_CHANNELS
+	help
+	  Support the DMA engine found on Sunxi family SOCs.
+	  This DMA engine can only be used with on-chip devices.
+
+config SUNXI_RDMA
+	tristate "Sunxi SOC R_DMA support"
+	depends on ARCH_SUN9I
+	select DMA_ENGINE
+	select DMA_VIRTUAL_CHANNELS
+	help
+	  Support the DMA engine found on Sunxi family SOCs.
+	  This DMA engine can only be used with on-chip devices.
+
 config DMATEST
 	tristate "DMA Test client"
 	depends on DMA_ENGINE

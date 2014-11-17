@@ -151,7 +151,8 @@ config ARCH_SUN50I
 	bool "ARMv8 based Allwinner SUN50I"
 	select ARCH_SUNXI
 	select PINCTRL
-        #select ARCH_HAVE_CUSTOM_GPIO_H
+        select CONFIG_MICROBLAZE
+	#select ARCH_HAVE_CUSTOM_GPIO_H
 	help
 	  Thereis enables support for Allwinner SUNXI SoC family
 
