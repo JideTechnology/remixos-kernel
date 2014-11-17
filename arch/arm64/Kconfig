@@ -142,11 +142,18 @@ config ARCH_XGENE
 	help
 	  This enables support for AppliedMicro X-Gene SOC Family
 
-config ARCH_SUN50I
-	bool "Allwinner SOC sun50i"
+config ARCH_SUNXI
+	bool "Allwinner SOC Family"
 	help
-	  This enables support for Allwinner SOC sun50i
+	  This enables support for Allwinner SUNXI SoC family
 
+config ARCH_SUN50I
+	bool "ARMv8 based Allwinner SUN50I"
+	select ARCH_SUNXI
+	select PINCTRL
+        #select ARCH_HAVE_CUSTOM_GPIO_H
+	help
+	  Thereis enables support for Allwinner SUNXI SoC family
 
 endmenu
 
