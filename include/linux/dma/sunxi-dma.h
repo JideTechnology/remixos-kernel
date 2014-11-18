@@ -173,6 +173,7 @@
 #if defined(CONFIG_ARCH_SUN50I)
 #define DRQDST_CODEC		DRQDST_AUDIO_CODEC
 #endif
+#endif
 
 #if !defined(CONFIG_ARCH_SUN8IW3) \
 	&& !defined(CONFIG_ARCH_SUN8IW6)
