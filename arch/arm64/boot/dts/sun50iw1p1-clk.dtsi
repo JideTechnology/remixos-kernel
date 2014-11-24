@@ -283,7 +283,7 @@ clocks {
 		tcon0: tcon0_clk {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
-			clock-output-names = "usbohci0";
+			clock-output-names = "tcon0";
 		};
 		tcon1: tcon1_clk {
 			#clock-cells = <0>;
