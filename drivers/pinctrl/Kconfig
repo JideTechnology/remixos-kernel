@@ -164,11 +164,6 @@ config PINCTRL_SIRF
 	depends on ARCH_SIRF
 	select PINMUX
 
-config PINCTRL_SUNXI
-	bool
-	select PINMUX
-	select GENERIC_PINCONF
-
 config PINCTRL_TEGRA
 	bool
 	select PINMUX
@@ -224,6 +219,7 @@ config PINCTRL_S3C64XX
 source "drivers/pinctrl/mvebu/Kconfig"
 source "drivers/pinctrl/sh-pfc/Kconfig"
 source "drivers/pinctrl/spear/Kconfig"
+source "drivers/pinctrl/sunxi/Kconfig"
 source "drivers/pinctrl/vt8500/Kconfig"
 
 config PINCTRL_XWAY
