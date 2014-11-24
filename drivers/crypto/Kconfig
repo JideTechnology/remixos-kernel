@@ -386,4 +386,6 @@ config CRYPTO_DEV_ATMEL_SHA
 	  To compile this driver as a module, choose M here: the module
 	  will be called atmel-sha.
 
+source drivers/crypto/sunxi/Kconfig
+
 endif # CRYPTO_HW
