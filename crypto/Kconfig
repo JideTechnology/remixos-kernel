@@ -1399,6 +1399,14 @@ config CRYPTO_USER_API_SKCIPHER
 	  This option enables the user-spaces interface for symmetric
 	  key cipher algorithms.
 
+config CRYPTO_USER_API_RNG
+	tristate "User-space interface for rng algorithms"
+	depends on NET
+	select CRYPTO_RNG
+	select CRYPTO_USER_API
+	help
+	  This option enables the user-spaces interface for P/TRNG algorithms.
+
 source "drivers/crypto/Kconfig"
 source crypto/asymmetric_keys/Kconfig
 
