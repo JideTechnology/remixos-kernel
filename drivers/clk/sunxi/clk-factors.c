@@ -446,8 +446,6 @@ int sunxi_clk_get_common_factors_search(struct sunxi_clk_factors_config* f_confi
 void of_sunxi_clocks_init(struct device_node *node)
 {
 	sunxi_clk_base = of_iomap(node ,0);
-	pr_err("%s %0x\n" , __func__ , sunxi_clk_base);
- 	
 }
 EXPORT_SYMBOL_GPL(of_sunxi_clocks_init);
 CLK_OF_DECLARE(sunxi_clocks_init, "allwinner,sunxi-clk-init", of_sunxi_clocks_init);
