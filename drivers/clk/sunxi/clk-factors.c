@@ -446,7 +446,7 @@ int sunxi_clk_get_common_factors_search(struct sunxi_clk_factors_config* f_confi
 void of_sunxi_clocks_init(struct device_node *node)
 {
 	sunxi_clk_base = of_iomap(node ,0);
-	pr_debug("%s %0x\n" , __func__ , sunxi_clk_base);
+	pr_err("%s %0x\n" , __func__ , sunxi_clk_base);
  	
 }
 EXPORT_SYMBOL_GPL(of_sunxi_clocks_init);
@@ -460,14 +460,11 @@ void of_pll_clk_setup(struct device_node *node)
 	const char *clk_name = node->name;
 	struct sunxi_register_factors_config config;
 	
-	
 	of_property_read_string(node, "clock-output-names", &clk_name);
-
-	pr_debug("%s clk_name:%s\n" , __func__ , clk_name );
 	//get init config from clk-sunXXiwYY.c 
 	if( get_sunxi_register_factors_config(clk_name , &config) < 0 )
 	{
-		pr_debug("clk %s not found in %s\n",clk_name , __func__ );
+		pr_err("clk %s not found in %s\n",clk_name , __func__ );
 	}
 	//register clk
     clk = sunxi_clk_register_factors(config.dev,  config.base , config.lock , config.init_data );
@@ -476,7 +473,6 @@ void of_pll_clk_setup(struct device_node *node)
 	{
 		clk_register_clkdev(clk, config.init_data->name, NULL);
 		of_clk_add_provider(node, of_clk_src_simple_get, clk);
-		pr_debug("%s clk_name:%d \n" , __func__ , __LINE__ );
 	}
 }
 

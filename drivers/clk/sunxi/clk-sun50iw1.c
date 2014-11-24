@@ -775,7 +775,6 @@ int get_sunxi_register_periph_config(const char* clk_name , struct sunxi_registe
 			return 0;
 		}
     }
-	
 	return -1;
 }
 
@@ -792,19 +791,20 @@ int get_sunxi_register_factors_config(const char* clk_name , struct sunxi_regist
 			config->base = sunxi_clk_base;
 			config->lock = &clk_lock;
 			config->init_data = factor;
+
+			if( 0 == strcmp(clk_name , "pll_mipi") )
+			{
+				sunxi_clk_get_factors_ops(&pll_mipi_ops);
+				pll_mipi_ops.get_parent = get_parent_pll_mipi;
+				pll_mipi_ops.set_parent = set_parent_pll_mipi;
+				pll_mipi_ops.enable = clk_enable_pll_mipi;
+				pll_mipi_ops.disable = clk_disable_pll_mipi;
+			}
 			return 0;
 		}
 
-		if( 0 == strcmp(clk_name , "pll_mipi") )
-		{
-			sunxi_clk_get_factors_ops(&pll_mipi_ops);
-			pll_mipi_ops.get_parent = get_parent_pll_mipi;
-			pll_mipi_ops.set_parent = set_parent_pll_mipi;
-			pll_mipi_ops.enable = clk_enable_pll_mipi;
-			pll_mipi_ops.disable = clk_disable_pll_mipi;
-		}
-    }
 	
+    }
 	return -1;
 }
 #endif

@@ -737,11 +737,10 @@ void of_periph_clk_setup(struct device_node *node)
 	
 	of_property_read_string(node, "clock-output-names", &clk_name);
 
-	pr_debug("%s clk_name:%s line:%d\n" , __func__ , clk_name , __LINE__);
 	//get init config from clk-sunXXiwYY.c 
 	if( get_sunxi_register_periph_config(clk_name , &config) < 0 )
 	{
-		pr_debug("clk %s not found in %s\n",clk_name , __func__ );
+		pr_err("clk %s not found in %s\n",clk_name , __func__ );
 	}
 	
 	//register clk
@@ -753,7 +752,6 @@ void of_periph_clk_setup(struct device_node *node)
 	{
 		clk_register_clkdev(clk, config.name, NULL);
 		of_clk_add_provider(node, of_clk_src_simple_get, clk);
-		pr_debug("%s clk_register_clkdev clk_name:%s line:%d\n" , __func__ , clk_name , __LINE__);
 	}
 }
 EXPORT_SYMBOL_GPL(of_periph_clk_setup);
