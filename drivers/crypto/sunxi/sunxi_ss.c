@@ -708,6 +708,8 @@ static void sunxi_ss_sysfs_remove(struct platform_device *_pdev)
 	device_remove_file(&_pdev->dev, &sunxi_ss_status_attr);
 }
 
+static u64 sunxi_ss_dma_mask = DMA_BIT_MASK(32);
+
 static int sunxi_ss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -718,6 +720,11 @@ static int sunxi_ss_probe(struct platform_device *pdev)
 		SS_ERR("Unable to allocate sunxi_ss_t\n");
 		return -ENOMEM;
 	}
+
+#ifdef CONFIG_OF
+	pdev->dev.dma_mask = &sunxi_ss_dma_mask;
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+#endif
 
 	snprintf(sss->dev_name, sizeof(sss->dev_name), SUNXI_SS_DEV_NAME);
 	platform_set_drvdata(pdev, sss);

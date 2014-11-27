@@ -242,7 +242,7 @@ static int ss_aes_start(ss_aes_ctx_t *ctx, ss_aes_req_ctx_t *req_ctx, int len)
 	SS_DBG("ctx->iv addr, vir = 0x%p, phy = 0x%llx\n", ctx->iv, virt_to_phys(ctx->iv));
 
 	ss_iv_set(ctx->iv, ctx->iv_size, task);
-//	dma_map_single(&ss_dev->pdev->dev, ctx->iv, ctx->iv_size, DMA_MEM_TO_DEV);
+	dma_map_single(&ss_dev->pdev->dev, ctx->iv, ctx->iv_size, DMA_MEM_TO_DEV);
 
 	SS_DBG("ctx->next_iv addr, vir = 0x%p, phy = 0x%llx\n", ctx->next_iv, virt_to_phys(ctx->next_iv));
 
