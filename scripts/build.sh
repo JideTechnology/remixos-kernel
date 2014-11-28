@@ -258,6 +258,13 @@ build_ramfs()
 		echo "arisc" > output/arisc
 	fi
 	cp output/arisc    ${LICHEE_PLAT_OUT}
+
+	if [ ! -f arch/${ARCH}/boot/dts/${LICHEE_CHIP}.dtb ]; then
+		echo "sunxi.dtb" > output/sunxi.dtb
+	else
+		cp arch/${ARCH}/boot/dts/${LICHEE_CHIP}.dtb output/sunxi.dtb
+	fi
+	cp output/sunxi.dtb    ${LICHEE_PLAT_OUT}
 }
 
 gen_output()
