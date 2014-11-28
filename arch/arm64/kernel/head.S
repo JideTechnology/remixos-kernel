@@ -225,7 +225,8 @@ section_table:
 
 ENTRY(stext)
 	mov	x21, x0				// x21=FDT
-	bl	el2_setup			// Drop to EL1, w20=cpu_boot_mode
+	bl  el3_to_el1				// switch to el1 from el3
+	//bl	el2_setup			// Drop to EL1, w20=cpu_boot_mode
 	bl	__calc_phys_offset		// x24=PHYS_OFFSET, x28=PHYS_OFFSET-PAGE_OFFSET
 	bl	set_cpu_boot_mode_flag
 	mrs	x22, midr_el1			// x22=cpuid
@@ -249,6 +250,24 @@ ENTRY(stext)
 	add	x12, x12, x28			// __virt_to_phys
 	br	x12				// initialise processor
 ENDPROC(stext)
+
+ENTRY(el3_to_el1)
+	mov	w0, #0				// Initial value of register is unknown
+	orr	w0, w0, #(1 << 11)		// Set ST bit (Secure EL1 can access CNTPS_TVAL_EL1, CNTPS_CTL_EL1 & CNTPS_CVAL_EL1)
+	orr	w0, w0, #(1 << 10)		// Set RW bit (EL1 is AArch64, as this is the Secure world)
+	orr	w0, w0, #(1 << 3)		// Set EA bit (SError routed to EL3)
+	msr	scr_el3, x0
+
+	mov	x0, #(1 << 31)
+	msr	hcr_el2, x0
+
+	adr	x0, el2_setup
+	msr	elr_el3, x0
+	mov	x0, #(PSR_F_BIT | PSR_I_BIT | PSR_A_BIT |\
+		      PSR_MODE_EL1h)
+	msr spsr_el3, x0
+	eret
+ENDPROC(el3_to_el1)
 
 /*
  * If we're fortunate enough to boot at EL2, ensure that the world is
