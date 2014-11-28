@@ -218,5 +218,16 @@
 			pinctrl-0 = <&vdevice_pins_a>;
 			status = "okay";
 		};
+		cryptoengine: ce@1c15000 {
+			compatible = "allwinner,sunxi-ce";
+			reg = <0x0 0x01c15000 0x0 0x80>, /* non-secure space */
+				  <0x0 0x01c15800 0x0 0x80>; /* secure space */
+			interrupts = <GIC_SPI 94 0xff01>, /* non-secure space */
+						 <GIC_SPI 80 0xff01>; /* secure space */
+			clock-frequency = <300000000>, /* 300MHz */
+							  <200000000>; /* 200MHz for RSA */
+			clocks = <&clk_ce>,
+					 <&clk_pll_periph0>;
+		};
 	};
 };
