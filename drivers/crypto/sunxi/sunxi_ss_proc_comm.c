@@ -43,8 +43,8 @@ int ss_sg_cnt(struct scatterlist *sg, int total)
 		cnt++;
 		prev = cur;
 		SS_DBG("cnt: %d, cur: %p, len: %d, is_last: %ld\n", cnt, cur,
-				sg_dma_len(cur), sg_is_last(cur));
-		nbyte += sg_dma_len(cur);
+				cur->length, sg_is_last(cur));
+		nbyte += cur->length;
 		if (nbyte >= total)
 			break;
 

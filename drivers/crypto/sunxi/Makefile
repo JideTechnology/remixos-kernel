@@ -14,4 +14,4 @@ ss-y += sunxi_ss_proc_comm.o $(SUNXI_SS_VER)/sunxi_ss_reg.o $(SUNXI_SS_VER)/sunx
 
 EXTRA_CFLAGS += -Idrivers/crypto/sunxi/$(SUNXI_SS_VER)
 
-ccflags-y += -DDEBUG
+#ccflags-y += -DDEBUG

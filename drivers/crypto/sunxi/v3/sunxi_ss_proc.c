@@ -34,9 +34,8 @@ static int ss_sg_len(struct scatterlist *sg, int total)
 	struct scatterlist *cur = sg;
 
 	while (cur != NULL) {
-		SS_DBG("cur: %p, len: %d, is_last: %ld\n", cur,
-				sg_dma_len(cur), sg_is_last(cur));
-		nbyte += sg_dma_len(cur);
+		SS_DBG("cur: %p, len: %d, is_last: %ld\n", cur,	cur->length, sg_is_last(cur));
+		nbyte += cur->length;
 
 		cur = sg_next(cur);
 	}
@@ -235,19 +234,20 @@ static int ss_aes_start(ss_aes_ctx_t *ctx, ss_aes_req_ctx_t *req_ctx, int len)
 			req_ctx->type, req_ctx->mode, len);
 
 	SS_DBG("ctx->key addr, vir = 0x%p, phy = 0x%llx\n", ctx->key, virt_to_phys(ctx->key));
+	SS_DBG("Task addr, vir = 0x%p, phy = 0x%llx\n", task, virt_to_phys(task));
 
 	ss_key_set(ctx->key, ctx->key_size, task);
 	dma_map_single(&ss_dev->pdev->dev, ctx->key, ctx->key_size, DMA_MEM_TO_DEV);
 
-	SS_DBG("ctx->iv addr, vir = 0x%p, phy = 0x%llx\n", ctx->iv, virt_to_phys(ctx->iv));
+	if (ctx->iv_size > 0) {
+		SS_DBG("ctx->iv addr, vir = 0x%p, phy = 0x%llx\n", ctx->iv, virt_to_phys(ctx->iv));
+		ss_iv_set(ctx->iv, ctx->iv_size, task);
+		dma_map_single(&ss_dev->pdev->dev, ctx->iv, ctx->iv_size, DMA_MEM_TO_DEV);
 
-	ss_iv_set(ctx->iv, ctx->iv_size, task);
-	dma_map_single(&ss_dev->pdev->dev, ctx->iv, ctx->iv_size, DMA_MEM_TO_DEV);
-
-	SS_DBG("ctx->next_iv addr, vir = 0x%p, phy = 0x%llx\n", ctx->next_iv, virt_to_phys(ctx->next_iv));
-
-	ss_cnt_set(ctx->next_iv, ctx->iv_size, task);
-	dma_map_single(&ss_dev->pdev->dev, ctx->next_iv, ctx->iv_size, DMA_DEV_TO_MEM);
+		SS_DBG("ctx->next_iv addr, vir = 0x%p, phy = 0x%llx\n", ctx->next_iv, virt_to_phys(ctx->next_iv));
+		ss_cnt_set(ctx->next_iv, ctx->iv_size, task);
+		dma_map_single(&ss_dev->pdev->dev, ctx->next_iv, ctx->iv_size, DMA_DEV_TO_MEM);
+	}
 	
 	align_size = ss_aes_align_size(req_ctx->type, req_ctx->mode);
 
@@ -301,8 +301,10 @@ static int ss_aes_start(ss_aes_ctx_t *ctx, ss_aes_req_ctx_t *req_ctx, int len)
 	ss_aes_unmap_padding(task->src, &req_ctx->dma_src, req_ctx->mode, DMA_MEM_TO_DEV);
 	dma_unmap_sg(&ss_dev->pdev->dev, req_ctx->dma_src.sg, req_ctx->dma_src.nents, DMA_MEM_TO_DEV);
 
-	dma_unmap_single(&ss_dev->pdev->dev, virt_to_phys(ctx->iv), ctx->iv_size, DMA_MEM_TO_DEV);
-	dma_unmap_single(&ss_dev->pdev->dev, virt_to_phys(ctx->next_iv), ctx->iv_size, DMA_DEV_TO_MEM);
+	if (ctx->iv_size > 0) {
+		dma_unmap_single(&ss_dev->pdev->dev, virt_to_phys(ctx->iv), ctx->iv_size, DMA_MEM_TO_DEV);
+		dma_unmap_single(&ss_dev->pdev->dev, virt_to_phys(ctx->next_iv), ctx->iv_size, DMA_DEV_TO_MEM);
+	}
 	/* Backup the next IV from ctr_descriptor, except CBC/CTS mode. */
 	if (CE_METHOD_IS_AES(req_ctx->type) && (req_ctx->mode != SS_AES_MODE_CBC)
 										&& (req_ctx->mode != SS_AES_MODE_CTS))
@@ -498,7 +500,7 @@ int ss_hash_start(ss_hash_ctx_t *ctx, ss_aes_req_ctx_t *req_ctx, int len)
 	}
 	ss_change_clk(req_ctx->type);
 
-	digest = (char *)kmalloc(SHA512_DIGEST_SIZE, GFP_KERNEL);
+	digest = (char *)kzalloc(SHA512_DIGEST_SIZE, GFP_KERNEL);
 	if (digest == NULL) {
 		SS_ERR("Failed to kmalloc(%d) \n", SHA512_DIGEST_SIZE);
 		return -ENOMEM;

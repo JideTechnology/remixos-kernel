@@ -134,8 +134,8 @@ typedef struct ce_task_desc {
 
 typedef struct {
 	u32 dir;
-	struct dma_chan *chan;
 	u32 nents;
+	struct dma_chan *chan;
 	struct scatterlist *sg;
 #ifdef SS_SCATTER_ENABLE
 	u32 has_padding;
