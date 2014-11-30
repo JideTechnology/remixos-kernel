@@ -160,6 +160,16 @@
 			io-number = <4>;
 			status = "disabled";
 		};
+		
+		soc_sdmmc0: sdmmc@01c0f000 {
+			compatible = "allwinner,sun50i-sdmmc0";
+			reg = <0x0 0x01c0f000 0x0 0x1000>; /* only sdmmc0 */
+			interrupts = <GIC_SPI 60 0x0104>;  /*  */
+			clocks = <&clk_hosc>,<&clk_pll_periph0>,<&clk_sdmmc0>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&sdmmc0_pins_a>;
+			status = "okay";
+		};
 
 		pinctrl@01c20800 {
 			compatible = "allwinner,sun50i-pinctrl";
@@ -182,7 +192,7 @@
 				allwinner,pull = <1>;
 			};
 			uart0_pins_a: uart0@0 {
-				allwinner,pins = "PF2", "PF4";
+				allwinner,pins = "PB8", "PB8";
 				allwinner,function = "uart0";
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
@@ -211,6 +221,14 @@
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
+					
+			sdmmc0_pins_a: sdmmc0@0 {
+				allwinner,pins = "PF0", "PF1", "PF2", "PF3","PF4","PF5";
+				allwinner,function = "sdc0";
+				allwinner,drive = <1>;
+				allwinner,pull = <1>;
+			};		
+						
 		};
 		vdevice@0{
 			compatible = "allwinner,sun50i-vdevice";
