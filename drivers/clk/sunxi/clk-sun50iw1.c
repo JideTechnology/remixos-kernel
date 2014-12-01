@@ -617,6 +617,7 @@ SUNXI_CLK_PERIPH(scr,     0,           0,        0,         0,          0,      
 SUNXI_CLK_PERIPH(twi0,    0,           0,        0,         0,          0,          0,          0,          0,          0,          0,          BUS_RST4,   BUS_GATE3,   0,            0,            0,           0,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(twi1,    0,           0,        0,         0,          0,          0,          0,          0,          0,          0,          BUS_RST4,   BUS_GATE3,   0,            0,            1,           1,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(twi2,    0,           0,        0,         0,          0,          0,          0,          0,          0,          0,          BUS_RST4,   BUS_GATE3,   0,            0,            2,           2,              0,               &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(twi3,    0,           0,        0,         0,          0,          0,          0,          0,          0,          0,          BUS_RST4,   BUS_GATE3,   0,            0,            3,           3,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(pio,     0,           0,        0,         0,          0,          0,          0,          0,          0,          0,          0,          BUS_GATE2,   0,            0,            0,           5,              0,               &clk_lock,NULL,             0);
 
 struct periph_init_data sunxi_periphs_init[] = {
@@ -680,6 +681,7 @@ struct periph_init_data sunxi_periphs_init[] = {
     {"twi0",     0,       				apb2mod_parents,  ARRAY_SIZE(apb2mod_parents),  &sunxi_clk_periph_twi0},
     {"twi1",     0,       				apb2mod_parents,  ARRAY_SIZE(apb2mod_parents),  &sunxi_clk_periph_twi1},
     {"twi2",     0,       				apb2mod_parents,  ARRAY_SIZE(apb2mod_parents),  &sunxi_clk_periph_twi2},
+    {"twi3",     0,       				apb2mod_parents,  ARRAY_SIZE(apb2mod_parents),  &sunxi_clk_periph_twi3},	
     {"pio",      0,       				apb1mod_parents,  ARRAY_SIZE(apb1mod_parents),  &sunxi_clk_periph_pio},    
 };
 

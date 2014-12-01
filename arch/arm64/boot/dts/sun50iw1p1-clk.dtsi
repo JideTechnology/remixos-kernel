@@ -445,6 +445,11 @@ clocks {
 			compatible = "allwinner,sunxi-periph-clock";
 			clock-output-names = "twi2";
 		};	
+		clk_twi3: twi3 {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-clock";
+			clock-output-names = "twi3";
+		};	
 		clk_pio: pio {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
