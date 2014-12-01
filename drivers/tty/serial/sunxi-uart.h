@@ -22,14 +22,9 @@
 
 struct sw_uart_pdata {
 	unsigned int used;
-#ifndef CONFIG_OF
-	unsigned int base;
-	unsigned int irq;
-	unsigned int max_ios;
-#endif
 	unsigned int io_num;
 	unsigned int port_no;
-	char			  regulator_id[16];
+	char regulator_id[16];
 	struct regulator *regulator;
 };
 
@@ -59,22 +54,22 @@ struct sw_uart_port {
 };
 
 /* register offset define */
-#define SW_UART_RBR (0x00)
-#define SW_UART_THR (0x00)
-#define SW_UART_DLL (0x00)
-#define SW_UART_DLH (0x04)
-#define SW_UART_IER (0x04)
-#define SW_UART_IIR (0x08)
-#define SW_UART_FCR (0x08)
-#define SW_UART_LCR (0x0c)
-#define SW_UART_MCR (0x10)
-#define SW_UART_LSR (0x14)
-#define SW_UART_MSR (0x18)
-#define SW_UART_SCH (0x1c)
-#define SW_UART_USR (0x7c)
-#define SW_UART_TFL (0x80)
-#define SW_UART_RFL (0x84)
-#define SW_UART_HALT (0xa4)
+#define SW_UART_RBR (0x00) 		/* receive buffer register */
+#define SW_UART_THR (0x00) 		/* transmit holding register */
+#define SW_UART_DLL (0x00) 		/* divisor latch low register */
+#define SW_UART_DLH (0x04) 		/* diviso latch high register */
+#define SW_UART_IER (0x04) 		/* interrupt enable register */
+#define SW_UART_IIR (0x08) 		/* interrupt identity register */
+#define SW_UART_FCR (0x08) 		/* FIFO control register */
+#define SW_UART_LCR (0x0c) 		/* line control register */
+#define SW_UART_MCR (0x10) 		/* modem control register */
+#define SW_UART_LSR (0x14) 		/* line status register */
+#define SW_UART_MSR (0x18) 		/* modem status register */
+#define SW_UART_SCH (0x1c) 		/* scratch register */
+#define SW_UART_USR (0x7c) 		/* status register */
+#define SW_UART_TFL (0x80) 		/* transmit FIFO level */
+#define SW_UART_RFL (0x84) 		/* RFL */
+#define SW_UART_HALT (0xa4) 		/* halt tx register */
 
 /* register bit field define */
 /* Interrupt Enable Register */
@@ -192,90 +187,6 @@ struct sw_uart_port {
 #endif
 
 #define SUNXI_UART_DEV_NAME			"uart"
-
-/* Memory mapping. */
-#define SUNXI_UART_MEM_BASE		SUNXI_UART0_PBASE
-#define SUNXI_UART_MEM_RANGE		0x400
-#define SUNXI_UART_MEM_START(ch)	(SUNXI_UART_MEM_BASE + ch * SUNXI_UART_MEM_RANGE)
-
-/* The IRQ number. */
-#define SUNXI_UART_IRQ(ch)	    (SUNXI_IRQ_UART0 + ch)
-
-/* Support to use r_uart on sun8iw5 */
-#ifdef CONFIG_ARCH_SUN8IW5P1
-#define SUNXI_S_UART
-#undef	SUNXI_UART_NUM
-#define SUNXI_UART_NUM			5
-#endif
-
-#ifdef SUNXI_S_UART
-#define SUNXI_S_UART_DEV_NAME		"s_uart"
-#define SUNXI_S_UART_MEM_BASE		SUNXI_R_UART_PBASE
-#define SUNXI_S_UART_MEM_RANGE		0x400
-#define SUNXI_S_UART_MEM_START		(SUNXI_S_UART_MEM_BASE)
-#define SUNXI_S_UART_MEM_END		(SUNXI_S_UART_MEM_START + SUNXI_S_UART_MEM_RANGE - 1)
-#define SUNXI_S_UART_IRQ	    	SUNXI_IRQ_RUART
-#endif
-
-/*
- * uart reg off
- */
-#define SUNXI_UART_RBR                   0x00 /* receive buffer register */
-#define SUNXI_UART_THR                   0x00 /* transmit holding register */
-#define SUNXI_UART_DLL                   0x00 /* divisor latch low register */
-#define SUNXI_UART_DLH                   0x04 /* diviso latch high register */
-#define SUNXI_UART_IER                   0x04 /* interrupt enable register */
-#define SUNXI_UART_IIR                   0x08 /* interrupt identity register */
-#define SUNXI_UART_FCR                   0x08 /* FIFO control register */
-#define SUNXI_UART_LCR                   0x0c /* line control register */
-#define SUNXI_UART_MCR                   0x10 /* modem control register */
-#define SUNXI_UART_LSR                   0x14 /* line status register */
-#define SUNXI_UART_MSR                   0x18 /* modem status register */
-#define SUNXI_UART_SCH                   0x1c /* scratch register */
-#define SUNXI_UART_USR                   0x7c /* status register */
-#define SUNXI_UART_TFL                   0x80 /* transmit FIFO level */
-#define SUNXI_UART_RFL                   0x84 /* RFL */
-#define SUNXI_UART_HALT                  0xa4 /* halt tx register */
-
-#define UART_USR                         (SUNXI_UART_USR >> 2)
-#define UART_HALT                        (SUNXI_UART_HALT >> 2)
-#define UART_SCH                         (SUNXI_UART_SCH >> 2)
-#define UART_FORCE_CFG                   (1 << 1)
-#define UART_FORCE_UPDATE                (1 << 2)
-
-/* About the number of IO */
-
-#ifndef CONFIG_OF
-#ifdef CONFIG_EVB_PLATFORM
-
-#ifdef CONFIG_ARCH_SUN8IW1P1
-static int gs_uart_io_num[SUNXI_UART_NUM] = {2, 8, 4, 4, 2, 2};
-#elif defined(CONFIG_ARCH_SUN8IW5P1)
-#ifdef SUNXI_S_UART
-static int gs_uart_io_num[SUNXI_UART_NUM] = {2, 4, 4, 4, 2};
-#else
-static int gs_uart_io_num[SUNXI_UART_NUM] = {2, 4, 4, 4};
-#endif
-#elif defined(CONFIG_ARCH_SUN8IW6P1)
-static int gs_uart_io_num[SUNXI_UART_NUM] = {2, 4, 4, 4, 4};
-#elif defined(CONFIG_ARCH_SUN8IW3P1) || defined(CONFIG_ARCH_SUN8IW7P1)
-static int gs_uart_io_num[SUNXI_UART_NUM] = {2, 4, 4, 4};
-#elif defined(CONFIG_ARCH_SUN8IW8P1)
-static int gs_uart_io_num[SUNXI_UART_NUM] = {2, 4, 4};
-#elif defined(CONFIG_ARCH_SUN8IW9P1)
-static int gs_uart_io_num[SUNXI_UART_NUM] = {2, 4, 4, 4, 4};
-#elif defined(CONFIG_ARCH_SUN9IW1P1)
-static int gs_uart_io_num[SUNXI_UART_NUM] = {2, 8, 4, 4, 4, 4};
-#else
-static int gs_uart_io_num[SUNXI_UART_NUM] = {2};
-#endif
-
-#else /* #ifdef CONFIG_EVB_PLATFORM */
-
-static int gs_uart_io_num[SUNXI_UART_NUM] = {2};
-
-#endif
-#endif
 
 struct platform_device *sw_uart_get_pdev(int uart_id);
 
