@@ -46,6 +46,7 @@ static int ss_sg_len(struct scatterlist *sg, int total)
 static int ss_aes_align_size(int type, int mode)
 {
 	if ((type == SS_METHOD_ECC) || (type == SS_METHOD_HMAC_SHA1)
+		|| (type == SS_METHOD_HMAC_SHA256)
 		|| (CE_METHOD_IS_AES(type) && (mode == SS_AES_MODE_CTS)))
 		return 4;
 	else if ((type == SS_METHOD_DES) || (type == SS_METHOD_3DES))
@@ -220,7 +221,7 @@ static int ss_aes_start(ss_aes_ctx_t *ctx, ss_aes_req_ctx_t *req_ctx, int len)
 		ss_ecc_width_set(ctx->key_size, task);
 		ss_ecc_op_mode_set(req_ctx->mode, task);
 	}
-	else if (req_ctx->type == SS_METHOD_HMAC_SHA1)
+	else if ((req_ctx->type == SS_METHOD_HMAC_SHA1) || (req_ctx->type == SS_METHOD_HMAC_SHA256))
 		ss_hmac_sha1_last(task);
 	else
 		ss_aes_mode_set(req_ctx->mode, task);
@@ -254,6 +255,7 @@ static int ss_aes_start(ss_aes_ctx_t *ctx, ss_aes_req_ctx_t *req_ctx, int len)
 	/* Prepare the src scatterlist */
 	req_ctx->dma_src.nents = ss_sg_cnt(req_ctx->dma_src.sg, src_len);
 	if ((req_ctx->type == SS_METHOD_ECC) || (req_ctx->type == SS_METHOD_HMAC_SHA1)
+		|| (req_ctx->type == SS_METHOD_HMAC_SHA256)
 		|| ((req_ctx->type == SS_METHOD_RSA) && (req_ctx->mode == CE_RSA_OP_M_MUL)))
 		src_len = ss_sg_len(req_ctx->dma_src.sg, len);
 	dma_map_sg(&ss_dev->pdev->dev, req_ctx->dma_src.sg, req_ctx->dma_src.nents, DMA_MEM_TO_DEV);

@@ -215,6 +215,13 @@ static int ss_hmac_sha1_encrypt(struct ablkcipher_request *req)
 }
 #endif
 
+#ifdef SS_HMAC_SHA256_ENABLE
+static int ss_hmac_sha256_encrypt(struct ablkcipher_request *req)
+{
+	return ss_aes_crypt(req, SS_DIR_ENCRYPT, SS_METHOD_HMAC_SHA256, SS_AES_MODE_ECB);
+}
+#endif
+
 int ss_rng_reset(struct crypto_rng *tfm, u8 *seed, unsigned int slen)
 {
 	int len = slen > SS_PRNG_SEED_LEN ? SS_PRNG_SEED_LEN : slen;
@@ -465,7 +472,25 @@ static struct crypto_alg sunxi_ss_algs[] =
 			.max_keysize = SHA1_BLOCK_SIZE,
 			.ivsize	 	 = 0,
 		}
-	}
+	},
+#endif
+#ifdef SS_HMAC_SHA256_ENABLE
+	{
+		.cra_name		 = "hmac-sha256",
+		.cra_driver_name = "ss-hmac-sha256",
+		.cra_flags		 = CRYPTO_ALG_TYPE_ABLKCIPHER | CRYPTO_ALG_ASYNC,
+		.cra_type		 = &crypto_ablkcipher_type,
+		.cra_blocksize	 = 4,
+		.cra_alignmask	 = 3,
+		.cra_u.ablkcipher = {
+			.setkey 	 = ss_aes_setkey,
+			.encrypt	 = ss_hmac_sha256_encrypt,
+			.decrypt	 = NULL,
+			.min_keysize = SHA256_BLOCK_SIZE,
+			.max_keysize = SHA256_BLOCK_SIZE,
+			.ivsize	 	 = 0,
+		}
+	},
 #endif
 };
 
