@@ -141,8 +141,8 @@ static unsigned int sw_uart_handle_rx(struct sw_uart_port *sw_uport, unsigned in
 	char flag;
 
 	do {
-		if (likely(lsr & SW_UART_LSR_DR)) {
-			ch = serial_in(&sw_uport->port, SW_UART_RBR);
+		if (likely(lsr & SUNXI_UART_LSR_DR)) {
+			ch = serial_in(&sw_uport->port, SUNXI_UART_RBR);
 #ifdef CONFIG_SW_UART_DUMP_DATA
 			sw_uport->dump_buff[sw_uport->dump_len++] = ch;
 #endif
@@ -151,12 +151,12 @@ static unsigned int sw_uart_handle_rx(struct sw_uart_port *sw_uport, unsigned in
 		flag = TTY_NORMAL;
 		sw_uport->port.icount.rx++;
 
-		if (unlikely(lsr & SW_UART_LSR_BRK_ERROR_BITS)) {
+		if (unlikely(lsr & SUNXI_UART_LSR_BRK_ERROR_BITS)) {
 			/*
 			 * For statistics only
 			 */
-			if (lsr & SW_UART_LSR_BI) {
-				lsr &= ~(SW_UART_LSR_FE | SW_UART_LSR_PE);
+			if (lsr & SUNXI_UART_LSR_BI) {
+				lsr &= ~(SUNXI_UART_LSR_FE | SUNXI_UART_LSR_PE);
 				sw_uport->port.icount.brk++;
 				/*
 				 * We do the SysRQ and SAK checking
@@ -166,11 +166,11 @@ static unsigned int sw_uart_handle_rx(struct sw_uart_port *sw_uport, unsigned in
 				 */
 				if (uart_handle_break(&sw_uport->port))
 					goto ignore_char;
-			} else if (lsr & SW_UART_LSR_PE)
+			} else if (lsr & SUNXI_UART_LSR_PE)
 				sw_uport->port.icount.parity++;
-			else if (lsr & SW_UART_LSR_FE)
+			else if (lsr & SUNXI_UART_LSR_FE)
 				sw_uport->port.icount.frame++;
-			if (lsr & SW_UART_LSR_OE)
+			if (lsr & SUNXI_UART_LSR_OE)
 				sw_uport->port.icount.overrun++;
 
 			/*
@@ -183,19 +183,19 @@ static unsigned int sw_uart_handle_rx(struct sw_uart_port *sw_uport, unsigned in
 				lsr |= sw_uport->lsr_break_flag;
 			}
 #endif
-			if (lsr & SW_UART_LSR_BI)
+			if (lsr & SUNXI_UART_LSR_BI)
 				flag = TTY_BREAK;
-			else if (lsr & SW_UART_LSR_PE)
+			else if (lsr & SUNXI_UART_LSR_PE)
 				flag = TTY_PARITY;
-			else if (lsr & SW_UART_LSR_FE)
+			else if (lsr & SUNXI_UART_LSR_FE)
 				flag = TTY_FRAME;
 		}
 		if (uart_handle_sysrq_char(&sw_uport->port, ch))
 			goto ignore_char;
-		uart_insert_char(&sw_uport->port, lsr, SW_UART_LSR_OE, ch, flag);
+		uart_insert_char(&sw_uport->port, lsr, SUNXI_UART_LSR_OE, ch, flag);
 ignore_char:
-		lsr = serial_in(&sw_uport->port, SW_UART_LSR);
-	} while ((lsr & (SW_UART_LSR_DR | SW_UART_LSR_BI)) && (max_count-- > 0));
+		lsr = serial_in(&sw_uport->port, SUNXI_UART_LSR);
+	} while ((lsr & (SUNXI_UART_LSR_DR | SUNXI_UART_LSR_BI)) && (max_count-- > 0));
 
 	SERIAL_DUMP(sw_uport, "Rx");
 	spin_unlock(&sw_uport->port.lock);
@@ -209,10 +209,10 @@ static void sw_uart_stop_tx(struct uart_port *port)
 {
 	struct sw_uart_port *sw_uport = UART_TO_SPORT(port);
 
-	if (sw_uport->ier & SW_UART_IER_THRI) {
-		sw_uport->ier &= ~SW_UART_IER_THRI;
+	if (sw_uport->ier & SUNXI_UART_IER_THRI) {
+		sw_uport->ier &= ~SUNXI_UART_IER_THRI;
 		SERIAL_DBG("stop tx, ier %x\n", sw_uport->ier);
-		serial_out(port, sw_uport->ier, SW_UART_IER);
+		serial_out(port, sw_uport->ier, SUNXI_UART_IER);
 	}
 }
 
@@ -220,10 +220,10 @@ static void sw_uart_start_tx(struct uart_port *port)
 {
 	struct sw_uart_port *sw_uport = UART_TO_SPORT(port);
 
-	if (!(sw_uport->ier & SW_UART_IER_THRI)) {
-		sw_uport->ier |= SW_UART_IER_THRI;
+	if (!(sw_uport->ier & SUNXI_UART_IER_THRI)) {
+		sw_uport->ier |= SUNXI_UART_IER_THRI;
 		SERIAL_DBG("start tx, ier %x\n", sw_uport->ier);
-		serial_out(port, sw_uport->ier, SW_UART_IER);
+		serial_out(port, sw_uport->ier, SUNXI_UART_IER);
 	}
 }
 
@@ -233,7 +233,7 @@ static void sw_uart_handle_tx(struct sw_uart_port *sw_uport)
 	int count;
 
 	if (sw_uport->port.x_char) {
-		serial_out(&sw_uport->port, sw_uport->port.x_char, SW_UART_THR);
+		serial_out(&sw_uport->port, sw_uport->port.x_char, SUNXI_UART_THR);
 		sw_uport->port.icount.tx++;
 		sw_uport->port.x_char = 0;
 #ifdef CONFIG_SW_UART_DUMP_DATA
@@ -251,7 +251,7 @@ static void sw_uart_handle_tx(struct sw_uart_port *sw_uport)
 #ifdef CONFIG_SW_UART_DUMP_DATA
 		sw_uport->dump_buff[sw_uport->dump_len++] = xmit->buf[xmit->tail];
 #endif
-		serial_out(&sw_uport->port, xmit->buf[xmit->tail], SW_UART_THR);
+		serial_out(&sw_uport->port, xmit->buf[xmit->tail], SUNXI_UART_THR);
 		xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
 		sw_uport->port.icount.tx++;
 		if (uart_circ_empty(xmit)) {
@@ -271,21 +271,21 @@ static void sw_uart_handle_tx(struct sw_uart_port *sw_uport)
 
 static unsigned int sw_uart_modem_status(struct sw_uart_port *sw_uport)
 {
-	unsigned int status = serial_in(&sw_uport->port, SW_UART_MSR);
+	unsigned int status = serial_in(&sw_uport->port, SUNXI_UART_MSR);
 
 	status |= sw_uport->msr_saved_flags;
 	sw_uport->msr_saved_flags = 0;
 
-	if (status & SW_UART_MSR_ANY_DELTA && sw_uport->ier & SW_UART_IER_MSI &&
+	if (status & SUNXI_UART_MSR_ANY_DELTA && sw_uport->ier & SUNXI_UART_IER_MSI &&
 	    sw_uport->port.state != NULL) {
-		if (status & SW_UART_MSR_TERI)
+		if (status & SUNXI_UART_MSR_TERI)
 			sw_uport->port.icount.rng++;
-		if (status & SW_UART_MSR_DDSR)
+		if (status & SUNXI_UART_MSR_DDSR)
 			sw_uport->port.icount.dsr++;
-		if (status & SW_UART_MSR_DDCD)
-			uart_handle_dcd_change(&sw_uport->port, status & SW_UART_MSR_DCD);
-		if (!(sw_uport->mcr & SW_UART_MCR_AFE) && status & SW_UART_MSR_DCTS)
-			uart_handle_cts_change(&sw_uport->port, status & SW_UART_MSR_CTS);
+		if (status & SUNXI_UART_MSR_DDCD)
+			uart_handle_dcd_change(&sw_uport->port, status & SUNXI_UART_MSR_DCD);
+		if (!(sw_uport->mcr & SUNXI_UART_MCR_AFE) && status & SUNXI_UART_MSR_DCTS)
+			uart_handle_cts_change(&sw_uport->port, status & SUNXI_UART_MSR_CTS);
 
 		wake_up_interruptible(&sw_uport->port.state->port.delta_msr_wait);
 	}
@@ -299,17 +299,17 @@ static void sw_uart_force_lcr(struct sw_uart_port *sw_uport, unsigned msecs)
 	unsigned long expire = jiffies + msecs_to_jiffies(msecs);
 	struct uart_port *port = &sw_uport->port;
 
-	serial_out(port, SW_UART_HALT_FORCECFG, SW_UART_HALT);
-	serial_out(port, sw_uport->dll, SW_UART_DLL);
-	serial_out(port, sw_uport->dlh, SW_UART_DLH);
-	serial_out(port, sw_uport->lcr, SW_UART_LCR);
-	serial_out(port, SW_UART_HALT_FORCECFG|SW_UART_HALT_LCRUP, SW_UART_HALT);
-	while (time_before(jiffies, expire) && (serial_in(port, SW_UART_HALT) & SW_UART_HALT_LCRUP));
+	serial_out(port, SUNXI_UART_HALT_FORCECFG, SUNXI_UART_HALT);
+	serial_out(port, sw_uport->dll, SUNXI_UART_DLL);
+	serial_out(port, sw_uport->dlh, SUNXI_UART_DLH);
+	serial_out(port, sw_uport->lcr, SUNXI_UART_LCR);
+	serial_out(port, SUNXI_UART_HALT_FORCECFG|SUNXI_UART_HALT_LCRUP, SUNXI_UART_HALT);
+	while (time_before(jiffies, expire) && (serial_in(port, SUNXI_UART_HALT) & SUNXI_UART_HALT_LCRUP));
 	/* do not call printk here, yemao 2013-5-20 15:00:38
-	if (serial_in(port, SW_UART_HALT) & SW_UART_HALT_LCRUP)
+	if (serial_in(port, SUNXI_UART_HALT) & SUNXI_UART_HALT_LCRUP)
 		SERIAL_MSG("uart%d, Force LCR failed\n", sw_uport->id);
 	*/
-	serial_out(port, 0, SW_UART_HALT);
+	serial_out(port, 0, SUNXI_UART_HALT);
 }
 
 static irqreturn_t sw_uart_irq(int irq, void *dev_id)
@@ -321,28 +321,28 @@ static irqreturn_t sw_uart_irq(int irq, void *dev_id)
 
 	spin_lock_irqsave(&port->lock, flags);
 
-	iir = serial_in(port, SW_UART_IIR) & SW_UART_IIR_IID_MASK;
-	lsr = serial_in(port, SW_UART_LSR);
+	iir = serial_in(port, SUNXI_UART_IIR) & SUNXI_UART_IIR_IID_MASK;
+	lsr = serial_in(port, SUNXI_UART_LSR);
 	SERIAL_DBG("irq: iir %x lsr %x\n", iir, lsr);
 
-	if (iir == SW_UART_IIR_IID_BUSBSY) {
+	if (iir == SUNXI_UART_IIR_IID_BUSBSY) {
 		/* handle busy */
 		//SERIAL_MSG("uart%d busy...\n", sw_uport->id);
-		serial_in(port, SW_UART_USR);
+		serial_in(port, SUNXI_UART_USR);
 
 		#ifdef CONFIG_SW_UART_FORCE_LCR
 		sw_uart_force_lcr(sw_uport, 10);
 		#else
-		serial_out(port, sw_uport->lcr, SW_UART_LCR);
+		serial_out(port, sw_uport->lcr, SUNXI_UART_LCR);
 		#endif
 	} else {
-		if (lsr & (SW_UART_LSR_DR | SW_UART_LSR_BI))
+		if (lsr & (SUNXI_UART_LSR_DR | SUNXI_UART_LSR_BI))
 			lsr = sw_uart_handle_rx(sw_uport, lsr);
 		sw_uart_modem_status(sw_uport);
 		#ifdef CONFIG_SW_UART_PTIME_MODE
-		if (iir == SW_UART_IIR_IID_THREMP)
+		if (iir == SUNXI_UART_IIR_IID_THREMP)
 		#else
-		if (lsr & SW_UART_LSR_THRE)
+		if (lsr & SUNXI_UART_LSR_THRE)
 		#endif
 			sw_uart_handle_tx(sw_uport);
 	}
@@ -431,23 +431,23 @@ static inline int sw_uart_check_baudset(struct uart_port *port, unsigned int bau
 	return 0;
 }
 
-#define BOTH_EMPTY    (SW_UART_LSR_TEMT | SW_UART_LSR_THRE)
+#define BOTH_EMPTY    (SUNXI_UART_LSR_TEMT | SUNXI_UART_LSR_THRE)
 static inline void wait_for_xmitr(struct sw_uart_port *sw_uport)
 {
 	unsigned int status, tmout = 10000;
 	#ifdef CONFIG_SW_UART_PTIME_MODE
-	unsigned int offs = SW_UART_USR;
-	unsigned char mask = SW_UART_USR_TFNF;
+	unsigned int offs = SUNXI_UART_USR;
+	unsigned char mask = SUNXI_UART_USR_TFNF;
 	#else
-	unsigned int offs = SW_UART_LSR;
+	unsigned int offs = SUNXI_UART_LSR;
 	unsigned char mask = BOTH_EMPTY;
 	#endif
 
 	/* Wait up to 10ms for the character(s) to be sent. */
 	do {
 		status = serial_in(&sw_uport->port, offs);
-		if (serial_in(&sw_uport->port, SW_UART_LSR) & SW_UART_LSR_BI)
-			sw_uport->lsr_break_flag = SW_UART_LSR_BI;
+		if (serial_in(&sw_uport->port, SUNXI_UART_LSR) & SUNXI_UART_LSR_BI)
+			sw_uport->lsr_break_flag = SUNXI_UART_LSR_BI;
 		if (--tmout == 0)
 			break;
 		udelay(1);
@@ -461,10 +461,10 @@ static inline void wait_for_xmitr(struct sw_uart_port *sw_uport)
 	if (sw_uport->port.flags & UPF_CONS_FLOW) {
 		tmout = 500000;
 		for (tmout = 1000000; tmout; tmout--) {
-			unsigned int msr = serial_in(&sw_uport->port, SW_UART_MSR);
+			unsigned int msr = serial_in(&sw_uport->port, SUNXI_UART_MSR);
 
 			sw_uport->msr_saved_flags |= msr & MSR_SAVE_FLAGS;
-			if (msr & SW_UART_MSR_CTS)
+			if (msr & SUNXI_UART_MSR_CTS)
 				break;
 
 			udelay(1);
@@ -479,7 +479,7 @@ static unsigned int sw_uart_tx_empty(struct uart_port *port)
 	unsigned int ret = 0;
 
 	spin_lock_irqsave(&sw_uport->port.lock, flags);
-	ret = (serial_in(port, SW_UART_USR) & SW_UART_USR_TFE) ? TIOCSER_TEMT : 0;
+	ret = (serial_in(port, SUNXI_UART_USR) & SUNXI_UART_USR_TFE) ? TIOCSER_TEMT : 0;
 	spin_unlock_irqrestore(&sw_uport->port.lock, flags);
 	return ret;
 }
@@ -490,15 +490,15 @@ static void sw_uart_set_mctrl(struct uart_port *port, unsigned int mctrl)
 	unsigned int mcr = 0;
 
 	if (mctrl & TIOCM_RTS)
-		mcr |= SW_UART_MCR_RTS;
+		mcr |= SUNXI_UART_MCR_RTS;
 	if (mctrl & TIOCM_DTR)
-		mcr |= SW_UART_MCR_DTR;
+		mcr |= SUNXI_UART_MCR_DTR;
 	if (mctrl & TIOCM_LOOP)
-		mcr |= SW_UART_MCR_LOOP;
-	sw_uport->mcr &= ~(SW_UART_MCR_RTS|SW_UART_MCR_DTR|SW_UART_MCR_LOOP);
+		mcr |= SUNXI_UART_MCR_LOOP;
+	sw_uport->mcr &= ~(SUNXI_UART_MCR_RTS|SUNXI_UART_MCR_DTR|SUNXI_UART_MCR_LOOP);
 	sw_uport->mcr |= mcr;
 	SERIAL_DBG("set mcr %x\n", mcr);
-	serial_out(port, sw_uport->mcr, SW_UART_MCR);
+	serial_out(port, sw_uport->mcr, SUNXI_UART_MCR);
 }
 
 static unsigned int sw_uart_get_mctrl(struct uart_port *port)
@@ -508,13 +508,13 @@ static unsigned int sw_uart_get_mctrl(struct uart_port *port)
 	unsigned int ret = 0;
 
 	msr = sw_uart_modem_status(sw_uport);
-	if (msr & SW_UART_MSR_DCD)
+	if (msr & SUNXI_UART_MSR_DCD)
 		ret |= TIOCM_CAR;
-	if (msr & SW_UART_MSR_RI)
+	if (msr & SUNXI_UART_MSR_RI)
 		ret |= TIOCM_RNG;
-	if (msr & SW_UART_MSR_DSR)
+	if (msr & SUNXI_UART_MSR_DSR)
 		ret |= TIOCM_DSR;
-	if (msr & SW_UART_MSR_CTS)
+	if (msr & SUNXI_UART_MSR_CTS)
 		ret |= TIOCM_CTS;
 	SERIAL_DBG("get msr %x\n", msr);
 	return ret;
@@ -524,11 +524,11 @@ static void sw_uart_stop_rx(struct uart_port *port)
 {
 	struct sw_uart_port *sw_uport = UART_TO_SPORT(port);
 
-	if (sw_uport->ier & SW_UART_IER_RLSI) {
-		sw_uport->ier &= ~SW_UART_IER_RLSI;
+	if (sw_uport->ier & SUNXI_UART_IER_RLSI) {
+		sw_uport->ier &= ~SUNXI_UART_IER_RLSI;
 		SERIAL_DBG("stop rx, ier %x\n", sw_uport->ier);
-		sw_uport->port.read_status_mask &= ~SW_UART_LSR_DR;
-		serial_out(port, sw_uport->ier, SW_UART_IER);
+		sw_uport->port.read_status_mask &= ~SUNXI_UART_LSR_DR;
+		serial_out(port, sw_uport->ier, SUNXI_UART_IER);
 	}
 }
 
@@ -536,10 +536,10 @@ static void sw_uart_enable_ms(struct uart_port *port)
 {
 	struct sw_uart_port *sw_uport = UART_TO_SPORT(port);
 
-	if (!(sw_uport->ier & SW_UART_IER_MSI)) {
-		sw_uport->ier |= SW_UART_IER_MSI;
+	if (!(sw_uport->ier & SUNXI_UART_IER_MSI)) {
+		sw_uport->ier |= SUNXI_UART_IER_MSI;
 		SERIAL_DBG("en msi, ier %x\n", sw_uport->ier);
-		serial_out(port, sw_uport->ier, SW_UART_IER);
+		serial_out(port, sw_uport->ier, SUNXI_UART_IER);
 	}
 }
 
@@ -550,10 +550,10 @@ static void sw_uart_break_ctl(struct uart_port *port, int break_state)
 
 	spin_lock_irqsave(&port->lock, flags);
 	if (break_state == -1)
-		sw_uport->lcr |= SW_UART_LCR_SBC;
+		sw_uport->lcr |= SUNXI_UART_LCR_SBC;
 	else
-		sw_uport->lcr &= ~SW_UART_LCR_SBC;
-	serial_out(port, sw_uport->lcr, SW_UART_LCR);
+		sw_uport->lcr &= ~SUNXI_UART_LCR_SBC;
+	serial_out(port, sw_uport->lcr, SUNXI_UART_LCR);
 	spin_unlock_irqrestore(&port->lock, flags);
 }
 
@@ -582,9 +582,9 @@ static int sw_uart_startup(struct uart_port *port)
 	 * interrupt id of the IIR register to decide whether some data need to
 	 * send.
 	 */
-	sw_uport->ier = SW_UART_IER_RLSI | SW_UART_IER_RDI;
+	sw_uport->ier = SUNXI_UART_IER_RLSI | SUNXI_UART_IER_RDI;
 	#ifdef CONFIG_SW_UART_PTIME_MODE
-	sw_uport->ier |= SW_UART_IER_PTIME;
+	sw_uport->ier |= SUNXI_UART_IER_PTIME;
 	#endif
 
 	return 0;
@@ -607,8 +607,8 @@ static void sw_uart_flush_buffer(struct uart_port *port)
 	struct sw_uart_port *sw_uport = UART_TO_SPORT(port);
 
 	SERIAL_DBG("flush buffer...\n");
-	sw_uport->fcr = serial_in(port, SW_UART_FCR);
-	serial_out(port, sw_uport->fcr|SW_UART_FCR_TXFIFO_RST, SW_UART_FCR);
+	sw_uport->fcr = serial_in(port, SUNXI_UART_FCR);
+	serial_out(port, sw_uport->fcr|SUNXI_UART_FCR_TXFIFO_RST, SUNXI_UART_FCR);
 }
 
 static void sw_uart_set_termios(struct uart_port *port, struct ktermios *termios,
@@ -622,26 +622,26 @@ static void sw_uart_set_termios(struct uart_port *port, struct ktermios *termios
 	SERIAL_DBG("set termios ...\n");
 	switch (termios->c_cflag & CSIZE) {
 	case CS5:
-		lcr |= SW_UART_LCR_WLEN5;
+		lcr |= SUNXI_UART_LCR_WLEN5;
 		break;
 	case CS6:
-		lcr |= SW_UART_LCR_WLEN6;
+		lcr |= SUNXI_UART_LCR_WLEN6;
 		break;
 	case CS7:
-		lcr |= SW_UART_LCR_WLEN7;
+		lcr |= SUNXI_UART_LCR_WLEN7;
 		break;
 	case CS8:
 	default:
-		lcr |= SW_UART_LCR_WLEN8;
+		lcr |= SUNXI_UART_LCR_WLEN8;
 		break;
 	}
 
 	if (termios->c_cflag & CSTOPB)
-		lcr |= SW_UART_LCR_STOP;
+		lcr |= SUNXI_UART_LCR_STOP;
 	if (termios->c_cflag & PARENB)
-		lcr |= SW_UART_LCR_PARITY;
+		lcr |= SUNXI_UART_LCR_PARITY;
 	if (!(termios->c_cflag & PARODD))
-		lcr |= SW_UART_LCR_EPAR;
+		lcr |= SUNXI_UART_LCR_EPAR;
 
 	/* set buadrate */
 	baud = uart_get_baud_rate(port, termios, old,
@@ -657,31 +657,31 @@ static void sw_uart_set_termios(struct uart_port *port, struct ktermios *termios
 	uart_update_timeout(port, termios->c_cflag, baud);
 
 	/* Update the per-port timeout. */
-	port->read_status_mask = SW_UART_LSR_OE | SW_UART_LSR_THRE | SW_UART_LSR_DR;
+	port->read_status_mask = SUNXI_UART_LSR_OE | SUNXI_UART_LSR_THRE | SUNXI_UART_LSR_DR;
 	if (termios->c_iflag & INPCK)
-		port->read_status_mask |= SW_UART_LSR_FE | SW_UART_LSR_PE;
+		port->read_status_mask |= SUNXI_UART_LSR_FE | SUNXI_UART_LSR_PE;
 	if (termios->c_iflag & (BRKINT | PARMRK))
-		port->read_status_mask |= SW_UART_LSR_BI;
+		port->read_status_mask |= SUNXI_UART_LSR_BI;
 
 	/* Characteres to ignore */
 	port->ignore_status_mask = 0;
 	if (termios->c_iflag & IGNPAR)
-		port->ignore_status_mask |= SW_UART_LSR_PE | SW_UART_LSR_FE;
+		port->ignore_status_mask |= SUNXI_UART_LSR_PE | SUNXI_UART_LSR_FE;
 	if (termios->c_iflag & IGNBRK) {
-		port->ignore_status_mask |= SW_UART_LSR_BI;
+		port->ignore_status_mask |= SUNXI_UART_LSR_BI;
 		/*
 		 * If we're ignoring parity and break indicators,
 		 * ignore overruns too (for real raw support).
 		 */
 		if (termios->c_iflag & IGNPAR)
-			port->ignore_status_mask |= SW_UART_LSR_OE;
+			port->ignore_status_mask |= SUNXI_UART_LSR_OE;
 	}
 
 	/*
 	 * ignore all characters if CREAD is not set
 	 */
 	if ((termios->c_cflag & CREAD) == 0)
-		port->ignore_status_mask |= SW_UART_LSR_DR;
+		port->ignore_status_mask |= SUNXI_UART_LSR_DR;
 
 	/*
 	 * if lcr & baud are changed, reset controller to disable transfer
@@ -694,33 +694,33 @@ static void sw_uart_set_termios(struct uart_port *port, struct ktermios *termios
 	sw_uport->dlh = dlh;
 
 	/* flow control */
-	sw_uport->mcr &= ~SW_UART_MCR_AFE;
+	sw_uport->mcr &= ~SUNXI_UART_MCR_AFE;
 	if (termios->c_cflag & CRTSCTS)
-		sw_uport->mcr |= SW_UART_MCR_AFE;
-	serial_out(port, sw_uport->mcr, SW_UART_MCR);
+		sw_uport->mcr |= SUNXI_UART_MCR_AFE;
+	serial_out(port, sw_uport->mcr, SUNXI_UART_MCR);
 
 	/*
 	 * CTS flow control flag and modem status interrupts
 	 */
-	sw_uport->ier &= ~SW_UART_IER_MSI;
+	sw_uport->ier &= ~SUNXI_UART_IER_MSI;
 	if (UART_ENABLE_MS(port, termios->c_cflag))
-		sw_uport->ier |= SW_UART_IER_MSI;
-	serial_out(port, sw_uport->ier, SW_UART_IER);
+		sw_uport->ier |= SUNXI_UART_IER_MSI;
+	serial_out(port, sw_uport->ier, SUNXI_UART_IER);
 
-	sw_uport->fcr = SW_UART_FCR_RXTRG_1_2 | SW_UART_FCR_TXTRG_1_2
-			| SW_UART_FCR_FIFO_EN;
-	serial_out(port, sw_uport->fcr, SW_UART_FCR);
+	sw_uport->fcr = SUNXI_UART_FCR_RXTRG_1_2 | SUNXI_UART_FCR_TXTRG_1_2
+			| SUNXI_UART_FCR_FIFO_EN;
+	serial_out(port, sw_uport->fcr, SUNXI_UART_FCR);
 
 	sw_uport->lcr = lcr;
-	serial_out(port, sw_uport->lcr|SW_UART_LCR_DLAB, SW_UART_LCR);
-	if (serial_in(port, SW_UART_LCR) != (sw_uport->lcr|SW_UART_LCR_DLAB)) {
+	serial_out(port, sw_uport->lcr|SUNXI_UART_LCR_DLAB, SUNXI_UART_LCR);
+	if (serial_in(port, SUNXI_UART_LCR) != (sw_uport->lcr|SUNXI_UART_LCR_DLAB)) {
 		lcr_fail = 1;
 	} else {
 		sw_uport->lcr = lcr;
-		serial_out(port, sw_uport->dll, SW_UART_DLL);
-		serial_out(port, sw_uport->dlh, SW_UART_DLH);
-		serial_out(port, sw_uport->lcr, SW_UART_LCR);
-		if (serial_in(port, SW_UART_LCR) != sw_uport->lcr) {
+		serial_out(port, sw_uport->dll, SUNXI_UART_DLL);
+		serial_out(port, sw_uport->dlh, SUNXI_UART_DLH);
+		serial_out(port, sw_uport->lcr, SUNXI_UART_LCR);
+		if (serial_in(port, SUNXI_UART_LCR) != sw_uport->lcr) {
 			lcr_fail = 2;
 		}
 	}
@@ -728,11 +728,11 @@ static void sw_uart_set_termios(struct uart_port *port, struct ktermios *termios
 	#ifdef CONFIG_SW_UART_FORCE_LCR
 	if (lcr_fail) {
 		sw_uart_force_lcr(sw_uport, 50);
-		serial_in(port, SW_UART_USR);
+		serial_in(port, SUNXI_UART_USR);
 	}
 	#endif
 	/* clear rxfifo after set lcr & baud to discard redundant data */
-	serial_out(port, sw_uport->fcr|SW_UART_FCR_RXFIFO_RST, SW_UART_FCR);
+	serial_out(port, sw_uport->fcr|SUNXI_UART_FCR_RXFIFO_RST, SUNXI_UART_FCR);
 	port->ops->set_mctrl(port, port->mctrl);
 
 	/* Must save the current config for the resume of console(no tty user). */
@@ -743,11 +743,11 @@ static void sw_uart_set_termios(struct uart_port *port, struct ktermios *termios
 	/* lately output force lcr information */
 	if (lcr_fail == 1) {
 		SERIAL_MSG("uart%d write LCR(pre-dlab) failed, lcr %x reg %x\n",
-			sw_uport->id, sw_uport->lcr|(u32)SW_UART_LCR_DLAB,
-			serial_in(port, SW_UART_LCR));
+			sw_uport->id, sw_uport->lcr|(u32)SUNXI_UART_LCR_DLAB,
+			serial_in(port, SUNXI_UART_LCR));
 	} else if (lcr_fail == 2) {
 		SERIAL_MSG("uart%d write LCR(post-dlab) failed, lcr %x reg %x\n",
-			sw_uport->id, sw_uport->lcr, serial_in(port, SW_UART_LCR));
+			sw_uport->id, sw_uport->lcr, serial_in(port, SUNXI_UART_LCR));
 	}
 	/* Don't rewrite B0 */
 	if (tty_termios_baud_rate(termios))
@@ -1026,18 +1026,18 @@ static ssize_t sunxi_uart_status_show(struct device *dev,
 	   	"[MSR] 0x%02x = 0x%08x, [SCH] 0x%02x = 0x%08x, [USR] 0x%02x = 0x%08x \n"
 	   	"[TFL] 0x%02x = 0x%08x, [RFL] 0x%02x = 0x%08x, [HALT] 0x%02x = 0x%08x \n",
 	   	port->uartclk, port->membase,
-		SW_UART_RBR, readl(port->membase + SW_UART_RBR),
-		SW_UART_IER, readl(port->membase + SW_UART_IER),
-		SW_UART_FCR, readl(port->membase + SW_UART_FCR),
-		SW_UART_LCR, readl(port->membase + SW_UART_LCR),
-		SW_UART_MCR, readl(port->membase + SW_UART_MCR),
-		SW_UART_LSR, readl(port->membase + SW_UART_LSR),
-		SW_UART_MSR, readl(port->membase + SW_UART_MSR),
-		SW_UART_SCH, readl(port->membase + SW_UART_SCH),
-		SW_UART_USR, readl(port->membase + SW_UART_USR),
-		SW_UART_TFL, readl(port->membase + SW_UART_TFL),
-		SW_UART_RFL, readl(port->membase + SW_UART_RFL),
-		SW_UART_HALT, readl(port->membase + SW_UART_HALT));
+		SUNXI_UART_RBR, readl(port->membase + SUNXI_UART_RBR),
+		SUNXI_UART_IER, readl(port->membase + SUNXI_UART_IER),
+		SUNXI_UART_FCR, readl(port->membase + SUNXI_UART_FCR),
+		SUNXI_UART_LCR, readl(port->membase + SUNXI_UART_LCR),
+		SUNXI_UART_MCR, readl(port->membase + SUNXI_UART_MCR),
+		SUNXI_UART_LSR, readl(port->membase + SUNXI_UART_LSR),
+		SUNXI_UART_MSR, readl(port->membase + SUNXI_UART_MSR),
+		SUNXI_UART_SCH, readl(port->membase + SUNXI_UART_SCH),
+		SUNXI_UART_USR, readl(port->membase + SUNXI_UART_USR),
+		SUNXI_UART_TFL, readl(port->membase + SUNXI_UART_TFL),
+		SUNXI_UART_RFL, readl(port->membase + SUNXI_UART_RFL),
+		SUNXI_UART_HALT, readl(port->membase + SUNXI_UART_HALT));
 }
 static struct device_attribute sunxi_uart_status_attr =
 	__ATTR(status, S_IRUGO, sunxi_uart_status_show, NULL);
@@ -1048,9 +1048,9 @@ static ssize_t sunxi_uart_loopback_show(struct device *dev,
 	int mcr = 0;
 	struct uart_port *port = dev_get_drvdata(dev);
 
-	mcr = readl(port->membase + SW_UART_MCR);
+	mcr = readl(port->membase + SUNXI_UART_MCR);
 	return snprintf(buf, PAGE_SIZE,
-	   	"MCR: 0x%08x, Loopback: %d\n", mcr, mcr&SW_UART_MCR_LOOP ? 1 : 0);
+	   	"MCR: 0x%08x, Loopback: %d\n", mcr, mcr&SUNXI_UART_MCR_LOOP ? 1 : 0);
 }
 
 static ssize_t sunxi_uart_loopback_store(struct device *dev,
@@ -1066,11 +1066,11 @@ static ssize_t sunxi_uart_loopback_store(struct device *dev,
 
 	pr_debug("Set loopback: %d \n", enable);
 
-	mcr = readl(port->membase + SW_UART_MCR);
+	mcr = readl(port->membase + SUNXI_UART_MCR);
 	if (enable)
-		writel(mcr|SW_UART_MCR_LOOP, port->membase + SW_UART_MCR);
+		writel(mcr|SUNXI_UART_MCR_LOOP, port->membase + SUNXI_UART_MCR);
 	else
-		writel(mcr&(~SW_UART_MCR_LOOP), port->membase + SW_UART_MCR);
+		writel(mcr&(~SUNXI_UART_MCR_LOOP), port->membase + SUNXI_UART_MCR);
 
 	return count;
 }
@@ -1142,7 +1142,7 @@ static void sw_console_putchar(struct uart_port *port, int c)
 	struct sw_uart_port *sw_uport = UART_TO_SPORT(port);
 
 	wait_for_xmitr(sw_uport);
-	serial_out(port, c, SW_UART_THR);
+	serial_out(port, c, SUNXI_UART_THR);
 }
 
 static void sw_console_write(struct console *co, const char *s,
@@ -1168,12 +1168,12 @@ static void sw_console_write(struct console *co, const char *s,
 		locked = spin_trylock(&port->lock);
 	else
 		spin_lock(&port->lock);
-	ier = serial_in(port, SW_UART_IER);
-	serial_out(port, 0, SW_UART_IER);
+	ier = serial_in(port, SUNXI_UART_IER);
+	serial_out(port, 0, SUNXI_UART_IER);
 
 	uart_console_write(port, s, count, sw_console_putchar);
 	wait_for_xmitr(sw_uport);
-	serial_out(port, ier, SW_UART_IER);
+	serial_out(port, ier, SUNXI_UART_IER);
 	if (locked)
 		spin_unlock(&port->lock);
 	local_irq_restore(flags);
@@ -1417,13 +1417,13 @@ static int sw_uart_resume(struct device *dev)
 		if (sw_is_console_port(port) && !console_suspend_enabled) {
 			spin_lock_irqsave(&port->lock, flags);
 			sw_uart_reset(sw_uport);
-			serial_out(port, sw_uport->fcr, SW_UART_FCR);
-			serial_out(port, sw_uport->mcr, SW_UART_MCR);
-			serial_out(port, sw_uport->lcr|SW_UART_LCR_DLAB, SW_UART_LCR);
-			serial_out(port, sw_uport->dll, SW_UART_DLL);
-			serial_out(port, sw_uport->dlh, SW_UART_DLH);
-			serial_out(port, sw_uport->lcr, SW_UART_LCR);
-			serial_out(port, sw_uport->ier, SW_UART_IER);
+			serial_out(port, sw_uport->fcr, SUNXI_UART_FCR);
+			serial_out(port, sw_uport->mcr, SUNXI_UART_MCR);
+			serial_out(port, sw_uport->lcr|SUNXI_UART_LCR_DLAB, SUNXI_UART_LCR);
+			serial_out(port, sw_uport->dll, SUNXI_UART_DLL);
+			serial_out(port, sw_uport->dlh, SUNXI_UART_DLH);
+			serial_out(port, sw_uport->lcr, SUNXI_UART_LCR);
+			serial_out(port, sw_uport->ier, SUNXI_UART_IER);
 			spin_unlock_irqrestore(&port->lock, flags);
 		}
 #endif
