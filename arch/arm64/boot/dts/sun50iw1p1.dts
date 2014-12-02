@@ -26,6 +26,10 @@
 		serial2 = &soc_uart2;
 		serial3 = &soc_uart3;
 		serial4 = &soc_uart4;
+		twi0 = &soc_twi0;
+		twi1 = &soc_twi1;
+		twi2 = &soc_twi2;
+		twi3 = &soc_twi3;
 		global_timer0  = &soc_timer0;
 	};
 
@@ -161,6 +165,63 @@
 			status = "disabled";
 		};
 		
+		soc_twi0: twi@0x01c2ac00{
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "allwinner,sun50i-twi";
+			reg = <0x0 0x01c2ac00 0x0 0x400>;
+			interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_twi0>;
+			clock-frequency = <400000>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&twi0_pins_a>;
+			status = "okay";
+
+			eeprom@50 {
+				compatible = "atmel,24c16";
+				reg = <0x50>;
+			};
+		};
+
+		soc_twi1: twi@0x01c2b000{
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "allwinner,sun50i-twi";
+			reg = <0x0 0x01c2b000 0x0 0x400>;
+			interrupts = <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_twi1>;
+			clock-frequency = <200000>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&twi1_pins_a>;
+			status = "disable";
+		};
+
+		soc_twi2: twi@0x01c2b400{
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "allwinner,sun50i-twi";
+			reg = <0x0 0x01c2b400 0x0 0x400>;
+			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_twi2>;
+			clock-frequency = <200000>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&twi2_pins_a>;
+			status = "disable";
+		};
+
+		soc_twi3: twi@0x01c2b800{
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "allwinner,sun50i-twi";
+			reg = <0x0 0x01c2b800 0x0 0x400>;
+			interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_twi3>;
+			clock-frequency = <200000>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&twi3_pins_a>;
+			status = "disable";
+		};
+	
 		soc_sdmmc0: sdmmc@01c0f000 {
 			compatible = "allwinner,sun50i-sdmmc0";
 			reg = <0x0 0x01c0f000 0x0 0x1000>; /* only sdmmc0 */
@@ -221,7 +282,31 @@
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
-					
+			twi0_pins_a: twi0@0 {
+				//allwinner,pins = "PH0", "PH1";
+				allwinner,pins = "PB0", "PB1";	// for fpga
+				allwinner,function = "twi0";
+				allwinner,drive = <1>;
+				allwinner,pull = <0>;
+			};
+			twi1_pins_a: twi1@0 {
+				allwinner,pins = "PH2", "PH3";
+				allwinner,function = "twi1";
+				allwinner,drive = <1>;
+				allwinner,pull = <0>;
+			};
+			twi2_pins_a: twi2@0 {
+				allwinner,pins = "PE14", "PE15";
+				allwinner,function = "twi2";
+				allwinner,drive = <1>;
+				allwinner,pull = <0>;
+			};
+			twi3_pins_a: twi3@0 {
+				allwinner,pins = "PE16", "PE17";
+				allwinner,function = "twi3";
+				allwinner,drive = <1>;
+				allwinner,pull = <0>;
+			};
 			sdmmc0_pins_a: sdmmc0@0 {
 				allwinner,pins = "PF0", "PF1", "PF2", "PF3","PF4","PF5";
 				allwinner,function = "sdc0";

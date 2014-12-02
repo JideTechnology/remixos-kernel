@@ -1692,9 +1692,11 @@ static int i2c_detect_address(struct i2c_client *temp_client,
 	if (i2c_check_addr_busy(adapter, addr))
 		return 0;
 
+#ifndef CONFIG_ARCH_SUNXI
 	/* Make sure there is something at this address */
 	if (!i2c_default_probe(adapter, addr))
 		return 0;
+#endif
 
 	/* Finally call the custom detection function */
 	memset(&info, 0, sizeof(struct i2c_board_info));
