@@ -190,6 +190,16 @@ int regulator_unregister_notifier(struct regulator *regulator,
 void *regulator_get_drvdata(struct regulator *regulator);
 void regulator_set_drvdata(struct regulator *regulator, void *data);
 
+#ifdef CONFIG_AW_AXP
+s32 get_ldo_name(const char *supply_name, char * ldo_name);
+s32 get_enable_id_count(const char *ldo_name);
+s32 get_enable_id(const char *ldo_name, u32 count, char *enable_id);
+s32 check_enable_id(const char *ldo_name, const char *enalbe_id);
+s32 check_ldo_alwayson(const char *ldo_name);
+s32 set_ldo_alwayson(const char *ldo_name, u32 value);
+s32 axp_regulator_dump(void);
+#endif
+
 #else
 
 /*

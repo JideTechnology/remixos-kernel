@@ -290,6 +290,10 @@ struct regulator_dev {
 
 	/* lists we own */
 	struct list_head consumer_list; /* consumers we supply */
+#ifdef CONFIG_AW_AXP
+	/* lists we enable */
+	struct list_head enabler_list; /* supply we enable */
+#endif
 
 	struct blocking_notifier_head notifier;
 	struct mutex mutex; /* consumer lock */

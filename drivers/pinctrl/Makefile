@@ -35,6 +35,7 @@ obj-$(CONFIG_PINCTRL_SIRF)	+= pinctrl-sirf.o
 obj-$(CONFIG_PINCTRL_SUNXI)	+= pinctrl-sunxi.o
 obj-$(CONFIG_PINCTRL_SUNXI)     += pinctrl-sun50i.o
 obj-$(CONFIG_PINCTRL_SUNXI_TEST)+= pinctrl-sunxi-test.o
+obj-$(CONFIG_PINCTRL_AXP)       += pinctrl-axp.o
 obj-$(CONFIG_PINCTRL_TEGRA)	+= pinctrl-tegra.o
 obj-$(CONFIG_PINCTRL_TEGRA20)	+= pinctrl-tegra20.o
 obj-$(CONFIG_PINCTRL_TEGRA30)	+= pinctrl-tegra30.o

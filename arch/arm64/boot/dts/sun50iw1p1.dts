@@ -282,6 +282,7 @@
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
+
 			twi0_pins_a: twi0@0 {
 				//allwinner,pins = "PH0", "PH1";
 				allwinner,pins = "PB0", "PB1";	// for fpga
@@ -307,6 +308,7 @@
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
+
 			sdmmc0_pins_a: sdmmc0@0 {
 				allwinner,pins = "PF0", "PF1", "PF2", "PF3","PF4","PF5";
 				allwinner,function = "sdc0";
@@ -331,6 +333,73 @@
 							  <200000000>; /* 200MHz for RSA */
 			clocks = <&clk_ce>,
 					 <&clk_pll_periph0>;
+		};
+
+		pmu1@0{
+			compatible = "allwinner,pmu1";
+			pmu_batdeten               = <1>;
+			pmu_init_chgend_rate       = <20>;
+			pmu_init_chg_enabled       = <1>;
+			pmu_init_adc_freq          = <800>;
+			pmu_init_adcts_freq        = <800>;
+			pmu_init_chg_pretime       = <70>;
+			pmu_init_chg_csttime       = <720>;
+			pmu_batt_cap_correct       = <1>;
+			pmu_chg_end_on_en          = <0>;
+
+			pmu_pwroff_vol             = <3300>;
+			pmu_pwron_vol              = <2600>;
+			pmu_powkey_off_delay_time  = <0>;
+			pmu_pwrok_time             = <64>;
+			pmu_reset_shutdown_en      = <1>;
+			pmu_restvol_adjust_time    = <60>;
+			pmu_ocv_cou_adjust_time    = <60>;
+			pmu_vbusen_func            = <1>;
+			pmu_reset                  = <0>;
+			pmu_IRQ_wakeup             = <0>;
+			pmu_hot_shutdowm           = <1>;
+			pmu_inshort                = <0>;
+			status = "okay";
+		};
+		pmu1_regu@0{
+			compatible = "allwinner,pmu1_regu";
+			regulator_count = <23>;
+			regulator1      = "axp81x_dcdc1 none vcc-nand vcc-nor vcc-usb0-33 vcc-card vcc-io vcc-wifi-io vcc-io1 vcc-io2 vcc-sensor vcc-camera-33";
+			regulator2      = "axp81x_dcdc2 none vdd-cpua";
+			regulator3      = "axp81x_dcdc3 none vdd-cpub";
+			regulator4      = "axp81x_dcdc4 none vdd-gpu";
+			regulator5      = "axp81x_dcdc5 none vcc-dram";
+			regulator6      = "axp81x_dcdc6 none vdd-sys vdd-usb0-09 vdd-hdmi-09";
+			regulator7      = "axp81x_dcdc7 none";
+			regulator8      = "axp81x_rtc none";
+			regulator9      = "axp81x_aldo1 none avdd-csi";
+			regulator10     = "axp81x_aldo2 none afvcc-csi iovdd-csi";
+			regulator11     = "axp81x_aldo3 none vcc-avcc vcc-pl";
+			regulator12     = "axp81x_dldo1 none vcc-vibrator dvdd-ephy";
+			regulator13     = "axp81x_dldo2 none vcc-mipi";
+			regulator14     = "axp81x_dldo3 none vdd-drampll vdd-lpddr-18 vcc-pll vcc-adc vcc-cpvdd vcc-ldoin";
+			regulator15     = "axp81x_dldo4 none vcc-ephy-io vcc-pd";
+			regulator16     = "axp81x_eldo1 1 dvdd-csi-18";
+			regulator17     = "axp81x_eldo2 1 vcc-dsi-18 vcc-csi2-18 vcc-lvds-18 vcc-efuse-18 vcc-hdmi-18";
+			regulator18     = "axp81x_eldo3 1";
+			regulator19     = "axp81x_fldo1 none avdd-ephy, vcc-hsic-12";
+			regulator20     = "axp81x_fldo2 none vdd-cpus";
+			regulator21     = "axp81x_gpio0ldo none";
+			regulator22     = "axp81x_gpio1ldo none vcc-ctp";
+			regulator23     = "axp81x_dc1sw 1 vcc-lcd-0";
+			status = "okay";
+		};
+		axp-pinctrl@0 {
+			compatible = "allwinner,axp-pinctrl";
+			gpio-controller;
+			#size-cells = <0>;
+			#gpio-cells = <3>;
+			usb_pins_axp: usb@0 {
+				allwinner,pins = "power3";
+				allwinner,function = "gpio_out";
+				allwinner,drive = <1>;
+				allwinner,pull = <1>;
+			};
 		};
 	};
 };
