@@ -539,7 +539,7 @@ static int sunxi_pinctrl_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
 
 	return irq_find_mapping(pctl->domain, irqnum);
 }
-
+#if 0
 static int sunxi_pinctrl_irq_request_resources(struct irq_data *d)
 {
 	struct sunxi_pinctrl *pctl = irq_data_get_irq_chip_data(d);
@@ -572,11 +572,12 @@ static void sunxi_pinctrl_irq_release_resources(struct irq_data *d)
 	gpio_unlock_as_irq(pctl->chip,
 			   pctl->irq_array[d->hwirq] - pctl->desc->pin_base);
 }
-
+#endif
 static int sunxi_pinctrl_irq_set_type(struct irq_data *d, unsigned int type)
 {
 	struct sunxi_pinctrl *pctl = irq_data_get_irq_chip_data(d);
 	struct irq_desc *desc = container_of(d, struct irq_desc, irq_data);
+	struct sunxi_desc_function *func;
 	u32 reg = sunxi_irq_cfg_reg(d->hwirq);
 	u8 index = sunxi_irq_cfg_offset(d->hwirq);
 	unsigned long flags;
@@ -610,6 +611,15 @@ static int sunxi_pinctrl_irq_set_type(struct irq_data *d, unsigned int type)
 		d->chip = &sunxi_pinctrl_edge_irq_chip;
 		desc->handle_irq = handle_edge_irq;
 	}
+
+	func = sunxi_pinctrl_desc_find_function_by_pin(pctl,
+				pctl->irq_array[d->hwirq], "irq");
+	if (!func){
+		return -EINVAL;
+	}
+	/* Change muxing to INT mode */
+	sunxi_pmx_set(pctl->pctl_dev, pctl->irq_array[d->hwirq], func->muxval);
+
 
 	spin_lock_irqsave(&pctl->lock, flags);
 
@@ -676,8 +686,10 @@ static struct irq_chip sunxi_pinctrl_edge_irq_chip = {
 	.irq_ack	= sunxi_pinctrl_irq_ack,
 	.irq_mask	= sunxi_pinctrl_irq_mask,
 	.irq_unmask	= sunxi_pinctrl_irq_unmask,
+#if 0
 	.irq_request_resources = sunxi_pinctrl_irq_request_resources,
 	.irq_release_resources = sunxi_pinctrl_irq_release_resources,
+#endif
 	.irq_set_type	= sunxi_pinctrl_irq_set_type,
 	.flags		= IRQCHIP_SKIP_SET_WAKE,
 };
@@ -690,11 +702,15 @@ static struct irq_chip sunxi_pinctrl_level_irq_chip = {
 	 * using these to suppress irqs while they clear the irq source */
 	.irq_enable	= sunxi_pinctrl_irq_ack_unmask,
 	.irq_disable	= sunxi_pinctrl_irq_mask,
+	.irq_set_type	= sunxi_pinctrl_irq_set_type,
+	.flags		= IRQCHIP_SKIP_SET_WAKE | IRQCHIP_EOI_IF_HANDLED ,
+#if 0
 	.irq_request_resources = sunxi_pinctrl_irq_request_resources,
 	.irq_release_resources = sunxi_pinctrl_irq_release_resources,
 	.irq_set_type	= sunxi_pinctrl_irq_set_type,
 	.flags		= IRQCHIP_SKIP_SET_WAKE | IRQCHIP_EOI_THREADED |
 			  IRQCHIP_EOI_IF_HANDLED,
+#endif
 };
 
 static void sunxi_pinctrl_irq_handler(unsigned irq, struct irq_desc *desc)
