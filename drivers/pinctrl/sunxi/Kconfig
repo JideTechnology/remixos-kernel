@@ -44,6 +44,6 @@ config PINCTRL_SUN50IW1P1
 	select PINCTRL_SUNXI_COMMON
 config PINCTRL_SUN50IW1P1_R
         bool "Pinctrl for sun50iw1p1_R"
-	depends on RESET_CONTROLLER
+	#depends on RESET_CONTROLLER
 	select PINCTRL_SUNXI_COMMON
 endmenu

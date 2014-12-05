@@ -619,7 +619,7 @@ MODULE_DEVICE_TABLE(of, sun50iw1p1_pinctrl_match);
 static struct platform_driver sun50iw1p1_pinctrl_driver = {
 	.probe	= sun50iw1p1_pinctrl_probe,
 	.driver	= {
-		.name		= "sun50iw1p1-pinctrl",
+		.name		= "sun50i-pinctrl",
 		.owner		= THIS_MODULE,
 		.of_match_table	= sun50iw1p1_pinctrl_match,
 	},
