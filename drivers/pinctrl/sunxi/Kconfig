@@ -5,6 +5,10 @@ config PINCTRL_SUNXI_COMMON
 	select PINMUX
 	select GENERIC_PINCONF
 
+config PINCTRL_SUNXI_TEST
+	bool "pinctrl sunxi test driver"
+	default m
+
 config PINCTRL_SUN4I_A10
 	def_bool MACH_SUN4I
 	select PINCTRL_SUNXI_COMMON
@@ -40,10 +44,10 @@ config PINCTRL_SUN8I_A23_R
 	select PINCTRL_SUNXI_COMMON
 
 config PINCTRL_SUN50IW1P1
-        bool "Pinctrl for sun50iw1p1"
+        bool "Pinctrl sun50i PIO controller"
 	select PINCTRL_SUNXI_COMMON
 config PINCTRL_SUN50IW1P1_R
-        bool "Pinctrl for sun50iw1p1_R"
+        bool "Pinctrl sun50i R_PIO controller"
 	#depends on RESET_CONTROLLER
 	select PINCTRL_SUNXI_COMMON
 endmenu
