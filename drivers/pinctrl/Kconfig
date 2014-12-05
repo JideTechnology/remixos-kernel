@@ -165,13 +165,9 @@ config PINCTRL_SIRF
 	select PINMUX
 
 config PINCTRL_SUNXI
-	bool "SUNXI pin controller driver"
+	bool
 	select PINMUX
 	select GENERIC_PINCONF
-
-config PINCTRL_SUNXI_TEST
-	bool "SUNXI PINCTRL TEST EXAMPLE"
-	select PINCTRL_SUNXI
 
 config PINCTRL_TEGRA
 	bool
@@ -235,10 +231,6 @@ config PINCTRL_XWAY
 	depends on SOC_TYPE_XWAY
 	depends on PINCTRL_LANTIQ
 
-config PINCTRL_AXP
-	bool "AXP pinctrl driver"
-	depends on AW_AXP
-	default y
 
 endmenu
 
