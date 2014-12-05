@@ -3066,6 +3066,7 @@ static int sunxi_mci_probe(struct platform_device *pdev)
 		return -EFAULT;
 	}
 
+
 	SMC_MSG(NULL, "*** %s(L%d)\n", __FUNCTION__, __LINE__);
 	
 	mmc = mmc_alloc_host(sizeof(struct sunxi_mmc_host), &pdev->dev);
@@ -3080,6 +3081,9 @@ static int sunxi_mci_probe(struct platform_device *pdev)
 
 	SMC_MSG(NULL, "*** %s(L%d)\n", __FUNCTION__, __LINE__);
 
+	smc_host->dma_mask = DMA_BIT_MASK(32);
+	pdev->dev.dma_mask = &smc_host->dma_mask;
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
 	smc_host->host_id = 0;
 	
 	smc_host->mmc	= mmc;
