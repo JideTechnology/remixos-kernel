@@ -438,6 +438,12 @@ config SPI_TEGRA20_SLINK
 	help
 	  SPI driver for Nvidia Tegra20/Tegra30 SLINK Controller interface.
 
+config SPI_SUNXI
+   tristate "SUNXI SPI Controller"
+   depends on ARCH_SUNXI
+   help
+       Allwinner Soc SPI controller, present on SUNXI chips.
+
 config SPI_TI_SSP
 	tristate "TI Sequencer Serial Port - SPI Support"
 	depends on MFD_TI_SSP

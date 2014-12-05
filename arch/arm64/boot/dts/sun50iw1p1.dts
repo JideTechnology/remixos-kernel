@@ -30,6 +30,7 @@
 		twi1 = &soc_twi1;
 		twi2 = &soc_twi2;
 		twi3 = &soc_twi3;
+		spi0 = &soc_spi0;
 		global_timer0  = &soc_timer0;
 	};
 
@@ -222,6 +223,34 @@
 			status = "disable";
 		};
 	
+		soc_spi0: spi@01c68000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "allwinner,sun50i-spi";
+			reg = <0x0 0x01c68000 0x0 0x1000>;
+			interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_pll_periph0>, <&clk_spi0>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&spi0_pins_a>, <&spi0_pins_b>;
+			cs-number = <1>;
+			cs-bitmap = <1>;
+			status = "okay";
+
+			nor-flash@0 {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "atmel,at25df641";
+				reg = <0>;	/* Chip select 0 */
+				spi-max-frequency = <50000000>;
+				mode = <0>;
+
+				partition@0 {
+					label = "NorFlash part0";
+					reg = <0x00000000 0x0002000>;
+				};
+			};
+		};
+
 		soc_sdmmc0: sdmmc@01c0f000 {
 			compatible = "allwinner,sun50i-sdmmc0";
 			reg = <0x0 0x01c0f000 0x0 0x1000>; /* only sdmmc0 */
@@ -308,7 +337,18 @@
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
-
+			spi0_pins_a: spi0@0 {
+				allwinner,pins = "PC0", "PC1", "PC2";
+				allwinner,function = "spi0";
+				allwinner,drive = <1>;
+				allwinner,pull = <0>;
+			};
+			spi0_pins_b: spi0@1 {
+				allwinner,pins = "PC3";
+				allwinner,function = "spi0";
+				allwinner,drive = <1>;
+				allwinner,pull = <1>; 	// only CS should be pulled up
+			};
 			sdmmc0_pins_a: sdmmc0@0 {
 				allwinner,pins = "PF0", "PF1", "PF2", "PF3","PF4","PF5";
 				allwinner,function = "sdc0";
