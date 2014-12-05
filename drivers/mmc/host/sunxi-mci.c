@@ -30,7 +30,7 @@
 #include <linux/slab.h>
 #include <linux/regulator/consumer.h>
 #include <linux/pinctrl/consumer.h>
-#include <linux/pinctrl/pinconf-sunxi.h>
+//#include <linux/pinctrl/pinconf-sunxi.h>
 #include <linux/device.h>
 #include <linux/of_platform.h>
 #include <linux/of_irq.h>
