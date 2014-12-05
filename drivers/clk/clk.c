@@ -2130,8 +2130,8 @@ void __init of_clk_init(const struct of_device_id *matches)
 	pr_debug("[%s][%d]match-name:%s\n", __func__, __LINE__, matches->name);
 	for_each_matching_node(np, matches) {
 		const struct of_device_id *match = of_match_node(matches, np);
-		pr_debug("[%s][%d]match-name:%s\n", __func__, __LINE__, matches->name);
 		of_clk_init_cb_t clk_init_cb = match->data;
+		pr_debug("[%s][%d]match-name:%s\n", __func__, __LINE__, matches->name);
 		clk_init_cb(np);
 	}
 }
