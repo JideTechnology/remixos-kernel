@@ -33,24 +33,19 @@
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 
-
-
-//#include <mach/platform.h>
+#ifndef CONFIG_OF
+#include <mach/platform.h>
+#endif
 
 #include "dmaengine.h"
 #include "virt-dma.h"
 
-#if defined(CONFIG_ARCH_SUN8IW3) \
-	|| defined(CONFIG_ARCH_SUN8IW5) \
-	|| defined(CONFIG_ARCH_SUN8IW6)	\
-	|| defined(CONFIG_ARCH_SUN8IW8)	\
-	|| defined(CONFIG_ARCH_SUN8IW9) \
-	|| defined(CONFIG_ARCH_SUN50I )
-#define NR_MAX_CHAN	8			/* total of channels */
+#if defined(CONFIG_ARCH_SUN8IW1)
+#define NR_MAX_CHAN	16			/* total of channels */
 #elif defined(CONFIG_ARCH_SUN8IW7)
 #define NR_MAX_CHAN	12			/* total of channels */
 #else
-#define NR_MAX_CHAN	16			/* total of channels */
+#define NR_MAX_CHAN	8			/* total of channels */
 #endif
 
 #define HIGH_CHAN	8
@@ -89,6 +84,7 @@
 #define SET_OP_MODE(d, x, val)	({	\
 		writel(val, d->base + DMA_OP_MODE(x));	\
 		})
+
 #define LINK_END	0x1FFFF800		/* lastest link must be 0x1ffff800 */
 
 #else
@@ -141,11 +137,11 @@
 
 /* lli: linked list ltem, the DMA block descriptor */
 struct sunxi_dma_lli {
-	u32		cfg;		/* DMA configuration */
+	u32	cfg;		/* DMA configuration */
 	u32	src;		/* Source address */
 	u32	dst;		/* Destination address */
-	u32		len;		/* Length of buffers */
-	u32		para;		/* Parameter register */
+	u32	len;		/* Length of buffers */
+	u32	para;		/* Parameter register */
 	u32	p_lln;		/* Next lli physical address */
 	struct sunxi_dma_lli *v_lln;	/* Next lli virtual address (only for cpu) */
 #ifdef DEBUG
@@ -170,7 +166,7 @@ struct sunxi_dmadev {
 
 struct sunxi_desc {
 	struct virt_dma_desc	vd;
-	u32		lli_phys;	/* physical start for llis */
+	u32			lli_phys;	/* physical start for llis */
 	struct sunxi_dma_lli	*lli_virt;	/* virtual start for lli */
 };
 
@@ -179,11 +175,13 @@ struct sunxi_chan {
 
 	struct list_head	node;		/* queue it to pending list */
 	struct dma_slave_config	cfg;
-	bool	cyclic;
+	bool			cyclic;
 
 	struct sunxi_desc	*desc;
-	u32	irq_type;
+	u32			irq_type;
 };
+
+static u64 sunxi_dma_mask = DMA_BIT_MASK(32);
 
 static inline struct sunxi_dmadev *to_sunxi_dmadev(struct dma_device *d)
 {
@@ -491,12 +489,14 @@ static void sunxi_start_desc(struct sunxi_chan *ch)
 void *sunxi_alloc_lli(struct sunxi_dmadev *sdev, u32 *phy_addr)
 {
 	struct sunxi_dma_lli *l_item;
+	dma_addr_t phy;
 
 	WARN_TAINT(!sdev->lli_pool, TAINT_WARN, "The dma pool is empty!!\n");
 	if (unlikely(!sdev->lli_pool))
 		return NULL;
 
-	l_item = dma_pool_alloc(sdev->lli_pool, GFP_ATOMIC, phy_addr);
+	l_item = dma_pool_alloc(sdev->lli_pool, GFP_ATOMIC, &phy);
+	*phy_addr = (u32)phy;
 	set_this_phy(l_item, *phy_addr);
 
 	return l_item;
@@ -540,8 +540,8 @@ static void *sunxi_lli_list(struct sunxi_dma_lli *prev, struct sunxi_dma_lli *ne
 	return next;
 }
 
-static inline void sunxi_cfg_lli(struct sunxi_dma_lli *lli, u32 src,
-		u32 dst, u32 len, struct dma_slave_config *config)
+static inline void sunxi_cfg_lli(struct sunxi_dma_lli *lli, dma_addr_t src,
+		dma_addr_t dst, u32 len, struct dma_slave_config *config)
 {
 	u32 src_width, dst_width;
 
@@ -557,8 +557,8 @@ static inline void sunxi_cfg_lli(struct sunxi_dma_lli *lli, u32 src,
 			| DST_BURST(config->dst_maxburst)
 			| DST_WIDTH(dst_width);
 
-	lli->src = src;
-	lli->dst = dst;
+	lli->src = (u32)src;
+	lli->dst = (u32)dst;
 	lli->len = len;
 	lli->para = NORMAL_WAIT;
 
@@ -654,7 +654,7 @@ unlock:
 }
 
 static struct dma_async_tx_descriptor *sunxi_prep_dma_memcpy(
-		struct dma_chan *chan, u32 dest, u32 src,
+		struct dma_chan *chan, dma_addr_t dest, dma_addr_t src,
 		size_t len, unsigned long flags)
 {
 	struct sunxi_chan *schan = to_sunxi_chan(chan);
@@ -664,9 +664,10 @@ static struct dma_async_tx_descriptor *sunxi_prep_dma_memcpy(
 	struct dma_slave_config *sconfig = &schan->cfg;
 	u32	phy;
 
-	dev_dbg(chan2dev(chan), "%s; chan: %d, dest: 0x%08x, "
-			"src: 0x%08x, len: 0x%08x. flags: 0x%08lx\n",
-			__func__, schan->vc.chan.chan_id, dest, src, len, flags);
+	dev_dbg(chan2dev(chan), "%s; chan: %d, dest: 0x%08lx, "
+			"src: 0x%08lx, len: 0x%08lx. flags: 0x%08lx\n",
+			__func__, schan->vc.chan.chan_id, (unsigned long)dest,
+			(unsigned long)src, len, flags);
 
 	if (unlikely(!len)) {
 		dev_dbg(chan2dev(chan), "%s: memcpy length is zero!!\n", __func__);
@@ -832,7 +833,7 @@ static struct dma_async_tx_descriptor *sunxi_prep_slave_sg(
  * sunxi_cyclic_desc if successful or an ERR_PTR(-errno) if not successful.
  */
 struct dma_async_tx_descriptor *sunxi_prep_dma_cyclic( struct dma_chan *chan,
-		u32 buf_addr, size_t buf_len, size_t period_len,
+		dma_addr_t buf_addr, size_t buf_len, size_t period_len,
 		enum dma_transfer_direction dir, unsigned long flags, void *context)
 {
 	struct sunxi_desc *txd;
@@ -1062,7 +1063,7 @@ static void sunxi_dma_hw_init(struct sunxi_dmadev *dev)
 	writel(0x05, sunxi_dev->base + DMA_GATE);
 #endif
 }
-u64 sunxi_dma_mask = DMA_BIT_MASK(32);
+
 static int sunxi_probe(struct platform_device *pdev)
 {
 	struct sunxi_dmadev *sunxi_dev;
@@ -1247,7 +1248,6 @@ static struct resource sunxi_dma_reousce[] = {
 	},
 };
 
-u64 sunxi_dma_mask = DMA_BIT_MASK(32);
 static struct platform_device sunxi_dma_device = {
 	.name = "sunxi_dmac",
 	.id = -1,
@@ -1264,6 +1264,7 @@ static const struct of_device_id sunxi_dma_match[] = {
         {},
 };
 #endif
+
 static struct platform_driver sunxi_dma_driver = {
 	.probe		= sunxi_probe,
 	.remove		= sunxi_remove,
@@ -1274,6 +1275,7 @@ static struct platform_driver sunxi_dma_driver = {
 		.of_match_table = sunxi_dma_match,
 	},
 };
+
 bool sunxi_dma_filter_fn(struct dma_chan *chan, void *param)
 {
 	bool ret = false;
