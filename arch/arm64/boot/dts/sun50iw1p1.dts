@@ -222,6 +222,113 @@
 			pinctrl-0 = <&twi3_pins_a>;
 			status = "disable";
 		};
+		sun50codec:audiocodec_codec@0x01c22c00 {
+			compatible = "allwinner,sunxi-internal-codec";
+			reg = <0x0 0x01c22c00 0x0 0x478>,/*digital baseadress*/
+			      <0x0 0x01f015c0 0x0 0x0>;/*analog baseadress*/
+			allwinner,headphonevol = /bits/ 8 <0x3b>;
+			allwinner,spkervol = /bits/ 8 <0x1b>;
+			allwinner,earpiecevol = /bits/ 8 <0x1e>;
+			allwinner,maingain = /bits/ 8 <0x4>;
+			allwinner,headsetmicgain = /bits/ 8 <0x4>;
+			allwinner,adcagc_used = /bits/ 8 <0x0>;
+			allwinner,adcdrc_used = /bits/ 8 <0x0>;
+			allwinner,adchpf_used = /bits/ 8 <0x0>;
+			allwinner,dacdrc_used = /bits/ 8 <0x0>;
+			allwinner,dachpf_used = /bits/ 8 <0x0>;
+
+			allwinner,aif2config = /bits/ 8 <0x0>;
+			allwinner,aif3config = /bits/ 8 <0x0>;
+			status = "okay";
+		};
+		sun50i2s:audiocodec_platform@0x01c22c00 {
+			compatible = "allwinner,sunxi-internal-i2s";
+			reg = <0x0 0x01c22c00 0x0 0x478>;/*digital baseadress*/
+			clocks = <&clk_pll_audio>,<&clk_adda>;
+			status = "okay";
+		};
+
+		audiocodec_machine@0x01c22c00{
+			compatible = "allwinner,sunxi-codec-machine";
+			interrupts = <GIC_SPI 61 0x101>;
+			reg = <0x0 0x01c22c00 0x0 0x478>;/*digital baseadress*/
+			sunxi,i2s-controller = <&sun50i2s>;
+			sunxi,audio-codec = <&sun50codec>;
+			status = "okay";
+		};
+
+		daudio0:daudio@0x01c22000 {
+			compatible = "allwinner,sunxi-daudio";
+			reg = <0x0 0x01c22000 0x0 0x58>;
+			clocks = <&clk_pll_audio>,<&clk_i2s0>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&daudio0_pins>;
+			allwinner,pcm_lrck_period = /bits/ 8 <0x20>;
+			allwinner,pcm_lrckr_period = /bits/ 8 <0x01>;
+			allwinner,slot_width_select = /bits/ 8 <0x10>;
+			allwinner,pcm_lsb_first = /bits/ 8 <0x0>;
+			allwinner,tx_data_mode = /bits/ 8 <0x0>;
+			allwinner,rx_data_mode = /bits/ 8 <0x0>;
+			allwinner,daudio_master = /bits/ 8 <0x04>;
+			allwinner,audio_format = /bits/ 8 <0x01>;
+			allwinner,signal_inversion = /bits/ 8 <0x01>;
+			allwinner,frametype = /bits/ 8 <0x0>;
+			allwinner,tdm_config = /bits/ 8 <0x01>;
+			status = "okay";
+		};
+		daudio0_machine{
+			compatible = "allwinner,sunxi-duaio0-machine";
+			sunxi,daudio0-controller = <&daudio0>;
+			status = "okay";
+		};
+		daudio1:daudio@0x01c22400 {
+			compatible = "allwinner,sunxi-daudio";
+			reg = <0x0 0x01c22400 0x0 0x58>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&daudio1_pins>;
+			clocks = <&clk_pll_audio>,<&clk_i2s1>;
+			allwinner,pcm_lrck_period = /bits/ 8 <0x20>;
+			allwinner,pcm_lrckr_period = /bits/ 8 <0x01>;
+			allwinner,slot_width_select = /bits/ 8 <0x10>;
+			allwinner,pcm_lsb_first = /bits/ 8 <0x0>;
+			allwinner,tx_data_mode = /bits/ 8 <0x0>;
+			allwinner,rx_data_mode = /bits/ 8 <0x0>;
+			allwinner,daudio_master = /bits/ 8 <0x04>;
+			allwinner,audio_format = /bits/ 8 <0x01>;
+			allwinner,signal_inversion = /bits/ 8 <0x01>;
+			allwinner,frametype = /bits/ 8 <0x0>;
+			allwinner,tdm_config = /bits/ 8 <0x01>;
+			status = "okay";
+		};
+		daudio1_machine{
+			compatible = "allwinner,sunxi-duaio1-machine";
+			sunxi,daudio1-controller = <&daudio1>;
+			status = "okay";
+		};
+		audiohdmi:hdmi_platform@0x01c22800{
+			compatible = "allwinner,sunxi-tdmhdmi";
+			reg = <0x0 0x01c22800 0x0 0x58>;
+			clocks = <&clk_pll_audio>,<&clk_i2s2>;
+			status = "okay";
+		};
+		hdmi_machine{
+			compatible = "allwinner,sunxi-hdmi-machine";
+			sunxi,hdmi-controller = <&audiohdmi>;
+			status = "okay";
+		};
+		audiospdif:spdif_platform@0x01c21000{
+			compatible = "allwinner,sunxi-spdif";
+			reg = <0x0 0x01c21000 0x0 0x38>;
+			clocks = <&clk_pll_audio>,<&clk_spdif>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&spdif_pins>;
+			status = "okay";
+		};
+		spdif_machine{
+			compatible = "allwinner,sunxi-spdif-machine";
+			sunxi,spdif-controller = <&audiospdif>;
+			status = "okay";
+		};
 	
 		soc_spi0: spi@01c68000 {
 			#address-cells = <1>;
@@ -354,6 +461,24 @@
 				allwinner,function = "sdc0";
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
+			};		
+			daudio0_pins: daudio0@0 {
+				allwinner,pins = "PB6", "PB3", "PB4", "PB5", "PB7";
+				allwinner,function = "pcm0";
+				allwinner,drive = <1>;
+				allwinner,pull = <0>;
+			};
+			daudio1_pins: daudio1@0 {
+				allwinner,pins = "PG10", "PG11", "PG12", "PG13";
+				allwinner,function = "pcm1";
+				allwinner,drive = <1>;
+				allwinner,pull = <0>;
+			};	
+			spdif_pins: spdif@0 {
+				allwinner,pins = "PH8";/*ph8-spec*/
+				allwinner,function = "spdif0";
+				allwinner,drive = <1>;
+				allwinner,pull = <0>;
 			};		
 						
 		};

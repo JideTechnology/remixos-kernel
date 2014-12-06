@@ -158,11 +158,17 @@ static int dmaengine_pcm_prepare_and_submit(struct snd_pcm_substream *substream)
 		flags |= DMA_PREP_INTERRUPT;
 
 	prtd->pos = 0;
-	desc = dmaengine_prep_dma_cyclic(chan,
-		substream->runtime->dma_addr,
-		snd_pcm_lib_buffer_bytes(substream),
-		snd_pcm_lib_period_bytes(substream), direction, flags);
-
+	if (!strcmp(substream->pcm->card->id, "sndhdmiraw")) {
+			desc = dmaengine_prep_dma_cyclic(chan,
+				substream->runtime->dma_addr,
+				2*snd_pcm_lib_buffer_bytes(substream),
+				2*snd_pcm_lib_period_bytes(substream), direction, flags);
+	} else {
+		desc = dmaengine_prep_dma_cyclic(chan,
+			substream->runtime->dma_addr,
+			snd_pcm_lib_buffer_bytes(substream),
+			snd_pcm_lib_period_bytes(substream), direction, flags);
+	}
 	if (!desc)
 		return -ENOMEM;
 
