@@ -149,8 +149,6 @@ config ARCH_SUNXI
 	bool "Allwinner SOC Family"
 	select PINCTRL
 	select SUNXI_TIMER
-	select CONFIG_MICROBLAZE
-	#select ARCH_HAVE_CUSTOM_GPIO_H
 	help
 	  This enables support for Allwinner SUNXI SoC family
 
