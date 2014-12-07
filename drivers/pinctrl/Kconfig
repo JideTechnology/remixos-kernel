@@ -227,6 +227,10 @@ config PINCTRL_XWAY
 	depends on SOC_TYPE_XWAY
 	depends on PINCTRL_LANTIQ
 
+config PINCTRL_AXP
+       bool "AXP pinctrl driver"
+       depends on AW_AXP
+       default y
 
 endmenu
 
