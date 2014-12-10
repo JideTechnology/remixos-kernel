@@ -1326,5 +1326,24 @@
 				ldo_voltage = <3300>;
 			};
 		};
+
+		gmac0: eth@01c30000 {
+			compatible = "allwinner,sunxi-gmac";
+			reg = <0x0 0x01c30000 0x0 0x40000>,
+			    <0x0 0x01c00000 0x0 0x30>;
+			pinctrl-names = "default";
+			pinctrl-0     = <&gmac_pins_a>;
+			interrupts      = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "gmacirq";
+			clocks   = <&clk_gmac>;
+			clock-names = "gmac";
+			phy-mode = "rgmii";
+			tx-delay = <7>;
+			rx-delay = <31>;
+			gmac_power1 = "axp81x_dldo2:2500000";
+			gmac_power2 = "axp81x_eldo2:1800000";
+			gmac_power3 = "axp81x_fldo1:1200000";
+			status = "disable";
+		};
 	};
 };

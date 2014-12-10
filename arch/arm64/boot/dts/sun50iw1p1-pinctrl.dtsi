@@ -404,6 +404,16 @@
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
+
+			gmac_pins_a: gmac@0 {
+				allwinner,pins = "PD8", "PD9", "PD10", "PD11",
+						"PD12", "PD13", "PD14", "PD15",
+						"PD16", "PD17", "PD18", "PD19",
+						"PD20", "PD21", "PD22", "PD23";
+				allwinner,function = "gmac0";
+				allwinner,drive = <3>;
+				allwinner,pull = <0>;
+			};
 		};
 
 		axp_pio: pinctrl@0 {
