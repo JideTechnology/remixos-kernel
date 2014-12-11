@@ -348,10 +348,9 @@ static int sunxi_i2s_preapre(struct snd_pcm_substream *substream,
 		} else {
 			reg_val = 0x10;
 		}
-		pr_debug("channels:%d,SUNXI_DA_TXCHMAP:%x",substream->runtime->channels,readl(sunxi_i2s->sunxi_i2s_membase+SUNXI_DA_TXCHMAP));
 		/*confige i2s ap tx channel mapping*/
 		codec_wr_control(sunxi_i2s->sunxi_i2s_membase+SUNXI_DA_TXCHMAP, 0xff, TX_CH0_MAP, reg_val);
-		pr_debug("channels:%d,SUNXI_DA_TXCHMAP:%x",substream->runtime->channels,readl(sunxi_i2s->sunxi_i2s_membase+SUNXI_DA_TXCHMAP));
+		pr_debug("channels:%d,SUNXI_DA_TXCHMAP:%x\n",substream->runtime->channels,readl(sunxi_i2s->sunxi_i2s_membase+SUNXI_DA_TXCHMAP));
 		/*SDO ON*/
 		codec_wr_control(sunxi_i2s->sunxi_i2s_membase+SUNXI_DA_CTL, 0x1, SDO_EN, 1);
 		/* I2S0 TX ENABLE */

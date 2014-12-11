@@ -12,7 +12,6 @@
  * the License, or (at your option) any later version.
  *
  */
-
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
@@ -29,7 +28,6 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
-#include <linux/pinctrl/pinconf-sunxi.h>
 #include <linux/pm.h>
 
 #include "sunxi_sun50iw1codec.h"
@@ -203,7 +201,69 @@ static struct label reg_labels[]={
 	LABEL(JACK_MIC_CTRL),
        	LABEL_END,
 };
+static void adcagc_config(struct snd_soc_codec *codec)
+{
 
+}
+static void adcdrc_config(struct snd_soc_codec *codec)
+{
+}
+static void adchpf_config(struct snd_soc_codec *codec)
+{
+
+}
+static void dacdrc_config(struct snd_soc_codec *codec)
+{
+}
+
+static void dachpf_config(struct snd_soc_codec *codec)
+{
+
+}
+static void adcdrc_enable(struct snd_soc_codec *codec,bool on)
+{
+	if (on) {
+
+	} else {
+
+	}
+
+}
+static void dacdrc_enable(struct snd_soc_codec *codec,bool on)
+{
+	if (on) {
+
+	} else {
+	}
+
+}
+static void adcagc_enable(struct snd_soc_codec *codec,bool on)
+{
+	if (on) {
+
+	} else {
+
+	}
+}
+
+static void dachpf_enable(struct snd_soc_codec *codec,bool on)
+{
+	if (on) {
+
+	} else {
+
+	}
+
+}
+static void adchpf_enable(struct snd_soc_codec *codec,bool on)
+{
+	if (on) {
+
+	} else {
+
+	}
+
+}
 /*
 *	enable the codec function which should be enable during system init.
 */
@@ -215,6 +275,26 @@ static void codec_init(struct sunxi_codec *sunxi_internal_codec)
 	snd_soc_update_bits(sunxi_internal_codec->codec, MIC1_CTRL, (0x7<<MIC1BOOST), (sunxi_internal_codec->gain_config.maingain<<MIC1BOOST));
 	snd_soc_update_bits(sunxi_internal_codec->codec, MIC2_CTRL, (0x7<<MIC2BOOST), (sunxi_internal_codec->gain_config.headsetmicgain<<MIC2BOOST));
 	snd_soc_update_bits(sunxi_internal_codec->codec, HP_CAL_CTRL, (0x7<<HPCALICKS), (0x7<<HPCALICKS));
+	if (sunxi_internal_codec->hwconfig.adcagc_used){
+		adcagc_config(sunxi_internal_codec->codec);
+	}
+	if (sunxi_internal_codec->hwconfig.adcdrc_used){
+		adcdrc_config(sunxi_internal_codec->codec);
+	}
+	if (sunxi_internal_codec->hwconfig.adchpf_used){
+		adchpf_config(sunxi_internal_codec->codec);
+	}
+	if (sunxi_internal_codec->hwconfig.dacdrc_used){
+		dacdrc_config(sunxi_internal_codec->codec);
+	}
+	if (sunxi_internal_codec->hwconfig.dachpf_used){
+		dachpf_config(sunxi_internal_codec->codec);
+	}
+	if (sunxi_internal_codec->aif_config.aif2config){
+	}
+	if (sunxi_internal_codec->aif_config.aif3config){
+	}
+
 }
 
 int ac_aif1clk(struct snd_soc_dapm_widget *w,
@@ -541,6 +621,56 @@ static int dmic_mux_ev(struct snd_soc_dapm_widget *w,
 	}
 	mutex_unlock(&sunxi_internal_codec->adc_mutex);
 	pr_debug("%s,line:%d,SUNXI_ADC_DIG_CTRL(300):%x\n", __func__, __LINE__,snd_soc_read(codec,SUNXI_ADC_DIG_CTRL));
+	return 0;
+}
+static int srcclk_late_ev(struct snd_soc_dapm_widget *w,
+			   struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	struct sunxi_codec *sunxi_internal_codec = snd_soc_codec_get_drvdata(codec);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		pr_debug("Enable src clk , config src 8k-8k.\n");
+		/*enable srcclk*/
+		clk_prepare_enable(sunxi_internal_codec->srcclk);
+		/*src1*/
+		snd_soc_update_bits(codec, SUNXI_MOD_CLK_ENA, (0x1<<SRC1_MOD_CLK_EN), (0x1<<SRC1_MOD_CLK_EN));
+		/*src2*/
+		snd_soc_update_bits(codec, SUNXI_MOD_CLK_ENA, (0x1<<SRC2_MOD_CLK_EN), (0x1<<SRC2_MOD_CLK_EN));
+		/*src2*/
+		snd_soc_update_bits(codec, SUNXI_MOD_RST_CTL, (0x1<<SRC2_MOD_RST_CTL), (0x1<<SRC2_MOD_RST_CTL));
+		/*src1*/
+		snd_soc_update_bits(codec, SUNXI_MOD_RST_CTL, (0x1<<SRC1_MOD_RST_CTL), (0x1<<SRC1_MOD_RST_CTL));
+
+		/*confige ad/da sr:8k*/
+//		codec_wr_control(SUNXI_SYS_SR_CTRL ,  0xf, AIF1_FS, 0x0);
+//		codec_wr_control(SUNXI_SYS_SR_CTRL ,  0xf, AIF2_FS, 0x0);
+		/*select src1 source from aif2*/
+		snd_soc_update_bits(codec, SUNXI_SYS_SR_CTRL, (0x1<<SRC1_SRC), (0x1<<SRC1_SRC));
+		/*select src2 source from aif2*/
+		snd_soc_update_bits(codec, SUNXI_SYS_SR_CTRL, (0x1<<SRC2_SRC), (0x1<<SRC2_SRC));
+		/*enable src1*/
+		snd_soc_update_bits(codec, SUNXI_SYS_SR_CTRL, (0x1<<SRC1_ENA), (0x1<<SRC1_ENA));
+		/*enable src2*/
+		snd_soc_update_bits(codec, SUNXI_SYS_SR_CTRL, (0x1<<SRC1_ENA), (0x1<<SRC1_ENA));
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		clk_disable_unprepare(sunxi_internal_codec->srcclk);
+		/*src1*/
+		snd_soc_update_bits(codec, SUNXI_MOD_CLK_ENA, (0x1<<SRC1_MOD_CLK_EN), (0x0<<SRC1_MOD_CLK_EN));
+		/*src2*/
+		snd_soc_update_bits(codec, SUNXI_MOD_CLK_ENA, (0x1<<SRC2_MOD_CLK_EN), (0x0<<SRC2_MOD_CLK_EN));
+		/*src2*/
+		snd_soc_update_bits(codec, SUNXI_MOD_RST_CTL, (0x1<<SRC2_MOD_RST_CTL), (0x0<<SRC2_MOD_RST_CTL));
+		/*src1*/
+		snd_soc_update_bits(codec, SUNXI_MOD_RST_CTL, (0x1<<SRC1_MOD_RST_CTL), (0x0<<SRC1_MOD_RST_CTL));
+
+		snd_soc_update_bits(codec, SUNXI_SYS_SR_CTRL, (0x1<<SRC1_ENA), (0x0<<SRC1_ENA));
+		snd_soc_update_bits(codec, SUNXI_SYS_SR_CTRL, (0x1<<SRC1_ENA), (0x0<<SRC1_ENA));
+		break;
+	}
+
 	return 0;
 }
 
@@ -1056,6 +1186,10 @@ static const struct snd_soc_dapm_widget ac_dapm_widgets[] = {
 	SND_SOC_DAPM_SPK("Earpiece", ac_earpiece_event),
 	/*speaker*/
 	SND_SOC_DAPM_SPK("External Speaker", ac_speaker_event),
+
+	/*src clk*/
+	SND_SOC_DAPM_SUPPLY("src clk", SND_SOC_NOPM,
+			0, 0, srcclk_late_ev, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 };
 
 static const struct snd_soc_dapm_route ac_dapm_routes[] = {
@@ -1283,8 +1417,35 @@ static const struct snd_soc_dapm_route ac_dapm_routes[] = {
 	{"External Speaker", NULL, "SPKL"},
 	{"External Speaker", NULL, "SPKR"},
 
-};
+	{"AIF2DACL", NULL,"src clk"},
 
+};
+static int codec_start(struct snd_pcm_substream *substream, struct snd_soc_dai *codec_dai)
+{
+	struct snd_soc_codec *codec = codec_dai->codec;
+	struct sunxi_codec *sunxi_internal_codec = snd_soc_codec_get_drvdata(codec);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		if (sunxi_internal_codec->hwconfig.dacdrc_used){
+			dacdrc_enable(codec, 1);
+		}
+		if (sunxi_internal_codec->hwconfig.dachpf_used){
+			dachpf_enable(codec, 1);
+		}
+	} else {
+		if (sunxi_internal_codec->hwconfig.adcagc_used){
+			adcagc_enable(codec, 1);
+		}
+		if (sunxi_internal_codec->hwconfig.adcdrc_used){
+			adcdrc_enable(codec, 1);
+		}
+		if (sunxi_internal_codec->hwconfig.adchpf_used){
+			adchpf_enable(codec, 1);
+		}
+	}
+
+	return 0;
+
+}
 static int codec_aif_mute(struct snd_soc_dai *codec_dai, int mute)
 {
 	struct snd_soc_codec *codec = codec_dai->codec;
@@ -1299,7 +1460,26 @@ static int codec_aif_mute(struct snd_soc_dai *codec_dai, int mute)
 static void codec_aif_shutdown(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *codec_dai)
 {
-
+	struct snd_soc_codec *codec = codec_dai->codec;
+	struct sunxi_codec *sunxi_internal_codec = snd_soc_codec_get_drvdata(codec);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		if (sunxi_internal_codec->hwconfig.dacdrc_used){
+			dacdrc_enable(codec, 0);
+		}
+		if (sunxi_internal_codec->hwconfig.dachpf_used){
+			dachpf_enable(codec, 0);
+		}
+	} else {
+		if (sunxi_internal_codec->hwconfig.adcagc_used){
+			adcagc_enable(codec, 0);
+		}
+		if (sunxi_internal_codec->hwconfig.adcdrc_used){
+			adcdrc_enable(codec, 0);
+		}
+		if (sunxi_internal_codec->hwconfig.adchpf_used){
+			adchpf_enable(codec, 0);
+		}
+	}
 }
 
 static int codec_hw_params(struct snd_pcm_substream *substream,
@@ -1569,19 +1749,20 @@ static int codec_set_bias_level(struct snd_soc_codec *codec,
 }
 
 static const struct snd_soc_dai_ops codec_aif1_dai_ops = {
-	.set_sysclk		= codec_set_dai_sysclk,
-	.set_fmt		= codec_set_dai_fmt,
-	.hw_params		= codec_hw_params,
-	.shutdown		= codec_aif_shutdown,
+	.startup	= codec_start,
+	.set_sysclk	= codec_set_dai_sysclk,
+	.set_fmt	= codec_set_dai_fmt,
+	.hw_params	= codec_hw_params,
+	.shutdown	= codec_aif_shutdown,
 	.digital_mute	= codec_aif_mute,
-	.set_pll		= codec_set_fll,
+	.set_pll	= codec_set_fll,
 };
 
 static const struct snd_soc_dai_ops codec_aif2_dai_ops = {
 	.set_sysclk	= codec_set_dai_sysclk,
 	.set_fmt	= codec_set_dai_fmt,
 	.hw_params	= codec_hw_params,
-	.shutdown	= codec_aif_shutdown,
+	//.shutdown	= codec_aif_shutdown,
 	.set_pll	= codec_set_fll,
 };
 
@@ -1688,8 +1869,9 @@ static int codec_suspend(struct snd_soc_codec *codec)
 
 static int codec_resume(struct snd_soc_codec *codec)
 {
+	struct sunxi_codec *sunxi_internal_codec = snd_soc_codec_get_drvdata(codec);
 	pr_debug("[audio codec]:resume start\n");
-
+	codec_init(sunxi_internal_codec);
 	pr_debug("[audio codec]:resume end\n");
 	return 0;
 }
@@ -1735,6 +1917,7 @@ static struct snd_soc_codec_driver soc_codec_dev_codec = {
 	.set_bias_level = codec_set_bias_level,
 	.read 	 = codec_read,
 	.write 	 = codec_write,
+	.ignore_pmdown_time = 1,
 };
 
 static ssize_t show_audio_reg(struct device *dev, struct device_attribute *attr,
@@ -1875,6 +2058,12 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		pr_err("[audio-codec]Can't map codec analog registers\n");
 	} else {
 		codec_analogadress = sunxi_internal_codec->codec_abase;
+	}
+	sunxi_internal_codec->srcclk = of_clk_get(node, 0);
+	if (IS_ERR(sunxi_internal_codec->srcclk)){
+		dev_err(&pdev->dev, "[audio-codec]Can't get src clocks\n");
+		ret = PTR_ERR(sunxi_internal_codec->srcclk);
+		goto err1;
 	}
 
 	ret = of_property_read_u8(node, "allwinner,headphonevol",&temp_val);

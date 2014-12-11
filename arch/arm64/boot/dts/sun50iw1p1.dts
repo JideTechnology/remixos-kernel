@@ -226,6 +226,7 @@
 			compatible = "allwinner,sunxi-internal-codec";
 			reg = <0x0 0x01c22c00 0x0 0x478>,/*digital baseadress*/
 			      <0x0 0x01f015c0 0x0 0x0>;/*analog baseadress*/
+			clocks = <&clk_pll_audiox4>;
 			allwinner,headphonevol = /bits/ 8 <0x3b>;
 			allwinner,spkervol = /bits/ 8 <0x1b>;
 			allwinner,earpiecevol = /bits/ 8 <0x1e>;
@@ -248,10 +249,9 @@
 			status = "okay";
 		};
 
-		audiocodec_machine@0x01c22c00{
+		audiocodec_machine{
 			compatible = "allwinner,sunxi-codec-machine";
 			interrupts = <GIC_SPI 61 0x101>;
-			reg = <0x0 0x01c22c00 0x0 0x478>;/*digital baseadress*/
 			sunxi,i2s-controller = <&sun50i2s>;
 			sunxi,audio-codec = <&sun50codec>;
 			status = "okay";

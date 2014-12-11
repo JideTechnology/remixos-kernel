@@ -2026,6 +2026,7 @@ struct aif_config{
 struct sunxi_codec {
 	void __iomem *codec_dbase;
 	void __iomem *codec_abase;
+	struct clk *srcclk;
 	struct gain_config gain_config;
 	struct codec_hw_config hwconfig;
 	struct aif_config aif_config;
