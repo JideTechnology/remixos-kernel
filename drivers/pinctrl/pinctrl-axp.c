@@ -21,12 +21,10 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
-#include <linux/pinctrl/pinconf.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/pinctrl/machine.h>
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/pinctrl/pinconf-generic.h>
-#include <linux/pinctrl/pinconf-sunxi.h>
 #include <linux/pinctrl/pinmux.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
@@ -41,6 +39,9 @@
 
 #define MODULE_NAME "axp-pinctrl"
 
+static s32 pin_debug = 0;
+#define PIN_MSG(fmt, arg...)	if (unlikely(pin_debug)) \
+	printk(KERN_DEBUG fmt , ## arg)
 
 static const struct axp_desc_pin axp_pins[] = {
 	AXP_PIN_DESC(AXP_PINCTRL_GPIO0,
@@ -71,6 +72,8 @@ static int axp_gpio_get_data(int gpio)
 	uint8_t ret;
 	struct axp_dev *axp = NULL;
 
+	PIN_MSG("%s enter... gpio = %d\n", __func__, gpio);
+
 #ifdef CONFIG_AW_AXP22
 	axp = axp_dev_lookup(AXP22);
 #elif defined(CONFIG_AW_AXP81X)
@@ -95,6 +98,8 @@ static int axp_gpio_get_data(int gpio)
 static int axp_gpio_set_data(int gpio, int value)
 {
 	struct axp_dev *axp = NULL;
+
+	PIN_MSG("%s enter... gpio = %d, value = %d\n", __func__, gpio, value);
 
 	if ((0 <= gpio) && (4 >= gpio)) {
 #ifdef CONFIG_AW_AXP22
@@ -143,6 +148,8 @@ static int axp_gpio_set_data(int gpio, int value)
 static int axp_pmx_set(int gpio, int mux)
 {
 	struct axp_dev *axp = NULL;
+
+	PIN_MSG("%s enter... gpio = %d, mux = %d\n", __func__, gpio, mux);
 
 #ifdef CONFIG_AW_AXP22
 	axp = axp_dev_lookup(AXP22);
@@ -229,7 +236,6 @@ static struct gpio_chip axp_gpio_chip = {
 	.can_sleep        = 0,
 };
 
-#if defined(CONFIG_OF)
 static struct axp_pinctrl_group *
 axp_pinctrl_find_group_by_name(struct axp_pinctrl *pctl, const char *group)
 {
@@ -244,8 +250,6 @@ axp_pinctrl_find_group_by_name(struct axp_pinctrl *pctl, const char *group)
 
 	return NULL;
 }
-#endif
-
 
 static struct axp_desc_function *
 axp_pinctrl_desc_find_function_by_name(struct axp_pinctrl *pctl,
@@ -296,7 +300,6 @@ static int axp_pinctrl_get_group_pins(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
-#ifdef CONFIG_OF
 static int axp_pctrl_dt_node_to_map(struct pinctrl_dev *pctldev,
 				      struct device_node *node,
 				      struct pinctrl_map **map,
@@ -309,6 +312,8 @@ static int axp_pctrl_dt_node_to_map(struct pinctrl_dev *pctldev,
 	const char *group;
 	int ret, nmaps, i = 0;
 	u32 val;
+
+	PIN_MSG("%s enter...\n", __func__);
 
 	*map = NULL;
 	*num_maps = 0;
@@ -398,13 +403,9 @@ static void axp_pctrl_dt_free_map(struct pinctrl_dev *pctldev,
 	kfree(map);
 }
 
-#endif /* CONFIG_OF */
-
 static struct pinctrl_ops axp_pinctrl_ops = {
-#ifdef CONFIG_OF
 	.dt_node_to_map   = axp_pctrl_dt_node_to_map,
 	.dt_free_map      = axp_pctrl_dt_free_map,
-#endif /* CONFIG_OF */
 	.get_groups_count = axp_pinctrl_get_groups_count,
 	.get_group_name   = axp_pinctrl_get_group_name,
 	.get_group_pins   = axp_pinctrl_get_group_pins,
@@ -451,6 +452,8 @@ static int axp_pmx_enable(struct pinctrl_dev *pctldev,
 		return -EINVAL;
 	}
 
+	PIN_MSG("%s enter...\n", __func__);
+
 	axp_pmx_set(g->pin, desc->muxval);
 
 	return 0;
@@ -473,6 +476,8 @@ static int axp_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
 	char        pin_name[AXP_PIN_NAME_MAX_LEN];
 	const char *func;
 	int         ret;
+
+	PIN_MSG("%s enter...\n", __func__);
 
 	ret = sprintf(pin_name, "GPIO%d", offset);
 	if (!ret) {
@@ -503,67 +508,33 @@ static struct pinmux_ops axp_pmx_ops = {
 	.gpio_set_direction  = axp_pmx_gpio_set_direction,
 };
 
-static int axp_pinconf_get(struct pinctrl_dev *pctldev,
-		           unsigned pin,
-			   unsigned long *config)
-{
-	struct axp_pinctrl *pctl = pinctrl_dev_get_drvdata(pctldev);
-	int                 data;
-
-	switch (SUNXI_PINCFG_UNPACK_TYPE(*config)) {
-	case SUNXI_PINCFG_TYPE_DAT:
-		data = axp_gpio_get_data(pin);
-		*config = SUNXI_PINCFG_PACK(SUNXI_PINCFG_TYPE_DAT, data);
-	        pr_debug("axp pconf get pin [%s] data [%d]\n",
-		         pin_get_name(pctl->pctl_dev, pin), data);
-		break;
-	default:
-		pr_debug("invalid axp pconf type for get\n");
-		return -EINVAL;
-	}
-	return 0;
-}
-
-static int axp_pinconf_set(struct pinctrl_dev *pctldev,
-		           unsigned pin,
-			   unsigned long config)
-{
-	struct axp_pinctrl *pctl = pinctrl_dev_get_drvdata(pctldev);
-	int                 data;
-
-	switch (SUNXI_PINCFG_UNPACK_TYPE(config)) {
-	case SUNXI_PINCFG_TYPE_DAT:
-		data = SUNXI_PINCFG_UNPACK_VALUE(config);
-		axp_gpio_set_data(pin, data);
-	        pr_debug("axp pconf set pin [%s] data to [%d]\n",
-		         pin_get_name(pctl->pctl_dev, pin), data);
-		break;
-	default:
-		pr_debug("invalid axp pconf type for set\n");
-		return -EINVAL;
-	}
-	return 0;
-}
-
 static int axp_pinconf_group_get(struct pinctrl_dev *pctldev,
-			         unsigned group,
-			         unsigned long *config)
+				 unsigned group,
+				 unsigned long *config)
 {
 	struct axp_pinctrl *pctl = pinctrl_dev_get_drvdata(pctldev);
-	return axp_pinconf_get(pctldev, pctl->groups[group].pin, config);
+
+	*config = pctl->groups[group].config;
+	return 0;
 }
 
 static int axp_pinconf_group_set(struct pinctrl_dev *pctldev,
-			         unsigned group,
-			         unsigned long config)
+				 unsigned group,
+				 unsigned long *configs,
+				 unsigned num_configs)
 {
 	struct axp_pinctrl *pctl = pinctrl_dev_get_drvdata(pctldev);
-	return axp_pinconf_set(pctldev, pctl->groups[group].pin, config);
+	struct axp_pinctrl_group *g = &pctl->groups[group];
+	int i = 0;
+
+	for (i = 0; i < num_configs; i++) {
+		/* cache the config value */
+		g->config = configs[i];
+	}
+	return 0;
 }
 
 static struct pinconf_ops axp_pinconf_ops = {
-	.pin_config_get       = axp_pinconf_get,
-	.pin_config_set       = axp_pinconf_set,
 	.pin_config_group_get = axp_pinconf_group_get,
 	.pin_config_group_set = axp_pinconf_group_set,
 };
@@ -575,14 +546,6 @@ static struct pinctrl_desc axp_pinctrl_desc = {
 	.confops = &axp_pinconf_ops,
 	.owner   = THIS_MODULE,
 };
-
-#if defined(CONFIG_OF)
-static struct of_device_id axp_pinctrl_match[] = {
-	{ .compatible = "allwinner,axp-pinctrl", .data = (void *)&axp_pinctrl_pins_desc },
-	{}
-};
-MODULE_DEVICE_TABLE(of, axp_pinctrl_match);
-#endif
 
 static int axp_pinctrl_add_function(struct axp_pinctrl *pctl, const char *name)
 {
@@ -845,6 +808,12 @@ static int axp_pinctrl_parse_pin_cfg(struct platform_device *pdev)
 }
 #endif /* CONFIG_OF */
 
+static struct of_device_id axp_pinctrl_match[] = {
+	{ .compatible = "allwinner,axp-pinctrl", .data = (void *)&axp_pinctrl_pins_desc },
+	{}
+};
+MODULE_DEVICE_TABLE(of, axp_pinctrl_match);
+
 static int axp_pinctrl_probe(struct platform_device *pdev)
 {
 #if defined(CONFIG_OF)
@@ -951,25 +920,13 @@ static struct platform_driver axp_pinctrl_driver = {
 	.driver = {
 		.name = MODULE_NAME,
 		.owner = THIS_MODULE,
-#if defined(CONFIG_OF)
 		.of_match_table = axp_pinctrl_match,
-#endif
 	},
-};
-
-static struct platform_device axp_pinctrl_device = {
-	.name = MODULE_NAME,
-	.id = PLATFORM_DEVID_NONE, /* this is only one device for pinctrl driver */
 };
 
 static int __init axp_pinctrl_init(void)
 {
 	int ret;
-	ret = platform_device_register(&axp_pinctrl_device);
-	if (IS_ERR_VALUE(ret)) {
-		pr_debug("register axp platform device failed, errno %d\n", ret);
-		return -EINVAL;
-	}
 	ret = platform_driver_register(&axp_pinctrl_driver);
 	if (IS_ERR_VALUE(ret)) {
 		pr_debug("register axp platform driver failed, errno %d\n", ret);
