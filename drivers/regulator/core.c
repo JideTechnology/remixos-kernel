@@ -1261,7 +1261,8 @@ static void print_constraints(struct regulator_dev *rdev)
 	if (!count)
 		sprintf(buf, "no parameters");
 
-	rdev_info(rdev, "%s\n", buf);
+	/* rdev_info change to rdev_dbg by liming 20141215*/
+	rdev_dbg(rdev, "%s\n", buf);
 
 	if ((constraints->min_uV != constraints->max_uV) &&
 	    !(constraints->valid_ops_mask & REGULATOR_CHANGE_VOLTAGE))
@@ -1453,7 +1454,8 @@ static int set_supply(struct regulator_dev *rdev,
 {
 	int err;
 
-	rdev_info(rdev, "supplied by %s\n", rdev_get_name(supply_rdev));
+	/* rdev_info change to rdev_dbg by liming 20141215*/
+	rdev_dbg(rdev, "supplied by %s\n", rdev_get_name(supply_rdev));
 
 	rdev->supply = create_regulator(supply_rdev, &rdev->dev, "SUPPLY");
 	if (rdev->supply == NULL) {
@@ -4435,8 +4437,9 @@ static int __init regulator_init_complete(void)
 	 * with DT to provide them just assume that a DT enabled
 	 * system has full constraints.
 	 */
-	if (of_have_populated_dt())
-		has_full_constraints = true;
+	/* 20141215 by Ming Li, has_full_constraints must is false */
+	/* if (of_have_populated_dt())
+		has_full_constraints = true; */
 
 	mutex_lock(&regulator_list_mutex);
 
@@ -4479,7 +4482,8 @@ static int __init regulator_init_complete(void)
 			 * so warn even if we aren't going to do
 			 * anything here.
 			 */
-			rdev_warn(rdev, "incomplete constraints, leaving on\n");
+			/* rdev_warn change to rdev_dbg by liming 20141215*/
+			rdev_dbg(rdev, "incomplete constraints, leaving on\n");
 		}
 
 unlock:

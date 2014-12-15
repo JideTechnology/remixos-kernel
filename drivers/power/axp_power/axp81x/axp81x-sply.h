@@ -214,11 +214,12 @@ extern struct axp_charger *axp_charger;
 extern s32 vbus_curr_limit_debug;
 
 extern s32 axp81x_chg_current_limit(u32 current_limit);
+extern s32 axp81x_init(struct axp_charger *charger);
+extern void axp81x_exit(struct axp_charger *charger);
 extern s32 axp_charger_create_attrs(struct power_supply *psy);
 extern void axp_charger_update_state(struct axp_charger *charger);
 extern void axp_charger_update(struct axp_charger *charger, const struct axp_config_info *axp_config);
-extern s32 axp81x_init(struct axp_charger *charger);
-extern void axp81x_exit(struct axp_charger *charger);
+extern void axp_battery_update_vol(struct axp_charger *charger);
 extern void axp_powerkey_set(s32 value);
 extern s32 axp_powerkey_get(void);
 extern s32 axp_irq_init(struct axp_charger *charger, struct platform_device *pdev);

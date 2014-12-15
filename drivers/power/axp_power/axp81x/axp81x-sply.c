@@ -264,8 +264,8 @@ static void axp_lateresume(struct early_suspend *h)
 static void axp_charging_monitor(struct work_struct *work)
 {
 	struct axp_charger *charger;
-	u8	val,temp_val[4];
-	s32	pre_rest_vol,pre_bat_curr_dir;
+	u8 temp_val[4];
+	s32 pre_rest_vol,pre_bat_curr_dir;
 	u64 power_sply = 0;
 
 	charger = container_of(work, struct axp_charger, work.work);
@@ -273,11 +273,6 @@ static void axp_charging_monitor(struct work_struct *work)
 	pre_bat_curr_dir = charger->bat_current_direction;
 	axp_charger_update_state(charger);
 	axp_charger_update(charger, &axp81x_config);
-	axp_read(charger->master, AXP81X_CAP,&val);
-
-	spin_lock(&charger->charger_lock);
-	charger->rest_vol	= (s32)	(val & 0x7F);
-	spin_unlock(&charger->charger_lock);
 
 	if (axp_debug & DEBUG_SPLY) {
 		DBG_PSY_MSG(DEBUG_SPLY, "charger->ic_temp = %d\n",charger->ic_temp);
@@ -291,7 +286,6 @@ static void axp_charging_monitor(struct work_struct *work)
 		if (0 != power_sply)
 			power_sply = power_sply/1000;
 		DBG_PSY_MSG(DEBUG_SPLY, "power_sply = %lld mW\n",power_sply);
-		DBG_PSY_MSG(DEBUG_SPLY, "charger->rest_vol = %d\n",charger->rest_vol);
 		axp_reads(charger->master,0xba,2,temp_val);
 		DBG_PSY_MSG(DEBUG_SPLY, "Axp Rdc = %d\n",(((temp_val[0] & 0x1f) <<8) + temp_val[1])*10742/10000);
 		axp_reads(charger->master,0xe0,2,temp_val);
@@ -300,14 +294,13 @@ static void axp_charging_monitor(struct work_struct *work)
 		DBG_PSY_MSG(DEBUG_SPLY, "Axp coulumb_counter = %d\n",(((temp_val[0] & 0x7f) <<8) + temp_val[1])*1456/1000);
 		axp_read(charger->master,0xb8,temp_val);
 		DBG_PSY_MSG(DEBUG_SPLY, "Axp REG_B8 = %x\n",temp_val[0]);
-		axp_reads(charger->master,0xe4,2,temp_val);
-		DBG_PSY_MSG(DEBUG_SPLY, "Axp OCV_percentage = %d\n",(temp_val[0] & 0x7f));
-		DBG_PSY_MSG(DEBUG_SPLY, "Axp Coulumb_percentage = %d\n",(temp_val[1] & 0x7f));
 		DBG_PSY_MSG(DEBUG_SPLY, "charger->is_on = %d\n",charger->is_on);
 		DBG_PSY_MSG(DEBUG_SPLY, "charger->bat_current_direction = %d\n",charger->bat_current_direction);
 		DBG_PSY_MSG(DEBUG_SPLY, "charger->charge_on = %d\n",charger->charge_on);
 		DBG_PSY_MSG(DEBUG_SPLY, "charger->ext_valid = %d\n",charger->ext_valid);
 	}
+
+	axp_battery_update_vol(charger);
 
 	/* if battery volume changed, inform uevent */
 	if((charger->rest_vol - pre_rest_vol) || (charger->bat_current_direction != pre_bat_curr_dir)){
@@ -394,11 +387,8 @@ static s32 axp_battery_probe(struct platform_device *pdev)
 	}
 	platform_set_drvdata(pdev, charger);
 
-	axp_charger_update_state((struct axp_charger *)charger);
-	axp_read(charger->master, AXP81X_CAP,&val);
-	spin_lock(&charger->charger_lock);
-	charger->rest_vol = (s32) (val & 0x7F);
-	spin_unlock(&charger->charger_lock);
+	axp_charger_update_state(charger);
+	axp_battery_update_vol(charger);
 	DBG_PSY_MSG(DEBUG_SPLY, "now_rest_vol = %d\n",(val & 0x7F));
 
 	spin_lock(&charger->charger_lock);
@@ -471,22 +461,18 @@ static s32 axp81x_resume(struct platform_device *dev)
 {
 	struct axp_charger *charger = platform_get_drvdata(dev);
 	s32 pre_rest_vol;
-	u8 val;
 
 	axp_enable_irq(charger);
 	pre_rest_vol = charger->rest_vol;
-	axp_read(charger->master, AXP81X_CAP,&val);
-	charger->rest_vol = val & 0x7f;
+	axp_charger_update_state(charger);
+	axp_charger_update(charger, &axp81x_config);
+	axp_battery_update_vol(charger);
 	if(charger->rest_vol - pre_rest_vol){
 		printk("battery vol change: %d->%d \n", pre_rest_vol, charger->rest_vol);
 		pre_rest_vol = charger->rest_vol;
 		axp_write(charger->master,AXP81X_DATA_BUFFER1,charger->rest_vol | 0x80);
 	}
 	axp81x_chg_current_limit(axp81x_config.pmu_runtime_chgcur);
-	charger->disvbat = 0;
-	charger->disibat = 0;
-	axp_charger_update_state(charger);
-	axp_charger_update(charger, &axp81x_config);
 	power_supply_changed(&charger->batt);
 	power_supply_changed(&charger->ac);
 	power_supply_changed(&charger->usb);

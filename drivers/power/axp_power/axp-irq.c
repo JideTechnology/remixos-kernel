@@ -11,13 +11,14 @@
 #include <linux/input.h>
 #include <linux/wakelock.h>
 #include "axp-cfg.h"
+#ifdef CONFIG_SUNXI_ARISC
+#include <linux/arisc/arisc.h>
+#endif
 #ifdef CONFIG_AW_AXP81X
 #include "axp81x/axp81x-sply.h"
 #include "axp81x/axp81x-common.h"
 static const struct axp_config_info *axp_config = &axp81x_config;
 static const u64 AXP_NOTIFIER_ON = AXP81X_NOTIFIER_ON;
-static s32 Total_Cap = 0;
-static s32 Bat_Cap_Buffer[AXP_VOL_MAX];
 #endif
 #ifdef CONFIG_HAS_WAKELOCK
 static struct wake_lock axp_wakeup_lock;
@@ -93,25 +94,13 @@ static void axp_keydown(struct axp_charger *charger)
 
 static void axp_capchange(struct axp_charger *charger)
 {
-	u8 val;
-	s32 k;
-
 	DBG_PSY_MSG(DEBUG_INT, "battery change\n");
 	ssleep(2);
 	axp_charger_update_state(charger);
 	axp_charger_update(charger, axp_config);
-	axp_read(charger->master, AXP_CAP,&val);
-	charger->rest_vol = (s32) (val & 0x7F);
-	if((charger->bat_det == 0) || (charger->rest_vol == 127)){
-		charger->rest_vol = 100;
-	}
+	axp_battery_update_vol(charger);
 
 	DBG_PSY_MSG(DEBUG_INT, "rest_vol = %d\n",charger->rest_vol);
-	memset(Bat_Cap_Buffer, 0, sizeof(Bat_Cap_Buffer));
-	for(k = 0;k < AXP81X_VOL_MAX; k++){
-		Bat_Cap_Buffer[k] = charger->rest_vol;
-	}
-	Total_Cap = charger->rest_vol * AXP_VOL_MAX;
 	power_supply_changed(&charger->batt);
 }
 

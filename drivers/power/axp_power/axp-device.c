@@ -95,6 +95,9 @@ static s32 axp_device_probe(struct platform_device *pdev)
 	if (of_property_read_u32(node, "pmu_chg_end_on_en", &axp_config->pmu_chg_end_on_en))
 		axp_config->pmu_chg_end_on_en = 0;
 
+	if (of_property_read_u32(node, "ocv_coulumb_100", &axp_config->ocv_coulumb_100))
+		axp_config->ocv_coulumb_100 = 0;
+
 	if (of_property_read_u32(node, "pmu_bat_para1", &axp_config->pmu_bat_para1))
 		axp_config->pmu_bat_para1 = OCVREG0;
 

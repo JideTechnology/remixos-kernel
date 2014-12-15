@@ -67,6 +67,8 @@ static inline s32 __axp_read(unsigned char *devaddr, struct i2c_client *client,
 
 	*val = data;
 	return 0;
+#else
+	return 0;
 #endif
 }
 
@@ -144,6 +146,8 @@ static inline s32 __axp_reads(unsigned char *devaddr, struct i2c_client *client,
 		len -= rd_len;
 	}
 	return 0;
+#else
+	return 0;
 #endif
 }
 
@@ -207,6 +211,8 @@ static inline s32 __axp_write(unsigned char *devaddr, struct i2c_client *client,
 		return ret;
 	}
 #endif
+	return 0;
+#else
 	return 0;
 #endif
 }
@@ -292,6 +298,8 @@ static inline s32 __axp_writes(unsigned char *devaddr, struct i2c_client *client
 		/* process next time write */
 		len -= wr_len;
 	}
+	return 0;
+#else
 	return 0;
 #endif
 }

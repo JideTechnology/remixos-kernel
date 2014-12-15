@@ -11,6 +11,8 @@ static struct of_device_id axp_regu_device_match[] = {
 	{ }
 };
 
+static struct axp_consumer_supply *consumer_supply_count = NULL;
+
 static s32 axp_regu_device_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -73,9 +75,16 @@ static s32 axp_regu_device_probe(struct platform_device *pdev)
 			supply_num = num-1;
 			(*(axp_init_data+(ldo_index-1))).axp_reg_init_data.num_consumer_supplies = supply_num;
 
+			consumer_supply_count = (struct axp_consumer_supply *)kzalloc(sizeof(struct axp_consumer_supply)*supply_num, GFP_KERNEL);
+			if (!consumer_supply_count) {
+				printk(KERN_ERR "%s: request consumer_supply_count failed\n", __func__);
+				return -1;
+			}
+
 			regu_consumer_supply = (struct regulator_consumer_supply *)kzalloc(sizeof(struct regulator_consumer_supply)*supply_num, GFP_KERNEL);
 			if (!regu_consumer_supply) {
 				printk(KERN_ERR "%s: request regu_consumer_supply failed\n", __func__);
+				kfree(consumer_supply_count);
 				return -1;
 			}
 
@@ -84,16 +93,18 @@ static s32 axp_regu_device_probe(struct platform_device *pdev)
 					j = i + 1;
 				else
 					j = i;
-				(regu_consumer_supply+i)->supply = (const char*)(consumer_supply[j].supply);
+				strcpy((char*)(consumer_supply_count+i),
+						consumer_supply[j].supply);
+				(regu_consumer_supply+i)->supply = (const char*)((struct axp_consumer_supply *)(consumer_supply_count+i)->supply);
 
 				{
 					int ret = 0, sys_id_conut = 0;
 
-					sys_id_conut = axp_check_sys_id((const char*)(consumer_supply[j].supply));
+					sys_id_conut = axp_check_sys_id((consumer_supply_count+i)->supply);
 					if (0 <= sys_id_conut) {
-						ret = get_ldo_dependence((const char *)(consumer_supply[0].supply), sys_id_conut);
+						ret = get_ldo_dependence((const char *)&(consumer_supply[0].supply), sys_id_conut);
 						if (ret < 0)
-							printk("sys_id %s set dependence failed. \n", consumer_supply[j].supply);
+							printk("sys_id %s set dependence failed. \n", (consumer_supply_count+i)->supply);
 					}
 				}
 

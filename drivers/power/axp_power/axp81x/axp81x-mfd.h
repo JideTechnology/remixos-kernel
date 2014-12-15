@@ -2,7 +2,12 @@
 
 static u8 axp_reg_addr = 0;
 
-#define  RSB_RTSADDR_AXP809 0x34
+#ifndef RSB_RTSADDR_AXP809
+#define  RSB_RTSADDR_AXP809 (0x2d)
+#endif
+#ifndef RSB_RTSADDR_AXP806
+#define  RSB_RTSADDR_AXP806 (0x3a)
+#endif
 
 static void axp81x_mfd_irq_work(struct work_struct *work)
 {
@@ -27,7 +32,7 @@ static void axp81x_mfd_irq_work(struct work_struct *work)
 	}
 #ifdef	CONFIG_AXP_TWI_USED
 	enable_irq(chip->client->irq);
-#else
+#elif defined(CONFIG_SUNXI_ARISC)
 	arisc_enable_nmi_irq();
 #endif
 	return;
@@ -97,7 +102,7 @@ static s32 axp81x_read_irqs(struct axp_dev *chip, u64 *irqs)
 
 static s32  axp81x_init_chip(struct axp_dev *chip)
 {
-	u8 chip_id;
+	u8 chip_id = 0;
 	u8 v[23] = {0xd8,AXP81X_INTEN2, 0xfc,AXP81X_INTEN3,0x00,
 			  AXP81X_INTEN4, 0x01,AXP81X_INTEN5, 0x18,
 			  AXP81X_INTEN6, 0x00,AXP81X_INTSTS1,0xff,

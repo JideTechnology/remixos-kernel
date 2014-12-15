@@ -98,6 +98,21 @@ static s32 axp_i2c_probe(struct i2c_client *client,
 {
 	s32 ret = 0;
 
+	if (axp81x_config.pmu_used) {
+		battery_data.voltage_max_design = axp81x_config.pmu_init_chgvol;
+		battery_data.voltage_min_design = axp81x_config.pmu_pwroff_vol;
+		battery_data.energy_full_design = axp81x_config.pmu_battery_cap;
+		axp_sply_init_data.chgcur = axp81x_config.pmu_runtime_chgcur;
+		axp_sply_init_data.chgvol = axp81x_config.pmu_init_chgvol;
+		axp_sply_init_data.chgend = axp81x_config.pmu_init_chgend_rate;
+		axp_sply_init_data.chgen = axp81x_config.pmu_init_chg_enabled;
+		axp_sply_init_data.sample_time = axp81x_config.pmu_init_adc_freq;
+		axp_sply_init_data.chgpretime = axp81x_config.pmu_init_chg_pretime;
+		axp_sply_init_data.chgcsttime = axp81x_config.pmu_init_chg_csttime;
+	}else {
+		return -1;
+	}
+
 	axp81x_dev.client = client;
 	axp81x_dev.dev = &client->dev;
 
@@ -148,6 +163,21 @@ static s32  axp81x_platform_probe(struct platform_device *pdev)
 {
 	s32 ret = 0;
 
+	if (axp81x_config.pmu_used) {
+		battery_data.voltage_max_design = axp81x_config.pmu_init_chgvol;
+		battery_data.voltage_min_design = axp81x_config.pmu_pwroff_vol;
+		battery_data.energy_full_design = axp81x_config.pmu_battery_cap;
+		axp_sply_init_data.chgcur = axp81x_config.pmu_runtime_chgcur;
+		axp_sply_init_data.chgvol = axp81x_config.pmu_init_chgvol;
+		axp_sply_init_data.chgend = axp81x_config.pmu_init_chgend_rate;
+		axp_sply_init_data.chgen = axp81x_config.pmu_init_chg_enabled;
+		axp_sply_init_data.sample_time = axp81x_config.pmu_init_adc_freq;
+		axp_sply_init_data.chgpretime = axp81x_config.pmu_init_chg_pretime;
+		axp_sply_init_data.chgcsttime = axp81x_config.pmu_init_chg_csttime;
+	}else {
+		return -1;
+	}
+
 	axp81x_dev.dev = &pdev->dev;
 	dev_set_drvdata(axp81x_dev.dev, &axp81x_dev);
 	axp81x_dev.client = (struct i2c_client *)pdev;
@@ -188,55 +218,41 @@ static s32 __init axp81x_board_init(void)
 		return -1;
 	}
 
-	if (axp81x_config.pmu_used) {
-		battery_data.voltage_max_design = axp81x_config.pmu_init_chgvol;
-		battery_data.voltage_min_design = axp81x_config.pmu_pwroff_vol;
-		battery_data.energy_full_design = axp81x_config.pmu_battery_cap;
-		axp_sply_init_data.chgcur = axp81x_config.pmu_runtime_chgcur;
-		axp_sply_init_data.chgvol = axp81x_config.pmu_init_chgvol;
-		axp_sply_init_data.chgend = axp81x_config.pmu_init_chgend_rate;
-		axp_sply_init_data.chgen = axp81x_config.pmu_init_chg_enabled;
-		axp_sply_init_data.sample_time = axp81x_config.pmu_init_adc_freq;
-		axp_sply_init_data.chgpretime = axp81x_config.pmu_init_chg_pretime;
-		axp_sply_init_data.chgcsttime = axp81x_config.pmu_init_chg_csttime;
-		axp_regu_info = axp81x_regu_init();
-		if (NULL == axp_regu_info) {
-			printk("%s fetch regu tree err\n", __func__);
+	axp_regu_info = axp81x_regu_init();
+	if (NULL == axp_regu_info) {
+		printk("%s fetch regu tree err\n", __func__);
+		return -1;
+	} else {
+		axp_pdata.num_regl_devs = 23;//sizeof(*axp_regu_info)/sizeof(struct axp_funcdev_info);
+		printk(KERN_ERR "%s: liming axp regl_devs num = %d\n", __func__, axp_pdata.num_regl_devs);
+		axp_pdata.regl_devs = (struct axp_funcdev_info *)axp_regu_info;
+		if (NULL == axp_pdata.regl_devs) {
+			printk(KERN_ERR "%s: get regl_devs failed\n", __func__);
 			return -1;
-		} else {
-			axp_pdata.num_regl_devs = sizeof(*axp_regu_info)/sizeof(struct axp_platform_data);
-			printk(KERN_ERR "%s: liming axp regl_devs num = %d\n", __func__, axp_pdata.num_regl_devs);
-			axp_pdata.regl_devs = (struct axp_funcdev_info *)axp_regu_info;
-			if (NULL == axp_pdata.regl_devs) {
-				printk(KERN_ERR "%s: get regl_devs failed\n", __func__);
-				return -1;
-			}
 		}
+	}
 
 #ifdef	CONFIG_AXP_TWI_USED
-		ret = i2c_add_driver(&axp_i2c_driver);
-		if (ret < 0) {
-			printk("axp_i2c_driver add failed\n");
-			return ret;
-		}
-
-		axp_mfd_i2c_board_info[0].addr = axp81x_config.pmu_twi_addr;
-		axp_mfd_i2c_board_info[0].irq = axp81x_config.pmu_irq_id;
-		ret = i2c_register_board_info(axp81x_config.pmu_twi_id, axp_mfd_i2c_board_info, ARRAY_SIZE(axp_mfd_i2c_board_info));
-		if (ret < 0) {
-			printk("axp_i2c_board_info add failed\n");
-			return ret;
-		}
-#else
-		ret = platform_driver_register(&axp81x_platform_driver);
-		if (IS_ERR_VALUE(ret)) {
-			printk("register axp81x platform driver failed\n");
-			return ret;
-		}
-#endif
-	} else {
-		ret = -1;
+	ret = i2c_add_driver(&axp_i2c_driver);
+	if (ret < 0) {
+		printk("axp_i2c_driver add failed\n");
+		return ret;
 	}
+
+	axp_mfd_i2c_board_info[0].addr = axp81x_config.pmu_twi_addr;
+	axp_mfd_i2c_board_info[0].irq = axp81x_config.pmu_irq_id;
+	ret = i2c_register_board_info(axp81x_config.pmu_twi_id, axp_mfd_i2c_board_info, ARRAY_SIZE(axp_mfd_i2c_board_info));
+	if (ret < 0) {
+		printk("axp_i2c_board_info add failed\n");
+		return ret;
+	}
+#else
+	ret = platform_driver_register(&axp81x_platform_driver);
+	if (IS_ERR_VALUE(ret)) {
+		printk("register axp81x platform driver failed\n");
+		return ret;
+	}
+#endif
         return ret;
 }
 

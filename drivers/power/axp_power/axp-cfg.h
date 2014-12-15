@@ -78,6 +78,7 @@ struct axp_config_info{
 	u32	pmu_init_chg_csttime;
 	u32	pmu_batt_cap_correct;
 	u32	pmu_chg_end_on_en;
+	u32	ocv_coulumb_100;
 
 	u32	pmu_bat_para1;
 	u32	pmu_bat_para2;

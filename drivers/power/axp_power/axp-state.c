@@ -12,6 +12,7 @@
 #ifdef CONFIG_AW_AXP81X
 #include "axp81x/axp81x-sply.h"
 #include "axp81x/axp81x-common.h"
+static const struct axp_config_info *axp_config = &axp81x_config;
 #endif
 
 struct axp_adc_res adc;
@@ -149,6 +150,35 @@ u64 axp_read_power_sply(void)
 }
 EXPORT_SYMBOL(axp_read_power_sply);
 
+void axp_battery_update_vol(struct axp_charger * charger)
+{
+	u8 val, temp_val[2];
+	s32 ocv_percentage = 0, coulumb_percentage = 0, rest_vol = 0;
+
+	axp_reads(charger->master,0xe4,2,temp_val);
+	ocv_percentage = temp_val[0] & 0x7f;
+	coulumb_percentage = temp_val[1] & 0x7f;
+	axp_read(charger->master, AXP_CAP,&val);
+	rest_vol = (s32) (val & 0x7F);
+
+	DBG_PSY_MSG(DEBUG_SPLY, "AXP rest_vol = %d\n", rest_vol);
+	DBG_PSY_MSG(DEBUG_SPLY, "Axp OCV_percentage = %d\n", ocv_percentage);
+	DBG_PSY_MSG(DEBUG_SPLY, "Axp Coulumb_percentage = %d\n", coulumb_percentage);
+
+	spin_lock(&charger->charger_lock);
+	charger->rest_vol = rest_vol;
+	if ((axp_config->ocv_coulumb_100) && (100 == ocv_percentage) && (100 == coulumb_percentage)) {
+		charger->rest_vol = 100;
+	}
+	if((charger->bat_det == 0) || (charger->rest_vol == 127)){
+		charger->rest_vol = 100;
+	}
+	spin_unlock(&charger->charger_lock);
+
+	DBG_PSY_MSG(DEBUG_SPLY, "charger->rest_vol = %d\n",charger->rest_vol);
+	return;
+}
+
 void axp_charger_update_state(struct axp_charger *charger)
 {
 	u8 val[2];
@@ -194,7 +224,7 @@ void axp_charger_update(struct axp_charger *charger, const struct axp_config_inf
 
 	//tmp = charger->adc->ichar_res + charger->adc->idischar_res;
 	spin_lock(&charger->charger_lock);
-	charger->ibat = ABS(axp_icharge_to_mA(charger->adc->ichar_res)-axp_ibat_to_mA(charger->adc->idischar_res));
+	charger->ibat = axp_icharge_to_mA(charger->adc->ichar_res)-axp_ibat_to_mA(charger->adc->idischar_res);
 	tmp = 00;///qin
 	charger->vac = axp_vdc_to_mV(tmp);
 	tmp = 00;
@@ -226,5 +256,4 @@ void axp_charger_update(struct axp_charger *charger, const struct axp_config_inf
 	charger->bat_temp = axp_vts_to_temp(bat_temp_mv, axp_config);
 	spin_unlock(&charger->charger_lock);
 }
-
 
