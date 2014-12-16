@@ -96,6 +96,14 @@
 
 #define SUNXI_CLK_MAX_REG   0x0320
 
+#define CPUS_CFG			0x0000
+#define CPUS_APB0	        0x000c
+#define CPUS_APB0_GATE      0x0028
+#define CPUS_CIR            0x0054
+#define CPUS_APB0_RST       0x00B0
+#define CPUS_CLK_MAX_REG    0x00B0
+
+
 #define F_N8X7_M0X4(nv,mv) FACTOR_ALL(nv,8,7,0,0,0,mv,0,4,0,0,0,0,0,0,0,0,0)
 #define F_N8X5_K4X2(nv,kv) FACTOR_ALL(nv,8,5,kv,4,2,0,0,0,0,0,0,0,0,0,0,0,0)
 #define F_N8X7_M0X2(nv,mv) FACTOR_ALL(nv,8,7,0,0,0,mv,0,2,0,0,0,0,0,0,0,0,0)

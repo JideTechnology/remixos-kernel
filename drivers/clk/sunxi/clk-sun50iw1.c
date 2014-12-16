@@ -548,6 +548,12 @@ static const char *ahb2mod_parents[] = { "ahb2"};
 static const char *apb1mod_parents[] = {"apb1"};
 static const char *apb2mod_parents[] = {"apb2"};
 static const char *sdram_parents[] = {"pll_ddr0", "pll_ddr1", "",""};
+static const char *cpurpll_peri0_parents[] = {"pll_periph0"};
+static const char *cpurcpus_parents[] = {"losc" , "hosc" , "cpurpll_peri0" , "iosc" };
+static const char *cpurahbs_parents[] = {"cpurcpus"};
+static const char *cpurapbs_parents[] = {"cpurahbs"};
+static const char *cpurdev_parents[]  = {"losc", "hosc","",""};
+static const char *cpurpio_parents[]  = {"cpurapbs"};
 
 struct sunxi_clk_comgate com_gates[]={
 {"csi",      0,  0x3,    BUS_GATE_SHARE|RST_GATE_SHARE|MBUS_GATE_SHARE, 0},
@@ -620,7 +626,13 @@ SUNXI_CLK_PERIPH(twi0,    0,           0,        0,         0,          0,      
 SUNXI_CLK_PERIPH(twi1,    0,           0,        0,         0,          0,          0,          0,          0,          0,          0,          BUS_RST4,   BUS_GATE3,   0,            0,            1,           1,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(twi2,    0,           0,        0,         0,          0,          0,          0,          0,          0,          0,          BUS_RST4,   BUS_GATE3,   0,            0,            2,           2,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(twi3,    0,           0,        0,         0,          0,          0,          0,          0,          0,          0,          BUS_RST4,   BUS_GATE3,   0,            0,            3,           3,              0,               &clk_lock,NULL,             0);
-SUNXI_CLK_PERIPH(pio,     0,           0,        0,         0,          0,          0,          0,          0,          0,          0,          0,          BUS_GATE2,   0,            0,            0,           5,              0,               &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(pio,     0,           0,        0,         0,          0,          0,          0,          0,          0,          0,          	   0,   BUS_GATE2,   0,            0,            0,           5,              0,               &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(cpurcir,  CPUS_CIR,  24,        2,  CPUS_CIR,   		0,          4,         16,          2,          0,   CPUS_CIR,    CPUS_APB0_GATE,CPUS_APB0_RST,  0,       	  31,            1,           1,              0,               &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(cpurpll_peri0,  0,    0,        0,  CPUS_CFG,   		8,          5,          0,          0,          0,          0,          	   0,         	0,   0,            0,            0,           0,              0,			   &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(cpurcpus, CPUS_CFG,  16,        2,  CPUS_CFG,   		0,          0,          4,          2,          0,          0,				   0,  			0,   0,     	   0,            0,           0,              0,			   &clk_lock,NULL,             0); 
+SUNXI_CLK_PERIPH(cpurahbs, 0,          0,        0,   		0,          0,          0,          0,          0,          0,          0,				   0,  			0,   0,     	   0,            0,           0,              0,			   &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(cpurapbs, 0,          0,        0, CPUS_APB0,  		0,          2,          0,          0,          0,          0,				   0,  			0, 	 0,     	   0,            0,           0,              0,			   &clk_lock,NULL,             0); 
+SUNXI_CLK_PERIPH(cpurpio,  0,  		   0,        0,         0,   		0,          0,          0,          0,          0,          0,    CPUS_APB0_GATE,			0,   0,       	   0,            0,           0,              0,			   &clk_lock,NULL,             0);
 
 struct periph_init_data sunxi_periphs_init[] = {
     {"cpu",      CLK_GET_RATE_NOCACHE,	cpu_parents,      ARRAY_SIZE(cpu_parents),      &sunxi_clk_periph_cpu},
@@ -687,6 +699,14 @@ struct periph_init_data sunxi_periphs_init[] = {
     {"pio",      0,       				apb1mod_parents,  ARRAY_SIZE(apb1mod_parents),  &sunxi_clk_periph_pio},    
 };
 
+struct periph_init_data sunxi_periphs_cpus_init[] = {
+    {"cpurcir",			CLK_GET_RATE_NOCACHE,    			cpurdev_parents,		ARRAY_SIZE(cpurdev_parents),    	&sunxi_clk_periph_cpurcir},
+	{"cpurpll_peri0",	CLK_GET_RATE_NOCACHE|CLK_READONLY, 	cpurpll_peri0_parents,ARRAY_SIZE(cpurpll_peri0_parents),	&sunxi_clk_periph_cpurpll_peri0},
+	{"cpurcpus",		CLK_GET_RATE_NOCACHE|CLK_READONLY, 	cpurcpus_parents,		ARRAY_SIZE(cpurcpus_parents),		&sunxi_clk_periph_cpurcpus},
+	{"cpurahbs",		CLK_GET_RATE_NOCACHE|CLK_READONLY, 	cpurahbs_parents,		ARRAY_SIZE(cpurahbs_parents),		&sunxi_clk_periph_cpurahbs},
+	{"cpurapbs",		CLK_GET_RATE_NOCACHE|CLK_READONLY, 	cpurapbs_parents,		ARRAY_SIZE(cpurapbs_parents),		&sunxi_clk_periph_cpurapbs},
+	{"cpurpio",      		0,       						cpurpio_parents,   		ARRAY_SIZE(cpurpio_parents),  		&sunxi_clk_periph_cpurpio}, 
+};
 
 void __init sunxi_init_clocks(void)
 {
@@ -711,6 +731,8 @@ void __init sunxi_init_clocks(void)
     clk = clk_register_fixed_rate(NULL, "hosc", NULL, CLK_IS_ROOT, 24000000);
     clk_register_clkdev(clk, "hosc", NULL);
 
+    clk = clk_register_fixed_rate(NULL, "iosc", NULL, CLK_IS_ROOT, 32000);
+    clk_register_clkdev(clk, "iosc", NULL);
     /* register normal factors, based on sunxi factor framework */
     for(i=0; i<ARRAY_SIZE(sunxi_factos); i++) {
         factor = &sunxi_factos[i];
@@ -781,6 +803,27 @@ int get_sunxi_register_periph_config(const char* clk_name , struct sunxi_registe
     }
 	return -1;
 }
+
+int get_sunxi_register_periph_cpus_config(const char* clk_name , struct sunxi_register_periph_config* config)
+{
+    struct periph_init_data *periph;
+	unsigned int i;
+	for(i=0; i<ARRAY_SIZE(sunxi_periphs_cpus_init); i++) {
+        periph = &sunxi_periphs_cpus_init[i];
+		if( 0 == strcmp(clk_name , periph->name) )
+		{
+			config->name = periph->name ;
+			config->parent_names = periph->parent_names;
+			config->num_parents = periph->num_parents;
+			config->flags = periph->flags;
+			config->base = sunxi_clk_cpus_base; 
+			config->periph = periph->periph;
+			return 0;
+		}
+    }
+	return -1;
+}
+
 
 int get_sunxi_register_factors_config(const char* clk_name , struct sunxi_register_factors_config* config)
 {

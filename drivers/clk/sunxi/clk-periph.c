@@ -754,7 +754,39 @@ void of_periph_clk_setup(struct device_node *node)
 		of_clk_add_provider(node, of_clk_src_simple_get, clk);
 	}
 }
+
+void of_periph_cpus_clk_setup(struct device_node *node)
+{
+	struct clk *clk;
+	const char *clk_name = node->name;
+	struct sunxi_register_periph_config config;
+	
+	of_property_read_string(node, "clock-output-names", &clk_name);
+
+	//get init config from clk-sunXXiwYY.c 
+	if( get_sunxi_register_periph_cpus_config(clk_name , &config) < 0 )
+	{
+		pr_err("clk %s not found in %s\n",clk_name , __func__ );
+	}
+	
+	//register clk
+	clk = sunxi_clk_register_periph(config.name, config.parent_names,
+				config.num_parents,config.flags, config.base, config.periph);
+	
+	//add to of
+	if (!IS_ERR(clk))
+	{
+		clk_register_clkdev(clk, config.name, NULL);
+		of_clk_add_provider(node, of_clk_src_simple_get, clk);
+	}
+}
+
+
 EXPORT_SYMBOL_GPL(of_periph_clk_setup);
+EXPORT_SYMBOL_GPL(of_periph_cpus_clk_setup);
 CLK_OF_DECLARE(periph_clk, "allwinner,sunxi-periph-clock", of_periph_clk_setup);
+CLK_OF_DECLARE(periph_cpus_clk, "allwinner,sunxi-periph-cpus-clock", of_periph_cpus_clk_setup);
+
+
 #endif
 

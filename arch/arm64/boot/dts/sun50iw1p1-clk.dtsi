@@ -4,7 +4,8 @@ clocks {
 	#address-cells = <2>;
 	#size-cells = <2>;
 	ranges;
-	reg = <0x0 0x01c20000 0x0 0x0320>;
+	reg = <0x0 0x01c20000 0x0 0x0320> ,  /*cpux space*/
+		  <0x0 0x01f01400 0x0 0x00B0> ; /*cpus space*/
 	
 /* register fixed rate clock*/
 		clk_hosc: hosc {
@@ -21,6 +22,12 @@ clocks {
 			clock-output-names = "losc";
 		};
 			
+		clk_iosc: iosc{
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <32000>;
+			clock-output-names = "iosc";
+		};
 /* register allwinner,sunxi-pll-clock */
 		clk_pll_cpu: pll_cpu {
 			#clock-cells = <0>;
@@ -455,5 +462,38 @@ clocks {
 			compatible = "allwinner,sunxi-periph-clock";
 			clock-output-names = "pio";
 		};	
-	};/*end*/
+/*cpus space clocks from PRCM-SPEC*/
+		clk_cpurcir: cpurcir {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-cpus-clock";
+			clock-output-names = "cpurcir";
+		};	
+		clk_cpurpio: cpurpio {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-cpus-clock";
+			clock-output-names = "cpurpio";
+		};	
+		/*   "cpurpll_peri0 cpurcpus cpurahbs cpurapbs" are read only , just to keep a clock tree */
+		clk_cpurpll_peri0: cpurpll_peri0 {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-cpus-clock";
+			clock-output-names = "cpurpll_peri0";
+		};	
+		clk_cpurcpus: cpurcpus {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-cpus-clock";
+			clock-output-names = "cpurcpus";
+		};	
+		clk_cpurahbs: cpurahbs {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-cpus-clock";
+			clock-output-names = "cpurahbs";
+		};	
+		clk_cpurapbs: cpurapbs {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-cpus-clock";
+			clock-output-names = "cpurapbs";
+		};						
+
+	};/*clocks end*/
 };

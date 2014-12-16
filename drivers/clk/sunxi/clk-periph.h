@@ -186,6 +186,7 @@ static struct sunxi_clk_periph sunxi_clk_periph_##name ={       \
 
 #ifdef CONFIG_OF
 void of_periph_clk_setup(struct device_node *np);
+void of_periph_cpus_clk_setup(struct device_node *np);
 
 struct sunxi_register_periph_config
 {
@@ -198,6 +199,8 @@ struct sunxi_register_periph_config
 };
 
 int get_sunxi_register_periph_config(const char* clk_name , struct sunxi_register_periph_config* config);
+int get_sunxi_register_periph_cpus_config(const char* clk_name , struct sunxi_register_periph_config* config);
+
 #endif
 
 
