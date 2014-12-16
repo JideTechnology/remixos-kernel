@@ -25,9 +25,15 @@
 
 struct ion_device;
 static int num_heaps;
-struct ion_heap **pheap;
-struct ion_device *ion_device;
-EXPORT_SYMBOL(ion_device);
+static struct ion_heap **pheap;
+static struct ion_device *ion_device;
+
+struct ion_client *sunxi_ion_client_create(const char *name)
+{
+	return ion_client_create(ion_device , name);
+}
+EXPORT_SYMBOL(sunxi_ion_client_create);
+
 long sunxi_ion_ioctl(struct ion_client *client, unsigned int cmd, unsigned long arg);
 
 
