@@ -321,4 +321,13 @@ config IR_GPIO_CIR
 	   To compile this driver as a module, choose M here: the module will
 	   be called gpio-ir-recv.
 
+config IR_SUNXI
+	tristate "SUNXI IR remote control"
+	depends on RC_CORE
+	---help---
+	   Say Y if you want to use SUNXI IR Receiver.
+
+	   To compile this driver as a module, choose M here: the module will
+	   be called sunxi-ir-rx.
+
 endif #RC_DEVICES
