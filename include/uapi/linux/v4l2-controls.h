@@ -160,6 +160,10 @@ enum v4l2_colorfx {
  * of controls. Total of 16 controls is reserved for this driver */
 #define V4L2_CID_USER_SI476X_BASE		(V4L2_CID_USER_BASE + 0x1040)
 
+/* The base for the sunxi-vfe controls. See include/media/sunxi_camera.h for the list
+ * of controls. Total of 64 controls is reserved for this driver, add by yangfeng */
+#define V4L2_CID_USER_SUNXI_CAMERA_BASE		(V4L2_CID_USER_BASE + 0x1050)
+
 /* MPEG-class control IDs */
 
 #define V4L2_CID_MPEG_BASE 			(V4L2_CTRL_CLASS_MPEG | 0x900)
@@ -746,6 +750,8 @@ enum v4l2_flash_led_mode {
 	V4L2_FLASH_LED_MODE_NONE,
 	V4L2_FLASH_LED_MODE_FLASH,
 	V4L2_FLASH_LED_MODE_TORCH,
+	V4L2_FLASH_LED_MODE_AUTO,
+	V4L2_FLASH_LED_MODE_RED_EYE,
 };
 
 #define V4L2_CID_FLASH_STROBE_SOURCE		(V4L2_CID_FLASH_CLASS_BASE + 2)

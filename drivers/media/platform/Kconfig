@@ -125,6 +125,14 @@ source "drivers/media/platform/soc_camera/Kconfig"
 source "drivers/media/platform/exynos4-is/Kconfig"
 source "drivers/media/platform/s5p-tv/Kconfig"
 
+config VIDEO_SUNXI_VFE
+	tristate "sunxi video front end (camera and etc)driver"
+	default m
+	
+if VIDEO_SUNXI_VFE
+source "drivers/media/platform/sunxi-vfe/Kconfig"
+endif
+
 endif # V4L_PLATFORM_DRIVERS
 
 menuconfig V4L_MEM2MEM_DRIVERS

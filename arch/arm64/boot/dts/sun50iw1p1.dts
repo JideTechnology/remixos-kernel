@@ -32,6 +32,9 @@
 		twi3 = &soc_twi3;
 		spi0 = &soc_spi0;
 		global_timer0  = &soc_timer0;
+		cci0 = &csi_cci0;
+		csi0 = &csi_0;
+		vfe0 = &vfe_0;
 	};
 
 	chosen {
@@ -379,6 +382,24 @@
 			#size-cells = <0>;
 			#gpio-cells = <3>;
 		};
+		
+		csi_cci0:cci@0x01cb3000 {
+			compatible = "allwinner,sunxi-csi_cci";
+			reg = <0x0 0x01cb3000 0x0 0x1000>;	/*0x01cb3000--0x01cb4000*/
+			interrupts = <GIC_SPI 122 4>;/*SUNXI_IRQ_CSI0_CCI (SUNXI_GIC_START + 122)*/
+			status = "okay";
+		};		
+		csi_0:csi@0x01cb0000 {
+			compatible = "allwinner,sunxi-csi";
+			reg = <0x0 0x01cb0000 0x0 0x1000>;/*0x01cb0000--0x01cb1000*/
+			status = "okay";
+		};
+		vfe_0:vfe@0 {
+			compatible = "allwinner,sunxi-vfe";
+			interrupts = <GIC_SPI 84 4>;/*SUNXI_IRQ_CSI0 (SUNXI_GIC_START + 84 )*/
+			status = "okay";
+		};
+		
 		pio: pinctrl@01c20800 {
 			compatible = "allwinner,sun50i-pinctrl";
 			reg = <0x0 0x01c20800 0x0 0x400>;
@@ -489,7 +510,18 @@
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};		
-						
+			csi0_pins: csi0@0 {
+				allwinner,pins = "PE0","PE1","PE2","PE3","PE4","PE5","PE6","PE7","PE8","PE9","PE10","PE11","PE12","PE13";
+				allwinner,function = "csi0";
+				allwinner,drive = <1>;
+				allwinner,pull = <0>;
+			};
+			camera0_pins: camera0@0 {
+				allwinner,pins = "PE16","PE17";
+				allwinner,function = "gpio_out";
+				allwinner,drive = <1>;
+				allwinner,pull = <0>;
+			};						
 		};
 		vdevice@0{
 			compatible = "allwinner,sun50i-vdevice";
