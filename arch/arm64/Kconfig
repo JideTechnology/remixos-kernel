@@ -158,6 +158,12 @@ config ARCH_SUN50I
 	help
 	  Thereis enables support for Allwinner SUNXI SoC family
 
+config ARCH_SUN50IW1P1
+	bool "ARMv8 based Allwinner SUN50IW1P1"
+	select ARCH_SUN50I
+	help
+	  Thereis enables support for Allwinner SUNXI SoC family
+
 endmenu
 
 menu "Bus support"

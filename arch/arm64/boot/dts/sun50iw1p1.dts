@@ -7,8 +7,11 @@
 
 /dts-v1/;
 
-/memreserve/ 0x40000000 0x00010000; /* dts */
-/memreserve/ 0x40010000 0x00010000; /* sys_config.fex */
+/memreserve/ 0x40000000 0x00010000; /* sun50iw1p1.dtb range       : [0x40000000~0x40010000], size = 64K */
+/memreserve/ 0x40010000 0x00010000; /* sys_config.fex range       : [0x40010000~0x40020000], size = 64K */
+/memreserve/ 0x40020000 0x00004000; /* arisc dram code space range: [0x40020000~0x40024000], size = 16K */
+/memreserve/ 0x40024000 0x00001000; /* arisc para cfg range       : [0x40024000~0x40025000], size = 4K  */
+/memreserve/ 0x40025000 0x00000800; /* super standby range        : [0x40025000~0x40025800], size = 2K  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 /include/"sun50iw1p1-clk.dtsi"
@@ -53,6 +56,66 @@
 		};
 	};
 
+	n_brom {
+		compatible = "allwinner,n-brom";
+		reg = <0x0 0x0 0x0 0xc000>;
+	};
+
+	s_brom {
+		compatible = "allwinner,s-brom";
+		reg = <0x0 0x0 0x0 0x10000>;
+	};
+
+	sram_a1 {
+		compatible = "allwinner,sram_a1";
+		reg = <0x0 0x00010000 0x0 0x8000>;
+	};
+
+	sram_a2 {
+		compatible = "allwinner,sram_a2";
+		reg = <0x0 0x00040000 0x0 0x14000>;
+	};
+
+	prcm {
+		compatible = "allwinner,prcm";
+		reg = <0x0 0x01f01400 0x0 0x400>;
+	};
+
+	cpuscfg {
+		compatible = "allwinner,cpuscfg";
+		reg = <0x0 0x01f01c00 0x0 0x400>;
+	};
+
+	dram {
+		compatible = "allwinner,dram";
+		clocks = <&clk_pll_ddr0>, <&clk_pll_ddr1>;
+		clock-names = "pll_ddr0", "pll_ddr1";
+		dram_clk        = <672>;
+		dram_type       = <3>;
+		dram_zq         = <0x003F3FDD>;
+		dram_odt_en     = <1>;
+		dram_para1      = <0x10f41000>;
+		dram_para2      = <0x00001200>;
+		dram_mr0        = <0x1A50>;
+		dram_mr1        = <0x40>;
+		dram_mr2        = <0x10>;
+		dram_mr3        = <0>;
+		dram_tpr0       = <0x04E214EA>;
+		dram_tpr1       = <0x004214AD>;
+		dram_tpr2       = <0x10A75030>;
+		dram_tpr3       = <0>;
+		dram_tpr4       = <0>;
+		dram_tpr5       = <0>;
+		dram_tpr6       = <0>;
+		dram_tpr7       = <0>;
+		dram_tpr8       = <0>;
+		dram_tpr9       = <0>;
+		dram_tpr10      = <0>;
+		dram_tpr11      = <0>;
+		dram_tpr12      = <168>;
+		dram_tpr13      = <0x823>;
+	};
+
 	memory@40000000 {
 		device_type = "memory";
 		reg = <0x00000000 0x40000000 0x00000000 0x40000000>;
@@ -87,6 +150,80 @@
 			     <GIC_SPI 123 4>;
 	};
 
+	dvfs_table {
+		compatible = "allwinner,dvfs_table";
+		vf_table_count = <3>;
+
+		vf_table0 {
+			compatible = "allwinner,vf_table0";
+			max_freq = <1200000000>;
+			min_freq = <60000000>;
+			LV_count = <8>;
+			LV1_freq = <1200000000>;
+			LV1_volt = <1300>;
+			LV2_freq = <1104000000>;
+			LV2_volt = <1200>;
+			LV3_freq = <1008000000>;
+			LV3_volt = <1100>;
+			LV4_freq = <816000000>;
+			LV4_volt = <1000>;
+			LV5_freq = <600000000>;
+			LV5_volt = <900>;
+			LV6_freq = <0>;
+			LV6_volt = <900>;
+			LV7_freq = <0>;
+			LV7_volt = <900>;
+			LV8_freq = <0>;
+			LV8_volt = <900>;
+		};
+
+		vf_table1 {
+			compatible = "allwinner,vf_table1";
+			max_freq = <1200000000>;
+			min_freq = <60000000>;
+			LV_count = <8>;
+			LV1_freq = <1200000000>;
+			LV1_volt = <1300>;
+			LV2_freq = <1104000000>;
+			LV2_volt = <1200>;
+			LV3_freq = <1008000000>;
+			LV3_volt = <1100>;
+			LV4_freq = <816000000>;
+			LV4_volt = <1000>;
+			LV5_freq = <600000000>;
+			LV5_volt = <900>;
+			LV6_freq = <0>;
+			LV6_volt = <900>;
+			LV7_freq = <0>;
+			LV7_volt = <900>;
+			LV8_freq = <0>;
+			LV8_volt = <900>;
+		};
+
+		vf_table2 {
+			compatible = "allwinner,vf_table2";
+			max_freq = <1200000000>;
+			min_freq = <60000000>;
+			LV_count = <8>;
+			LV1_freq = <1200000000>;
+			LV1_volt = <1300>;
+			LV2_freq = <1104000000>;
+			LV2_volt = <1200>;
+			LV3_freq = <1008000000>;
+			LV3_volt = <1100>;
+			LV4_freq = <816000000>;
+			LV4_volt = <1000>;
+			LV5_freq = <600000000>;
+			LV5_volt = <900>;
+			LV6_freq = <0>;
+			LV6_volt = <900>;
+			LV7_freq = <0>;
+			LV7_volt = <900>;
+			LV8_freq = <0>;
+			LV8_volt = <900>;
+		};
+	};
+
 	soc@01c00000 {
 		compatible = "simple-bus";
 		#address-cells = <2>;
@@ -101,10 +238,88 @@
 			#dma-cells = <1>;
 		};
 
-		soc_timer0: timer@01c20c00 {
+		arisc {
+			compatible = "allwinner,sunxi-arisc";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			clocks = <&clk_losc>, <&clk_iosc>, <&clk_hosc>, <&clk_pll_periph0>;
+			clock-names = "losc", "iosc", "hosc", "pll_periph0";
+			powchk_used = <0x0>;
+			power_reg = <0x02309621>;
+			system_power = <50>;
+		};
+
+		arisc_space {
+			compatible = "allwinner,arisc_space";
+			/* num    dts        offset     size                              */
+			space1 = <0x00040000 0x00000000 0x00014000>; /* srama2 code space */
+			space2 = <0x40020000 0x00018000 0x00004000>; /* dram code space   */
+			space3 = <0x40024000 0x00000000 0x00001000>; /* para space        */
+		};
+
+		msgbox: msgbox@1c17000 {
+			compatible = "allwinner,msgbox";
+			clocks = <&clk_msgbox>;
+			clock-names = "clk_msgbox";
+			reg = <0x0 0x01c17000 0x0 0x1000>;
+			interrupts = <GIC_SPI 49 IRQ_TYPE_EDGE_RISING>;
+			status = "okay";
+		};
+
+		hwspinlock: hwspinlock@1c18000 {
+			compatible = "allwinner,hwspinlock";
+			clocks = <&clk_spinlock>;
+			clock-names = "clk_spinlock";
+			reg = <0x0 0x01c18000 0x0 0x1000>;
+			status = "okay";
+		};
+
+		s_cir0: s_cir@1f02000 {
+					compatible = "allwinner,s_cir";
+					reg = <0x0 0x01f02000 0x0 0x400>;
+					interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+					pinctrl-names = "default";
+					pinctrl-0 = <&s_cir0_pins_a>;
+					ir_power_key_code = <0>;
+					ir_addr_code = <0>;
+					status = "okay";
+		};
+
+		s_uart0: s_uart@1f02800 {
+			compatible = "allwinner,s_uart";
+			reg = <0x0 0x01f02800 0x0 0x400>;
+			interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&s_uart0_pins_a>;
+			status = "okay";
+		};
+
+		s_rsb0: s_rsb@1f03400 {
+			compatible = "allwinner,s_rsb";
+			reg = <0x0 0x01f03400 0x0 0x400>;
+			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&s_rsb0_pins_a>;
+			status = "okay";
+		};
+
+		s_jtag0 {
+			compatible = "allwinner,s_jtag";
+			pinctrl-names = "default";
+			pinctrl-0 = <&s_jtag0_pins_a>;
+			status = "disable";
+		};
+
+		pmu1 {
+			compatible = "allwinner,pmu1";
+			pmu_bat_shutdown_ltf = <3200>;
+			pmu_bat_shutdown_htf = <237>;
+		};
+
+		soc_timer0: timer@1c20c00 {
 			compatible = "allwinner,sunxi-timer";
 			reg = <0x0 0x01c20c00 0x0 0x90>;
-			interrupts = <GIC_SPI 18 0x101>;
+			interrupts = <GIC_SPI 18 IRQ_TYPE_EDGE_RISING>;
 			clock-frequency = <24000000>;
 			timer-prescale = <16>;
 		};
@@ -374,13 +589,40 @@
 			compatible = "allwinner,sun50i-r-pinctrl";
 			reg = <0x0 0x01f02c00 0x0 0x400>;
 			interrupts = <GIC_SPI 35 4>;
-			//clocks = <&clk_r_pio>;
+			clocks = <&clk_cpurpio>;
 			//resets = <&apb0_rst 0>;
 			gpio-controller;
 			interrupt-controller;
 			#interrupt-cells = <2>;
 			#size-cells = <0>;
 			#gpio-cells = <3>;
+
+			s_uart0_pins_a: s_uart0@0 {
+				allwinner,pins = "PL2", "PL3";
+				allwinner,function = "s_uart0";
+				allwinner,drive = <1>;
+				allwinner,pull = <1>;
+			};
+
+			s_rsb0_pins_a: s_rsb0@0 {
+				allwinner,pins = "PL0", "PL1";
+				allwinner,function = "s_rsb0";
+				allwinner,drive = <2>;
+				allwinner,pull = <1>;
+			};
+
+			s_jtag0_pins_a: s_jtag0@0 {
+				allwinner,pins = "PL4", "PL5", "PL6", "PL7";
+				allwinner,function = "s_jtag0";
+				allwinner,drive = <2>;
+				allwinner,pull = <1>;
+			};
+
+			s_cir0_pins_a: s_cir0@0 {
+				allwinner,pins = "PL11";
+				allwinner,function = "s_cir0";
+				allwinner,drive = <2>;
+				allwinner,pull = <1>;
 		};
 		
 		csi_cci0:cci@0x01cb3000 {
@@ -486,6 +728,8 @@
 				allwinner,drive = <1>;
 				allwinner,pull = <1>; 	// only CS should be pulled up
 			};
+			};
+
 			sdmmc0_pins_a: sdmmc0@0 {
 				allwinner,pins = "PF0", "PF1", "PF2", "PF3","PF4","PF5";
 				allwinner,function = "sdc0";

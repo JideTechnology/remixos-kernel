@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm64 3.10.61 Kernel Configuration
+# Linux/arm64 3.10.63 Kernel Configuration
 #
 CONFIG_ARM64=y
 CONFIG_64BIT=y
@@ -235,6 +235,7 @@ CONFIG_ARCH_VEXPRESS=y
 CONFIG_ARCH_XGENE=y
 CONFIG_ARCH_SUNXI=y
 CONFIG_ARCH_SUN50I=y
+CONFIG_ARCH_SUN50IW1P1=y
 
 #
 # Bus support
@@ -399,6 +400,7 @@ CONFIG_WIRELESS=y
 #
 # Device Drivers
 #
+# CONFIG_SUNXI_ARISC is not set
 
 #
 # Generic Driver Options

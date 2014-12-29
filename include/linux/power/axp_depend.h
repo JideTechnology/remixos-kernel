@@ -167,7 +167,6 @@ char *axp_get_sys_id(u32 bitmap);
 s32 get_ldo_dependence(const char *ldo_name, s32 count);
 void set_sys_pwr_dm_mask(u32 bitmap, u32 enable);
 
-
 /* external interface*/
 extern unsigned int get_sys_pwr_dm_mask(void);
 extern int add_sys_pwr_dm(const char *id);

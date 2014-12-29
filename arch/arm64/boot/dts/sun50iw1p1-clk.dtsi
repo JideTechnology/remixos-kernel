@@ -6,15 +6,7 @@ clocks {
 	ranges;
 	reg = <0x0 0x01c20000 0x0 0x0320> ,  /*cpux space*/
 		  <0x0 0x01f01400 0x0 0x00B0> ; /*cpus space*/
-	
 /* register fixed rate clock*/
-		clk_hosc: hosc {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <24000000>;
-			clock-output-names = "hosc";
-		};
-
 		clk_losc: losc {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
@@ -22,11 +14,18 @@ clocks {
 			clock-output-names = "losc";
 		};
 			
-		clk_iosc: iosc{
+		clk_iosc: iosc {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
-			clock-frequency = <32000>;
+			clock-frequency = <16000000>;
 			clock-output-names = "iosc";
+		};
+
+		clk_hosc: hosc {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <24000000>;
+			clock-output-names = "hosc";
 		};
 /* register allwinner,sunxi-pll-clock */
 		clk_pll_cpu: pll_cpu {
@@ -41,7 +40,7 @@ clocks {
 		};	
 		clk_pll_video0: pll_video0 {
 			#clock-cells = <0>;
-			compatible = "allwinner,sunxi-pll-clock";
+		pcompatible = "allwinner,sunxi-pll-clock";
 			clock-output-names = "pll_video0";
 		};		
 		clk_pll_ve: pll_ve {
