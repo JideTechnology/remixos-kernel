@@ -37,6 +37,8 @@
 #include <linux/hash.h>
 #include <asm/uaccess.h>
 
+#include <linux/fivm.h>
+
 #include "internal.h"
 #include "mount.h"
 
@@ -2885,6 +2887,12 @@ opened:
 	error = ima_file_check(file, op->acc_mode);
 	if (error)
 		goto exit_fput;
+
+#ifdef CONFIG_FILE_INTEGRITY
+	error = fivm_open_verify(file,name->name,op->acc_mode);
+	if (error)
+		goto exit_fput;
+#endif 
 
 	if (will_truncate) {
 		error = handle_truncate(file);

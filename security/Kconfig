@@ -116,6 +116,13 @@ config LSM_MMAP_MIN_ADDR
 	  Programs which use vm86 functionality or have some need to map
 	  this low address space will need the permission specific to the
 	  systems running LSM.
+	  
+config FILE_INTEGRITY 
+	depends on SECURITYFS
+	tristate "Enable System File Verify Module"
+	default n
+	help
+		Sunxi file integrity verify module for android system
 
 source security/selinux/Kconfig
 source security/smack/Kconfig

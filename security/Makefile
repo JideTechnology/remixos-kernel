@@ -28,3 +28,10 @@ obj-$(CONFIG_CGROUP_DEVICE)		+= device_cgroup.o
 # Object integrity file lists
 subdir-$(CONFIG_INTEGRITY)		+= integrity
 obj-$(CONFIG_INTEGRITY)			+= integrity/built-in.o
+
+# File integrity check module
+obj-y						 +=fivm.o
+ifeq ($(CONFIG_FILE_INTEGRITY),m)
+subdir-$(CONFIG_FILE_INTEGRITY) += fivm 
+endif
+
