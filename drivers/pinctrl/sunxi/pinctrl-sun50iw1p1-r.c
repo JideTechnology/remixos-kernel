@@ -103,29 +103,6 @@ static const struct sunxi_pinctrl_desc sun50iw1p1_r_pinctrl_data = {
 
 static int sun50iw1p1_r_pinctrl_probe(struct platform_device *pdev)
 {
-#if 0
-	struct reset_control *rstc;
-	int ret;
-
-	rstc = devm_reset_control_get(&pdev->dev, NULL);
-	if (IS_ERR(rstc)) {
-		dev_err(&pdev->dev, "Reset controller missing\n");
-		return PTR_ERR(rstc);
-	}
-
-	ret = reset_control_deassert(rstc);
-	if (ret)
-		return ret;
-
-	ret = sunxi_pinctrl_init(pdev,
-				 &sun50iw1p1_r_pinctrl_data);
-
-	if (ret)
-		reset_control_assert(rstc);
-
-	return ret;
-#endif
-	pr_warn("[%s][%d]\n", __func__, __LINE__);
 	return sunxi_pinctrl_init(pdev,
 				  &sun50iw1p1_r_pinctrl_data);
 }
@@ -144,7 +121,17 @@ static struct platform_driver sun50iw1p1_r_pinctrl_driver = {
 		.of_match_table	= sun50iw1p1_r_pinctrl_match,
 	},
 };
-module_platform_driver(sun50iw1p1_r_pinctrl_driver);
+static int __init sun50iw1p1_r_pio_init(void)
+{
+	int ret;
+	ret = platform_driver_register(&sun50iw1p1_r_pinctrl_driver);
+	if (IS_ERR_VALUE(ret)) {
+		pr_debug("register sun50i r-pio controller failed\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+postcore_initcall(sun50iw1p1_r_pio_init);
 
 MODULE_AUTHOR("Jackie Hwang <huangshr@allwinnertech.com>");
 MODULE_AUTHOR("Chen-Yu Tsai <wens@csie.org>");

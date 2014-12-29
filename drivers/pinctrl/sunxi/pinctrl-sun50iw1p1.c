@@ -624,7 +624,18 @@ static struct platform_driver sun50iw1p1_pinctrl_driver = {
 		.of_match_table	= sun50iw1p1_pinctrl_match,
 	},
 };
-module_platform_driver(sun50iw1p1_pinctrl_driver);
+static int __init sun50iw1p1_pio_init(void)
+{
+	int ret;
+	ret = platform_driver_register(&sun50iw1p1_pinctrl_driver);
+	if (IS_ERR_VALUE(ret)) {
+		pr_debug("register sun50i pio controller failed\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+postcore_initcall(sun50iw1p1_pio_init);
+
 
 MODULE_AUTHOR("Jackie Hwang<huangshr@allwinnertech.com>");
 MODULE_AUTHOR("Chen-Yu Tsai <wens@csie.org>");
