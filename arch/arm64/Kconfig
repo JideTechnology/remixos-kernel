@@ -164,6 +164,29 @@ config ARCH_SUN50IW1P1
 	help
 	  Thereis enables support for Allwinner SUNXI SoC family
 
+# ==========================================
+# Select the board between FPGA and real IC
+# ==========================================
+choice
+	prompt "Allwinner development boards"
+	depends on ARCH_SUNXI
+	default FPGA_V4_PLATFORM
+
+config FPGA_V4_PLATFORM
+       bool "FPGAv4 board"
+       help
+         Support for Allwinner's FPGAv4 board
+
+config FPGA_V7_PLATFORM
+       bool "FPGAv7 board"
+       help
+         Support for Allwinner's FPGAv7 board
+
+config EVB_PLATFORM
+       bool "EVB board"
+       help
+         Support for Allwinner's EVB board
+endchoice
 endmenu
 
 menu "Bus support"
