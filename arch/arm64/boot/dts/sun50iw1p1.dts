@@ -777,6 +777,12 @@
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};						
+			scr_pins_a: smartcard@0 {
+				allwinner,pins = "PB1", "PB4", "PB5", "PB6","PB7";
+				allwinner,function = "sim0";
+				allwinner,drive = <1>;
+				allwinner,pull = <1>;
+			};
 		};
 		vdevice@0{
 			compatible = "allwinner,sun50i-vdevice";
@@ -795,7 +801,18 @@
 			clocks = <&clk_ce>,
 					 <&clk_pll_periph0>;
 		};
-
+		smartcard@0x01c2c400{
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "allwinner,sunxi-scr";
+			reg = <0x0 0x01c2c400 0x0 0x77c>;
+			interrupts = <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_scr>, <&clk_apb2>;
+			clock-frequency = <24000000>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&scr_pins_a>;
+			status = "okay";
+		};
 		pmu1@0{
 			compatible = "allwinner,pmu1";
 			pmu_batdeten               = <1>;

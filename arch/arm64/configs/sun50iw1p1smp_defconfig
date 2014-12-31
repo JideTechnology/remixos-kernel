@@ -623,6 +623,8 @@ CONFIG_SERIAL_SUNXI_CONSOLE=y
 # CONFIG_RAW_DRIVER is not set
 # CONFIG_TCG_TPM is not set
 # CONFIG_SUNXI_DMA_TEST is not set
+# CONFIG_SUNXI_SCR is not set
+# CONFIG_SUNXI_DI is not set
 # CONFIG_I2C is not set
 # CONFIG_SPI is not set
 
