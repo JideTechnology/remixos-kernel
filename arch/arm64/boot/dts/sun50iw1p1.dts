@@ -324,6 +324,17 @@
 			timer-prescale = <16>;
 		};
 
+		ve@01c0e000 {		
+			compatible = "allwinner,sunxi-cedar-ve";		
+			reg = <0x0 0x01c0e000 0x0 0x1000>,
+					<0x0 0x01c00000 0x0 0x10>,
+					<0x0 0x01c20000 0x0 0x800>;		
+			interrupts = <GIC_SPI 58 4>;
+			clocks = <&clk_pll_ve>,		
+							<&clk_ve>;				
+
+		};
+
 		soc_uart0: uart@01c28000 {
 			compatible = "allwinner,sun50i-uart";
 			reg = <0x0 0x01c28000 0x0 0x400>;
