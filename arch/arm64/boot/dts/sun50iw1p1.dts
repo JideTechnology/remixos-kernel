@@ -801,6 +801,15 @@
 			clocks = <&clk_ce>,
 					 <&clk_pll_periph0>;
 		};
+		deinterlace@0x01e00000{
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "allwinner,sunxi-deinterlace";
+			reg = <0x0 0x01e00000 0x0 0x77c>;
+			interrupts = <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_deinterlace> ,<&clk_pll_periph0>;
+			status = "okay";
+		};
 		smartcard@0x01c2c400{
 			#address-cells = <1>;
 			#size-cells = <0>;
