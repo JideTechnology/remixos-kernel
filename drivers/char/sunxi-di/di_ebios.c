@@ -454,20 +454,6 @@ __s32 DI_Set_Writeback_Start(void)
 }
 
 #if defined CONFIG_ARCH_SUN9IW1
-__u32 DI_VAtoPA(void *va)
-{
-	return (__u32)(va);
-}
-#else
-__u32 DI_VAtoPA(void *va)
-{
-	if((__u32)(va) > 0x40000000)
-		return (__u32)(va) - 0x40000000;
-	return (__u32)(va);
-}
-#endif
-
-#if defined CONFIG_ARCH_SUN9IW1
 __s32 DI_Internal_Set_Clk(__u32 enable)
 {
 	__u32 reg_val, base;

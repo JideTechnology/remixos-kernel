@@ -25,11 +25,14 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/sys_config.h>
-//#include <linux/ion_sunxi.h>
+#include <linux/slab.h>
+#include <linux/ion.h>
+#include <linux/ion_sunxi.h>
+#include <linux/dma-mapping.h>
 #include <asm/irq.h>
 #include "sunxi-di.h"
 
-static di_struct di_data;
+static di_struct *di_data;
 static s32 sunxi_di_major = -1;
 static struct class *di_dev_class;
 static struct workqueue_struct *di_wq = NULL;
@@ -41,9 +44,81 @@ static struct clk *di_clk_source;
 
 static u32 debug_mask = 0x0;
 
+#ifdef CONFIG_ION_SUNXI
+static int sunxi_di_alloc(struct ion_parms* param, size_t mem_length)
+{
+	int ret;
+
+	param->client = sunxi_ion_client_create("sunxi-di");
+	if (IS_ERR(param->client))
+	{
+		pr_err("sunxi_ion_client_create failed!! %s %s %d" , __FILE__ , __func__ , __LINE__ );
+		goto err_client;
+	}
+
+	param->handle=ion_alloc(param->client, mem_length, PAGE_SIZE,  ION_HEAP_TYPE_DMA_MASK , 0 );
+	if (IS_ERR(param->handle))
+	{
+		pr_err("ion_alloc failed!! %s %s %d" , __FILE__ , __func__ , __LINE__ );
+		goto err_alloc;
+	}
+
+	param->virtual_address = ion_map_kernel( param->client, param->handle);
+	if (IS_ERR(param->virtual_address))
+	{
+		pr_err("ion_map_kernel failed!! %s %s %d" , __FILE__ , __func__ , __LINE__ );
+		goto err_map_kernel;
+	}
+
+	ret = ion_phys( param->client,  param->handle, &param->phyical_address , &mem_length );
+	if( ret )
+	{
+		pr_err("ion_phys failed!! %s %s %d" , __FILE__ , __func__ , __LINE__ );
+		goto err_phys;
+	}
+
+	return 0;
+
+err_phys:
+	ion_unmap_kernel( param->client,  param->handle);
+err_map_kernel:
+	ion_free( param->client , param->handle );
+err_alloc:
+	ion_client_destroy(param->client);
+err_client:
+
+	return -1;
+}
+
+static void sunxi_di_free(struct ion_parms* param)
+{
+
+	if ( IS_ERR_OR_NULL(param->client) || IS_ERR_OR_NULL(param->handle) || IS_ERR_OR_NULL(param->virtual_address))
+		return ;
+
+	ion_unmap_kernel( param->client,  param->handle);
+	ion_free( param->client , param->handle );
+	ion_client_destroy(param->client);
+
+	param->client = (struct ion_client *)0;
+	param->handle = (struct ion_handle *)0;
+	param->phyical_address = 0;
+	param->virtual_address = (void*)0;
+}
+#else
+static int sunxi_di_alloc(struct ion_parms* param, size_t mem_length)
+{
+	return -1;
+}
+
+static void sunxi_di_free(struct ion_parms* param)
+{
+}
+#endif
+
 static void di_complete_check_set(s32 data)
 {
-	atomic_set(&di_data.di_complete, data);
+	atomic_set(&di_data->di_complete, data);
 
 	return;
 }
@@ -52,7 +127,7 @@ static s32 di_complete_check_get(void)
 {
 	s32 data_temp = 0;
 
-	data_temp = atomic_read(&di_data.di_complete);
+	data_temp = atomic_read(&di_data->di_complete);
 
 	return data_temp;
 }
@@ -62,11 +137,11 @@ static void di_timer_handle(unsigned long arg)
 	u32 flag_size = 0;
 
 	di_complete_check_set(DI_TIMEOUT);
-	wake_up_interruptible(&di_data.wait);
+	wake_up_interruptible(&di_data->wait);
 	flag_size = (FLAG_WIDTH*FLAG_HIGH)/4;
 	di_reset();
-	memset(di_data.in_flag, 0, flag_size);
-	memset(di_data.out_flag, 0, flag_size);
+	memset(di_data->in_flag, 0, flag_size);
+	memset(di_data->out_flag, 0, flag_size);
 	dprintk(DEBUG_INT, "di_timer_handle: timeout \n");
 }
 
@@ -85,7 +160,7 @@ static irqreturn_t di_irq_service(int irqno, void *dev_id)
 	ret = di_get_status();
 	if (0 == ret) {
 		di_complete_check_set(0);
-		wake_up_interruptible(&di_data.wait);
+		wake_up_interruptible(&di_data->wait);
 		queue_work(di_wq, &di_work);
 	} else {
 		di_complete_check_set(-ret);
@@ -188,12 +263,12 @@ static s32 sunxi_di_params_init(struct platform_device *pdev)
 		goto clk_cfg_fail;
 	}
 
-	di_data.irq_number = platform_get_irq(pdev, 0);
-	if (di_data.irq_number < 0) {
+	di_data->irq_number = platform_get_irq(pdev, 0);
+	if (di_data->irq_number < 0) {
 		printk(KERN_ERR "%s:get irq number failed!\n",  __func__);
 		return -EINVAL;
 	}
-	if (request_irq(di_data.irq_number, di_irq_service, 0, "DE-Interlace",
+	if (request_irq(di_data->irq_number, di_irq_service, 0, "DE-Interlace",
 			di_device)) {
 		ret = -EBUSY;
 		printk(KERN_ERR "%s: request irq failed.\n", __func__);
@@ -213,17 +288,17 @@ static s32 sunxi_di_params_init(struct platform_device *pdev)
 		goto mem_io_err;
 	}
 
-	di_data.base_addr = ioremap(mem_res->start, resource_size(mem_res));
-	if (!di_data.base_addr) {
+	di_data->base_addr = ioremap(mem_res->start, resource_size(mem_res));
+	if (!di_data->base_addr) {
 		printk(KERN_ERR  "%s: failed to io remap\n", __func__);
 		ret = -EIO;
 		goto mem_io_err;
 	}
 
-	di_set_reg_base(di_data.base_addr);
+	di_set_reg_base(di_data->base_addr);
 	return 0;
 mem_io_err:
-	free_irq(di_data.irq_number, di_device);
+	free_irq(di_data->irq_number, di_device);
 request_irq_err:
 	di_clk_uncfg();
 clk_cfg_fail:
@@ -233,7 +308,7 @@ clk_cfg_fail:
 static void sunxi_di_params_exit(void)
 {
 	di_clk_uncfg();
-	free_irq(di_data.irq_number, di_device);
+	free_irq(di_data->irq_number, di_device);
 	return ;
 }
 
@@ -243,15 +318,15 @@ static s32 sunxi_di_suspend(struct device *dev)
 {
 	dprintk(DEBUG_SUSPEND, "enter: sunxi_di_suspend. \n");
 
-	if (atomic_read(&di_data.enable)) {
+	if (atomic_read(&di_data->enable)) {
 		di_irq_enable(0);
 		di_reset();
 		di_internal_clk_disable();
 		di_clk_disable();
-		if (NULL != di_data.in_flag)
-		sunxi_buf_free(di_data.in_flag, di_data.in_flag_phy, di_data.flag_size);
-		if (NULL != di_data.out_flag)
-		sunxi_buf_free(di_data.out_flag, di_data.out_flag_phy, di_data.flag_size);
+		if (NULL != di_data->in_flag)
+		sunxi_di_free(&(di_data->mem_in_params));
+		if (NULL != di_data->out_flag)
+		sunxi_di_free(&(di_data->mem_out_params));
 	}
 
 	return 0;
@@ -277,22 +352,22 @@ static long sunxi_di_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 		{
 			__di_para_t __user *di_para = argp;
 
-			dprintk(DEBUG_DATA_INFO, "%s: input_fb.addr[0] = 0x%x\n", __func__, di_para->input_fb.addr[0]);
-			dprintk(DEBUG_DATA_INFO, "%s: input_fb.addr[1] = 0x%x\n", __func__, di_para->input_fb.addr[1]);
+			dprintk(DEBUG_DATA_INFO, "%s: input_fb.addr[0] = 0x%lx\n", __func__, (unsigned long)(di_para->input_fb.addr[0]));
+			dprintk(DEBUG_DATA_INFO, "%s: input_fb.addr[1] = 0x%lx\n", __func__, (unsigned long)(di_para->input_fb.addr[1]));
 			dprintk(DEBUG_DATA_INFO, "%s: input_fb.size.width = %d\n", __func__, di_para->input_fb.size.width);
 			dprintk(DEBUG_DATA_INFO, "%s: input_fb.size.height = %d\n", __func__, di_para->input_fb.size.height);
 			dprintk(DEBUG_DATA_INFO, "%s: input_fb.format = %d\n", __func__, di_para->input_fb.format);
 
-			dprintk(DEBUG_DATA_INFO, "%s: pre_fb.addr[0] = 0x%x\n", __func__, di_para->pre_fb.addr[0]);
-			dprintk(DEBUG_DATA_INFO, "%s: pre_fb.addr[1] = 0x%x\n", __func__, di_para->pre_fb.addr[1]);
+			dprintk(DEBUG_DATA_INFO, "%s: pre_fb.addr[0] = 0x%lx\n", __func__, (unsigned long)(di_para->pre_fb.addr[0]));
+			dprintk(DEBUG_DATA_INFO, "%s: pre_fb.addr[1] = 0x%lx\n", __func__, (unsigned long)(di_para->pre_fb.addr[1]));
 			dprintk(DEBUG_DATA_INFO, "%s: pre_fb.size.width = %d\n", __func__, di_para->pre_fb.size.width);
 			dprintk(DEBUG_DATA_INFO, "%s: pre_fb.size.height = %d\n", __func__, di_para->pre_fb.size.height);
 			dprintk(DEBUG_DATA_INFO, "%s: pre_fb.format = %d\n", __func__, di_para->pre_fb.format);
 			dprintk(DEBUG_DATA_INFO, "%s: source_regn.width = %d\n", __func__, di_para->source_regn.width);
 			dprintk(DEBUG_DATA_INFO, "%s: source_regn.height = %d\n", __func__, di_para->source_regn.height);
 
-			dprintk(DEBUG_DATA_INFO, "%s: output_fb.addr[0] = 0x%x\n", __func__, di_para->output_fb.addr[0]);
-			dprintk(DEBUG_DATA_INFO, "%s: output_fb.addr[1] = 0x%x\n", __func__, di_para->output_fb.addr[1]);
+			dprintk(DEBUG_DATA_INFO, "%s: output_fb.addr[0] = 0x%lx\n", __func__, (unsigned long)(di_para->output_fb.addr[0]));
+			dprintk(DEBUG_DATA_INFO, "%s: output_fb.addr[1] = 0x%lx\n", __func__, (unsigned long)(di_para->output_fb.addr[1]));
 			dprintk(DEBUG_DATA_INFO, "%s: output_fb.size.width = %d\n", __func__, di_para->output_fb.size.width);
 			dprintk(DEBUG_DATA_INFO, "%s: output_fb.size.height = %d\n", __func__, di_para->output_fb.size.height);
 			dprintk(DEBUG_DATA_INFO, "%s: output_fb.format = %d\n", __func__, di_para->output_fb.format);
@@ -312,13 +387,13 @@ static long sunxi_di_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 			field = di_para->top_field_first?di_para->field:(1-di_para->field);
 
 			dprintk(DEBUG_DATA_INFO, "%s: field = %d\n", __func__, field);
-			dprintk(DEBUG_DATA_INFO, "%s: in_flag_phy = 0x%x\n", __func__, di_data.in_flag_phy);
-			dprintk(DEBUG_DATA_INFO, "%s: out_flag_phy = 0x%x\n", __func__, di_data.out_flag_phy);
+			dprintk(DEBUG_DATA_INFO, "%s: in_flag_phy = 0x%lx\n", __func__, (unsigned long)(di_data->in_flag_phy));
+			dprintk(DEBUG_DATA_INFO, "%s: out_flag_phy = 0x%lx\n", __func__, (unsigned long)(di_data->out_flag_phy));
 
 			if (0 == field)
-				ret = di_set_para(di_para, di_data.in_flag_phy, di_data.out_flag_phy, field);
+				ret = di_set_para(di_para, di_data->in_flag_phy, di_data->out_flag_phy, field);
 			else
-				ret = di_set_para(di_para, di_data.out_flag_phy, di_data.in_flag_phy, field);
+				ret = di_set_para(di_para, di_data->out_flag_phy, di_data->in_flag_phy, field);
 			if (ret) {
 				printk(KERN_ERR "%s: deinterlace work failed.\n", __func__);
 				return -1;
@@ -329,7 +404,7 @@ static long sunxi_di_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 			}
 
 			if (!(filp->f_flags & O_NONBLOCK)) {
-				ret = wait_event_interruptible(di_data.wait, (di_complete_check_get() != 1));
+				ret = wait_event_interruptible(di_data->wait, (di_complete_check_get() != 1));
 				if (ret)
 					return ret;
 			}
@@ -349,25 +424,33 @@ static int sunxi_di_open(struct inode *inode, struct file *file)
 
 	dprintk(DEBUG_DATA_INFO, "%s: enter!!\n", __func__);
 
-	atomic_set(&di_data.enable, 1);
+	atomic_set(&di_data->enable, 1);
 
-	di_data.flag_size = (FLAG_WIDTH*FLAG_HIGH)/4;
+	di_data->flag_size = (FLAG_WIDTH*FLAG_HIGH)/4;
 
-	di_data.in_flag = sunxi_buf_alloc(di_data.flag_size, &(di_data.in_flag_phy));
-	if (!(di_data.in_flag)) {
+	ret = sunxi_di_alloc(&(di_data->mem_in_params), di_data->flag_size);
+	if ( ret < 0 ) {
 		printk(KERN_ERR "%s: request in_flag mem failed\n", __func__);
 		return -1;
+	} else {
+		di_data->in_flag = di_data->mem_in_params.virtual_address;
+		di_data->in_flag_phy = (void*)(di_data->mem_in_params.phyical_address);
 	}
 
-	di_data.out_flag = sunxi_buf_alloc(di_data.flag_size, &(di_data.out_flag_phy));
-	if (!(di_data.out_flag)) {
+	ret = sunxi_di_alloc(&(di_data->mem_out_params), di_data->flag_size);
+	if ( ret < 0 ) {
 		printk(KERN_ERR "%s: request out_flag mem failed\n", __func__);
-		sunxi_buf_free(di_data.in_flag, di_data.in_flag_phy, di_data.flag_size);
+		sunxi_di_free(&(di_data->mem_in_params));
 		return -1;
+	} else {
+		di_data->out_flag = di_data->mem_out_params.virtual_address;
+		di_data->out_flag_phy = (void*)di_data->mem_out_params.phyical_address;
 	}
 
 	ret = di_clk_enable();
 	if (ret) {
+		sunxi_di_free(&(di_data->mem_in_params));
+		sunxi_di_free(&(di_data->mem_out_params));
 		printk(KERN_ERR "%s: enable clk failed.\n", __func__);
 		return ret;
 	}
@@ -381,16 +464,16 @@ static int sunxi_di_release(struct inode *inode, struct file *file)
 {
 	dprintk(DEBUG_DATA_INFO, "%s: enter!!\n", __func__);
 
-	atomic_set(&di_data.enable, 0);
+	atomic_set(&di_data->enable, 0);
 
 	di_irq_enable(0);
 	di_reset();
 	di_internal_clk_disable();
 	di_clk_disable();
-	if (NULL != di_data.in_flag)
-		sunxi_buf_free(di_data.in_flag, di_data.in_flag_phy, di_data.flag_size);
-	if (NULL != di_data.out_flag)
-		sunxi_buf_free(di_data.out_flag, di_data.out_flag_phy, di_data.flag_size);
+	if (NULL != di_data->in_flag)
+		sunxi_di_free(&(di_data->mem_in_params));
+	if (NULL != di_data->out_flag)
+		sunxi_di_free(&(di_data->mem_out_params));
 
 	return 0;
 }
@@ -415,13 +498,20 @@ static int sunxi_di_probe(struct platform_device *pdev)
 		return -EPERM;
 	}
 
-	atomic_set(&di_data.di_complete, 0);
-	atomic_set(&di_data.enable, 0);
+	di_data = kzalloc(sizeof(*di_data), GFP_KERNEL);
+	if (di_data == NULL) {
+		ret = -ENOMEM;
+		return ret;
+	}
 
-	init_waitqueue_head(&di_data.wait);
+	atomic_set(&di_data->di_complete, 0);
+	atomic_set(&di_data->enable, 0);
+
+	init_waitqueue_head(&di_data->wait);
 
 	s_timer = kmalloc(sizeof(struct timer_list), GFP_KERNEL);
 	if (!s_timer) {
+		kfree(di_data);
 		ret =  - ENOMEM;
 		printk(KERN_ERR " %s FAIL TO  Request Time\n", __func__);
 		return -1;
@@ -459,9 +549,9 @@ static int sunxi_di_probe(struct platform_device *pdev)
 	}
 
 #ifdef CONFIG_PM
-	di_data.di_pm_domain.ops.suspend = sunxi_di_suspend;
-	di_data.di_pm_domain.ops.resume = sunxi_di_resume;
-	di_device->pm_domain = &(di_data.di_pm_domain);
+	di_data->di_pm_domain.ops.suspend = sunxi_di_suspend;
+	di_data->di_pm_domain.ops.resume = sunxi_di_resume;
+	di_device->pm_domain = &(di_data->di_pm_domain);
 #endif
 
 	return 0;
@@ -481,6 +571,7 @@ register_chrdev_err:
 	}
 create_work_err:
 	kfree(s_timer);
+	kfree(di_data);
 
 	return ret;
 }
@@ -500,6 +591,7 @@ static int sunxi_di_remove(struct platform_device *pdev)
 		di_wq = NULL;
 	}
 	kfree(s_timer);
+	kfree(di_data);
 
 	printk(KERN_INFO "%s: module unloaded\n", __func__);
 

@@ -30,20 +30,20 @@ typedef struct
 
 typedef struct
 {
-	__u32                   addr[2];    // frame buffer�����ݵ�ַ
-	__di_rectsz_t         	size;		//��λ��pixel
+	void*                   addr[2];        // frame buffer address
+	__di_rectsz_t         	size;           // size pixel
 	__di_pixel_fmt_t      	format;
 }__di_fb_t;
 
 typedef struct
 {
-	__di_fb_t       input_fb;	//current frame fb
-	__di_fb_t       pre_fb;     //previous frame fb
-	__di_rectsz_t   source_regn; //current frame and previous frame process region
-	__di_fb_t       output_fb;  //output frame fb
-	__di_rectsz_t   out_regn;	//output frame region
-	__u32           field;      //process field <0-top field ; 1-bottom field>
-	__u32           top_field_first; //video infomation <0-is not top_field_first; 1-is top_field_first>
+	__di_fb_t       input_fb;               //current frame fb
+	__di_fb_t       pre_fb;                 //previous frame fb
+	__di_rectsz_t   source_regn;            //current frame and previous frame process region
+	__di_fb_t       output_fb;              //output frame fb
+	__di_rectsz_t   out_regn;               //output frame region
+	__u32           field;                  //process field <0-top field ; 1-bottom field>
+	__u32           top_field_first;        //video infomation <0-is not top_field_first; 1-is top_field_first>
 }__di_para_t;
 
 
@@ -55,7 +55,7 @@ s32 di_start(void);
 s32 di_irq_enable(u32 enable);
 s32 di_get_status(void);
 s32 di_irq_clear(void);
-s32 di_set_para(__di_para_t *para, u32 in_flag_add, u32 out_flag_add, u32 field);
+s32 di_set_para(__di_para_t *para, void* in_flag_add, void* out_flag_add, u32 field);
 s32 di_sw_para_to_reg(u8 type, u8 format);
 s32 di_internal_clk_enable(void);
 s32 di_internal_clk_disable(void);

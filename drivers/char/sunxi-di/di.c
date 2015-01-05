@@ -12,6 +12,7 @@
 
 #include "di.h"
 #include "di_ebios.h"
+#include <linux/slab.h>
 
 volatile __di_dev_t *di_dev;
 
@@ -121,7 +122,7 @@ s32 di_irq_clear(void)
 //			  in_flag_add/out_flag_add <flag address malloc in driver>
 //			  field <0 - select even line for source line; 1 - select odd line for source line>
 //return  :   <0 - set OK; 1 - para NULL>
-s32 di_set_para(__di_para_t *para, u32 in_flag_add, u32 out_flag_add, u32 field)
+s32 di_set_para(__di_para_t *para, void* in_flag_add, void* out_flag_add, u32 field)
 {
 	__di_buf_addr_t in_addr;
 	__di_buf_addr_t out_addr;
@@ -130,6 +131,8 @@ s32 di_set_para(__di_para_t *para, u32 in_flag_add, u32 out_flag_add, u32 field)
 	__di_src_type_t in_type;
 	__di_out_type_t out_type;
 	__di_buf_addr_t pre_addr;
+	unsigned long in_address = 0;
+	unsigned long out_address = 0;
 
 	if(para==NULL) {
 		//DE_WRN("input parameter can't be null!\n");
@@ -149,19 +152,19 @@ s32 di_set_para(__di_para_t *para, u32 in_flag_add, u32 out_flag_add, u32 field)
 	out_size.fb_width = para->output_fb.size.width;
 	out_size.fb_height = para->output_fb.size.height;
 
-	in_addr.ch0_addr = (u32 )DI_VAtoPA((void*)(para->input_fb.addr[0]));
-	in_addr.ch1_addr = (u32 )DI_VAtoPA((void*)(para->input_fb.addr[1]));
+	in_addr.ch0_addr = (u32 )virt_to_phys((void*)(para->input_fb.addr[0]));
+	in_addr.ch1_addr = (u32 )virt_to_phys((void*)(para->input_fb.addr[1]));
 
 	in_size.src_width = para->input_fb.size.width;
 	in_size.src_height = para->input_fb.size.height;
 	in_size.scal_width= para->source_regn.width;
 	in_size.scal_height= para->source_regn.height;
 
-	out_addr.ch0_addr = (u32 )DI_VAtoPA((void*)(para->output_fb.addr[0]));
-	out_addr.ch1_addr = (u32 )DI_VAtoPA((void*)(para->output_fb.addr[1]));
+	out_addr.ch0_addr = (u32 )virt_to_phys((void*)(para->output_fb.addr[0]));
+	out_addr.ch1_addr = (u32 )virt_to_phys((void*)(para->output_fb.addr[1]));
 
-	pre_addr.ch0_addr = (u32 )DI_VAtoPA((void*)(para->pre_fb.addr[0]));
-	pre_addr.ch1_addr = (u32 )DI_VAtoPA((void*)(para->pre_fb.addr[1]));
+	pre_addr.ch0_addr = (u32 )virt_to_phys((void*)(para->pre_fb.addr[0]));
+	pre_addr.ch1_addr = (u32 )virt_to_phys((void*)(para->pre_fb.addr[1]));
 
 	DI_Module_Enable();
 
@@ -173,7 +176,9 @@ s32 di_set_para(__di_para_t *para, u32 in_flag_add, u32 out_flag_add, u32 field)
 	DI_Set_Writeback_Addr_ex(&out_addr,&out_size,&out_type);
 
 	DI_Set_Di_PreFrame_Addr(pre_addr.ch0_addr, pre_addr.ch1_addr);
-	DI_Set_Di_MafFlag_Src(in_flag_add, out_flag_add, 0x200);
+	in_address = (unsigned long)(in_flag_add);
+	out_address = (unsigned long)(out_flag_add);
+	DI_Set_Di_MafFlag_Src((u32 )(in_address), (u32 )(out_address), 0x200);
 	DI_Set_Di_Field(field);
 
 	DI_Enable();

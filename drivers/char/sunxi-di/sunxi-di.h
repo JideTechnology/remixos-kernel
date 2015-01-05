@@ -10,16 +10,26 @@
 #define FLAG_WIDTH                      (2048)
 #define FLAG_HIGH                       (1100)
 
+struct ion_parms
+{
+	struct ion_client *client;
+	struct ion_handle *handle;
+	ion_phys_addr_t phyical_address;
+	void* virtual_address;
+};
+
 typedef struct {
 	void __iomem *base_addr;
+	struct ion_parms mem_in_params;
+	struct ion_parms mem_out_params;
 	atomic_t     di_complete;
 	atomic_t     enable;
 	wait_queue_head_t wait;
 	void * in_flag;
 	void * out_flag;
-	u32  in_flag_phy;
-	u32  out_flag_phy;
-	u32  flag_size;
+	void *  in_flag_phy;
+	void *  out_flag_phy;
+	size_t  flag_size;
 	u32  irq_number;
 #ifdef CONFIG_PM
 	struct dev_pm_domain di_pm_domain;
