@@ -1,0 +1,9 @@
+config USB_TYPEC_FUSB300
+	depends on USB_TYPEC
+	tristate "FUSB300 TYPEC Connector"
+	help
+	  Say Y or M here if your system has a Dual Role SuperSpeed
+	  USB controller based on the DesignWare FUSB30 IP Core.
+
+	  If you choose to build this driver is a dynamically linked
+	  module, the module will be called dwc3.ko.

@@ -84,6 +84,15 @@ config USB
 	  To compile this driver as a module, choose M here: the
 	  module will be called usbcore.
 
+config USB_TYPEC
+       tristate "support usb typec connecto"
+       ---help---
+         Universal Serial Bus (USB) is a specification for a serial bus
+         subsystem which offers higher speeds and more features than the
+         traditional PC serial port.  The bus supplies power to peripherals
+         and allows for hot swapping.  Up to 127 USB peripherals can be
+         connected to a single USB host in a tree structure.
+
 if USB
 
 source "drivers/usb/core/Kconfig"
@@ -101,6 +110,12 @@ source "drivers/usb/class/Kconfig"
 source "drivers/usb/storage/Kconfig"
 
 source "drivers/usb/image/Kconfig"
+
+endif
+
+if USB_TYPEC
+
+source "drivers/usb/typec/Kconfig"
 
 endif
 
