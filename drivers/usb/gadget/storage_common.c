@@ -133,6 +133,9 @@ struct fsg_lun {
 	unsigned int	registered:1;
 	unsigned int	info_valid:1;
 	unsigned int	nofua:1;
+#ifdef CONFIG_USB_SUNXI_UDC0
+	unsigned int	zero_disk:1;
+#endif
 
 	u32		sense_data;
 	u32		sense_data_info;
@@ -675,3 +678,24 @@ static ssize_t fsg_store_file(struct device *dev, struct device_attribute *attr,
 	up_write(filesem);
 	return (rc < 0 ? rc : count);
 }
+
+#ifdef CONFIG_USB_SUNXI_UDC0
+static ssize_t fsg_show_zero_disk(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
+
+	return sprintf(buf, "%u\n", curlun->zero_disk);
+}
+
+static ssize_t fsg_zero_disk(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct fsg_lun	*curlun = fsg_lun_from_dev(dev);
+	int value = 0;
+
+	sscanf(buf, "%d", &value);
+	curlun->zero_disk = value;
+
+	return count;
+}
+#endif

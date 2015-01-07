@@ -435,6 +435,14 @@ config USB_GOKU
 	   dynamically linked module called "goku_udc" and to force all
 	   gadget drivers to also be dynamically linked.
 
+config USB_SUNXI_UDC0
+	boolean "SoftWinner SUNXI USB Peripheral Controller"
+	depends on USB_SUNXI_USB_MANAGER
+	select USB_GADGET_DUALSPEED
+	select USB_GADGET_SELECTED
+	help
+	   USB device only
+
 config USB_EG20T
 	tristate "Intel EG20T PCH/LAPIS Semiconductor IOH(ML7213/ML7831) UDC"
 	depends on PCI && GENERIC_HARDIRQS

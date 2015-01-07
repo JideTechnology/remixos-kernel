@@ -31,19 +31,29 @@
 #include "gadget_chips.h"
 
 #include "f_fs.c"
+#ifdef CONFIG_SND_SOC
 #include "f_audio_source.c"
+#endif
 #include "f_mass_storage.c"
 #include "f_mtp.c"
 #include "f_accessory.c"
+#ifdef CONFIG_NET
 #define USB_ETH_RNDIS y
 #include "f_rndis.c"
 #include "rndis.c"
 #include "u_ether.c"
+#endif
 
 MODULE_AUTHOR("Mike Lockwood");
 MODULE_DESCRIPTION("Android Composite USB Driver");
 MODULE_LICENSE("GPL");
 MODULE_VERSION("1.0");
+
+#ifdef CONFIG_USB_SUNXI_UDC0
+extern u32 luns;
+extern u32 serial_unique;
+extern char g_usb_serial_number[64];
+#endif
 
 static const char longname[] = "Gadget Android";
 
@@ -554,6 +564,7 @@ static struct android_usb_function ptp_function = {
 };
 
 
+#ifdef CONFIG_NET
 struct rndis_function_config {
 	u8      ethaddr[ETH_ALEN];
 	u32     vendorID;
@@ -744,7 +755,7 @@ static struct android_usb_function rndis_function = {
 	.unbind_config	= rndis_function_unbind_config,
 	.attributes	= rndis_function_attributes,
 };
-
+#endif
 
 struct mass_storage_function_config {
 	struct fsg_config fsg;
@@ -763,8 +774,26 @@ static int mass_storage_function_init(struct android_usb_function *f,
 	if (!config)
 		return -ENOMEM;
 
+#ifdef CONFIG_USB_SUNXI_UDC0
+{
+	int i = 0;
+	if(luns <= FSG_MAX_LUNS){
+		config->fsg.nluns = luns;
+	}else{
+		config->fsg.nluns = FSG_MAX_LUNS;
+	}
+
+	for(i = 0; i < config->fsg.nluns; i++){
+		config->fsg.luns[i].removable	= 1;
+		config->fsg.luns[i].ro		= 0;
+		config->fsg.luns[i].cdrom	= 0;
+		config->fsg.luns[i].nofua	= 1;
+	}
+}
+#else
 	config->fsg.nluns = 1;
 	config->fsg.luns[0].removable = 1;
+#endif
 
 	common = fsg_common_init(NULL, cdev, &config->fsg);
 	if (IS_ERR(common)) {
@@ -772,6 +801,33 @@ static int mass_storage_function_init(struct android_usb_function *f,
 		return PTR_ERR(common);
 	}
 
+#ifdef CONFIG_USB_SUNXI_UDC0
+{
+	int i = 0;
+
+	for(i = 0; i < config->fsg.nluns; i++){
+	    char name[32];
+
+	    memset(name, 0, 32);
+
+	    if(i){
+		snprintf(name, 5, "lun%d\n", i);
+	    }else{
+		strcpy(name, "lun");
+	    }
+
+	    pr_debug("lun name: %s\n", name);
+
+	    err = sysfs_create_link(&f->dev->kobj,
+			&common->luns[i].dev.kobj,
+			name);
+	    if (err) {
+		kfree(config);
+		return err;
+	    }
+	}
+}
+#else
 	err = sysfs_create_link(&f->dev->kobj,
 				&common->luns[0].dev.kobj,
 				"lun");
@@ -779,6 +835,7 @@ static int mass_storage_function_init(struct android_usb_function *f,
 		kfree(config);
 		return err;
 	}
+#endif
 
 	config->common = common;
 	f->config = config;
@@ -868,6 +925,7 @@ static struct android_usb_function accessory_function = {
 	.ctrlrequest	= accessory_function_ctrlrequest,
 };
 
+#ifdef CONFIG_SND_SOC
 static int audio_source_function_init(struct android_usb_function *f,
 			struct usb_composite_dev *cdev)
 {
@@ -929,16 +987,21 @@ static struct android_usb_function audio_source_function = {
 	.unbind_config	= audio_source_function_unbind_config,
 	.attributes	= audio_source_function_attributes,
 };
+#endif
 
 static struct android_usb_function *supported_functions[] = {
 	&ffs_function,
 	&acm_function,
 	&mtp_function,
 	&ptp_function,
+#ifdef CONFIG_NET
 	&rndis_function,
+#endif
 	&mass_storage_function,
 	&accessory_function,
+#ifdef CONFIG_SND_SOC
 	&audio_source_function,
+#endif
 	NULL
 };
 
@@ -1337,11 +1400,15 @@ static int android_bind(struct usb_composite_dev *cdev)
 	strings_dev[STRING_PRODUCT_IDX].id = id;
 	device_desc.iProduct = id;
 
-	/* Default strings - should be updated by userspace */
 	strncpy(manufacturer_string, "Android", sizeof(manufacturer_string)-1);
 	strncpy(product_string, "Android", sizeof(product_string) - 1);
-	strncpy(serial_string, "0123456789ABCDEF", sizeof(serial_string) - 1);
 
+#ifdef CONFIG_USB_SUNXI_UDC0
+	strncpy(serial_string, g_usb_serial_number, sizeof(serial_string) - 1);
+#else
+	/* Default strings - should be updated by userspace */
+	strncpy(serial_string, "0123456789ABCDEF", sizeof(serial_string) - 1);
+#endif
 	id = usb_string_id(cdev);
 	if (id < 0)
 		return id;

@@ -815,23 +815,29 @@ EXPORT_SYMBOL_GPL(usb_add_config);
 static void unbind_config(struct usb_composite_dev *cdev,
 			      struct usb_configuration *config)
 {
-	while (!list_empty(&config->functions)) {
-		struct usb_function		*f;
+	if(config->cdev != NULL){
+		while (!list_empty(&config->functions)) {
+			struct usb_function		*f;
 
-		f = list_first_entry(&config->functions,
-				struct usb_function, list);
-		list_del(&f->list);
-		if (f->unbind) {
-			DBG(cdev, "unbind function '%s'/%p\n", f->name, f);
-			f->unbind(config, f);
-			/* may free memory for "f" */
+			f = list_first_entry(&config->functions,
+					struct usb_function, list);
+			list_del(&f->list);
+			if (f->unbind) {
+				DBG(cdev, "unbind function '%s'/%p\n", f->name, f);
+				f->unbind(config, f);
+				/* may free memory for "f" */
+			}
+		}
+		if (config->unbind) {
+			DBG(cdev, "unbind config '%s'/%p\n", config->label, config);
+			config->unbind(config);
+				/* may free memory for "c" */
 		}
 	}
-	if (config->unbind) {
-		DBG(cdev, "unbind config '%s'/%p\n", config->label, config);
-		config->unbind(config);
-			/* may free memory for "c" */
-	}
+
+#ifdef CONFIG_USB_SUNXI_UDC0
+	usb_ep_autoconfig_reset(cdev->gadget);
+#endif
 }
 
 /**

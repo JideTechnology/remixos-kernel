@@ -471,6 +471,87 @@
 			allwinner,aif3config = /bits/ 8 <0x0>;
 			status = "okay";
 		};
+
+		otg:otg_manager@0 {
+			compatible          = "allwinner,sun50i-otg-manager";
+			usb_used            = <1>;
+			usb_port_type       = <2>;
+			usb_id_gpio         = <&pio 0 0 0>; /*PB0*/
+			usb_det_vbus_gpio   = "axp_ctrl"; /*PB1*/
+		};
+
+		udc:udc-controller@0x01c19000 {
+			compatible          = "allwinner,sun50i-udc";
+			reg                 = <0x0 0x01c19000 0x0 0x1000>, /*udc base*/
+			                      <0x0 0x01c00000 0x0 0x100>; /*sram base*/
+			interrupts          = <0 71 4>;
+			clocks              = <&clk_usbphy0>, <&clk_usbotg>;
+			usb_used            = <1>;
+			luns                = <3>;
+			serial_unique       = <0>;
+			serial_number       = "20080411";
+		};
+
+		ehci0:ehci0-controller@0x01c1a000 {
+			compatible          = "allwinner,sun50i-ehci0";
+			reg                 = <0x0 0x01c1a000 0x0 0x900>, /*udc base*/
+			                      <0x0 0x01c00000 0x0 0x100>, /*sram base*/
+			                      <0x0 0x01c19000 0x0 0x1000>; /*otg base*/
+			interrupts          = <0 72 4>;
+			clocks              = <&clk_usbphy0>, <&clk_usbehci0>;
+			hci_ctrl_no         = <0>;
+			usb_used            = <1>;
+			usb_drv_vbus_gpio   = <&pio 0 0 0>; /*PA0*/
+			usb_host_init_state = <0>;
+			usb_regulator_io    = "nocare";
+			usb_regulator_vol   = <0>;
+			usb_wakeup_suspend  = <0>;
+		};
+
+		ohci0:ohci0-controller@0x01c1a400 {
+			compatible          = "allwinner,sun50i-ohci0";
+			reg                 = <0x0 0x01c1a400 0x0 0x500>, /*udc base*/
+			                      <0x0 0x01c00000 0x0 0x100>, /*sram base*/
+			                      <0x0 0x01c19000 0x0 0x1000>; /*otg base*/
+			interrupts          = <0 73 4>;
+			clocks              = <&clk_usbphy0>, <&clk_usbohci0>;
+			hci_ctrl_no         = <0>;
+			usb_used            = <1>;
+			usb_drv_vbus_gpio   = <&pio 0 0 0>; /*PA0*/
+			usb_host_init_state = <0>;
+			usb_regulator_io    = "nocare";
+			usb_regulator_vol   = <0>;
+			usb_wakeup_suspend   = <0>;
+		};
+
+		ehci1:ehci1-controller@0x01c1b000 {
+			compatible          = "allwinner,sun50i-ehci1";
+			reg                 = <0x0 0x01c1b000 0x0 0x900>;/*udc base*/
+			interrupts          = <0 74 4>;
+			clocks              = <&clk_usbphy1>, <&clk_usbehci1>;
+			hci_ctrl_no         = <1>;
+			usb_used            = <1>;
+			usb_drv_vbus_gpio   = <&pio 0 0 0>; /*PA1*/
+			usb_host_init_state = <1>;
+			usb_regulator_io    = "nocare";
+			usb_regulator_vol   = <0>;
+			usb_wakeup_suspend     = <0>;
+		};
+
+		ohci1:ohci1-controller@0x01c1b400 {
+			compatible          = "allwinner,sun50i-ohci1";
+			reg                 = <0x0 0x01c1b400 0x0 0x500>;/*udc base*/
+			interrupts          = <0 75 4>;
+			clocks              = <&clk_usbphy1>, <&clk_usbohci1>;
+			hci_ctrl_no         = <1>;
+			usb_used            = <1>;
+			usb_drv_vbus_gpio   = <&pio 0 0 0>; /*PA1*/
+			usb_host_init_state = <1>;
+			usb_regulator_io    = "nocare";
+			usb_regulator_vol   = <0>;
+			usb_wakeup_suspend  = <0>;
+		};
+
 		sun50i2s:audiocodec_platform@0x01c22c00 {
 			compatible = "allwinner,sunxi-internal-i2s";
 			reg = <0x0 0x01c22c00 0x0 0x478>;/*digital baseadress*/

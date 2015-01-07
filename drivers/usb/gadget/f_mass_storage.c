@@ -230,6 +230,15 @@ static const char fsg_string_interface[] = "Mass Storage";
 
 #include "storage_common.c"
 
+#ifdef CONFIG_USB_SUNXI_UDC0
+#define DO_VFS_STAT              1
+#define DO_VFS_END               2
+
+extern atomic_t vfs_read_flag;
+extern atomic_t vfs_write_flag;
+extern unsigned int vfs_amount;
+extern loff_t vfs_file_offset;
+#endif
 
 /*-------------------------------------------------------------------------*/
 
@@ -578,6 +587,11 @@ static void start_transfer(struct fsg_dev *fsg, struct usb_ep *ep,
 	spin_lock_irq(&fsg->common->lock);
 	*pbusy = 1;
 	*state = BUF_STATE_BUSY;
+	/* only mass storage device use inner dma to transfer, it means that
+	 * adb donot use inner dma. In our test, adb with inner dma will test failed */
+#ifdef CONFIG_USB_SUNXI_UDC0
+	req->dma_flag = 1;
+#endif
 	spin_unlock_irq(&fsg->common->lock);
 	rc = usb_ep_queue(ep, req, GFP_KERNEL);
 	if (rc != 0) {
@@ -717,9 +731,30 @@ static int do_read(struct fsg_common *common)
 
 		/* Perform the read */
 		file_offset_tmp = file_offset;
+#ifdef CONFIG_USB_SUNXI_UDC0
+		if(curlun->zero_disk){
+			if(file_offset_tmp == 0){
+				nread = vfs_read(curlun->filp,
+						(char __user *)bh->buf,
+						amount, &file_offset_tmp);
+			}else{
+				nread = amount;
+			}
+		}else{
+			vfs_amount = amount;
+			vfs_file_offset = file_offset_tmp;
+			atomic_set(&vfs_read_flag, DO_VFS_STAT);
+			nread = vfs_read(curlun->filp,
+					(char __user *)bh->buf,
+					amount, &file_offset_tmp);
+			atomic_set(&vfs_read_flag, DO_VFS_END);
+		}
+#else
+
 		nread = vfs_read(curlun->filp,
 				 (char __user *)bh->buf,
 				 amount, &file_offset_tmp);
+#endif
 		VLDBG(curlun, "file read %u @ %llu -> %d\n", amount,
 		      (unsigned long long)file_offset, (int)nread);
 		if (signal_pending(current))
@@ -910,9 +945,26 @@ static int do_write(struct fsg_common *common)
 
 			/* Perform the write */
 			file_offset_tmp = file_offset;
+#ifdef CONFIG_USB_SUNXI_UDC0
+			if(curlun->zero_disk){
+				nwritten = amount;
+			}else{
+				if(amount <= 512){
+				msleep(1);
+			}
+				vfs_amount = amount;
+				vfs_file_offset = file_offset_tmp;
+				atomic_set(&vfs_write_flag, DO_VFS_STAT);
+				nwritten = vfs_write(curlun->filp,
+						(char __user *)bh->buf,
+						amount, &file_offset_tmp);
+				atomic_set(&vfs_write_flag, DO_VFS_END);
+			}
+#else
 			nwritten = vfs_write(curlun->filp,
 					     (char __user *)bh->buf,
 					     amount, &file_offset_tmp);
+#endif
 			VLDBG(curlun, "file write %u @ %llu -> %d\n", amount,
 			      (unsigned long long)file_offset, (int)nwritten);
 			if (signal_pending(current))
@@ -961,6 +1013,7 @@ static int do_write(struct fsg_common *common)
 
 /*-------------------------------------------------------------------------*/
 
+#ifndef CONFIG_USB_SUNXI_UDC0
 static int do_synchronize_cache(struct fsg_common *common)
 {
 	struct fsg_lun	*curlun = common->curlun;
@@ -973,10 +1026,16 @@ static int do_synchronize_cache(struct fsg_common *common)
 		curlun->sense_data = SS_WRITE_ERROR;
 	return 0;
 }
-
+#else
+static int do_synchronize_cache(struct fsg_common *common)
+{
+	return 0;
+}
+#endif
 
 /*-------------------------------------------------------------------------*/
 
+#ifndef CONFIG_USB_SUNXI_UDC0
 static void invalidate_sub(struct fsg_lun *curlun)
 {
 	struct file	*filp = curlun->filp;
@@ -1059,6 +1118,7 @@ static int do_verify(struct fsg_common *common)
 		nread = vfs_read(curlun->filp,
 				(char __user *) bh->buf,
 				amount, &file_offset_tmp);
+
 		VLDBG(curlun, "file read %u @ %llu -> %d\n", amount,
 				(unsigned long long) file_offset,
 				(int) nread);
@@ -1085,7 +1145,12 @@ static int do_verify(struct fsg_common *common)
 	}
 	return 0;
 }
-
+#else
+static int do_verify(struct fsg_common *common)
+{
+	return 0;
+}
+#endif
 
 /*-------------------------------------------------------------------------*/
 
@@ -1390,7 +1455,9 @@ static int do_prevent_allow(struct fsg_common *common)
 	}
 
 	if (curlun->prevent_medium_removal && !prevent)
+#ifndef CONFIG_USB_SUNXI_UDC0
 		fsg_lun_fsync_sub(curlun);
+#endif
 	curlun->prevent_medium_removal = prevent;
 	return 0;
 }
@@ -2581,6 +2648,9 @@ static int fsg_main_thread(void *common_)
 static DEVICE_ATTR(ro, 0644, fsg_show_ro, fsg_store_ro);
 static DEVICE_ATTR(nofua, 0644, fsg_show_nofua, fsg_store_nofua);
 static DEVICE_ATTR(file, 0644, fsg_show_file, fsg_store_file);
+#ifdef CONFIG_USB_SUNXI_UDC0
+static DEVICE_ATTR(zero_disk, 0644, fsg_show_zero_disk, fsg_zero_disk);
+#endif
 
 static struct device_attribute dev_attr_ro_cdrom =
 	__ATTR(ro, 0444, fsg_show_ro, NULL);
@@ -2683,6 +2753,10 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 		curlun->ro = lcfg->cdrom || lcfg->ro;
 		curlun->initially_ro = curlun->ro;
 		curlun->removable = lcfg->removable;
+#ifdef CONFIG_USB_SUNXI_UDC0
+		curlun->nofua = lcfg->nofua;
+		curlun->zero_disk = 0;
+#endif
 		curlun->dev.release = fsg_lun_release;
 		curlun->dev.parent = &gadget->dev;
 		/* curlun->dev.driver = &fsg_driver.driver; XXX */
@@ -2712,6 +2786,12 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 		rc = device_create_file(&curlun->dev, &dev_attr_nofua);
 		if (rc)
 			goto error_luns;
+
+#ifdef CONFIG_USB_SUNXI_UDC0
+		rc = device_create_file(&curlun->dev, &dev_attr_zero_disk);
+		if (rc)
+			goto error_luns;
+#endif
 
 		if (lcfg->filename) {
 			rc = fsg_lun_open(curlun, lcfg->filename);
@@ -2838,6 +2918,10 @@ static void fsg_common_release(struct kref *ref)
 					   lun->removable
 					 ? &dev_attr_file
 					 : &dev_attr_file_nonremovable);
+#ifdef CONFIG_USB_SUNXI_UDC0
+			device_remove_file(&lun->dev, &dev_attr_zero_disk);
+#endif
+
 			fsg_lun_close(lun);
 			device_unregister(&lun->dev);
 		}
@@ -2935,6 +3019,7 @@ static int fsg_bind(struct usb_configuration *c, struct usb_function *f)
 	return 0;
 
 autoconf_fail:
+
 	ERROR(fsg, "unable to autoconfigure all endpoints\n");
 	return -ENOTSUPP;
 }
