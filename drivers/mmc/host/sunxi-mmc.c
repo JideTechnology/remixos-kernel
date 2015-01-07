@@ -44,7 +44,7 @@
 #include <linux/mmc/slot-gpio.h>
 
 #include "sunxi-mmc.h"
-
+#include "sunxi-mmc-sun50iw1p1-2.h"
 
 static int sunxi_mmc_reset_host(struct sunxi_mmc_host *host)
 {
@@ -422,6 +422,7 @@ static int sunxi_mmc_oclk_onoff(struct sunxi_mmc_host *host, u32 oclk_en)
 	return 0;
 }
 
+#if 0
 static int sunxi_mmc_clk_set_rate(struct sunxi_mmc_host *host,
 				  struct mmc_ios *ios)
 {
@@ -474,6 +475,7 @@ static int sunxi_mmc_clk_set_rate(struct sunxi_mmc_host *host,
 
 	return sunxi_mmc_oclk_onoff(host, 1);
 }
+#endif
 
 static void sunxi_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 {
@@ -524,8 +526,8 @@ static void sunxi_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	mmc_writel(host, REG_GCTRL, rval);
 
 	/* set up clock */
-	if (ios->clock && ios->power_mode) {
-		host->ferror = sunxi_mmc_clk_set_rate(host, ios);
+	if (ios->clock && ios->power_mode&& host->sunxi_mmc_clk_set_rate) {
+		host->ferror = host->sunxi_mmc_clk_set_rate(host, ios);
 		/* Android code had a usleep_range(50000, 55000); here */
 	}
 }
@@ -663,6 +665,7 @@ static void sunxi_mmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 static const struct of_device_id sunxi_mmc_of_match[] = {
 	{ .compatible = "allwinner,sun4i-a10-mmc", },
 	{ .compatible = "allwinner,sun5i-a13-mmc", },
+	{ .compatible = "allwinner,sun50i-sdmmc2", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, sunxi_mmc_of_match);
@@ -682,28 +685,43 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 	struct device_node *np = pdev->dev.of_node;
 	int ret;
 
-	if (of_device_is_compatible(np, "allwinner,sun4i-a10-mmc"))
+	if (of_device_is_compatible(np, "allwinner,sun4i-a10-mmc")\
+		||of_device_is_compatible(np, "allwinner,sun50i-sdmmc2")\
+		)
 		host->idma_des_size_bits = 13;
 	else
 		host->idma_des_size_bits = 16;
 
+
+	if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc2")){
+ 		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc2;
+ 	}else{
+ 		host->sunxi_mmc_clk_set_rate = NULL;
+ 	}
+
+
+#ifndef MMC_FPGA
+	//Because fpga has no regulator,so we don't get regulator	
 	ret = mmc_regulator_get_supply(host->mmc);
 	if (ret) {
 		if (ret != -EPROBE_DEFER)
 			dev_err(&pdev->dev, "Could not get vmmc supply\n");
 		return ret;
 	}
+#endif
 
 	host->reg_base = devm_ioremap_resource(&pdev->dev,
 			      platform_get_resource(pdev, IORESOURCE_MEM, 0));
 	if (IS_ERR(host->reg_base))
 		return PTR_ERR(host->reg_base);
 
+#ifndef USE_OLD_SYS_CLK_INTERFACE
 	host->clk_ahb = devm_clk_get(&pdev->dev, "ahb");
 	if (IS_ERR(host->clk_ahb)) {
 		dev_err(&pdev->dev, "Could not get ahb clock\n");
 		return PTR_ERR(host->clk_ahb);
 	}
+#endif
 
 	host->clk_mmc = devm_clk_get(&pdev->dev, "mmc");
 	if (IS_ERR(host->clk_mmc)) {
@@ -711,6 +729,7 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		return PTR_ERR(host->clk_mmc);
 	}
 
+#ifndef USE_OLD_SYS_CLK_INTERFACE
 	host->reset = devm_reset_control_get(&pdev->dev, "ahb");
 
 	ret = clk_prepare_enable(host->clk_ahb);
@@ -718,6 +737,7 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		dev_err(&pdev->dev, "Enable ahb clk err %d\n", ret);
 		return ret;
 	}
+#endif
 
 	ret = clk_prepare_enable(host->clk_mmc);
 	if (ret) {
@@ -725,6 +745,7 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		goto error_disable_clk_ahb;
 	}
 
+#ifndef USE_OLD_SYS_CLK_INTERFACE
 	if (!IS_ERR(host->reset)) {
 		ret = reset_control_deassert(host->reset);
 		if (ret) {
@@ -732,6 +753,7 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 			goto error_disable_clk_mmc;
 		}
 	}
+#endif
 
 	/*
 	 * Sometimes the controller asserts the irq on boot for some reason,
@@ -746,8 +768,10 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 			sunxi_mmc_handle_manual_stop, 0, "sunxi-mmc", host);
 
 error_assert_reset:
+#ifndef USE_OLD_SYS_CLK_INTERFACE
 	if (!IS_ERR(host->reset))
 		reset_control_assert(host->reset);
+#endif
 error_disable_clk_mmc:
 	clk_disable_unprepare(host->clk_mmc);
 error_disable_clk_ahb:
@@ -795,9 +819,18 @@ static int sunxi_mmc_probe(struct platform_device *pdev)
 	mmc->caps	       |= MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED |
 				  MMC_CAP_ERASE;
 
-	ret = mmc_of_parse(mmc);
-	if (ret)
-		goto error_free_dma;
+#ifdef MMC_FPGA
+	//Because fpga has no regulator,so we add it manully				  
+	mmc->ocr_avail = MMC_VDD_28_29 | MMC_VDD_29_30 | MMC_VDD_30_31 | MMC_VDD_31_32
+				| MMC_VDD_32_33 | MMC_VDD_33_34;
+	dev_info(&pdev->dev,"*******************set host ocr**************************\n");
+	
+#endif
+
+	mmc_of_parse(mmc);
+	//ret = mmc_of_parse(mmc);
+	//if (ret)
+	//	goto error_free_dma;
 
 	ret = mmc_add_host(mmc);
 	if (ret)
@@ -823,8 +856,10 @@ static int sunxi_mmc_remove(struct platform_device *pdev)
 	disable_irq(host->irq);
 	sunxi_mmc_reset_host(host);
 
+#ifndef USE_OLD_SYS_CLK_INTERFACE
 	if (!IS_ERR(host->reset))
 		reset_control_assert(host->reset);
+#endif
 
 	clk_disable_unprepare(host->clk_mmc);
 	clk_disable_unprepare(host->clk_ahb);
