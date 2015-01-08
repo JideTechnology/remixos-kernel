@@ -160,6 +160,7 @@ static void USBC_SelectPhyToHci(struct sunxi_hci_hcd *sunxi_hci)
 	reg_value &= ~(0x01);
 	USBC_Writel(reg_value, (sunxi_hci->otg_vbase + 0x420));
 
+	return;
 }
 
 static void USBC_Clean_SIDDP(struct sunxi_hci_hcd *sunxi_hci)
@@ -168,6 +169,8 @@ static void USBC_Clean_SIDDP(struct sunxi_hci_hcd *sunxi_hci)
 	reg_value = USBC_Readl(sunxi_hci->usb_vbase + 0x810);
 	reg_value &= ~(0x01 << 1);
 	USBC_Writel(reg_value, (sunxi_hci->usb_vbase + 0x810));
+
+	return;
 }
 
 static int open_clock(struct sunxi_hci_hcd *sunxi_hci, u32 ohci)
