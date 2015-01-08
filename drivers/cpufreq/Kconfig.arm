@@ -2,6 +2,14 @@
 # ARM CPU Frequency scaling drivers
 #
 
+config ARM_SUNXI_CPUFREQ
+	bool "SUNXI CPUFreq driver support"
+	depends on ARCH_SUN50I
+	help
+	  This adds the CPUFreq driver for the Allwinner SUNXI SoC.
+
+	  If in doubt, say N.
+
 config ARM_BIG_LITTLE_CPUFREQ
 	tristate "Generic ARM big LITTLE CPUfreq driver"
 	depends on (ARM_CPU_TOPOLOGY && BIG_LITTLE) || (ARM64 && SMP)

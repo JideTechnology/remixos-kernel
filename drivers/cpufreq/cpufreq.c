@@ -618,6 +618,32 @@ static ssize_t show_affected_cpus(struct cpufreq_policy *policy, char *buf)
 	return show_cpus(policy->cpus, buf);
 }
 
+#if defined(CONFIG_ARM_SUNXI_CPUFREQ)
+extern unsigned int sunxi_boot_lock;
+
+static ssize_t show_cpuinfo_boot_freq(struct cpufreq_policy *policy, char *buf)
+{
+	return sprintf(buf, "%u\n", policy->cpuinfo.boot_freq);
+}
+static ssize_t show_boot_lock(struct cpufreq_policy *policy, char *buf)
+{
+	return sprintf(buf, "%u\n", sunxi_boot_lock);
+}
+
+static ssize_t store_boot_lock(struct cpufreq_policy *policy,
+					const char *buf, size_t count)
+{
+	unsigned int lock, ret;
+
+	ret = sscanf(buf, "%u", &lock);
+	if (ret != 1)
+		return -EINVAL;
+
+	sunxi_boot_lock = !!lock;
+	return count;
+}
+#endif
+
 static ssize_t store_scaling_setspeed(struct cpufreq_policy *policy,
 					const char *buf, size_t count)
 {
@@ -673,6 +699,10 @@ cpufreq_freq_attr_rw(scaling_min_freq);
 cpufreq_freq_attr_rw(scaling_max_freq);
 cpufreq_freq_attr_rw(scaling_governor);
 cpufreq_freq_attr_rw(scaling_setspeed);
+#if defined(CONFIG_ARM_SUNXI_CPUFREQ)
+cpufreq_freq_attr_ro(cpuinfo_boot_freq);
+cpufreq_freq_attr_rw(boot_lock);
+#endif
 
 static struct attribute *default_attrs[] = {
 	&cpuinfo_min_freq.attr,
@@ -686,6 +716,10 @@ static struct attribute *default_attrs[] = {
 	&scaling_driver.attr,
 	&scaling_available_governors.attr,
 	&scaling_setspeed.attr,
+#if defined(CONFIG_ARM_SUNXI_CPUFREQ)
+	&cpuinfo_boot_freq.attr,
+	&boot_lock.attr,
+#endif
 	NULL
 };
 
@@ -2038,6 +2072,28 @@ int cpufreq_unregister_driver(struct cpufreq_driver *driver)
 }
 EXPORT_SYMBOL_GPL(cpufreq_unregister_driver);
 
+#if defined(CONFIG_ARCH_SUNXI) && defined(CONFIG_HOTPLUG_CPU)
+#include <linux/reboot.h>
+
+static int reboot_notifier_call(struct notifier_block *this, unsigned long code, void *_cmd)
+{
+	int cpu;
+
+	for_each_online_cpu(cpu) {
+		if (cpu == 0)
+			continue;
+		cpu_down(cpu);
+	}
+
+	printk("%s:%s: stop none boot cpus done\n", __FILE__, __func__);
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block reboot_notifier = {
+	.notifier_call = reboot_notifier_call,
+};
+#endif
+
 static int __init cpufreq_core_init(void)
 {
 	int cpu;
@@ -2052,6 +2108,11 @@ static int __init cpufreq_core_init(void)
 
 	cpufreq_global_kobject = kobject_create_and_add("cpufreq", &cpu_subsys.dev_root->kobj);
 	BUG_ON(!cpufreq_global_kobject);
+
+#if defined(CONFIG_ARCH_SUNXI) && defined(CONFIG_HOTPLUG_CPU)
+	/* register reboot notifier for process cpus when reboot */
+	register_reboot_notifier(&reboot_notifier);
+#endif
 
 	return 0;
 }

@@ -53,6 +53,14 @@
 			compatible = "arm,cortex-a53","arm,armv8";
 			reg = <0x0 0x0>;
 			enable-method = "psci";
+			cpufreq_tbl = <  480000
+							 600000
+							 720000
+							 816000
+							1008000
+							1200000
+							1344000>;
+			clock-latency = <2000000>;
 		};
 	};
 

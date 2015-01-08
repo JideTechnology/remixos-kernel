@@ -76,6 +76,9 @@ extern struct kobject *cpufreq_global_kobject;
 struct cpufreq_cpuinfo {
 	unsigned int		max_freq;
 	unsigned int		min_freq;
+#ifdef CONFIG_ARCH_SUNXI
+	unsigned int		boot_freq;
+#endif
 
 	/* in 10^(-9) s = nanoseconds */
 	unsigned int		transition_latency;
