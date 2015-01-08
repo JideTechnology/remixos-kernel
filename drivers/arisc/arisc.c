@@ -41,7 +41,7 @@ unsigned int arisc_debug_dram_crc_len = (1024 * 1024);
 unsigned int arisc_debug_dram_crc_error = 0;
 unsigned int arisc_debug_dram_crc_total_count = 0;
 unsigned int arisc_debug_dram_crc_error_count = 0;
-unsigned int arisc_debug_level = 3;
+unsigned int arisc_debug_level = 2;
 static unsigned char arisc_version[40] = "arisc defualt version";
 static unsigned int arisc_pll = 0;
 #if defined CONFIG_ARCH_SUN8IW1P1
@@ -1087,39 +1087,32 @@ static int  sunxi_arisc_pin_cfg(struct platform_device *pdev)
 	ARISC_INF("device [%s] pin resource request enter\n", dev_name(&pdev->dev));
 	/* s_uart0 gpio */
 	if (arisc_cfg.suart.status) {
-		printk("[superm]:suart pins 1\n");
 		dev.of_node = arisc_cfg.suart.np;
 		pinctrl = pinctrl_get_select_default(&dev);
 		if(!pinctrl || IS_ERR(pinctrl)){
 			ARISC_ERR("set s_uart0 pin error!\n");
 			return -EINVAL;
 		}
-		printk("[superm]:suart pins 2\n");
-
 	}
 
 	/* s_rsb0 gpio */
 	if (arisc_cfg.srsb.status) {
-		printk("[superm]:srsb pins 1\n");
 		dev.of_node = arisc_cfg.srsb.np;
 		pinctrl = pinctrl_get_select_default(&dev);
 		if(!pinctrl || IS_ERR(pinctrl)){
 			ARISC_ERR("set s_rsb0 pin error!\n");
 			return -EINVAL;
 		}
-		printk("[superm]:srsb pins 2\n");
 	}
 
 	/* s_jtag0 gpio */
 	if (arisc_cfg.sjtag.status) {
-		printk("[superm]:sjtag pins 1\n");
 		dev.of_node = arisc_cfg.sjtag.np;
 		pinctrl = pinctrl_get_select_default(&dev);
 		if(!pinctrl || IS_ERR(pinctrl)){
 			ARISC_ERR("set s_jtag0 pin error!\n");
 			return -EINVAL;
 		}
-		printk("[superm]:sjtag pins 2\n");
 	}
 
 	ARISC_INF("device [%s] pin resource request ok\n", dev_name(&pdev->dev));
@@ -1185,8 +1178,6 @@ u32 sunxi_load_arisc(void *image, size_t image_size, void *para, size_t para_siz
 	void __iomem *dst;
 	void *src;
 	size_t size;
-
-	printk("[supem]: 0x%p, 0x%lx, 0x%p, 0x%lx\n", image, image_size, para, para_size);
 
 	/*
 	 * phys addr to virt addr
@@ -1675,7 +1666,6 @@ static int sunxi_arisc_parse_cfg(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	printk("[superm]:dvfs ok\n");
 
 	/* parse s_cir node */
 	arisc_cfg.scir.np = of_find_compatible_node(NULL, NULL, "allwinner,s_cir");
@@ -1724,7 +1714,6 @@ static int  sunxi_arisc_probe(struct platform_device *pdev)
 	size_t image_size;
 
 	ARISC_INF("arisc initialize\n");
-	printk("[superm]:%s\n", __TIME__);
 
 	sunxi_arisc_parse_cfg(pdev);
 

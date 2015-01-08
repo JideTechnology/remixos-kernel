@@ -41,7 +41,7 @@
 
 #define ARISC_INF(format, args...)                          \
 	if(DEBUG_LEVEL_INF & (0xf0 >> (arisc_debug_level +1)))  \
-		printk("[ARISC] :"format, ##args);
+		pr_debug("[ARISC] :"format, ##args);
 
 #define ARISC_LOG(format, args...)                                      \
 	if(DEBUG_LEVEL_LOG & (0xf0 >> (arisc_debug_level +1)))	\

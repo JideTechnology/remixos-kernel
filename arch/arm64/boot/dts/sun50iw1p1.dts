@@ -251,7 +251,7 @@
 
 		arisc_space {
 			compatible = "allwinner,arisc_space";
-			/* num    dts        offset     size                              */
+			/* num    dst        offset     size                              */
 			space1 = <0x00040000 0x00000000 0x00014000>; /* srama2 code space */
 			space2 = <0x40020000 0x00018000 0x00004000>; /* dram code space   */
 			space3 = <0x40024000 0x00000000 0x00001000>; /* para space        */
@@ -275,14 +275,14 @@
 		};
 
 		s_cir0: s_cir@1f02000 {
-					compatible = "allwinner,s_cir";
-					reg = <0x0 0x01f02000 0x0 0x400>;
-					interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
-					pinctrl-names = "default";
-					pinctrl-0 = <&s_cir0_pins_a>;
-					ir_power_key_code = <0>;
-					ir_addr_code = <0>;
-					status = "okay";
+			compatible = "allwinner,s_cir";
+			reg = <0x0 0x01f02000 0x0 0x400>;
+			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&s_cir0_pins_a>;
+			ir_power_key_code = <0>;
+			ir_addr_code = <0>;
+			status = "okay";
 		};
 
 		s_uart0: s_uart@1f02800 {
@@ -308,12 +308,6 @@
 			pinctrl-names = "default";
 			pinctrl-0 = <&s_jtag0_pins_a>;
 			status = "disable";
-		};
-
-		pmu1 {
-			compatible = "allwinner,pmu1";
-			pmu_bat_shutdown_ltf = <3200>;
-			pmu_bat_shutdown_htf = <237>;
 		};
 
 		soc_timer0: timer@1c20c00 {
@@ -715,6 +709,7 @@
 				allwinner,function = "s_cir0";
 				allwinner,drive = <2>;
 				allwinner,pull = <1>;
+			};
 		};
 		
 		csi_cci0:cci@0x01cb3000 {
@@ -819,7 +814,6 @@
 				allwinner,function = "spi0";
 				allwinner,drive = <1>;
 				allwinner,pull = <1>; 	// only CS should be pulled up
-			};
 			};
 
 			sdmmc0_pins_a: sdmmc0@0 {
@@ -927,6 +921,8 @@
 			pmu_IRQ_wakeup             = <0>;
 			pmu_hot_shutdowm           = <1>;
 			pmu_inshort                = <0>;
+			pmu_bat_shutdown_ltf       = <3200>; /* add by superm for debug */
+			pmu_bat_shutdown_htf       = <237>;  /* add by superm for debug */
 			status = "okay";
 		};
 		pmu1_regu@0{

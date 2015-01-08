@@ -66,7 +66,7 @@ int arisc_dvfs_cfg_vf_table(void)
 		//vf_table_type = sunxi_get_soc_bin();
 		sprintf(vf_table_main_key, "%s%d", "allwinner,vf_table", vf_table_type);
 	}
-	pr_info("%s: vf table type [%d=%s]\n", __func__, vf_table_type, vf_table_main_key);
+	ARISC_INF("%s: vf table type [%d=%s]\n", __func__, vf_table_type, vf_table_main_key);
 
 	arisc_cfg.dvfs.np = of_find_compatible_node(arisc_cfg.dvfs.np, NULL, vf_table_main_key);
 	if (IS_ERR(arisc_cfg.dvfs.np)) {
@@ -84,12 +84,12 @@ int arisc_dvfs_cfg_vf_table(void)
 		if (of_property_read_u32(arisc_cfg.dvfs.np, vf_table_sub_key, &value) == 0) {
 			arisc_vf_table[index].freq = value;
 		}
-		pr_info("%s: freq [%s-%d=%d]\n", __func__, vf_table_sub_key, index, value);
+		ARISC_INF("%s: freq [%s-%d=%d]\n", __func__, vf_table_sub_key, index, value);
 		sprintf(vf_table_sub_key, "LV%d_volt", index + 1);
 		if (of_property_read_u32(arisc_cfg.dvfs.np, vf_table_sub_key, &value) == 0) {
 			arisc_vf_table[index].voltage = value;
 		}
-		pr_info("%s: volt [%s-%d=%d]\n", __func__, vf_table_sub_key, index, value);
+		ARISC_INF("%s: volt [%s-%d=%d]\n", __func__, vf_table_sub_key, index, value);
 	}
 
 	arisc_cfg.dvfs.vf = arisc_vf_table;
