@@ -54,7 +54,10 @@ typedef gen8_gtt_pte_t gen8_ppgtt_pde_t;
 #define GEN6_PPGTT_PD_ENTRIES		512
 #define GEN6_PD_SIZE			(GEN6_PPGTT_PD_ENTRIES * PAGE_SIZE)
 #define GEN6_PD_ALIGN			(PAGE_SIZE * 16)
+#define GEN6_PDE_SHIFT			22
 #define GEN6_PDE_VALID			(1 << 0)
+#define I915_PDE_MASK			(GEN6_PPGTT_PD_ENTRIES-1)
+#define NUM_PTE(pde_shift)		(1 << (pde_shift - PAGE_SHIFT))
 
 #define GEN7_PTE_CACHE_L3_LLC		(3 << 1)
 
@@ -168,6 +171,8 @@ struct i915_vma {
 struct i915_page_table_entry {
 	struct page *page;
 	dma_addr_t daddr;
+
+	unsigned long *used_ptes;
 };
 
 struct i915_page_directory_entry {
@@ -223,8 +228,10 @@ struct i915_address_space {
 	/* FIXME: Need a more generic return type */
 	gen6_gtt_pte_t (*pte_encode)(dma_addr_t addr,
 				     enum i915_cache_level level,
-				     bool valid,
-				     u32 flags); /* Create a valid PTE */
+				     bool valid, u32 flags); /* Create a valid PTE */
+	int (*allocate_va_range)(struct i915_address_space *vm,
+				 uint64_t start,
+				 uint64_t length);
 	void (*clear_range)(struct i915_address_space *vm,
 			    uint64_t start,
 			    uint64_t length,
@@ -279,12 +286,79 @@ struct i915_hw_ppgtt {
 
 	struct drm_i915_file_private *file_priv;
 
+	gen6_gtt_pte_t __iomem *pd_addr;
+
 	int (*enable)(struct i915_hw_ppgtt *ppgtt);
 	int (*switch_mm)(struct i915_hw_ppgtt *ppgtt,
 			 struct intel_engine_cs *ring,
 			 bool synchronous);
 	void (*debug_dump)(struct i915_hw_ppgtt *ppgtt, struct seq_file *m);
 };
+
+/* For each pde iterates over every pde between from start until start + length.
+ * If start, and start+length are not perfectly divisible, the macro will round
+ * down, and up as needed. The macro modifies pde, start, and length. Dev is
+ * only used to differentiate shift values. Temp is temp.  On gen6/7, start = 0,
+ * and length = 2G effectively iterates over every PDE in the system. On gen8+
+ * it simply iterates over every page directory entry in a page directory.
+ *
+ * XXX: temp is not actually needed, but it saves doing the ALIGN operation.
+ */
+#define gen6_for_each_pde(pt, pd, start, length, temp, iter) \
+	for (iter = gen6_pde_index(start), pt = (pd)->page_tables[iter]; \
+	     length > 0 && iter < GEN6_PPGTT_PD_ENTRIES; \
+	     pt = (pd)->page_tables[++iter], \
+	     temp = ALIGN(start+1, 1 << GEN6_PDE_SHIFT) - start, \
+	     temp = min_t(unsigned, temp, length), \
+	     start += temp, length -= temp)
+
+static inline uint32_t i915_pte_index(uint64_t address, uint32_t pde_shift)
+{
+	const uint32_t mask = NUM_PTE(pde_shift) - 1;
+
+	return (address >> PAGE_SHIFT) & mask;
+}
+
+/* Helper to counts the number of PTEs within the given length. This count does
+* not cross a page table boundary, so the max value would be
+* I915_PPGTT_PT_ENTRIES for GEN6, and GEN8_PTES_PER_PAGE for GEN8.
+*/
+static inline size_t i915_pte_count(uint64_t addr, size_t length,
+					uint32_t pde_shift)
+{
+	const uint64_t mask = ~((1 << pde_shift) - 1);
+	uint64_t end;
+
+	BUG_ON(length == 0);
+	BUG_ON(offset_in_page(addr|length));
+
+	end = addr + length;
+
+	if ((addr & mask) != (end & mask))
+		return NUM_PTE(pde_shift) - i915_pte_index(addr, pde_shift);
+
+	return i915_pte_index(end, pde_shift) - i915_pte_index(addr, pde_shift);
+}
+
+static inline uint32_t i915_pde_index(uint64_t addr, uint32_t shift)
+{
+	return (addr >> shift) & I915_PDE_MASK;
+}
+
+static inline uint32_t gen6_pte_index(uint32_t addr)
+{
+	return i915_pte_index(addr, GEN6_PDE_SHIFT);
+}
+
+static inline size_t gen6_pte_count(uint32_t addr, uint32_t length)
+{
+	return i915_pte_count(addr, length, GEN6_PDE_SHIFT);
+}
+
+static inline uint32_t gen6_pde_index(uint32_t addr)
+{
+	return i915_pde_index(addr, GEN6_PDE_SHIFT);
+}
 
 int i915_gem_gtt_init(struct drm_device *dev);
 void i915_gem_init_global_gtt(struct drm_device *dev);
