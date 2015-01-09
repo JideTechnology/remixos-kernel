@@ -135,15 +135,15 @@ int sunxi_mmc_clk_set_rate_for_sdmmc2(struct sunxi_mmc_host *host,
 		/* clear internal divider */
 		rval = mmc_readl(host, REG_CLKCR);
 		rval &= ~0xff;
-		rval |= 2;		
+		rval |= 1;		
 	}else{
 		/* support internal divide clock under fpga environment  */
 		rval = mmc_readl(host, REG_CLKCR);
 		rval &= ~0xff;
 		rval |= 24000000 / mod_clk / 2; // =24M/400K/2=0x1E
-		mmc_writel(host, REG_CLKCR, rval);
-		dev_err(mmc_dev(host->mmc), "--FPGA REG_CLKCR: 0x%08x \n", mmc_readl(host, REG_CLKCR));
-	}	
+	}
+	mmc_writel(host, REG_CLKCR, rval);
+	dev_err(mmc_dev(host->mmc), "--FPGA REG_CLKCR: 0x%08x \n", mmc_readl(host, REG_CLKCR));
 #else
 	/* clear internal divider */
 	rval = mmc_readl(host, REG_CLKCR);

@@ -517,6 +517,8 @@ static void sunxi_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		break;
 	}
 
+	dev_dbg(mmc_dev(host->mmc), "REG_WIDTH: 0x%08x \n", mmc_readl(host, REG_WIDTH));
+
 	/* set ddr mode */
 	rval = mmc_readl(host, REG_GCTRL);
 	if (ios->timing == MMC_TIMING_UHS_DDR50)
@@ -524,6 +526,7 @@ static void sunxi_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	else
 		rval &= ~SDXC_DDR_MODE;
 	mmc_writel(host, REG_GCTRL, rval);
+	dev_dbg(mmc_dev(host->mmc), "REG_GCTRL: 0x%08x \n", mmc_readl(host, REG_GCTRL));
 
 	/* set up clock */
 	if (ios->clock && ios->power_mode&& host->sunxi_mmc_clk_set_rate) {
