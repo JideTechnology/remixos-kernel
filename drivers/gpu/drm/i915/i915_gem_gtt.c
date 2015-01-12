@@ -1182,6 +1182,7 @@ static int gen6_alloc_va_range(struct i915_address_space *vm,
 
 		ppgtt->pd.page_tables[pde] = pt;
 		set_bit(pde, new_page_tables);
+		trace_i915_page_table_entry_alloc(vm, pde, start, GEN6_PDE_SHIFT);
 	}
 
 	start = start_save;
@@ -1197,6 +1198,10 @@ static int gen6_alloc_va_range(struct i915_address_space *vm,
 		if (test_and_clear_bit(pde, new_page_tables))
 			gen6_write_pdes(&ppgtt->pd, pde, pt);
 
+		trace_i915_page_table_entry_map(vm, pde, pt,
+					 gen6_pte_index(start),
+					 gen6_pte_count(start, length),
+					 I915_PPGTT_PT_ENTRIES);
 		bitmap_or(pt->used_ptes, tmp_bitmap, pt->used_ptes,
 				I915_PPGTT_PT_ENTRIES);
 	}
