@@ -2480,6 +2480,8 @@ static void gen6_ppgtt_info(struct seq_file *m, struct drm_device *dev)
 		seq_printf(m, "PP_DIR_BASE_READ: 0x%08x\n", I915_READ(RING_PP_DIR_BASE_READ(ring)));
 		seq_printf(m, "PP_DIR_DCLV: 0x%08x\n", I915_READ(RING_PP_DIR_DCLV(ring)));
 	}
+	seq_printf(m, "ECOCHK: 0x%08x\n\n", I915_READ(GAM_ECOCHK));
+
 	if (dev_priv->mm.aliasing_ppgtt) {
 		struct i915_hw_ppgtt *ppgtt = dev_priv->mm.aliasing_ppgtt;
 
@@ -2496,7 +2498,6 @@ static void gen6_ppgtt_info(struct seq_file *m, struct drm_device *dev)
 			   get_pid_task(file->pid, PIDTYPE_PID)->comm);
 		idr_for_each(&file_priv->context_idr, per_file_ctx, m);
 	}
-	seq_printf(m, "ECOCHK: 0x%08x\n", I915_READ(GAM_ECOCHK));
 }
 
 static int i915_ppgtt_info(struct seq_file *m, void *data)
