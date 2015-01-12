@@ -173,6 +173,7 @@ struct i915_page_table_entry {
 	dma_addr_t daddr;
 
 	unsigned long *used_ptes;
+	unsigned int scratch:1;
 };
 
 struct i915_page_directory_entry {
@@ -284,6 +285,8 @@ struct i915_hw_ppgtt {
 	};
 
 	struct list_head vma_list;
+
+	struct i915_page_table_entry *scratch_pt;
 
 	struct drm_i915_file_private *file_priv;
 
