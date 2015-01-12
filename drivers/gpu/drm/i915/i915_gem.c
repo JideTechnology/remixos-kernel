@@ -3894,6 +3894,15 @@ search_free:
 	if (ret)
 		goto err_remove_node;
 
+	/*  allocate before insert / bind */
+	if (vma->vm->allocate_va_range) {
+		ret = vma->vm->allocate_va_range(vma->vm,
+						vma->node.start,
+						vma->node.size);
+		if (ret)
+			goto err_remove_node;
+	}
+
 	list_move_tail(&obj->global_list, &dev_priv->mm.bound_list);
 	list_add_tail(&vma->mm_list, &vm->inactive_list);
 
