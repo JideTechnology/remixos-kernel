@@ -72,7 +72,8 @@ static int sunxi_mmc_init_host(struct mmc_host *mmc)
 	if (sunxi_mmc_reset_host(host))
 		return -EIO;
 
-	mmc_writel(host, REG_FTRGL, 0x20070008);
+	mmc_writel(host, REG_FTRGL, host->dma_tl?host->dma_tl:0x20070008);
+	dev_dbg(mmc_dev(host->mmc), "REG_FTRGL %x\n",mmc_readl(host,REG_FTRGL));
 	mmc_writel(host, REG_TMOUT, 0xffffffff);
 	mmc_writel(host, REG_IMASK, host->sdio_imask);
 	mmc_writel(host, REG_RINTR, 0xffffffff);
@@ -653,6 +654,9 @@ static void sunxi_mmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	if (data) {
 		mmc_writel(host, REG_BLKSZ, data->blksz);
 		mmc_writel(host, REG_BCNTR, data->blksz * data->blocks);
+		if(host->sunxi_mmc_thld_ctl){
+			host->sunxi_mmc_thld_ctl(host,&mmc->ios,data);
+		}
 		sunxi_mmc_start_dma(host, data);
 	}
 
@@ -698,13 +702,17 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 
 	if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc2")){
  		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc2;
+		host->dma_tl = (0x3<<28)|(15<<16)|240;
+		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc2;
  	}else{
  		host->sunxi_mmc_clk_set_rate = NULL;
+		host->dma_tl = NULL;
+		host->sunxi_mmc_thld_ctl = NULL;
  	}
 
 
 #ifndef MMC_FPGA
-	//Because fpga has no regulator,so we don't get regulator	
+	//Because fpga has no regulator,so we don't get regulator
 	ret = mmc_regulator_get_supply(host->mmc);
 	if (ret) {
 		if (ret != -EPROBE_DEFER)
@@ -821,13 +829,15 @@ static int sunxi_mmc_probe(struct platform_device *pdev)
 	mmc->f_max		= 50000000;
 	mmc->caps	       |= MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED |
 				  MMC_CAP_ERASE;
+	//mmc->caps2	  |= MMC_CAP2_HS400_1_8V;
+
 
 #ifdef MMC_FPGA
-	//Because fpga has no regulator,so we add it manully				  
+	//Because fpga has no regulator,so we add it manully
 	mmc->ocr_avail = MMC_VDD_28_29 | MMC_VDD_29_30 | MMC_VDD_30_31 | MMC_VDD_31_32
 				| MMC_VDD_32_33 | MMC_VDD_33_34;
 	dev_info(&pdev->dev,"*******************set host ocr**************************\n");
-	
+
 #endif
 
 	mmc_of_parse(mmc);

@@ -68,7 +68,7 @@ int sunxi_mmc_clk_set_rate_for_sdmmc2(struct sunxi_mmc_host *host,
 	u32 rval 		= 0;
 	s32 err 		= 0;
 	u32 rate		= 0;
-	char *sclk_name = NULL; 
+	char *sclk_name = NULL;
 	struct clk *mclk = host->clk_mmc;
 	struct clk *sclk = NULL;
 	struct device *dev = mmc_dev(host->mmc);
@@ -83,7 +83,7 @@ int sunxi_mmc_clk_set_rate_for_sdmmc2(struct sunxi_mmc_host *host,
 		mod_clk = ios->clock<<1;
 		div = 0;
 	}
-	
+
 	if (ios->clock<= 400000) {
 		//sclk = of_clk_get(np, 0);
 		sclk = clk_get(dev,"osc24m");
@@ -100,12 +100,12 @@ int sunxi_mmc_clk_set_rate_for_sdmmc2(struct sunxi_mmc_host *host,
 	}
 
 	sunxi_mmc_oclk_onoff(host, 0);
-	
+
 	err = clk_set_parent(mclk, sclk);
 	if(err){
 		dev_err(mmc_dev(host->mmc), "set parent failed\n");
 		clk_put(sclk);
-		return -1;		
+		return -1;
 	}
 
 	rate = clk_round_rate(mclk, mod_clk);
@@ -117,7 +117,7 @@ int sunxi_mmc_clk_set_rate_for_sdmmc2(struct sunxi_mmc_host *host,
 	if (err) {
 		//SMC_ERR(smc_host, "sdc%d set mclk rate error, rate %dHz\n",
 		//				smc_host->host_id, rate);
-		dev_err(mmc_dev(host->mmc),"set mclk rate error, rate %dHz\n",rate);				
+		dev_err(mmc_dev(host->mmc),"set mclk rate error, rate %dHz\n",rate);
 		clk_put(sclk);
 		return -1;
 	}
@@ -135,7 +135,7 @@ int sunxi_mmc_clk_set_rate_for_sdmmc2(struct sunxi_mmc_host *host,
 		/* clear internal divider */
 		rval = mmc_readl(host, REG_CLKCR);
 		rval &= ~0xff;
-		rval |= 1;		
+		rval |= 1;
 	}else{
 		/* support internal divide clock under fpga environment  */
 		rval = mmc_readl(host, REG_CLKCR);
@@ -143,7 +143,7 @@ int sunxi_mmc_clk_set_rate_for_sdmmc2(struct sunxi_mmc_host *host,
 		rval |= 24000000 / mod_clk / 2; // =24M/400K/2=0x1E
 	}
 	mmc_writel(host, REG_CLKCR, rval);
-	dev_err(mmc_dev(host->mmc), "--FPGA REG_CLKCR: 0x%08x \n", mmc_readl(host, REG_CLKCR));
+	dev_info(mmc_dev(host->mmc), "--FPGA REG_CLKCR: 0x%08x \n", mmc_readl(host, REG_CLKCR));
 #else
 	/* clear internal divider */
 	rval = mmc_readl(host, REG_CLKCR);
@@ -152,7 +152,80 @@ int sunxi_mmc_clk_set_rate_for_sdmmc2(struct sunxi_mmc_host *host,
 	mmc_writel(host, REG_CLKCR, rval);
 #endif
 
+
+	if((ios->bus_width == MMC_BUS_WIDTH_8)\
+		&&(ios->timing == MMC_TIMING_MMC_HS400)\
+	){
+		rval = mmc_readl(host,REG_EDSD);
+		rval |= SDXC_HS400_MD_EN;
+		mmc_writel(host,REG_EDSD,rval);
+		rval = mmc_readl(host,REG_CSDC);
+		rval &= ~SDXC_CRC_DET_PARA_MASK;
+		rval |= SDXC_CRC_DET_PARA_HS400;
+		mmc_writel(host,REG_CSDC,rval);
+	}else{
+		rval = mmc_readl(host,REG_EDSD);
+		rval &= ~ SDXC_HS400_MD_EN;
+		mmc_writel(host,REG_EDSD,rval);
+		rval = mmc_readl(host,REG_CSDC);
+		rval &= ~SDXC_CRC_DET_PARA_MASK;
+		rval |= SDXC_CRC_DET_PARA_OTHER;
+		mmc_writel(host,REG_CSDC,rval);
+	}
+	dev_dbg(mmc_dev(host->mmc), "--SDXC_REG_EDSD: 0x%08x \n", mmc_readl(host, REG_EDSD));
+	dev_dbg(mmc_dev(host->mmc), "--SDXC_REG_CSDC: 0x%08x \n", mmc_readl(host, REG_CSDC));
+
 	return sunxi_mmc_oclk_onoff(host, 1);
 }
+
+void sunxi_mmc_thld_ctl_for_sdmmc2(struct sunxi_mmc_host *host,
+			  struct mmc_ios *ios, struct mmc_data *data)
+{
+	u32 bsz = data->blksz;
+	u32 tdtl = (host->dma_tl & SDXC_TX_TL_MASK)<<2;		//unit:byte
+	u32 rdtl = ((host->dma_tl & SDXC_RX_TL_MASK)>>16)<<2;//unit:byte
+	u32 rval = 0;
+
+	if( (data->flags & MMC_DATA_WRITE)
+		&& (bsz <= SDXC_CARD_RD_THLD_SIZE)
+		&& (bsz <= tdtl) ){
+		rval = mmc_readl(host,REG_THLD);
+		rval &=~SDXC_CARD_RD_THLD_MASK;
+		rval |= data->blksz<<SDXC_CARD_RD_THLD_SIZE_SHIFT;
+		rval |= SDXC_CARD_WR_THLD_ENB;
+		mmc_writel(host,REG_THLD,rval);
+	}else{
+		rval = mmc_readl(host,REG_THLD);
+		rval &= ~SDXC_CARD_WR_THLD_ENB;
+		mmc_writel(host,REG_THLD,rval);
+	}
+
+
+	if( (data->flags & MMC_DATA_READ)
+		&& (bsz <= SDXC_CARD_RD_THLD_SIZE)
+		&& ((SDXC_FIFO_DETH<<2) >= (rdtl+bsz))      //((SDXC_FIFO_DETH<<2)-bsz) >= (rdtl)
+		&& ((ios->timing == MMC_TIMING_MMC_HS200)
+			||(ios->timing == MMC_TIMING_MMC_HS400)) ){
+		rval = mmc_readl(host,REG_THLD);
+		rval &= ~SDXC_CARD_RD_THLD_MASK;
+		rval |= data->blksz<<SDXC_CARD_RD_THLD_SIZE_SHIFT;
+		rval |= SDXC_CARD_RD_THLD_ENB;
+		mmc_writel(host,REG_THLD,rval);
+	}else{
+		rval = mmc_readl(host,REG_THLD);
+		rval &= ~SDXC_CARD_RD_THLD_ENB;
+		mmc_writel(host,REG_THLD,rval);
+	}
+
+	dev_dbg(mmc_dev(host->mmc), "--SDXC_REG_THLD: 0x%08x \n", mmc_readl(host, REG_THLD));
+
+}
+
+
+
+
+
+
+
 
 

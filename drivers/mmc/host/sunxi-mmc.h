@@ -218,8 +218,7 @@ struct sunxi_mmc_host {
 	/* clock management */
 	struct clk	*clk_ahb;
 	struct clk	*clk_mmc;
-	int (*sunxi_mmc_clk_set_rate)(struct sunxi_mmc_host *host,
-				  struct mmc_ios *ios);
+	int (*sunxi_mmc_clk_set_rate)(struct sunxi_mmc_host *host, struct mmc_ios *ios);
 
 	/* irq */
 	spinlock_t	lock;
@@ -232,6 +231,10 @@ struct sunxi_mmc_host {
 	dma_addr_t	sg_dma;
 	void		*sg_cpu;
 	bool		wait_dma;
+	u32		dma_tl;
+
+	void (*sunxi_mmc_thld_ctl )(struct sunxi_mmc_host *host,
+				  struct mmc_ios *ios, struct mmc_data *data);
 
 	struct mmc_request *mrq;
 	struct mmc_request *manual_stop_mrq;
