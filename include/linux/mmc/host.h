@@ -60,6 +60,7 @@ struct mmc_ios {
 #define MMC_TIMING_UHS_SDR104	6
 #define MMC_TIMING_UHS_DDR50	7
 #define MMC_TIMING_MMC_HS200	8
+#define MMC_TIMING_MMC_HS400	9
 
 #define MMC_SDR_MODE		0
 #define MMC_1_2V_DDR_MODE	1
@@ -282,6 +283,10 @@ struct mmc_host {
 #define MMC_CAP2_PACKED_CMD	(MMC_CAP2_PACKED_RD | \
 				 MMC_CAP2_PACKED_WR)
 #define MMC_CAP2_NO_PRESCAN_POWERUP (1 << 14)	/* Don't power up before scan */
+#define MMC_CAP2_HS400_1_8V	(1 << 15)	/* Can support HS400 1.8V */
+#define MMC_CAP2_HS400_1_2V	(1 << 16)	/* Can support HS400 1.2V */
+#define MMC_CAP2_HS400		(MMC_CAP2_HS400_1_8V | \
+				 MMC_CAP2_HS400_1_2V)
 
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 

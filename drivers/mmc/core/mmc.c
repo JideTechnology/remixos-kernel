@@ -23,6 +23,11 @@
 #include "mmc_ops.h"
 #include "sd_ops.h"
 
+//
+#define   SELECT_DRV_TYPE	EXT_CSD_DRIVER_STRENGTH_TYPE1
+#define   CHECK_HSTIIMING
+
+
 static const unsigned int tran_exp[] = {
 	10000,		100000,		1000000,	10000000,
 	0,		0,		0,		0
@@ -239,7 +244,7 @@ static int mmc_get_ext_csd(struct mmc_card *card, u8 **new_ext_csd)
 static void mmc_select_card_type(struct mmc_card *card)
 {
 	struct mmc_host *host = card->host;
-	u8 card_type = card->ext_csd.raw_card_type & EXT_CSD_CARD_TYPE_MASK;
+	u8 card_type = card->ext_csd.raw_card_type;
 	u32 caps = host->caps, caps2 = host->caps2;
 	unsigned int hs_max_dtr = 0;
 
@@ -261,6 +266,16 @@ static void mmc_select_card_type(struct mmc_card *card)
 	    (caps2 & MMC_CAP2_HS200_1_2V_SDR &&
 			card_type & EXT_CSD_CARD_TYPE_SDR_1_2V))
 		hs_max_dtr = MMC_HS200_MAX_DTR;
+
+	if (caps2 & MMC_CAP2_HS400_1_8V &&
+	    card_type & EXT_CSD_CARD_TYPE_HS400_1_8V) {
+		hs_max_dtr = MMC_HS200_MAX_DTR;
+	}
+
+	if (caps2 & MMC_CAP2_HS400_1_2V &&
+	    card_type & EXT_CSD_CARD_TYPE_HS400_1_2V) {
+		hs_max_dtr = MMC_HS200_MAX_DTR;
+	}
 
 	card->ext_csd.hs_max_dtr = hs_max_dtr;
 	card->ext_csd.card_type = card_type;
@@ -548,6 +563,8 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		card->ext_csd.data_sector_size = 512;
 	}
 
+	card->ext_csd.raw_driver_strength = ext_csd[EXT_CSD_DRIVER_STRENGTH];
+	pr_debug("***EXT_CSD_DRIVER_STRENGTH %x***\n",card->ext_csd.raw_driver_strength);
 out:
 	return err;
 }
@@ -726,7 +743,9 @@ static int mmc_select_powerclass(struct mmc_card *card,
 				EXT_CSD_PWR_CL_52_360 :
 				EXT_CSD_PWR_CL_DDR_52_360;
 		else if (host->ios.clock <= 200000000)
-			index = EXT_CSD_PWR_CL_200_360;
+			index = (bus_width == EXT_CSD_DDR_BUS_WIDTH_8) ?
+			EXT_CSD_PWR_CL_DDR_200_360:
+			EXT_CSD_PWR_CL_200_360;
 		break;
 	default:
 		pr_warning("%s: Voltage range not supported "
@@ -753,6 +772,118 @@ static int mmc_select_powerclass(struct mmc_card *card,
 
 	return err;
 }
+
+
+static int mmc_dec_drv_str(struct mmc_card *card)
+{
+	int val  = 0;
+	switch (card->ext_csd.raw_driver_strength
+			& SELECT_DRV_TYPE){
+	case EXT_CSD_DRIVER_STRENGTH_TYPE1:
+		val = 1<<4;
+		break;
+	case EXT_CSD_DRIVER_STRENGTH_TYPE2:
+		val = 2<<4;
+		break;
+	case EXT_CSD_DRIVER_STRENGTH_TYPE3:
+		val = 3<<4;
+		break;
+	case EXT_CSD_DRIVER_STRENGTH_TYPE4:
+		val = 4<<4;
+		break;
+	default:
+		val = 0<<4;
+		break;
+	}
+	return val;
+}
+
+int mmc_chk_hstiming_set(struct mmc_card *card,u8 hs_timing)
+{
+	u8 *drv_ext_csd;
+	int rval = 0;
+	rval = mmc_get_ext_csd(card, &drv_ext_csd);
+	if (rval || drv_ext_csd == NULL) {
+		rval = -EINVAL;
+		pr_err("Get ext csd for chk drv str and hs200 failed\n");
+	}else if(drv_ext_csd[EXT_CSD_HS_TIMING]!=hs_timing){
+		pr_err("set drv  str and hs timing failed ,EXT_CSD_HS_TIMING value %x,hs_timing %x\n",drv_ext_csd[EXT_CSD_HS_TIMING],hs_timing);
+		rval = -EINVAL;
+	}else{
+		pr_info("set drv  str and hs timing  ok ,EXT_CSD_HS_TIMING value %x,hs_timing %x\n",drv_ext_csd[EXT_CSD_HS_TIMING],hs_timing);
+		rval = 0;
+	}
+
+	if(drv_ext_csd)
+		mmc_free_ext_csd(drv_ext_csd);
+
+	return rval;
+}
+
+static int mmc_select_hs400(struct mmc_card *card)
+{
+	struct mmc_host *host = card->host;
+	int err = 0;
+	int drv_str = mmc_dec_drv_str(card);
+
+	/*
+	 * HS400 mode requires 8-bit bus width
+	 */
+	if (!(card->ext_csd.card_type & EXT_CSD_CARD_TYPE_HS400 &&
+	      host->ios.bus_width == MMC_BUS_WIDTH_8))
+		return 0;
+
+
+	/*
+	 * Before switching to dual data rate operation for HS400,
+	 * it is required to convert from HS200 mode to HS mode.
+	 */
+	mmc_set_timing(card->host, MMC_TIMING_MMC_HS);
+	mmc_set_clock(host, 52000000);
+
+
+	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+			   EXT_CSD_HS_TIMING, 1|drv_str,
+			   card->ext_csd.generic_cmd6_time,
+			   true, true, true);
+	if (err) {
+		pr_warn("%s: switch to high-speed from hs200 failed, err:%d\n",
+			mmc_hostname(host), err);
+		return err;
+	}
+
+	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+			 EXT_CSD_BUS_WIDTH,
+			 EXT_CSD_DDR_BUS_WIDTH_8,
+			 card->ext_csd.generic_cmd6_time);
+	if (err) {
+		pr_warn("%s: switch to bus width for hs400 failed, err:%d\n",
+			mmc_hostname(host), err);
+		return err;
+	}
+
+	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+			   EXT_CSD_HS_TIMING, EXT_CSD_TIMING_HS400 |drv_str,
+			   card->ext_csd.generic_cmd6_time,
+			   true, true, true);
+	if (err) {
+		pr_warn("%s: switch to hs400 failed, err:%d\n",
+			 mmc_hostname(host), err);
+		return err;
+	}
+
+	mmc_set_timing(host, MMC_TIMING_MMC_HS400);
+	mmc_set_clock(host, card->ext_csd.hs_max_dtr);
+	mmc_card_set_hs400(card);
+
+#ifdef CHECK_HSTIIMING
+	mmc_chk_hstiming_set(card,EXT_CSD_TIMING_HS400 |drv_str);
+#endif
+
+	return 0;
+}
+
+
 
 /*
  * Selects the desired buswidth and switch to the HS200 mode
@@ -822,9 +953,20 @@ static int mmc_select_hs200(struct mmc_card *card)
 	}
 
 	/* switch to HS200 mode if bus width set successfully */
+	/*
 	if (!err)
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				 EXT_CSD_HS_TIMING, 2, 0);
+	*/
+	if (!err){
+
+		u8 hs_timing = 2|mmc_dec_drv_str(card);
+		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+				 EXT_CSD_HS_TIMING, hs_timing, 0);
+#ifdef CHECK_HSTIIMING
+		mmc_chk_hstiming_set(card,hs_timing);
+#endif
+	}
 err:
 	return err;
 }
@@ -1075,7 +1217,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 */
 	max_dtr = (unsigned int)-1;
 
-	if (mmc_card_highspeed(card) || mmc_card_hs200(card)) {
+	if (mmc_card_highspeed(card) || (mmc_card_hs200(card)|| mmc_card_hs400(card))) {
 		if (max_dtr > card->ext_csd.hs_max_dtr)
 			max_dtr = card->ext_csd.hs_max_dtr;
 		if (mmc_card_highspeed(card) && (max_dtr > 52000000))
@@ -1127,6 +1269,15 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 			pr_warning("%s: tuning execution failed\n",
 				   mmc_hostname(card->host));
 			goto err;
+		}
+
+
+		if(host->caps2 & MMC_CAP2_HS400){
+			//pr_info("************%s: %s,%d************\n",
+			//	mmc_hostname(card->host),__FUNCTION__,__LINE__);
+			err =  mmc_select_hs400(card);
+			if(err)
+				goto err;
 		}
 
 		ext_csd_bits = (bus_width == MMC_BUS_WIDTH_8) ?

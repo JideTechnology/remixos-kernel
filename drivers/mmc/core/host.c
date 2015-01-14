@@ -419,7 +419,7 @@ void mmc_of_parse(struct mmc_host *host)
 		host->caps |= MMC_CAP_POWER_OFF_CARD;
 	if (of_find_property(np, "cap-sdio-irq", &len))
 		host->caps |= MMC_CAP_SDIO_IRQ;
-	
+
 	if (of_find_property(np, "keep-power-in-suspend", &len))
 		host->pm_caps |= MMC_PM_KEEP_POWER;
 	if (of_find_property(np, "enable-sdio-wakeup", &len))
@@ -432,6 +432,10 @@ void mmc_of_parse(struct mmc_host *host)
 		host->caps2 |= MMC_CAP2_HS200_1_8V_SDR;
 	if (of_find_property(np, "mmc-hs200-1_2v", &len))
 		host->caps2 |= MMC_CAP2_HS200_1_2V_SDR;
+	if (of_find_property(np, "mmc-hs400-1_8v", &len))
+		host->caps2 |= MMC_CAP2_HS400_1_8V | MMC_CAP2_HS200_1_8V_SDR;
+	if (of_find_property(np, "mmc-hs400-1_2v", &len))
+		host->caps2 |= MMC_CAP2_HS400_1_2V | MMC_CAP2_HS200_1_2V_SDR;
 }
 
 EXPORT_SYMBOL(mmc_of_parse);
