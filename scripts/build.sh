@@ -296,6 +296,12 @@ build_ramfs()
 
 gen_output()
 {
+    if [ "x${LICHEE_PLATFORM}" = "xandroid" ] ; then
+        echo "Copy modules to target ..."
+        rm -rf ${LICHEE_PLAT_OUT}/lib
+        cp -rf ${LICHEE_KDIR}/output/* ${LICHEE_PLAT_OUT}
+        return
+    fi
     echo "$0"
 }
 
