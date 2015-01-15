@@ -57,7 +57,14 @@ NAND_ROOT=${LICHEE_KDIR}/modules/nand
 
 build_nand_lib()
 {
-    echo "$0"
+	echo "build nand library ${NAND_ROOT}/${LICHEE_CHIP}/lib"
+	if [ -d ${NAND_ROOT}/${LICHEE_CHIP}/lib ]; then
+		echo "build nand library now"
+	make -C modules/nand/${LICHEE_CHIP}/lib clean	2>/dev/null
+	make -C modules/nand/${LICHEE_CHIP}/lib lib install
+	else
+		echo "build nand with existing library"
+	fi
 }
 
 build_gpu_sun8i()
@@ -165,7 +172,19 @@ build_kernel()
 
 build_modules()
 {
-    echo "$0"
+
+	echo "Building modules"
+	
+	if [ ! -f include/generated/utsrelease.h ]; then
+		printf "Please build kernel first!\n"
+		exit 1
+	fi
+	
+	update_kern_ver
+	build_nand_lib
+	make -C modules/nand LICHEE_MOD_DIR=${LICHEE_MOD_DIR} LICHEE_KDIR=${LICHEE_KDIR} \
+		CONFIG_CHIP_ID=${CONFIG_CHIP_ID} install
+
 }
 
 regen_rootfs_cpio()
