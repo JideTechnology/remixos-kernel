@@ -866,6 +866,19 @@
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
+												
+			nand0_pins_a: nand0@0 {
+				allwinner,pins ="PC0", "PC1", "PC2", "PC5", "PC8", "PC9", "PC10", "PC11", "PC12", "PC13","PC14", "PC15","PC16";
+				allwinner,function = "nand0";
+				allwinner,drive = <1>;
+				allwinner,pull = <0>;
+			};
+			nand0_pins_b: nand0@1 {
+				allwinner,pins ="PC3", "PC4", "PC6", "PC7", "PC17","PC18";
+				allwinner,function = "nand0";
+				allwinner,drive = <1>;
+				allwinner,pull = <1>;// only RB&CE should be pulled up
+			};
 		};
 		vdevice@0{
 			compatible = "allwinner,sun50i-vdevice";
@@ -972,6 +985,24 @@
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
+		};
+		nand0@01c03000 {
+			compatible = "allwinner,sun50i-nand";
+			reg = <0x0 0x01c03000 0x0 0x1000>; /* nand0 */
+			interrupts = <GIC_SPI 70 0x04>; 
+			clocks = <&clk_pll_periph0>,<&clk_nand>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&nand0_pins_a>, <&nand0_pins_b>;
+			nand_cache_level = <0x55aaaa55>;
+			nand_flush_cache_num = <0x55aaaa55>;
+			nand_capacity_level = <0x55aaaa55>;
+			id_number_ctl = <0x55aaaa55>;
+			print_level = <0x55aaaa55>;
+			nand_p0 = <0x55aaaa55>;
+			nand_p1 = <0x55aaaa55>;
+			nand_p2 = <0x55aaaa55>;
+			nand_p3 = <0x55aaaa55>;
+			status = "okay";
 		};
 	};
 };
