@@ -753,6 +753,8 @@ static int mmc_select_powerclass(struct mmc_card *card,
 		return -EINVAL;
 	}
 
+	pr_debug("%s: Power class index %d\n", mmc_hostname(host),index);
+
 	pwrclass_val = ext_csd[index];
 
 	if (bus_width & (EXT_CSD_BUS_WIDTH_8 | EXT_CSD_DDR_BUS_WIDTH_8))
@@ -807,10 +809,10 @@ int mmc_chk_hstiming_set(struct mmc_card *card,u8 hs_timing)
 		rval = -EINVAL;
 		pr_err("Get ext csd for chk drv str and hs200 failed\n");
 	}else if(drv_ext_csd[EXT_CSD_HS_TIMING]!=hs_timing){
-		pr_err("set drv  str and hs timing failed ,EXT_CSD_HS_TIMING value %x,hs_timing %x\n",drv_ext_csd[EXT_CSD_HS_TIMING],hs_timing);
+		pr_err("set drv str and hs timing failed ,EXT_CSD_HS_TIMING value %x,hs_timing %x\n",drv_ext_csd[EXT_CSD_HS_TIMING],hs_timing);
 		rval = -EINVAL;
 	}else{
-		pr_info("set drv  str and hs timing  ok ,EXT_CSD_HS_TIMING value %x,hs_timing %x\n",drv_ext_csd[EXT_CSD_HS_TIMING],hs_timing);
+		pr_info("set drv str and hs timing ok ,EXT_CSD_HS_TIMING value %x,hs_timing %x\n",drv_ext_csd[EXT_CSD_HS_TIMING],hs_timing);
 		rval = 0;
 	}
 
@@ -1280,13 +1282,23 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 				goto err;
 		}
 
-		ext_csd_bits = (bus_width == MMC_BUS_WIDTH_8) ?
-				EXT_CSD_BUS_WIDTH_8 : EXT_CSD_BUS_WIDTH_4;
-		err = mmc_select_powerclass(card, ext_csd_bits, ext_csd);
-		if (err)
-			pr_warning("%s: power class selection to bus width %d"
-				   " failed\n", mmc_hostname(card->host),
-				   1 << bus_width);
+
+		if(mmc_card_hs400(card)){
+			ext_csd_bits = EXT_CSD_DDR_BUS_WIDTH_8;
+			err = mmc_select_powerclass(card, ext_csd_bits, ext_csd);
+			if (err)
+				pr_warning("%s: power class selection to bus width %d"
+					   " failed,ddr %x hs400\n", mmc_hostname(card->host),
+				   	1 << bus_width,1);
+		}else{
+			ext_csd_bits = (bus_width == MMC_BUS_WIDTH_8) ?
+					EXT_CSD_BUS_WIDTH_8 : EXT_CSD_BUS_WIDTH_4;
+			err = mmc_select_powerclass(card, ext_csd_bits, ext_csd);
+			if (err)
+				pr_warning("%s: power class selection to bus width %d"
+					   " failed\n", mmc_hostname(card->host),
+				   	1 << bus_width);
+		}
 	}
 
 	/*
