@@ -387,6 +387,7 @@ struct pmic_chrgr_drv_context {
 	int pmic_model;
 	int intmap_size;
 	int reg_cnt;
+	int cable_state;
 	void __iomem *pmic_intr_iomap;
 	struct pmic_regs *reg_map;
 	struct device *dev;
@@ -400,4 +401,7 @@ struct pmic_chrgr_drv_context {
 	struct list_head evt_queue;
 	struct work_struct evt_work;
 	struct mutex evt_queue_lock;
+	struct extcon_specific_cable_nb host_cable;
+	struct notifier_block cable_nb;
+	struct work_struct extcon_work;
 };
