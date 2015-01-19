@@ -679,6 +679,76 @@
 			pinctrl-0 = <&sdmmc0_pins_a>;
 			status = "okay";
 		};
+
+		soc_disp: disp@01000000 {
+			compatible = "allwinner,sun50i-disp";
+			reg = <0x0 0x01000000 0x0 0x00200000>,/*de*/
+				<0x0 0x01c0c000 0x0 0x7fc>;/*lcd*/
+			interrupts = <GIC_SPI 86 0x0104>;
+			clocks = <&clk_de>,<&clk_tcon0>,
+				<&clk_lvds>,<&clk_mipicsi>,<&clk_tcon1>;
+			disp_init_enable = <1>;
+			disp_mode = <0>;
+			screen0_output_type = <1>;
+			screen0_output_mode = <4>;
+			screen1_output_type = <3>;
+			screen1_output_mode = <4>;
+			fb0_format = <0>;
+			fb0_width = <0>;
+			fb0_height = <0>;
+			fb1_format = <0>;
+			fb1_width = <0>;
+			fb1_height = <0>;
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&lcd_pins_a>,<&lcd_pins_b>;
+			status = "okay";
+		};
+
+		soc_lcd0: lcd0@01c0c000 {
+			compatible = "allwinner,sunxi-lcd0";
+			interrupts = <GIC_SPI 86 0x0104>;
+//			pinctrl-names = "default";
+//			pinctrl-0 = <&lcd0_pins_a>,<&lcd0_pins_bl_en>;
+			lcd_driver_name = "default_lcd";
+			lcd_used = <1>;
+			lcd_if = <0>;
+			lcd_x = <800>;
+			lcd_y = <480>;
+			lcd_width = <150>;
+			lcd_height = <94>;
+			lcd_dclk_freq = <33>;
+			lcd_pwm_used = <1>;
+			lcd_pwm_ch = <0>;
+			lcd_pwm_freq = <5000>;
+			lcd_pwm_pol = <1>;
+			lcd_pwm_max_limit = <255>;
+			lcd_hbp = <46>;
+			lcd_ht = <1055>;
+			lcd_hspw = <0>;
+			lcd_vbp = <23>;
+			lcd_vt = <525>;
+			lcd_vspw = <0>;
+			lcd_lvds_if = <0>;
+			lcd_lvds_colordepth = <1>;
+			lcd_lvds_mode = <0>;
+			lcd_frm = <0>;
+			lcd_hv_clk_phase = <0>;
+			lcd_hv_sync_polarity = <0>;
+			lcd_gamma_en = <0>;
+			lcd_bright_curve_en = <0>;
+			lcd_cmap_en = <0>;
+
+			lcd_power = "vcc-lcd-0";
+			lcd_io_regulator = "vcc-lvds-18";
+			lcd_io_regulator1 = "vcc-pd";
+
+			pinctrl-names = "default";
+			pinctrl-0 = <&lcd_pins_a>,<&lcd_pins_b>;
+
+			status = "okay";
+		};
+
 		r_pio: pinctrl@01f02c00 {
 			compatible = "allwinner,sun50i-r-pinctrl";
 			reg = <0x0 0x01f02c00 0x0 0x400>;
@@ -878,6 +948,22 @@
 				allwinner,function = "nand0";
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;// only RB&CE should be pulled up
+			};
+
+			lcd_pins_a: disp@0 {
+				allwinner,pins = "PD0", "PD1", "PD2", "PD3", "PD4", "PD5", "PD6", "PD7",
+					"PD8", "PD9", "PD10", "PD11", "PD12","PD13","PD14","PD15",
+					"PD16", "PD17", "PD18", "PD19", "PD20", "PD21", "PD22", "PD23", "PD24",
+					"PD25", "PD26", "PD27";
+				allwinner,function = "lcd0";
+				allwinner,drive = <1>;
+				allwinner,pull = <1>;
+			};
+			lcd_pins_b: disp@1 {
+				allwinner,pins = "PH0";
+				allwinner,function = "gpio_out";
+				allwinner,drive = <1>;
+				allwinner,pull = <1>;
 			};
 		};
 		vdevice@0{

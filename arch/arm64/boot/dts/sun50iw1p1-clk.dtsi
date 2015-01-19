@@ -40,7 +40,8 @@ clocks {
 		};	
 		clk_pll_video0: pll_video0 {
 			#clock-cells = <0>;
-		pcompatible = "allwinner,sunxi-pll-clock";
+			compatible = "allwinner,sunxi-pll-clock";
+			clock-frequency = <297000000>;
 			clock-output-names = "pll_video0";
 		};		
 		clk_pll_ve: pll_ve {
@@ -66,6 +67,7 @@ clocks {
 		clk_pll_video1: pll_video1 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-pll-clock";
+			clock-frequency = <297000000>;
 			clock-output-names = "pll_video1";
 		};			
 		clk_pll_gpu: pll_gpu {
@@ -86,6 +88,7 @@ clocks {
 		clk_pll_de: pll_de {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-pll-clock";
+			clock-frequency = <250000000>;
 			clock-output-names = "pll_de";
 		};	
 		clk_pll_ddr1: pll_ddr1 {
@@ -284,6 +287,8 @@ clocks {
 		clk_de: de {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
+			clocks = <&clk_pll_de>;
+			clock-frequency = <250000000>;
 			clock-output-names = "de";
 		};
 		clk_tcon0: tcon0 {
@@ -294,6 +299,7 @@ clocks {
 		clk_tcon1: tcon1 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
+			clock-frequency = <297000000>;
 			clock-output-names = "tcon1";
 		};	
 		clk_deinterlace: deinterlace {
@@ -339,6 +345,7 @@ clocks {
 		clk_hdmi: hdmi {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
+			clocks = <&clk_pll_video1>;
 			clock-output-names = "hdmi";
 		};	
 		clk_hdmi_slow: hdmi_slow {
