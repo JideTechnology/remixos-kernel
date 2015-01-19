@@ -845,6 +845,8 @@ static int sunxi_mmc_probe(struct platform_device *pdev)
 	//if (ret)
 	//	goto error_free_dma;
 
+	//dev_info(&pdev->dev,"host cap %x,caps %x\n",mmc->caps,mmc->caps2);
+
 	ret = mmc_add_host(mmc);
 	if (ret)
 		goto error_free_dma;
@@ -883,10 +885,56 @@ static int sunxi_mmc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+
+#ifdef CONFIG_PM
+
+static int sunxi_mmc_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct mmc_host *mmc = platform_get_drvdata(pdev);
+	int ret = 0;
+
+	if (mmc) {
+		ret = mmc_suspend_host(mmc);
+        }
+
+	return ret;
+}
+
+
+static int sunxi_mmc_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct mmc_host *mmc = platform_get_drvdata(pdev);
+	int ret = 0;
+
+	if (mmc) {
+		ret = mmc_resume_host(mmc);
+	}
+
+	return ret;
+}
+
+
+static const struct dev_pm_ops sunxi_mmc_pm = {
+	.suspend	= sunxi_mci_suspend,
+	.resume		= sunxi_mci_resume,
+};
+#define sunxi_mmc_pm_ops &sunxi_mmc_pm
+
+#else /* CONFIG_PM */
+
+#define sunxi_mmc_pm_ops NULL
+
+#endif /* CONFIG_PM */
+
+
+
 static struct platform_driver sunxi_mmc_driver = {
 	.driver = {
 		.name	= "sunxi-mmc",
 		.of_match_table = of_match_ptr(sunxi_mmc_of_match),
+		.pm = sunxi_mmc_pm_ops,
 	},
 	.probe		= sunxi_mmc_probe,
 	.remove		= sunxi_mmc_remove,
