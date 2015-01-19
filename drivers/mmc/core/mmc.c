@@ -1584,7 +1584,9 @@ static int mmc_suspend(struct mmc_host *host)
 		err = mmc_card_sleep(host);
 	else if (!mmc_host_is_spi(host))
 		err = mmc_deselect_cards(host);
-	host->card->state &= ~(MMC_STATE_HIGHSPEED | MMC_STATE_HIGHSPEED_200);
+	host->card->state &= ~(MMC_STATE_HIGHSPEED \
+							| MMC_STATE_HIGHSPEED_200 \
+							| MMC_STATE_HIGHSPEED_400);
 
 out:
 	mmc_release_host(host);
@@ -1615,7 +1617,9 @@ static int mmc_power_restore(struct mmc_host *host)
 {
 	int ret;
 
-	host->card->state &= ~(MMC_STATE_HIGHSPEED | MMC_STATE_HIGHSPEED_200);
+	host->card->state &= ~(MMC_STATE_HIGHSPEED \
+							| MMC_STATE_HIGHSPEED_200 \
+							| MMC_STATE_HIGHSPEED_400);
 	mmc_claim_host(host);
 	ret = mmc_init_card(host, host->ocr, host->card);
 	mmc_release_host(host);
