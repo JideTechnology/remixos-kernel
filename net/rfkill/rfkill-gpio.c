@@ -303,29 +303,12 @@ static int rfkill_gpio_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_ACPI
-static struct rfkill_gpio_desc acpi_default_bluetooth = {
-	.type = RFKILL_TYPE_BLUETOOTH,
-	.reset_idx = 0,
-	.shutdown_idx = 1,
-	.wake_idx = -1,
-	.host_wake_idx = -1,
-};
-
 static struct rfkill_gpio_desc acpi_default_gps = {
 	.type = RFKILL_TYPE_GPS,
 	.reset_idx = 0,
 	.shutdown_idx = 1,
 	.wake_idx = -1,
 	.host_wake_idx = -1,
-};
-
-static struct rfkill_gpio_desc acpi_bluetooth_wake = {
-	.type = RFKILL_TYPE_BLUETOOTH,
-	.reset_idx = -1,
-	.shutdown_idx = 1,
-	.wake_idx = 0,
-	.host_wake_idx = 2,
-	.host_wake_trigger = IRQF_TRIGGER_RISING,
 };
 
 static struct rfkill_gpio_desc acpi_gps_wake = {
