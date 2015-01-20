@@ -568,4 +568,5 @@ source "drivers/misc/mic/Kconfig"
 source "drivers/misc/genwqe/Kconfig"
 source "drivers/misc/dgnss/Kconfig"
 source "drivers/misc/bt_lpm/Kconfig"
+source "drivers/misc/bcm-lpm/Kconfig"
 endmenu
