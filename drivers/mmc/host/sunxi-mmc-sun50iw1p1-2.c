@@ -27,6 +27,246 @@
 #include "sunxi-mmc-sun50iw1p1-2.h"
 
 
+
+enum sunxi_mmc_clk_mode
+{
+	mmc_clk_400k = 0,
+	mmc_clk_26M,
+	mmc_clk_52M,
+	mmc_clk_52M_DDR4,
+	mmc_clk_52M_DDR8,
+	mmc_clk_104M,
+	mmc_clk_208M,
+	mmc_clk_104M_DDR,
+	mmc_clk_208M_DDR,
+	mmc_clk_mod_num,
+};
+
+struct sunxi_mmc_clk_dly {
+	enum sunxi_mmc_clk_mode cmod;
+	char *mod_str;
+	u32 cmd_drv_ph;
+	u32 dat_drv_ph;
+	u32 sam_dly;
+	u32 ds_dly;
+};
+
+
+	/*sample delay and output deley setting*/
+struct sunxi_mmc_clk_dly mmc_clk_dly[mmc_clk_mod_num] = {
+	[mmc_clk_400k] = {
+						.cmod	  = mmc_clk_400k,
+						.mod_str = "sunxi-dly-400k",
+						.cmd_drv_ph = 1,
+						.dat_drv_ph = 0,
+						.sam_dly	= 0,
+						.ds_dly		= 0,
+					 },
+	[mmc_clk_26M] = {
+						.cmod	  = mmc_clk_26M,
+						.mod_str = "sunxi-dly-26M",
+						.cmd_drv_ph = 1,
+						.dat_drv_ph = 0,
+						.sam_dly	= 0,
+						.ds_dly		= 0,
+					 },
+	[mmc_clk_52M] = {
+						.cmod	  = mmc_clk_52M,
+						.mod_str = "sunxi-dly-52M",
+						.cmd_drv_ph = 1,
+						.dat_drv_ph = 0,
+						.sam_dly	= 0,
+						.ds_dly		= 0,
+					 },
+	[mmc_clk_52M_DDR4] = {
+						.cmod	  = mmc_clk_52M_DDR4,
+						.mod_str = "sunxi-dly-52M-ddr4",
+						.cmd_drv_ph = 1,
+						.dat_drv_ph = 0,
+						.sam_dly	= 0,
+						.ds_dly		= 0,
+					 },
+	[mmc_clk_52M_DDR8] = {
+						.cmod	  = mmc_clk_52M_DDR8,
+						.mod_str = "sunxi-dly-52M-ddr8",
+						.cmd_drv_ph = 1,
+						.dat_drv_ph = 0,
+						.sam_dly	= 0,
+						.ds_dly		= 0,
+					 },
+	[mmc_clk_104M] = {
+						.cmod	  = mmc_clk_104M,
+						.mod_str = "sunxi-dly-104M",
+						.cmd_drv_ph = 1,
+						.dat_drv_ph = 0,
+						.sam_dly	= 0,
+						.ds_dly		= 0,
+					 },
+	[mmc_clk_208M] = {
+						.cmod	  = mmc_clk_208M,
+						.mod_str = "sunxi-dly-208M",
+						.cmd_drv_ph = 1,
+						.dat_drv_ph = 0,
+						.sam_dly	= 0,
+						.ds_dly		= 0,
+					 },
+	[mmc_clk_104M_DDR] = {
+						.cmod	  = mmc_clk_104M_DDR,
+						.mod_str = "sunxi-dly-104M-ddr",
+						.cmd_drv_ph = 1,
+						.dat_drv_ph = 0,
+						.sam_dly	= 0,
+						.ds_dly		= 0,
+					 },
+	[mmc_clk_208M_DDR] = {
+						.cmod	  = mmc_clk_208M_DDR,
+						.mod_str = "sunxi-dly-208M-ddr",
+						.cmd_drv_ph = 1,
+						.dat_drv_ph = 0,
+						.sam_dly	= 0,
+						.ds_dly		= 0,
+					 },
+};
+
+/*
+static int sunxi_of_parse_clk_dly(struct sunxi_mmc_host *host)
+{
+	struct device_node *np;
+	struct mmc_host *mhost = host->mmc;
+	int i = 0;
+	u32 in_clk_dly[4] = {0};
+	int ret = 0;
+
+	if (!mhost->parent || !mhost->parent->of_node){
+		dev_err(mmc_dev(host->mmc), "no dts to parse clk dly\n");
+		return -EINVAL;
+	}
+
+	np = mhost->parent->of_node;
+
+	for(i=0;i<mmc_clk_mod_num;i++){
+		ret = of_property_read_u32_array(np,mmc_clk_dly[i].mod_str,\
+											in_clk_dly,ARRAY_SIZE(in_clk_dly));
+		if(ret){
+			dev_info(mmc_dev(host->mmc),"faild to get 	%s\n",mmc_clk_dly[i].mod_str);
+		}else{
+			mmc_clk_dly[i].cmd_drv_ph 	= in_clk_dly[0];
+			mmc_clk_dly[i].dat_drv_ph 	= in_clk_dly[1];
+			mmc_clk_dly[i].sam_dly		= in_clk_dly[2];
+			mmc_clk_dly[i].ds_dly		= in_clk_dly[3];
+			dev_info(mmc_dev(host->mmc),"Get %s clk dly ok\n",mmc_clk_dly[i].mod_str);
+			dev_info(mmc_dev(host->mmc),"cmd_drv_ph     %d\n",mmc_clk_dly[i].cmd_drv_ph);
+			dev_info(mmc_dev(host->mmc),"dat_drv_ph     %d\n",mmc_clk_dly[i].dat_drv_ph);
+			dev_info(mmc_dev(host->mmc),"sam_dly        %d\n",mmc_clk_dly[i].sam_dly);
+			dev_info(mmc_dev(host->mmc),"ds_dly         %d\n",mmc_clk_dly[i].ds_dly);
+		}
+
+	}
+
+	return 0;
+}
+*/
+
+static void sunxi_set_clk_dly(struct sunxi_mmc_host *host,int clk,int bus_width,int timing)
+{
+	struct mmc_host *mhost = host->mmc;
+	u32 rval		= 0;
+	enum sunxi_mmc_clk_mode cmod = mmc_clk_400k;
+	u32 in_clk_dly[4] = {0};
+	int ret = 0;
+	struct device_node *np = NULL;
+
+	if (!mhost->parent || !mhost->parent->of_node){
+		dev_err(mmc_dev(host->mmc), "no dts to parse clk dly\n");
+		return -EINVAL;
+	}
+
+	np = mhost->parent->of_node;
+
+	if(clk <= 400*1000 ){
+		cmod = mmc_clk_400k;
+	}else if(clk <= 26*1000*1000){
+		cmod = mmc_clk_26M;
+	}else if(clk <= 52*1000*1000){
+		if((bus_width == MMC_BUS_WIDTH_4)&&(timing == MMC_TIMING_UHS_DDR50)){
+			cmod = mmc_clk_52M_DDR4;
+		}else if((bus_width == MMC_BUS_WIDTH_8)&&(timing == MMC_TIMING_UHS_DDR50)){
+			cmod = mmc_clk_52M_DDR8;
+		}else{
+			cmod = mmc_clk_52M;
+		}
+	}else if(clk <= 104*1000*1000){
+		if((bus_width == MMC_BUS_WIDTH_8)&&(timing == MMC_TIMING_MMC_HS400)){
+			cmod = mmc_clk_104M_DDR;
+		}else{
+			cmod = mmc_clk_104M;
+		}
+	}else if(clk <= 208*1000*1000){
+		if((bus_width == MMC_BUS_WIDTH_8)&&(timing == MMC_TIMING_MMC_HS400)){
+			cmod = mmc_clk_208M_DDR;
+		}else{
+			cmod = mmc_clk_208M;
+		}
+	}else{
+		dev_err(mmc_dev(mhost),"clk %d is out of range\n",clk);
+		return;
+	}
+
+
+	ret = of_property_read_u32_array(np,mmc_clk_dly[cmod].mod_str,\
+										in_clk_dly,ARRAY_SIZE(in_clk_dly));
+	if(ret){
+		dev_info(mmc_dev(host->mmc),"faild to get %s used default\n",mmc_clk_dly[cmod].mod_str);
+	}else{
+		mmc_clk_dly[cmod].cmd_drv_ph	= in_clk_dly[0];
+		mmc_clk_dly[cmod].dat_drv_ph	= in_clk_dly[1];
+		mmc_clk_dly[cmod].sam_dly		= in_clk_dly[2];
+		mmc_clk_dly[cmod].ds_dly		= in_clk_dly[3];
+		dev_info(mmc_dev(host->mmc),"Get %s clk dly ok\n",mmc_clk_dly[cmod].mod_str);
+
+	}
+
+	dev_dbg(mmc_dev(host->mmc),"Try set %s clk dly       ok\n",mmc_clk_dly[cmod].mod_str);
+	dev_dbg(mmc_dev(host->mmc),"cmd_drv_ph 	%d\n",mmc_clk_dly[cmod].cmd_drv_ph);
+	dev_dbg(mmc_dev(host->mmc),"dat_drv_ph 	%d\n",mmc_clk_dly[cmod].dat_drv_ph);
+	dev_dbg(mmc_dev(host->mmc),"sam_dly		%d\n",mmc_clk_dly[cmod].sam_dly);
+	dev_dbg(mmc_dev(host->mmc),"ds_dly 		%d\n",mmc_clk_dly[cmod].ds_dly);
+
+	rval = mmc_readl(host,REG_DRV_DL);
+	if(mmc_clk_dly[cmod].cmd_drv_ph){
+		rval |= SDXC_CMD_DRV_PH_SEL;//180 phase
+	}else{
+		rval &= ~SDXC_CMD_DRV_PH_SEL;//90 phase
+	}
+
+	if(mmc_clk_dly[cmod].dat_drv_ph){
+		rval |= SDXC_DAT_DRV_PH_SEL;//180 phase
+	}else{
+		rval &= ~SDXC_DAT_DRV_PH_SEL;//90 phase
+	}
+	mmc_writel(host,REG_DRV_DL,rval);
+
+	rval = mmc_readl(host,REG_SAMP_DL);
+	rval &= ~SDXC_SAMP_DL_SW_MASK;
+	rval |= mmc_clk_dly[cmod].sam_dly & SDXC_SAMP_DL_SW_MASK;
+	rval |= SDXC_SAMP_DL_SW_EN;
+	mmc_writel(host,REG_SAMP_DL,rval);
+
+	rval = mmc_readl(host,REG_DS_DL);
+	rval &= ~SDXC_DS_DL_SW_MASK;
+	rval |= mmc_clk_dly[cmod].ds_dly & SDXC_DS_DL_SW_MASK;
+	rval |= SDXC_DS_DL_SW_EN;
+	mmc_writel(host,REG_DS_DL,rval);
+
+	dev_dbg(mmc_dev(host->mmc)," REG_DRV_DL    %08x\n",mmc_readl(host,REG_DRV_DL));
+	dev_dbg(mmc_dev(host->mmc)," REG_SAMP_DL  %08x\n",mmc_readl(host,REG_SAMP_DL));
+	dev_dbg(mmc_dev(host->mmc)," REG_DS_DL      %08x\n",mmc_readl(host,REG_DS_DL));
+
+}
+
+
+
+
 //???? do not use lower power mode at all
 static int sunxi_mmc_oclk_onoff(struct sunxi_mmc_host *host, u32 oclk_en)
 {
@@ -174,6 +414,9 @@ int sunxi_mmc_clk_set_rate_for_sdmmc2(struct sunxi_mmc_host *host,
 	}
 	dev_dbg(mmc_dev(host->mmc), "--SDXC_REG_EDSD: 0x%08x \n", mmc_readl(host, REG_EDSD));
 	dev_dbg(mmc_dev(host->mmc), "--SDXC_REG_CSDC: 0x%08x \n", mmc_readl(host, REG_CSDC));
+
+	//sunxi_of_parse_clk_dly(host);
+	sunxi_set_clk_dly(host,ios->clock,ios->bus_width,ios->timing);
 
 	return sunxi_mmc_oclk_onoff(host, 1);
 }
