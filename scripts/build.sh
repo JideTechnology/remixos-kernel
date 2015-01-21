@@ -278,10 +278,10 @@ build_ramfs()
 	fi
 	cp output/arisc    ${LICHEE_PLAT_OUT}
 
-	if [ ! -f arch/${ARCH}/boot/dts/${LICHEE_CHIP}.dtb ]; then
+	if [ ! -f arch/${ARCH}/boot/dts/${LICHEE_CHIP}-${LICHEE_BOARD}.dtb ]; then
 		echo "sunxi.dtb" > output/sunxi.dtb
 	else
-		cp arch/${ARCH}/boot/dts/${LICHEE_CHIP}.dtb output/sunxi.dtb
+		cp arch/${ARCH}/boot/dts/${LICHEE_CHIP}-${LICHEE_BOARD}.dtb output/sunxi.dtb
 	fi
 	cp output/sunxi.dtb    ${LICHEE_PLAT_OUT}
 }

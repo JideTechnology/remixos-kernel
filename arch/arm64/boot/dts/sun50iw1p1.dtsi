@@ -4,7 +4,7 @@
  * fpga support
  * modify base on juno.dts
  */
-/dts-v1/;
+
 /memreserve/ 0x40000000 0x00010000; /* sun50iw1p1.dtb range       : [0x40000000~0x40010000], size = 64K */
 /memreserve/ 0x40010000 0x00010000; /* sys_config.fex range       : [0x40010000~0x40020000], size = 64K */
 /memreserve/ 0x40020000 0x00004000; /* arisc dram code space range: [0x40020000~0x40024000], size = 16K */

@@ -2,7 +2,7 @@ dtb-$(CONFIG_ARCH_VEXPRESS) += rtsm_ve-aemv8a.dtb foundation-v8.dtb \
 				fvp-base-gicv2-psci.dtb
 dtb-$(CONFIG_ARCH_VEXPRESS) += juno.dtb
 dtb-$(CONFIG_ARCH_XGENE) += apm-mustang.dtb
-dtb-$(CONFIG_ARCH_SUN50I) += sun50iw1p1.dtb
+dtb-$(CONFIG_ARCH_SUN50I) += sun50iw1p1-fpga.dtb
 
 
 targets += dtbs
