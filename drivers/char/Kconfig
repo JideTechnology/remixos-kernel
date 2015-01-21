@@ -625,5 +625,6 @@ config TILE_SROM
 source "drivers/char/dma_test/Kconfig"
 source "drivers/char/sunxi-scr/Kconfig"
 source "drivers/char/sunxi-di/Kconfig"
+source "drivers/char/dump_reg/Kconfig"
 endmenu
 

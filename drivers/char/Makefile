@@ -64,3 +64,4 @@ js-rtc-y = rtc.o
 obj-$(CONFIG_TILE_SROM)		+= tile-srom.o
 obj-$(CONFIG_SUNXI_DMA_TEST)	+= dma_test/obj-y				+= sunxi-scr/
 obj-y				+= sunxi-di/
+obj-$(CONFIG_DUMP_REG) += dump_reg/
