@@ -24,7 +24,7 @@
 
 
 #include "sunxi-mmc.h"
-#include "sunxi-mmc-sun50iw1p1-2.h"
+#include "sunxi-mmc-sun50iw1p1-0_1.h"
 
 
 
@@ -49,6 +49,7 @@ struct sunxi_mmc_clk_dly {
 	u32 dat_drv_ph;
 	u32 sam_dly;
 	u32 ds_dly;
+	u32 sam_ph;
 };
 
 
@@ -61,6 +62,7 @@ static struct sunxi_mmc_clk_dly mmc_clk_dly[mmc_clk_mod_num] = {
 						.dat_drv_ph = 0,
 						.sam_dly	= 0,
 						.ds_dly		= 0,
+						.sam_ph		= 0,
 					 },
 	[mmc_clk_26M] = {
 						.cmod	  = mmc_clk_26M,
@@ -69,6 +71,7 @@ static struct sunxi_mmc_clk_dly mmc_clk_dly[mmc_clk_mod_num] = {
 						.dat_drv_ph = 0,
 						.sam_dly	= 0,
 						.ds_dly		= 0,
+						.sam_ph		= 0,						
 					 },
 	[mmc_clk_52M] = {
 						.cmod	  = mmc_clk_52M,
@@ -77,6 +80,7 @@ static struct sunxi_mmc_clk_dly mmc_clk_dly[mmc_clk_mod_num] = {
 						.dat_drv_ph = 0,
 						.sam_dly	= 0,
 						.ds_dly		= 0,
+						.sam_ph 	= 0,
 					 },
 	[mmc_clk_52M_DDR4] = {
 						.cmod	  = mmc_clk_52M_DDR4,
@@ -85,6 +89,7 @@ static struct sunxi_mmc_clk_dly mmc_clk_dly[mmc_clk_mod_num] = {
 						.dat_drv_ph = 0,
 						.sam_dly	= 0,
 						.ds_dly		= 0,
+						.sam_ph 	= 0,
 					 },
 	[mmc_clk_52M_DDR8] = {
 						.cmod	  = mmc_clk_52M_DDR8,
@@ -93,6 +98,7 @@ static struct sunxi_mmc_clk_dly mmc_clk_dly[mmc_clk_mod_num] = {
 						.dat_drv_ph = 0,
 						.sam_dly	= 0,
 						.ds_dly		= 0,
+						.sam_ph 	= 0,
 					 },
 	[mmc_clk_104M] = {
 						.cmod	  = mmc_clk_104M,
@@ -101,6 +107,8 @@ static struct sunxi_mmc_clk_dly mmc_clk_dly[mmc_clk_mod_num] = {
 						.dat_drv_ph = 0,
 						.sam_dly	= 0,
 						.ds_dly		= 0,
+						.sam_ph 	= 0,
+
 					 },
 	[mmc_clk_208M] = {
 						.cmod	  = mmc_clk_208M,
@@ -109,6 +117,7 @@ static struct sunxi_mmc_clk_dly mmc_clk_dly[mmc_clk_mod_num] = {
 						.dat_drv_ph = 0,
 						.sam_dly	= 0,
 						.ds_dly		= 0,
+						.sam_ph 	= 0,
 					 },
 	[mmc_clk_104M_DDR] = {
 						.cmod	  = mmc_clk_104M_DDR,
@@ -117,6 +126,7 @@ static struct sunxi_mmc_clk_dly mmc_clk_dly[mmc_clk_mod_num] = {
 						.dat_drv_ph = 0,
 						.sam_dly	= 0,
 						.ds_dly		= 0,
+						.sam_ph 	= 0,
 					 },
 	[mmc_clk_208M_DDR] = {
 						.cmod	  = mmc_clk_208M_DDR,
@@ -125,6 +135,7 @@ static struct sunxi_mmc_clk_dly mmc_clk_dly[mmc_clk_mod_num] = {
 						.dat_drv_ph = 0,
 						.sam_dly	= 0,
 						.ds_dly		= 0,
+						.sam_ph 	= 0,
 					 },
 };
 
@@ -172,13 +183,13 @@ static void sunxi_set_clk_dly(struct sunxi_mmc_host *host,int clk,int bus_width,
 	struct mmc_host *mhost = host->mmc;
 	u32 rval		= 0;
 	enum sunxi_mmc_clk_mode cmod = mmc_clk_400k;
-	u32 in_clk_dly[4] = {0};
+	u32 in_clk_dly[5] = {0};
 	int ret = 0;
 	struct device_node *np = NULL;
 
 	if (!mhost->parent || !mhost->parent->of_node){
 		dev_err(mmc_dev(host->mmc), "no dts to parse clk dly,use default\n");
-		return ;
+		return;
 	}
 
 	np = mhost->parent->of_node;
@@ -220,8 +231,9 @@ static void sunxi_set_clk_dly(struct sunxi_mmc_host *host,int clk,int bus_width,
 	}else{
 		mmc_clk_dly[cmod].cmd_drv_ph	= in_clk_dly[0];
 		mmc_clk_dly[cmod].dat_drv_ph	= in_clk_dly[1];
-		mmc_clk_dly[cmod].sam_dly		= in_clk_dly[2];
-		mmc_clk_dly[cmod].ds_dly		= in_clk_dly[3];
+		//mmc_clk_dly[cmod].sam_dly		= in_clk_dly[2];
+		//mmc_clk_dly[cmod].ds_dly		= in_clk_dly[3];
+		mmc_clk_dly[cmod].sam_ph		= in_clk_dly[4];
 		dev_info(mmc_dev(host->mmc),"Get %s clk dly ok\n",mmc_clk_dly[cmod].mod_str);
 
 	}
@@ -229,8 +241,9 @@ static void sunxi_set_clk_dly(struct sunxi_mmc_host *host,int clk,int bus_width,
 	dev_dbg(mmc_dev(host->mmc),"Try set %s clk dly       ok\n",mmc_clk_dly[cmod].mod_str);
 	dev_dbg(mmc_dev(host->mmc),"cmd_drv_ph 	%d\n",mmc_clk_dly[cmod].cmd_drv_ph);
 	dev_dbg(mmc_dev(host->mmc),"dat_drv_ph 	%d\n",mmc_clk_dly[cmod].dat_drv_ph);
-	dev_dbg(mmc_dev(host->mmc),"sam_dly		%d\n",mmc_clk_dly[cmod].sam_dly);
-	dev_dbg(mmc_dev(host->mmc),"ds_dly 		%d\n",mmc_clk_dly[cmod].ds_dly);
+	//dev_dbg(mmc_dev(host->mmc),"sam_dly		%d\n",mmc_clk_dly[cmod].sam_dly);
+	//dev_dbg(mmc_dev(host->mmc),"ds_dly 		%d\n",mmc_clk_dly[cmod].ds_dly);
+	dev_dbg(mmc_dev(host->mmc),"sam_ph 		%d\n",mmc_clk_dly[cmod].sam_ph);
 
 	rval = mmc_readl(host,REG_DRV_DL);
 	if(mmc_clk_dly[cmod].cmd_drv_ph){
@@ -246,17 +259,24 @@ static void sunxi_set_clk_dly(struct sunxi_mmc_host *host,int clk,int bus_width,
 	}
 	mmc_writel(host,REG_DRV_DL,rval);
 
-	rval = mmc_readl(host,REG_SAMP_DL);
-	rval &= ~SDXC_SAMP_DL_SW_MASK;
-	rval |= mmc_clk_dly[cmod].sam_dly & SDXC_SAMP_DL_SW_MASK;
-	rval |= SDXC_SAMP_DL_SW_EN;
-	mmc_writel(host,REG_SAMP_DL,rval);
 
-	rval = mmc_readl(host,REG_DS_DL);
-	rval &= ~SDXC_DS_DL_SW_MASK;
-	rval |= mmc_clk_dly[cmod].ds_dly & SDXC_DS_DL_SW_MASK;
-	rval |= SDXC_DS_DL_SW_EN;
-	mmc_writel(host,REG_DS_DL,rval);
+//	rval = mmc_readl(host,REG_SAMP_DL);
+//	rval &= ~SDXC_SAMP_DL_SW_MASK;
+//	rval |= mmc_clk_dly[cmod].sam_dly & SDXC_SAMP_DL_SW_MASK;
+//	rval |= SDXC_SAMP_DL_SW_EN;
+//	mmc_writel(host,REG_SAMP_DL,rval);
+
+//	rval = mmc_readl(host,REG_DS_DL);
+//	rval &= ~SDXC_DS_DL_SW_MASK;
+//	rval |= mmc_clk_dly[cmod].ds_dly & SDXC_DS_DL_SW_MASK;
+//	rval |= SDXC_DS_DL_SW_EN;
+//	mmc_writel(host,REG_DS_DL,rval);
+
+	rval = mmc_readl(host,REG_SD_NTSR);
+	rval &= ~SDXC_SAM_TIMING_PH_MASK;
+	rval |= (mmc_clk_dly[cmod].sam_ph << SDXC_SAM_TIMING_PH_SHIFT) & SDXC_SAM_TIMING_PH_MASK;
+	mmc_writel(host,REG_SD_NTSR,rval);
+
 
 	dev_dbg(mmc_dev(host->mmc)," REG_DRV_DL    %08x\n",mmc_readl(host,REG_DRV_DL));
 	dev_dbg(mmc_dev(host->mmc)," REG_SAMP_DL  %08x\n",mmc_readl(host,REG_SAMP_DL));
@@ -300,7 +320,24 @@ static int sunxi_mmc_oclk_onoff(struct sunxi_mmc_host *host, u32 oclk_en)
 	return 0;
 }
 
-int sunxi_mmc_clk_set_rate_for_sdmmc2(struct sunxi_mmc_host *host,
+
+
+static  void sunxi_mmc_2xmod_onoff(struct sunxi_mmc_host* host, u32 newmode_en)
+{
+	u32 rval = mmc_readl(host, REG_SD_NTSR);
+
+	if(newmode_en){
+		rval |= SDXC_2X_TIMING_MODE;
+	}else{
+		rval &= ~SDXC_2X_TIMING_MODE;
+	}
+	mmc_writel(host, REG_SD_NTSR, rval);
+
+	dev_info(mmc_dev(host->mmc), "REG_SD_NTSR: 0x%08x \n", mmc_readl(host, REG_SD_NTSR));
+}
+
+
+int sunxi_mmc_clk_set_rate_for_sdmmc_01(struct sunxi_mmc_host *host,
 				  struct mmc_ios *ios)
 {
 	u32 mod_clk = 0;
@@ -314,9 +351,7 @@ int sunxi_mmc_clk_set_rate_for_sdmmc2(struct sunxi_mmc_host *host,
 	struct device *dev = mmc_dev(host->mmc);
 	int div = 0;
 
-	if((ios->bus_width == MMC_BUS_WIDTH_8)\
-		&&(ios->timing == MMC_TIMING_UHS_DDR50)\
-	){
+	if(ios->timing == MMC_TIMING_UHS_DDR50){
 		mod_clk = ios->clock<<2;
 		div = 1;
 	}else{
@@ -369,9 +404,7 @@ int sunxi_mmc_clk_set_rate_for_sdmmc2(struct sunxi_mmc_host *host,
 	dev_err(mmc_dev(host->mmc),"set round clock %d, soure clk is %d\n", rate, src_clk);
 
 #ifdef MMC_FPGA
-	if((ios->bus_width == MMC_BUS_WIDTH_8)\
-		&&(ios->timing == MMC_TIMING_UHS_DDR50)\
-	){
+	if(ios->timing == MMC_TIMING_UHS_DDR50){
 		/* clear internal divider */
 		rval = mmc_readl(host, REG_CLKCR);
 		rval &= ~0xff;
@@ -393,35 +426,14 @@ int sunxi_mmc_clk_set_rate_for_sdmmc2(struct sunxi_mmc_host *host,
 #endif
 
 
-	if((ios->bus_width == MMC_BUS_WIDTH_8)\
-		&&(ios->timing == MMC_TIMING_MMC_HS400)\
-	){
-		rval = mmc_readl(host,REG_EDSD);
-		rval |= SDXC_HS400_MD_EN;
-		mmc_writel(host,REG_EDSD,rval);
-		rval = mmc_readl(host,REG_CSDC);
-		rval &= ~SDXC_CRC_DET_PARA_MASK;
-		rval |= SDXC_CRC_DET_PARA_HS400;
-		mmc_writel(host,REG_CSDC,rval);
-	}else{
-		rval = mmc_readl(host,REG_EDSD);
-		rval &= ~ SDXC_HS400_MD_EN;
-		mmc_writel(host,REG_EDSD,rval);
-		rval = mmc_readl(host,REG_CSDC);
-		rval &= ~SDXC_CRC_DET_PARA_MASK;
-		rval |= SDXC_CRC_DET_PARA_OTHER;
-		mmc_writel(host,REG_CSDC,rval);
-	}
-	dev_dbg(mmc_dev(host->mmc), "--SDXC_REG_EDSD: 0x%08x \n", mmc_readl(host, REG_EDSD));
-	dev_dbg(mmc_dev(host->mmc), "--SDXC_REG_CSDC: 0x%08x \n", mmc_readl(host, REG_CSDC));
-
 	//sunxi_of_parse_clk_dly(host);
+	sunxi_mmc_2xmod_onoff(host,1);
 	sunxi_set_clk_dly(host,ios->clock,ios->bus_width,ios->timing);
 
 	return sunxi_mmc_oclk_onoff(host, 1);
 }
 
-void sunxi_mmc_thld_ctl_for_sdmmc2(struct sunxi_mmc_host *host,
+void sunxi_mmc_thld_ctl_for_sdmmc_01(struct sunxi_mmc_host *host,
 			  struct mmc_ios *ios, struct mmc_data *data)
 {
 	u32 bsz = data->blksz;
@@ -429,26 +441,10 @@ void sunxi_mmc_thld_ctl_for_sdmmc2(struct sunxi_mmc_host *host,
 	u32 rdtl = ((host->dma_tl & SDXC_RX_TL_MASK)>>16)<<2;//unit:byte
 	u32 rval = 0;
 
-	if( (data->flags & MMC_DATA_WRITE)
-		&& (bsz <= SDXC_CARD_RD_THLD_SIZE)
-		&& (bsz <= tdtl) ){
-		rval = mmc_readl(host,REG_THLD);
-		rval &=~SDXC_CARD_RD_THLD_MASK;
-		rval |= data->blksz<<SDXC_CARD_RD_THLD_SIZE_SHIFT;
-		rval |= SDXC_CARD_WR_THLD_ENB;
-		mmc_writel(host,REG_THLD,rval);
-	}else{
-		rval = mmc_readl(host,REG_THLD);
-		rval &= ~SDXC_CARD_WR_THLD_ENB;
-		mmc_writel(host,REG_THLD,rval);
-	}
-
-
 	if( (data->flags & MMC_DATA_READ)
 		&& (bsz <= SDXC_CARD_RD_THLD_SIZE)
 		&& ((SDXC_FIFO_DETH<<2) >= (rdtl+bsz))      //((SDXC_FIFO_DETH<<2)-bsz) >= (rdtl)
-		&& ((ios->timing == MMC_TIMING_MMC_HS200)
-			||(ios->timing == MMC_TIMING_MMC_HS400)) ){
+		&& (ios->timing == MMC_TIMING_MMC_HS200) ){
 		rval = mmc_readl(host,REG_THLD);
 		rval &= ~SDXC_CARD_RD_THLD_MASK;
 		rval |= data->blksz<<SDXC_CARD_RD_THLD_SIZE_SHIFT;

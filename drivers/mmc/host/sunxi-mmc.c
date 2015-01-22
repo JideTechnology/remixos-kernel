@@ -45,6 +45,8 @@
 
 #include "sunxi-mmc.h"
 #include "sunxi-mmc-sun50iw1p1-2.h"
+#include "sunxi-mmc-sun50iw1p1-0_1.h"
+
 
 static int sunxi_mmc_reset_host(struct sunxi_mmc_host *host)
 {
@@ -673,6 +675,8 @@ static const struct of_device_id sunxi_mmc_of_match[] = {
 	{ .compatible = "allwinner,sun4i-a10-mmc", },
 	{ .compatible = "allwinner,sun5i-a13-mmc", },
 	{ .compatible = "allwinner,sun50i-sdmmc2", },
+	{ .compatible = "allwinner,sun50i-sdmmc1", },
+	{ .compatible = "allwinner,sun50i-sdmmc0", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, sunxi_mmc_of_match);
@@ -697,13 +701,21 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		)
 		host->idma_des_size_bits = 13;
 	else
-		host->idma_des_size_bits = 16;
+		host->idma_des_size_bits = 15;
 
 
 	if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc2")){
  		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc2;
 		host->dma_tl = (0x3<<28)|(15<<16)|240;
 		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc2;
+ 	}else if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc0")){
+  		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc_01;
+		host->dma_tl = (0x2<<28)|(15<<16)|240;
+		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc_01;
+ 	}else if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc1")){
+ 		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc_01;
+		host->dma_tl = (0x3<<28)|(15<<16)|240;
+		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc_01;
  	}else{
  		host->sunxi_mmc_clk_set_rate = NULL;
 		host->dma_tl = NULL;
@@ -711,15 +723,12 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
  	}
 
 
-#ifndef MMC_FPGA
-	//Because fpga has no regulator,so we don't get regulator
 	ret = mmc_regulator_get_supply(host->mmc);
 	if (ret) {
 		if (ret != -EPROBE_DEFER)
 			dev_err(&pdev->dev, "Could not get vmmc supply\n");
 		return ret;
 	}
-#endif
 
 	host->reg_base = devm_ioremap_resource(&pdev->dev,
 			      platform_get_resource(pdev, IORESOURCE_MEM, 0));
@@ -832,7 +841,7 @@ static int sunxi_mmc_probe(struct platform_device *pdev)
 	//mmc->caps2	  |= MMC_CAP2_HS400_1_8V;
 
 
-#ifdef MMC_FPGA
+#ifndef CONFIG_REGULATOR
 	//Because fpga has no regulator,so we add it manully
 	mmc->ocr_avail = MMC_VDD_28_29 | MMC_VDD_29_30 | MMC_VDD_30_31 | MMC_VDD_31_32
 				| MMC_VDD_32_33 | MMC_VDD_33_34;
