@@ -255,7 +255,6 @@ struct i915_hw_ppgtt {
 		struct page **gen8_pt_pages[GEN8_LEGACY_PDPS];
 	};
 	struct page *pd_pages;
-	struct page *scratch_page;
 	union {
 		uint32_t pd_offset;
 		dma_addr_t pd_dma_addr[GEN8_LEGACY_PDPS];
@@ -264,7 +263,6 @@ struct i915_hw_ppgtt {
 		dma_addr_t *pt_dma_addr;
 		dma_addr_t *gen8_pt_dma_addr[4];
 	};
-	dma_addr_t scratch_dma_addr;
 
 	struct list_head vma_list;
 
