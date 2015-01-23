@@ -603,7 +603,7 @@ static int gen8_ppgtt_init(struct i915_hw_ppgtt *ppgtt, uint64_t size)
 		DRM_INFO("Pages will be wasted unless GTT size (%llu) is divisible by 1GB\n", size);
 
 	/* 1. Do all our allocations for page directories and page tables. */
-	ret = gen8_ppgtt_alloc(ppgtt, GEN8_LEGACY_PDPS);
+	ret = gen8_ppgtt_alloc(ppgtt, max_pdp);
 	if (ret)
 		return ret;
 
