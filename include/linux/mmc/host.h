@@ -195,6 +195,7 @@ struct regulator;
 struct mmc_supply {
 	struct regulator *vmmc;		/* Card power supply */
 	struct regulator *vqmmc;	/* Optional Vccq supply */
+	struct regulator *vdmmc;	/* Optional card detect pin supply */
 };
 
 struct mmc_host {
