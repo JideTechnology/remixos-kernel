@@ -241,6 +241,11 @@ struct sunxi_mmc_host {
 	int		ferror;
 
 	u32 	power_on;
+
+	/* pinctrl handles */
+	struct pinctrl		*pinctrl;
+	struct pinctrl_state	*pins_default;
+	struct pinctrl_state	*pins_sleep;
 };
 
 

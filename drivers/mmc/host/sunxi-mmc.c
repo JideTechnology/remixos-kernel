@@ -506,6 +506,10 @@ static void sunxi_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 					"failed to enable vqmmc regulator\n");
 		}
 
+
+		rval = pinctrl_select_state(host->pinctrl, host->pins_default);
+		if (rval)
+			dev_warn(mmc_dev(mmc), "could not set default pins\n");
 		
 		host->ferror = sunxi_mmc_init_host(mmc);
 		if (host->ferror)
@@ -520,6 +524,10 @@ static void sunxi_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			break;
 		}
 		sunxi_mmc_reset_host(host);
+
+		rval = pinctrl_select_state(host->pinctrl, host->pins_sleep);
+		if (rval)
+			dev_warn(mmc_dev(mmc), "could not set sleep pins\n");
 
 		if (!IS_ERR(mmc->supply.vqmmc))
 			regulator_disable(mmc->supply.vqmmc);
@@ -766,6 +774,29 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 	}
 
 
+	host->pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR(host->pinctrl)) {
+		ret = PTR_ERR(host->pinctrl);
+		goto error_disable_vdmmc;
+	}
+
+	host->pins_default = pinctrl_lookup_state(host->pinctrl,
+			PINCTRL_STATE_DEFAULT);
+	if (IS_ERR(host->pins_default)) {
+		dev_err(&pdev->dev, "could not get default pinstate\n");
+		ret = PTR_ERR(host->pins_default);
+		goto error_disable_vdmmc;
+	}
+
+	host->pins_sleep = pinctrl_lookup_state(host->pinctrl,
+			PINCTRL_STATE_SLEEP);
+	if (IS_ERR(host->pins_sleep)) {
+		dev_err(&pdev->dev, "could not get sleep pinstate\n");
+		ret = PTR_ERR(host->pins_sleep);
+		goto error_disable_vdmmc;
+	}
+
+
 	host->reg_base = devm_ioremap_resource(&pdev->dev,
 			      platform_get_resource(pdev, IORESOURCE_MEM, 0));
 	if (IS_ERR(host->reg_base))
@@ -832,6 +863,9 @@ error_disable_clk_mmc:
 	clk_disable_unprepare(host->clk_mmc);
 error_disable_clk_ahb:
 	clk_disable_unprepare(host->clk_ahb);
+error_disable_vdmmc:
+	if (!IS_ERR(host->mmc->supply.vdmmc))
+			regulator_disable(host->mmc->supply.vdmmc);
 	return ret;
 }
 
