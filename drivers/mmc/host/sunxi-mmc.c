@@ -510,10 +510,35 @@ static void sunxi_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		rval = pinctrl_select_state(host->pinctrl, host->pins_default);
 		if (rval)
 			dev_warn(mmc_dev(mmc), "could not set default pins\n");
-		
+
+
+#ifndef USE_OLD_SYS_CLK_INTERFACE
+		rval = clk_prepare_enable(host->clk_ahb);
+		if (rval) {
+			dev_err(mmc_dev(mmc), "Enable ahb clk err %d\n", rval);
+			return;
+		}
+#endif
+		rval = clk_prepare_enable(host->clk_mmc);
+		if (rval) {
+			dev_err(mmc_dev(mmc), "Enable mmc clk err %d\n", rval);
+			return;
+		}
+#ifndef USE_OLD_SYS_CLK_INTERFACE
+		if (!IS_ERR(host->reset)) {
+			rval = reset_control_deassert(host->reset);
+			if (rval) {
+				dev_err(mmc_dev(mmc), "reset err %d\n", rval);
+				return;
+			}
+		}
+#endif
+
 		host->ferror = sunxi_mmc_init_host(mmc);
 		if (host->ferror)
 			return;
+
+		enable_irq(host->irq);
 
 		host->power_on = 1;
 		dev_dbg(mmc_dev(mmc), "power on!\n");
@@ -525,15 +550,26 @@ static void sunxi_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		}
 		sunxi_mmc_reset_host(host);
 
+#ifndef USE_OLD_SYS_CLK_INTERFACE
+		if (!IS_ERR(host->reset))
+			reset_control_assert(host->reset);
+#endif
+		clk_disable_unprepare(host->clk_mmc);
+#ifndef USE_OLD_SYS_CLK_INTERFACE
+		clk_disable_unprepare(host->clk_ahb);
+#endif
+
 		rval = pinctrl_select_state(host->pinctrl, host->pins_sleep);
 		if (rval)
 			dev_warn(mmc_dev(mmc), "could not set sleep pins\n");
 
 		if (!IS_ERR(mmc->supply.vqmmc))
 			regulator_disable(mmc->supply.vqmmc);
-		
+
 		if (!IS_ERR(mmc->supply.vmmc))
 			mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, 0);
+
+		disable_irq(host->irq);
 
 		host->power_on = 0;
 		dev_dbg(mmc_dev(mmc), "power off!\n");
@@ -851,8 +887,24 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		goto error_assert_reset;
 
 	host->irq = platform_get_irq(pdev, 0);
-	return devm_request_threaded_irq(&pdev->dev, host->irq, sunxi_mmc_irq,
+	ret = devm_request_threaded_irq(&pdev->dev, host->irq, sunxi_mmc_irq,
 			sunxi_mmc_handle_manual_stop, 0, "sunxi-mmc", host);
+	if(ret){
+		dev_err(&pdev->dev, "faild to request irq %d\n", ret);
+		goto error_assert_reset;
+	}
+
+	disable_irq(host->irq);
+
+#ifndef USE_OLD_SYS_CLK_INTERFACE
+	if (!IS_ERR(host->reset))
+		reset_control_assert(host->reset);
+#endif
+	clk_disable_unprepare(host->clk_mmc);
+#ifndef USE_OLD_SYS_CLK_INTERFACE
+	clk_disable_unprepare(host->clk_ahb);
+#endif
+	return ret;
 
 error_assert_reset:
 #ifndef USE_OLD_SYS_CLK_INTERFACE
@@ -945,14 +997,6 @@ static int sunxi_mmc_remove(struct platform_device *pdev)
 	disable_irq(host->irq);
 	sunxi_mmc_reset_host(host);
 
-#ifndef USE_OLD_SYS_CLK_INTERFACE
-	if (!IS_ERR(host->reset))
-		reset_control_assert(host->reset);
-#endif
-
-	clk_disable_unprepare(host->clk_mmc);
-	clk_disable_unprepare(host->clk_ahb);
-
 
 	if (!IS_ERR(mmc->supply.vdmmc))
 			regulator_disable(mmc->supply.vdmmc);
@@ -998,7 +1042,7 @@ static int sunxi_mmc_resume(struct device *dev)
 				dev_err(mmc_dev(mmc),
 					"failed to enable vdmmc regulator\n");
 			return ret;
-		}	
+		}
 		ret = mmc_resume_host(mmc);
 	}
 
