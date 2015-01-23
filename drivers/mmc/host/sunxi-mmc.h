@@ -239,6 +239,8 @@ struct sunxi_mmc_host {
 	struct mmc_request *mrq;
 	struct mmc_request *manual_stop_mrq;
 	int		ferror;
+
+	u32 	power_on;
 };
 
 

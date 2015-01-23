@@ -34,6 +34,8 @@
 #include <linux/of_address.h>
 #include <linux/of_gpio.h>
 #include <linux/of_platform.h>
+#include <linux/regulator/consumer.h>
+
 
 #include <linux/mmc/host.h>
 #include <linux/mmc/sd.h>
@@ -491,19 +493,42 @@ static void sunxi_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		break;
 
 	case MMC_POWER_UP:
-		mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, ios->vdd);
+		if(host->power_on){
+			break;
+		}
+		if (!IS_ERR(mmc->supply.vmmc))
+			mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, ios->vdd);
 
+		if (!IS_ERR(mmc->supply.vqmmc)) {
+			rval = regulator_enable(mmc->supply.vqmmc);
+			if (rval < 0)
+				dev_err(mmc_dev(mmc),
+					"failed to enable vqmmc regulator\n");
+		}
+
+		
 		host->ferror = sunxi_mmc_init_host(mmc);
 		if (host->ferror)
 			return;
 
+		host->power_on = 1;
 		dev_dbg(mmc_dev(mmc), "power on!\n");
 		break;
 
 	case MMC_POWER_OFF:
-		dev_dbg(mmc_dev(mmc), "power off!\n");
+		if(!host->power_on){
+			break;
+		}
 		sunxi_mmc_reset_host(host);
-		mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, 0);
+
+		if (!IS_ERR(mmc->supply.vqmmc))
+			regulator_disable(mmc->supply.vqmmc);
+		
+		if (!IS_ERR(mmc->supply.vmmc))
+			mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, 0);
+
+		host->power_on = 0;
+		dev_dbg(mmc_dev(mmc), "power off!\n");
 		break;
 	}
 
@@ -730,6 +755,17 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		return ret;
 	}
 
+	//enable card detect pin power
+	if (!IS_ERR(host->mmc->supply.vdmmc)) {
+		ret = regulator_enable(host->mmc->supply.vdmmc);
+		if (ret < 0){
+			dev_err(mmc_dev(host->mmc),
+				"failed to enable vdmmc regulator\n");
+			return ret;
+		}
+	}
+
+
 	host->reg_base = devm_ioremap_resource(&pdev->dev,
 			      platform_get_resource(pdev, IORESOURCE_MEM, 0));
 	if (IS_ERR(host->reg_base))
@@ -850,11 +886,6 @@ static int sunxi_mmc_probe(struct platform_device *pdev)
 #endif
 
 	mmc_of_parse(mmc);
-	//ret = mmc_of_parse(mmc);
-	//if (ret)
-	//	goto error_free_dma;
-
-	//dev_info(&pdev->dev,"host cap %x,caps %x\n",mmc->caps,mmc->caps2);
 
 	ret = mmc_add_host(mmc);
 	if (ret)
@@ -888,6 +919,10 @@ static int sunxi_mmc_remove(struct platform_device *pdev)
 	clk_disable_unprepare(host->clk_mmc);
 	clk_disable_unprepare(host->clk_ahb);
 
+
+	if (!IS_ERR(mmc->supply.vdmmc))
+			regulator_disable(mmc->supply.vdmmc);
+
 	dma_free_coherent(&pdev->dev, PAGE_SIZE, host->sg_cpu, host->sg_dma);
 	mmc_free_host(mmc);
 
@@ -905,7 +940,11 @@ static int sunxi_mmc_suspend(struct device *dev)
 
 	if (mmc) {
 		ret = mmc_suspend_host(mmc);
-        }
+		if(!ret){
+			if (!IS_ERR(mmc->supply.vdmmc))
+					regulator_disable(mmc->supply.vdmmc);
+		}
+      }
 
 	return ret;
 }
@@ -918,6 +957,14 @@ static int sunxi_mmc_resume(struct device *dev)
 	int ret = 0;
 
 	if (mmc) {
+		//enable card detect pin power
+		if (!IS_ERR(mmc->supply.vdmmc)) {
+			ret = regulator_enable(mmc->supply.vdmmc);
+			if (ret < 0)
+				dev_err(mmc_dev(mmc),
+					"failed to enable vdmmc regulator\n");
+			return ret;
+		}	
 		ret = mmc_resume_host(mmc);
 	}
 
