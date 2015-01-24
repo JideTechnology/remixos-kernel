@@ -48,7 +48,7 @@
 #include "sunxi-mmc.h"
 #include "sunxi-mmc-sun50iw1p1-2.h"
 #include "sunxi-mmc-sun50iw1p1-0_1.h"
-
+#include "sunxi-mmc-debug.h"
 
 static int sunxi_mmc_reset_host(struct sunxi_mmc_host *host)
 {
@@ -242,6 +242,8 @@ static void sunxi_mmc_dump_errinfo(struct sunxi_mmc_host *host)
 		host->int_sum & SDXC_START_BIT_ERROR ? " SBE"    : "",
 		host->int_sum & SDXC_END_BIT_ERROR   ? " EBE"    : ""
 		);
+	sunxi_mmc_dumphex32(host,"sunxi mmc",host->reg_base,0x180);
+	sunxi_mmc_dump_des(host,host->sg_cpu,PAGE_SIZE);
 }
 
 /* Called in interrupt context! */
@@ -770,7 +772,7 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		)
 		host->idma_des_size_bits = 13;
 	else
-		host->idma_des_size_bits = 15;
+		host->idma_des_size_bits = 16;
 
 
 	if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc2")){
@@ -779,7 +781,8 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc2;
  	}else if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc0")){
   		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc_01;
-		host->dma_tl = (0x2<<28)|(15<<16)|240;
+		//host->dma_tl = (0x2<<28)|(15<<16)|240;
+		host->dma_tl = (0x2<<28)|(7<<16)|248;
 		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc_01;
  	}else if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc1")){
  		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc_01;
