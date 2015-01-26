@@ -20,13 +20,11 @@
 #include <linux/device.h>
 #include <linux/slab.h>
 #include "../ion_priv.h"
-
-#define DEV_NAME	"ion-sunxi"
+#include <linux/of.h>
 
 struct ion_device;
-static int num_heaps;
-static struct ion_heap **pheap;
 static struct ion_device *ion_device;
+long sunxi_ion_ioctl(struct ion_client *client, unsigned int cmd, unsigned long arg);
 
 struct ion_client *sunxi_ion_client_create(const char *name)
 {
@@ -34,110 +32,83 @@ struct ion_client *sunxi_ion_client_create(const char *name)
 }
 EXPORT_SYMBOL(sunxi_ion_client_create);
 
-long sunxi_ion_ioctl(struct ion_client *client, unsigned int cmd, unsigned long arg);
-
 
 int sunxi_ion_probe(struct platform_device *pdev)
 {
-	struct ion_platform_data *pdata = pdev->dev.platform_data;
-	struct ion_platform_heap *heaps_desc;
-	int i, ret = 0;
+	struct device_node *np = pdev->dev.of_node;
+	struct ion_platform_heap heaps_desc;
+	struct device_node *heap_node = NULL;	
 
-	pheap = kzalloc(sizeof(struct ion_heap *) * pdata->nr, GFP_KERNEL);
 	ion_device = ion_device_create(sunxi_ion_ioctl);
-	if(IS_ERR_OR_NULL(ion_device)) {
-		kfree(pheap);
+	if(IS_ERR_OR_NULL(ion_device)) 
+	{
 		return PTR_ERR(ion_device);
 	}
 
-	for(i = 0; i < pdata->nr; i++) {
-		heaps_desc = &pdata->heaps[i];
+	do{
+		u32 type = -1;
+		struct ion_heap *pheap = NULL;
 		
-		pheap[i] = ion_heap_create(heaps_desc);
-		if(IS_ERR_OR_NULL(pheap[i])) {
-			ret = PTR_ERR(pheap[i]);
-			goto err;
+		/*loop all the child node */
+		heap_node = of_get_next_child(np , heap_node);
+		if(!heap_node)
+			break;
+		memset( &heaps_desc , 0 , sizeof(heaps_desc) );
+		
+		/* get the properties "name","type" for common ion heap	*/
+		if(of_property_read_u32(heap_node , "type" , &type) )
+		{	
+			pr_err("You need config the heap node 'type'\n");
+			continue;
+		}
+		heaps_desc.type = type;
+		heaps_desc.id = type;
+
+		if(of_property_read_string(heap_node , "name" , &heaps_desc.name) )
+		{ 
+			pr_err("You need config the heap node 'name'\n");
+			continue;
 		}
 
-		ion_device_add_heap(ion_device, pheap[i]);
+		/*for specail heaps , need extra argument to config */
+		if( ION_HEAP_TYPE_CARVEOUT == heaps_desc.type )
+		{
+			u32 base = 0 , size = 0;
+			if( of_property_read_u32( heap_node , "base" , &base) )
+				pr_err("You need config the carvout 'base'\n");
+			heaps_desc.base = base;
+			if( of_property_read_u32( heap_node , "size" , &size) )
+				pr_err("You need config the carvout 'size'\n"); 
+			heaps_desc.size = size;
+		}else if( ION_HEAP_TYPE_DMA == heaps_desc.type )
+		{
+			heaps_desc.priv = &(pdev->dev);
+		}
 
-	}
+		/* now we can create a heap & add it to the ion device*/
+		pheap = ion_heap_create(&heaps_desc);
+		if(IS_ERR_OR_NULL(pheap)) 
+		{
+			pr_err("ion_heap_create '%s' failured!\n" , heaps_desc.name );
+			continue;
+		}
 
-	num_heaps = i;
-	platform_set_drvdata(pdev, ion_device);
+		ion_device_add_heap(ion_device , pheap );		
+	}while(1);
+
 	return 0;
-err:
-	while(i--)
-		ion_heap_destroy(pheap[i]);
-	ion_device_destroy(ion_device);
-	kfree(pheap);
-	return ret;
 }
 
-int sunxi_ion_remove(struct platform_device *pdev)
-{
-	struct ion_device *dev = platform_get_drvdata(pdev);
-
-	while(num_heaps--)
-		ion_heap_destroy(pheap[num_heaps]);
-	kfree(pheap);
-	ion_device_destroy(dev);
-	return 0;
-}
-
-static struct ion_platform_data ion_data ;
-
-static struct platform_device ion_dev = {
-	.name = DEV_NAME,
-	.dev = {
-		.platform_data = &ion_data,
-	}
+static const struct of_device_id sunxi_ion_dt_ids[] = {
+	{ .compatible = "allwinner,sunxi-ion" },
+	{ /* sentinel */ }
 };
 
-static struct platform_driver ion_driver = {
+static struct platform_driver sunxi_ion_driver = {
+	.driver = {
+		.name = "sunxi-ion",
+		.of_match_table = sunxi_ion_dt_ids,
+	},
 	.probe = sunxi_ion_probe,
-	.remove = sunxi_ion_remove,
-	.driver = {.name = DEV_NAME}
 };
-
-struct ion_platform_heap sunxi_ion_heaps[] = 
-{
-	[0] = {
-		.type = ION_HEAP_TYPE_SYSTEM,
-		.id = (u32)ION_HEAP_TYPE_SYSTEM,
-		.name = "system",
-	},
-	[1] = {
-		.type = ION_HEAP_TYPE_SYSTEM_CONTIG,
-		.id = (u32)ION_HEAP_TYPE_SYSTEM_CONTIG,
-		.name = "system_contig",
-	},
-	[2] = {
-		.type = ION_HEAP_TYPE_DMA,
-		.id = (u32)ION_HEAP_TYPE_DMA,
-		.name = "cma",
-		.priv = &(ion_dev.dev) ,
-	}
-};
-
-static int __init sunxi_ion_init(void)
-{
-	int ret;
-
-	ion_data.nr = ARRAY_SIZE(sunxi_ion_heaps);
-	ion_data.heaps = sunxi_ion_heaps;
-	
-	ret = platform_device_register(&ion_dev);
-	if(ret)
-		return ret;
-	return platform_driver_register(&ion_driver);
-}
-
-static void __exit sunxi_ion_exit(void)
-{
-	platform_driver_unregister(&ion_driver);
-	platform_device_unregister(&ion_dev);
-}
-
-subsys_initcall(sunxi_ion_init);
-module_exit(sunxi_ion_exit);
+module_platform_driver(sunxi_ion_driver);
