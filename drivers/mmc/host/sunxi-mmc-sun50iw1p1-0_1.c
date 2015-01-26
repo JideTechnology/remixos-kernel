@@ -285,10 +285,8 @@ static void sunxi_set_clk_dly(struct sunxi_mmc_host *host,int clk,int bus_width,
 }
 
 
-
-
 //???? do not use lower power mode at all
-static int sunxi_mmc_oclk_onoff(struct sunxi_mmc_host *host, u32 oclk_en)
+static int __sunxi_mmc_do_oclk_onoff(struct sunxi_mmc_host *host, u32 oclk_en,u32 pwr_save,u32 ignore_dat0)
 {
 	unsigned long expire = jiffies + msecs_to_jiffies(250);
 	u32 rval;
@@ -298,6 +296,10 @@ static int sunxi_mmc_oclk_onoff(struct sunxi_mmc_host *host, u32 oclk_en)
 
 	if (oclk_en)
 		rval |= SDXC_CARD_CLOCK_ON;
+	if(pwr_save)
+		rval |= SDXC_LOW_POWER_ON;
+	if(ignore_dat0)
+		rval |= SDXC_MASK_DATA0;
 
 	mmc_writel(host, REG_CLKCR, rval);
 
@@ -318,6 +320,13 @@ static int sunxi_mmc_oclk_onoff(struct sunxi_mmc_host *host, u32 oclk_en)
 	}
 
 	return 0;
+}
+
+
+//???? do not use lower power mode at all
+static int sunxi_mmc_oclk_onoff(struct sunxi_mmc_host *host, u32 oclk_en)
+{
+	return __sunxi_mmc_do_oclk_onoff(host,oclk_en,0,1);
 }
 
 
@@ -350,6 +359,12 @@ int sunxi_mmc_clk_set_rate_for_sdmmc_01(struct sunxi_mmc_host *host,
 	struct clk *sclk = NULL;
 	struct device *dev = mmc_dev(host->mmc);
 	int div = 0;
+
+	if(ios->clock == 0){
+		__sunxi_mmc_do_oclk_onoff(host, 0,0,1);
+		return 0;
+	}
+
 
 	if(ios->timing == MMC_TIMING_UHS_DDR50){
 		mod_clk = ios->clock<<2;

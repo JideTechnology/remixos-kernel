@@ -242,8 +242,8 @@ static void sunxi_mmc_dump_errinfo(struct sunxi_mmc_host *host)
 		host->int_sum & SDXC_START_BIT_ERROR ? " SBE"    : "",
 		host->int_sum & SDXC_END_BIT_ERROR   ? " EBE"    : ""
 		);
-	sunxi_mmc_dumphex32(host,"sunxi mmc",host->reg_base,0x180);
-	sunxi_mmc_dump_des(host,host->sg_cpu,PAGE_SIZE);
+	//sunxi_mmc_dumphex32(host,"sunxi mmc",host->reg_base,0x180);
+	//sunxi_mmc_dump_des(host,host->sg_cpu,PAGE_SIZE);
 }
 
 /* Called in interrupt context! */
@@ -397,6 +397,7 @@ static irqreturn_t sunxi_mmc_handle_manual_stop(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+#if 0
 static int sunxi_mmc_oclk_onoff(struct sunxi_mmc_host *host, u32 oclk_en)
 {
 	unsigned long expire = jiffies + msecs_to_jiffies(250);
@@ -429,7 +430,7 @@ static int sunxi_mmc_oclk_onoff(struct sunxi_mmc_host *host, u32 oclk_en)
 	return 0;
 }
 
-#if 0
+
 static int sunxi_mmc_clk_set_rate(struct sunxi_mmc_host *host,
 				  struct mmc_ios *ios)
 {
@@ -638,6 +639,77 @@ static void sunxi_mmc_hw_reset(struct mmc_host *mmc)
 	udelay(300);
 }
 
+
+static int	sunxi_mmc_signal_voltage_switch(struct mmc_host *mmc, struct mmc_ios *ios)
+{
+#ifdef CONFIG_REGULATOR
+	int ret	=	0;
+	struct regulator *vqmmc = mmc->supply.vqmmc;
+
+	switch (ios->signal_voltage) {
+	case MMC_SIGNAL_VOLTAGE_330:
+		if (vqmmc) {
+			ret = regulator_set_voltage(vqmmc, 2700000, 3600000);
+			if (ret) {
+				dev_err(mmc_dev(mmc),"Switching to 3.3V signalling voltage "
+						" failed\n");
+				return -EIO;
+			}
+		}else{
+			dev_err(mmc_dev(mmc),"no vqmmc\n");
+			return -ENOSYS;
+		}
+		/* Wait for 5ms */
+		//usleep_range(5000, 5500);
+		return 0;
+	case MMC_SIGNAL_VOLTAGE_180:
+		if (vqmmc) {
+			ret = regulator_set_voltage(vqmmc,
+					1700000, 1950000);
+			if (ret) {
+				dev_err(mmc_dev(mmc),"Switching to 1.8V signalling voltage "
+						" failed\n");
+				return -EIO;
+			}
+		}else{
+				dev_err(mmc_dev(mmc),"no vqmmc\n");
+				return -ENOSYS;
+		}
+
+		/* Wait for 5ms */
+		//usleep_range(5000, 5500);
+		return 0;
+	case MMC_SIGNAL_VOLTAGE_120:
+		if (vqmmc) {
+			ret = regulator_set_voltage(vqmmc, 1100000, 1300000);
+			if (ret) {
+				dev_err(mmc_dev(mmc),"Switching to 1.2V signalling voltage "
+						" failed\n");
+				return -EIO;
+			}
+		}else{
+			dev_err(mmc_dev(mmc),"no vqmmc\n");
+			return -ENOSYS;
+		}
+
+		return 0;
+	default:
+		/* No signal voltage switch required */
+		dev_err(mmc_dev(mmc),"unknow signal voltage switch request %x\n", ios->signal_voltage);
+		return -ENOSYS;
+	}
+#else
+	return 0;
+#endif
+}
+
+static int	sunxi_mmc_card_busy(struct mmc_host *mmc)
+{
+	struct sunxi_mmc_host *host = mmc_priv(mmc);
+	return mmc_readl(host,REG_STAS) & SDXC_CARD_DATA_BUSY;
+}
+
+
 static void sunxi_mmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct sunxi_mmc_host *host = mmc_priv(mmc);
@@ -759,6 +831,8 @@ static struct mmc_host_ops sunxi_mmc_ops = {
 	.get_cd		 = mmc_gpio_get_cd,
 	.enable_sdio_irq = sunxi_mmc_enable_sdio_irq,
 	.hw_reset	 = sunxi_mmc_hw_reset,
+	.start_signal_voltage_switch = sunxi_mmc_signal_voltage_switch,
+	.card_busy = sunxi_mmc_card_busy,
 };
 
 static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,

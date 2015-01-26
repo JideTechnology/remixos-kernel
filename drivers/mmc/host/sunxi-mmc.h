@@ -86,6 +86,8 @@
 /* clock control bits */
 #define SDXC_CARD_CLOCK_ON		BIT(16)
 #define SDXC_LOW_POWER_ON		BIT(17)
+#define SDXC_MASK_DATA0			BIT(31)
+
 
 /* bus width */
 #define SDXC_WIDTH1			0
