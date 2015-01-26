@@ -46,6 +46,12 @@ typedef struct
 	__u32           top_field_first;        //video infomation <0-is not top_field_first; 1-is top_field_first>
 }__di_para_t;
 
+typedef struct
+{
+	__u32 size;
+	void* v_addr;
+	unsigned long p_addr;
+}__di_mem_t;
 
 s32 di_set_reg_base(void* base);
 void* di_get_reg_base(void);

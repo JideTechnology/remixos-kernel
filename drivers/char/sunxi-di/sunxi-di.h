@@ -4,24 +4,18 @@
 #include <linux/types.h>
 #include "di.h"
 
+//#define DI_RESERVED_MEM
+
 #define DI_MODULE_NAME "deinterlace"
 #define DI_TIMEOUT                      15                    /* DI-Interlace 15ms timeout */
 #define DI_MODULE_TIMEOUT               0x1055
 #define FLAG_WIDTH                      (2048)
 #define FLAG_HIGH                       (1100)
 
-struct ion_parms
-{
-	struct ion_client *client;
-	struct ion_handle *handle;
-	ion_phys_addr_t phyical_address;
-	void* virtual_address;
-};
-
 typedef struct {
 	void __iomem *base_addr;
-	struct ion_parms mem_in_params;
-	struct ion_parms mem_out_params;
+	__di_mem_t mem_in_params;
+	__di_mem_t mem_out_params;
 	atomic_t     di_complete;
 	atomic_t     enable;
 	wait_queue_head_t wait;
@@ -38,6 +32,8 @@ typedef struct {
 
 #define	DI_IOC_MAGIC		'D'
 #define	DI_IOCSTART		_IOWR(DI_IOC_MAGIC, 0, __di_para_t *)
+#define	DI_IOC_REQ_MEM		_IOWR(DI_IOC_MAGIC, 1, __di_mem_t *)
+#define	DI_IOC_FREE_MEM		_IOWR(DI_IOC_MAGIC, 2, __di_mem_t *)
 
 enum {
 	DEBUG_INIT = 1U << 0,

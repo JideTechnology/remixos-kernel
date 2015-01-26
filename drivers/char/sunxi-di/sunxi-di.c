@@ -1,7 +1,7 @@
 /*
  * sunxi-di.c DE-Interlace driver
  *
- * Copyright (C) 2013-2014 allwinner.
+ * Copyright (C) 2013-2015 allwinner.
  *	Ming Li<liming@allwinnertech.com>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,8 +26,6 @@
 #include <linux/of_device.h>
 #include <linux/sys_config.h>
 #include <linux/slab.h>
-#include <linux/ion.h>
-#include <linux/ion_sunxi.h>
 #include <linux/dma-mapping.h>
 #include <asm/irq.h>
 #include "sunxi-di.h"
@@ -44,77 +42,75 @@ static struct clk *di_clk_source;
 
 static u32 debug_mask = 0x0;
 
-#ifdef CONFIG_ION_SUNXI
-static int sunxi_di_alloc(struct ion_parms* param, size_t mem_length)
+#ifdef DI_RESERVED_MEM
+#define MY_BYTE_ALIGN(x) ( ( (x + (4*1024-1)) >> 12) << 12)             /* alloc based on 4K byte */
+void *sunxi_di_alloc(u32 num_bytes, unsigned long phys_addr)
 {
-	int ret;
+	u32 actual_bytes;
+	void* address = NULL;
 
-	param->client = sunxi_ion_client_create("sunxi-di");
-	if (IS_ERR(param->client))
-	{
-		pr_err("sunxi_ion_client_create failed!! %s %s %d" , __FILE__ , __func__ , __LINE__ );
-		goto err_client;
+	if (num_bytes != 0) {
+	    actual_bytes = MY_BYTE_ALIGN(num_bytes);
+
+	    address = dma_alloc_coherent(NULL, actual_bytes, (dma_addr_t*)phys_addr, GFP_KERNEL);
+	    if (address) {
+		printk(KERN_ERR "dma_alloc_coherent ok, address=0x%p, size=0x%x\n", (void*)(*(unsigned long*)phys_addr), num_bytes);
+		return address;
+	    } else {
+		printk(KERN_ERR "dma_alloc_coherent fail, size=0x%x\n", num_bytes);
+		return NULL;
+	    }
+	} else {
+	    printk(KERN_ERR "%s size is zero\n", __func__);
 	}
 
-	param->handle=ion_alloc(param->client, mem_length, PAGE_SIZE,  ION_HEAP_TYPE_DMA_MASK , 0 );
-	if (IS_ERR(param->handle))
-	{
-		pr_err("ion_alloc failed!! %s %s %d" , __FILE__ , __func__ , __LINE__ );
-		goto err_alloc;
-	}
-
-	param->virtual_address = ion_map_kernel( param->client, param->handle);
-	if (IS_ERR(param->virtual_address))
-	{
-		pr_err("ion_map_kernel failed!! %s %s %d" , __FILE__ , __func__ , __LINE__ );
-		goto err_map_kernel;
-	}
-
-	ret = ion_phys( param->client,  param->handle, &param->phyical_address , &mem_length );
-	if( ret )
-	{
-		pr_err("ion_phys failed!! %s %s %d" , __FILE__ , __func__ , __LINE__ );
-		goto err_phys;
-	}
-
-	return 0;
-
-err_phys:
-	ion_unmap_kernel( param->client,  param->handle);
-err_map_kernel:
-	ion_free( param->client , param->handle );
-err_alloc:
-	ion_client_destroy(param->client);
-err_client:
-
-	return -1;
+	return NULL;
 }
 
-static void sunxi_di_free(struct ion_parms* param)
+void sunxi_di_free(void* virt_addr, unsigned long phys_addr, u32 num_bytes)
 {
+	u32 actual_bytes;
 
-	if ( IS_ERR_OR_NULL(param->client) || IS_ERR_OR_NULL(param->handle) || IS_ERR_OR_NULL(param->virtual_address))
-		return ;
+	actual_bytes = MY_BYTE_ALIGN(num_bytes);
+	if (phys_addr && virt_addr)
+	    dma_free_coherent(NULL, actual_bytes, virt_addr, (dma_addr_t)phys_addr);
 
-	ion_unmap_kernel( param->client,  param->handle);
-	ion_free( param->client , param->handle );
-	ion_client_destroy(param->client);
-
-	param->client = (struct ion_client *)0;
-	param->handle = (struct ion_handle *)0;
-	param->phyical_address = 0;
-	param->virtual_address = (void*)0;
-}
-#else
-static int sunxi_di_alloc(struct ion_parms* param, size_t mem_length)
-{
-	return -1;
-}
-
-static void sunxi_di_free(struct ion_parms* param)
-{
+	return ;
 }
 #endif
+
+static int di_mem_request(__di_mem_t *di_mem)
+{
+#ifndef DI_RESERVED_MEM
+	di_mem->v_addr = kzalloc(di_mem->size, GFP_KERNEL);
+	if (NULL == di_mem->v_addr) {
+		printk(KERN_ERR "%s: failed!\n", __func__);
+		return -ENOMEM;
+	}
+	di_mem->p_addr = virt_to_phys(di_mem->v_addr);
+#else
+	di_mem->v_addr = sunxi_di_alloc(di_mem->size, di_mem->p_addr);
+	if (NULL == di_mem->v_addr) {
+		printk(KERN_ERR "%s: failed!\n", __func__);
+		return -ENOMEM;
+	}
+#endif
+	return 0;
+}
+
+static int di_mem_release(__di_mem_t *di_mem)
+{
+	if (NULL == di_mem->v_addr) {
+		printk(KERN_ERR "%s: failed!\n", __func__);
+		return -1;
+	}
+#ifndef DI_RESERVED_MEM
+	kfree(di_mem->v_addr);
+#else
+	sunxi_di_free(di_mem->v_addr, di_mem->p_addr, di_mem->size);
+#endif
+  return 0;
+}
 
 static void di_complete_check_set(s32 data)
 {
@@ -323,10 +319,10 @@ static s32 sunxi_di_suspend(struct device *dev)
 		di_reset();
 		di_internal_clk_disable();
 		di_clk_disable();
-		if (NULL != di_data->in_flag)
-		sunxi_di_free(&(di_data->mem_in_params));
-		if (NULL != di_data->out_flag)
-		sunxi_di_free(&(di_data->mem_out_params));
+		if (NULL != di_data->mem_in_params.v_addr)
+		di_mem_release(&(di_data->mem_in_params));
+		if (NULL != di_data->mem_out_params.v_addr)
+		di_mem_release(&(di_data->mem_out_params));
 	}
 
 	return 0;
@@ -411,6 +407,18 @@ static long sunxi_di_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 			ret = di_complete_check_get();
 		}
 		break;
+	case DI_IOC_REQ_MEM:
+		{
+			__di_mem_t __user *di_mem = argp;
+			ret = di_mem_request(di_mem);
+		}
+		break;
+	case DI_IOC_FREE_MEM:
+		{
+			__di_mem_t __user *di_mem = argp;
+			ret = di_mem_release(di_mem);
+		}
+		break;
 	default:
 		break;
 	}
@@ -428,29 +436,25 @@ static int sunxi_di_open(struct inode *inode, struct file *file)
 
 	di_data->flag_size = (FLAG_WIDTH*FLAG_HIGH)/4;
 
-	ret = sunxi_di_alloc(&(di_data->mem_in_params), di_data->flag_size);
+	di_data->mem_in_params.size = di_data->flag_size;
+	ret = di_mem_request(&(di_data->mem_in_params));
 	if ( ret < 0 ) {
 		printk(KERN_ERR "%s: request in_flag mem failed\n", __func__);
 		return -1;
-	} else {
-		di_data->in_flag = di_data->mem_in_params.virtual_address;
-		di_data->in_flag_phy = (void*)(di_data->mem_in_params.phyical_address);
 	}
 
-	ret = sunxi_di_alloc(&(di_data->mem_out_params), di_data->flag_size);
+	di_data->mem_out_params.size = di_data->flag_size;
+	ret = di_mem_request(&(di_data->mem_out_params));
 	if ( ret < 0 ) {
 		printk(KERN_ERR "%s: request out_flag mem failed\n", __func__);
-		sunxi_di_free(&(di_data->mem_in_params));
+		di_mem_release(&(di_data->mem_in_params));
 		return -1;
-	} else {
-		di_data->out_flag = di_data->mem_out_params.virtual_address;
-		di_data->out_flag_phy = (void*)di_data->mem_out_params.phyical_address;
 	}
 
 	ret = di_clk_enable();
 	if (ret) {
-		sunxi_di_free(&(di_data->mem_in_params));
-		sunxi_di_free(&(di_data->mem_out_params));
+		di_mem_release(&(di_data->mem_in_params));
+		di_mem_release(&(di_data->mem_out_params));
 		printk(KERN_ERR "%s: enable clk failed.\n", __func__);
 		return ret;
 	}
@@ -470,10 +474,10 @@ static int sunxi_di_release(struct inode *inode, struct file *file)
 	di_reset();
 	di_internal_clk_disable();
 	di_clk_disable();
-	if (NULL != di_data->in_flag)
-		sunxi_di_free(&(di_data->mem_in_params));
-	if (NULL != di_data->out_flag)
-		sunxi_di_free(&(di_data->mem_out_params));
+	if (NULL != di_data->mem_in_params.v_addr)
+		di_mem_release(&(di_data->mem_in_params));
+	if (NULL != di_data->mem_out_params.v_addr)
+		di_mem_release(&(di_data->mem_out_params));
 
 	return 0;
 }
