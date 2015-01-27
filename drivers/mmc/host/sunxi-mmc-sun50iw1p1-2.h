@@ -1,5 +1,5 @@
-#ifndef SUNXI_MMC_SUN50IW1P1_2_H
-#define SUNXI_MMC_SUN50IW1P1_2_H
+#ifndef __SUNXI_MMC_SUN50IW1P1_2_H__
+#define __SUNXI_MMC_SUN50IW1P1_2_H__
 
 //reg
 #define SDXC_REG_EDSD		(0x010C)    /*SMHC eMMC4.5 DDR Start Bit Detection Control Register*/

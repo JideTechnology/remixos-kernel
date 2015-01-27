@@ -248,6 +248,10 @@ struct sunxi_mmc_host {
 	struct pinctrl		*pinctrl;
 	struct pinctrl_state	*pins_default;
 	struct pinctrl_state	*pins_sleep;
+
+	/*sys node*/
+	struct device_attribute maual_insert;
+	struct device_attribute dump_register;	
 };
 
 

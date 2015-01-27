@@ -49,6 +49,7 @@
 #include "sunxi-mmc-sun50iw1p1-2.h"
 #include "sunxi-mmc-sun50iw1p1-0_1.h"
 #include "sunxi-mmc-debug.h"
+#include "sunxi-mmc-export.h"
 
 static int sunxi_mmc_reset_host(struct sunxi_mmc_host *host)
 {
@@ -853,15 +854,18 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
  		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc2;
 		host->dma_tl = (0x3<<28)|(15<<16)|240;
 		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc2;
+		sunxi_mmc_reg_ex_res_inter(host,2);
  	}else if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc0")){
   		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc_01;
 		//host->dma_tl = (0x2<<28)|(15<<16)|240;
 		host->dma_tl = (0x2<<28)|(7<<16)|248;
 		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc_01;
+		sunxi_mmc_reg_ex_res_inter(host,0);
  	}else if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc1")){
  		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc_01;
 		host->dma_tl = (0x3<<28)|(15<<16)|240;
 		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc_01;
+		sunxi_mmc_reg_ex_res_inter(host,1);
  	}else{
  		host->sunxi_mmc_clk_set_rate = NULL;
 		host->dma_tl = NULL;
@@ -981,6 +985,10 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 #ifndef USE_OLD_SYS_CLK_INTERFACE
 	clk_disable_unprepare(host->clk_ahb);
 #endif
+	ret = mmc_create_sys_fs(host,pdev);
+	if(ret)
+		goto error_disable_vdmmc;
+
 	return ret;
 
 error_assert_reset:
@@ -1074,6 +1082,7 @@ static int sunxi_mmc_remove(struct platform_device *pdev)
 	disable_irq(host->irq);
 	sunxi_mmc_reset_host(host);
 
+	mmc_remove_sys_fs(host,pdev);
 
 	if (!IS_ERR(mmc->supply.vdmmc))
 			regulator_disable(mmc->supply.vdmmc);
