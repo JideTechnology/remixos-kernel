@@ -72,7 +72,7 @@
 #define HDMI_CFG			0x0150
 #define HDMI_SLOW			0x0154
 #define MBUS_CFG            0x015C
-#define MIPI_CSI            0x0168
+#define MIPI_DSI            0x0168
 #define GPU_CFG				0x01A0
 
 #define PLL_PERI1PAT		0x027C

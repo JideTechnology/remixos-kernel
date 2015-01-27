@@ -358,10 +358,10 @@ clocks {
 			compatible = "allwinner,sunxi-periph-clock";
 			clock-output-names = "mbus";
 		};	
-		clk_mipicsi: mipicsi {
+		clk_mipidsi: mipidsi {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
-			clock-output-names = "mipicsi";
+			clock-output-names = "mipidsi";
 		};		
 		clk_gpu: gpu {
 			#clock-cells = <0>;

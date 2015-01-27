@@ -710,7 +710,7 @@
 				<0x0 0x01c0c000 0x0 0x7fc>;/*lcd*/
 			interrupts = <GIC_SPI 86 0x0104>;
 			clocks = <&clk_de>,<&clk_tcon0>,
-				<&clk_lvds>,<&clk_mipicsi>,<&clk_tcon1>;
+				<&clk_lvds>,<&clk_mipidsi>,<&clk_tcon1>;
 			disp_init_enable = <1>;
 			disp_mode = <0>;
 			screen0_output_type = <1>;

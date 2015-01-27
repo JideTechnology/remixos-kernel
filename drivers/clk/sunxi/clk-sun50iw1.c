@@ -540,7 +540,7 @@ static const char *ve_parents[] = {"pll_ve"};
 static const char *adda_parents[] = {"pll_audio"};
 static const char *addax4_parents[] = {"pll_audiox4"};
 static const char *hdmi_parents[]= {"pll_video0","pll_video1","",""};
-static const char *mipicsi_parents[] = {"pll_video0", "", "pll_periph0",""};
+static const char *mipidsi_parents[] = {"pll_video0", "", "pll_periph0",""};
 static const char *gpu_parents[] = {"pll_gpu"};
 static const char *lvds_parents[] = {"tcon0"};
 static const char *ahb1mod_parents[] = {"ahb1"};
@@ -607,7 +607,7 @@ SUNXI_CLK_PERIPH(avs,      0,          0,        0,         0,          0,      
 SUNXI_CLK_PERIPH(hdmi,	   HDMI_CFG,  24,        2,         HDMI_CFG,   0,          4,          0,          0,          0,          HDMI_CFG,   BUS_RST1,  BUS_GATE1,    BUS_RST1,    31,           11,          11,             10,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(hdmi_slow,0,  		   0,        0,         0,          0,          0,          0,          0,          0,          HDMI_SLOW,  0,          0,           0,           31,            0,           0,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(mbus,    MBUS_CFG,   24,        2,         MBUS_CFG,   0,          3,          0,          0,          0,          MBUS_CFG,   MBUS_RST,   0,           0,           31,           31,           0,              0,               &clk_lock,NULL,             0);
-SUNXI_CLK_PERIPH(mipicsi, MIPI_CSI,    8,        2,         MIPI_CSI,   0,          4,          0,          0,          0,          MIPI_CSI,   BUS_RST0,  BUS_GATE0,    0,           15,            1,           1,              0,               &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(mipidsi, MIPI_DSI,    8,        2,         MIPI_DSI,   0,          4,          0,          0,          0,          MIPI_DSI,   BUS_RST0,  BUS_GATE0,    0,           15,            1,           1,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(gpu,      0,          0,        0,         GPU_CFG,    0,          3,          0,          0,          0,          GPU_CFG,    BUS_RST1,  BUS_GATE1,    0,           31,           20,          20,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(usbotg,   0,          0,        0,         0,          0,          0,          0,          0,          0,          0,          BUS_RST0,  BUS_GATE0,    0,            0,           23,          23,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(gmac,     0,          0,        0,         0,          0,          0,          0,          0,          0,          0,          BUS_RST0,  BUS_GATE0,    0,            0,           17,          17,              0,               &clk_lock,NULL,             0);
@@ -675,7 +675,7 @@ struct periph_init_data sunxi_periphs_init[] = {
     {"hdmi",     0,        			    hdmi_parents,     ARRAY_SIZE(hdmi_parents),     &sunxi_clk_periph_hdmi},
     {"hdmi_slow",0,       			    hosc_parents,     ARRAY_SIZE(hosc_parents),     &sunxi_clk_periph_hdmi_slow},
     {"mbus",     0,       				mbus_parents,     ARRAY_SIZE(mbus_parents),     &sunxi_clk_periph_mbus},
-    {"mipicsi",  0,       				mipicsi_parents,  ARRAY_SIZE(mipicsi_parents),  &sunxi_clk_periph_mipicsi},
+    {"mipidsi",  0,       				mipidsi_parents,  ARRAY_SIZE(mipidsi_parents),  &sunxi_clk_periph_mipidsi},
     {"gpu",      0,       				gpu_parents,      ARRAY_SIZE(gpu_parents),      &sunxi_clk_periph_gpu},
     {"usbehci0", 0,       				ahb1mod_parents,  ARRAY_SIZE(ahb1mod_parents),  &sunxi_clk_periph_usbehci0},
     {"usbehci1", 0,       				ahb1mod_parents,  ARRAY_SIZE(ahb1mod_parents),  &sunxi_clk_periph_usbehci1},
