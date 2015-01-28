@@ -281,19 +281,25 @@ static void sunxi_set_clk_dly(struct sunxi_mmc_host *host,int clk,int bus_width,
 
 
 
-//???? do not use lower power mode at all
-static int sunxi_mmc_oclk_onoff(struct sunxi_mmc_host *host, u32 oclk_en)
+
+static int __sunxi_mmc_do_oclk_onoff(struct sunxi_mmc_host *host, u32 oclk_en,u32 pwr_save,u32 ignore_dat0)
 {
 	unsigned long expire = jiffies + msecs_to_jiffies(250);
 	u32 rval;
 
 	rval = mmc_readl(host, REG_CLKCR);
-	rval &= ~(SDXC_CARD_CLOCK_ON | SDXC_LOW_POWER_ON);
+	rval &= ~(SDXC_CARD_CLOCK_ON | SDXC_LOW_POWER_ON | SDXC_MASK_DATA0);
 
 	if (oclk_en)
 		rval |= SDXC_CARD_CLOCK_ON;
+	if(pwr_save)
+		rval |= SDXC_LOW_POWER_ON;
+	if(ignore_dat0)
+		rval |= SDXC_MASK_DATA0;
 
 	mmc_writel(host, REG_CLKCR, rval);
+
+	dev_dbg(mmc_dev(host->mmc), "%s REG_CLKCR:%x\n",__FUNCTION__,mmc_readl(host,REG_CLKCR));
 
 	rval = SDXC_START | SDXC_UPCLK_ONLY | SDXC_WAIT_PRE_OVER;
 	mmc_writel(host, REG_CMDR, rval);
@@ -314,6 +320,23 @@ static int sunxi_mmc_oclk_onoff(struct sunxi_mmc_host *host, u32 oclk_en)
 	return 0;
 }
 
+static int sunxi_mmc_oclk_onoff(struct sunxi_mmc_host *host, u32 oclk_en)
+{
+	struct device_node *np 		= NULL;
+	struct mmc_host *mmc 	= host->mmc;
+	int pwr_save = 0;
+	int len	= 0;
+
+	if (!mmc->parent || !mmc->parent->of_node){
+		dev_err(mmc_dev(host->mmc), "no dts to parse power save mode\n");
+		return -EIO; ;
+	}
+
+	np = mmc->parent->of_node;
+	if (of_find_property(np, "sunxi-power-save-mode", &len))
+		pwr_save = 1;
+	return __sunxi_mmc_do_oclk_onoff(host,oclk_en,pwr_save,1);
+}
 int sunxi_mmc_clk_set_rate_for_sdmmc2(struct sunxi_mmc_host *host,
 				  struct mmc_ios *ios)
 {
@@ -327,6 +350,13 @@ int sunxi_mmc_clk_set_rate_for_sdmmc2(struct sunxi_mmc_host *host,
 	struct clk *sclk = NULL;
 	struct device *dev = mmc_dev(host->mmc);
 	int div = 0;
+
+	if(ios->clock == 0){
+		__sunxi_mmc_do_oclk_onoff(host, 0,0,1);
+		return 0;
+	}
+
+
 
 	if((ios->bus_width == MMC_BUS_WIDTH_8)\
 		&&(ios->timing == MMC_TIMING_UHS_DDR50)\

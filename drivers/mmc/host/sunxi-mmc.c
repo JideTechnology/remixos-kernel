@@ -69,6 +69,13 @@ static int sunxi_mmc_reset_host(struct sunxi_mmc_host *host)
 	return 0;
 }
 
+
+void sunxi_mmc_set_a12a(struct sunxi_mmc_host *host)
+{
+	mmc_writel(host,REG_A12A,0);
+}
+
+
 static int sunxi_mmc_init_host(struct mmc_host *mmc)
 {
 	u32 rval;
@@ -91,6 +98,9 @@ static int sunxi_mmc_init_host(struct mmc_host *mmc)
 	rval &= ~SDXC_ACCESS_DONE_DIRECT;
 	mmc_writel(host, REG_GCTRL, rval);
 
+	if(host->sunxi_mmc_set_acmda){
+		host->sunxi_mmc_set_acmda(host);
+	}
 	return 0;
 }
 
@@ -881,6 +891,7 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		host->sunxi_mmc_save_spec_reg = sunxi_mmc_save_spec_reg_2;
 		host->sunxi_mmc_restore_spec_reg = sunxi_mmc_save_spec_reg_2;
 		sunxi_mmc_reg_ex_res_inter(host,2);
+		host->sunxi_mmc_set_acmda = sunxi_mmc_set_a12a;
  	}else if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc0")){
   		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc_01;
 		//host->dma_tl = (0x2<<28)|(15<<16)|240;
@@ -889,6 +900,7 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		host->sunxi_mmc_save_spec_reg = sunxi_mmc_save_spec_reg_01;
 		host->sunxi_mmc_restore_spec_reg = sunxi_mmc_save_spec_reg_01;		
 		sunxi_mmc_reg_ex_res_inter(host,0);
+		host->sunxi_mmc_set_acmda = sunxi_mmc_set_a12a;
  	}else if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc1")){
  		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc_01;
 		host->dma_tl = (0x3<<28)|(15<<16)|240;
@@ -896,12 +908,14 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		host->sunxi_mmc_save_spec_reg = sunxi_mmc_save_spec_reg_01;
 		host->sunxi_mmc_restore_spec_reg = sunxi_mmc_save_spec_reg_01;		
 		sunxi_mmc_reg_ex_res_inter(host,1);
+		host->sunxi_mmc_set_acmda = sunxi_mmc_set_a12a;
  	}else{
  		host->sunxi_mmc_clk_set_rate = NULL;
 		host->dma_tl = NULL;
 		host->sunxi_mmc_thld_ctl = NULL;
 		host->sunxi_mmc_save_spec_reg = NULL;
 		host->sunxi_mmc_restore_spec_reg = NULL;
+		host->sunxi_mmc_set_acmda = NULL;
  	}
 
 
@@ -1176,6 +1190,9 @@ void sunxi_mmc_regs_restore(struct sunxi_mmc_host* host)
 
 	if(host->sunxi_mmc_restore_spec_reg)
 		host->sunxi_mmc_restore_spec_reg(host);
+	if(host->sunxi_mmc_set_acmda){
+		host->sunxi_mmc_set_acmda(host);
+	}
 }
 
 

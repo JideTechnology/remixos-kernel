@@ -54,6 +54,7 @@
 #define SDXC_REG_CBCR	(0x48) /* SMC CIU Byte Count Register */
 #define SDXC_REG_BBCR	(0x4C) /* SMC BIU Byte Count Register */
 #define SDXC_REG_DBGC	(0x50) /* SMC Debug Enable Register */
+#define SDXC_REG_A12A		(0x58 )		//auto cmd12 arg
 #define SDXC_REG_HWRST	(0x78) /* SMC Card Hardware Reset for Register */
 #define SDXC_REG_DMAC	(0x80) /* SMC IDMAC Control Register */
 #define SDXC_REG_DLBA	(0x84) /* SMC IDMAC Descriptor List Base Addre */
@@ -272,6 +273,8 @@ struct sunxi_mmc_host {
 	struct sunxi_mmc_ctrl_regs bak_regs;
 	void (*sunxi_mmc_save_spec_reg)(struct sunxi_mmc_host *host);
 	void (*sunxi_mmc_restore_spec_reg)(struct sunxi_mmc_host *host);
+
+	void (*sunxi_mmc_set_acmda)(struct sunxi_mmc_host *host);
 };
 
 

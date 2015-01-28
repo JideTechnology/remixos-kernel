@@ -11,6 +11,8 @@
 #define SDXC_REG_SD_NTSR	(0x005C)	/*SMHC NewTiming Set Register*/
 
 
+
+
 //bit
 #define SDXC_HS400_MD_EN				(1U<<31)
 #define SDXC_CARD_WR_THLD_ENB		(1U<<2)
