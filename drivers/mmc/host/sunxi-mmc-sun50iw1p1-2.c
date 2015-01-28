@@ -128,6 +128,20 @@ static struct sunxi_mmc_clk_dly mmc_clk_dly[mmc_clk_mod_num] = {
 					 },
 };
 
+
+static struct sunxi_mmc_spec_regs {
+	u32 drv_dl;//REG_DRV_DL
+	u32 samp_dl;//REG_SAMP_DL
+	u32 ds_dl;//REG_DS_DL
+	//u32 sd_ntsr;//REG_SD_NTSR
+	u32 edsd;//REG_EDSD
+	u32 csdc;//REG_CSDC
+};
+
+static struct sunxi_mmc_spec_regs bak_spec_regs;
+
+
+
 /*
 static int sunxi_of_parse_clk_dly(struct sunxi_mmc_host *host)
 {
@@ -465,6 +479,25 @@ void sunxi_mmc_thld_ctl_for_sdmmc2(struct sunxi_mmc_host *host,
 }
 
 
+void sunxi_mmc_save_spec_reg_2(struct sunxi_mmc_host *host)
+{
+	bak_spec_regs.drv_dl	= mmc_readl(host,REG_DRV_DL);
+	bak_spec_regs.samp_dl	= mmc_readl(host,REG_SAMP_DL);
+	bak_spec_regs.ds_dl		= mmc_readl(host,REG_DS_DL);
+	//bak_spec_regs.sd_ntsr	= mmc_readl(host,REG_SD_NTSR);
+	bak_spec_regs.edsd		= mmc_readl(host,REG_EDSD);
+	bak_spec_regs.csdc		= mmc_readl(host,REG_CSDC);
+}
+
+void sunxi_mmc_restore_spec_reg_2(struct sunxi_mmc_host *host)
+{
+	mmc_writel(host,REG_DRV_DL,bak_spec_regs.drv_dl);
+	mmc_writel(host,REG_SAMP_DL,bak_spec_regs.samp_dl);
+	mmc_writel(host,REG_DS_DL,bak_spec_regs.ds_dl);
+	//mmc_writel(host,REG_SD_NTSR,bak_spec_regs.sd_ntsr);
+	mmc_writel(host,REG_EDSD,bak_spec_regs.edsd);
+	mmc_writel(host,REG_CSDC,bak_spec_regs.csdc);
+}
 
 
 

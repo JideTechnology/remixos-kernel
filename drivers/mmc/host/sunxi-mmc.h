@@ -210,6 +210,21 @@ struct sunxi_idma_des {
 	u32	buf_addr_ptr2;
 };
 
+
+struct sunxi_mmc_ctrl_regs {
+	u32 gctrl;
+	u32 clkc;
+	u32 timeout;
+	u32 buswid;
+	u32 waterlvl;
+	u32 funcsel;
+	u32 debugc;
+	u32 idmacc;
+	u32 dlba;
+	u32 imask;
+};
+
+
 struct sunxi_mmc_host {
 	struct mmc_host	*mmc;
 	struct reset_control *reset;
@@ -251,7 +266,12 @@ struct sunxi_mmc_host {
 
 	/*sys node*/
 	struct device_attribute maual_insert;
-	struct device_attribute dump_register;	
+	struct device_attribute dump_register;
+
+	/* backup register structrue */
+	struct sunxi_mmc_ctrl_regs bak_regs;
+	void (*sunxi_mmc_save_spec_reg)(struct sunxi_mmc_host *host);
+	void (*sunxi_mmc_restore_spec_reg)(struct sunxi_mmc_host *host);
 };
 
 

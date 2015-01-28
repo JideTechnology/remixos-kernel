@@ -486,6 +486,30 @@ static int sunxi_mmc_clk_set_rate(struct sunxi_mmc_host *host,
 }
 #endif
 
+s32 sunxi_mmc_update_clk(struct sunxi_mmc_host* host)
+{
+  	u32 rval;
+	unsigned long expire = jiffies + msecs_to_jiffies(1000);	//1000ms timeout
+  	s32 ret = 0;
+
+	rval = SDXC_START | SDXC_UPCLK_ONLY | SDXC_WAIT_PRE_OVER;
+	//if (smc_host->voltage_switching)
+	//	rval |= SDXC_VolSwitch;
+	mmc_writel(host, REG_CMDR, rval);
+
+	do {
+		rval = mmc_readl(host, REG_CMDR);
+	} while (time_before(jiffies, expire) && (rval & SDXC_START));
+
+	if (rval & SDXC_START) {
+		dev_err(mmc_dev(host->mmc), "update clock timeout, fatal error!!!\n");
+		ret = -EIO;
+	}
+
+	return ret;
+}
+
+
 static void sunxi_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 {
 	struct sunxi_mmc_host *host = mmc_priv(mmc);
@@ -649,7 +673,7 @@ static int	sunxi_mmc_signal_voltage_switch(struct mmc_host *mmc, struct mmc_ios 
 
 	switch (ios->signal_voltage) {
 	case MMC_SIGNAL_VOLTAGE_330:
-		if (vqmmc) {
+		if (!IS_ERR(vqmmc)) {
 			ret = regulator_set_voltage(vqmmc, 2700000, 3600000);
 			if (ret) {
 				dev_err(mmc_dev(mmc),"Switching to 3.3V signalling voltage "
@@ -664,7 +688,7 @@ static int	sunxi_mmc_signal_voltage_switch(struct mmc_host *mmc, struct mmc_ios 
 		//usleep_range(5000, 5500);
 		return 0;
 	case MMC_SIGNAL_VOLTAGE_180:
-		if (vqmmc) {
+		if (!IS_ERR(vqmmc)) {
 			ret = regulator_set_voltage(vqmmc,
 					1700000, 1950000);
 			if (ret) {
@@ -681,7 +705,7 @@ static int	sunxi_mmc_signal_voltage_switch(struct mmc_host *mmc, struct mmc_ios 
 		//usleep_range(5000, 5500);
 		return 0;
 	case MMC_SIGNAL_VOLTAGE_120:
-		if (vqmmc) {
+		if (!IS_ERR(vqmmc)) {
 			ret = regulator_set_voltage(vqmmc, 1100000, 1300000);
 			if (ret) {
 				dev_err(mmc_dev(mmc),"Switching to 1.2V signalling voltage "
@@ -854,31 +878,45 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
  		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc2;
 		host->dma_tl = (0x3<<28)|(15<<16)|240;
 		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc2;
+		host->sunxi_mmc_save_spec_reg = sunxi_mmc_save_spec_reg_2;
+		host->sunxi_mmc_restore_spec_reg = sunxi_mmc_save_spec_reg_2;
 		sunxi_mmc_reg_ex_res_inter(host,2);
  	}else if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc0")){
   		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc_01;
 		//host->dma_tl = (0x2<<28)|(15<<16)|240;
 		host->dma_tl = (0x2<<28)|(7<<16)|248;
 		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc_01;
+		host->sunxi_mmc_save_spec_reg = sunxi_mmc_save_spec_reg_01;
+		host->sunxi_mmc_restore_spec_reg = sunxi_mmc_save_spec_reg_01;		
 		sunxi_mmc_reg_ex_res_inter(host,0);
  	}else if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc1")){
  		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc_01;
 		host->dma_tl = (0x3<<28)|(15<<16)|240;
 		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc_01;
+		host->sunxi_mmc_save_spec_reg = sunxi_mmc_save_spec_reg_01;
+		host->sunxi_mmc_restore_spec_reg = sunxi_mmc_save_spec_reg_01;		
 		sunxi_mmc_reg_ex_res_inter(host,1);
  	}else{
  		host->sunxi_mmc_clk_set_rate = NULL;
 		host->dma_tl = NULL;
 		host->sunxi_mmc_thld_ctl = NULL;
+		host->sunxi_mmc_save_spec_reg = NULL;
+		host->sunxi_mmc_restore_spec_reg = NULL;
  	}
 
 
 	ret = mmc_regulator_get_supply(host->mmc);
 	if (ret) {
-		if (ret != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Could not get vmmc supply\n");
-		return ret;
+		if(ret == -EPROBE_DEFER){
+			dev_err(&pdev->dev, "Power supply is not ready\n");
+			return ret;
+		}else{
+			dev_err(&pdev->dev, "Could not get power supply,used default ocr\n");
+		}		
 	}
+	if (!host->mmc->ocr_avail)
+			host->mmc->ocr_avail = MMC_VDD_28_29 | MMC_VDD_29_30 | MMC_VDD_30_31 \
+									| MMC_VDD_31_32| MMC_VDD_32_33 | MMC_VDD_33_34;
 
 	//enable card detect pin power
 	if (!IS_ERR(host->mmc->supply.vdmmc)) {
@@ -1096,6 +1134,52 @@ static int sunxi_mmc_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_PM
 
+void sunxi_mmc_regs_save(struct sunxi_mmc_host* host)
+{
+	struct sunxi_mmc_ctrl_regs* bak_regs = &host->bak_regs;
+
+	/*save public register*/
+	bak_regs->gctrl		= mmc_readl(host, REG_GCTRL);
+	bak_regs->clkc		= mmc_readl(host, REG_CLKCR);
+	bak_regs->timeout	= mmc_readl(host, REG_TMOUT);
+	bak_regs->buswid	= mmc_readl(host, REG_WIDTH);
+	bak_regs->waterlvl	= mmc_readl(host, REG_FTRGL);
+	bak_regs->funcsel	= mmc_readl(host, REG_FUNS);
+	bak_regs->debugc	= mmc_readl(host, REG_DBGC);
+	bak_regs->idmacc	= mmc_readl(host, REG_DMAC);
+	bak_regs->dlba		= mmc_readl(host, REG_DLBA);
+	bak_regs->imask		= mmc_readl(host, REG_IMASK);
+
+	//to do SMHC_A12A
+
+	if(host->sunxi_mmc_save_spec_reg)
+		host->sunxi_mmc_save_spec_reg(host);
+}
+
+void sunxi_mmc_regs_restore(struct sunxi_mmc_host* host)
+{
+	struct sunxi_mmc_ctrl_regs* bak_regs = &host->bak_regs;
+
+	/*restore public register*/
+	mmc_writel(host, REG_GCTRL, bak_regs->gctrl   );
+	mmc_writel(host, REG_CLKCR, bak_regs->clkc    );
+	mmc_writel(host, REG_TMOUT, bak_regs->timeout );
+	mmc_writel(host, REG_WIDTH, bak_regs->buswid  );
+	mmc_writel(host, REG_FTRGL, bak_regs->waterlvl);
+	mmc_writel(host, REG_FUNS , bak_regs->funcsel );
+	mmc_writel(host, REG_DBGC , bak_regs->debugc  );
+	mmc_writel(host, REG_DMAC , bak_regs->idmacc  );
+	mmc_writel(host, REG_DLBA , bak_regs->dlba	);
+	mmc_writel(host, REG_IMASK , bak_regs->dlba	);
+
+	//to do SMHC_A12A
+
+	if(host->sunxi_mmc_restore_spec_reg)
+		host->sunxi_mmc_restore_spec_reg(host);
+}
+
+
+
 static int sunxi_mmc_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -1107,6 +1191,22 @@ static int sunxi_mmc_suspend(struct device *dev)
 		if(!ret){
 			if (!IS_ERR(mmc->supply.vdmmc))
 					regulator_disable(mmc->supply.vdmmc);
+
+			if(mmc_card_keep_power(mmc)){
+				struct sunxi_mmc_host *host = mmc_priv(mmc);
+				sunxi_mmc_regs_save(host);
+#ifndef USE_OLD_SYS_CLK_INTERFACE
+				if (!IS_ERR(host->reset))
+					reset_control_assert(host->reset);
+#endif
+				clk_disable_unprepare(host->clk_mmc);
+#ifndef USE_OLD_SYS_CLK_INTERFACE
+				clk_disable_unprepare(host->clk_ahb);
+#endif
+				rval = pinctrl_select_state(host->pinctrl, host->pins_sleep);
+				if (rval)
+					dev_warn(mmc_dev(mmc), "could not set sleep pins\n");				
+			}
 		}
       }
 
@@ -1121,6 +1221,36 @@ static int sunxi_mmc_resume(struct device *dev)
 	int ret = 0;
 
 	if (mmc) {
+		if (mmc_card_keep_power(mmc)){
+			struct sunxi_mmc_host *host = mmc_priv(mmc);
+			rval = pinctrl_select_state(host->pinctrl, host->pins_default);
+			if (rval)
+				dev_warn(mmc_dev(mmc), "could not set default pins\n");
+#ifndef USE_OLD_SYS_CLK_INTERFACE
+			rval = clk_prepare_enable(host->clk_ahb);
+			if (rval) {
+				dev_err(mmc_dev(mmc), "Enable ahb clk err %d\n", rval);
+				return;
+			}
+#endif
+			rval = clk_prepare_enable(host->clk_mmc);
+			if (rval) {
+				dev_err(mmc_dev(mmc), "Enable mmc clk err %d\n", rval);
+				return;
+			}
+#ifndef USE_OLD_SYS_CLK_INTERFACE
+			if (!IS_ERR(host->reset)) {
+				rval = reset_control_deassert(host->reset);
+				if (rval) {
+					dev_err(mmc_dev(mmc), "reset err %d\n", rval);
+					return;
+				}
+			}			
+#endif
+			sunxi_mmc_regs_restore(host);
+			host->ferror = sunxi_mmc_update_clk(host);
+		}
+
 		//enable card detect pin power
 		if (!IS_ERR(mmc->supply.vdmmc)) {
 			ret = regulator_enable(mmc->supply.vdmmc);
