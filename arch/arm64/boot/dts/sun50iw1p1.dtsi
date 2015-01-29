@@ -815,7 +815,7 @@
 			clocks = <&clk_ce>,
 					 <&clk_pll_periph0>;
 		};
-		deinterlace@0x01e00000{
+		di:deinterlace@0x01e00000{
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "allwinner,sunxi-deinterlace";
@@ -824,7 +824,7 @@
 			clocks = <&clk_deinterlace> ,<&clk_pll_periph0>;
 			status = "okay";
 		};
-		smartcard@0x01c2c400{
+		smc:smartcard@0x01c2c400{
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "allwinner,sunxi-scr";
@@ -836,8 +836,8 @@
 			pinctrl-0 = <&scr_pins_a>;
 			status = "okay";
 		};
-		pmu1@0{
-			compatible = "allwinner,pmu1";
+		pmu0:pmu0@0{
+			compatible = "allwinner,pmu0";
 			pmu_batdeten               = <1>;
 			pmu_init_chgend_rate       = <20>;
 			pmu_init_chg_enabled       = <1>;
@@ -864,8 +864,8 @@
 			pmu_bat_shutdown_htf       = <237>;  /* add by superm for debug */
 			status = "okay";
 		};
-		pmu1_regu@0{
-			compatible = "allwinner,pmu1_regu";
+		pmu0_regu:regu@0{
+			compatible = "allwinner,pmu0_regu";
 			regulator_count = <23>;
 			regulator1      = "axp81x_dcdc1 none vcc-nand vcc-nor vcc-usb0-33 vcc-card vcc-io vcc-wifi-io vcc-io1 vcc-io2 vcc-sensor vcc-camera-33";
 			regulator2      = "axp81x_dcdc2 none vdd-cpua";

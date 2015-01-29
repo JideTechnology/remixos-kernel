@@ -20,7 +20,7 @@ s32 axp_fetch_sysconfig_para(char * pmu_type, struct axp_config_info *axp_config
 {
 	s32 ret;
 
-	ret = axp_script_parser_fetch(pmu_type, "pmu_used", &axp_config->pmu_used, sizeof(u32));
+	ret = axp_script_parser_fetch(pmu_type, "used", &axp_config->pmu_used, sizeof(u32));
 	if (ret)
 		return -1;
 	if (axp_config->pmu_used) {
