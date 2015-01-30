@@ -62,7 +62,7 @@ static ssize_t maual_insert_store(struct device *dev, struct device_attribute *a
 	int ret;
 	char *end;
 	unsigned long insert = simple_strtoul(buf, &end, 0);
-	struct platfrom_device *pdev = to_platform_device(dev);
+	const struct platfrom_device *pdev = to_platform_device(dev);
 	struct mmc_host	*mmc = platform_get_drvdata(pdev);
 	if (end == buf) {
 		ret = -EINVAL;

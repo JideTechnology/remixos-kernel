@@ -623,8 +623,7 @@ int sunxi_mmc_clk_set_rate_for_sdmmc2(struct sunxi_mmc_host *host,
 		sclk_name = "pll_periph0";
 	}
 	if (IS_ERR(sclk)) {
-		//SMC_ERR(smc_host, "Error to get source clock %s %d\n", sclk_name, (int)sclk);
-		dev_err(mmc_dev(host->mmc), "Error to get source clock %s %d\n",sclk_name , (int)sclk);
+		dev_err(mmc_dev(host->mmc), "Error to get source clock %s\n",sclk_name);
 		return -1;
 	}
 

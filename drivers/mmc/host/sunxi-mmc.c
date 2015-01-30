@@ -1004,7 +1004,7 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		host->sunxi_mmc_set_acmda = sunxi_mmc_set_a12a;
  	}else{
  		host->sunxi_mmc_clk_set_rate = NULL;
-		host->dma_tl = NULL;
+		host->dma_tl = 0;
 		host->sunxi_mmc_thld_ctl = NULL;
 		host->sunxi_mmc_save_spec_reg = NULL;
 		host->sunxi_mmc_restore_spec_reg = NULL;
@@ -1140,8 +1140,9 @@ error_assert_reset:
 #ifndef USE_OLD_SYS_CLK_INTERFACE
 	if (!IS_ERR(host->reset))
 		reset_control_assert(host->reset);
-#endif
 error_disable_clk_mmc:
+#endif
+
 	clk_disable_unprepare(host->clk_mmc);
 error_disable_clk_ahb:
 	clk_disable_unprepare(host->clk_ahb);
@@ -1166,6 +1167,7 @@ static int sunxi_mmc_probe(struct platform_device *pdev)
 	host = mmc_priv(mmc);
 	host->mmc = mmc;
 	spin_lock_init(&host->lock);
+
 
 	ret = sunxi_mmc_resource_request(host, pdev);
 	if (ret)
@@ -1392,7 +1394,7 @@ void sunxi_shutdown_mmc(struct platform_device * pdev)
 	struct sunxi_mmc_host *host = mmc_priv(mmc);	
 	
 	if(host->sunxi_mmc_shutdown){
-		host->sunxi_mmc_shutdown(host);
+		host->sunxi_mmc_shutdown(pdev);
 	}
 }
 

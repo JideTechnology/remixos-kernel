@@ -278,7 +278,7 @@ struct sunxi_mmc_host {
 
 	void (*sunxi_mmc_set_acmda)(struct sunxi_mmc_host *host);
 
-	void (*sunxi_mmc_shutdown)(struct sunxi_mmc_host *host);
+	void (*sunxi_mmc_shutdown)(struct platform_device * pdev);
 };
 
 

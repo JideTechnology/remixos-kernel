@@ -414,8 +414,7 @@ int sunxi_mmc_clk_set_rate_for_sdmmc_01(struct sunxi_mmc_host *host,
 		sclk_name = "pll_periph0";
 	}
 	if (IS_ERR(sclk)) {
-		//SMC_ERR(smc_host, "Error to get source clock %s %d\n", sclk_name, (int)sclk);
-		dev_err(mmc_dev(host->mmc), "Error to get source clock %s %d\n",sclk_name , (int)sclk);
+		dev_err(mmc_dev(host->mmc), "Error to get source clock %s\n",sclk_name );
 		return -1;
 	}
 
@@ -430,13 +429,10 @@ int sunxi_mmc_clk_set_rate_for_sdmmc_01(struct sunxi_mmc_host *host,
 
 	rate = clk_round_rate(mclk, mod_clk);
 
-	//SMC_DBG(smc_host, "sdc%d before set round clock %d\n", smc_host->host_id, rate);
 	dev_err(mmc_dev(host->mmc),"get round rate %d\n", rate);
 
 	err = clk_set_rate(mclk, rate);
 	if (err) {
-		//SMC_ERR(smc_host, "sdc%d set mclk rate error, rate %dHz\n",
-		//				smc_host->host_id, rate);
 		dev_err(mmc_dev(host->mmc),"set mclk rate error, rate %dHz\n",rate);
 		clk_put(sclk);
 		return -1;
@@ -445,7 +441,6 @@ int sunxi_mmc_clk_set_rate_for_sdmmc_01(struct sunxi_mmc_host *host,
 	src_clk = clk_get_rate(sclk);
 	clk_put(sclk);
 
-	//SMC_DBG(smc_host, "sdc%d set round clock %d, soure clk is %d\n", smc_host->host_id, rate, src_clk);
 	dev_err(mmc_dev(host->mmc),"set round clock %d, soure clk is %d\n", rate, src_clk);
 
 #ifdef MMC_FPGA
