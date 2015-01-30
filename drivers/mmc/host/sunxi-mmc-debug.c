@@ -19,7 +19,7 @@
 #include "sunxi-mmc.h"
 #include "sunxi-mmc-debug.h"
 #include "sunxi-mmc-export.h"
-
+#include "sunxi-mmc-sun50iw1p1-2.h"
 
 void sunxi_mmc_dumphex32(struct sunxi_mmc_host* host, char* name, char* base, int len)
 {
@@ -102,6 +102,25 @@ static ssize_t dump_register_show(struct device *dev, struct device_attribute *a
 }
 
 
+static ssize_t dump_clk_dly_show(struct device *dev, struct device_attribute *attr,
+			     char *buf)
+{
+	char *p = buf;
+	struct platfrom_device *pdev = to_platform_device(dev);
+	struct mmc_host	*mmc = platform_get_drvdata(pdev);
+	struct sunxi_mmc_host *host = mmc_priv(mmc);
+
+	if(host->sunxi_mmc_dump_dly_table){
+		host->sunxi_mmc_dump_dly_table(host);
+	}else{
+		dev_warn(mmc_dev(mmc),"not found the dump dly table\n");
+	}
+
+	return p-buf;
+}
+
+
+
 int mmc_create_sys_fs(struct sunxi_mmc_host* host,struct platform_device *pdev)
 {
 	int ret;
@@ -123,6 +142,15 @@ int mmc_create_sys_fs(struct sunxi_mmc_host* host,struct platform_device *pdev)
 	if(ret)
 		return ret;
 
+
+	host->dump_clk_dly.show = dump_clk_dly_show;
+	sysfs_attr_init(host->dump_clk_dly.attr);
+	host->dump_clk_dly.attr.name = "sunxi_dump_clk_dly";
+	host->dump_clk_dly.attr.mode = S_IRUGO;
+	ret = device_create_file(&pdev->dev, &host->dump_clk_dly);
+	if(ret)
+		return ret;
+
 	
 	return ret;
 }
@@ -131,6 +159,7 @@ void mmc_remove_sys_fs(struct sunxi_mmc_host* host,struct platform_device *pdev)
 {
 	device_remove_file(&pdev->dev, &host->maual_insert);
 	device_remove_file(&pdev->dev, &host->dump_register);
+	device_remove_file(&pdev->dev, &host->dump_clk_dly);
 }
 
 

@@ -49,5 +49,7 @@ extern void sunxi_mmc_thld_ctl_for_sdmmc2(struct sunxi_mmc_host *host,
 
 void sunxi_mmc_save_spec_reg_2(struct sunxi_mmc_host *host);
 void sunxi_mmc_restore_spec_reg_2(struct sunxi_mmc_host *host);
+void sunxi_mmc_dump_dly_2(struct sunxi_mmc_host *host);
+
 
 #endif

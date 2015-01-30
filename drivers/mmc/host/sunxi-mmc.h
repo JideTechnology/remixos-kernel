@@ -268,6 +268,8 @@ struct sunxi_mmc_host {
 	/*sys node*/
 	struct device_attribute maual_insert;
 	struct device_attribute dump_register;
+	struct device_attribute dump_clk_dly;
+	void (*sunxi_mmc_dump_dly_table)(struct sunxi_mmc_host *host);
 
 	/* backup register structrue */
 	struct sunxi_mmc_ctrl_regs bak_regs;

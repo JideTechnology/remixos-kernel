@@ -890,6 +890,7 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc2;
 		host->sunxi_mmc_save_spec_reg = sunxi_mmc_save_spec_reg_2;
 		host->sunxi_mmc_restore_spec_reg = sunxi_mmc_save_spec_reg_2;
+		host->sunxi_mmc_dump_dly_table  = sunxi_mmc_dump_dly_2;
 		sunxi_mmc_reg_ex_res_inter(host,2);
 		host->sunxi_mmc_set_acmda = sunxi_mmc_set_a12a;
  	}else if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc0")){

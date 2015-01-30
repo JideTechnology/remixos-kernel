@@ -71,7 +71,7 @@ static struct sunxi_mmc_clk_dly mmc_clk_dly[mmc_clk_mod_num] = {
 						.dat_drv_ph = 0,
 						.sam_dly	= 0,
 						.ds_dly		= 0,
-						.sam_ph		= 0,						
+						.sam_ph		= 0,
 					 },
 	[mmc_clk_52M] = {
 						.cmod	  = mmc_clk_52M,
@@ -140,7 +140,7 @@ static struct sunxi_mmc_clk_dly mmc_clk_dly[mmc_clk_mod_num] = {
 };
 
 
-static struct sunxi_mmc_spec_regs {
+struct sunxi_mmc_spec_regs {
 	u32 drv_dl;//REG_DRV_DL
 	u32 samp_dl;//REG_SAMP_DL
 	u32 ds_dl;//REG_DS_DL
@@ -148,6 +148,8 @@ static struct sunxi_mmc_spec_regs {
 };
 
 static struct sunxi_mmc_spec_regs bak_spec_regs;
+
+
 
 
 
@@ -191,7 +193,7 @@ static int sunxi_of_parse_clk_dly(struct sunxi_mmc_host *host)
 }
 */
 
-static void sunxi_set_clk_dly(struct sunxi_mmc_host *host,int clk,int bus_width,int timing)
+static void sunxi_mmc_set_clk_dly(struct sunxi_mmc_host *host,int clk,int bus_width,int timing)
 {
 	struct mmc_host *mhost = host->mmc;
 	u32 rval		= 0;
@@ -471,7 +473,14 @@ int sunxi_mmc_clk_set_rate_for_sdmmc_01(struct sunxi_mmc_host *host,
 
 	//sunxi_of_parse_clk_dly(host);
 	sunxi_mmc_2xmod_onoff(host,1);
-	sunxi_set_clk_dly(host,ios->clock,ios->bus_width,ios->timing);
+
+	if(ios->timing == MMC_TIMING_UHS_DDR50){
+		ios->clock = rate>>2;
+	}else{
+		ios->clock = rate>>1;
+	}
+
+	sunxi_mmc_set_clk_dly(host,ios->clock,ios->bus_width,ios->timing);
 
 	return sunxi_mmc_oclk_onoff(host, 1);
 }
