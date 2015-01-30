@@ -115,8 +115,9 @@ static void sunxi_mmc_init_idma_des(struct sunxi_mmc_host *host,
 		pdes[i].config = SDXC_IDMAC_DES0_CH | SDXC_IDMAC_DES0_OWN |
 				 SDXC_IDMAC_DES0_DIC;
 
-		if (data->sg[i].length == max_len)
-			pdes[i].buf_size = 0; /* 0 == max_len */
+		if (data->sg[i].length > max_len)
+			//pdes[i].buf_size = 0; /* 0 == max_len */
+			dev_err(mmc_dev(host->mmc),"sg len is over one dma des transfer len\n");
 		else
 			pdes[i].buf_size = data->sg[i].length;
 
@@ -970,9 +971,9 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 	if (of_device_is_compatible(np, "allwinner,sun4i-a10-mmc")\
 		||of_device_is_compatible(np, "allwinner,sun50i-sdmmc2")\
 		)
-		host->idma_des_size_bits = 13;
+		host->idma_des_size_bits = 12;
 	else
-		host->idma_des_size_bits = 16;
+		host->idma_des_size_bits = 15;
 
 
 	if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc2")){
