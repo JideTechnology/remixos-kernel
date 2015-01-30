@@ -1846,7 +1846,7 @@ static int sunxi_spi_suspend(struct device *dev)
 	spi_disable_bus(sspi->base_addr);
 	sunxi_spi_clk_exit(sspi);
 
-	sunxi_spi_select_gpio_state(sspi->pctrl, PINCTRL_STATE_SUSPEND, master->bus_num);
+	sunxi_spi_select_gpio_state(sspi->pctrl, PINCTRL_STATE_SLEEP, master->bus_num);
 	spi_regulator_disable(dev->platform_data);
 
 	SPI_INF("[spi-%d]: suspend okay.. \n", master->bus_num);

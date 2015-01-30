@@ -1339,7 +1339,7 @@ static int sunxi_i2c_suspend(struct device *dev)
 		return -1;
 	}
 
-	twi_select_gpio_state(i2c->pctrl, PINCTRL_STATE_SUSPEND, i2c->bus_num);
+	twi_select_gpio_state(i2c->pctrl, PINCTRL_STATE_SLEEP, i2c->bus_num);
 	twi_regulator_disable(dev->platform_data);
 
 	I2C_DBG("[i2c%d] suspend okay.. \n", i2c->bus_num);

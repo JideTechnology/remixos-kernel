@@ -1390,7 +1390,7 @@ static int sw_uart_suspend(struct device *dev)
 		uart_suspend_port(&sw_uart_driver, port);
 
 		if (SW_UART_NEED_SUSPEND(port)) {
-			sw_uart_select_gpio_state(sw_uport->pctrl, PINCTRL_STATE_SUSPEND, sw_uport->id);
+			sw_uart_select_gpio_state(sw_uport->pctrl, PINCTRL_STATE_SLEEP, sw_uport->id);
 			sw_uart_regulator_disable(dev->platform_data);
 		}
 	}
