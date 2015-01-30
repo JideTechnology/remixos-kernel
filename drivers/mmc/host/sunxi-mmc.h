@@ -250,6 +250,7 @@ struct sunxi_mmc_host {
 	void		*sg_cpu;
 	bool		wait_dma;
 	u32		dma_tl;
+	u64 	dma_mask;
 
 	void (*sunxi_mmc_thld_ctl )(struct sunxi_mmc_host *host,
 				  struct mmc_ios *ios, struct mmc_data *data);

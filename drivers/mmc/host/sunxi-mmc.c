@@ -1173,6 +1173,10 @@ static int sunxi_mmc_probe(struct platform_device *pdev)
 	if (ret)
 		goto error_free_host;
 
+
+	host->dma_mask = DMA_BIT_MASK(32);
+	pdev->dev.dma_mask = &host->dma_mask;
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
 	host->sg_cpu = dma_alloc_coherent(&pdev->dev, PAGE_SIZE,
 					  &host->sg_dma, GFP_KERNEL);
 	if (!host->sg_cpu) {
