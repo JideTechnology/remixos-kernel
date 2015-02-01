@@ -587,6 +587,8 @@ static void sunxi_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		if(!host->power_on){
 			break;
 		}
+		
+		disable_irq(host->irq);		
 		sunxi_mmc_reset_host(host);
 
 #ifndef USE_OLD_SYS_CLK_INTERFACE
@@ -608,7 +610,6 @@ static void sunxi_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		if (!IS_ERR(mmc->supply.vmmc))
 			mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, 0);
 
-		disable_irq(host->irq);
 
 		host->power_on = 0;
 		dev_dbg(mmc_dev(mmc), "power off!\n");
@@ -1308,6 +1309,7 @@ static int sunxi_mmc_suspend(struct device *dev)
 
 			if(mmc_card_keep_power(mmc)){
 				struct sunxi_mmc_host *host = mmc_priv(mmc);
+				disable_irq(host->irq);
 				sunxi_mmc_regs_save(host);
 #ifndef USE_OLD_SYS_CLK_INTERFACE
 				if (!IS_ERR(host->reset))
@@ -1319,7 +1321,13 @@ static int sunxi_mmc_suspend(struct device *dev)
 #endif
 				rval = pinctrl_select_state(host->pinctrl, host->pins_sleep);
 				if (rval)
-					dev_warn(mmc_dev(mmc), "could not set sleep pins\n");				
+					dev_warn(mmc_dev(mmc), "could not set sleep pins\n");
+				if (!IS_ERR(mmc->supply.vqmmc))
+					regulator_disable(mmc->supply.vqmmc);
+
+				if (!IS_ERR(mmc->supply.vmmc))
+					mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, 0);	
+					
 			}
 		}
       }
@@ -1337,6 +1345,17 @@ static int sunxi_mmc_resume(struct device *dev)
 	if (mmc) {
 		if (mmc_card_keep_power(mmc)){
 			struct sunxi_mmc_host *host = mmc_priv(mmc);
+
+			if (!IS_ERR(mmc->supply.vmmc))
+				mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, ios->vdd);
+			
+			if (!IS_ERR(mmc->supply.vqmmc)) {
+				rval = regulator_enable(mmc->supply.vqmmc);
+				if (rval < 0)
+					dev_err(mmc_dev(mmc),
+						"failed to enable vqmmc regulator\n");
+			}
+			
 			rval = pinctrl_select_state(host->pinctrl, host->pins_default);
 			if (rval)
 				dev_warn(mmc_dev(mmc), "could not set default pins\n");
@@ -1361,8 +1380,17 @@ static int sunxi_mmc_resume(struct device *dev)
 				}
 			}			
 #endif
+
+			host->ferror = sunxi_mmc_init_host(mmc);
+			if (host->ferror)
+				return -1;
+		
 			sunxi_mmc_regs_restore(host);
 			host->ferror = sunxi_mmc_update_clk(host);
+			if (host->ferror)
+				return -1;
+
+			enable_irq(host->irq);
 		}
 
 		//enable card detect pin power
