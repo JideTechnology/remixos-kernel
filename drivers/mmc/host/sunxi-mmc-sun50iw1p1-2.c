@@ -293,80 +293,54 @@ enum sunxi_mmc_speed_mode
 struct sunxi_mmc_clk_dly {
 	enum sunxi_mmc_speed_mode spm;
 	char *mod_str;
-	u32 init;
 	char *raw_tm_sm_str[2];
 	u32 raw_tm_sm[2];
-	u32 cmd_drv_ph;
-	u32 dat_drv_ph;
-	u32 sam_dly;
-	u32 ds_dly;
 };
+
 
 static struct sunxi_mmc_clk_dly mmc_clk_dly[SM_NUM] = {
 	[SM0_DS26_SDR12] = {
 						.spm	  = SM0_DS26_SDR12,
 						.mod_str=  "DS26_SDR12",
-						.init	  = 0,
 						.raw_tm_sm_str[0] = "sdc_tm4_sm0_freq0",
 						.raw_tm_sm_str[1] = "sdc_tm4_sm0_freq1",
 						.raw_tm_sm [0] = 0,
 						.raw_tm_sm [1] = 0,
-						.cmd_drv_ph = 1,
-						.dat_drv_ph = 0,
-						.sam_dly	= 0,
-						.ds_dly		= 0,
+
 					 },
 	[SM1_HSSDR52_SDR25] = {
 						.spm	  = SM1_HSSDR52_SDR25,
 						.mod_str	=  "HSSDR52_SDR25",
-						.init	  = 0,
 						.raw_tm_sm_str[0] = "sdc_tm4_sm1_freq0",
 						.raw_tm_sm_str[1] = "sdc_tm4_sm1_freq1",
 						.raw_tm_sm [0] = 0,
 						.raw_tm_sm [1] = 0,
-						.cmd_drv_ph = 1,
-						.dat_drv_ph = 0,
-						.sam_dly	= 0,
-						.ds_dly		= 0,
+
 					 },
 	[SM2_HSDDR52_DDR50] = {
 						.spm	  = SM2_HSDDR52_DDR50,
 						.mod_str	=  "HSDDR52_DDR50",
-						.init	  = 0,
 						.raw_tm_sm_str[0] = "sdc_tm4_sm2_freq0",
 						.raw_tm_sm_str[1] = "sdc_tm4_sm2_freq1",
 						.raw_tm_sm [0] = 0,
 						.raw_tm_sm [1] = 0,
-						.cmd_drv_ph = 1,
-						.dat_drv_ph = 0,
-						.sam_dly	= 0,
-						.ds_dly		= 0,
+
 					 },
 	[SM3_HS200_SDR104] = {
 						.spm	  = SM3_HS200_SDR104,
 						.mod_str	=  "HS200_SDR104",
-						.init	  = 0,
 						.raw_tm_sm_str[0] = "sdc_tm4_sm3_freq0",
 						.raw_tm_sm_str[1] = "sdc_tm4_sm3_freq1",
 						.raw_tm_sm [0] = 0,
 						.raw_tm_sm [1] = 0,
-						.cmd_drv_ph = 1,
-						.dat_drv_ph = 0,
-						.sam_dly	= 0,
-						.ds_dly		= 0,
 					 },
 	[SM4_HS400] = {
 						.spm	  = SM4_HS400,
 						.mod_str	=  "HS400",
-						.init	  = 0,
 						.raw_tm_sm_str[0] = "sdc_tm4_sm4_freq0",
 						.raw_tm_sm_str[1] = "sdc_tm4_sm4_freq1",
 						.raw_tm_sm [0] = 0,
 						.raw_tm_sm [1] = 0,
-						.cmd_drv_ph = 1,
-						.dat_drv_ph = 0,
-						.sam_dly	= 0,
-						.ds_dly		= 0,
 					 },
 };
 
@@ -377,14 +351,17 @@ static void sunxi_mmc_set_clk_dly(struct sunxi_mmc_host *host,int clk,int bus_wi
 {
 	struct mmc_host *mmc = host->mmc;
 	enum sunxi_mmc_speed_mode speed_mod = SM0_DS26_SDR12;
-	char *raw_sm_str	=  NULL;
+	char *raw_sm_str=  NULL;
 	char *m_str	=  NULL;
 	struct device_node *np = NULL;
-	u32 *raw_sm	=	0;
-	u32 rval		= 0;
+	u32 *raw_sm	= 0;
+	u32 rval	= 0;
 	int frq_index	= 0;
-
-
+	u32 cmd_drv_ph	= 1;
+	u32 dat_drv_ph	= 0;
+	u32 sam_dly	= 0;
+	u32 ds_dly	= 0;
+	
 	if (!mmc->parent || !mmc->parent->of_node){
 		dev_err(mmc_dev(host->mmc), "no dts to parse clk dly,use default\n");
 		return ;
@@ -419,7 +396,6 @@ static void sunxi_mmc_set_clk_dly(struct sunxi_mmc_host *host,int clk,int bus_wi
 	}
 
 
-
 	if(clk<= 400*1000){
 		frq_index = 0;
 	}else if(clk<= 25*1000*1000){
@@ -443,9 +419,9 @@ static void sunxi_mmc_set_clk_dly(struct sunxi_mmc_host *host,int clk,int bus_wi
 
 	BUG_ON(frq_index/4 > 2);
 	dev_info(mmc_dev(host->mmc),"freq %d frq index %d,frq/4 %x\n",clk,frq_index,frq_index/4);
-	raw_sm_str = mmc_clk_dly[speed_mod].raw_tm_sm_str[frq_index/4];
-	raw_sm = &mmc_clk_dly[speed_mod].raw_tm_sm[frq_index/4];
-	m_str  = mmc_clk_dly[speed_mod].mod_str;
+	raw_sm_str 	= mmc_clk_dly[speed_mod].raw_tm_sm_str[frq_index/4];
+	raw_sm 		= &mmc_clk_dly[speed_mod].raw_tm_sm[frq_index/4];
+	m_str  		= mmc_clk_dly[speed_mod].mod_str;
 
 	rval = of_property_read_u32(np, raw_sm_str, raw_sm);
 	if(rval){
@@ -455,12 +431,13 @@ static void sunxi_mmc_set_clk_dly(struct sunxi_mmc_host *host,int clk,int bus_wi
 		rval = ((*raw_sm)>>sm_shift)&0xff;
 		if(rval!=0xff){
 			if(timing == MMC_TIMING_MMC_HS400){
-				mmc_clk_dly[speed_mod].ds_dly	= rval;
-				mmc_clk_dly[speed_mod].sam_dly	= mmc_clk_dly[SM3_HS200_SDR104].sam_dly;
+				u32 raw_sm_hs200  = 0;
+				ds_dly	= rval;
+				raw_sm_hs200 = mmc_clk_dly[SM3_HS200_SDR104].raw_tm_sm[frq_index/4];
+				sam_dly	= ((raw_sm_hs200)>>sm_shift)&0xff;
 			}else{
-				mmc_clk_dly[speed_mod].sam_dly	= rval;
+				sam_dly	= rval;
 			}
-			mmc_clk_dly[speed_mod].init = 1;
 			dev_info(mmc_dev(host->mmc),"Get speed mode %s clk dly %s ok\n",m_str,raw_sm_str);
 		}else{
 			dev_info(mmc_dev(host->mmc),"%s use default value\n",m_str);
@@ -469,19 +446,19 @@ static void sunxi_mmc_set_clk_dly(struct sunxi_mmc_host *host,int clk,int bus_wi
 	}
 
 	dev_dbg(mmc_dev(host->mmc),"Try set %s clk dly       ok\n",m_str);
-	dev_dbg(mmc_dev(host->mmc),"cmd_drv_ph 	%d\n",mmc_clk_dly[speed_mod].cmd_drv_ph);
-	dev_dbg(mmc_dev(host->mmc),"dat_drv_ph 	%d\n",mmc_clk_dly[speed_mod].dat_drv_ph);
-	dev_dbg(mmc_dev(host->mmc),"sam_dly		%d\n",mmc_clk_dly[speed_mod].sam_dly);
-	dev_dbg(mmc_dev(host->mmc),"ds_dly 		%d\n",mmc_clk_dly[speed_mod].ds_dly);
+	dev_dbg(mmc_dev(host->mmc),"cmd_drv_ph 	%d\n",cmd_drv_ph);
+	dev_dbg(mmc_dev(host->mmc),"dat_drv_ph 	%d\n",dat_drv_ph);
+	dev_dbg(mmc_dev(host->mmc),"sam_dly	%d\n",sam_dly);
+	dev_dbg(mmc_dev(host->mmc),"ds_dly 	%d\n",ds_dly);
 
 	rval = mmc_readl(host,REG_DRV_DL);
-	if(mmc_clk_dly[speed_mod].cmd_drv_ph){
+	if(cmd_drv_ph){
 		rval |= SDXC_CMD_DRV_PH_SEL;//180 phase
 	}else{
 		rval &= ~SDXC_CMD_DRV_PH_SEL;//90 phase
 	}
 
-	if(mmc_clk_dly[speed_mod].dat_drv_ph){
+	if(dat_drv_ph){
 		rval |= SDXC_DAT_DRV_PH_SEL;//180 phase
 	}else{
 		rval &= ~SDXC_DAT_DRV_PH_SEL;//90 phase
@@ -490,13 +467,13 @@ static void sunxi_mmc_set_clk_dly(struct sunxi_mmc_host *host,int clk,int bus_wi
 
 	rval = mmc_readl(host,REG_SAMP_DL);
 	rval &= ~SDXC_SAMP_DL_SW_MASK;
-	rval |= mmc_clk_dly[speed_mod].sam_dly & SDXC_SAMP_DL_SW_MASK;
+	rval |= sam_dly & SDXC_SAMP_DL_SW_MASK;
 	rval |= SDXC_SAMP_DL_SW_EN;
 	mmc_writel(host,REG_SAMP_DL,rval);
 
 	rval = mmc_readl(host,REG_DS_DL);
 	rval &= ~SDXC_DS_DL_SW_MASK;
-	rval |= mmc_clk_dly[speed_mod].ds_dly & SDXC_DS_DL_SW_MASK;
+	rval |= ds_dly & SDXC_DS_DL_SW_MASK;
 	rval |= SDXC_DS_DL_SW_EN;
 	mmc_writel(host,REG_DS_DL,rval);
 
@@ -511,16 +488,11 @@ void sunxi_mmc_dump_dly_2(struct sunxi_mmc_host *host)
 {
 	int i = 0;
 	for(i=0 ;i<SM_NUM;i++){
-		printk("init %d\n",mmc_clk_dly[i].init);
 		printk("mod_str %s\n",mmc_clk_dly[i].mod_str);
 		printk("raw_tm_sm_str %s\n",mmc_clk_dly[i].raw_tm_sm_str[0]);
 		printk("raw_tm_sm_str %s\n",mmc_clk_dly[i].raw_tm_sm_str[1]);
 		printk("raw_tm_sm0 %x\n",mmc_clk_dly[i].raw_tm_sm[0]);
 		printk("raw_tm_sm1 %x\n",mmc_clk_dly[i].raw_tm_sm[1]);
-		printk("cmd_drv_ph %x\n",mmc_clk_dly[i].cmd_drv_ph);
-		printk("dat_drv_ph %x\n",mmc_clk_dly[i].dat_drv_ph);
-		printk("sam_dly %x\n",mmc_clk_dly[i].sam_dly);
-		printk("ds_dly %x\n",mmc_clk_dly[i].ds_dly);
 		printk("********************\n");
 	}
 }
