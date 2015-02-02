@@ -156,14 +156,24 @@
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
-
 			daudio1_pins: daudio1@0 {
 				allwinner,pins = "PG10", "PG11", "PG12", "PG13";
 				allwinner,function = "pcm1";
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
-
+			aif2_default_pins: aif2@0 {
+				allwinner,pins = "PB6", "PB4", "PB5", "PB7";
+				allwinner,function = "aif2";
+				allwinner,drive = <1>;
+				allwinner,pull = <0>;
+			};
+			aif3_default_pins: aif3@0 {
+				allwinner,pins = "PG10", "PG11", "PG12", "PG13";
+				allwinner,function = "aif3";
+				allwinner,drive = <1>;
+				allwinner,pull = <0>;
+			};
 			spdif_pins: spdif@0 {
 				allwinner,pins = "PH8";/*ph8-spec*/
 				allwinner,function = "spdif0";

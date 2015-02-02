@@ -158,6 +158,9 @@ struct sunxi_tdm_info {
 	struct sunxi_dma_params play_dma_param;
 	struct sunxi_dma_params capture_dma_param;
 
+	struct pinctrl *pinctrl;
+	struct pinctrl_state  *pinstate;
+
 	/*tdm arg*/
 	u8 pcm_lrck_period;		/*pcm_lrck_period     = 32*/
 	u8 pcm_lrckr_period;		/*pcm_lrckr_period    = 1*/

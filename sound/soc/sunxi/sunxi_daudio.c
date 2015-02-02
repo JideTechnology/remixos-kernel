@@ -20,7 +20,6 @@
 #include <linux/clk.h>
 #include <linux/jiffies.h>
 #include <linux/io.h>
-
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -29,14 +28,12 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
-
 #include <asm/dma.h>
 #include <linux/dma/sunxi-dma.h>
 #include "sunxi_dma.h"
 #include "sunxi_tdm_utils.h"
 
 #define DRV_NAME "sunxi-daudio"
-
 
 static bool  daudio_loop_en 		= false;
 
@@ -101,11 +98,37 @@ static int sunxi_daudio_dai_remove(struct snd_soc_dai *dai)
 
 static int sunxi_daudio_suspend(struct snd_soc_dai *cpu_dai)
 {
+	struct sunxi_tdm_info  *sunxi_daudio = snd_soc_dai_get_drvdata(cpu_dai);
+	/*release gpio resource*/
+	devm_pinctrl_put(sunxi_daudio->pinctrl);
+	sunxi_daudio->pinctrl = NULL;
+	sunxi_daudio->pinstate = NULL;
 	return 0;
 }
 
 static int sunxi_daudio_resume(struct snd_soc_dai *cpu_dai)
 {
+	int ret = 0;
+	struct sunxi_tdm_info  *sunxi_daudio = snd_soc_dai_get_drvdata(cpu_dai);
+	if (!sunxi_daudio->pinctrl) {
+		sunxi_daudio->pinctrl = devm_pinctrl_get(cpu_dai->dev);
+		if (IS_ERR_OR_NULL(sunxi_daudio->pinctrl)) {
+			pr_warn("[daudio]request pinctrl handle for audio failed\n");
+			return -EINVAL;
+		}
+	}
+	if (!sunxi_daudio->pinstate){
+		sunxi_daudio->pinstate = pinctrl_lookup_state(sunxi_daudio->pinctrl, PINCTRL_STATE_DEFAULT);
+		if (IS_ERR_OR_NULL(sunxi_daudio->pinstate)) {
+			pr_warn("[daudio]lookup pin default state failed\n");
+			return -EINVAL;
+		}
+	}
+	ret = pinctrl_select_state(sunxi_daudio->pinctrl, sunxi_daudio->pinstate);
+	if (ret) {
+		pr_warn("[daudio]select pin default state failed\n");
+		return ret;
+	}
 	return 0;
 }
 
@@ -205,7 +228,7 @@ static int __init sunxi_daudio_platform_probe(struct platform_device *pdev)
 	sunxi_daudio->capture_dma_param.src_maxburst = 8;
 	sunxi_daudio->capture_dma_param.dst_maxburst = 8;
 
-	ret = of_property_read_u8(node, "allwinner,daudio_master",&temp_val);
+	ret = of_property_read_u8(node, "daudio_master",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-daudio]daudio_master configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -214,7 +237,7 @@ static int __init sunxi_daudio_platform_probe(struct platform_device *pdev)
 		sunxi_daudio->daudio_master = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "allwinner,pcm_lrck_period",&temp_val);
+	ret = of_property_read_u8(node, "pcm_lrck_period",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-daudio]pcm_lrck_period configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -223,7 +246,7 @@ static int __init sunxi_daudio_platform_probe(struct platform_device *pdev)
 		sunxi_daudio->pcm_lrck_period = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "allwinner,pcm_lrckr_period",&temp_val);
+	ret = of_property_read_u8(node, "pcm_lrckr_period",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-daudio]pcm_lrckr_period configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -232,7 +255,7 @@ static int __init sunxi_daudio_platform_probe(struct platform_device *pdev)
 		sunxi_daudio->pcm_lrckr_period = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "allwinner,slot_width_select",&temp_val);
+	ret = of_property_read_u8(node, "slot_width_select",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-daudio]slot_width_select configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -241,7 +264,7 @@ static int __init sunxi_daudio_platform_probe(struct platform_device *pdev)
 		sunxi_daudio->slot_width_select = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "allwinner,tx_data_mode",&temp_val);
+	ret = of_property_read_u8(node, "tx_data_mode",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-daudio]tx_data_mode configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -250,7 +273,7 @@ static int __init sunxi_daudio_platform_probe(struct platform_device *pdev)
 		sunxi_daudio->tx_data_mode = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "allwinner,rx_data_mode",&temp_val);
+	ret = of_property_read_u8(node, "rx_data_mode",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-daudio]rx_data_mode configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -260,7 +283,7 @@ static int __init sunxi_daudio_platform_probe(struct platform_device *pdev)
 	}
 
 
-	ret = of_property_read_u8(node, "allwinner,audio_format",&temp_val);
+	ret = of_property_read_u8(node, "audio_format",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-daudio]audio_format configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -269,7 +292,7 @@ static int __init sunxi_daudio_platform_probe(struct platform_device *pdev)
 		sunxi_daudio->audio_format = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "allwinner,signal_inversion",&temp_val);
+	ret = of_property_read_u8(node, "signal_inversion",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-daudio]signal_inversion configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -277,7 +300,7 @@ static int __init sunxi_daudio_platform_probe(struct platform_device *pdev)
 	} else {
 		sunxi_daudio->signal_inversion = temp_val;
 	}
-	ret = of_property_read_u8(node, "allwinner,frametype",&temp_val);
+	ret = of_property_read_u8(node, "frametype",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-daudio]frametype configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -285,7 +308,7 @@ static int __init sunxi_daudio_platform_probe(struct platform_device *pdev)
 	} else {
 		sunxi_daudio->frametype = temp_val;
 	}
-	ret = of_property_read_u8(node, "allwinner,tdm_config",&temp_val);
+	ret = of_property_read_u8(node, "tdm_config",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-daudio]tdm_config configurations missing or invalid.\n");
 		ret = -EINVAL;

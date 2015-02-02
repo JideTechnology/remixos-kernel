@@ -5,39 +5,43 @@ config SND_SOC_SUNXI_AUDIO_DMA
 	bool
 
 config SND_SOC_SUNXI_TDM
-	#bool
+	bool
 menuconfig SND_SUNXI_SOC
 	tristate "ASoC support for SUNXI"
 	select SND_SOC_SUNXI_AUDIO_DMA
-	select SND_SOC_SUNXI_RW
+	#select SND_SOC_SUNXI_RW
 	select SND_SOC_DMAENGINE_PCM
-	select SND_SOC_SUNXI_TDM
+	#select SND_SOC_SUNXI_TDM
 
 if SND_SUNXI_SOC
-config SND_SOC_SUNXI_TDM
-	bool
-config SND_SOC_SUNXI_RW
-	bool
+#config SND_SOC_SUNXI_TDM
+#	bool
+#config SND_SOC_SUNXI_RW
+#	bool
 
 config SND_SOC_INTERNAL_AUDIOCODEC
 	tristate "ASoC support for audiocodec"
+	select SND_SOC_SUNXI_RW
 	help
 	  Say Y or M if you want to add support for codecs attached to the
 	  AUDIOCODEC interface.
 config SND_SOC_INTERNAL_I2S
 	tristate "ASoC support for internal-i2s"
+	select SND_SOC_SUNXI_RW
 	help
 	  Say Y or M if you want to add support for codecs attached to the
 	  INTERNAL I2S interface.
 
 config SND_SOC_AUDIO_CODEC_MACHINE
 	tristate "ASoC support for audiocodec machine"
+	select SND_SOC_SUNXI_RW
 	help
 	  Say Y or M if you want to add support for codecs attached to the
 	  AUDIOCODEC MACHEINE interface.
 
 config SND_SOC_DAUDIO_PLATFORM
 	tristate "ASoC support for daudio platform."
+	select SND_SOC_SUNXI_TDM
 	help
  	  Say Y or M if you want to add the daudio platform interface.
 
@@ -48,23 +52,27 @@ config SND_SOC_VIRCODEC
 
 config SND_SOC_DAUDIO0_MACHINE
 	tristate "ASoC support for daudio0 machine"
+	select SND_SOC_SUNXI_TDM
 	help
  	  Say Y or M if you want to add the daudio0 MACHEINE interface.
 
 
 config SND_SOC_DAUDIO1_MACHINE
 	tristate "ASoC support for daudio1 machine"
+	select SND_SOC_SUNXI_TDM
 	help
  	  Say Y or M if you want to add the daudio1 MACHEINE interface.
 
 config SND_SOC_HDMIAUDIO_PLATFORM
 	tristate "ASoC support for hdmiaudio platform."
+	select SND_SOC_SUNXI_TDM
 	help
  	  Say Y or M if you want to add the hdmi platform interface.
 
 
 config SND_SOC_HDMIAUDIO_MACHINE_CODEC
 	tristate "ASoC support for hdmi machine and hdmi codec"
+	select SND_SOC_SUNXI_TDM
 	help
  	  Say Y or M if you want to add the hdmi MACHEINE interface and codec interface.
 

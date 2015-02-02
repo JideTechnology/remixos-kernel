@@ -29,15 +29,9 @@ obj-$(CONFIG_SND_SOC_HDMIAUDIO_PLATFORM) += sunxi_tdmhdmi.o
 obj-$(CONFIG_SND_SOC_HDMIAUDIO_MACHINE_CODEC) += hdmi.o
 obj-$(CONFIG_SND_SOC_HDMIAUDIO_MACHINE_CODEC) += sunxi-sndhdmi.o
 
-
-
 #spdif
 obj-$(CONFIG_SND_SUNXI_SOC_SPDIF) += sunxi_spdif.o
 obj-$(CONFIG_SND_SUNXI_SOC_SPDIF) += sunxi-sndspdif.o
-
-
-
-
 
 ##DEBUG
 ifeq ($(CONFIG_SUNXI_AUDIO_DEBUG), y)

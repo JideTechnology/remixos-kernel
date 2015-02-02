@@ -16,7 +16,6 @@
 #include <linux/module.h>
 #include <linux/clk.h>
 #include <linux/mutex.h>
-
 #include <sound/pcm.h>
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
@@ -104,7 +103,6 @@ static struct snd_soc_dai_link sunxi_snddaudio_dai_link = {
 	.name 			= "sysvoice",
 	.stream_name 	= "SUNXI-TDM1",
 	.cpu_dai_name 	= "sunxi-daudio",
-
 	//.codec_dai_name = "snddaudio",
 	.codec_dai_name = "snd-soc-dummy-dai",
 	//.codec_name 	= "sunxi-daudio-codec.0",

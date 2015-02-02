@@ -1,5 +1,5 @@
 /*
- * sound\soc\sunxi\audiocodec\sndcodec.c
+ * sound\soc\sunxi\sunxi_sun50iw1codec.c
  * (C) Copyright 2010-2016
  * Reuuimlla Technology Co., Ltd. <www.allwinnertech.com>
  * huangxin <huangxin@allwinnertech.com>
@@ -29,9 +29,11 @@
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/pm.h>
-
+#include <linux/of_gpio.h>
 #include "sunxi_sun50iw1codec.h"
 #include "sunxi_rw_func.h"
+
+
 //#define AIF1_FPGA_LOOPBACK_TEST
 #define codec_RATES  (SNDRV_PCM_RATE_8000_192000|SNDRV_PCM_RATE_KNOT)
 #define codec_FORMATS (SNDRV_PCM_FMTBIT_S8 | SNDRV_PCM_FMTBIT_S16_LE | \
@@ -41,7 +43,7 @@
 
 void __iomem *codec_digitaladress;
 void __iomem *codec_analogadress;
-
+static int spk_gpio;
 
 static const DECLARE_TLV_DB_SCALE(headphone_vol_tlv, -6300, 100, 0);
 static const DECLARE_TLV_DB_SCALE(lineout_vol_tlv, -450, 150, 0);
@@ -265,35 +267,72 @@ static void adchpf_enable(struct snd_soc_codec *codec,bool on)
 
 }
 /*
-*	enable the codec function which should be enable during system init.
+*enable the codec function which should be enable during system init.
 */
-static void codec_init(struct sunxi_codec *sunxi_internal_codec)
+static int codec_init(struct sunxi_codec *sunxi_internal_codec)
 {
+	int ret = 0;
 	snd_soc_update_bits(sunxi_internal_codec->codec, SPKOUT_CTRL1, (0x1f<<SPKOUT_VOL), (sunxi_internal_codec->gain_config.spkervol<<SPKOUT_VOL));
 	snd_soc_update_bits(sunxi_internal_codec->codec, HP_CTRL, (0x3f<<HPVOL), (sunxi_internal_codec->gain_config.headphonevol<<HPVOL));
 	snd_soc_update_bits(sunxi_internal_codec->codec, EARPIECE_CTRL1, (0x1f<<ESP_VOL), (sunxi_internal_codec->gain_config.earpiecevol<<ESP_VOL));
 	snd_soc_update_bits(sunxi_internal_codec->codec, MIC1_CTRL, (0x7<<MIC1BOOST), (sunxi_internal_codec->gain_config.maingain<<MIC1BOOST));
 	snd_soc_update_bits(sunxi_internal_codec->codec, MIC2_CTRL, (0x7<<MIC2BOOST), (sunxi_internal_codec->gain_config.headsetmicgain<<MIC2BOOST));
 	snd_soc_update_bits(sunxi_internal_codec->codec, HP_CAL_CTRL, (0x7<<HPCALICKS), (0x7<<HPCALICKS));
-	if (sunxi_internal_codec->hwconfig.adcagc_used){
+	if (sunxi_internal_codec->hwconfig.adcagc_cfg)
 		adcagc_config(sunxi_internal_codec->codec);
-	}
-	if (sunxi_internal_codec->hwconfig.adcdrc_used){
+
+	if (sunxi_internal_codec->hwconfig.adcdrc_cfg)
 		adcdrc_config(sunxi_internal_codec->codec);
-	}
-	if (sunxi_internal_codec->hwconfig.adchpf_used){
+
+	if (sunxi_internal_codec->hwconfig.adchpf_cfg)
 		adchpf_config(sunxi_internal_codec->codec);
-	}
-	if (sunxi_internal_codec->hwconfig.dacdrc_used){
+
+	if (sunxi_internal_codec->hwconfig.dacdrc_cfg)
 		dacdrc_config(sunxi_internal_codec->codec);
-	}
-	if (sunxi_internal_codec->hwconfig.dachpf_used){
+
+	if (sunxi_internal_codec->hwconfig.dachpf_cfg)
 		dachpf_config(sunxi_internal_codec->codec);
+
+	if (sunxi_internal_codec->aif_config.aif2config || sunxi_internal_codec->aif_config.aif3config) {
+		if (!sunxi_internal_codec->pinctrl) {
+			sunxi_internal_codec->pinctrl = devm_pinctrl_get(sunxi_internal_codec->codec->dev);
+			if (IS_ERR_OR_NULL(sunxi_internal_codec->pinctrl)) {
+				pr_warn("[audio-codec]request pinctrl handle for audio failed\n");
+				return -EINVAL;
+			}
+		}
 	}
-	if (sunxi_internal_codec->aif_config.aif2config){
+
+
+	if (sunxi_internal_codec->aif_config.aif2config) {
+		if (!sunxi_internal_codec->aif2_pinstate){
+			sunxi_internal_codec->aif2_pinstate = pinctrl_lookup_state(sunxi_internal_codec->pinctrl, "aif2-default");
+			if (IS_ERR_OR_NULL(sunxi_internal_codec->aif2_pinstate)) {
+				pr_warn("[audio-codec]lookup aif2-default state failed\n");
+				return -EINVAL;
+			}
+		}
+		ret = pinctrl_select_state(sunxi_internal_codec->pinctrl, sunxi_internal_codec->aif2_pinstate);
+		if (ret) {
+			pr_warn("[audio-codec]select aif2-default state failed\n");
+			return ret;
+		}
 	}
-	if (sunxi_internal_codec->aif_config.aif3config){
+	if (sunxi_internal_codec->aif_config.aif3config) {
+		if (!sunxi_internal_codec->aif3_pinstate){
+			sunxi_internal_codec->aif3_pinstate = pinctrl_lookup_state(sunxi_internal_codec->pinctrl, "aif3-default");
+			if (IS_ERR_OR_NULL(sunxi_internal_codec->aif3_pinstate)) {
+				pr_warn("[audio-codec]lookup aif3-default state failed\n");
+				return -EINVAL;
+			}
+		}
+		ret = pinctrl_select_state(sunxi_internal_codec->pinctrl, sunxi_internal_codec->aif3_pinstate);
+		if (ret) {
+			pr_warn("[audio-codec]select aif3-default state failed\n");
+			return ret;
+		}
 	}
+	return ret;
 
 }
 
@@ -546,15 +585,13 @@ static int ac_speaker_event(struct snd_soc_dapm_widget *w,
 	pr_debug("..speaker power state change.\n");
 	switch (event) {
 		case SND_SOC_DAPM_POST_PMU:
-			//HS_DBG("[speaker open ]%s,line:%d\n",__func__,__LINE__);
 #ifdef AUDIOCODEC_GPIO
-			gpio_set_value(item.gpio.gpio, 1);
+			gpio_set_value(spk_gpio, 1);
 #endif
 			break;
 		case SND_SOC_DAPM_PRE_PMD :
-			//HS_DBG("[speaker close ]%s,line:%d\n",__func__,__LINE__);
 #ifdef AUDIOCODEC_GPIO
-			gpio_set_value(item.gpio.gpio, 0);
+			gpio_set_value(spk_gpio, 0);
 #endif
 		default:
 			break;
@@ -1425,22 +1462,19 @@ static int codec_start(struct snd_pcm_substream *substream, struct snd_soc_dai *
 	struct snd_soc_codec *codec = codec_dai->codec;
 	struct sunxi_codec *sunxi_internal_codec = snd_soc_codec_get_drvdata(codec);
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		if (sunxi_internal_codec->hwconfig.dacdrc_used){
+		if (sunxi_internal_codec->hwconfig.dacdrc_cfg)
 			dacdrc_enable(codec, 1);
-		}
-		if (sunxi_internal_codec->hwconfig.dachpf_used){
+		if (sunxi_internal_codec->hwconfig.dachpf_cfg)
 			dachpf_enable(codec, 1);
-		}
 	} else {
-		if (sunxi_internal_codec->hwconfig.adcagc_used){
+		if (sunxi_internal_codec->hwconfig.adcagc_cfg)
 			adcagc_enable(codec, 1);
-		}
-		if (sunxi_internal_codec->hwconfig.adcdrc_used){
+
+		if (sunxi_internal_codec->hwconfig.adcdrc_cfg)
 			adcdrc_enable(codec, 1);
-		}
-		if (sunxi_internal_codec->hwconfig.adchpf_used){
+
+		if (sunxi_internal_codec->hwconfig.adchpf_cfg)
 			adchpf_enable(codec, 1);
-		}
 	}
 
 	return 0;
@@ -1463,22 +1497,19 @@ static void codec_aif_shutdown(struct snd_pcm_substream *substream,
 	struct snd_soc_codec *codec = codec_dai->codec;
 	struct sunxi_codec *sunxi_internal_codec = snd_soc_codec_get_drvdata(codec);
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		if (sunxi_internal_codec->hwconfig.dacdrc_used){
+		if (sunxi_internal_codec->hwconfig.dacdrc_cfg)
 			dacdrc_enable(codec, 0);
-		}
-		if (sunxi_internal_codec->hwconfig.dachpf_used){
+		if (sunxi_internal_codec->hwconfig.dachpf_cfg)
 			dachpf_enable(codec, 0);
-		}
 	} else {
-		if (sunxi_internal_codec->hwconfig.adcagc_used){
+		if (sunxi_internal_codec->hwconfig.adcagc_cfg)
 			adcagc_enable(codec, 0);
-		}
-		if (sunxi_internal_codec->hwconfig.adcdrc_used){
+
+		if (sunxi_internal_codec->hwconfig.adcdrc_cfg)
 			adcdrc_enable(codec, 0);
-		}
-		if (sunxi_internal_codec->hwconfig.adchpf_used){
+
+		if (sunxi_internal_codec->hwconfig.adchpf_cfg)
 			adchpf_enable(codec, 0);
-		}
 	}
 }
 
@@ -1773,7 +1804,7 @@ static const struct snd_soc_dai_ops codec_aif3_dai_ops = {
 
 static struct snd_soc_dai_driver codec_dai[] = {
 	{
-		.name = "codec-aif1",//aif1
+		.name = "codec-aif1",
 		.id = 1,
 		.playback = {
 			.stream_name = "AIF1 Playback",
@@ -1830,7 +1861,6 @@ static struct snd_soc_dai_driver codec_dai[] = {
 		.ops = &codec_aif3_dai_ops,
 	}
 };
-EXPORT_SYMBOL(codec_dai);
 
 static int codec_soc_probe(struct snd_soc_codec *codec)
 {
@@ -1861,8 +1891,14 @@ static int codec_soc_probe(struct snd_soc_codec *codec)
 
 static int codec_suspend(struct snd_soc_codec *codec)
 {
+	struct sunxi_codec *sunxi_internal_codec = snd_soc_codec_get_drvdata(codec);
 	pr_debug("[audio codec]:suspend start\n");
-
+	if (sunxi_internal_codec->aif_config.aif2config || sunxi_internal_codec->aif_config.aif3config){
+		devm_pinctrl_put(sunxi_internal_codec->pinctrl);
+		sunxi_internal_codec->pinctrl = NULL;
+		sunxi_internal_codec->aif3_pinstate = NULL;
+		sunxi_internal_codec->aif2_pinstate = NULL;
+	}
 	pr_debug("[audio codec]:suspend end\n");
 	return 0;
 }
@@ -2024,6 +2060,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 {
 	s32 ret = -1;
 	u8 temp_val;
+	enum of_gpio_flags flags;
 	const struct of_device_id *device;
 	struct sunxi_codec *sunxi_internal_codec;
 	struct device_node *node = pdev->dev.of_node;
@@ -2065,8 +2102,24 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		ret = PTR_ERR(sunxi_internal_codec->srcclk);
 		goto err1;
 	}
+	/*initial speaker gpio */
+	spk_gpio = of_get_named_gpio_flags(node, "gpio-spk", 0, &flags);
+	if (!gpio_is_valid(spk_gpio)) {
+		pr_err("failed to get gpio-spk gpio from dts\n");
+		//ret = -EINVAL;
+		//goto err1;
+	} else {
+		ret = devm_gpio_request(&pdev->dev, spk_gpio, "SPK");
+		if (ret) {
+			pr_err("failed to request gpio-spk gpio\n");
+			goto err1;
+		} else {
+			gpio_direction_output(spk_gpio, 1);
+			gpio_set_value(spk_gpio, 0);
+		}
+	}
 
-	ret = of_property_read_u8(node, "allwinner,headphonevol",&temp_val);
+	ret = of_property_read_u8(node, "headphonevol",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-codec]headphonevol configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -2074,7 +2127,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 	} else {
 		sunxi_internal_codec->gain_config.headphonevol = temp_val;
 	}
-	ret = of_property_read_u8(node, "allwinner,spkervol",&temp_val);
+	ret = of_property_read_u8(node, "spkervol",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-codec]spkervol configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -2083,7 +2136,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		sunxi_internal_codec->gain_config.spkervol = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "allwinner,earpiecevol",&temp_val);
+	ret = of_property_read_u8(node, "earpiecevol",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-codec]earpiecevol configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -2092,7 +2145,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		sunxi_internal_codec->gain_config.earpiecevol = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "allwinner,maingain",&temp_val);
+	ret = of_property_read_u8(node, "maingain",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-codec]maingain configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -2101,7 +2154,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		sunxi_internal_codec->gain_config.maingain = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "allwinner,headsetmicgain",&temp_val);
+	ret = of_property_read_u8(node, "headsetmicgain",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-codec]headsetmicgain configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -2110,53 +2163,53 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		sunxi_internal_codec->gain_config.headsetmicgain = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "allwinner,adcagc_used",&temp_val);
+	ret = of_property_read_u8(node, "adcagc_cfg",&temp_val);
 	if (ret < 0) {
-		pr_err("[audio-codec]adcagc_used configurations missing or invalid.\n");
+		pr_err("[audio-codec]adcagc_cfg configurations missing or invalid.\n");
 		ret = -EINVAL;
 		goto err1;
 	} else {
-		sunxi_internal_codec->hwconfig.adcagc_used = temp_val;
+		sunxi_internal_codec->hwconfig.adcagc_cfg = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "allwinner,adcdrc_used",&temp_val);
+	ret = of_property_read_u8(node, "adcdrc_cfg",&temp_val);
 	if (ret < 0) {
-		pr_err("[audio-codec]adcdrc_used configurations missing or invalid.\n");
+		pr_err("[audio-codec]adcdrc_cfg configurations missing or invalid.\n");
 		ret = -EINVAL;
 		goto err1;
 	} else {
-		sunxi_internal_codec->hwconfig.adcdrc_used = temp_val;
+		sunxi_internal_codec->hwconfig.adcdrc_cfg = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "allwinner,adchpf_used",&temp_val);
+	ret = of_property_read_u8(node, "adchpf_cfg",&temp_val);
 	if (ret < 0) {
-		pr_err("[audio-codec]adchpf_used configurations missing or invalid.\n");
+		pr_err("[audio-codec]adchpf_cfg configurations missing or invalid.\n");
 		ret = -EINVAL;
 		goto err1;
 	} else {
-		sunxi_internal_codec->hwconfig.adchpf_used = temp_val;
+		sunxi_internal_codec->hwconfig.adchpf_cfg = temp_val;
 	}
 
 
-	ret = of_property_read_u8(node, "allwinner,dacdrc_used",&temp_val);
+	ret = of_property_read_u8(node, "dacdrc_cfg",&temp_val);
 	if (ret < 0) {
-		pr_err("[audio-codec]dacdrc_used configurations missing or invalid.\n");
+		pr_err("[audio-codec]dacdrc_cfg configurations missing or invalid.\n");
 		ret = -EINVAL;
 		goto err1;
 	} else {
-		sunxi_internal_codec->hwconfig.dacdrc_used = temp_val;
+		sunxi_internal_codec->hwconfig.dacdrc_cfg = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "allwinner,dachpf_used",&temp_val);
+	ret = of_property_read_u8(node, "dachpf_cfg",&temp_val);
 	if (ret < 0) {
-		pr_err("[audio-codec]dachpf_used configurations missing or invalid.\n");
+		pr_err("[audio-codec]dachpf_cfg configurations missing or invalid.\n");
 		ret = -EINVAL;
 		goto err1;
 	} else {
-		sunxi_internal_codec->hwconfig.dachpf_used = temp_val;
+		sunxi_internal_codec->hwconfig.dachpf_cfg = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "allwinner,aif2config",&temp_val);
+	ret = of_property_read_u8(node, "aif2config",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-codec]aif2config configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -2166,7 +2219,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 	}
 
 
-	ret = of_property_read_u8(node, "allwinner,aif3config",&temp_val);
+	ret = of_property_read_u8(node, "aif3config",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-codec]aif3config configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -2175,18 +2228,18 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		sunxi_internal_codec->aif_config.aif3config = temp_val;
 	}
 	pr_debug("headphonevol:%d,spkervol:%d, earpiecevol:%d maingain:%d headsetmicgain:%d \
-			adcagc_used:%d, adcdrc_used:%d, adchpf_used:%d, dacdrc_used:%d \
-			dachpf_used:%d,aif2config:%d,aif3config:%d\n",
+			adcagc_cfg:%d, adcdrc_cfg:%d, adchpf_cfg:%d, dacdrc_cfg:%d \
+			dachpf_cfg:%d,aif2config:%d,aif3config:%d\n",
 		sunxi_internal_codec->gain_config.headphonevol,
 		sunxi_internal_codec->gain_config.spkervol,
 		sunxi_internal_codec->gain_config.earpiecevol,
 		sunxi_internal_codec->gain_config.maingain,
 		sunxi_internal_codec->gain_config.headsetmicgain,
-		sunxi_internal_codec->hwconfig.adcagc_used,
-		sunxi_internal_codec->hwconfig.adcdrc_used,
-		sunxi_internal_codec->hwconfig.adchpf_used,
-		sunxi_internal_codec->hwconfig.dacdrc_used,
-		sunxi_internal_codec->hwconfig.dachpf_used,
+		sunxi_internal_codec->hwconfig.adcagc_cfg,
+		sunxi_internal_codec->hwconfig.adcdrc_cfg,
+		sunxi_internal_codec->hwconfig.adchpf_cfg,
+		sunxi_internal_codec->hwconfig.dacdrc_cfg,
+		sunxi_internal_codec->hwconfig.dachpf_cfg,
 		sunxi_internal_codec->aif_config.aif2config,
 		sunxi_internal_codec->aif_config.aif3config
 	);

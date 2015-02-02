@@ -21,8 +21,6 @@
 #include <sound/soc-dapm.h>
 #include <sound/initval.h>
 #include <linux/io.h>
-//#include <video/drv_hdmi.h>
-//#include "hdmi.h"
 #include "sunxi_tdm_utils.h"
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>

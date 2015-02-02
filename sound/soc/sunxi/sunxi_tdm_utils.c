@@ -56,6 +56,11 @@ int txctrl_tdm(int on,int hub_en,struct sunxi_tdm_info *sunxi_tdm)
 		reg_val = readl(tdm->regs + SUNXI_DAUDIOINT);
 		reg_val &= ~SUNXI_DAUDIOINT_TXDRQEN;
 		writel(reg_val, tdm->regs + SUNXI_DAUDIOINT);
+
+		/*DISABLE TXEN*/
+		reg_val = readl(tdm->regs + SUNXI_DAUDIOCTL);
+		reg_val &= ~SUNXI_DAUDIOCTL_TXEN;
+		writel(reg_val, tdm->regs + SUNXI_DAUDIOCTL);
 	}
 	if (hub_en) {
 		reg_val = readl(tdm->regs + SUNXI_DAUDIOFCTL);
@@ -99,6 +104,10 @@ int  rxctrl_tdm(int on,struct sunxi_tdm_info *sunxi_tdm)
 		reg_val = readl(tdm->regs + SUNXI_DAUDIOINT);
 		reg_val &= ~SUNXI_DAUDIOINT_RXDRQEN;
 		writel(reg_val, tdm->regs + SUNXI_DAUDIOINT);
+		/*DISABLE DAUDIO RX */
+		reg_val = readl(tdm->regs + SUNXI_DAUDIOCTL);
+		reg_val &= ~SUNXI_DAUDIOCTL_RXEN;
+		writel(reg_val, tdm->regs + SUNXI_DAUDIOCTL);
 	}
 #ifdef CONFIG_SUNXI_AUDIO_DEBUG
 	for(reg_val = 0; reg_val < 0x58; reg_val=reg_val+4)
@@ -410,10 +419,16 @@ int tdm_set_clkdiv(int sample_rate,struct sunxi_tdm_info *sunxi_tdm)
 		reg_val |= (4<<0);
 	else if(tdm->slot_width_select == 24)
 		reg_val |= (5<<0);
+	else if(tdm->slot_width_select == 28)
+		reg_val |= (6<<0);
 	else if(tdm->slot_width_select == 32)
 		reg_val |= (7<<0);
 	else
 		reg_val |= (1<<0);
+	if(tdm->frametype)/*pcm mode*/
+		reg_val |= SUNXI_DAUDIOFAT0_LRCK_WIDTH;
+	else
+		reg_val &= ~SUNXI_DAUDIOFAT0_LRCK_WIDTH;
 	writel(reg_val, tdm->regs + SUNXI_DAUDIOFAT0);
 
 
@@ -424,10 +439,6 @@ int tdm_set_clkdiv(int sample_rate,struct sunxi_tdm_info *sunxi_tdm)
 	reg_val &= ~(0xf<<0);
 	reg_val |= (tdm->tx_data_mode)<<2;
 	reg_val |= (tdm->rx_data_mode)<<0;
-	if(tdm->frametype)/*pcm mode*/
-		reg_val |= SUNXI_DAUDIOFAT0_LRCK_WIDTH;
-	else
-		reg_val &= ~SUNXI_DAUDIOFAT0_LRCK_WIDTH;
 	writel(reg_val, tdm->regs + SUNXI_DAUDIOFAT1);
 
 	return 0;
@@ -551,7 +562,6 @@ int tdm_perpare(struct snd_pcm_substream *substream,
 	return 0;
 }
 EXPORT_SYMBOL(tdm_perpare);
-
 int tdm_global_enable(struct sunxi_tdm_info *sunxi_tdm,bool on)
 {
 	u32 reg_val;

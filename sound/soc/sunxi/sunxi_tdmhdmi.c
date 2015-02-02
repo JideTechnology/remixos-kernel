@@ -1,5 +1,5 @@
 /*
- * sound\soc\sunxi\sunxi_hdmi.c
+ * sound\soc\sunxi\sunxi_tdmhdmi.c
  * (C) Copyright 2014-2016
  * Reuuimlla Technology Co., Ltd. <www.reuuimllatech.com>
  * huangxin <huangxin@Reuuimllatech.com>
@@ -34,7 +34,7 @@
 #include <linux/dma/sunxi-dma.h>
 #include "sunxi_tdm_utils.h"
 #include "sunxi_dma.h"
-//#include "hdmi.h"
+
 
 #define DRV_NAME "sunxi-tdmhdmi"
 

@@ -16,7 +16,7 @@
 #ifndef SUNXI_SPDIF_H_
 #define SUNXI_SPDIF_H_
 #include "sunxi_dma.h"
-//#include <mach/platform.h>
+
 /*------------------SPDIF register definition--------------------*/
 
 #define	SUNXI_SPDIF_CTL	(0x00)
@@ -154,6 +154,8 @@ struct sunxi_spdif_info {
 	struct snd_soc_dai_driver dai;
 	struct sunxi_dma_params play_dma_param;
 	struct sunxi_dma_params capture_dma_param;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state  *pinstate;
 };
 
 //extern struct sunxi_spdif_info sunxi_spdif;

@@ -16,7 +16,6 @@
 #include <linux/module.h>
 #include <linux/clk.h>
 #include <linux/mutex.h>
-
 #include <sound/pcm.h>
 #include <sound/soc.h>
 #include <sound/pcm_params.h>
@@ -24,11 +23,10 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include "sunxi_spdif.h"
-//#include "sunxi_spdma.h"
+
 
 static int spdif_format = 1;
 
-//static int spdif_used = 0;
 
 static int sunxi_sndspdif_startup(struct snd_pcm_substream *substream)
 {

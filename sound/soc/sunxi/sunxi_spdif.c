@@ -591,22 +591,48 @@ static int sunxi_spdif_suspend(struct snd_soc_dai *cpu_dai)
 {
 	u32 reg_val;
 	struct sunxi_spdif_info *sunxi_spdif = snd_soc_dai_get_drvdata(cpu_dai);
+	pr_debug("[SPDIF]Enter %s\n", __func__);
 	reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_CTL);
 	reg_val &= ~SUNXI_SPDIF_CTL_GEN;
 	writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_CTL);
+
+	devm_pinctrl_put(sunxi_spdif->pinctrl);
+	sunxi_spdif->pinctrl = NULL;
+	sunxi_spdif->pinstate = NULL;
+	pr_debug("[SPDIF]End %s\n", __func__);
 	return 0;
 }
 
 static int sunxi_spdif_resume(struct snd_soc_dai *cpu_dai)
 {
 	u32 reg_val;
+	s32 ret = 0;
 	struct sunxi_spdif_info *sunxi_spdif = snd_soc_dai_get_drvdata(cpu_dai);
 	pr_debug("[SPDIF]Enter %s\n", __func__);
 
 	reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_CTL);
 	reg_val |= SUNXI_SPDIF_CTL_GEN;
 	writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_CTL);
-
+	if (!sunxi_spdif->pinctrl) {
+		sunxi_spdif->pinctrl = devm_pinctrl_get(cpu_dai->dev);
+		if (IS_ERR_OR_NULL(sunxi_spdif->pinctrl)) {
+			pr_warn("[spdif]request pinctrl handle for audio failed\n");
+			return -EINVAL;
+		}
+	}
+	if (!sunxi_spdif->pinstate){
+		sunxi_spdif->pinstate = pinctrl_lookup_state(sunxi_spdif->pinctrl, PINCTRL_STATE_DEFAULT);
+		if (IS_ERR_OR_NULL(sunxi_spdif->pinstate)) {
+			pr_warn("[spdif]lookup pin default state failed\n");
+			return -EINVAL;
+		}
+	}
+	ret = pinctrl_select_state(sunxi_spdif->pinctrl, sunxi_spdif->pinstate);
+	if (ret) {
+		pr_warn("[spdif]select pin default state failed\n");
+		return ret;
+	}
+	pr_debug("[SPDIF]End %s\n", __func__);
 	return 0;
 }
 

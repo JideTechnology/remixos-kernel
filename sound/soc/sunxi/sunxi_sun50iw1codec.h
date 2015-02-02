@@ -2013,11 +2013,11 @@ struct gain_config {
 	u8 headsetmicgain;
 };
 struct codec_hw_config {
-	u8 adcagc_used:1;
-	u8 adcdrc_used:1;
-	u8 dacdrc_used:1;
-	u8 adchpf_used:1;
-	u8 dachpf_used:1;
+	u8 adcagc_cfg:1;
+	u8 adcdrc_cfg:1;
+	u8 dacdrc_cfg:1;
+	u8 adchpf_cfg:1;
+	u8 dachpf_cfg:1;
 };
 struct aif_config{
 	u8 aif2config:1;
@@ -2027,6 +2027,11 @@ struct sunxi_codec {
 	void __iomem *codec_dbase;
 	void __iomem *codec_abase;
 	struct clk *srcclk;
+
+	struct pinctrl *pinctrl;
+	struct pinctrl_state  *aif2_pinstate;
+	struct pinctrl_state  *aif3_pinstate;
+
 	struct gain_config gain_config;
 	struct codec_hw_config hwconfig;
 	struct aif_config aif_config;

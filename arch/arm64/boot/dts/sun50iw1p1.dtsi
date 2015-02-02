@@ -477,26 +477,7 @@
 			pinctrl-0 = <&twi3_pins_a>;
 			status = "disable";
 		};
-		sun50codec:audiocodec_codec@0x01c22c00 {
-			compatible = "allwinner,sunxi-internal-codec";
-			reg = <0x0 0x01c22c00 0x0 0x478>,/*digital baseadress*/
-			      <0x0 0x01f015c0 0x0 0x0>;/*analog baseadress*/
-			clocks = <&clk_pll_audiox4>;
-			allwinner,headphonevol = /bits/ 8 <0x3b>;
-			allwinner,spkervol = /bits/ 8 <0x1b>;
-			allwinner,earpiecevol = /bits/ 8 <0x1e>;
-			allwinner,maingain = /bits/ 8 <0x4>;
-			allwinner,headsetmicgain = /bits/ 8 <0x4>;
-			allwinner,adcagc_used = /bits/ 8 <0x0>;
-			allwinner,adcdrc_used = /bits/ 8 <0x0>;
-			allwinner,adchpf_used = /bits/ 8 <0x0>;
-			allwinner,dacdrc_used = /bits/ 8 <0x0>;
-			allwinner,dachpf_used = /bits/ 8 <0x0>;
 
-			allwinner,aif2config = /bits/ 8 <0x0>;
-			allwinner,aif3config = /bits/ 8 <0x0>;
-			status = "okay";
-		};
 
 		otg:otg_manager@0 {
 			compatible          = "allwinner,sun50i-otg-manager";
@@ -577,7 +558,33 @@
 			usb_regulator_vol   = <0>;
 			usb_wakeup_suspend  = <0>;
 		};
+		sun50codec:audiocodec_codec@0x01c22c00 {
+			compatible = "allwinner,sunxi-internal-codec";
+			reg = <0x0 0x01c22c00 0x0 0x478>,/*digital baseadress*/
+			      <0x0 0x01f015c0 0x0 0x0>;/*analog baseadress*/
+			clocks = <&clk_pll_audiox4>;
 
+			pinctrl-names = "aif2-default","aif3-default";
+			pinctrl-0 = <&aif2_default_pins>;
+			pinctrl-1 = <&aif3_default_pins>;
+
+			gpio-spk=<&pio 0 10 0>;
+
+			headphonevol =  <0x3b>;
+			spkervol =  <0x1b>;
+			earpiecevol =  <0x1e>;
+			maingain =  <0x4>;
+			headsetmicgain =  <0x4>;
+			adcagc_cfg =  <0x0>;
+			adcdrc_cfg =  <0x0>;
+			adchpf_cfg =  <0x0>;
+			dacdrc_cfg =  <0x0>;
+			dachpf_cfg =  <0x0>;
+
+			aif2config = <0x0>;
+			aif3config = <0x0>;
+			status = "okay";
+		};
 		sun50i2s:audiocodec_platform@0x01c22c00 {
 			compatible = "allwinner,sunxi-internal-i2s";
 			reg = <0x0 0x01c22c00 0x0 0x478>;/*digital baseadress*/
@@ -585,7 +592,7 @@
 			status = "okay";
 		};
 
-		audiocodec_machine{
+		audiocodec_machine:audiocodecmach{
 			compatible = "allwinner,sunxi-codec-machine";
 			interrupts = <GIC_SPI 61 0x101>;
 			sunxi,i2s-controller = <&sun50i2s>;
@@ -599,20 +606,20 @@
 			clocks = <&clk_pll_audio>,<&clk_i2s0>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&daudio0_pins>;
-			allwinner,pcm_lrck_period = /bits/ 8 <0x20>;
-			allwinner,pcm_lrckr_period = /bits/ 8 <0x01>;
-			allwinner,slot_width_select = /bits/ 8 <0x10>;
-			allwinner,pcm_lsb_first = /bits/ 8 <0x0>;
-			allwinner,tx_data_mode = /bits/ 8 <0x0>;
-			allwinner,rx_data_mode = /bits/ 8 <0x0>;
-			allwinner,daudio_master = /bits/ 8 <0x04>;
-			allwinner,audio_format = /bits/ 8 <0x01>;
-			allwinner,signal_inversion = /bits/ 8 <0x01>;
-			allwinner,frametype = /bits/ 8 <0x0>;
-			allwinner,tdm_config = /bits/ 8 <0x01>;
+			pcm_lrck_period =  <0x20>;
+			pcm_lrckr_period =  <0x01>;
+			slot_width_select =  <0x10>;
+			pcm_lsb_first =  <0x0>;
+			tx_data_mode =  <0x0>;
+			rx_data_mode =  <0x0>;
+			daudio_master =  <0x04>;
+			audio_format =  <0x01>;
+			signal_inversion =  <0x01>;
+			frametype =  <0x0>;
+			tdm_config =  <0x01>;
 			status = "okay";
 		};
-		daudio0_machine{
+		daudio0_machine:daudio0mach{
 			compatible = "allwinner,sunxi-duaio0-machine";
 			sunxi,daudio0-controller = <&daudio0>;
 			status = "okay";
@@ -623,20 +630,20 @@
 			pinctrl-names = "default";
 			pinctrl-0 = <&daudio1_pins>;
 			clocks = <&clk_pll_audio>,<&clk_i2s1>;
-			allwinner,pcm_lrck_period = /bits/ 8 <0x20>;
-			allwinner,pcm_lrckr_period = /bits/ 8 <0x01>;
-			allwinner,slot_width_select = /bits/ 8 <0x10>;
-			allwinner,pcm_lsb_first = /bits/ 8 <0x0>;
-			allwinner,tx_data_mode = /bits/ 8 <0x0>;
-			allwinner,rx_data_mode = /bits/ 8 <0x0>;
-			allwinner,daudio_master = /bits/ 8 <0x04>;
-			allwinner,audio_format = /bits/ 8 <0x01>;
-			allwinner,signal_inversion = /bits/ 8 <0x01>;
-			allwinner,frametype = /bits/ 8 <0x0>;
-			allwinner,tdm_config = /bits/ 8 <0x01>;
+			pcm_lrck_period =  <0x20>;
+			pcm_lrckr_period =  <0x01>;
+			slot_width_select =  <0x10>;
+			pcm_lsb_first =  <0x0>;
+			tx_data_mode =  <0x0>;
+			rx_data_mode =  <0x0>;
+			daudio_master =  <0x04>;
+			audio_format =  <0x01>;
+			signal_inversion =  <0x01>;
+			frametype =  <0x0>;
+			tdm_config =  <0x01>;
 			status = "okay";
 		};
-		daudio1_machine{
+		daudio1_machine:daudio1mach{
 			compatible = "allwinner,sunxi-duaio1-machine";
 			sunxi,daudio1-controller = <&daudio1>;
 			status = "okay";
@@ -647,7 +654,7 @@
 			clocks = <&clk_pll_audio>,<&clk_i2s2>;
 			status = "okay";
 		};
-		hdmi_machine{
+		hdmi_machine:hdmimach{
 			compatible = "allwinner,sunxi-hdmi-machine";
 			sunxi,hdmi-controller = <&audiohdmi>;
 			status = "okay";
@@ -660,7 +667,7 @@
 			pinctrl-0 = <&spdif_pins>;
 			status = "okay";
 		};
-		spdif_machine{
+		spdif_machine:spdifmach{
 			compatible = "allwinner,sunxi-spdif-machine";
 			sunxi,spdif-controller = <&audiospdif>;
 			status = "okay";
