@@ -19,6 +19,12 @@ config DISP2_SUNXI
   default n
   ---help---
 
+config HDMI_DISP2_SUNXI
+	tristate "HDMI Driver Support(sunxi-disp2)"
+	depends on (DISP2_SUNXI)
+	default n
+	---help---
+
 config DISP2_SUNXI_BOOT_COLORBAR
   bool "boot colorbar for disp driver(sunxi-disp2)"
   depends on DISP2_SUNXI

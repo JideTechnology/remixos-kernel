@@ -780,6 +780,13 @@
 			status = "okay";
 		};
 
+		soc_hdmi: hdmi@01ee0000 {
+			compatible = "allwinner,sunxi-hdmi";
+			reg = <0x0 0x01ee0000 0x0 0x20000>;
+			clocks = <&clk_hdmi>,<&clk_hdmi_slow>;
+			status = "okay";
+		};
+
 		soc_tr: tr@01000000 {
 			compatible = "allwinner,sun50i-tr";
 			reg = <0x0 0x01000000 0x0 0x000200bc>;
