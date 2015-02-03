@@ -68,7 +68,6 @@ s32 bsp_disp_device_switch(int disp, enum disp_output_type output_type, enum dis
 s32 bsp_disp_set_hdmi_func(struct disp_hdmi_func * func);
 s32 bsp_disp_hdmi_check_support_mode(u32 disp, enum disp_output_type mode);
 s32 bsp_disp_hdmi_set_detect(bool hpd);
-s32 bsp_disp_hdmi_get_edid(u32 disp);
 s32 bsp_disp_tv_register(struct disp_tv_func * func);
 s32 bsp_disp_tv_set_hpd(u32 state);
 

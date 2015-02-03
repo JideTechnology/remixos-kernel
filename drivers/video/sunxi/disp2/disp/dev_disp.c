@@ -1038,12 +1038,6 @@ static int disp_probe(struct platform_device *pdev)
 err_iomap2:
 	iounmap((char __iomem *)g_disp_drv.reg_base[DISP_MOD_DE]);
 err_iomap1:
-#if 0//defined(CONFIG_ION_SUNXI)
-	ion_free(g_disp_drv.client , g_disp_drv.handle);
-err_alloc:
-	ion_client_destroy(g_disp_drv.client);
-err_client:
-#endif
 
 	return ret;
 }

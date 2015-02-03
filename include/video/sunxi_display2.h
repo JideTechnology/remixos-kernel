@@ -327,8 +327,8 @@ enum disp_init_mode
 
 struct disp_hdmi_func
 {
-	int (*hdmi_open)(void);
-	int (*hdmi_close)(void);
+	int (*hdmi_enable)(void);
+	int (*hdmi_disable)(void);
 	int (*hdmi_set_mode)(enum disp_tv_mode mode);
 	int (*hdmi_mode_support)(enum disp_tv_mode mode);
 	int (*hdmi_get_HPD_status)(void);
@@ -342,7 +342,6 @@ struct disp_hdmi_func
 	int (*hdmi_resume)(void);
 	int (*hdmi_early_suspend)(void);
 	int (*hdmi_late_resume)(void);
-	int (*hdmi_get_edid)(void);
 };
 
 struct disp_tv_func

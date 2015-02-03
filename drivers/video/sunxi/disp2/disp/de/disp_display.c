@@ -878,24 +878,6 @@ s32 bsp_disp_hdmi_set_detect(bool hpd)
 	return ret;
 }
 
-s32 bsp_disp_hdmi_get_edid(u32 disp)
-{
-	u32 num_screens = 0;
-	s32 ret = 0 ;
-
-	num_screens = bsp_disp_feat_get_num_screens();
-	for (disp=0; disp<num_screens; disp++) {
-		struct disp_device *hdmi;
-		hdmi = disp_device_find(disp, DISP_OUTPUT_TYPE_HDMI);
-		if (hdmi && hdmi->get_edid) {
-			ret = hdmi->get_edid(hdmi);
-			break;
-		}
-	}
-
-	return ret;
-}
-
 s32 bsp_disp_tv_set_hpd(u32 state)
 {
 #if defined SUPPORT_TV

@@ -696,7 +696,6 @@ struct disp_device {
 	s32 (*check_support_mode)(struct disp_device* dispdev, u32 mode);
 	s32 (*set_func)(struct disp_device*  dispdev, struct disp_hdmi_func * func);
 	s32 (*set_tv_func)(struct disp_device*  dispdev, struct disp_tv_func * func);
-	s32 (*get_edid)(struct disp_device*  dispdev);
 
 	/* LCD */
 	s32 (*set_bright)(struct disp_device *dispdev, u32 bright);
