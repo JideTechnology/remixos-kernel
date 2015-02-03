@@ -177,6 +177,7 @@ static void detect_dfp_work(struct work_struct *work)
 			extcon_set_cable_state(detect->edev, "USB-Host", true);
 			atomic_notifier_call_chain(&detect->otg->notifier,
 				USB_EVENT_ID, NULL);
+			usleep_range(5000, 10000);
 			intel_soc_pmic_writeb(0x6e2d, 0x31);
 
 			return;
@@ -306,6 +307,8 @@ static void update_phy_state(struct work_struct *work)
 
 		mutex_lock(&detect->lock);
 
+		usleep_range(5000, 10000);
+
 		ret = typec_measure_cc(phy, TYPEC_PIN_CC1, &cc1_psy, 0);
 
 		ret = typec_measure_cc(phy, TYPEC_PIN_CC2, &cc2_psy, 0);
@@ -357,17 +360,20 @@ static void update_phy_state(struct work_struct *work)
 		if (phy->state == TYPEC_STATE_ATTACHED_UFP) {
 			extcon_set_cable_state(detect->edev, "USB", false);
 			/* notify power supply */
+
 			cable_props.chrg_evt =
 				POWER_SUPPLY_CHARGER_EVENT_DISCONNECT;
 			cable_props.chrg_type =
 				POWER_SUPPLY_CHARGER_TYPE_USB_TYPEC;
-			cable_props.ma =
-				get_chrgcur_from_rd(cc1_psy.v_rd, cc2_psy.v_rd);
+			cable_props.ma = 0;
+			/*get_chrgcur_from_rd(cc1_psy.v_rd, cc2_psy.v_rd);*/
+
 			atomic_notifier_call_chain(&power_supply_notifier,
 							PSY_CABLE_EVENT,
 							&cable_props);
 		} else { /* state = DFP */
 			/* disable VBUS */
+			/* intel_soc_pmic_clearb(0x5e17, 0x40); */
 			intel_soc_pmic_writeb(0x6e2d, 0x30);
 			extcon_set_cable_state(detect->edev,
 							"USB-Host", false);
@@ -378,11 +384,11 @@ static void update_phy_state(struct work_struct *work)
 			mutex_unlock(&detect->lock);
 			queue_work(detect->wq_lock_ufp,
 					&detect->lock_ufp_work);
+			atomic_notifier_call_chain(&detect->otg->notifier,
+					USB_EVENT_NONE, NULL);
 			break;
 		}
 		/* setup data mux */
-		atomic_notifier_call_chain(&detect->otg->notifier,
-					USB_EVENT_NONE, NULL);
 		mutex_lock(&detect->lock);
 		detect->state = DETECT_STATE_UNATTACHED_DRP;
 		mutex_unlock(&detect->lock);

@@ -476,6 +476,7 @@ static int cht_handle_extcon_otg_event(struct notifier_block *nb,
 	struct usb_bus *host;
 	struct usb_gadget *gadget;
 
+
 	if (!cht_otg_dev)
 		return NOTIFY_DONE;
 

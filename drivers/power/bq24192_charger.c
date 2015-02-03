@@ -220,7 +220,7 @@
 
 /* Max no. of tries to reset the bq24192i WDT */
 #define MAX_RESET_WDT_RETRY 8
-#define VBUS_DET_TIMEOUT msecs_to_jiffies(50) /* 50 msec */
+#define VBUS_DET_TIMEOUT msecs_to_jiffies(350) /* 50 msec */
 
 #define BQ_CHARGE_CUR_SDP	500
 #define BQ_CHARGE_CUR_DCP	2000
@@ -359,6 +359,8 @@ static enum power_supply_type get_power_supply_type(
 		return POWER_SUPPLY_TYPE_USB_ACA;
 	case POWER_SUPPLY_CHARGER_TYPE_AC:
 		return POWER_SUPPLY_TYPE_MAINS;
+	case POWER_SUPPLY_CHARGER_TYPE_USB_TYPEC:
+		return POWER_SUPPLY_TYPE_USB_TYPEC;
 	case POWER_SUPPLY_CHARGER_TYPE_NONE:
 	case POWER_SUPPLY_CHARGER_TYPE_USB_SDP:
 	default:
@@ -1198,6 +1200,7 @@ static inline int bq24192_set_inlmt(struct bq24192_chip *chip, int inlmt)
 	 */
 	if (regval == (regval_prev & INPUT_SRC_CUR_MASK))
 		return ret;
+
 	/* Wait for VBUS if inlimit > 0 */
 	if (inlmt > 0) {
 		timeout = wait_for_completion_timeout(&chip->vbus_detect,

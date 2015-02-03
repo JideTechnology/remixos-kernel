@@ -1056,6 +1056,7 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 	mutex_unlock(&pmic_lock);
 
 	if (int_reg & BIT_POS(PMIC_INT_VBUS)) {
+		int ret;
 		mask = !!(stat_reg & BIT_POS(PMIC_INT_VBUS));
 		if (mask) {
 			dev_info(chc.dev,
@@ -1066,6 +1067,11 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 			dev_info(chc.dev,
 				"USB VBUS Removed. Notifying OTG driver\n");
 		}
+		usleep_range(15000, 20000); /* wait for typec completion */
+		ret = intel_soc_pmic_readb(chc.reg_map->pmic_chgrctrl1);
+		dev_info(chc.dev, "chgrctrl = %x", ret);
+		if (ret & 0x40)
+			chc.otg_mode_enabled = 1;
 
 		/* Avoid charger-detection flow in case of host-mode */
 		if (chc.is_internal_usb_phy && !chc.otg_mode_enabled)
@@ -1657,6 +1663,7 @@ static void pmic_ccsm_extcon_host_work(struct work_struct *work)
 	mutex_lock(&pmic_lock);
 	chc.otg_mode_enabled = chc.cable_state;
 	intel_pmic_handle_otgmode(chc.otg_mode_enabled);
+	pmic_write_reg(chc.reg_map->pmic_usbphyctrl, chc.otg_mode_enabled);
 	mutex_unlock(&pmic_lock);
 }
 
