@@ -40,7 +40,7 @@
 	};
 
 	chosen {
-		bootargs = "earlyprintk=sunxi-uart,0x01c28000 loglevel=8 initcall_debug=1 memblock=debug console=ttyS0 init=/init";
+		bootargs = "earlyprintk=sunxi-uart,0x01c28000 loglevel=8 initcall_debug=1 console=ttyS0 init=/init";
     };
 
 	cpus {
