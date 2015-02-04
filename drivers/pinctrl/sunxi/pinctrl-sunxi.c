@@ -25,6 +25,7 @@
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/pinctrl/pinconf-generic.h>
 #include <linux/pinctrl/pinmux.h>
+#include <linux/pinctrl/pinconf-sunxi.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 
@@ -227,7 +228,7 @@ static int sunxi_pctrl_dt_node_to_map(struct pinctrl_dev *pctldev,
 				pinconf_to_config_packed(PIN_CONFIG_DRIVE_STRENGTH,
 							 strength);
 		}
-		if (!of_property_read_u32(node, "allwinner,drive", &val)) {
+		if (!of_property_read_u32(node, "allwinner,data", &val)) {
 			pinconfig[j++] =
 				pinconf_to_config_packed(PIN_CONFIG_OUTPUT,
 							 val);
@@ -274,6 +275,107 @@ static const struct pinctrl_ops sunxi_pctrl_ops = {
 	.get_group_name		= sunxi_pctrl_get_group_name,
 	.get_group_pins		= sunxi_pctrl_get_group_pins,
 };
+
+static int sunxi_pconf_get(struct pinctrl_dev *pctldev,
+		             unsigned pin,
+			     unsigned long *config)
+{
+	struct sunxi_pinctrl  *pctl = pinctrl_dev_get_drvdata(pctldev);
+	unsigned long flags;
+	u32                  val;
+	u16                  dlevel;
+	u16                  data;
+	u16                  func;
+	u16                  pull;
+
+	spin_lock_irqsave(&pctl->lock, flags);
+	switch (pinconf_to_config_param(*config)) {
+	case SUNXI_PINCFG_TYPE_DRV:
+		val = readl(pctl->membase + sunxi_dlevel_reg(pin));
+		dlevel = (val >> sunxi_dlevel_offset(pin)) & DLEVEL_PINS_MASK;
+		*config = pinconf_to_config_packed(SUNXI_PINCFG_TYPE_DRV, dlevel);
+		break;
+	case SUNXI_PINCFG_TYPE_PUD:
+		val = readl(pctl->membase + sunxi_pull_reg(pin));
+		pull = (val >> sunxi_pull_offset(pin)) & PULL_PINS_MASK;
+		*config = pinconf_to_config_packed(SUNXI_PINCFG_TYPE_PUD, pull);
+		break;
+
+	case SUNXI_PINCFG_TYPE_DAT:
+		val = readl(pctl->membase + sunxi_data_reg(pin));
+		data = (val >> sunxi_data_offset(pin)) & DATA_PINS_MASK;
+		*config = pinconf_to_config_packed(SUNXI_PINCFG_TYPE_DAT, data);
+		break;
+
+	case SUNXI_PINCFG_TYPE_FUNC:
+		val = readl(pctl->membase + sunxi_mux_reg(pin));
+		func = (val >> sunxi_mux_offset(pin)) & MUX_PINS_MASK;
+		*config = pinconf_to_config_packed(SUNXI_PINCFG_TYPE_FUNC, func);
+		break;
+	default:
+		spin_unlock_irqrestore(&pctl->lock, flags);
+		pr_debug("invalid sunxi pconf type for get\n");
+		return -EINVAL;
+	}
+	spin_unlock_irqrestore(&pctl->lock, flags);
+	return 0;
+}
+
+static int sunxi_pconf_set(struct pinctrl_dev *pctldev,
+			     unsigned pin,
+			     unsigned long *pin_config,
+			     unsigned num_configs)
+{
+	struct sunxi_pinctrl  *pctl = pinctrl_dev_get_drvdata(pctldev);
+	unsigned long config = (unsigned long)pin_config;
+	unsigned long flags;
+	u32		val;
+	u32		mask;
+	u16		dlevel;
+	u16		data;
+	u16		func;
+	u16		pull;
+
+	spin_lock_irqsave(&pctl->lock, flags);
+	switch (pinconf_to_config_param(config)) {
+	case SUNXI_PINCFG_TYPE_DRV:
+		dlevel = pinconf_to_config_argument(config);
+		val = readl(pctl->membase + sunxi_dlevel_reg(pin));
+		mask = DLEVEL_PINS_MASK << sunxi_dlevel_offset(pin);
+		writel((val & ~mask) | dlevel << sunxi_dlevel_offset(pin),
+			pctl->membase + sunxi_dlevel_reg(pin));
+		break;
+	case SUNXI_PINCFG_TYPE_PUD:
+		pull = pinconf_to_config_argument(config);
+		val = readl(pctl->membase + sunxi_pull_reg(pin));
+		mask = PULL_PINS_MASK << sunxi_pull_offset(pin);
+		writel((val & ~mask) | pull << sunxi_pull_offset(pin),
+			pctl->membase + sunxi_pull_reg(pin));
+		break;
+
+	case SUNXI_PINCFG_TYPE_DAT:
+		data = pinconf_to_config_argument(config);
+		val = readl(pctl->membase + sunxi_data_reg(pin));
+		mask = DATA_PINS_MASK << sunxi_data_offset(pin);
+		writel((val & ~mask) | data << sunxi_data_offset(pin),
+			pctl->membase + sunxi_data_reg(pin));
+		break;
+	case SUNXI_PINCFG_TYPE_FUNC:
+		func = pinconf_to_config_argument(config);
+		val = readl(pctl->membase + sunxi_mux_reg(pin));
+		mask = MUX_PINS_MASK << sunxi_mux_offset(pin);
+		writel((val & ~mask) | func << sunxi_mux_offset(pin),
+			pctl->membase + sunxi_mux_reg(pin));
+		break;
+	default:
+		spin_unlock_irqrestore(&pctl->lock, flags);
+		pr_debug("invalid sunxi pconf type for set\n");
+		return -EINVAL;
+	}
+
+	spin_unlock_irqrestore(&pctl->lock, flags);
+	return 0;
+}
 
 static int sunxi_pconf_group_get(struct pinctrl_dev *pctldev,
 				 unsigned group,
@@ -356,6 +458,8 @@ static int sunxi_pconf_group_set(struct pinctrl_dev *pctldev,
 }
 
 static const struct pinconf_ops sunxi_pconf_ops = {
+	.pin_config_get	= sunxi_pconf_get,
+	.pin_config_set	= sunxi_pconf_set,
 	.pin_config_group_get	= sunxi_pconf_group_get,
 	.pin_config_group_set	= sunxi_pconf_group_set,
 };

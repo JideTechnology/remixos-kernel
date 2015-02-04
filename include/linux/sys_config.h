@@ -20,7 +20,14 @@
 /* pin group base number name space,
  * the max pin number : 26*32=832.
  */
-#define SUNXI_PINCTRL 	"sunxi-pinctrl"
+ #if defined(CONFIG_ARCH_SUN50IW1P1)
+#define SUNXI_PINCTRL 	"01c20800.pinctrl"
+#define SUNXI_R_PINCTRL "01f02c00.pinctrl"
+#else
+#define SUNXI_PINCTRL 	"01c20800.pinctrl"
+#define SUNXI_R_PINCTRL "01f02c00.pinctrl"
+#endif
+
 #define SUNXI_BANK_SIZE 32
 #define SUNXI_PA_BASE	0
 #define SUNXI_PB_BASE	32
