@@ -96,12 +96,12 @@
 
 	ion {
 		compatible = "allwinner,sunxi-ion";
-		/*types is list here:	
-			ION_HEAP_TYPE_SYSTEM = 0,	
-			ION_HEAP_TYPE_SYSTEM_CONTIG = 1,	
+		/*types is list here:
+			ION_HEAP_TYPE_SYSTEM = 0,
+			ION_HEAP_TYPE_SYSTEM_CONTIG = 1,
 			ION_HEAP_TYPE_CARVEOUT = 2,
-			ION_HEAP_TYPE_CHUNK = 3,	
-			ION_HEAP_TYPE_DMA = 4		
+			ION_HEAP_TYPE_CHUNK = 3,
+			ION_HEAP_TYPE_DMA = 4
 		**/
 		system_contig{
 			type = <1>;
@@ -116,9 +116,9 @@
 		cma{
 			type = <4>;
 			name = "cma";
-		};		
+		};
 	};
-	
+
 	dram {
 		compatible = "allwinner,dram";
 		clocks = <&clk_pll_ddr0>, <&clk_pll_ddr1>;
@@ -351,14 +351,14 @@
 			timer-prescale = <16>;
 		};
 
-		ve@01c0e000 {		
-			compatible = "allwinner,sunxi-cedar-ve";		
+		ve@01c0e000 {
+			compatible = "allwinner,sunxi-cedar-ve";
 			reg = <0x0 0x01c0e000 0x0 0x1000>,
 					<0x0 0x01c00000 0x0 0x10>,
-					<0x0 0x01c20000 0x0 0x800>;		
+					<0x0 0x01c20000 0x0 0x800>;
 			interrupts = <GIC_SPI 58 4>;
-			clocks = <&clk_pll_ve>,		
-							<&clk_ve>;				
+			clocks = <&clk_pll_ve>,
+							<&clk_ve>;
 
 		};
 
@@ -421,7 +421,7 @@
 			io-number = <4>;
 			status = "disabled";
 		};
-		
+
 		soc_twi0: twi@0x01c2ac00{
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -673,7 +673,7 @@
 			sunxi,spdif-controller = <&audiospdif>;
 			status = "okay";
 		};
-	
+
 		soc_spi0: spi@01c68000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -702,15 +702,121 @@
 			};
 		};
 
-		soc_sdmmc0: sdmmc@01c0f000 {
+		mmc0: sdmmc@01c0f000 {
 			compatible = "allwinner,sun50i-sdmmc0";
+			device_type = "mmc0";
 			reg = <0x0 0x01c0f000 0x0 0x1000>; /* only sdmmc0 */
 			interrupts = <GIC_SPI 60 0x0104>;  /*  */
 			clocks = <&clk_hosc>,<&clk_pll_periph0>,<&clk_sdmmc0>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&sdmmc0_pins_a>;
+			clock-names = "osc24m","pll_periph0","mmc";
+			pinctrl-names = "default","sleep";
+			pinctrl-0 = <&mmc0_pins_a>;
+			pinctrl-1 = <&mmc0_pins_b>;
+			max-frequency = <50000000>;
+			bus-width = <4>;
+			/*broken-cd;*/
+			/*cd-inverted*/
+			/*cd-gpios = <&pio PF 6 0 1 2 0>;*/
+			/* vmmc-supply = <&reg_3p3v>;*/
+			/* vqmc-supply = <&reg_3p3v>;*/
+			/* vdmc-supply = <&reg_3p3v>;*/
+			/*sd-uhs-sdr50;*/
+			/*sd-uhs-ddr50;*/
+			/*cap-sdio-irq;*/
+			/*keep-power-in-suspend;*/
+			/*ignore-pm-notify;*/
+			/*sunxi-power-save-mode;*/
+	      /*sunxi-dly-400k = <1 0 0 0>; */
+      /*sunxi-dly-26M  = <1 0 0 0>;*/
+      /*sunxi-dly-52M  = <1 0 0 0>;*/
+      /*sunxi-dly-52M-ddr4  = <1 0 0 0>;*/
+      /*sunxi-dly-52M-ddr8  = <1 0 0 0>;*/
+      /*sunxi-dly-104M  = <1 0 0 0>;*/
+      /*sunxi-dly-208M  = <1 0 0 0>;*/
+      /*sunxi-dly-104M-ddr  = <1 0 0 0>;*/
+      /*sunxi-dly-208M-ddr  = <1 0 0 0>;*/
+
 			status = "okay";
+			/*status = "disabled";*/
 		};
+
+
+		mmc1: sdmmc@1C10000 {
+			compatible = "allwinner,sun50i-sdmmc1";
+			device_type = "mmc1";
+			reg = <0x0 0x1C10000 0x0 0x1000>;
+			interrupts = <GIC_SPI 61 0x0104>;  /*  */
+			clocks = <&clk_hosc>,<&clk_pll_periph0>,<&clk_sdmmc1>;
+			clock-names = "osc24m","pll_periph1","mmc";
+			pinctrl-names = "default","sleep";
+			pinctrl-0 = <&mmc1_pins_a>;
+			pinctrl-1 = <&mmc1_pins_b>;
+			/*max-frequency = <50000000>;*/
+			/*bus-width = <4>;*/
+			/*broken-cd;*/
+			/*cd-inverted*/
+			/*cd-gpios = <&pio PF 6 0 1 2 0>;*/
+			/* vmmc-supply = <&reg_3p3v>;*/
+			/* vqmc-supply = <&reg_3p3v>;*/
+			/* vdmc-supply = <&reg_3p3v>;*/
+			/*sd-uhs-sdr50;*/
+			/*sd-uhs-ddr50;*/
+			/*cap-sdio-irq;*/
+			/*keep-power-in-suspend;*/
+			/*ignore-pm-notify;*/
+			/*sunxi-power-save-mode;*/
+	      /*sunxi-dly-400k = <1 0 0 0>; */
+      /*sunxi-dly-26M  = <1 0 0 0>;*/
+      /*sunxi-dly-52M  = <1 0 0 0>;*/
+      /*sunxi-dly-52M-ddr4  = <1 0 0 0>;*/
+      /*sunxi-dly-52M-ddr8  = <1 0 0 0>;*/
+      /*sunxi-dly-104M  = <1 0 0 0>;*/
+      /*sunxi-dly-208M  = <1 0 0 0>;*/
+      /*sunxi-dly-104M-ddr  = <1 0 0 0>;*/
+      /*sunxi-dly-208M-ddr  = <1 0 0 0>;*/
+
+			/*status = "okay";*/
+			status = "disabled";
+		};
+
+
+		mmc2: sdmmc@01C11000 {
+			compatible = "allwinner,sun50i-sdmmc2";
+			device_type = "mmc2";
+			reg = <0x0 0x01C11000 0x0 0x1000>;
+			interrupts = <GIC_SPI 62 0x0104>;  /*  */
+			clocks = <&clk_hosc>,<&clk_pll_periph0>,<&clk_sdmmc2>;
+	    clock-names = "osc24m","pll_periph1","mmc";
+      pinctrl-names = "default","sleep";
+			pinctrl-0 = <&mmc2_pins_a>;
+			pinctrl-1 = <&mmc2_pins_b>;
+  		/*bus-width = <8>;*/
+      /*mmc-ddr-1_8v;*/
+     /*mmc-hs200-1_8v;*/
+      /*mmc-hs400-1_8v;*/
+      /*non-removable;*/
+       /*max-frequency = <200000000>;*/
+
+       /*sdc_tm4_sm0_freq0 = <0x12345678>;*/
+       /*sdc_tm4_sm0_freq1 = <0x12345678>;*/
+       /*sdc_tm4_sm1_freq0 = <0x12345678>;*/
+       /*sdc_tm4_sm1_freq1 = <0x12345678>;*/
+       /*sdc_tm4_sm2_freq0 = <0x12345678>;*/
+       /*sdc_tm4_sm2_freq1 = <0x12345678>;*/
+       /*sdc_tm4_sm3_freq0 = <0x12345678>;*/
+       /*sdc_tm4_sm3_freq1 = <0x12345678>;*/
+       /*sdc_tm4_sm4_freq0 = <0x12345678>;*/
+       /*sdc_tm4_sm4_freq1 = <0x10345678>;*/
+
+			/*vmmc-supply = <&reg_3p3v>;*/
+			/*vqmc-supply = <&reg_3p3v>;*/
+			/*vdmc-supply = <&reg_3p3v>;*/
+	    /*sunxi-power-save-mode;*/
+			status = "disabled";
+			/*status = "okay";*/
+
+       };
+
 
 		soc_disp: disp@01000000 {
 			compatible = "allwinner,sun50i-disp";
@@ -801,7 +907,7 @@
 			reg = <0x0 0x01cb3000 0x0 0x1000>;	/*0x01cb3000--0x01cb4000*/
 			interrupts = <GIC_SPI 122 4>;/*SUNXI_IRQ_CSI0_CCI (SUNXI_GIC_START + 122)*/
 			status = "okay";
-		};		
+		};
 		csi_0:csi@0x01cb0000 {
 			compatible = "allwinner,sunxi-csi";
 			reg = <0x0 0x01cb0000 0x0 0x1000>;/*0x01cb0000--0x01cb1000*/
@@ -913,7 +1019,7 @@
 		nand0@01c03000 {
 			compatible = "allwinner,sun50i-nand";
 			reg = <0x0 0x01c03000 0x0 0x1000>; /* nand0 */
-			interrupts = <GIC_SPI 70 0x04>; 
+			interrupts = <GIC_SPI 70 0x04>;
 			clocks = <&clk_pll_periph0>,<&clk_nand>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&nand0_pins_a>, <&nand0_pins_b>;
