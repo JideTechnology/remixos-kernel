@@ -13,11 +13,9 @@
 #include "platform_cfg.h"
 
 #ifdef SUNXI_MEM
-//#include <linux/ion_sunxi.h>
-#include <linux/io.h>
-//#include <linux/ion.h>          //for all "ion api"
-//#include <linux/ion_sunxi.h>    //for import global variable "sunxi_ion_client_create"
-//#include <linux/dma-mapping.h>  //just include"PAGE_SIZE" macro
+#include <linux/ion.h>          //for all "ion api"
+#include <linux/ion_sunxi.h>    //for import global variable "sunxi_ion_client_create"
+#include <linux/dma-mapping.h>  //just include"PAGE_SIZE" macro
 #else
 #include <linux/dma-mapping.h>
 #endif
@@ -35,8 +33,6 @@ extern unsigned int vfe_dbg_lv;
 //print unconditional, for important info
 #define vfe_print(x,arg...) printk(KERN_NOTICE"[VFE]"x,##arg)
 
-typedef unsigned int __hdle;
-
 struct vfe_mm {    
 	unsigned int size;
 	void* phy_addr;
@@ -47,14 +43,11 @@ struct vfe_mm {
 };
 
 struct vfe_gpio_cfg {
-  char  gpio_name[32];
-  int port;
-  int port_num;
+  int gpio;
   int mul_sel;
   int pull;
   int drv_level;
   int data;
-  int gpio;
 };
 
 extern struct clk *os_clk_get(struct device *dev, const char *id);
@@ -68,11 +61,11 @@ extern void os_clk_disable_unprepare(struct clk *clk);
 extern int os_clk_reset_assert(struct clk *clk);
 extern int os_clk_reset_deassert(struct clk *clk); 
 extern int os_request_irq(unsigned int irq, irq_handler_t handler, unsigned long flags,const char *name, void *dev);
-extern __hdle os_gpio_request(struct vfe_gpio_cfg *gpio_list, __u32 group_count_max);
+extern int os_gpio_request(struct vfe_gpio_cfg *gpio_list, __u32 group_count_max);
 extern int os_gpio_set(struct vfe_gpio_cfg *gpio_list, __u32 group_count_max);
 
 //extern __hdle os_gpio_request_ex(char *main_name, const char *sub_name);
-extern int os_gpio_release(__hdle p_handler, __s32 if_release_to_default_status); 
+extern int os_gpio_release(u32 p_handler, __s32 if_release_to_default_status); 
 extern int os_gpio_write(u32 p_handler, __u32 value_to_gpio, const char *gpio_name, int force_value_flag);
 extern int os_gpio_set_status(u32 p_handler, __u32 if_set_to_output_status, const char *gpio_name);
 extern int os_mem_alloc(struct vfe_mm *mem_man);

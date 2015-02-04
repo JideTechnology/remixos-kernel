@@ -16,6 +16,7 @@
 #include <media/videobuf-core.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-mediabus.h>
+#include <media/v4l2-ctrls.h>
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #define CONFIG_ES
@@ -97,76 +98,17 @@ struct vfe_isp_stat_buf_queue {
 };
 
 struct vfe_ctrl_para {
-  int                                     brightness; //interger
-  int                                     contrast; //interger
-  int                                     saturation; //interger
-  int                                     hue; //interger
-  unsigned int                            auto_wb;  //bool
-  unsigned int                            exp_time; //interger
-  unsigned int                            auto_gain;  //bool
-  unsigned int                            gain;   //interger
-  unsigned int                            vflip;  //bool
-  unsigned int                            hflip;  //bool
-  enum v4l2_power_line_frequency          band_stop_mode; //menu
-  unsigned int                            auto_hue; //bool
-  unsigned int                            wb_temperature; //interger
-  int                                     sharpness; //interger
-  unsigned int                            chroma_agc; //bool
-  enum v4l2_colorfx                       colorfx; //menu
-  unsigned int                            auto_brightness; //bool
-  unsigned int                            band_stop_filter; //bool
-  unsigned int                            illuminator1; //bool
-  unsigned int                            illuminator2; //bool
-  enum  v4l2_exposure_auto_type           exp_auto_mode;
-  unsigned int                            exp_abs; //interger
-  unsigned int                            exp_auto_pri; //bool
-  unsigned int                            focus_abs; //interger
-  unsigned int                            focus_rel; //interger
-  unsigned int                            auto_focus; //bool
-  unsigned int                            exp_bias; //interger
-  enum v4l2_auto_n_preset_white_balance   wb_preset; //menu
-  unsigned int                            wdr;  //bool
-  unsigned int                            image_stabl; //bool
-  unsigned int                            iso; //interger
-  enum v4l2_iso_sensitivity_auto_type     iso_mode; //menu
-  enum v4l2_exposure_metering             exp_metering; //menu
-  enum v4l2_scene_mode                    scene_mode; //menu
-  unsigned int                            ae_lock; //bool
-  unsigned int                            awb_lock; //bool
-  unsigned int                            af_lock; //bool
-  unsigned int                            af_status_cur;  //mask
-  unsigned int                            af_status_next;  //mask
-  enum v4l2_auto_focus_range              af_range; //menu
-  enum v4l2_flash_led_mode                flash_mode; //menu
-  unsigned int                            vflip_thumb; //bool
-  unsigned int                            hflip_thumb; //bool
-  unsigned int                            af_win_num; //interger
-  struct isp_h3a_coor_win 								af_coor[MAX_AF_WIN_NUM];//pointer
-  unsigned int                            ae_win_num; //interger
-  struct isp_h3a_coor_win 								ae_coor[MAX_AE_WIN_NUM];//pointer
-  unsigned int                            gsensor_rot; //interger
-  unsigned int							  prev_exp_line;
-  unsigned int			                  prev_ana_gain;  
-  unsigned int			                  prev_focus_pos;
-  unsigned int			                  prev_exp_gain;
-  
-};
-
-struct vfe_gpio {
-  __hdle   power_en_io;
-  __hdle   reset_io;
-  __hdle   pwdn_io;
-  __hdle   flash_en_io;
-  __hdle   flash_mode_io;
-  __hdle   af_pwdn_io;
-  __hdle   mclk_io;
-  struct   vfe_gpio_cfg power_en;
-  struct   vfe_gpio_cfg reset;
-  struct   vfe_gpio_cfg pwdn;
-  struct   vfe_gpio_cfg flash_en;
-  struct   vfe_gpio_cfg flash_mode;
-  struct   vfe_gpio_cfg af_pwdn;
-  struct   vfe_gpio_cfg mclk;
+	unsigned int                            auto_wb;  //bool
+	enum  v4l2_exposure_auto_type           exp_auto_mode;
+	unsigned int                            auto_focus; //bool
+	unsigned int                            exp_bias; //interger
+	struct isp_h3a_coor_win 				af_coor[MAX_AF_WIN_NUM];//pointer
+	struct isp_h3a_coor_win 				ae_coor[MAX_AE_WIN_NUM];//pointer
+	unsigned int                            gsensor_rot; //interger
+	unsigned int							prev_exp_line;
+	unsigned int			                prev_ana_gain;  
+	unsigned int			                prev_focus_pos;
+	unsigned int			                prev_exp_gain;
 };
 
 struct vfe_regs {
@@ -271,17 +213,16 @@ struct ccm_config {
   unsigned int            hflip_thumb;
   unsigned int            is_isp_used;
   unsigned int            is_bayer_raw;
-  struct vfe_gpio         gpio;
+  struct vfe_gpio_cfg     gpio[MAX_GPIO_NUM];
   struct vfe_power        power;
-  struct vfe_clk_freq			clk_freq;
-//  struct vfe_device_info  ccm_info;
+  struct vfe_clk_freq	  clk_freq;
   int                     act_used;
   char                    act_name[I2C_NAME_SIZE];
   unsigned int            act_slave;
   struct actuator_ctrl_t  *act_ctrl;
   struct v4l2_subdev      *sd_act;
   int                     flash_used;
-  __flash_driver_ic_type flash_type;
+  __flash_driver_ic_type  flash_type;
 };
 
 struct sunxi_vip_platform_data {
@@ -289,8 +230,6 @@ struct sunxi_vip_platform_data {
   unsigned int vip_sel;
 //  unsigned int isp_sel;
 }; 
-
-
 
 static LIST_HEAD(devlist);
 struct vfe_dev {
@@ -344,7 +283,8 @@ struct vfe_dev {
   struct pinctrl_state 		*pctrl_state;
 #endif  
   struct vfe_regs         regs;
-  struct vfe_gpio         *gpio;
+  struct vfe_gpio_cfg	  *gpio;
+
   struct vfe_power        *power;
   struct regulator   *vfe_system_power[3];
   int vfe_sensor_power_cnt;
@@ -404,6 +344,7 @@ struct vfe_dev {
   struct flash_dev_info                   *fl_dev_info;
   unsigned int						platform_id;
   unsigned int 			vfe_s_input_flag;
+  struct v4l2_ctrl_handler ctrl_handler;
 };
 
 #endif  /* __VFE__H__ */

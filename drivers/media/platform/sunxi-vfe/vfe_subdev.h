@@ -16,13 +16,14 @@ enum pmic_channel {
 };
 
 enum gpio_type {
-  POWER_EN,
+  POWER_EN = 0,
   PWDN,
   RESET,
   AF_PWDN,
   FLASH_EN,
   FLASH_MODE,
   MCLK_PIN,
+  MAX_GPIO_NUM,
 };
 
 enum gpio_fun {

@@ -304,474 +304,118 @@ parse_sensor_list_info_end:
 	vfe_print("fetch %s sensor list info end!\n", pos);
 	return ret;
 }
+
+struct ccm_config ccm0_def_cfg[] = {
+	{
+		.ccm = "ov5640",
+		.twi_id = 1,
+		.i2c_addr = 0x78,
+		.is_isp_used = 0,
+		.is_bayer_raw = 0,
+		.vflip = 0,
+		.hflip = 0,
+		.iovdd_str = "",
+		.avdd_str = "",
+		.dvdd_str = "",
+		.afvdd_str = "",
+		.power = {
+			.stby_mode = 1,
+			.iovdd_vol =2800000, /* voltage of sensor module for interface */
+			.avdd_vol =2800000,  /* voltage of sensor module for analog */
+			.dvdd_vol =1500000,	 /* voltage of sensor module for core */
+			.afvdd_vol =2800000, /* voltage of sensor module for vcm sink */
+		},
+		.gpio = {
+			[MCLK_PIN] = {.gpio = 129, .mul_sel = 2, .pull = 0, .drv_level = 1, .data = 0,},
+			[RESET] = {144, 1, 0, 1, 0,},
+			[PWDN] = {145, 1, 0, 1, 0,},
+			[POWER_EN] = {GPIO_INDEX_INVALID, 	   0, 0, 0, 0,},
+			[FLASH_EN] =  {GPIO_INDEX_INVALID, 	  0, 0, 0, 0,},
+			[FLASH_MODE] =  {GPIO_INDEX_INVALID, 	 0, 0, 0, 0,},
+			[AF_PWDN] =  {GPIO_INDEX_INVALID, 	 0, 0, 0, 0,},
+		},
+		.flash_type = 0,	
+		.act_used = 0,
+		.act_name = "ad5820",
+		.act_slave = 0x18,
+	},
+};
+
+struct ccm_config ccm1_def_cfg[] = {
+
+};
+
 int fetch_config(struct vfe_dev *dev)
 {
-#ifdef VFE_SYS_CONFIG
-  int ret,i;
-  char vfe_para[16] = {0};
-  char dev_para[32] = {0};
+	unsigned int i,j;
+	struct ccm_config *ccm_def_cfg = ccm0_def_cfg;
 
-  script_item_u   val;
-  script_item_value_type_e	type;
-
-  sprintf(vfe_para, "csi%d", dev->id);
-  /* fetch device quatity issue */
-  type = script_get_item(vfe_para,"vip_dev_qty", &val);
-  if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-	dev->dev_qty=1;
-    vfe_err("fetch csi_dev_qty from sys_config failed\n");
-  } else {
-	  dev->dev_qty=val.val;
-	  vfe_dbg(0,"vip%d vip_dev_qty=%d\n",dev->id, dev->dev_qty);
-  }
-	if(dev->vip_define_sensor_list == 0xff)
-	{
-		type = script_get_item(vfe_para,"vip_define_sensor_list", &val);
-		if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-			dev->vip_define_sensor_list = 0;
-			vfe_warn("fetch vip_define_sensor_list from sys_config failed\n");
-		} else {
-			dev->vip_define_sensor_list=val.val;
-			vfe_dbg(0,"vip%d vip_define_sensor_list=%d\n",dev->id, dev->vip_define_sensor_list);
-		}
+	if(dev->id==0) {
+		ccm_def_cfg = ccm0_def_cfg;
+	} else {
+		ccm_def_cfg = ccm1_def_cfg;
 	}
-	type = script_get_item(vfe_para, "vip_csi_mck", &val);
+
+	dev->dev_qty = 1;
+	dev->vip_define_sensor_list = 0;
 	for(i=0; i<dev->dev_qty; i++)
 	{
-		if (SCIRPT_ITEM_VALUE_TYPE_PIO != type) {
-			dev->ccm_cfg[i]->gpio.mclk.gpio = GPIO_INDEX_INVALID;
-			vfe_dbg(0,"fetch vip_dev%d_power_en from sys_config failed\n", i);
-		} else {
-			dev->ccm_cfg[i]->gpio.mclk.gpio = val.gpio.gpio;
-			dev->ccm_cfg[i]->gpio.mclk.mul_sel = val.gpio.mul_sel;
-			dev->ccm_cfg[i]->gpio.mclk.pull = val.gpio.pull;
-			dev->ccm_cfg[i]->gpio.mclk.drv_level = val.gpio.drv_level;
-			dev->ccm_cfg[i]->gpio.mclk.data = val.gpio.data;
-			//printk("mclk:%d,%d,%d,%d,%d\n",i, dev->ccm_cfg[i]->gpio.mclk.mul_sel, dev->ccm_cfg[i]->gpio.mclk.pull, dev->ccm_cfg[i]->gpio.mclk.drv_level,dev->ccm_cfg[i]->gpio.mclk.data);
+		dev->ccm_cfg[i]->twi_id = ccm_def_cfg[i].twi_id;
+
+		if(dev->ccm_cfg[i]->i2c_addr == 0xff) //when insmod without parm
+		{
+			strcpy(dev->ccm_cfg[i]->ccm,ccm_def_cfg[i].ccm);
+			strcpy(dev->ccm_cfg[i]->isp_cfg_name,ccm_def_cfg[i].ccm);
+		}
+		dev->ccm_cfg[i]->is_isp_used = ccm_def_cfg[i].is_isp_used;
+		dev->ccm_cfg[i]->is_bayer_raw = ccm_def_cfg[i].is_bayer_raw;
+		dev->ccm_cfg[i]->power.stby_mode = ccm_def_cfg[i].power.stby_mode;
+		dev->ccm_cfg[i]->vflip = ccm_def_cfg[i].vflip;
+		dev->ccm_cfg[i]->hflip = ccm_def_cfg[i].hflip;
+		strcpy(dev->ccm_cfg[i]->iovdd_str, ccm_def_cfg[i].iovdd_str);
+		dev->ccm_cfg[i]->power.iovdd_vol = ccm_def_cfg[i].power.iovdd_vol;
+		strcpy(dev->ccm_cfg[i]->avdd_str, ccm_def_cfg[i].avdd_str);
+		dev->ccm_cfg[i]->power.avdd_vol = ccm_def_cfg[i].power.avdd_vol;
+		strcpy(dev->ccm_cfg[i]->dvdd_str, ccm_def_cfg[i].dvdd_str);
+		dev->ccm_cfg[i]->power.dvdd_vol = ccm_def_cfg[i].power.dvdd_vol;
+		strcpy(dev->ccm_cfg[i]->afvdd_str, ccm_def_cfg[i].afvdd_str);
+		dev->ccm_cfg[i]->power.afvdd_vol = ccm_def_cfg[i].power.afvdd_vol;
+
+		dev->ccm_cfg[i]->act_used = ccm_def_cfg[i].act_used;
+		if(dev->ccm_cfg[i]->act_slave == 0xff) //when insmod without parm
+		{
+			strcpy(dev->ccm_cfg[i]->act_name,ccm_def_cfg[i].act_name);
+			dev->ccm_cfg[i]->act_slave=ccm_def_cfg[i].act_slave;
+		}
+
+		for (j = 0; j < MAX_GPIO_NUM; j ++)
+		{
+			dev->ccm_cfg[i]->gpio[j].gpio = ccm_def_cfg[i].gpio[j].gpio;
+			dev->ccm_cfg[i]->gpio[j].mul_sel=ccm_def_cfg[i].gpio[j].mul_sel;
+			dev->ccm_cfg[i]->gpio[j].pull =ccm_def_cfg[i].gpio[j].pull;
+			dev->ccm_cfg[i]->gpio[j].drv_level = ccm_def_cfg[i].gpio[j].drv_level;
+			dev->ccm_cfg[i]->gpio[j].data = ccm_def_cfg[i].gpio[j].data;
 		}
 	}
-
-  for(i=0; i<dev->dev_qty; i++)
-  {
-    /* i2c and module name*/
-    sprintf(dev_para, "vip_dev%d_twi_id", i);
-    type = script_get_item(vfe_para, dev_para, &val);
-    if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-      vfe_err("fetch vip_dev%d_twi_id from sys_config failed\n", i);
-    } else {
-      dev->ccm_cfg[i]->twi_id = val.val;
-    }
-    dev->ccm_cfg[i]->sensor_cfg_ini = kmalloc(sizeof(struct sensor_config_init),GFP_KERNEL);
-    if(!dev->ccm_cfg[i]->sensor_cfg_ini)
-    {
-    	vfe_err("Sensor cfg ini kmalloc failed!\n");
-    }
-    memset(dev->ccm_cfg[i]->sensor_cfg_ini, 0,sizeof(struct sensor_config_init));
-
-    if(dev->vip_define_sensor_list == 1)
-    {
-    	    sprintf(dev_para, "vip_dev%d_pos", i);
-	    type = script_get_item(vfe_para, dev_para, &val);
-	    if (SCIRPT_ITEM_VALUE_TYPE_STR != type)
-	    {
-	    	char tmp_str[]="rear";
-	    	strcpy(dev->ccm_cfg[i]->sensor_pos, tmp_str);
-	    	vfe_err("fetch vip_dev%d_pos from sys_config failed\n", i);
-	    } else {
-	      strcpy(dev->ccm_cfg[i]->sensor_pos, val.str);
-	    }
-	    parse_sensor_list_info(dev->ccm_cfg[i]->sensor_cfg_ini, dev->ccm_cfg[i]->sensor_pos);
-    }
-    ret = strcmp(dev->ccm_cfg[i]->ccm,"");
-    if((dev->ccm_cfg[i]->i2c_addr == 0xff) && (ret == 0)) //when insmod without parm
-    {
-      sprintf(dev_para, "vip_dev%d_twi_addr", i);
-      type = script_get_item(vfe_para, dev_para, &val);
-      if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-        vfe_err("fetch vip_dev%d_twi_addr from sys_config failed\n", i);
-      } else {
-        dev->ccm_cfg[i]->i2c_addr = val.val;
-      }
-
-      sprintf(dev_para, "vip_dev%d_mname", i);
-      type = script_get_item(vfe_para, dev_para, &val);
-      if (SCIRPT_ITEM_VALUE_TYPE_STR != type) {
-        char tmp_str[]="ov5650";
-        strcpy(dev->ccm_cfg[i]->ccm,tmp_str);
-        vfe_err("fetch vip_dev%d_mname from sys_config failed\n", i);
-      } else {
-        strcpy(dev->ccm_cfg[i]->ccm,val.str);
-        strcpy(dev->ccm_cfg[i]->isp_cfg_name,val.str);
-
-      }
-    }
-
-    /* isp used mode */
-    sprintf(dev_para, "vip_dev%d_isp_used", i);
-    type = script_get_item(vfe_para, dev_para, &val);
-    if (SCIRPT_ITEM_VALUE_TYPE_INT != type)
-    {
-      vfe_dbg(0,"fetch vip_dev%d_isp_used from sys_config failed\n", i);
-    } else {
-      dev->ccm_cfg[i]->is_isp_used = val.val;
-    }
-
-    /* fmt */
-    sprintf(dev_para, "vip_dev%d_fmt", i);
-    type = script_get_item(vfe_para, dev_para, &val);
-    if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-      vfe_dbg(0,"fetch vip_dev%d_fmt from sys_config failed\n", i);
-    } else {
-      dev->ccm_cfg[i]->is_bayer_raw = val.val;
-    }
-
-    /* standby mode */
-    sprintf(dev_para, "vip_dev%d_stby_mode", i);
-    type = script_get_item(vfe_para, dev_para, &val);
-    if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-      vfe_dbg(0,"fetch vip_dev%d_stby_mode from sys_config failed\n", i);
-    } else {
-      dev->ccm_cfg[i]->power.stby_mode = val.val;
-    }
-
-    /* fetch flip issue */
-    sprintf(dev_para, "vip_dev%d_vflip", i);
-    type = script_get_item(vfe_para, dev_para, &val);
-    if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-      vfe_dbg(0,"fetch vip_dev%d_vflip from sys_config failed\n", i);
-    } else {
-      dev->ccm_cfg[i]->vflip = val.val;
-    }
-
-    sprintf(dev_para, "vip_dev%d_hflip", i);
-    type = script_get_item(vfe_para, dev_para, &val);
-    if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-      vfe_dbg(0,"fetch vip_dev%d_hflip from sys_config failed\n", i);
-    } else {
-      dev->ccm_cfg[i]->hflip = val.val;
-    }
-
-    /* fetch power issue*/
-    sprintf(dev_para, "vip_dev%d_iovdd", i);
-    type = script_get_item(vfe_para, dev_para, &val);
-
-    if (SCIRPT_ITEM_VALUE_TYPE_STR != type) {
-      char null_str[]="";
-      strcpy(dev->ccm_cfg[i]->iovdd_str,null_str);
-      vfe_dbg(0,"fetch vip_dev%d_iovdd from sys_config failed\n", i);
-    } else {
-      strcpy(dev->ccm_cfg[i]->iovdd_str,val.str);
-    }
-
-    sprintf(dev_para, "vip_dev%d_iovdd_vol", i);
-    type = script_get_item(vfe_para,dev_para, &val);
-	if (SCIRPT_ITEM_VALUE_TYPE_INT != type)
-	{
-		dev->ccm_cfg[i]->power.iovdd_vol=0;
-		vfe_dbg(0,"fetch vip_dev%d_iovdd_vol from sys_config failed, default =0\n",i);
-	}
-	else
-	 {
-		dev->ccm_cfg[i]->power.iovdd_vol=val.val;
-	}
-
-    sprintf(dev_para, "vip_dev%d_avdd", i);
-    type = script_get_item(vfe_para, dev_para, &val);
-    if (SCIRPT_ITEM_VALUE_TYPE_STR != type) {
-      char null_str[]="";
-      strcpy(dev->ccm_cfg[i]->avdd_str,null_str);
-      vfe_dbg(0,"fetch vip_dev%d_avdd from sys_config failed\n", i);
-    } else {
-      strcpy(dev->ccm_cfg[i]->avdd_str,val.str);
-    }
-
-    sprintf(dev_para, "vip_dev%d_avdd_vol", i);
-    type = script_get_item(vfe_para,dev_para, &val);
-		if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-	    dev->ccm_cfg[i]->power.avdd_vol=0;
-			vfe_dbg(0,"fetch vip_dev%d_avdd_vol from sys_config failed, default =0\n",i);
-		} else {
-	    dev->ccm_cfg[i]->power.avdd_vol=val.val;
-	  }
-
-    sprintf(dev_para, "vip_dev%d_dvdd", i);
-    type = script_get_item(vfe_para, dev_para, &val);
-    if (SCIRPT_ITEM_VALUE_TYPE_STR != type){
-      char null_str[]="";
-      strcpy(dev->ccm_cfg[i]->dvdd_str,null_str);
-      vfe_dbg(0,"fetch vip_dev%d_dvdd from sys_config failed\n", i);
-    } else {
-      strcpy(dev->ccm_cfg[i]->dvdd_str, val.str);
-    }
-
-		sprintf(dev_para, "vip_dev%d_dvdd_vol", i);
-    type = script_get_item(vfe_para,dev_para, &val);
-		if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-	    dev->ccm_cfg[i]->power.dvdd_vol=0;
-			vfe_dbg(0,"fetch vip_dev%d_dvdd_vol from sys_config failed, default =0\n",i);
-		} else {
-	    dev->ccm_cfg[i]->power.dvdd_vol=val.val;
-	  }
-
-    sprintf(dev_para, "vip_dev%d_afvdd", i);
-    type = script_get_item(vfe_para, dev_para, &val);
-    if (SCIRPT_ITEM_VALUE_TYPE_STR != type) {
-      char null_str[]="";
-      strcpy(dev->ccm_cfg[i]->afvdd_str,null_str);
-      vfe_dbg(0,"fetch vip_dev%d_afvdd from sys_config failed\n", i);
-    } else {
-      strcpy(dev->ccm_cfg[i]->afvdd_str, val.str);
-    }
-
-	  sprintf(dev_para, "vip_dev%d_afvdd_vol", i);
-    type = script_get_item(vfe_para,dev_para, &val);
-		if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-	    dev->ccm_cfg[i]->power.afvdd_vol=0;
-			vfe_dbg(0,"fetch vip_dev%d_afvdd_vol from sys_config failed, default =0\n",i);
-		} else {
-	    dev->ccm_cfg[i]->power.afvdd_vol=val.val;
-	  }
-
-    /* fetch reset/power/standby/flash/af io issue */
-    sprintf(dev_para, "vip_dev%d_reset", i);
-    type = script_get_item(vfe_para, dev_para, &val);
-    if (SCIRPT_ITEM_VALUE_TYPE_PIO != type) {
-      dev->ccm_cfg[i]->gpio.reset.gpio = GPIO_INDEX_INVALID;
-      vfe_dbg(0,"fetch vip_dev%d_reset from sys_config failed\n", i);
-    } else {
-      dev->ccm_cfg[i]->gpio.reset.gpio = val.gpio.gpio;
-      dev->ccm_cfg[i]->gpio.reset.mul_sel=val.gpio.mul_sel;
-			dev->ccm_cfg[i]->gpio.reset.pull = val.gpio.pull;
-			dev->ccm_cfg[i]->gpio.reset.drv_level = val.gpio.drv_level;
-			dev->ccm_cfg[i]->gpio.reset.data = val.gpio.data;
-    }
-
-    sprintf(dev_para, "vip_dev%d_pwdn", i);
-    type = script_get_item(vfe_para, dev_para, &val);
-    if (SCIRPT_ITEM_VALUE_TYPE_PIO != type){
-      dev->ccm_cfg[i]->gpio.pwdn.gpio = GPIO_INDEX_INVALID;
-      vfe_dbg(0,"fetch vip_dev%d_stby from sys_config failed\n", i);
-    } else {
-      dev->ccm_cfg[i]->gpio.pwdn.gpio = val.gpio.gpio;
-      dev->ccm_cfg[i]->gpio.pwdn.mul_sel = val.gpio.mul_sel;
-			dev->ccm_cfg[i]->gpio.pwdn.pull = val.gpio.pull;
-			dev->ccm_cfg[i]->gpio.pwdn.drv_level = val.gpio.drv_level;
-			dev->ccm_cfg[i]->gpio.pwdn.data = val.gpio.data;
-    }
-    sprintf(dev_para, "vip_dev%d_power_en", i);
-    type = script_get_item(vfe_para, dev_para, &val);
-    if (SCIRPT_ITEM_VALUE_TYPE_PIO != type) {
-      dev->ccm_cfg[i]->gpio.power_en.gpio = GPIO_INDEX_INVALID;
-      vfe_dbg(0,"fetch vip_dev%d_power_en from sys_config failed\n", i);
-    } else {
-      dev->ccm_cfg[i]->gpio.power_en.gpio = val.gpio.gpio;
-      dev->ccm_cfg[i]->gpio.power_en.mul_sel = val.gpio.mul_sel;
-			dev->ccm_cfg[i]->gpio.power_en.pull = val.gpio.pull;
-			dev->ccm_cfg[i]->gpio.power_en.drv_level = val.gpio.drv_level;
-			dev->ccm_cfg[i]->gpio.power_en.data = val.gpio.data;
-    }
-    sprintf(dev_para, "vip_dev%d_flash_en", i);
-    type = script_get_item(vfe_para, dev_para, &val);
-    if (SCIRPT_ITEM_VALUE_TYPE_PIO != type) {
-      dev->ccm_cfg[i]->gpio.flash_en.gpio = GPIO_INDEX_INVALID;
-      vfe_dbg(0,"fetch vip_dev%d_flash_en from sys_config failed\n", i);
-    } else {
-      dev->ccm_cfg[i]->gpio.flash_en.gpio = val.gpio.gpio;
-      dev->ccm_cfg[i]->gpio.flash_en.mul_sel = val.gpio.mul_sel;
-			dev->ccm_cfg[i]->gpio.flash_en.pull = val.gpio.pull;
-			dev->ccm_cfg[i]->gpio.flash_en.drv_level = val.gpio.drv_level;
-			dev->ccm_cfg[i]->gpio.flash_en.data = val.gpio.data;
-			dev->ccm_cfg[i]->flash_used=1;
-		sprintf(dev_para, "vip_dev%d_flash_type", i);
-		type = script_get_item(vfe_para,dev_para, &val);
-		if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-			dev->ccm_cfg[i]->flash_type=0;
-			vfe_dbg(0,"fetch vip_dev%d_flash_driver_type from sys_config failed, default =0\n",i);
-		} else {
-			dev->ccm_cfg[i]->flash_type = val.val;
-		}
 	
-    }
-
-    sprintf(dev_para, "vip_dev%d_flash_mode", i);
-    type = script_get_item(vfe_para, dev_para, &val);
-    if (SCIRPT_ITEM_VALUE_TYPE_PIO != type) {
-      dev->ccm_cfg[i]->gpio.flash_mode.gpio = GPIO_INDEX_INVALID;
-      vfe_dbg(0,"fetch vip_dev%d_flash_mode from sys_config failed\n", i);
-    } else {
-      dev->ccm_cfg[i]->gpio.flash_mode.gpio = val.gpio.gpio;
-      dev->ccm_cfg[i]->gpio.flash_mode.mul_sel = val.gpio.mul_sel;
-			dev->ccm_cfg[i]->gpio.flash_mode.pull = val.gpio.pull;
-			dev->ccm_cfg[i]->gpio.flash_mode.drv_level = val.gpio.drv_level;
-			dev->ccm_cfg[i]->gpio.flash_mode.data = val.gpio.data;
-    }
-
-    sprintf(dev_para, "vip_dev%d_af_pwdn", i);
-    type = script_get_item(vfe_para, dev_para, &val);
-    if (SCIRPT_ITEM_VALUE_TYPE_PIO != type) {
-      dev->ccm_cfg[i]->gpio.af_pwdn.gpio = GPIO_INDEX_INVALID;
-      vfe_dbg(0,"fetch vip_dev%d_af_pwdn from sys_config failed\n", i);
-    } else {
-      dev->ccm_cfg[i]->gpio.af_pwdn.gpio = val.gpio.gpio;
-      dev->ccm_cfg[i]->gpio.af_pwdn.mul_sel = val.gpio.mul_sel;
-			dev->ccm_cfg[i]->gpio.af_pwdn.pull = val.gpio.pull;
-			dev->ccm_cfg[i]->gpio.af_pwdn.drv_level = val.gpio.drv_level;
-			dev->ccm_cfg[i]->gpio.af_pwdn.data = val.gpio.data;
-    }
-
-		/* fetch actuator issue */
-	  sprintf(dev_para, "vip_dev%d_act_used", i);
-	  type = script_get_item(vfe_para, dev_para, &val);
-	  if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-		dev->ccm_cfg[i]->act_used= 0;
-		vfe_dbg(0,"fetch vip_dev%d_act_used from sys_config failed\n", i);
-	  } else {
-		dev->ccm_cfg[i]->act_used=val.val;
-	  }
-
-    ret = strcmp(dev->ccm_cfg[i]->act_name,"");
-	  if((dev->ccm_cfg[i]->act_slave == 0xff) && (ret == 0)) //when insmod without parm
-	  {
-  	  sprintf(dev_para, "vip_dev%d_act_name", i);
-  	  type = script_get_item(vfe_para, dev_para, &val);
-  	    if (SCIRPT_ITEM_VALUE_TYPE_STR != type) {
-  	      char null_str[]="";
-  	      strcpy(dev->ccm_cfg[i]->act_name,null_str);
-  	      vfe_dbg(0,"fetch vip_dev%d_act_name from sys_config failed\n", i);
-  	    } else {
-  	      strcpy(dev->ccm_cfg[i]->act_name,val.str);
-  	    }
-
-  		sprintf(dev_para, "vip_dev%d_act_slave", i);
-  		type = script_get_item(vfe_para, dev_para, &val);
-  		if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-  		  dev->ccm_cfg[i]->act_slave= 0;
-
-  		  vfe_dbg(0,"fetch vip_dev%d_act_slave from sys_config failed\n", i);
-  		} else {
-  		  dev->ccm_cfg[i]->act_slave=val.val;
-  		}
-	  }
-  //vfe_dbg(0,"act_used=%d, name=%s, slave=0x%x\n",dev->ccm_cfg[0]->act_used,
-  //	dev->ccm_cfg[0]->act_name, dev->ccm_cfg[0]->act_slave);
-  }
-#else
-  int type;
-#if defined(CONFIG_ARCH_SUN8IW3P1) || defined(CONFIG_ARCH_SUN9IW1P1)
-	unsigned int i2c_addr_vip0[2] = {0x78,0xff};
-	unsigned char ccm_vip0_dev0[] = {"ov5640",};
-  unsigned char ccm_vip0_dev1[] = {"",};
-	unsigned int vip0_is_isp_used[2] = {1,1};
-  unsigned int vip0_is_bayer_raw[2] = {0,0};
-  unsigned int vip0_act_used[2] = {0,0};
-  unsigned int vip0_act_addr[2] = {0xff,0xff};
-	unsigned char vip0_act_name_dev0[] = {"",};
-  unsigned char vip0_act_name_dev1[] = {"",};
-
-	unsigned int i2c_addr_vip1[2] = {0xff,0xff};
-  unsigned char ccm_vip1_dev0[] = {"",};
-  unsigned char ccm_vip1_dev1[] = {"",};
-  unsigned int vip1_is_isp_used[2] = {1,1};
-  unsigned int vip1_is_bayer_raw[2] = {0,0};
-  unsigned int vip1_act_used[2] = {0,0};
-  unsigned int vip1_act_addr[2] = {0xff,0xff};
-	unsigned char vip1_act_name_dev0[] = {"",};
-  unsigned char vip1_act_name_dev1[] = {"",};
-#else
-  unsigned int i2c_addr_vip0[2] = {0x78,0x00};
-  unsigned char ccm_vip0_dev0[] = {"ov5640",};
-  unsigned char ccm_vip0_dev1[] = {"",};
-  unsigned int vip0_is_isp_used[2] = {1,1};
-  unsigned int vip0_is_bayer_raw[2] = {0,0};
-  unsigned int vip0_act_used[2] = {1,0};
-  unsigned int vip0_act_addr[2] = {0x6c,0xff};
-	unsigned char vip0_act_name_dev0[] = {"ov8825_act",};
-  unsigned char vip0_act_name_dev1[] = {"",};
-
-  unsigned int i2c_addr_vip1[2] = {0x78,0x42};
-  unsigned char ccm_vip1_dev0[] = {"ov5650",};
-  unsigned char ccm_vip1_dev1[] = {"gc0308",};
-  unsigned int vip1_is_isp_used[2] = {1,1};
-  unsigned int vip1_is_bayer_raw[2] = {1,0};
-  unsigned int vip1_act_used[2] = {1,0};
-  unsigned int vip1_act_addr[2] = {0x18,0xff};
-	unsigned char vip1_act_name_dev0[] = {"ad5820",};
-  unsigned char vip1_act_name_dev1[] = {"",};
-#endif
-  unsigned int i2c_addr[2], act_addr[2];
-  unsigned int is_isp_used[2],is_bayer_raw[2],act_used[2];
-  unsigned char *ccm_name[2],*act_name[2];
-  unsigned int i;
-
-  if(dev->id==0) {
-    dev->dev_qty = 1;
-    for(i = 0; i < 2; i++) {
-	    is_isp_used[i] = vip0_is_isp_used[i];
-	    is_bayer_raw[i] = vip0_is_bayer_raw[i];
-	    i2c_addr[i] = i2c_addr_vip0[i];
-	    act_used[i] = vip0_act_used[i];
-	    act_addr[i] = vip0_act_addr[i];
-  	}
-    ccm_name[0] = ccm_vip0_dev0;
-	  ccm_name[1] = ccm_vip0_dev1;
-	  act_name[0] = vip0_act_name_dev0;
-	  act_name[1] = vip0_act_name_dev1;
-  } else if (dev->id == 1) {
-    dev->dev_qty = 1;
-    for(i = 0; i < 2; i++) {
-	    is_isp_used[i] = vip1_is_isp_used[i];
-	    is_bayer_raw[i] = vip1_is_bayer_raw[i];
-	    i2c_addr[i] = i2c_addr_vip1[i];
-	    act_used[i] = vip1_act_used[i];
-	    act_addr[i] = vip1_act_addr[i];
-  	}
-    ccm_name[0] = ccm_vip1_dev0;
-    ccm_name[1] = ccm_vip1_dev1;
-    act_name[0] = vip1_act_name_dev0;
-	  act_name[1] = vip1_act_name_dev1;
-  }
-
-  for(i=0; i<dev->dev_qty; i++)
-  {
-    dev->ccm_cfg[i]->twi_id = 1;
-    type = strcmp(dev->ccm_cfg[i]->ccm,"");
-    if((dev->ccm_cfg[i]->i2c_addr == 0xff)) //when insmod without parm
-    {
-		dev->ccm_cfg[i]->i2c_addr = i2c_addr[i];
-		strcpy(dev->ccm_cfg[i]->ccm, ccm_name[i]);
-		strcpy(dev->ccm_cfg[i]->isp_cfg_name, ccm_name[i]);
-
-    }
-    dev->ccm_cfg[i]->power.stby_mode = 1;
-    dev->ccm_cfg[i]->vflip = 0;
-    dev->ccm_cfg[i]->hflip = 0;
-    dev->ccm_cfg[i]->is_isp_used = is_isp_used[i];
-    dev->ccm_cfg[i]->is_bayer_raw = is_bayer_raw[i];
-    dev->ccm_cfg[i]->act_used = act_used[i];
-    strcpy(dev->ccm_cfg[i]->act_name , act_name[i]);
-    dev->ccm_cfg[i]->act_slave = act_addr[i];
-  }
-#endif
-
-  for(i=0; i<dev->dev_qty; i++)
-  {
-    vfe_dbg(0,"dev->ccm_cfg[%d]->ccm = %s\n",i,dev->ccm_cfg[i]->ccm);
-    vfe_dbg(0,"dev->ccm_cfg[%d]->twi_id = %x\n",i,dev->ccm_cfg[i]->twi_id);
-    vfe_dbg(0,"dev->ccm_cfg[%d]->i2c_addr = %x\n",i,dev->ccm_cfg[i]->i2c_addr);
+	for(i = 0; i < dev->dev_qty; i ++)
+	{
+		vfe_dbg(0,"dev->ccm_cfg[%d]->ccm = %s\n",i,dev->ccm_cfg[i]->ccm);
+		vfe_dbg(0,"dev->ccm_cfg[%d]->twi_id = %x\n",i,dev->ccm_cfg[i]->twi_id);
+		vfe_dbg(0,"dev->ccm_cfg[%d]->i2c_addr = %x\n",i,dev->ccm_cfg[i]->i2c_addr);
 		vfe_dbg(0,"dev->ccm_cfg[%d]->is_isp_used = %x\n",i,dev->ccm_cfg[i]->is_isp_used);
 		vfe_dbg(0,"dev->ccm_cfg[%d]->is_bayer_raw = %x\n",i,dev->ccm_cfg[i]->is_bayer_raw);
-    vfe_dbg(0,"dev->ccm_cfg[%d]->vflip = %x\n",i,dev->ccm_cfg[i]->vflip);
-    vfe_dbg(0,"dev->ccm_cfg[%d]->hflip = %x\n",i,dev->ccm_cfg[i]->hflip);
-    vfe_dbg(0,"dev->ccm_cfg[%d]->iovdd_str = %s\n",i,dev->ccm_cfg[i]->iovdd_str);
-    vfe_dbg(0,"dev->ccm_cfg[%d]->avdd_str = %s\n",i,dev->ccm_cfg[i]->avdd_str);
-    vfe_dbg(0,"dev->ccm_cfg[%d]->dvdd_str = %s\n",i,dev->ccm_cfg[i]->dvdd_str);
-    vfe_dbg(0,"dev->ccm_cfg[%d]->afvdd_str = %s\n",i,dev->ccm_cfg[i]->afvdd_str);
-    vfe_dbg(0,"dev->ccm_cfg[%d]->act_used = %d\n",i,dev->ccm_cfg[i]->act_used);
-    vfe_dbg(0,"dev->ccm_cfg[%d]->act_name = %s\n",i,dev->ccm_cfg[i]->act_name);
-    vfe_dbg(0,"dev->ccm_cfg[%d]->act_slave = 0x%x\n",i,dev->ccm_cfg[i]->act_slave);
-  }
-
-  return 0;
+		vfe_dbg(0,"dev->ccm_cfg[%d]->vflip = %x\n",i,dev->ccm_cfg[i]->vflip);
+		vfe_dbg(0,"dev->ccm_cfg[%d]->hflip = %x\n",i,dev->ccm_cfg[i]->hflip);
+		vfe_dbg(0,"dev->ccm_cfg[%d]->iovdd_str = %s\n",i,dev->ccm_cfg[i]->iovdd_str);
+		vfe_dbg(0,"dev->ccm_cfg[%d]->avdd_str = %s\n",i,dev->ccm_cfg[i]->avdd_str);
+		vfe_dbg(0,"dev->ccm_cfg[%d]->dvdd_str = %s\n",i,dev->ccm_cfg[i]->dvdd_str);
+		vfe_dbg(0,"dev->ccm_cfg[%d]->afvdd_str = %s\n",i,dev->ccm_cfg[i]->afvdd_str);
+		vfe_dbg(0,"dev->ccm_cfg[%d]->act_used = %d\n",i,dev->ccm_cfg[i]->act_used);
+		vfe_dbg(0,"dev->ccm_cfg[%d]->act_name = %s\n",i,dev->ccm_cfg[i]->act_name);
+		vfe_dbg(0,"dev->ccm_cfg[%d]->act_slave = 0x%x\n",i,dev->ccm_cfg[i]->act_slave);
+	}
+	return 0;
 }
 
 struct isp_init_config isp_init_def_cfg = {

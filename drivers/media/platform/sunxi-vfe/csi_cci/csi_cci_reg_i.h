@@ -42,10 +42,10 @@
 #define CCI_CFG_PACKET_MODE_MASK  	(0x1 << CCI_CFG_PACKET_MODE)
 #define CCI_CFG_INTERVAL  		 		16
 #define CCI_CFG_INTERVAL_MASK   		(0xff << CCI_CFG_INTERVAL)
-
-#define CCI_FMT_OFF                      			0x0008
 #define CCI_CFG_TIMEOUT_N  				24
 #define CCI_CFG_TIMEOUT_N_MASK		(0xff << CCI_CFG_TIMEOUT_N)
+
+#define CCI_FMT_OFF                      			0x0008
 #define CCI_FMT_PACKET_CNT			0 
 #define CCI_FMT_PACKET_CNT_MASK		(0xffff <<  CCI_FMT_PACKET_CNT)
 #define CCI_FMT_DATA_BYTE 				16 

@@ -93,7 +93,7 @@ int vfe_set_mclk(struct v4l2_subdev *sd, enum on_off on_off)
 	switch(on_off) {
 	case ON:
 		vfe_print("mclk on\n");
-		os_gpio_set(&dev->gpio->mclk, 1);  //set mclk PIN to MCLKt.
+		os_gpio_set(&dev->gpio[MCLK_PIN], 1);  //set mclk PIN to MCLKt.
 		usleep_range(10000,12000);
 		if(dev->clock.vfe_master_clk) {
 			if(os_clk_prepare_enable(dev->clock.vfe_master_clk)) {
@@ -114,7 +114,7 @@ int vfe_set_mclk(struct v4l2_subdev *sd, enum on_off on_off)
 			return -1;
 		}
 		usleep_range(10000,12000);
-		memcpy(&gpio_list, &dev->gpio->mclk, sizeof(struct vfe_gpio_cfg));
+		memcpy(&gpio_list, &dev->gpio[MCLK_PIN], sizeof(struct vfe_gpio_cfg));
 		gpio_list.mul_sel = GPIO_OUTPUT; //set mclk PIN to output.
 		os_gpio_set(&gpio_list, 1);
 		vfe_gpio_write(sd, MCLK_PIN, 0);
@@ -180,35 +180,8 @@ int vfe_gpio_write(struct v4l2_subdev *sd, enum gpio_type gpio_type, unsigned in
 #ifdef VFE_GPIO 
 	int force_value_flag = 1;
 	struct vfe_dev *dev=(struct vfe_dev *)dev_get_drvdata(sd->v4l2_dev->dev);
-	__hdle gpio;
-	switch(gpio_type) {
-		case POWER_EN:
-			gpio = dev->gpio->power_en_io;
-			break;
-		case PWDN:
-			gpio = dev->gpio->pwdn_io;
-			force_value_flag = 0;
-			break;
-		case RESET:
-			gpio = dev->gpio->reset_io;
-			force_value_flag = 0;
-			break;
-		case AF_PWDN:
-			gpio = dev->gpio->af_pwdn_io;
-			break;
-		case FLASH_EN:
-			gpio = dev->gpio->flash_en_io;
-			break;
-		case FLASH_MODE:
-			gpio = dev->gpio->flash_mode_io;
-			break;
-		case MCLK_PIN:
-			gpio = dev->gpio->mclk_io;
-			break;
-		default:
-			gpio = 0;
-			break;
-	}
+	u32 gpio = dev->gpio[gpio_type].gpio;
+	
 #ifdef CONFIG_ARCH_SUN8IW3P1
 	return os_gpio_write(gpio, status, NULL, 1);
 #else
@@ -227,33 +200,7 @@ int vfe_gpio_set_status(struct v4l2_subdev *sd, enum gpio_type gpio_type, unsign
 {
 #ifdef VFE_GPIO 
 	struct vfe_dev *dev=(struct vfe_dev *)dev_get_drvdata(sd->v4l2_dev->dev);
-	__hdle gpio;
-	switch(gpio_type) {
-		case POWER_EN:
-			gpio = dev->gpio->power_en_io;
-			break;
-		case PWDN:
-			gpio = dev->gpio->pwdn_io;
-			break;
-		case RESET:
-			gpio = dev->gpio->reset_io;
-			break;
-		case AF_PWDN:
-			gpio = dev->gpio->af_pwdn_io;
-			break;
-		case FLASH_EN:
-			gpio = dev->gpio->flash_en_io;
-			break;
-		case FLASH_MODE:
-			gpio = dev->gpio->flash_mode_io;
-			break;
-		case MCLK_PIN:
-			gpio = dev->gpio->mclk_io;
-			break;
-		default:
-			gpio = 0;
-			break;
-	}
+	u32 gpio = dev->gpio[gpio_type].gpio;
 	return os_gpio_set_status(gpio, status, NULL);
 #else
 	return 0;

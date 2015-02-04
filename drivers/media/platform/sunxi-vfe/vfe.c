@@ -93,6 +93,9 @@ unsigned int isp_reparse_flag = 0;
 static unsigned int frame_cnt = 0;
 static unsigned int vfe_dump = 0;
 struct mutex probe_hdl_lock;
+struct file* fp_dbg = NULL;
+
+//#define DUMP_ISP_LOG
 
 module_param_string(ccm, ccm, sizeof(ccm), S_IRUGO|S_IWUSR);
 module_param(i2c_addr,uint, S_IRUGO|S_IWUSR);
@@ -869,22 +872,16 @@ static void update_ccm_info(struct vfe_dev *dev , struct ccm_config *ccm_cfg)
 {
 	dev->sd                  = ccm_cfg->sd;
 	dev->sd_act                = ccm_cfg->sd_act;
-	dev->ctrl_para.vflip         = ccm_cfg->vflip;
-	dev->ctrl_para.hflip         = ccm_cfg->hflip;
-	dev->ctrl_para.vflip_thumb   = ccm_cfg->vflip_thumb;
-	dev->ctrl_para.hflip_thumb   = ccm_cfg->hflip_thumb;
 	dev->is_isp_used             = ccm_cfg->is_isp_used;
 	dev->is_bayer_raw            = ccm_cfg->is_bayer_raw;
 	dev->power                   = &ccm_cfg->power;
-	dev->gpio                    = &ccm_cfg->gpio;
+	dev->gpio                    = ccm_cfg->gpio;
 	dev->flash_used              = ccm_cfg->flash_used;
 	dev->flash_type              = ccm_cfg->flash_type;
 
 	/* print change */
 	vfe_dbg(0,"ccm_cfg pt = %p\n",ccm_cfg);
 	vfe_dbg(0,"ccm_cfg->sd = %p\n",ccm_cfg->sd); 
-	vfe_dbg(0,"module vflip = %d hflip = %d\n",dev->ctrl_para.vflip,dev->ctrl_para.hflip); 
-	vfe_dbg(0,"module vflip_thumb = %d hflip_thumb = %d\n",dev->ctrl_para.vflip_thumb,dev->ctrl_para.hflip_thumb); 
 	vfe_dbg(0,"module is_isp_used = %d is_bayer_raw= %d\n",dev->is_isp_used,dev->is_bayer_raw);  
 }
 
@@ -939,7 +936,7 @@ static inline void vfe_set_addr(struct vfe_dev *dev,struct vfe_buffer *buffer)
 	//}
 	//isp_addr_pst = addr_org /4;
 	if(dev->is_isp_used) {
-		bsp_isp_set_output_addr(addr_org);
+		sunxi_isp_set_output_addr(addr_org);
 	} else {
 		bsp_csi_set_addr(dev->vip_sel, addr_org);
 	}
@@ -949,22 +946,24 @@ static inline void vfe_set_addr(struct vfe_dev *dev,struct vfe_buffer *buffer)
 
 static unsigned int common_af_status_to_v4l2(enum auto_focus_status af_status)
 {
-  switch(af_status) {
-    case AUTO_FOCUS_STATUS_IDLE:
-      return V4L2_AUTO_FOCUS_STATUS_IDLE;
-    case AUTO_FOCUS_STATUS_BUSY:
-      return V4L2_AUTO_FOCUS_STATUS_BUSY;
-    case AUTO_FOCUS_STATUS_APPROCH:
-      return V4L2_AUTO_FOCUS_STATUS_BUSY;
-    case AUTO_FOCUS_STATUS_FINDED:
-      return V4L2_AUTO_FOCUS_STATUS_REACHED;
-    case AUTO_FOCUS_STATUS_FAILED:
-      return V4L2_AUTO_FOCUS_STATUS_FAILED;
-    case AUTO_FOCUS_STATUS_REFOCUS:
-      return V4L2_AUTO_FOCUS_STATUS_BUSY;
-    default:
-      return V4L2_AUTO_FOCUS_STATUS_IDLE;
-  }
+	switch(af_status) {
+		case AUTO_FOCUS_STATUS_IDLE:
+			return V4L2_AUTO_FOCUS_STATUS_IDLE;
+		case AUTO_FOCUS_STATUS_BUSY:
+			return V4L2_AUTO_FOCUS_STATUS_BUSY;
+		case AUTO_FOCUS_STATUS_REACHED:
+			return V4L2_AUTO_FOCUS_STATUS_REACHED;
+		case AUTO_FOCUS_STATUS_APPROCH:
+			return V4L2_AUTO_FOCUS_STATUS_BUSY;
+		case AUTO_FOCUS_STATUS_REFOCUS:
+			return V4L2_AUTO_FOCUS_STATUS_BUSY;
+		case AUTO_FOCUS_STATUS_FINDED:
+			return V4L2_AUTO_FOCUS_STATUS_BUSY;
+		case AUTO_FOCUS_STATUS_FAILED:
+			return V4L2_AUTO_FOCUS_STATUS_FAILED;
+		default:
+		      return V4L2_AUTO_FOCUS_STATUS_IDLE;
+	}
 }
 static void vfe_dump_csi_regs(struct vfe_dev *dev)
 {
@@ -1012,6 +1011,59 @@ static void vfe_dump_isp_regs(struct vfe_dev *dev)
 		}
 	}
 }
+#ifdef DUMP_ISP_LOG
+
+static void vfe_init_isp_log(struct vfe_dev *dev)
+{
+	fp_dbg = cfg_open_file("/system/etc/hawkview/log.bin");
+	if(IS_ERR(fp_dbg)){
+		vfe_err("open log.txt error.");
+	}else{
+		//if(cfg_write_file(fp_dbg, "0123456789abcdef\n", 16) < 0)
+		//{
+		//	vfe_err("/system/etc/hawkview/log.txt write test failed.");
+		//}
+		;
+	}
+
+}
+static void vfe_exit_isp_log(struct vfe_dev *dev)
+{
+	cfg_close_file(fp_dbg);
+}
+static void vfe_dump_isp_log(struct vfe_dev *dev)
+{
+
+	//dump isp log.
+	if(cfg_write_file(fp_dbg, dev->isp_gen_set_pt->stat.hist_buf, ISP_STAT_HIST_MEM_SIZE) < 0)
+	{
+		vfe_err("dump isp hist faild.");
+		return;
+	}
+	if(cfg_write_file(fp_dbg, dev->isp_gen_set_pt->stat.ae_buf, ISP_STAT_AE_MEM_SIZE) < 0)
+	{
+		vfe_err("dump isp ae faild.");
+	}
+	if(cfg_write_file(fp_dbg, (char *)dev->isp_gen_set_pt->awb_buf, 3*ISP_STAT_AWB_WIN_MEM_SIZE) < 0)
+	{
+		vfe_err("dump awb log faild.");
+	}
+	
+	//if(cfg_write_file(fp_dbg, dev->isp_gen_set_pt->stat.af_buf, ISP_STAT_AF_MEM_SIZE) < 0)
+	//{
+	//	vfe_err("dump isp log faild.");
+	//}
+	///if(cfg_write_file(fp_dbg, "0123456789abcdef\n", 16) < 0)
+	///{
+	//	vfe_err("/system/etc/hawkview/log.txt write test failed.");
+	//}
+
+}
+#else
+#define vfe_init_isp_log(dev) {}
+#define vfe_exit_isp_log(dev) {}
+#define vfe_dump_isp_log(dev) {}
+#endif
 
 static void isp_isr_bh_handle(struct work_struct *work)
 {
@@ -1051,6 +1103,7 @@ ISP_REPARSE_END:
 			vfe_reg_clr((void __iomem*) (unsigned long)(ISP_REGS_BASE+0x10), (1 << 20));
 			vfe_reg_clr((void __iomem*) (unsigned long)(ISP_REGS_BASE+0x10), (0xF << 16));
 		}
+		vfe_dump_isp_log(dev);
 		isp_isr(dev->isp_gen_set_pt,dev->isp_3a_result_pt);
 		if((dev->ctrl_para.prev_focus_pos != dev->isp_3a_result_pt->real_vcm_pos  || 
 				dev->isp_gen_set_pt->isp_ini_cfg.isp_test_settings.isp_test_mode != 0 || 
@@ -1990,8 +2043,6 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,
       struct v4l2_format *f)
 {
 	struct vfe_dev *dev = video_drvdata(file);
-	//  struct vfe_fmt *vfe_fmt;
-	//  struct v4l2_mbus_framefmt ccm_fmt;
 	enum v4l2_mbus_pixelcode *bus_pix_code;
   
 	vfe_dbg(0,"vidioc_try_fmt_vid_cap\n");
@@ -2127,8 +2178,6 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
   } else if (mbus_cfg.type == V4L2_MBUS_BT656) {
     dev->bus_info.bus_if = BT656;
   }
-  
- 
   
   //get mipi bps from win configs
   if(mbus_cfg.type == V4L2_MBUS_CSI2) {
@@ -2269,7 +2318,7 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
       isp_fmt[ROT_CH] = PIX_FMT_NONE;
     }
     
-    bsp_isp_set_fmt(find_bus_type(*bus_pix_code),isp_fmt);
+    sunxi_isp_set_fmt(find_bus_type(*bus_pix_code),isp_fmt);
     
     //only has one rotation ch, priority: main ch > sub ch
     //from main ch first
@@ -2355,7 +2404,7 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	size_settings.ob_valid_size = ob_valid_size;
 	size_settings.ob_rot_size = isp_size[ROT_CH];
 
-	dev->buf_byte_size = bsp_isp_set_size(isp_fmt,&size_settings);
+	dev->buf_byte_size = sunxi_isp_set_size(isp_fmt,&size_settings);
     
     vfe_print("dev->buf_byte_size = %d, double_ch_flag = %d\n",dev->buf_byte_size, dev->isp_gen_set_pt->double_ch_flag);
   } else {
@@ -2454,12 +2503,6 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	struct vfe_dev *dev = video_drvdata(file);
 	vfe_dbg(2,"vidioc dqbuf\n");
 	ret = videobuf_dqbuf(&dev->vb_vidq, p, file->f_flags & O_NONBLOCK);  
-	//if (dev->isp_3a_result_pt != NULL && dev->is_bayer_raw)
-	//{
-	//	mutex_lock(&dev->isp_3a_result_mutex);
-	//	p->reserved = dev->isp_3a_result_pt->image_quality;
-	//	mutex_unlock(&dev->isp_3a_result_mutex);
-	//}  
   
 	return ret;
 }
@@ -2796,38 +2839,38 @@ static int internal_s_input(struct vfe_dev *dev, unsigned int i)
 		bsp_isp_enable();
 		bsp_isp_init(&dev->isp_init_para);
 		/* Set the initial flip */
-		if(dev->ctrl_para.vflip == 0)
+		if(dev->ccm_cfg[i]->vflip == 0)
 		{
-			bsp_isp_flip_disable(MAIN_CH);
-			bsp_isp_flip_disable(SUB_CH);
+			sunxi_isp_set_flip(MAIN_CH, DISABLE);
+			sunxi_isp_set_flip(SUB_CH, DISABLE);
 		}
 		else
 		{
-			bsp_isp_flip_enable(MAIN_CH);
-			bsp_isp_flip_enable(SUB_CH);
+			sunxi_isp_set_flip(MAIN_CH, ENABLE);
+			sunxi_isp_set_flip(SUB_CH, ENABLE);
 		}
-		if(dev->ctrl_para.hflip == 0)
+		if(dev->ccm_cfg[i]->hflip == 0)
 		{
-			bsp_isp_mirror_disable(MAIN_CH);
-			bsp_isp_mirror_disable(SUB_CH);
+			sunxi_isp_set_mirror(MAIN_CH, DISABLE);
+			sunxi_isp_set_mirror(SUB_CH, DISABLE);
 		}
 		else
 		{
-			bsp_isp_mirror_enable(MAIN_CH);
-			bsp_isp_mirror_enable(SUB_CH);
+			sunxi_isp_set_mirror(MAIN_CH, ENABLE);
+			sunxi_isp_set_mirror(SUB_CH, ENABLE);
 		}
 	} else {
 		bsp_isp_exit();
 		/* Set the initial flip */
 		ctrl.id = V4L2_CID_VFLIP;
-		ctrl.value = dev->ctrl_para.vflip;
+		ctrl.value = dev->ccm_cfg[i]->vflip;
 		ret = v4l2_subdev_call(dev->sd,core, s_ctrl, &ctrl);
 		if (ret!=0) {
 			vfe_err("sensor sensor_s_ctrl V4L2_CID_VFLIP error when vidioc_s_input!input_num = %d\n",i);
 		}
   
 		ctrl.id = V4L2_CID_HFLIP;
-		ctrl.value = dev->ctrl_para.hflip;
+		ctrl.value = dev->ccm_cfg[i]->hflip;
 		ret = v4l2_subdev_call(dev->sd,core, s_ctrl, &ctrl);
 		if (ret!=0) {
 			vfe_err("sensor sensor_s_ctrl V4L2_CID_HFLIP error when vidioc_s_input!input_num = %d\n",i);
@@ -2898,803 +2941,6 @@ static enum auto_focus_range v4l2_af_range_to_common(enum v4l2_auto_focus_range 
 static enum flash_mode v4l2_flash_mode_to_common(enum v4l2_flash_led_mode flash_mode)
 {
 	return flash_mode;
-}
-
-static int vidioc_queryctrl(struct file *file, void *priv,
-          struct v4l2_queryctrl *qc)
-{
-  struct vfe_dev *dev = video_drvdata(file);
-  int ret;
-  if(dev->is_isp_used && dev->is_bayer_raw) {
-    /* Fill in min, max, step and default value for these controls. */
-    /* see include/linux/videodev2.h for details */
-    /* see sensor_s_parm and sensor_g_parm for the meaning of value */
-    switch (qc->id) {
-      //V4L2_CID_BASE
-      case V4L2_CID_BRIGHTNESS:
-		return v4l2_ctrl_query_fill(qc, 0, 255, 1, 128);
-      case V4L2_CID_CONTRAST:
-		return v4l2_ctrl_query_fill(qc, 0, 128, 1, 0);
-      case V4L2_CID_SATURATION:
-        return v4l2_ctrl_query_fill(qc, -4, 4, 1, 0);
-      case V4L2_CID_HUE:
-        return v4l2_ctrl_query_fill(qc, -180, 180, 1, 0);
-      case V4L2_CID_AUTO_WHITE_BALANCE:
-        return v4l2_ctrl_query_fill(qc, 0, 1, 1, 1);
-      case V4L2_CID_EXPOSURE:
-        return v4l2_ctrl_query_fill(qc, 0, 65536*16, 1, 0);
-	case V4L2_CID_HOR_VISUAL_ANGLE:	
-		return v4l2_ctrl_query_fill(qc, 0, 360, 1, 60);
-	case V4L2_CID_VER_VISUAL_ANGLE:
-		return v4l2_ctrl_query_fill(qc, 0, 360, 1, 60);
-	case V4L2_CID_FOCUS_LENGTH:
-		return v4l2_ctrl_query_fill(qc, 0, 1000, 1, 280);
-	case V4L2_CID_R_GAIN:	
-		return v4l2_ctrl_query_fill(qc, 32, 1024, 1, 256);
-	case V4L2_CID_G_GAIN:	
-		return v4l2_ctrl_query_fill(qc, 32, 1024, 1, 256);
-	case V4L2_CID_B_GAIN: 
-		return v4l2_ctrl_query_fill(qc, 32, 1024, 1, 256);
-      case V4L2_CID_AUTOGAIN:
-        return v4l2_ctrl_query_fill(qc, 0, 1, 1, 1);
-      case V4L2_CID_GAIN: 
-        return v4l2_ctrl_query_fill(qc, 0, 0x7fffffff, 1, 0);
-      case V4L2_CID_VFLIP:
-        ret = v4l2_ctrl_query_fill(qc, 0, 1, 1, 0);
-        qc->default_value = dev->ctrl_para.vflip;
-        return ret;
-      case V4L2_CID_HFLIP:
-        ret = v4l2_ctrl_query_fill(qc, 0, 1, 1, 0);
-        qc->default_value = dev->ctrl_para.hflip;
-        return ret;
-      case V4L2_CID_POWER_LINE_FREQUENCY:
-        return v4l2_ctrl_query_fill(qc, 0, 3, 1, 3);
-      case V4L2_CID_HUE_AUTO:
-        return v4l2_ctrl_query_fill(qc, 0, 1, 1, 1);
-      case V4L2_CID_WHITE_BALANCE_TEMPERATURE:
-        return v4l2_ctrl_query_fill(qc, 2800, 10000, 1, 6500); 
-      case V4L2_CID_SHARPNESS:
-		return v4l2_ctrl_query_fill(qc, -32, 32, 1, 0); 
-      case V4L2_CID_CHROMA_AGC:
-        return v4l2_ctrl_query_fill(qc, 0, 1, 1, 1);
-      case V4L2_CID_COLORFX:
-        return v4l2_ctrl_query_fill(qc, 0, 15, 1, 0);
-      case V4L2_CID_AUTOBRIGHTNESS:
-        return v4l2_ctrl_query_fill(qc, 0, 1, 1, 1);
-      case V4L2_CID_BAND_STOP_FILTER:
-        return v4l2_ctrl_query_fill(qc, 0, 1, 1, 1);
-      case V4L2_CID_ILLUMINATORS_1:
-      case V4L2_CID_ILLUMINATORS_2: 
-        return v4l2_ctrl_query_fill(qc, 0, 1, 1, 0);
-      //V4L2_CID_CAMERA_CLASS_BASE
-      case V4L2_CID_EXPOSURE_AUTO:
-        return v4l2_ctrl_query_fill(qc, 0, 3, 1, 0);
-      case V4L2_CID_EXPOSURE_ABSOLUTE:
-        return v4l2_ctrl_query_fill(qc, 1, 1000000, 1, 1);  
-      case V4L2_CID_EXPOSURE_AUTO_PRIORITY:
-        return v4l2_ctrl_query_fill(qc, 0, 1, 1, 0);
-      case V4L2_CID_FOCUS_ABSOLUTE:
-        return v4l2_ctrl_query_fill(qc, 0, 127, 1, 0);  
-      case V4L2_CID_FOCUS_RELATIVE:
-        return v4l2_ctrl_query_fill(qc, -127, 127, 1, 0); 
-      case V4L2_CID_FOCUS_AUTO:
-        return v4l2_ctrl_query_fill(qc, 0, 1, 1, 1);
-      case V4L2_CID_AUTO_EXPOSURE_BIAS:
-        return v4l2_ctrl_query_fill(qc, -4, 4, 1, 0);
-      case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
-        return v4l2_ctrl_query_fill(qc, 0, 10, 1, 1);
-      case V4L2_CID_WIDE_DYNAMIC_RANGE:
-        return v4l2_ctrl_query_fill(qc, 0, 1, 1, 0);
-      case V4L2_CID_IMAGE_STABILIZATION:
-        return v4l2_ctrl_query_fill(qc, 0, 1, 1, 0);
-      case V4L2_CID_ISO_SENSITIVITY:
-        return v4l2_ctrl_query_fill(qc, 500, 16000, 100, 1000);
-      case V4L2_CID_ISO_SENSITIVITY_AUTO:
-        return v4l2_ctrl_query_fill(qc, 0, 1, 1, 1);
-      case V4L2_CID_EXPOSURE_METERING:
-        return -EINVAL;
-      case V4L2_CID_SCENE_MODE:
-        return v4l2_ctrl_query_fill(qc, 0, 13, 1, 0); 
-      case V4L2_CID_3A_LOCK:
-        return v4l2_ctrl_query_fill(qc, 0, 4, 1, 0);
-      case V4L2_CID_AUTO_FOCUS_START:
-        return v4l2_ctrl_query_fill(qc, 0, 0, 0, 0);
-      case V4L2_CID_AUTO_FOCUS_STOP:
-        return v4l2_ctrl_query_fill(qc, 0, 0, 0, 0);
-      case V4L2_CID_AUTO_FOCUS_STATUS:  //Read-Only
-        return v4l2_ctrl_query_fill(qc, 0, 0, 0, 0);
-      case V4L2_CID_AUTO_FOCUS_RANGE:
-        return v4l2_ctrl_query_fill(qc, 0, 3, 1, 0);  
-      //V4L2_CID_FLASH_CLASS_BASE
-      case V4L2_CID_FLASH_LED_MODE:
-        return v4l2_ctrl_query_fill(qc, 0, 4, 1, 0);  
-      //V4L2_CID_PRIVATE_BASE
-      case V4L2_CID_HFLIP_THUMB:
-        ret = v4l2_ctrl_query_fill(qc, 0, 1, 1, 0);
-        qc->default_value = dev->ctrl_para.hflip_thumb;
-        return ret;
-      case V4L2_CID_VFLIP_THUMB:
-        ret = v4l2_ctrl_query_fill(qc, 0, 1, 1, 0);
-        qc->default_value = dev->ctrl_para.vflip_thumb;
-        return ret;
-      case V4L2_CID_AUTO_FOCUS_WIN_NUM:
-        return v4l2_ctrl_query_fill(qc, 0, 10, 1, 0);
-      case V4L2_CID_AUTO_FOCUS_INIT:
-      case V4L2_CID_AUTO_FOCUS_RELEASE:
-        return v4l2_ctrl_query_fill(qc, 0, 0, 0, 0); 
-      case V4L2_CID_AUTO_EXPOSURE_WIN_NUM:
-        return v4l2_ctrl_query_fill(qc, 0, 10, 1, 0);
-      case V4L2_CID_GSENSOR_ROTATION:
-        return v4l2_ctrl_query_fill(qc, -180, 180, 90, 0);
-	case V4L2_CID_TAKE_PICTURE:
-		return v4l2_ctrl_query_fill(qc, 0, 16, 1, 1);
-	case V4L2_CID_HDR:
-		return v4l2_ctrl_query_fill(qc, 0, 10, 1, 0);		
-	case V4L2_CID_SENSOR_TYPE:
-	        return v4l2_ctrl_query_fill(qc, 0, 1, 1, 0);
-    }
-    return -EINVAL;
-  } else {  
-    if(qc->id == V4L2_CID_FOCUS_ABSOLUTE)
-    { //TODO!
-    return v4l2_ctrl_query_fill(qc, 0, 127, 1, 0);  
-    }
-    else if(qc->id == V4L2_CID_SENSOR_TYPE)
-    {
-		return v4l2_ctrl_query_fill(qc, 0, 1, 1, 0);
-    }
-    ret = v4l2_subdev_call(dev->sd,core,queryctrl,qc);
-    if (ret < 0)
-    {
-      if(qc->id != V4L2_CID_GAIN)
-      {
-        vfe_warn("v4l2 sub device queryctrl unsuccess,id = %x!\n",qc->id);
-      }
-    }
-  }
-  
-  return ret;
-}
-
-static int vidioc_g_ctrl(struct file *file, void *priv,
-       struct v4l2_control *ctrl)
-{
-  struct vfe_dev *dev = video_drvdata(file);
-  struct v4l2_queryctrl qc;
-  int ret;
-  qc.id = ctrl->id;
-  ret = vidioc_queryctrl(file, priv, &qc);
-  if (ret < 0)
-  {
-    return ret;
-  }
-  
-  if(dev->is_isp_used && dev->is_bayer_raw) {
-    switch (ctrl->id) {
-      //V4L2_CID_BASE
-      case V4L2_CID_BRIGHTNESS:
-		ctrl->value = dev->isp_gen_set_pt->ae_lum/100;
-        break;
-      case V4L2_CID_CONTRAST:
-        ctrl->value = dev->ctrl_para.contrast;
-        break;
-      case V4L2_CID_SATURATION:
-        ctrl->value = dev->ctrl_para.saturation;
-        break;
-      case V4L2_CID_HUE:
-        ctrl->value = dev->ctrl_para.hue;
-        break;
-	case V4L2_CID_HOR_VISUAL_ANGLE:	
-		ctrl->value = dev->isp_gen_set_pt->isp_ini_cfg.isp_tunning_settings.hor_visual_angle;
-		break;
-	case V4L2_CID_VER_VISUAL_ANGLE:
-		ctrl->value = dev->isp_gen_set_pt->isp_ini_cfg.isp_tunning_settings.ver_visual_angle;
-		break;
-	case V4L2_CID_FOCUS_LENGTH:
-		ctrl->value = dev->isp_gen_set_pt->isp_ini_cfg.isp_tunning_settings.focus_length;
-		break;
-	  case V4L2_CID_AUTO_WHITE_BALANCE:
-		ctrl->value = dev->ctrl_para.auto_wb;
-		break;
-	  case V4L2_CID_EXPOSURE:
-	  	ctrl->value = dev->isp_3a_result_pt->exp_line_num;
-		break;
-	  case V4L2_CID_AUTOGAIN:
-		ctrl->value = dev->ctrl_para.auto_gain;
-		break;
-	  case V4L2_CID_GAIN: 
-	  	if(dev->isp_gen_set_pt->isp_ini_cfg.isp_test_settings.isp_test_mode == ISP_TEST_ALL_ENABLE || 
-	  				dev->isp_gen_set_pt->isp_ini_cfg.isp_test_settings.isp_test_mode == ISP_TEST_MANUAL) {
-		  	ctrl->value = CLIP(CLIP(dev->isp_3a_result_pt->exp_analog_gain, 16, 255) | 
-		  				(CLIP(dev->isp_gen_set_pt->sharp_cfg_to_hal[1], 0, 4095)/*level*/ << V4L2_SHARP_LEVEL_SHIFT)  | 
-		  				(CLIP(dev->isp_gen_set_pt->sharp_cfg_to_hal[0], 0, 63)/*min*/ << V4L2_SHARP_MIN_SHIFT) | 
-		  				(CLIP(dev->isp_gen_set_pt->isp_ini_cfg.isp_tunning_settings.color_denoise_level, 0, 31)  << V4L2_NDF_SHIFT) ,0,0xffffffff);
-	  	}else{
-		  	ctrl->value = CLIP(dev->isp_3a_result_pt->exp_analog_gain, 16, 255);
-	  	}
-		break;
-	case V4L2_CID_R_GAIN:	
-		ctrl->value = dev->isp_gen_set_pt->module_cfg.wb_gain_cfg.wb_gain.r_gain;
-		break;
-	case V4L2_CID_G_GAIN:	
-		ctrl->value = dev->isp_gen_set_pt->module_cfg.wb_gain_cfg.wb_gain.gr_gain;
-		break;
-	case V4L2_CID_B_GAIN: 
-		ctrl->value = dev->isp_gen_set_pt->module_cfg.wb_gain_cfg.wb_gain.b_gain;
-		break;
-	  case V4L2_CID_HFLIP:
-		ctrl->value = dev->ctrl_para.hflip; 
-        break;
-      case V4L2_CID_VFLIP:
-        ctrl->value = dev->ctrl_para.vflip; 
-        break;
-      case V4L2_CID_POWER_LINE_FREQUENCY:
-        ctrl->value = dev->ctrl_para.band_stop_mode;
-        break;
-      case V4L2_CID_HUE_AUTO:
-        ctrl->value = dev->ctrl_para.auto_hue;
-        break;
-      case V4L2_CID_WHITE_BALANCE_TEMPERATURE:
-        ctrl->value = dev->ctrl_para.wb_temperature;
-        break;
-      case V4L2_CID_SHARPNESS:
-        ctrl->value = dev->ctrl_para.sharpness;
-        break;
-      case V4L2_CID_CHROMA_AGC:
-        ctrl->value = dev->ctrl_para.chroma_agc;
-        break;
-      case V4L2_CID_COLORFX:
-        ctrl->value = dev->ctrl_para.colorfx;
-        break;
-      case V4L2_CID_AUTOBRIGHTNESS:
-        ctrl->value = dev->ctrl_para.auto_brightness;
-        break;
-      case V4L2_CID_BAND_STOP_FILTER:
-        ctrl->value = dev->ctrl_para.band_stop_filter;
-        break;
-      case V4L2_CID_ILLUMINATORS_1:
-        ctrl->value = dev->ctrl_para.illuminator1;
-        break;
-      case V4L2_CID_ILLUMINATORS_2: 
-        ctrl->value = dev->ctrl_para.illuminator2;
-        break;
-      //V4L2_CID_CAMERA_CLASS_BASE
-      case V4L2_CID_EXPOSURE_AUTO:
-        ctrl->value = dev->ctrl_para.exp_auto_mode;
-        break;
-      case V4L2_CID_EXPOSURE_ABSOLUTE:
-		ctrl->value = dev->isp_3a_result_pt->exp_time;
-        break;
-      case V4L2_CID_EXPOSURE_AUTO_PRIORITY:
-        ctrl->value = dev->ctrl_para.exp_auto_pri;
-        break;
-      case V4L2_CID_FOCUS_ABSOLUTE:
-        ctrl->value = dev->ctrl_para.focus_abs;
-        break;
-      case V4L2_CID_FOCUS_RELATIVE:
-        ctrl->value = dev->ctrl_para.focus_rel;
-        break;
-      case V4L2_CID_FOCUS_AUTO:
-        ctrl->value = dev->ctrl_para.auto_focus;
-        break;
-      case V4L2_CID_AUTO_EXPOSURE_BIAS:
-        ctrl->value = dev->ctrl_para.exp_bias;
-        break;
-      case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
-        ctrl->value = dev->ctrl_para.wb_preset;
-        break;
-      case V4L2_CID_WIDE_DYNAMIC_RANGE:
-        ctrl->value = dev->ctrl_para.wdr;
-        break;
-      case V4L2_CID_IMAGE_STABILIZATION:
-        ctrl->value = dev->ctrl_para.image_stabl;
-        break;
-      case V4L2_CID_ISO_SENSITIVITY:
-        ctrl->value = dev->ctrl_para.iso;
-        break;
-      case V4L2_CID_ISO_SENSITIVITY_AUTO:
-        ctrl->value = dev->ctrl_para.iso_mode;
-        break;
-      case V4L2_CID_EXPOSURE_METERING:
-        return -EINVAL;
-      case V4L2_CID_SCENE_MODE:
-        ctrl->value = dev->ctrl_para.scene_mode;
-        break;
-      case V4L2_CID_3A_LOCK:
-        if(dev->isp_gen_set_pt->exp_settings.exposure_lock == ISP_TRUE) {
-          dev->ctrl_para.ae_lock = 1;
-          ctrl->value |= V4L2_LOCK_EXPOSURE;
-        } else {
-          dev->ctrl_para.ae_lock = 0;
-          ctrl->value &= ~V4L2_LOCK_EXPOSURE;
-        }
-        
-        if(dev->isp_gen_set_pt->wb_settings.white_balance_lock == ISP_TRUE) {
-          dev->ctrl_para.awb_lock = 1;
-          ctrl->value |= V4L2_LOCK_WHITE_BALANCE;
-        } else {
-          dev->ctrl_para.awb_lock = 0;
-          ctrl->value &= ~V4L2_LOCK_WHITE_BALANCE;
-        }
-        
-        if(dev->isp_gen_set_pt->af_settings.focus_lock == ISP_TRUE) {
-          dev->ctrl_para.af_lock = 1;
-          ctrl->value |= V4L2_LOCK_FOCUS;
-        } else {
-          dev->ctrl_para.af_lock = 0;
-          ctrl->value &= ~V4L2_LOCK_FOCUS;
-        }
-        break;
-      case V4L2_CID_AUTO_FOCUS_START:   //write-only
-        return -EINVAL;
-      case V4L2_CID_AUTO_FOCUS_STOP:    //write-only
-        return -EINVAL;     
-      case V4L2_CID_AUTO_FOCUS_STATUS:  //Read-Only
-        //TODO 
-        ret=common_af_status_to_v4l2(dev->isp_3a_result_pt->af_status);
-        return ret;
-        break;
-      case V4L2_CID_AUTO_FOCUS_RANGE:
-        ctrl->value = dev->ctrl_para.af_range;
-        break;
-      //V4L2_CID_FLASH_CLASS_BASE
-      case V4L2_CID_FLASH_LED_MODE:
-        ctrl->value = dev->ctrl_para.flash_mode;
-        break;
-      //V4L2_CID_PRIVATE_BASE
-      case V4L2_CID_HFLIP_THUMB:
-        ctrl->value = dev->ctrl_para.hflip_thumb; 
-        break;
-      case V4L2_CID_VFLIP_THUMB:
-        ctrl->value = dev->ctrl_para.vflip_thumb; 
-        break;
-      case V4L2_CID_AUTO_FOCUS_WIN_NUM:
-        if(ctrl->value > MAX_AF_WIN_NUM || ctrl->value == 0) {
-          return -EINVAL;
-        } else {
-//          struct v4l2_win_coordinate *win_coor = (struct v4l2_win_coordinate *)(ctrl->user_pt);
-//          for(i = 0; i < ctrl->value; i++) {
-//            win_coor[i].x1 = dev->ctrl_para.af_coor[i].x1;
-//            win_coor[i].y1 = dev->ctrl_para.af_coor[i].y1;
-//            win_coor[i].x2 = dev->ctrl_para.af_coor[i].x2;
-//            win_coor[i].y2 = dev->ctrl_para.af_coor[i].y2;
-//          }
-        }
-        ctrl->value = dev->ctrl_para.af_win_num;
-        break;
-      case V4L2_CID_AUTO_FOCUS_INIT:
-        return 0;
-      case V4L2_CID_AUTO_FOCUS_RELEASE:
-        return 0;
-      case V4L2_CID_AUTO_EXPOSURE_WIN_NUM:  
-        if(ctrl->value > MAX_AE_WIN_NUM || ctrl->value == 0) {
-          return -EINVAL;
-        } else {
-//          struct v4l2_win_coordinate *win_coor = (struct v4l2_win_coordinate *)(ctrl->user_pt);
-//          for(i = 0; i < ctrl->value; i++) {
-//            win_coor[i].x1 = dev->ctrl_para.ae_coor[i].x1;
-//            win_coor[i].y1 = dev->ctrl_para.ae_coor[i].y1;
-//            win_coor[i].x2 = dev->ctrl_para.ae_coor[i].x2;
-//            win_coor[i].y2 = dev->ctrl_para.ae_coor[i].y2;
-//          }
-        }
-        ctrl->value = dev->ctrl_para.ae_win_num;
-        break;
-      case V4L2_CID_GSENSOR_ROTATION:
-        ctrl->value = dev->ctrl_para.gsensor_rot;
-        break;
-      case V4L2_CID_TAKE_PICTURE:   //write-only
-        return -EINVAL; 
-	case V4L2_CID_HDR:
-	{
-		struct isp_hdr_setting_t hdr_setting;		
-		ctrl->value = dev->isp_gen_set_pt->hdr_setting.frames_count - 1;
-		memcpy(&hdr_setting,&dev->isp_gen_set_pt->hdr_setting,sizeof(struct isp_hdr_setting_t));		
-//		ctrl->user_pt = (unsigned int)&hdr_setting;
-		break;
-	}
-	case V4L2_CID_SENSOR_TYPE:
-		ctrl->value = dev->is_bayer_raw;
-		break;
-      default:
-        return -EINVAL;
-    }
-    return 0;
-  } else {  
-  	if(V4L2_CID_SENSOR_TYPE == ctrl->id)
-  	{
-		ctrl->value = dev->is_bayer_raw;
-  	}
-  	else
-  	{
-		ret = v4l2_subdev_call(dev->sd,core,g_ctrl,ctrl);
-		if (ret < 0)
-			vfe_warn("v4l2 sub device g_ctrl error!\n");
-  	}
-  }
-  return ret;
-}
-
-static int vidioc_s_ctrl(struct file *file, void *priv,
-        struct v4l2_control *ctrl)
-{
-  struct vfe_dev *dev = video_drvdata(file);
-  struct v4l2_queryctrl qc;
-  int ret;
-  //TO DO!
-  struct actuator_ctrl_word_t vcm_ctrl;
-  
-  qc.id = ctrl->id;
-  ret = vidioc_queryctrl(file, priv, &qc);
-
-  //printk("vidioc_queryctrl!\n ret = %d",ret);
-  if (ret < 0)
-    return ret;
-  
-  if (qc.type == V4L2_CTRL_TYPE_MENU || qc.type == V4L2_CTRL_TYPE_INTEGER \
-                                     || qc.type == V4L2_CTRL_TYPE_BOOLEAN) {
-    if (ctrl->value < qc.minimum || ctrl->value > qc.maximum) {
-      
-      vfe_warn("value: %d, min: %d, max: %d\n ", ctrl->value, qc.minimum, qc.maximum);
-      return -ERANGE;
-    }
-  }
-  
-  if(dev->is_isp_used && dev->is_bayer_raw) {
-	vfe_dbg(0,"s_ctrl: %s, value: 0x%x\n",v4l2_ctrl_get_name(ctrl->id),ctrl->value);
-    switch (ctrl->id) {
-      //V4L2_CID_BASE
-      case V4L2_CID_BRIGHTNESS:
-		bsp_isp_s_brightness(dev->isp_gen_set_pt, ctrl->value);
-		dev->ctrl_para.brightness = ctrl->value;
-		break;
-	  case V4L2_CID_CONTRAST:
-		bsp_isp_s_contrast(dev->isp_gen_set_pt, ctrl->value);
-        dev->ctrl_para.contrast = ctrl->value;
-        break;
-      case V4L2_CID_SATURATION:
-        bsp_isp_s_saturation(dev->isp_gen_set_pt, ctrl->value * 25);
-        dev->ctrl_para.saturation = ctrl->value;
-        break;
-      case V4L2_CID_HUE:
-        bsp_isp_s_hue(dev->isp_gen_set_pt, ctrl->value );
-        dev->ctrl_para.hue = ctrl->value;
-        break;
-      case V4L2_CID_AUTO_WHITE_BALANCE:
-        if(ctrl->value == 0)
-          bsp_isp_s_auto_white_balance(dev->isp_gen_set_pt, WB_MANUAL);
-        else
-          bsp_isp_s_auto_white_balance(dev->isp_gen_set_pt, WB_AUTO);
-        dev->ctrl_para.auto_wb = ctrl->value;
-        break;
-      case V4L2_CID_EXPOSURE:
-        return v4l2_subdev_call(dev->sd,core,s_ctrl,ctrl);
-      case V4L2_CID_AUTOGAIN:
-        if(ctrl->value == 0)
-          bsp_isp_s_exposure(dev->isp_gen_set_pt, ISO_MANUAL);
-        else 
-          bsp_isp_s_exposure(dev->isp_gen_set_pt, ISO_AUTO);
-        dev->ctrl_para.auto_gain = ctrl->value;
-        break;
-      case V4L2_CID_GAIN: 
-        return v4l2_subdev_call(dev->sd,core,s_ctrl,ctrl);  
-      case V4L2_CID_HFLIP:
-        if(ctrl->value == 0)
-          bsp_isp_mirror_disable(MAIN_CH);
-        else
-          bsp_isp_mirror_enable(MAIN_CH);
-        dev->ctrl_para.hflip = ctrl->value; 
-        break;
-      case V4L2_CID_VFLIP:
-        if(ctrl->value == 0)
-          bsp_isp_flip_disable(MAIN_CH);
-        else
-          bsp_isp_flip_enable(MAIN_CH);
-        dev->ctrl_para.vflip = ctrl->value; 
-        break;
-      case V4L2_CID_POWER_LINE_FREQUENCY:
-        bsp_isp_s_power_line_frequency(dev->isp_gen_set_pt, v4l2_bf_to_common(ctrl->value));
-        dev->ctrl_para.band_stop_mode = ctrl->value;  
-        break;
-      case V4L2_CID_HUE_AUTO:
-        bsp_isp_s_hue_auto(dev->isp_gen_set_pt, ctrl->value);
-        dev->ctrl_para.auto_hue = ctrl->value;
-        break;
-      case V4L2_CID_WHITE_BALANCE_TEMPERATURE:
-        bsp_isp_s_white_balance_temperature(dev->isp_gen_set_pt, ctrl->value);
-        dev->ctrl_para.wb_temperature = ctrl->value;
-        break;
-      case V4L2_CID_SHARPNESS:
-		bsp_isp_s_sharpness(dev->isp_gen_set_pt, ctrl->value);
-        dev->ctrl_para.sharpness = ctrl->value;
-        break;
-      case V4L2_CID_CHROMA_AGC:
-        bsp_isp_s_chroma_agc(dev->isp_gen_set_pt, ctrl->value);
-        dev->ctrl_para.chroma_agc = ctrl->value;
-        break;
-      case V4L2_CID_COLORFX:
-        bsp_isp_s_colorfx(dev->isp_gen_set_pt, v4l2_colorfx_to_common(ctrl->value));
-        dev->ctrl_para.colorfx = ctrl->value;
-        break;
-      case V4L2_CID_AUTOBRIGHTNESS:
-        bsp_isp_s_auto_brightness(dev->isp_gen_set_pt, ctrl->value);
-        dev->ctrl_para.auto_brightness = ctrl->value;
-        break;
-      case V4L2_CID_BAND_STOP_FILTER:
-        bsp_isp_s_band_stop_filter(dev->isp_gen_set_pt, ctrl->value);
-        dev->ctrl_para.band_stop_filter = ctrl->value;
-        break;
-      case V4L2_CID_ILLUMINATORS_1:
-        bsp_isp_s_illuminators_1(dev->isp_gen_set_pt, ctrl->value);
-        dev->ctrl_para.illuminator1 = ctrl->value;
-        break;
-      case V4L2_CID_ILLUMINATORS_2: 
-        bsp_isp_s_illuminators_2(dev->isp_gen_set_pt, ctrl->value);
-        dev->ctrl_para.illuminator2 = ctrl->value;
-        break;
-      //V4L2_CID_CAMERA_CLASS_BASE
-      case V4L2_CID_EXPOSURE_AUTO:
-        bsp_isp_s_exposure_auto(dev->isp_gen_set_pt, v4l2_ae_mode_to_common(ctrl->value));
-        dev->ctrl_para.exp_auto_mode = ctrl->value;
-        break;
-      case V4L2_CID_EXPOSURE_ABSOLUTE:
-        bsp_isp_s_exposure_absolute(dev->isp_gen_set_pt, ctrl->value);
-        dev->ctrl_para.exp_abs = ctrl->value;
-        break;
-      case V4L2_CID_EXPOSURE_AUTO_PRIORITY:
-        bsp_isp_s_exposure_auto_priority(dev->isp_gen_set_pt, ctrl->value);
-        dev->ctrl_para.exp_auto_pri = ctrl->value;
-        break;
-      case V4L2_CID_FOCUS_ABSOLUTE:
-        bsp_isp_s_focus_absolute(dev->isp_gen_set_pt, ctrl->value);
-        dev->ctrl_para.focus_abs = ctrl->value;
-        break;
-      case V4L2_CID_FOCUS_RELATIVE:
-        bsp_isp_s_focus_relative(dev->isp_gen_set_pt, ctrl->value);
-        dev->ctrl_para.focus_rel = ctrl->value;
-        break;
-      case V4L2_CID_FOCUS_AUTO:   
-      //printk("set V4L2_CID_FOCUS_AUTO ctrl->value = %d!\n",ctrl->value);
-          dev->isp_3a_result_pt->af_status = AUTO_FOCUS_STATUS_REFOCUS;
-        bsp_isp_s_focus_auto(dev->isp_gen_set_pt, ctrl->value);
-        dev->ctrl_para.auto_focus = ctrl->value;
-        break;
-      case V4L2_CID_AUTO_EXPOSURE_BIAS:
-        bsp_isp_s_auto_exposure_bias(dev->isp_gen_set_pt, ctrl->value);
-      //printk("ctrl->value=%d\n",ctrl->value);
-        dev->ctrl_para.exp_bias = ctrl->value;
-        break;
-      case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
-        bsp_isp_s_auto_n_preset_white_balance(dev->isp_gen_set_pt, v4l2_wb_preset_to_common(ctrl->value));
-        dev->ctrl_para.wb_preset = ctrl->value;
-        break;
-      case V4L2_CID_WIDE_DYNAMIC_RANGE:
-        bsp_isp_s_wide_dynamic_rage(dev->isp_gen_set_pt, ctrl->value);
-        dev->ctrl_para.wdr = ctrl->value;
-        break;
-      case V4L2_CID_IMAGE_STABILIZATION:
-        bsp_isp_s_image_stabilization(dev->isp_gen_set_pt, ctrl->value);
-        dev->ctrl_para.image_stabl = ctrl->value;
-        break;
-      case V4L2_CID_ISO_SENSITIVITY:
-        bsp_isp_s_iso_sensitivity(dev->isp_gen_set_pt, ctrl->value);
-        dev->ctrl_para.iso = ctrl->value;
-        break;
-      case V4L2_CID_ISO_SENSITIVITY_AUTO:
-        bsp_isp_s_iso_sensitivity_auto(dev->isp_gen_set_pt, v4l2_iso_mode_to_common(ctrl->value));
-        dev->ctrl_para.iso_mode = ctrl->value;
-        break;
-      case V4L2_CID_EXPOSURE_METERING:
-        return -EINVAL;
-      case V4L2_CID_SCENE_MODE:
-        bsp_isp_s_scene_mode(dev->isp_gen_set_pt, v4l2_scene_to_common(ctrl->value));
-        dev->ctrl_para.scene_mode = ctrl->value;
-        break;
-      case V4L2_CID_3A_LOCK:
-        //printk("V4L2_CID_3A_LOCK = %x!\n",ctrl->value);
-        if(dev->ctrl_para.exp_auto_mode != V4L2_EXPOSURE_MANUAL) {
-          if(IS_FLAG(ctrl->value,V4L2_LOCK_EXPOSURE)) {
-            dev->isp_gen_set_pt->exp_settings.exposure_lock = ISP_TRUE;
-            dev->ctrl_para.ae_lock = 1;
-          } else {
-            dev->isp_gen_set_pt->exp_settings.exposure_lock = ISP_FALSE;
-            dev->ctrl_para.ae_lock = 0;
-          }
-        }
-        if(dev->ctrl_para.auto_wb == 1) {
-          if(IS_FLAG(ctrl->value,V4L2_LOCK_WHITE_BALANCE)) {
-            dev->isp_gen_set_pt->wb_settings.white_balance_lock = ISP_TRUE;
-            dev->ctrl_para.awb_lock = 1;
-          } else {
-            dev->isp_gen_set_pt->wb_settings.white_balance_lock = ISP_FALSE;
-            dev->ctrl_para.awb_lock = 0;
-          }
-        }
-        if(dev->ctrl_para.auto_focus == 1) {
-          //printk("V4L2_CID_3A_LOCK AF!\n");
-          if(IS_FLAG(ctrl->value,V4L2_LOCK_FOCUS)) {
-            dev->isp_gen_set_pt->af_settings.focus_lock = ISP_TRUE;
-            dev->ctrl_para.af_lock = 1;
-          } else {
-            dev->isp_gen_set_pt->af_settings.focus_lock = ISP_FALSE;
-            dev->ctrl_para.af_lock = 0;
-          }
-        }
-        break;
-      case V4L2_CID_AUTO_FOCUS_START:
-        dev->isp_3a_result_pt->af_status = AUTO_FOCUS_STATUS_REFOCUS;
-        bsp_isp_s_auto_focus_start(dev->isp_gen_set_pt, ctrl->value);
-#ifdef _FLASH_FUNC_
-	isp_s_ctrl_torch_open(dev);
-#endif
-		break;
-	  case V4L2_CID_AUTO_FOCUS_STOP:
-		//if(dev->ctrl_para.auto_focus == 0)
-		
-		vfe_dbg(0,"V4L2_CID_AUTO_FOCUS_STOP\n");
-		bsp_isp_s_auto_focus_stop(dev->isp_gen_set_pt, ctrl->value);
-#ifdef _FLASH_FUNC_
-		isp_s_ctrl_torch_close(dev);
-#endif
-		break;
-      case V4L2_CID_AUTO_FOCUS_STATUS:  //Read-Only
-        return -EINVAL;
-      case V4L2_CID_AUTO_FOCUS_RANGE:
-        bsp_isp_s_auto_focus_range(dev->isp_gen_set_pt, v4l2_af_range_to_common(ctrl->value));
-        dev->ctrl_para.af_range = ctrl->value;
-        break;
-      //V4L2_CID_FLASH_CLASS_BASE
-      case V4L2_CID_FLASH_LED_MODE:
-        bsp_isp_s_flash_mode(dev->isp_gen_set_pt, v4l2_flash_mode_to_common(ctrl->value));
-        dev->ctrl_para.flash_mode = ctrl->value;
-        if(ctrl->value == V4L2_FLASH_LED_MODE_TORCH)
-        {
-		  io_set_flash_ctrl(dev->sd, SW_CTRL_TORCH_ON, dev->fl_dev_info);
-        }
-        else if(ctrl->value == V4L2_FLASH_LED_MODE_NONE)
-        {
-          io_set_flash_ctrl(dev->sd, SW_CTRL_FLASH_OFF, dev->fl_dev_info);
-        }
-        break;
-      //V4L2_CID_PRIVATE_BASE
-      case V4L2_CID_HFLIP_THUMB:
-        if(ctrl->value == 0)
-          bsp_isp_mirror_disable(SUB_CH);
-        else
-          bsp_isp_mirror_enable(SUB_CH);
-        dev->ctrl_para.hflip_thumb = ctrl->value; 
-        break;
-      case V4L2_CID_VFLIP_THUMB:
-        if(ctrl->value == 0)
-          bsp_isp_flip_disable(SUB_CH);
-        else
-          bsp_isp_flip_enable(SUB_CH);
-        dev->ctrl_para.vflip_thumb = ctrl->value; 
-        break;
-      case V4L2_CID_AUTO_FOCUS_WIN_NUM:
-        if(ctrl->value == 0) {
-          bsp_isp_s_auto_focus_win_num(dev->isp_gen_set_pt, AF_AUTO_WIN, NULL);
-        } else if(ctrl->value > MAX_AF_WIN_NUM) {
-          return -EINVAL;
-        } else {
-//		struct v4l2_win_coordinate *win_coor = (struct v4l2_win_coordinate *)(ctrl->user_pt);
-//		for(i = 0; i < ctrl->value; i++)
-//		{
-//			if(dev->ctrl_para.vflip == 1)
-//			{
-//				dev->ctrl_para.af_coor[i].y1 = - win_coor[0].y1;
-//				dev->ctrl_para.af_coor[i].y2 = - win_coor[0].y2;
-//			}
-//			else
-//			{
-//				dev->ctrl_para.af_coor[i].y1 = win_coor[i].y1;
-//				dev->ctrl_para.af_coor[i].y2 = win_coor[i].y2;
-//			}
-//			if(dev->ctrl_para.hflip == 1)
-//			{
-//				dev->ctrl_para.af_coor[i].x1 = - win_coor[0].x1;
-//				dev->ctrl_para.af_coor[i].x2 = - win_coor[0].x2;
-//			}
-//			else
-//			{
-//				dev->ctrl_para.af_coor[i].x1 = win_coor[0].x1;
-//				dev->ctrl_para.af_coor[i].x2 = win_coor[0].x2;
-//			}
-//		}
-//		bsp_isp_s_auto_focus_win_num(dev->isp_gen_set_pt, AF_NUM_WIN, &dev->ctrl_para.af_coor[0]);
-        }
-        dev->ctrl_para.af_win_num = ctrl->value;
-        break;
-      case V4L2_CID_AUTO_FOCUS_INIT:
-        return 0;
-      case V4L2_CID_AUTO_FOCUS_RELEASE:
-        return 0;
-      case V4L2_CID_AUTO_EXPOSURE_WIN_NUM:
-          
-        if(ctrl->value == 0) {
-          bsp_isp_s_auto_exposure_win_num(dev->isp_gen_set_pt, AE_AUTO_WIN, NULL);
-        } else if(ctrl->value > MAX_AE_WIN_NUM) {
-          return -EINVAL;
-        } else {
-//		struct v4l2_win_coordinate *win_coor = (struct v4l2_win_coordinate *)(ctrl->user_pt);
-//		for(i = 0; i < ctrl->value; i++)
-//		{
-//			if(dev->ctrl_para.vflip == 1)
-//			{
-//				dev->ctrl_para.ae_coor[i].y1 = - win_coor[0].y1;
-//				dev->ctrl_para.ae_coor[i].y2 = - win_coor[0].y2;
-//			}
-//			else
-//			{
-//				dev->ctrl_para.ae_coor[i].y1 = win_coor[i].y1;
-//				dev->ctrl_para.ae_coor[i].y2 = win_coor[i].y2;
-//			}
-//			if(dev->ctrl_para.hflip == 1)
-//			{
-//				dev->ctrl_para.ae_coor[i].x1 = - win_coor[0].x1;
-//				dev->ctrl_para.ae_coor[i].x2 = - win_coor[0].x2;
-//			}
-//			else
-//			{
-//				dev->ctrl_para.ae_coor[i].x1 = win_coor[0].x1;
-//				dev->ctrl_para.ae_coor[i].x2 = win_coor[0].x2;
-//			}
-			//printk("V4L2_CID_AUTO_EXPOSURE_WIN_NUM, [%d, %d, %d, %d]\n", win_coor[i].x1, win_coor[i].y1, win_coor[i].x2, win_coor[i].y2);
-//		}
-          //TODO
-//          dev->isp_gen_set_pt->win.hist_coor.x1 = win_coor[0].x1;
-//          dev->isp_gen_set_pt->win.hist_coor.y1 = win_coor[0].y1;
-//          dev->isp_gen_set_pt->win.hist_coor.x2 = win_coor[0].x2;
-//          dev->isp_gen_set_pt->win.hist_coor.y2 = win_coor[0].y2;
-//          bsp_isp_s_auto_exposure_win_num(dev->isp_gen_set_pt, AE_SINGLE_WIN, &dev->ctrl_para.ae_coor[0]);
-  
-        }
-        dev->ctrl_para.ae_win_num = ctrl->value;
-    /**/
-        break;
-      case V4L2_CID_GSENSOR_ROTATION:
-        bsp_isp_s_gsensor_rotation(dev->isp_gen_set_pt, ctrl->value);
-        dev->ctrl_para.gsensor_rot = ctrl->value;
-        break;
-		case V4L2_CID_TAKE_PICTURE:
-			bsp_isp_s_take_pic(dev->isp_gen_set_pt,ctrl->value);
-			break;
-		  case V4L2_CID_HDR:
-		  	//struct isp_hdr_setting_t hdr;
-//		        bsp_isp_s_hdr(dev->isp_gen_set_pt, (struct hdr_setting_t *)(ctrl->user_pt));
-//		        dev->isp_3a_result_pt->image_quality.bits.hdr_cnt = 0;
-		  	break;
-		case V4L2_CID_R_GAIN:	
-			bsp_isp_s_r_gain(dev->isp_gen_set_pt, ctrl->value);
-			break;
-		case V4L2_CID_G_GAIN:	
-			bsp_isp_s_g_gain(dev->isp_gen_set_pt, ctrl->value);
-			break;
-		case V4L2_CID_B_GAIN: 
-			bsp_isp_s_b_gain(dev->isp_gen_set_pt, ctrl->value);
-			break;
-	  default:
-		return -EINVAL;
-	}
-	return 0;
-  } else {
-  
-    if(ctrl->id == V4L2_CID_FOCUS_ABSOLUTE)
-    {
-      //TO DO !
-      vcm_ctrl.code = ctrl->value;  
-      vcm_ctrl.sr = 0x0;  
-      //printk("ACT_SET_CODE start code = %d!\n",vcm_ctrl.code);    
-        v4l2_subdev_call(dev->sd_act,core,ioctl,ACT_SET_CODE,&vcm_ctrl);    
-    }
-    
-    ret = v4l2_subdev_call(dev->sd,core,s_ctrl,ctrl);
-    if (ret < 0)
-    {
-      vfe_warn("v4l2 sub device s_ctrl fail!\n");
-    }
-  }
-  return ret;
 }
 
 static int vidioc_g_parm(struct file *file, void *priv,
@@ -3953,7 +3199,7 @@ static int vfe_open(struct file *file)
 	dev->input = -1;//default input null
 	dev->first_flag = 0;
 	vfe_start_opened(dev);
-
+	vfe_init_isp_log(dev);
 	open_end:
 	if (ret != 0){
 		//up(&dev->standby_seq_sema);
@@ -4031,6 +3277,7 @@ static int vfe_close(struct file *file)
 	dev->ctrl_para.prev_ana_gain = 1;
 	vfe_print("vfe_close end\n");
 	up(&dev->standby_seq_sema);
+	vfe_exit_isp_log(dev);
 	return 0;
 }
 
@@ -4044,6 +3291,366 @@ static int vfe_mmap(struct file *file, struct vm_area_struct *vma)
 			(unsigned long)vma->vm_end - (unsigned long)vma->vm_start, ret);
 	return ret;
 }
+
+static int vfe_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
+{
+	int ret = 0;
+	struct vfe_dev *dev = container_of(ctrl->handler, struct vfe_dev, ctrl_handler);
+	struct v4l2_control c;
+	c.id = ctrl->id;
+
+	if(dev->is_isp_used && dev->is_bayer_raw) {
+		switch (ctrl->id) {
+		case V4L2_CID_EXPOSURE:
+			v4l2_subdev_call(dev->sd,core,g_ctrl,&c);
+			ctrl->val = c.value;
+			break;
+		case V4L2_CID_GAIN: 
+			if(dev->isp_gen_set_pt->isp_ini_cfg.isp_test_settings.isp_test_mode == ISP_TEST_ALL_ENABLE || 
+			dev->isp_gen_set_pt->isp_ini_cfg.isp_test_settings.isp_test_mode == ISP_TEST_MANUAL) {
+				ctrl->val = CLIP(CLIP(dev->isp_3a_result_pt->exp_analog_gain, 16, 255) | 
+				(CLIP(dev->isp_gen_set_pt->sharp_cfg_to_hal[1], 0, 4095) << V4L2_SHARP_LEVEL_SHIFT)  | 
+				(CLIP(dev->isp_gen_set_pt->sharp_cfg_to_hal[0], 0, 63)<< V4L2_SHARP_MIN_SHIFT) | 
+				(CLIP(dev->isp_gen_set_pt->isp_ini_cfg.isp_tunning_settings.color_denoise_level, 0, 31) << V4L2_NDF_SHIFT) ,0,0xffffffff);
+			}else{
+				ctrl->val = CLIP(dev->isp_3a_result_pt->exp_analog_gain, 16, 255);
+			}
+			break;
+		case V4L2_CID_HOR_VISUAL_ANGLE: 
+			ctrl->val = dev->isp_gen_set_pt->isp_ini_cfg.isp_tunning_settings.hor_visual_angle;
+			break;
+		case V4L2_CID_VER_VISUAL_ANGLE:
+			ctrl->val = dev->isp_gen_set_pt->isp_ini_cfg.isp_tunning_settings.ver_visual_angle;
+			break;
+		case V4L2_CID_FOCUS_LENGTH:
+			ctrl->val = dev->isp_gen_set_pt->isp_ini_cfg.isp_tunning_settings.focus_length;
+			break;
+		case V4L2_CID_R_GAIN:	
+			ctrl->val = dev->isp_gen_set_pt->module_cfg.wb_gain_cfg.wb_gain.r_gain;
+			break;
+		case V4L2_CID_G_GAIN:	
+			ctrl->val = dev->isp_gen_set_pt->module_cfg.wb_gain_cfg.wb_gain.gr_gain;
+			break;
+		case V4L2_CID_B_GAIN: 
+			ctrl->val = dev->isp_gen_set_pt->module_cfg.wb_gain_cfg.wb_gain.b_gain;
+			break;
+		case V4L2_CID_3A_LOCK:
+			if(dev->isp_gen_set_pt->exp_settings.exposure_lock == ISP_TRUE) {
+				ctrl->val |= V4L2_LOCK_EXPOSURE;
+			} else {
+				ctrl->val &= ~V4L2_LOCK_EXPOSURE;
+			}
+			if(dev->isp_gen_set_pt->wb_settings.white_balance_lock == ISP_TRUE) {
+				ctrl->val |= V4L2_LOCK_WHITE_BALANCE;
+			} else {
+				ctrl->val &= ~V4L2_LOCK_WHITE_BALANCE;
+			}
+			if(dev->isp_gen_set_pt->af_settings.focus_lock == ISP_TRUE) {
+				ctrl->val |= V4L2_LOCK_FOCUS;
+			} else {
+				ctrl->val &= ~V4L2_LOCK_FOCUS;
+			}
+			break; 
+		case V4L2_CID_AUTO_FOCUS_STATUS:  //Read-Only
+			ctrl->val = common_af_status_to_v4l2(dev->isp_3a_result_pt->af_status);
+			break;
+		case V4L2_CID_HDR:
+//			struct isp_hdr_setting_t hdr_setting;		
+//			ctrl->val = dev->isp_gen_set_pt->hdr_setting.frames_count -1;
+//			memcpy(&hdr_setting,&dev->isp_gen_set_pt->hdr_setting,sizeof(struct isp_hdr_setting_t));		
+//			ctrl->user_pt = (unsigned int)&hdr_setting;
+			break;
+		case V4L2_CID_SENSOR_TYPE:
+			ctrl->val = dev->is_bayer_raw;
+			break;
+		default:
+			return -EINVAL;
+		}
+		vfe_dbg(0,"vfe_g_volatile_ctrl: %s, last value: 0x%x\n",ctrl->name,ctrl->val);		
+		return 0;
+	} else {  
+		if(V4L2_CID_SENSOR_TYPE == ctrl->id)
+		{
+			ctrl->val = dev->is_bayer_raw;
+		}
+		else
+		{
+			ret = v4l2_subdev_call(dev->sd,core,g_ctrl,&c);
+			if (ret < 0)
+				vfe_warn("v4l2 sub device g_ctrl error!\n");
+			ctrl->val = c.value;
+		}
+	}
+	return ret;
+}
+
+static int vfe_s_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct vfe_dev *dev = container_of(ctrl->handler, struct vfe_dev, ctrl_handler);
+	int ret;
+	struct actuator_ctrl_word_t vcm_ctrl;
+	struct v4l2_control c;
+	c.id = ctrl->id;
+	c.value = ctrl->val;
+	vfe_dbg(0,"s_ctrl: %s, set value: 0x%x\n",ctrl->name,ctrl->val);
+	if(dev->is_isp_used && dev->is_bayer_raw) {
+		switch (ctrl->id) {
+		//V4L2_CID_BASE
+		case V4L2_CID_BRIGHTNESS:
+			bsp_isp_s_brightness(dev->isp_gen_set_pt, ctrl->val);
+			break;
+		case V4L2_CID_CONTRAST:
+			bsp_isp_s_contrast(dev->isp_gen_set_pt, ctrl->val);
+			break;
+		case V4L2_CID_SATURATION:
+			bsp_isp_s_saturation(dev->isp_gen_set_pt, ctrl->val * 25);
+			break;
+		case V4L2_CID_HUE:
+			bsp_isp_s_hue(dev->isp_gen_set_pt, ctrl->val );
+		break;
+		case V4L2_CID_AUTO_WHITE_BALANCE:
+			if(ctrl->val == 0)
+				bsp_isp_s_auto_white_balance(dev->isp_gen_set_pt, WB_MANUAL);
+			else
+				bsp_isp_s_auto_white_balance(dev->isp_gen_set_pt, WB_AUTO);
+			dev->ctrl_para.auto_wb = ctrl->val;
+			break;
+		case V4L2_CID_EXPOSURE:
+			return v4l2_subdev_call(dev->sd,core,s_ctrl,&c);
+		case V4L2_CID_AUTOGAIN:
+			if(ctrl->val == 0)
+				bsp_isp_s_exposure(dev->isp_gen_set_pt, ISO_MANUAL);
+			else 
+				bsp_isp_s_exposure(dev->isp_gen_set_pt, ISO_AUTO);
+			break;
+		case V4L2_CID_GAIN: 
+			return v4l2_subdev_call(dev->sd,core,s_ctrl,&c);	
+		case V4L2_CID_POWER_LINE_FREQUENCY:
+			bsp_isp_s_power_line_frequency(dev->isp_gen_set_pt, v4l2_bf_to_common(ctrl->val));
+			break;
+		case V4L2_CID_HUE_AUTO:
+			bsp_isp_s_hue_auto(dev->isp_gen_set_pt, ctrl->val);
+			break;
+		case V4L2_CID_WHITE_BALANCE_TEMPERATURE:
+			bsp_isp_s_white_balance_temperature(dev->isp_gen_set_pt, ctrl->val);
+			break;
+		case V4L2_CID_SHARPNESS:
+			bsp_isp_s_sharpness(dev->isp_gen_set_pt, ctrl->val);
+			break;
+		case V4L2_CID_CHROMA_AGC:
+			bsp_isp_s_chroma_agc(dev->isp_gen_set_pt, ctrl->val);
+			break;
+		case V4L2_CID_COLORFX:
+			bsp_isp_s_colorfx(dev->isp_gen_set_pt, v4l2_colorfx_to_common(ctrl->val));
+			break;
+		case V4L2_CID_AUTOBRIGHTNESS:
+			bsp_isp_s_auto_brightness(dev->isp_gen_set_pt, ctrl->val);
+			break;
+		case V4L2_CID_BAND_STOP_FILTER:
+			bsp_isp_s_band_stop_filter(dev->isp_gen_set_pt, ctrl->val);
+			break;
+		case V4L2_CID_ILLUMINATORS_1:
+			bsp_isp_s_illuminators_1(dev->isp_gen_set_pt, ctrl->val);
+			break;
+		case V4L2_CID_ILLUMINATORS_2: 
+			bsp_isp_s_illuminators_2(dev->isp_gen_set_pt, ctrl->val);
+			break;
+		//V4L2_CID_CAMERA_CLASS_BASE
+		case V4L2_CID_EXPOSURE_AUTO:
+			bsp_isp_s_exposure_auto(dev->isp_gen_set_pt, v4l2_ae_mode_to_common(ctrl->val));
+			dev->ctrl_para.exp_auto_mode = ctrl->val;
+			break;
+		case V4L2_CID_EXPOSURE_ABSOLUTE:
+			bsp_isp_s_exposure_absolute(dev->isp_gen_set_pt, ctrl->val);
+			break;
+		case V4L2_CID_EXPOSURE_AUTO_PRIORITY:
+			bsp_isp_s_exposure_auto_priority(dev->isp_gen_set_pt, ctrl->val);
+			break;
+		case V4L2_CID_FOCUS_ABSOLUTE:
+			bsp_isp_s_focus_absolute(dev->isp_gen_set_pt, ctrl->val);
+			break;
+		case V4L2_CID_FOCUS_RELATIVE:
+			bsp_isp_s_focus_relative(dev->isp_gen_set_pt, ctrl->val);
+			break;
+		case V4L2_CID_FOCUS_AUTO:   
+			//printk("set V4L2_CID_FOCUS_AUTO ctrl->value = %d!\n",ctrl->value);
+			dev->isp_3a_result_pt->af_status = AUTO_FOCUS_STATUS_REFOCUS;
+			bsp_isp_s_focus_auto(dev->isp_gen_set_pt, ctrl->val);
+			dev->ctrl_para.auto_focus = ctrl->val;
+			break;
+		case V4L2_CID_AUTO_EXPOSURE_BIAS:
+			bsp_isp_s_auto_exposure_bias(dev->isp_gen_set_pt, ctrl->val);
+			//printk("ctrl->value=%d\n",ctrl->value);
+			dev->ctrl_para.exp_bias = ctrl->val;
+			break;
+		case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
+			bsp_isp_s_auto_n_preset_white_balance(dev->isp_gen_set_pt, v4l2_wb_preset_to_common(ctrl->val));
+			break;
+		case V4L2_CID_WIDE_DYNAMIC_RANGE:
+			bsp_isp_s_wide_dynamic_rage(dev->isp_gen_set_pt, ctrl->val);
+			break;
+		case V4L2_CID_IMAGE_STABILIZATION:
+			bsp_isp_s_image_stabilization(dev->isp_gen_set_pt, ctrl->val);
+			break;
+		case V4L2_CID_ISO_SENSITIVITY:
+			bsp_isp_s_iso_sensitivity(dev->isp_gen_set_pt, ctrl->val);
+			break;
+		case V4L2_CID_ISO_SENSITIVITY_AUTO:
+			bsp_isp_s_iso_sensitivity_auto(dev->isp_gen_set_pt, v4l2_iso_mode_to_common(ctrl->val));
+			break;
+		case V4L2_CID_EXPOSURE_METERING:
+			return -EINVAL;
+		case V4L2_CID_SCENE_MODE:
+			bsp_isp_s_scene_mode(dev->isp_gen_set_pt, v4l2_scene_to_common(ctrl->val));
+			break;
+		case V4L2_CID_3A_LOCK:
+			//printk("V4L2_CID_3A_LOCK = %x!\n",ctrl->value);
+			if(dev->ctrl_para.exp_auto_mode != V4L2_EXPOSURE_MANUAL) {
+				if(IS_FLAG(ctrl->val,V4L2_LOCK_EXPOSURE)) {
+					dev->isp_gen_set_pt->exp_settings.exposure_lock = ISP_TRUE;
+				} else {
+					dev->isp_gen_set_pt->exp_settings.exposure_lock = ISP_FALSE;
+				}
+			}
+			if(dev->ctrl_para.auto_wb == 1) {
+				if(IS_FLAG(ctrl->val,V4L2_LOCK_WHITE_BALANCE)) {
+					dev->isp_gen_set_pt->wb_settings.white_balance_lock = ISP_TRUE;
+				} else {
+					dev->isp_gen_set_pt->wb_settings.white_balance_lock = ISP_FALSE;
+				}
+			}
+			if(dev->ctrl_para.auto_focus == 1) {
+				//printk("V4L2_CID_3A_LOCK AF!\n");
+				if(IS_FLAG(ctrl->val,V4L2_LOCK_FOCUS)) {
+					dev->isp_gen_set_pt->af_settings.focus_lock = ISP_TRUE;
+				} else {
+					dev->isp_gen_set_pt->af_settings.focus_lock = ISP_FALSE;
+				}
+			}
+			break;
+		case V4L2_CID_AUTO_FOCUS_START:
+			dev->isp_3a_result_pt->af_status = AUTO_FOCUS_STATUS_REFOCUS;
+			bsp_isp_s_auto_focus_start(dev->isp_gen_set_pt, ctrl->val);
+#ifdef _FLASH_FUNC_
+			isp_s_ctrl_torch_open(dev);
+#endif
+			break;
+		case V4L2_CID_AUTO_FOCUS_STOP:
+			//if(dev->ctrl_para.auto_focus == 0)
+			vfe_dbg(0,"V4L2_CID_AUTO_FOCUS_STOP\n");
+			bsp_isp_s_auto_focus_stop(dev->isp_gen_set_pt, ctrl->val);
+#ifdef _FLASH_FUNC_
+			isp_s_ctrl_torch_close(dev);
+#endif
+			break;
+		case V4L2_CID_AUTO_FOCUS_RANGE:
+			bsp_isp_s_auto_focus_range(dev->isp_gen_set_pt, v4l2_af_range_to_common(ctrl->val));
+			break;
+		//V4L2_CID_FLASH_CLASS_BASE
+		case V4L2_CID_FLASH_LED_MODE:
+			bsp_isp_s_flash_mode(dev->isp_gen_set_pt, v4l2_flash_mode_to_common(ctrl->val));
+			if(ctrl->val == V4L2_FLASH_LED_MODE_TORCH)
+			{
+				io_set_flash_ctrl(dev->sd, SW_CTRL_TORCH_ON, dev->fl_dev_info);
+			}
+			else if(ctrl->val == V4L2_FLASH_LED_MODE_NONE)
+			{
+				io_set_flash_ctrl(dev->sd, SW_CTRL_FLASH_OFF, dev->fl_dev_info);
+			}
+			break;
+		//V4L2_CID_PRIVATE_BASE
+		case V4L2_CID_AUTO_FOCUS_WIN_NUM:
+//			if(ctrl->val == 0) {
+//				bsp_isp_s_auto_focus_win_num(dev->isp_gen_set_pt, AF_AUTO_WIN, NULL);
+//			} else if(ctrl->val > MAX_AF_WIN_NUM) {
+//				return -EINVAL;
+//			} else {
+//				struct v4l2_win_coordinate *win_coor = (struct v4l2_win_coordinate *)(ctrl->user_pt);
+//				for(i = 0; i < ctrl->val; i++) {
+//					dev->ctrl_para.af_coor[i].x1 = win_coor[i].x1;
+//					dev->ctrl_para.af_coor[i].y1 = win_coor[i].y1;
+//					dev->ctrl_para.af_coor[i].x2 = win_coor[i].x2;
+//					dev->ctrl_para.af_coor[i].y2 = win_coor[i].y2;
+//				}
+//				bsp_isp_s_auto_focus_win_num(dev->isp_gen_set_pt, AF_NUM_WIN, dev->ctrl_para.af_coor);
+//			}
+			break;
+		case V4L2_CID_AUTO_FOCUS_INIT:
+			return 0;
+		case V4L2_CID_AUTO_FOCUS_RELEASE:
+			return 0;
+		case V4L2_CID_AUTO_EXPOSURE_WIN_NUM:
+//			if(ctrl->val == 0) {
+//				bsp_isp_s_auto_exposure_win_num(dev->isp_gen_set_pt, AE_AUTO_WIN, NULL);
+//			} else if(ctrl->val > MAX_AE_WIN_NUM) {
+//				return -EINVAL;
+//			} else {
+//				struct v4l2_win_coordinate *win_coor = (struct v4l2_win_coordinate *)(ctrl->user_pt);
+//				for(i = 0; i < ctrl->val; i++) {
+//					dev->ctrl_para.ae_coor[i].x1 = win_coor[i].x1;
+//					dev->ctrl_para.ae_coor[i].y1 = win_coor[i].y1;
+//					dev->ctrl_para.ae_coor[i].x2 = win_coor[i].x2;
+//					dev->ctrl_para.ae_coor[i].y2 = win_coor[i].y2;
+//					//printk("V4L2_CID_AUTO_EXPOSURE_WIN_NUM, [%d, %d, %d, %d]\n", win_coor[i].x1, win_coor[i].y1, win_coor[i].x2, win_coor[i].y2);
+//				}
+//				//TODO
+//				dev->isp_gen_set_pt->win.hist_coor.x1 = win_coor[0].x1;
+//				dev->isp_gen_set_pt->win.hist_coor.y1 = win_coor[0].y1;
+//				dev->isp_gen_set_pt->win.hist_coor.x2 = win_coor[0].x2;
+//				dev->isp_gen_set_pt->win.hist_coor.y2 = win_coor[0].y2;
+//				bsp_isp_s_auto_exposure_win_num(dev->isp_gen_set_pt, AE_SINGLE_WIN, dev->ctrl_para.ae_coor);
+//			}
+			break;
+		case V4L2_CID_GSENSOR_ROTATION:
+			bsp_isp_s_gsensor_rotation(dev->isp_gen_set_pt, ctrl->val);
+			dev->ctrl_para.gsensor_rot = ctrl->val;
+			break;
+		case V4L2_CID_TAKE_PICTURE:
+			bsp_isp_s_take_pic(dev->isp_gen_set_pt,ctrl->val);
+			break;
+		case V4L2_CID_HDR:
+//			bsp_isp_s_hdr(dev->isp_gen_set_pt, (struct hdr_setting_t *)(ctrl->user_pt));
+//			dev->isp_3a_result_pt->image_quality.bits.hdr_cnt = 0;
+			break;
+		case V4L2_CID_R_GAIN:	
+			bsp_isp_s_r_gain(dev->isp_gen_set_pt, ctrl->val);
+			break;
+		case V4L2_CID_G_GAIN:	
+			bsp_isp_s_g_gain(dev->isp_gen_set_pt, ctrl->val);
+			break;
+		case V4L2_CID_B_GAIN: 
+			bsp_isp_s_b_gain(dev->isp_gen_set_pt, ctrl->val);
+			break;
+		default:
+			return -EINVAL;
+		}
+		return 0;
+	} else {
+		if(ctrl->id == V4L2_CID_FOCUS_ABSOLUTE)
+		{
+			//TO DO !
+			vcm_ctrl.code = ctrl->val;	
+			vcm_ctrl.sr = 0x0;  
+			//printk("ACT_SET_CODE start code = %d!\n",vcm_ctrl.code);	
+			v4l2_subdev_call(dev->sd_act,core,ioctl,ACT_SET_CODE,&vcm_ctrl);	
+		}
+		ret = v4l2_subdev_call(dev->sd,core,s_ctrl,&c);
+		if (ret < 0)
+		{
+			vfe_warn("v4l2 sub device s_ctrl fail!\n");
+		}
+	}
+	return ret;
+}
+
+/* ------------------------------------------------------------------
+	File operations for the device
+   ------------------------------------------------------------------*/
+
+static const struct v4l2_ctrl_ops vfe_ctrl_ops = {
+	.g_volatile_ctrl = vfe_g_volatile_ctrl,
+	.s_ctrl = vfe_s_ctrl,
+};
 
 static const struct v4l2_file_operations vfe_fops = {
 	.owner          = THIS_MODULE,
@@ -4072,9 +3679,6 @@ static const struct v4l2_ioctl_ops vfe_ioctl_ops = {
 	.vidioc_s_input           = vidioc_s_input,
 	.vidioc_streamon          = vidioc_streamon,
 	.vidioc_streamoff         = vidioc_streamoff,
-	.vidioc_queryctrl         = vidioc_queryctrl,
-	.vidioc_g_ctrl            = vidioc_g_ctrl,
-	.vidioc_s_ctrl            = vidioc_s_ctrl,
 	.vidioc_g_parm            = vidioc_g_parm,
 	.vidioc_s_parm            = vidioc_s_parm,
 #ifdef CONFIG_VIDEO_V4L1_COMPAT
@@ -4091,7 +3695,6 @@ static struct video_device vfe_template[] =
 		.ioctl_ops  = &vfe_ioctl_ops,
 		.release    = video_device_release,
 	},
-
     [1] = {
         .name       = "vfe_1",
         .fops       = &vfe_fops,
@@ -4145,8 +3748,6 @@ static int vfe_request_pin(struct vfe_dev *dev, int enable)
 	writel(0x33333333,(gpio_base+0x90));
 	writel(0x33333333,(gpio_base+0x94));
 	writel(0x03333333,(gpio_base+0x98));
-	//writel((volatile void*)((readl((volatile void __iomem*)(GPIO_REGS_VBASE+0x24)) & 0xff00ffff) | 0x220000), (volatile void __iomem*)(GPIO_REGS_VBASE+0x24));
-	//gpiob[4]:sck gpiob[5]:sda
 #endif
 	return ret;
 }
@@ -4161,23 +3762,14 @@ static int vfe_pin_release(struct vfe_dev *dev)
 static int vfe_request_gpio(struct vfe_dev *dev)
 {
 #ifdef VFE_GPIO
-	unsigned int i;
+	unsigned int i,j;
 	for(i = 0; i < dev->dev_qty; i++)
 	{
-		dev->ccm_cfg[i]->gpio.power_en_io = os_gpio_request(&dev->ccm_cfg[i]->gpio.power_en,1);
-		dev->ccm_cfg[i]->gpio.reset_io = os_gpio_request(&dev->ccm_cfg[i]->gpio.reset,1);
-		dev->ccm_cfg[i]->gpio.pwdn_io = os_gpio_request(&dev->ccm_cfg[i]->gpio.pwdn,1);
-		dev->ccm_cfg[i]->gpio.flash_en_io = os_gpio_request(&dev->ccm_cfg[i]->gpio.flash_en,1);
-		dev->ccm_cfg[i]->gpio.flash_mode_io = os_gpio_request(&dev->ccm_cfg[i]->gpio.flash_mode,1);
-		dev->ccm_cfg[i]->gpio.af_pwdn_io = os_gpio_request(&dev->ccm_cfg[i]->gpio.af_pwdn,1);
-		dev->ccm_cfg[i]->gpio.mclk_io = os_gpio_request(&dev->ccm_cfg[i]->gpio.mclk, 1);
-		os_gpio_set(&dev->ccm_cfg[i]->gpio.power_en,1);
-		os_gpio_set(&dev->ccm_cfg[i]->gpio.reset,1);
-		os_gpio_set(&dev->ccm_cfg[i]->gpio.pwdn,1);
-		os_gpio_set(&dev->ccm_cfg[i]->gpio.flash_en,1);
-		os_gpio_set(&dev->ccm_cfg[i]->gpio.flash_mode,1);
-		os_gpio_set(&dev->ccm_cfg[i]->gpio.af_pwdn,1);
-		os_gpio_set(&dev->ccm_cfg[i]->gpio.mclk,1);
+		for (j = 0; j < MAX_GPIO_NUM; j ++)
+		{
+			os_gpio_request(&dev->ccm_cfg[i]->gpio[j],1);
+			os_gpio_set(&dev->ccm_cfg[i]->gpio[j],1);
+		}
 	}
 #endif
 	return 0;
@@ -4186,40 +3778,23 @@ static int vfe_request_gpio(struct vfe_dev *dev)
 static int vfe_gpio_config(struct vfe_dev *dev, int bon)
 {
 #ifdef VFE_GPIO
+	unsigned int i;
 	struct vfe_gpio_cfg gpio_item;
 	if(1 == bon)
 	{
-		os_gpio_set(&dev->gpio->power_en,1);
-		os_gpio_set(&dev->gpio->reset,1);
-		os_gpio_set(&dev->gpio->pwdn,1);
-		os_gpio_set(&dev->gpio->flash_en,1);
-		os_gpio_set(&dev->gpio->flash_mode,1);
-		os_gpio_set(&dev->gpio->af_pwdn,1);
-		os_gpio_set(&dev->gpio->mclk,1);
+		for (i = 0; i < MAX_GPIO_NUM; i ++)
+		{
+			os_gpio_set(&dev->gpio[i],1);
+		}
 	}
 	else
 	{
-		memcpy(&gpio_item, &(dev->gpio->power_en), sizeof(struct vfe_gpio_cfg));
-		gpio_item.mul_sel = GPIO_DISABLE;
-		os_gpio_set(&gpio_item,1);
-		memcpy(&gpio_item, &(dev->gpio->reset), sizeof(struct vfe_gpio_cfg));
-		gpio_item.mul_sel = GPIO_DISABLE;
-		os_gpio_set(&gpio_item,1);
-		memcpy(&gpio_item, &(dev->gpio->pwdn), sizeof(struct vfe_gpio_cfg));
-		gpio_item.mul_sel = GPIO_DISABLE;
-		os_gpio_set(&gpio_item,1);
-		memcpy(&gpio_item, &(dev->gpio->flash_en), sizeof(struct vfe_gpio_cfg));
-		gpio_item.mul_sel = GPIO_DISABLE;
-		os_gpio_set(&gpio_item,1);
-		memcpy(&gpio_item, &(dev->gpio->flash_mode), sizeof(struct vfe_gpio_cfg));
-		gpio_item.mul_sel = GPIO_DISABLE;
-		os_gpio_set(&gpio_item,1);
-		memcpy(&gpio_item, &(dev->gpio->af_pwdn), sizeof(struct vfe_gpio_cfg));
-		gpio_item.mul_sel = GPIO_DISABLE;
-		os_gpio_set(&gpio_item,1);
-		memcpy(&gpio_item, &(dev->gpio->mclk), sizeof(struct vfe_gpio_cfg));
-		gpio_item.mul_sel = GPIO_DISABLE;
-		os_gpio_set(&gpio_item,1);
+		for (i = 0; i < MAX_GPIO_NUM; i ++)
+		{
+			memcpy(&gpio_item, &(dev->gpio[i]), sizeof(struct vfe_gpio_cfg));
+			gpio_item.mul_sel = GPIO_DISABLE;
+			os_gpio_set(&gpio_item,1);
+		}
 	}
 #endif
 	return 0;
@@ -4228,16 +3803,11 @@ static int vfe_gpio_config(struct vfe_dev *dev, int bon)
 static void vfe_gpio_release(struct vfe_dev *dev)
 {
 #ifdef VFE_GPIO
-	unsigned int i;
+	unsigned int i,j;
 	for(i = 0; i < dev->dev_qty; i++)
 	{
-		os_gpio_release(dev->ccm_cfg[i]->gpio.power_en_io,1);
-		os_gpio_release(dev->ccm_cfg[i]->gpio.reset_io,1);
-		os_gpio_release(dev->ccm_cfg[i]->gpio.pwdn_io,1);
-		os_gpio_release(dev->ccm_cfg[i]->gpio.flash_en_io,1);
-		os_gpio_release(dev->ccm_cfg[i]->gpio.flash_mode_io,1);
-		os_gpio_release(dev->ccm_cfg[i]->gpio.af_pwdn_io,1);
-		os_gpio_release(dev->ccm_cfg[i]->gpio.mclk_io, 1);
+		for (j = 0; j < MAX_GPIO_NUM; j ++)
+			os_gpio_release(dev->ccm_cfg[i]->gpio[j].gpio,1);
 	}
 #endif
 }
@@ -4253,7 +3823,6 @@ static int vfe_resource_request(struct platform_device *pdev ,struct vfe_dev *de
 		vfe_err("failed to get IRQ resource\n");
 		return -ENXIO;
 	}
-  
 	dev->irq = res->start;
 	//  sprintf(vfe_name,"sunxi-vfe.%d",dev->id);
 #ifndef FPGA_VER
@@ -4714,10 +4283,11 @@ static int cpy_ccm_sub_device_cfg(struct ccm_config *ccm_cfg, int n)
 	ccm_cfg->act_slave = ccm_cfg->sensor_cfg_ini->camera_inst[n].act_i2c_addr;
 	return 0;
 }
-const char *sensor_info_type[] = 
+static const char * const sensor_info_type[] = 
 {
 	"YUV",
-	"RAW"
+	"RAW",
+	NULL,
 };
 static struct v4l2_subdev *vfe_sensor_register_check(struct vfe_dev *dev,struct v4l2_device *v4l2_dev,struct ccm_config  *ccm_cfg,
 					struct i2c_board_info *sensor_i2c_board,int input_num )
@@ -4790,6 +4360,239 @@ static struct v4l2_subdev *vfe_sensor_register_check(struct vfe_dev *dev,struct 
 	return ccm_cfg->sd;
 }
 
+static const struct v4l2_ctrl_config custom_ctrls[] = 
+{
+	{
+		.ops = &vfe_ctrl_ops,
+		.id = V4L2_CID_HOR_VISUAL_ANGLE,
+		.name = "Horizontal Visual Angle",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 0,
+		.max = 360,
+		.step = 1,
+		.def = 60,
+		.flags = V4L2_CTRL_FLAG_VOLATILE |V4L2_CTRL_FLAG_READ_ONLY ,
+	},
+	{
+		.ops = &vfe_ctrl_ops,
+		.id = V4L2_CID_VER_VISUAL_ANGLE,
+		.name = "Vertical Visual Angle",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 0,
+		.max = 360,
+		.step = 1,
+		.def = 60,
+		.flags = V4L2_CTRL_FLAG_VOLATILE |V4L2_CTRL_FLAG_READ_ONLY,
+	},
+	{
+		.ops = &vfe_ctrl_ops,
+		.id = V4L2_CID_FOCUS_LENGTH,
+		.name = "Focus Length",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 0,
+		.max = 1000,
+		.step = 1,
+		.def = 280,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+	},
+	{
+		.ops = &vfe_ctrl_ops,
+		.id = V4L2_CID_R_GAIN,
+		.name = "R GAIN",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 32,
+		.max = 1024,
+		.step = 1,
+		.def = 256,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+	},
+	{
+		.ops = &vfe_ctrl_ops,
+		.id = V4L2_CID_G_GAIN,
+		.name = "G GAIN",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 32,
+		.max = 1024,
+		.step = 1,
+		.def = 256,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+	},
+	{
+		.ops = &vfe_ctrl_ops,
+		.id = V4L2_CID_B_GAIN,
+		.name = "B GAIN",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 32,
+		.max = 1024,
+		.step = 1,
+		.def = 256,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,	
+	},
+	{
+		.ops = &vfe_ctrl_ops,
+		.id = V4L2_CID_AUTO_FOCUS_WIN_NUM,
+		.name = "AutoFocus Windows Number",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 0,
+		.max = 10,
+		.step = 1,
+		.def = 0,
+	},
+	{
+		.ops = &vfe_ctrl_ops,
+		.id = V4L2_CID_AUTO_FOCUS_INIT,
+		.name = "AutoFocus Initial",
+		.type = V4L2_CTRL_TYPE_BUTTON,
+		.min = 0,
+		.max = 0,
+		.step = 0,
+		.def = 0,
+	},
+	{
+		.ops = &vfe_ctrl_ops,
+		.id = V4L2_CID_AUTO_FOCUS_RELEASE,
+		.name = "AutoFocus Release",
+		.type = V4L2_CTRL_TYPE_BUTTON,
+		.min = 0,
+		.max = 0,
+		.step = 0,
+		.def = 0,
+	},
+	{
+		.ops = &vfe_ctrl_ops,
+		.id = V4L2_CID_AUTO_EXPOSURE_WIN_NUM,
+		.name = "AutoExposure Windows Number",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 0,
+		.max = 10,
+		.step = 1,
+		.def = 0,
+	},
+	{
+		.ops = &vfe_ctrl_ops,
+		.id = V4L2_CID_GSENSOR_ROTATION,
+		.name = "Gsensor Rotaion",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = -180,
+		.max = 180,
+		.step = 90,
+		.def = 0,
+	},
+	{
+		.ops = &vfe_ctrl_ops,
+		.id = V4L2_CID_TAKE_PICTURE,
+		.name = "Take Picture",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 0,
+		.max = 16,
+		.step = 1,
+		.def = 0,
+	},
+	{
+		.ops = &vfe_ctrl_ops,
+		.id = V4L2_CID_HDR,
+		.name = "Set HDR",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 0,
+		.max = 10,
+		.step = 1,
+		.def = 0,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+	},
+	{
+		.ops = &vfe_ctrl_ops,
+		.id = V4L2_CID_SENSOR_TYPE,
+		.name = "Sensor type",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.min = 0,
+		.max = 1,
+		.def = 0,
+		.menu_skip_mask = 0x0,
+		.qmenu = sensor_info_type,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+	},
+};
+
+static const s64 iso_qmenu[] = {
+	50, 100, 200, 400, 800,
+};
+
+static const s64 exp_bias_qmenu[] = {
+	-4, -3, -2, -1, 0, 1, 2, 3, 4,
+};
+
+static int vfe_init_controls(struct v4l2_ctrl_handler *hdl)
+{
+	struct v4l2_ctrl *ctrl;
+	unsigned int i, ret = 0;
+	
+	v4l2_ctrl_handler_init(hdl, 37 + ARRAY_SIZE(custom_ctrls));
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops, V4L2_CID_BRIGHTNESS, 0, 255, 1, 128);
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops, V4L2_CID_CONTRAST, 0, 128, 1, 0);
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops, V4L2_CID_SATURATION, -4, 4, 1, 0);
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops, V4L2_CID_HUE, -180, 180, 1, 0);	 
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_AUTO_WHITE_BALANCE, 0, 1, 1, 1);
+	ctrl = v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_EXPOSURE, 0, 65536*16, 1, 0);
+	if (ctrl != NULL)
+		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;	
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_AUTOGAIN, 0, 1, 1, 1);
+	ctrl = v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_GAIN, 1*16, 64*16-1, 1, 1*16);
+	if (ctrl != NULL)
+		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;	
+	v4l2_ctrl_new_std_menu(hdl, &vfe_ctrl_ops,V4L2_CID_POWER_LINE_FREQUENCY,
+		V4L2_CID_POWER_LINE_FREQUENCY_AUTO, 0, V4L2_CID_POWER_LINE_FREQUENCY_AUTO);
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_HUE_AUTO, 0, 1, 1, 1);
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_WHITE_BALANCE_TEMPERATURE, 2800, 10000, 1, 6500); 
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_SHARPNESS, -32, 32, 1, 0);
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_CHROMA_AGC, 0, 1, 1, 1);
+	v4l2_ctrl_new_std_menu(hdl, &vfe_ctrl_ops,V4L2_CID_COLORFX,
+		V4L2_COLORFX_SET_CBCR, 0, V4L2_COLORFX_NONE);
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_AUTOBRIGHTNESS,0, 1, 1, 1);
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_BAND_STOP_FILTER,0, 1, 1, 1);
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_ILLUMINATORS_1,0, 1, 1, 0);
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_ILLUMINATORS_2,0, 1, 1, 0);
+	v4l2_ctrl_new_std_menu(hdl, &vfe_ctrl_ops,V4L2_CID_EXPOSURE_AUTO,
+		V4L2_EXPOSURE_APERTURE_PRIORITY, 0, V4L2_EXPOSURE_AUTO);
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_EXPOSURE_ABSOLUTE,1, 1000000, 1, 1);
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_EXPOSURE_AUTO_PRIORITY, 0, 1, 1, 0);
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_FOCUS_ABSOLUTE, 0, 127, 1, 0);	   
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_FOCUS_RELATIVE, -127, 127, 1, 0);
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_FOCUS_AUTO,	0, 1, 1, 1);	
+	v4l2_ctrl_new_int_menu(hdl, &vfe_ctrl_ops,V4L2_CID_AUTO_EXPOSURE_BIAS, ARRAY_SIZE(exp_bias_qmenu) - 1,
+		ARRAY_SIZE(exp_bias_qmenu)/2, exp_bias_qmenu);
+	v4l2_ctrl_new_std_menu(hdl, &vfe_ctrl_ops,V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE,
+		V4L2_WHITE_BALANCE_SHADE, 0, V4L2_WHITE_BALANCE_AUTO);
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_WIDE_DYNAMIC_RANGE,0, 1, 1, 0);
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_IMAGE_STABILIZATION, 0, 1, 1, 0);
+	v4l2_ctrl_new_int_menu(hdl, &vfe_ctrl_ops,V4L2_CID_ISO_SENSITIVITY, ARRAY_SIZE(iso_qmenu) - 1,
+		ARRAY_SIZE(iso_qmenu)/2 - 1, iso_qmenu);	
+	v4l2_ctrl_new_std_menu(hdl, &vfe_ctrl_ops,V4L2_CID_ISO_SENSITIVITY_AUTO,
+		V4L2_ISO_SENSITIVITY_AUTO, 0, V4L2_ISO_SENSITIVITY_AUTO);
+	v4l2_ctrl_new_std_menu(hdl, &vfe_ctrl_ops,V4L2_CID_SCENE_MODE,
+		V4L2_SCENE_MODE_TEXT, 0, V4L2_SCENE_MODE_NONE);
+	ctrl = v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_3A_LOCK, 0, 4, 0, 0);
+	if (ctrl != NULL)
+		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;	
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_AUTO_FOCUS_START,0, 0, 0, 0);
+	v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_AUTO_FOCUS_STOP,0, 0, 0, 0); 
+	ctrl = v4l2_ctrl_new_std(hdl, &vfe_ctrl_ops,V4L2_CID_AUTO_FOCUS_STATUS,0, 4, 0, 0);
+	if (ctrl != NULL)
+		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;	
+	v4l2_ctrl_new_std_menu(hdl, &vfe_ctrl_ops,V4L2_CID_AUTO_FOCUS_RANGE,
+		V4L2_AUTO_FOCUS_RANGE_INFINITY, 0, V4L2_AUTO_FOCUS_RANGE_AUTO);
+	v4l2_ctrl_new_std_menu(hdl, &vfe_ctrl_ops,V4L2_CID_AUTO_FOCUS_RANGE,
+		V4L2_AUTO_FOCUS_RANGE_INFINITY, 0, V4L2_AUTO_FOCUS_RANGE_AUTO);
+
+	for (i = 0; i < ARRAY_SIZE(custom_ctrls); i ++)
+		v4l2_ctrl_new_custom(hdl, &custom_ctrls[i], NULL);
+
+	if (hdl->error) {
+		ret = hdl->error;
+        v4l2_ctrl_handler_free(hdl);
+	}
+	return ret;
+}
+
 static void probe_work_handle(struct work_struct *work)
 {
 	struct vfe_dev *dev= container_of(work, struct vfe_dev, probe_work.work);
@@ -4797,6 +4600,7 @@ static void probe_work_handle(struct work_struct *work)
 	int input_num;
 	struct video_device *vfd;
 	char vfe_name[16] = {0};
+    
 	mutex_lock(&probe_hdl_lock);
 	vfe_print("probe_work_handle start!\n");
 	vfe_dbg(0,"v4l2_device_register\n");
@@ -4806,6 +4610,14 @@ static void probe_work_handle(struct work_struct *work)
 		vfe_err("Error registering v4l2 device\n");
 		goto probe_hdl_free_dev;
 	}
+
+	ret = vfe_init_controls(&dev->ctrl_handler);    
+	if (ret) {
+		vfe_err("Error v4l2 ctrls new!!\n");
+		goto probe_hdl_unreg_dev;
+	}
+    dev->v4l2_dev.ctrl_handler = &dev->ctrl_handler;
+    
 	dev_set_drvdata(&dev->pdev->dev, (dev));
 	vfe_dbg(0,"v4l2 subdev register\n");
 	/* v4l2 subdev register */
@@ -5161,6 +4973,7 @@ static int vfe_remove(struct platform_device *pdev)
 	//video_device_release(dev->vfd);
 	video_unregister_device(dev->vfd);  
 	v4l2_device_unregister(&dev->v4l2_dev);
+	v4l2_ctrl_handler_free(&dev->ctrl_handler);
 	//  kfree(dev);
 	vfe_print("vfe_remove ok!\n");
 	return 0;
@@ -5396,9 +5209,9 @@ static int __init vfe_init(void)
 	int ret;
 	vfe_print("Welcome to Video Front End driver\n");
 	mutex_init(&probe_hdl_lock);
-    sunxi_csi_platform_register();
-    sunxi_isp_platform_register();
-    sunxi_mipi_platform_register();
+	sunxi_csi_platform_register();
+	sunxi_isp_platform_register();
+	sunxi_mipi_platform_register();
 	ret = platform_driver_register(&vfe_driver);
 	if (ret) {
 		vfe_err("platform driver register failed\n");
@@ -5411,13 +5224,13 @@ static int __init vfe_init(void)
 static void __exit vfe_exit(void)
 {
 	vfe_print("vfe_exit\n");
-    sunxi_csi_platform_unregister();
-    sunxi_isp_platform_unregister();
-    sunxi_mipi_platform_unregister();
 	platform_driver_unregister(&vfe_driver);
 	vfe_print("platform_driver_unregister\n");
 	vfe_release();
 	mutex_destroy(&probe_hdl_lock);
+	sunxi_csi_platform_unregister();
+	sunxi_isp_platform_unregister();
+	sunxi_mipi_platform_unregister();
 	vfe_print("vfe_exit end\n");
 }
 

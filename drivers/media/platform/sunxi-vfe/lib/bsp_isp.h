@@ -109,14 +109,24 @@ int bsp_isp_int_get_enable(void);
 
 void bsp_isp_clr_irq_status(unsigned int irq);
 void bsp_isp_set_statistics_addr(unsigned int addr);
-void bsp_isp_mirror_enable(enum isp_channel ch);
-void bsp_isp_flip_enable(enum isp_channel ch);
-void bsp_isp_mirror_disable(enum isp_channel ch);
-void bsp_isp_flip_disable(enum isp_channel ch);
-void bsp_isp_set_fmt(enum bus_pixeltype type, enum pixel_fmt *fmt);
+
+void bsp_isp_set_flip(enum isp_channel ch, enum enable_flag on_off);
+void bsp_isp_set_mirror(enum isp_channel ch, enum enable_flag on_off);
+
+void bsp_isp_set_input_fmt(enum isp_input_fmt fmt, enum isp_input_seq seq_t);
+
+void bsp_isp_set_output_fmt(enum isp_output_fmt isp_fmt, enum isp_output_seq seq_t, enum isp_channel ch);
 void bsp_isp_set_rot(enum isp_channel ch,enum isp_rot_angle angle);
-unsigned int bsp_isp_set_size(enum pixel_fmt *fmt, struct isp_size_settings *size_settings);
-void bsp_isp_set_output_addr(unsigned long buf_base_addr);
+int min_scale_w_shift(int x_ratio, int y_ratio);
+void bsp_isp_set_ob_zone(struct isp_size *black, struct isp_size *valid, struct coor *xy, enum isp_src obc_valid_src);
+
+void bsp_isp_set_output_size(enum isp_channel ch,struct isp_size *size) ;
+void bsp_isp_scale_cfg(enum isp_channel ch,int x_ratio,int y_ratio,int weight_shift) ;
+void bsp_isp_set_stride_y(unsigned int stride_val, enum isp_channel ch) ;
+void bsp_isp_set_stride_uv(unsigned int stride_val, enum isp_channel ch) ;
+void bsp_isp_set_yuv_addr(struct isp_yuv_channel_addr *addr, enum isp_channel ch, enum isp_src channel_src);
+
+
 void bsp_isp_set_base_addr(unsigned long vaddr);
 void bsp_isp_set_dma_load_addr(unsigned long dma_addr);
 void bsp_isp_set_dma_saved_addr(unsigned long dma_addr);
@@ -127,6 +137,11 @@ void bsp_isp_update_drc_table(struct isp_table_addr *tbl_addr);
 void bsp_isp_init_platform(unsigned int platform_id);
 void bsp_isp_init(struct isp_init_para *para);
 void bsp_isp_exit(void);
+
+void bsp_isp_scale_enable(enum isp_channel ch);
+void bsp_isp_module_enable(unsigned int module);
+void bsp_isp_module_disable(unsigned int module);
+
 
 unsigned int   bsp_isp_get_saved_cfa_min_rgb       (void);
 unsigned int   bsp_isp_get_saved_cfa_pic_tex       (void);

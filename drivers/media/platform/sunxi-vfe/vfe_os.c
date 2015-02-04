@@ -117,18 +117,16 @@ int os_request_irq(unsigned int irq, irq_handler_t handler, unsigned long flags,
 }
 EXPORT_SYMBOL_GPL(os_request_irq);
 
-__hdle os_gpio_request(struct vfe_gpio_cfg *gpio_list, __u32 group_count_max)
+int os_gpio_request(struct vfe_gpio_cfg *gpio_list, __u32 group_count_max)
 {    
-
 #ifdef VFE_GPIO
-	__hdle ret = 0;
-  
+	int ret = 0;  
 	struct gpio_config pin_cfg;
 	if(gpio_list == NULL)
-		return 0;
+		return -1;
     
 	if(gpio_list->gpio == GPIO_INDEX_INVALID)
-		return 0;
+		return -1;
 		
 	pin_cfg.gpio = gpio_list->gpio;
 	pin_cfg.mul_sel = gpio_list->mul_sel;
@@ -138,10 +136,10 @@ __hdle os_gpio_request(struct vfe_gpio_cfg *gpio_list, __u32 group_count_max)
 	ret = gpio_request(pin_cfg.gpio, NULL);
 	if(0 != ret)
 	{
-		vfe_warn("os_gpio_request failed, gpio_name=%s, gpio=%d, ret=0x%x, %d\n", gpio_list->gpio_name, gpio_list->gpio, ret, ret);
-		return 0;
+		vfe_warn("os_gpio_request failed, gpio=%d, ret=0x%x, %d\n", gpio_list->gpio, ret, ret);
+		return -1;
 	}
-	return pin_cfg.gpio;
+	return 0;
 #else
 	return 0;
 #endif
@@ -149,19 +147,15 @@ __hdle os_gpio_request(struct vfe_gpio_cfg *gpio_list, __u32 group_count_max)
 EXPORT_SYMBOL_GPL(os_gpio_request);
 int os_gpio_set(struct vfe_gpio_cfg *gpio_list, __u32 group_count_max)
 {    
-
 #ifdef VFE_GPIO
-	int ret = 0;
-  
 	struct gpio_config pin_cfg;
 	char   pin_name[32];
 	__u32 config;
 
 	if(gpio_list == NULL)
-		return 0;
-    
+		return -1;    
 	if(gpio_list->gpio == GPIO_INDEX_INVALID)
-		return 0;
+		return -1;
 		
 	pin_cfg.gpio = gpio_list->gpio;
 	pin_cfg.mul_sel = gpio_list->mul_sel;
@@ -203,23 +197,23 @@ int os_gpio_set(struct vfe_gpio_cfg *gpio_list, __u32 group_count_max)
 		vfe_warn("invalid pin [%d] from sys-config\n", pin_cfg.gpio);
 		return -1;
 	}
-	return ret;
+	return 0;
 #else
 	return 0;
 #endif
 }
 EXPORT_SYMBOL_GPL(os_gpio_set);
 
-int os_gpio_release(__hdle p_handler, __s32 if_release_to_default_status)
+int os_gpio_release(u32 p_handler, __s32 if_release_to_default_status)
 {
 #ifdef VFE_GPIO
-	if(p_handler)
+	if(p_handler != GPIO_INDEX_INVALID)
 	{
 		gpio_free(p_handler);
 	}
 	else
 	{
-		vfe_warn("os_gpio_release, hdl is NULL\n");
+		vfe_warn("os_gpio_release, hdl is INVALID\n");
 	}
 #endif
 	return 0;
@@ -231,19 +225,19 @@ int os_gpio_write(u32 p_handler, __u32 value_to_gpio, const char *gpio_name, int
 #ifdef VFE_GPIO
 	if(1 == force_value_flag)
 	{
-		if(p_handler)
+		if(p_handler != GPIO_INDEX_INVALID)
 		{
 			__gpio_set_value(p_handler, value_to_gpio);
 		}
 		else
 		{
-			vfe_dbg(0,"os_gpio_write, hdl is NULL\n");
+			vfe_dbg(0,"os_gpio_write, hdl is INVALID\n");
 		}
 
 	}
 	else
 	{
-		if(p_handler)
+		if(p_handler != GPIO_INDEX_INVALID)
 		{
 			if(value_to_gpio == 0)
 			{
@@ -257,9 +251,8 @@ int os_gpio_write(u32 p_handler, __u32 value_to_gpio, const char *gpio_name, int
 		}
 		else
 		{
-			vfe_dbg(0,"os_gpio_write, hdl is NULL\n");
+			vfe_dbg(0,"os_gpio_write, hdl is INVALID\n");
 		}
-
 	}
 #endif
 	return 0;
@@ -271,7 +264,7 @@ int os_gpio_set_status(u32 p_handler, __u32 if_set_to_output_status, const char 
 {
 	int ret = 0;
 #ifdef VFE_GPIO
-	if(p_handler)
+	if(p_handler != GPIO_INDEX_INVALID)
 	{
 		if(if_set_to_output_status)
 		{
@@ -292,7 +285,7 @@ int os_gpio_set_status(u32 p_handler, __u32 if_set_to_output_status, const char 
 	}
 	else
 	{
-		vfe_warn("os_gpio_set_status, hdl is NULL\n");
+		vfe_warn("os_gpio_set_status, hdl is INVALID\n");
 		ret = -1;
 	}
 #endif
@@ -303,32 +296,51 @@ EXPORT_SYMBOL_GPL(os_gpio_set_status);
 int os_mem_alloc(struct vfe_mm *mem_man)
 {
 #ifdef SUNXI_MEM
-	unsigned int addr_handle;  
-	addr_handle = sunxi_mem_alloc(mem_man->size);
-	if(addr_handle) {
-		mem_man->phy_addr = (void *)addr_handle;
-		mem_man->dma_addr = mem_man->phy_addr + HW_DMA_OFFSET- CPU_DRAM_PADDR_ORG;
-		//mem_man->vir_addr = (void *)ioremap(addr_handle, mem_man->size);
-		mem_man->vir_addr = (void *)sunxi_map_kernel(addr_handle, mem_man->size);
-		if(!mem_man->vir_addr) {
-			vfe_err("os_mem_alloc map error, phy addr = %x size = %d\n",addr_handle,mem_man->size);
-			return -ENOMEM;
-		}
-		return 0;
-	} else {
-		vfe_err("os_mem_alloc sunxi_mem_alloc error, size = %d\n",mem_man->size);
-		return -ENOMEM;
+	int ret = -1;
+	char *ion_name = "ion_vfe";
+	mem_man->client = sunxi_ion_client_create(ion_name);
+	if (IS_ERR(mem_man->client))
+	{
+		vfe_err("sunxi_ion_client_create failed!!");
+		goto err_client;
 	}
+	mem_man->handle = ion_alloc(mem_man->client, mem_man->size, PAGE_SIZE, 
+							ION_HEAP_CARVEOUT_MASK|ION_HEAP_TYPE_DMA_MASK, 0);
+	if (IS_ERR(mem_man->handle))
+	{
+		vfe_err("ion_alloc failed!!");
+		goto err_alloc;
+	}
+	mem_man->vir_addr = ion_map_kernel( mem_man->client, mem_man->handle);
+	if (IS_ERR(mem_man->vir_addr))
+	{
+		vfe_err("ion_map_kernel failed!!");
+		goto err_map_kernel;
+	}
+	ret = ion_phys( mem_man->client,  mem_man->handle, &mem_man->phy_addr, &mem_man->size );
+	if( ret )
+	{
+		vfe_err("ion_phys failed!!");
+		goto err_phys;
+	}
+	mem_man->dma_addr = mem_man->phy_addr + HW_DMA_OFFSET-CPU_DRAM_PADDR_ORG;
+	return 0;
+err_phys:	
+	ion_unmap_kernel( mem_man->client, mem_man->handle);
+err_map_kernel:
+	ion_free(mem_man->client, mem_man->handle);
+err_alloc:
+	ion_client_destroy(mem_man->client);
+err_client:
+	return -1;	
 #else
 	mem_man->vir_addr = dma_alloc_coherent(NULL, (size_t)mem_man->size,
 			(dma_addr_t*)&mem_man->phy_addr, GFP_KERNEL);
-
 	if (!mem_man->vir_addr) {
 		vfe_err("memory alloc size %d failed\n", mem_man->size);
 		return -ENOMEM;
 	} 
-	
-	mem_man->dma_addr = mem_man->phy_addr + HW_DMA_OFFSET- CPU_DRAM_PADDR_ORG;
+	mem_man->dma_addr = mem_man->phy_addr + HW_DMA_OFFSET-CPU_DRAM_PADDR_ORG;
 	return 0;
 #endif
 }
@@ -337,11 +349,11 @@ EXPORT_SYMBOL_GPL(os_mem_alloc);
 void os_mem_free(struct vfe_mm *mem_man)
 {
 #ifdef SUNXI_MEM
-	if(mem_man->vir_addr)
-		//iounmap((void* __iomem)(mem_man->vir_addr));
-		sunxi_unmap_kernel(mem_man->vir_addr);
-	if(mem_man->phy_addr)
-		sunxi_mem_free((unsigned int)mem_man->phy_addr, mem_man->size);	
+	if (IS_ERR_OR_NULL(mem_man->client)||IS_ERR_OR_NULL(mem_man->handle)||IS_ERR_OR_NULL(mem_man->vir_addr))
+		return ;
+	ion_unmap_kernel(mem_man->client, mem_man->handle);
+	ion_free(mem_man->client, mem_man->handle);
+	ion_client_destroy(mem_man->client);
 #else
 	if(mem_man->vir_addr)
 		dma_free_coherent(NULL, mem_man->size, mem_man->vir_addr, (dma_addr_t)mem_man->phy_addr);

@@ -19,12 +19,15 @@
 #include "../platform_cfg.h"
 #include <linux/delay.h>
 #include <linux/sched.h>
+#include <linux/mutex.h>
 #define MAX_CCI_DEVICE 2
 wait_queue_head_t wait[MAX_CCI_DEVICE];
 static int status_err_flag[MAX_CCI_DEVICE] = {0};
+struct mutex            cci_mutex[MAX_CCI_DEVICE];
 int bsp_csi_cci_set_base_addr(unsigned int sel, unsigned long addr)
 {
 	init_waitqueue_head(&wait[sel]);
+	mutex_init(&cci_mutex[sel]);
 	return csi_cci_set_base_addr(sel, addr);
 }
 
@@ -69,10 +72,9 @@ out:
 void bsp_csi_cci_init(unsigned int sel)
 {
 	unsigned char div_coef[2];
-	
 	csi_cci_reset(sel);
 	csi_cci_enable(sel);
-	cci_cal_div(400*1000, div_coef);
+	cci_cal_div(300*1000, div_coef);
 	csi_cci_set_clk_div(sel, div_coef);
 	csi_cci_set_pkt_interval(sel, 16);
 	csi_cci_set_ack_timeout(sel, 16);
@@ -157,6 +159,7 @@ int bsp_cci_tx_start_wait_done(unsigned int sel, struct cci_msg *msg)
 {
 	int ret = 0;
 	unsigned long timeout = 0;
+	mutex_lock(&cci_mutex[sel]);
 	bsp_cci_tx_start(sel, msg);
 #ifdef FPGA_VER
 	timeout = wait_event_timeout(wait[sel], csi_cci_get_trans_done(sel) == 0, HZ/50);
@@ -177,6 +180,7 @@ int bsp_cci_tx_start_wait_done(unsigned int sel, struct cci_msg *msg)
 	}
 	if(msg->bus_fmt.wr_flag == 1)
 		bsp_cci_tx_data_rb(sel, msg);
+	mutex_unlock(&cci_mutex[sel]);
 	return ret;
 }
 

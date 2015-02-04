@@ -20,8 +20,7 @@
 
 #define FPGA_VER
 
-//#define VFE_SYS_CONFIG
-//#define SUNXI_MEM
+#define SUNXI_MEM
 
 #ifdef FPGA_VER
 #define FPGA_PIN
@@ -51,10 +50,8 @@
 #include <linux/regulator/consumer.h>
 #endif
 
-#ifdef VFE_SYS_CONFIG
-//#include <mach/sys_config.h>
 #include <linux/sys_config.h>
-#endif
+
 //#include <mach/sunxi-chip.h>
 #include <linux/slab.h>
 

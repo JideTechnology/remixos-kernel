@@ -792,6 +792,7 @@ struct isp_gen_settings
 	int man_gain;
 	int sharp_cfg_to_hal[2];
 	int double_ch_flag;
+	int awb_buf[3072];
 };
 
 /*

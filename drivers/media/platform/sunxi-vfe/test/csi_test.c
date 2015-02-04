@@ -23,22 +23,7 @@
 
 #include "sunxi_camera.h"
 
-
 #define CLEAR(x) memset (&(x), 0, sizeof (x))
-
-struct v4l2_pix_format {
-	__u32         		width;
-	__u32			height;
-	__u32			pixelformat;
-	__u32			field;		/* enum v4l2_field */
-	__u32            	bytesperline;	/* for padding, zero if unused */
-	__u32          		sizeimage;
-	__u32			colorspace;	/* enum v4l2_colorspace */
-	__u32			priv;		/* private data, depends on pixelformat */
-	__u32			rot_angle;  /* add by yangfeng */
-	struct v4l2_pix_format	 *subchannel;	/* add by yangfeng */
-};
-
 
 int count;
 
