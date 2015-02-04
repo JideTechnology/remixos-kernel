@@ -212,6 +212,8 @@ static int sunxi_pctrl_dt_node_to_map(struct pinctrl_dev *pctldev,
 			configlen++;
 		if (of_find_property(node, "allwinner,pull", NULL))
 			configlen++;
+		if (of_find_property(node, "allwinner,data", NULL))
+			configlen++;
 
 		pinconfig = kzalloc(configlen * sizeof(*pinconfig), GFP_KERNEL);
 		if (!pinconfig) {
@@ -224,6 +226,11 @@ static int sunxi_pctrl_dt_node_to_map(struct pinctrl_dev *pctldev,
 			pinconfig[j++] =
 				pinconf_to_config_packed(PIN_CONFIG_DRIVE_STRENGTH,
 							 strength);
+		}
+		if (!of_property_read_u32(node, "allwinner,drive", &val)) {
+			pinconfig[j++] =
+				pinconf_to_config_packed(PIN_CONFIG_OUTPUT,
+							 val);
 		}
 
 		if (!of_property_read_u32(node, "allwinner,pull", &val)) {
@@ -289,7 +296,7 @@ static int sunxi_pconf_group_set(struct pinctrl_dev *pctldev,
 	unsigned long flags;
 	unsigned pin = g->pin - pctl->desc->pin_base;
 	u32 val, mask;
-	u16 strength;
+	u16 strength,data;
 	u8 dlevel;
 	int i;
 
@@ -328,6 +335,13 @@ static int sunxi_pconf_group_set(struct pinctrl_dev *pctldev,
 			mask = PULL_PINS_MASK << sunxi_pull_offset(pin);
 			writel((val & ~mask) | 2 << sunxi_pull_offset(pin),
 				pctl->membase + sunxi_pull_reg(pin));
+			break;
+		case PIN_CONFIG_OUTPUT:
+			data = pinconf_to_config_argument(configs[i]);
+			val = readl(pctl->membase + sunxi_data_reg(pin));
+			mask = DATA_PINS_MASK << sunxi_data_offset(pin);
+			writel((val & ~mask) | data << sunxi_data_offset(pin),
+				pctl->membase + sunxi_data_reg(pin));
 			break;
 		default:
 			break;
