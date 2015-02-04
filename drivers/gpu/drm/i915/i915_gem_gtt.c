@@ -642,6 +642,7 @@ static void gen8_ppgtt_free(struct i915_hw_ppgtt *ppgtt)
 	}
 
 	unmap_and_free_pt(ppgtt->scratch_pd, ppgtt->base.dev);
+	unmap_and_free_pt(ppgtt->scratch_pt, ppgtt->base.dev);
 }
 
 static void gen8_ppgtt_cleanup(struct i915_address_space *vm)
@@ -651,6 +652,42 @@ static void gen8_ppgtt_cleanup(struct i915_address_space *vm)
 
 	gen8_ppgtt_unmap_pages(ppgtt);
 	gen8_ppgtt_free(ppgtt);
+}
+
+static void gen8_initialize_pt(struct i915_hw_ppgtt *ppgtt,
+			struct i915_page_table_entry *pt)
+{
+	gen8_gtt_pte_t *pt_vaddr, scratch_pte;
+	int i;
+
+	pt_vaddr = kmap_atomic(pt->page);
+	scratch_pte = gen8_pte_encode(ppgtt->base.scratch.addr,
+			I915_CACHE_LLC, true);
+
+	for (i = 0; i < GEN8_PTES_PER_PAGE; i++)
+		pt_vaddr[i] = scratch_pte;
+
+	if (!HAS_LLC(ppgtt->base.dev))
+		drm_clflush_virt_range(pt_vaddr, PAGE_SIZE);
+	kunmap_atomic(pt_vaddr);
+}
+
+static void gen8_initialize_pd(struct i915_hw_ppgtt *ppgtt,
+			struct i915_page_directory_entry *pd)
+{
+	gen8_ppgtt_pde_t *page_directory;
+	struct i915_page_table_entry *pt;
+	int i;
+
+	page_directory = kmap_atomic(pd->page);
+	pt = ppgtt->scratch_pt;
+	for (i = 0; i < GEN8_PDES_PER_PAGE; i++)
+		/* Map the PDE to the page table */
+		__gen8_do_map_pt(page_directory + i, pt, ppgtt->base.dev);
+
+	if (!HAS_LLC(ppgtt->base.dev))
+		drm_clflush_virt_range(page_directory, PAGE_SIZE);
+	kunmap_atomic(page_directory);
 }
 
 /**
@@ -693,6 +730,7 @@ static int gen8_ppgtt_alloc_pagetabs(struct i915_hw_ppgtt *ppgtt,
 		if (IS_ERR(pt))
 			goto unwind_out;
 
+		gen8_initialize_pt(ppgtt, pt);
 		pd->page_tables[pde] = pt;
 		set_bit(pde, new_pts);
 	}
@@ -752,6 +790,7 @@ static int gen8_ppgtt_alloc_page_directories(struct i915_hw_ppgtt *ppgtt,
 		if (IS_ERR(pd))
 			goto unwind_out;
 
+		gen8_initialize_pd(ppgtt, pd);
 		pdp->page_directory[pdpe] = pd;
 		set_bit(pdpe, new_pds);
 	}
@@ -932,6 +971,14 @@ static int gen8_ppgtt_init_common(struct i915_hw_ppgtt *ppgtt, uint64_t size)
 	ppgtt->scratch_pd = alloc_pt_scratch(ppgtt->base.dev);
 	if (IS_ERR(ppgtt->scratch_pd))
 		return PTR_ERR(ppgtt->scratch_pd);
+
+	ppgtt->scratch_pt = alloc_pt_scratch(ppgtt->base.dev);
+	if (IS_ERR(ppgtt->scratch_pt))
+		return PTR_ERR(ppgtt->scratch_pt);
+
+	gen8_initialize_pt(ppgtt, ppgtt->scratch_pt);
+	gen8_initialize_pd(ppgtt,
+		(struct i915_page_directory_entry *)ppgtt->scratch_pd);
 
 	ppgtt->base.start = 0;
 	ppgtt->base.total = size;
