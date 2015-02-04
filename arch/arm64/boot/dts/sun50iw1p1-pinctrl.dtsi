@@ -225,17 +225,13 @@
 			};
 
 			csi0_pins: csi0@0 {
-				allwinner,pins = "PE0","PE1","PE2","PE3","PE4","PE5","PE6","PE7","PE8","PE9","PE10","PE11","PE12","PE13";
+				allwinner,pins = "PE0","PE2","PE3","PE4","PE5","PE6","PE7","PE8","PE9","PE10","PE11","PE12","PE13";
+				allwinner,pname = "vip_csi_pck","vip_csi_hsync","vip_csi_vsync","vip_csi_d0","vip_csi_d1","vip_csi_d2",
+								"vip_csi_d3","vip_csi_d4","vip_csi_d5","vip_csi_d6","vip_csi_d7","vip_csi_sck","vip_csi_sda";
 				allwinner,function = "csi0";
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
-			};
-
-			camera0_pins: camera0@0 {
-				allwinner,pins = "PE16","PE17";
-				allwinner,function = "gpio_out";
-				allwinner,drive = <1>;
-				allwinner,pull = <0>;
+				allwinner,data = <0>;
 			};
 
 			scr_pins_a: smartcard@0 {

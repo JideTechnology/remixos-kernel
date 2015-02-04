@@ -37,7 +37,7 @@
 		global_timer0  = &soc_timer0;
 		cci0 = &csi_cci0;
 		csi0 = &csi_0;
-		vfe0 = &vfe_0;
+		vfe0 = &vip0;
 	};
 
 	chosen {
@@ -913,9 +913,36 @@
 			reg = <0x0 0x01cb0000 0x0 0x1000>;/*0x01cb0000--0x01cb1000*/
 			status = "okay";
 		};
-		vfe_0:vfe@0 {
+		vip0:vip@0 {
 			compatible = "allwinner,sunxi-vfe";
 			interrupts = <GIC_SPI 84 4>;/*SUNXI_IRQ_CSI0 (SUNXI_GIC_START + 84 )*/
+			clocks 				= <&clk_csi_s>, <&clk_pll_periph0>,
+										<&clk_csi_m>, <&clk_pll_video1>,
+										<&clk_csi_misc>, <&clk_hosc>;
+			pinctrl-names 		= "default";
+			pinctrl-0 			= <&csi0_pins>;			
+			vip0_csi_mck 		= <&pio PE 1 2 0 1 0>; /*PE1 .mul_sel = 2, .pull = 0, .drv_level = 1, .data = 0*/	
+			vip0_mname          = "ov5640";
+			vip0_twi_addr       = <0x78>;
+			vip0_isp_used       = <1>;
+			vip0_fmt            = <0>;
+			vip0_stby_mode      = <0>;
+			vip0_vflip          = <0>;
+			vip0_hflip          = <0>;
+			vip0_iovdd          = "axp22_eldo3";
+			vip0_iovdd_vol      = <2800000>;
+			vip0_avdd           = "axp22_dldo4";
+			vip0_avdd_vol       = <2800000>;
+			vip0_dvdd           = "axp22_eldo2";
+			vip0_dvdd_vol       = <1500000>;
+			vip0_afvdd          = "";
+			vip0_afvdd_vol      = <2800000>;
+			vip0_reset 			= <&pio PE 16 1 0 1 0>; /*PE16 .mul_sel = 1, .pull = 0, .drv_level = 1, .data = 0*/
+			vip0_pwdn 			= <&pio PE 17 1 0 1 0>; /*PE17 .mul_sel = 1, .pull = 0, .drv_level = 1, .data = 0*/
+			vip0_power_en		= <>;
+			vip0_flash_en		= <>;
+			vip0_flash_mode		= <>;
+			vip0_af_pwdn		= <>;			
 			status = "okay";
 		};
 		
