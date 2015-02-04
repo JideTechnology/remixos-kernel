@@ -13,6 +13,7 @@
 /memreserve/ 0x78800000 0x07800000; /* ion carvout heap revserve  : [0x78800000~0x80000000], size = 120M  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/gpio/gpio.h>
 #include "sun50iw1p1-clk.dtsi"
 #include "sun50iw1p1-pinctrl.dtsi"
 / {
@@ -813,9 +814,11 @@
 		};
 		
 		vdevice@0{
+			device_type = "vdevice";
 			compatible = "allwinner,sun50i-vdevice";
 			pinctrl-names = "default";
 			pinctrl-0 = <&vdevice_pins_a>;
+			test-gpios = <&r_pio PL 0 1 2 3 4>;
 			status = "okay";
 		};
 		cryptoengine: ce@1c15000 {

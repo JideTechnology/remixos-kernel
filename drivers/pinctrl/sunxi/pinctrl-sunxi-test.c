@@ -35,27 +35,24 @@ MODULE_DEVICE_TABLE(of, sunxi_pinctrl_match);
 
 static int sunxi_pinctrl_test_probe(struct platform_device *pdev)
 {
-	void __iomem *base_add_1, *base_add_2;
-	int ret;
-	unsigned int gpio_index, flags;
-	struct device_node *node = pdev->dev.of_node;
+	struct gpio_config config;
+	unsigned int ret;
+	struct device_node *node;
 
-	base_add_1 = of_iomap(node, 0);
-	pr_warn("1-%p\n", base_add_1);
-	base_add_2 = of_iomap(node, 1);
-	pr_warn("2-%p\n", base_add_2);
-
-	gpio_index = of_get_named_gpio_flags(node, "gpios", 0, &flags);
-	pr_warn("gpio_index: %d\n", gpio_index);
-	if (!gpio_is_valid(gpio_index)){
-		pr_warn("gpio[%d]is invalid\n", gpio_index);
+	node=of_find_node_by_type(NULL, "vdevice");
+	if(!node){
+		printk("find node\n");
 	}
-	gpio_request(gpio_index,"GPIO_TEST");
-	gpio_direction_output(gpio_index,1);
-
-	pr_warn("[%s][%d]\n", __func__, __LINE__);
-	pinctrl_get_select(&pdev->dev,"active");
-	pr_warn("[%s][%d]\n", __func__, __LINE__);
+	ret = of_get_named_gpio_flags(node, "test-gpios", 0, (enum of_gpio_flags *)&config);
+	if (!gpio_is_valid(ret)) {
+		return -EINVAL;
+	}
+	printk("config: gpio=%d mul=%d drive=%d pull=%d data=%d\n"
+				, config.gpio
+				, config.mul_sel
+				, config.drv_level
+				, config.pull
+				, config.data);
 	return 0;
 }
 

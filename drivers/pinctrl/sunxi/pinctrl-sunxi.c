@@ -27,6 +27,7 @@
 #include <linux/pinctrl/pinmux.h>
 #include <linux/pinctrl/pinconf-sunxi.h>
 #include <linux/platform_device.h>
+#include <linux/sys_config.h>
 #include <linux/slab.h>
 
 #include "../core.h"
@@ -624,16 +625,23 @@ static int sunxi_pinctrl_gpio_of_xlate(struct gpio_chip *gc,
 				const struct of_phandle_args *gpiospec,
 				u32 *flags)
 {
+	struct gpio_config *config=(struct gpio_config *)flags;
 	int pin, base;
 
 	base = PINS_PER_BANK * gpiospec->args[0];
 	pin = base + gpiospec->args[1];
+	config->gpio = pin;
 
+	pin = pin-gc->base;
 	if (pin > gc->ngpio)
 		return -EINVAL;
 
-	if (flags)
-		*flags = gpiospec->args[2];
+	if (flags){
+		config->mul_sel = gpiospec->args[2];
+		config->drv_level = gpiospec->args[3];
+		config->pull = gpiospec->args[4];
+		config->data = gpiospec->args[5];
+	}
 
 	return pin;
 }
@@ -1056,7 +1064,7 @@ int sunxi_pinctrl_init(struct platform_device *pdev,
 	pctl->chip->set = sunxi_pinctrl_gpio_set,
 	pctl->chip->of_xlate = sunxi_pinctrl_gpio_of_xlate,
 	pctl->chip->to_irq = sunxi_pinctrl_gpio_to_irq,
-	pctl->chip->of_gpio_n_cells = 3,
+	pctl->chip->of_gpio_n_cells = 6,
 	pctl->chip->can_sleep = false,
 	pctl->chip->ngpio = round_up(last_pin, PINS_PER_BANK) -
 			    pctl->desc->pin_base;

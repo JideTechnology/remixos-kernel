@@ -14,7 +14,7 @@
 			interrupt-controller;
 			#interrupt-cells = <2>;
 			#size-cells = <0>;
-			#gpio-cells = <3>;
+			#gpio-cells = <6>;
 
 			s_uart0_pins_a: s_uart0@0 {
 				allwinner,pins = "PL2", "PL3";
@@ -56,7 +56,7 @@
 			interrupt-controller;
 			#interrupt-cells = <2>;
 			#size-cells = <0>;
-			#gpio-cells = <3>;
+			#gpio-cells = <6>;
 
 			vdevice_pins_a: vdevice@0 {
 				allwinner,pins = "PB0", "PB1";

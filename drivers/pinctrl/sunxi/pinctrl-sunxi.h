@@ -31,7 +31,9 @@
 #define SUNXI_PINCTRL_PIN(bank, pin)		\
 	PINCTRL_PIN(P ## bank ## _BASE + (pin), "P" #bank #pin)
 
+#ifndef SUNXI_PIN_NAME_MAX_LEN
 #define SUNXI_PIN_NAME_MAX_LEN	5
+#endif
 
 #define BANK_MEM_SIZE		0x24
 #define MUX_REGS_OFFSET		0x0
