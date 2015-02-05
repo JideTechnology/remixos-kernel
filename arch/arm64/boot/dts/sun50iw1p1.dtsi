@@ -1049,22 +1049,23 @@
 			status = "okay";
 		};
 
-		nand0@01c03000 {
+		nand0:nand0@01c03000 {
 			compatible = "allwinner,sun50i-nand";
+			device_type = "nand0";
 			reg = <0x0 0x01c03000 0x0 0x1000>; /* nand0 */
 			interrupts = <GIC_SPI 70 0x04>;
 			clocks = <&clk_pll_periph0>,<&clk_nand>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&nand0_pins_a>, <&nand0_pins_b>;
-			nand_cache_level = <0x55aaaa55>;
-			nand_flush_cache_num = <0x55aaaa55>;
-			nand_capacity_level = <0x55aaaa55>;
-			id_number_ctl = <0x55aaaa55>;
-			print_level = <0x55aaaa55>;
-			nand_p0 = <0x55aaaa55>;
-			nand_p1 = <0x55aaaa55>;
-			nand_p2 = <0x55aaaa55>;
-			nand_p3 = <0x55aaaa55>;
+			nand0_cache_level = <0x55aaaa55>;
+			nand0_flush_cache_num = <0x55aaaa55>;
+			nand0_capacity_level = <0x55aaaa55>;
+			nand0_id_number_ctl = <0x55aaaa55>;
+			nand0_print_level = <0x55aaaa55>;
+			nand0_p0 = <0x55aaaa55>;
+			nand0_p1 = <0x55aaaa55>;
+			nand0_p2 = <0x55aaaa55>;
+			nand0_p3 = <0x55aaaa55>;
 			status = "okay";
 		};
 	};

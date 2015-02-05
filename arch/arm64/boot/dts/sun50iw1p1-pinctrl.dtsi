@@ -243,6 +243,7 @@
 
 			nand0_pins_a: nand0@0 {
 				allwinner,pins ="PC0", "PC1", "PC2", "PC5", "PC8", "PC9", "PC10", "PC11", "PC12", "PC13","PC14", "PC15","PC16";
+				allwinner,pname= "nand0_we", "nand0_ale", "nand0_cle", "nand0_nre", "nand0_d0", "nand0_d1", "nand0_d2", "nand0_d3", "nand0_d4", "nand0_d5", "nand0_d6", "nand0_d7", "nand0_ndqs";
 				allwinner,function = "nand0";
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
@@ -250,6 +251,7 @@
 
 			nand0_pins_b: nand0@1 {
 				allwinner,pins ="PC3", "PC4", "PC6", "PC7", "PC17","PC18";
+				allwinner,pname= "nand0_ce1", "nand0_ce0", "nand0_rb0", "nand0_rb1", "nand0_ce2", "nand0_ce3";
 				allwinner,function = "nand0";
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;// only RB&CE should be pulled up
