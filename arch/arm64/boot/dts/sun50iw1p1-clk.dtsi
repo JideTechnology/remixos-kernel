@@ -159,6 +159,11 @@ clocks {
 			compatible = "allwinner,sunxi-periph-clock";
 			clock-output-names = "cpu";
 		};	
+		clk_cpuapb: cpuapb {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-clock";
+			clock-output-names = "cpuapb";
+		};
 		clk_axi: axi {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";

@@ -517,6 +517,7 @@ struct periph_init_data {
 };
 
 static const char *cpu_parents[] = {"losc", "hosc", "pll_cpu", "pll_cpu"};
+static const char *cpuapb_parents[] = {"cpu"};
 static const char *axi_parents[] = {"cpu"};
 static const char *pll_periphahb0_parents[] = {"pll_periph0"};
 static const char *ahb1_parents[] = {"losc", "hosc", "axi", "pll_periphahb0"};
@@ -566,6 +567,7 @@ struct sunxi_clk_comgate com_gates[]={
 SUNXI_CLK_PERIPH(name,    mux_reg,    mux_shift, mux_width, div_reg,    div_mshift, div_mwidth, div_nshift, div_nwidth, gate_flags, enable_reg, reset_reg, bus_gate_reg, drm_gate_reg, enable_shift, reset_shift, bus_gate_shift, dram_gate_shift, lock,com_gate,com_gate_off)
 */
 SUNXI_CLK_PERIPH(cpu,     CPU_CFG,    16,        2,         0,          0,          0,          0,          0,          0,          0,          0,         0,            0,            0,            0,           0,              0,               &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(cpuapb,  0,    	   0,        0,         CPU_CFG,    8,          2,          0,          0,          0,          0,          0,         0,            0,            0,            0,           0,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(axi,     0,           0,        0,         CPU_CFG,    0,          2,          0,          0,          0,          0,          0,         0,            0,            0,            0,           0,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(pll_periphahb0,  0,   0,        0,         AHB1_CFG,   6,          2,          0,          0,          0,          0,          0,         0,            0,            0,            0,           0,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(ahb1,    AHB1_CFG,   12,        2,         AHB1_CFG,   0,          0,          4,          2,          0,          0,          0,         0,            0,            0,            0,           0,              0,               &clk_lock,NULL,             0);
@@ -636,6 +638,7 @@ SUNXI_CLK_PERIPH(cpurpio,  0,  		   0,        0,         0,   		0,          0,  
 
 struct periph_init_data sunxi_periphs_init[] = {
     {"cpu",      CLK_GET_RATE_NOCACHE,	cpu_parents,      ARRAY_SIZE(cpu_parents),      &sunxi_clk_periph_cpu},
+    {"cpuapb",   0,						cpuapb_parents,   ARRAY_SIZE(cpuapb_parents),   &sunxi_clk_periph_cpuapb},
     {"axi",      0,       				axi_parents,      ARRAY_SIZE(axi_parents),      &sunxi_clk_periph_axi},
     {"pll_periphahb0",CLK_IGNORE_SYNCBOOT,pll_periphahb0_parents,  ARRAY_SIZE(pll_periphahb0_parents),  &sunxi_clk_periph_pll_periphahb0},
     {"ahb1",     0,       				ahb1_parents,     ARRAY_SIZE(ahb1_parents),     &sunxi_clk_periph_ahb1},
