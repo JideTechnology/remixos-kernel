@@ -271,6 +271,12 @@
 			#dma-cells = <1>;
 		};
 
+		mbus0:mbus-controller@01c62000 {
+			compatible = "allwinner,sun50i-mbus";
+			reg = <0x0 0x01c62000 0x0 0x110>;
+			#mbus-cells = <1>;
+		};
+
 		arisc {
 			compatible = "allwinner,sunxi-arisc";
 			#address-cells = <2>;

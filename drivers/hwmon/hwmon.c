@@ -58,6 +58,35 @@ struct device *hwmon_device_register(struct device *dev)
 EXPORT_SYMBOL_GPL(hwmon_device_register);
 
 /**
+ * hwmon_device_register - register w/ hwmon
+ * @dev: the device to register
+ * @name: the name want to be show
+ *
+ * hwmon_device_unregister() must be called when the device is no
+ * longer needed.
+ *
+ * Returns the pointer to the new device.
+ */
+struct device *hwmon_device_register_attr(struct device *dev, unsigned char *name)
+{
+	struct device *hwdev;
+	int id;
+
+	id = ida_simple_get(&hwmon_ida, 0, 0, GFP_KERNEL);
+	if (id < 0)
+		return ERR_PTR(id);
+
+	hwdev = device_create(hwmon_class, dev, MKDEV(0, 0), NULL,
+			      name, id);
+
+	if (IS_ERR(hwdev))
+		ida_simple_remove(&hwmon_ida, id);
+
+	return hwdev;
+}
+EXPORT_SYMBOL_GPL(hwmon_device_register_attr);
+
+/**
  * hwmon_device_unregister - removes the previously registered class device
  *
  * @dev: the class device to destroy

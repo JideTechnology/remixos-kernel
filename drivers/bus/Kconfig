@@ -33,4 +33,11 @@ config ARM_CCI
 	help
 	  Driver supporting the CCI cache coherent interconnect for ARM
 	  platforms.
+
+config SUNXI_MBUS
+	bool "SUNXI MBUS driver support"
+	depends on ARCH_SUNXI && HWMON
+	help
+	  Driver supporting the mbus for sunxi
+	  platforms.
 endmenu

@@ -17,6 +17,7 @@
 struct device;
 
 struct device *hwmon_device_register(struct device *dev);
+struct device *hwmon_device_register_attr(struct device *dev, unsigned char *name);
 
 void hwmon_device_unregister(struct device *dev);
 
