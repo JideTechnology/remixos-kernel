@@ -526,6 +526,7 @@ static const char *apb2_parents[] = {"losc", "hosc", "pll_periph0x2", "pll_perip
 static const char *ahb2_parents[] = {"ahb1" , "pll_periph0d2" , "" , ""};
 static const char *ths_parents[] = {"hosc","","",""};
 static const char *periph_parents[] = {"hosc", "pll_periph0","pll_periph1",""};
+static const char *periphx2_parents[] = {"hosc", "pll_periph0x2","pll_periph1x2",""};
 static const char *ts_parents[] = {"hosc","pll_periph0","","","","","","","","","","","","","",""};
 static const char *i2s_parents[] = {"pll_audiox8", "pll_audiox4", "pll_audiox2", "pll_audio"};
 static const char *audio_parents[] = {"pll_audio"};
@@ -651,7 +652,7 @@ struct periph_init_data sunxi_periphs_init[] = {
     {"sdmmc1",   0,       				periph_parents,   ARRAY_SIZE(periph_parents),   &sunxi_clk_periph_sdmmc1},
     {"sdmmc2",   0,       			    periph_parents,   ARRAY_SIZE(periph_parents),   &sunxi_clk_periph_sdmmc2},
     {"ts",       0,       				ts_parents,   	  ARRAY_SIZE(ts_parents),   	&sunxi_clk_periph_ts},
-    {"ce",   	 0,       			    periph_parents,   ARRAY_SIZE(periph_parents),   &sunxi_clk_periph_ce},
+    {"ce",   	 0,       			    periphx2_parents, ARRAY_SIZE(periphx2_parents), &sunxi_clk_periph_ce},
     {"spi0",     0,       				periph_parents,   ARRAY_SIZE(periph_parents),   &sunxi_clk_periph_spi0},
     {"spi1",     0,       				periph_parents,   ARRAY_SIZE(periph_parents),   &sunxi_clk_periph_spi1},
     {"i2s0",     0,       				i2s_parents,      ARRAY_SIZE(i2s_parents),      &sunxi_clk_periph_i2s0},

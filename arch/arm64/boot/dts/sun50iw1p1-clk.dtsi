@@ -137,6 +137,14 @@ clocks {
 			clock-div = <1>;
 			clock-output-names = "pll_periph0x2";
 		};	
+		clk_pll_periph1x2: pll_periph1x2 {
+			#clock-cells = <0>;
+			compatible = "fixed-factor-clock";
+			clocks = <&clk_pll_periph1>;
+			clock-mult = <2>;
+			clock-div = <1>;
+			clock-output-names = "pll_periph1x2";
+		};	
 		clk_pll_periph0d2: pll_periph0d2 {
 			#clock-cells = <0>;
 			compatible = "fixed-factor-clock";
