@@ -366,22 +366,22 @@ int __init nand_init(void)
 
 	while(exit_probe_flag == 0);
 
-	ret = of_property_read_u32(ndfc_dev->of_node, "nand_cache_level", &nand_cache_level);
+	ret = of_property_read_u32(ndfc_dev->of_node, "nand0_cache_level", &nand_cache_level);
 	if (ret) 
 	{
-		nand_dbg_err("Failed to get nand_cache_level\n");
+		nand_dbg_err("Failed to get nand0_cache_level\n");
 		nand_cache_level = 0;
 	}
 	else
 	{
 		if(nand_cache_level == 0x55aaaa55)
 		{
-			nand_dbg_err("nand_cache_level is no used\n");
+			nand_dbg_err("nand0_cache_level is no used\n");
 			nand_cache_level = 0;
 		}
 	}
 	
-	ret = of_property_read_u32(ndfc_dev->of_node, "nand_flush_cache_num", &nand_flush_cache_num);
+	ret = of_property_read_u32(ndfc_dev->of_node, "nand0_flush_cache_num", &nand_flush_cache_num);
 	if (ret) 
 	{
 		nand_dbg_err("Failed to get nand_flush_cache_num\n");
@@ -396,7 +396,7 @@ int __init nand_init(void)
 		}
 	}
 	
-	ret = of_property_read_u32(ndfc_dev->of_node, "nand_capacity_level", &nand_capacity_level);
+	ret = of_property_read_u32(ndfc_dev->of_node, "nand0_capacity_level", &nand_capacity_level);
 	if (ret) 
 	{
 		nand_dbg_err("Failed to get nand_capacity_level\n");

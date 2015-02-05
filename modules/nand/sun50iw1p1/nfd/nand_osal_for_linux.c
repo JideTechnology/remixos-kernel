@@ -579,7 +579,7 @@ __u32 NAND_GetNandExtPara(__u32 para_num)
 
 	if(para_num == 0)//frequency
     {
-        ret = of_property_read_u32(ndfc_dev->of_node, "nand_p0", &nand_para);
+        ret = of_property_read_u32(ndfc_dev->of_node, "nand0_p0", &nand_para);
 		if (ret) 
 		{
 			printk("Failed to get nand_p0\n");
@@ -598,7 +598,7 @@ __u32 NAND_GetNandExtPara(__u32 para_num)
     }
     else if(para_num == 1)//SUPPORT_TWO_PLANE
     {
-        ret = of_property_read_u32(ndfc_dev->of_node, "nand_p1", &nand_para);
+        ret = of_property_read_u32(ndfc_dev->of_node, "nand0_p1", &nand_para);
 		if (ret) 
 		{
 			printk("Failed to get nand_p1\n");
@@ -617,7 +617,7 @@ __u32 NAND_GetNandExtPara(__u32 para_num)
     }
     else if(para_num == 2)//SUPPORT_VERTICAL_INTERLEAVE
     {
-        ret = of_property_read_u32(ndfc_dev->of_node, "nand_p2", &nand_para);
+        ret = of_property_read_u32(ndfc_dev->of_node, "nand0_p2", &nand_para);
 		if (ret) 
 		{
 			printk("Failed to get nand_p2\n");
@@ -636,7 +636,7 @@ __u32 NAND_GetNandExtPara(__u32 para_num)
     }
     else if(para_num == 3)//SUPPORT_DUAL_CHANNEL
     {
-        ret = of_property_read_u32(ndfc_dev->of_node, "nand_p3", &nand_para);
+        ret = of_property_read_u32(ndfc_dev->of_node, "nand0_p3", &nand_para);
 		if (ret) 
 		{
 			printk("Failed to get nand_p3\n");
@@ -679,7 +679,7 @@ __u32 NAND_GetNandIDNumCtrl(void)
     	return id_number_ctl.val;
     }
 #endif
-	ret = of_property_read_u32(ndfc_dev->of_node, "id_number_ctl", &id_number_ctl);
+	ret = of_property_read_u32(ndfc_dev->of_node, "nand0_id_number_ctl", &id_number_ctl);
 	if (ret) 
 	{
 		NAND_Print_DBG("Failed to get id_number_ctl\n");
@@ -1087,7 +1087,7 @@ __u32 NAND_Print_level(void)
 	else
 		return print_level.val;
 #endif
-	ret = of_property_read_u32(ndfc_dev->of_node, "print_level", &print_level);
+	ret = of_property_read_u32(ndfc_dev->of_node, "nand0_print_level", &print_level);
 	if (ret) 
 	{
 		NAND_Print_DBG("Failed to get print_level\n");
