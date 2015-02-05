@@ -7,8 +7,8 @@
  *
  * Adjustable factor-based clock implementation
  */
-#ifndef __MACH_SUNXI_CLK_SUN8IW8_H
-#define __MACH_SUNXI_CLK_SUN8IW8_H
+#ifndef __MACH_SUNXI_CLK_SUN50IW1_H
+#define __MACH_SUNXI_CLK_SUN50IW1_H
 
 #include <linux/clk-provider.h>
 #include <linux/clkdev.h>
