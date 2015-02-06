@@ -25,10 +25,9 @@
 #define __SUNXI_MMC_H__
 
 
-
-//#if defined CONFIG_FPGA_V4_PLATFORM || defined CONFIG_FPGA_V7_PLATFORM
+#if defined CONFIG_FPGA_V4_PLATFORM || defined CONFIG_FPGA_V7_PLATFORM
 #define MMC_FPGA
-//#endif
+#endif
 #define USE_OLD_SYS_CLK_INTERFACE
 
 

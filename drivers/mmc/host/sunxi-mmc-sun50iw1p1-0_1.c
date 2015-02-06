@@ -431,12 +431,28 @@ int sunxi_mmc_clk_set_rate_for_sdmmc_01(struct sunxi_mmc_host *host,
 
 	dev_err(mmc_dev(host->mmc),"get round rate %d\n", rate);
 
+#ifndef USE_OLD_SYS_CLK_INTERFACE
+	rval = clk_prepare_disable(host->mmc);
+	if (rval) {
+		dev_err(mmc_dev(mmc), "disable mmc clk err %d\n", rval);
+		return -1;
+	}
+#endif
+
 	err = clk_set_rate(mclk, rate);
 	if (err) {
 		dev_err(mmc_dev(host->mmc),"set mclk rate error, rate %dHz\n",rate);
 		clk_put(sclk);
 		return -1;
 	}
+
+#ifndef USE_OLD_SYS_CLK_INTERFACE
+	rval = clk_prepare_enable(host->mmc);
+	if (rval) {
+		dev_err(mmc_dev(mmc), "Enable mmc clk err %d\n", rval);
+		return -1;
+	}
+#endif
 
 	src_clk = clk_get_rate(sclk);
 	clk_put(sclk);
