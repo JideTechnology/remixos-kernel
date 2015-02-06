@@ -70,6 +70,66 @@ static int sunxi_mmc_reset_host(struct sunxi_mmc_host *host)
 }
 
 
+static int sunxi_mmc_reset_dmaif(struct sunxi_mmc_host *host)
+{
+	unsigned long expire = jiffies + msecs_to_jiffies(250);
+	u32 rval;
+
+	rval = mmc_readl(host, REG_GCTRL);
+	mmc_writel(host, REG_GCTRL, rval|SDXC_DMA_RESET);
+	do {
+		rval = mmc_readl(host, REG_GCTRL);
+	} while (time_before(jiffies, expire) && (rval & SDXC_DMA_RESET));
+
+	if (rval & SDXC_DMA_RESET) {
+		dev_err(mmc_dev(host->mmc), "fatal err reset dma interface timeout\n");
+		return -EIO;
+	}
+
+	return 0;
+}
+
+static int sunxi_mmc_reset_fifo(struct sunxi_mmc_host *host)
+{
+	unsigned long expire = jiffies + msecs_to_jiffies(250);
+	u32 rval;
+
+	rval = mmc_readl(host, REG_GCTRL);
+	mmc_writel(host, REG_GCTRL, rval|SDXC_FIFO_RESET);
+	do {
+		rval = mmc_readl(host, REG_GCTRL);
+	} while (time_before(jiffies, expire) && (rval & SDXC_FIFO_RESET));
+
+	if (rval & SDXC_FIFO_RESET) {
+		dev_err(mmc_dev(host->mmc), "fatal err reset fifo timeout\n");
+		return -EIO;
+	}
+
+	return 0;
+}
+
+
+static int sunxi_mmc_reset_dmactl(struct sunxi_mmc_host *host)
+{
+	unsigned long expire = jiffies + msecs_to_jiffies(250);
+	u32 rval;
+
+	rval = mmc_readl(host, REG_DMAC);
+	mmc_writel(host, REG_DMAC, rval|SDXC_IDMAC_SOFT_RESET);
+	do {
+		rval = mmc_readl(host, REG_DMAC);
+	} while (time_before(jiffies, expire) && (rval & SDXC_IDMAC_SOFT_RESET));
+
+	if (rval & SDXC_IDMAC_SOFT_RESET) {
+		dev_err(mmc_dev(host->mmc), "fatal err reset dma contol timeout\n");
+		return -EIO;
+	}
+
+	return 0;
+}
+
+
+
 void sunxi_mmc_set_a12a(struct sunxi_mmc_host *host)
 {
 	mmc_writel(host,REG_A12A,0);
@@ -84,6 +144,10 @@ static int sunxi_mmc_init_host(struct mmc_host *mmc)
 	if (sunxi_mmc_reset_host(host))
 		return -EIO;
 
+	if(sunxi_mmc_reset_dmactl(host)){
+		return -EIO;
+	}
+				
 	mmc_writel(host, REG_FTRGL, host->dma_tl?host->dma_tl:0x20070008);
 	dev_dbg(mmc_dev(host->mmc), "REG_FTRGL %x\n",mmc_readl(host,REG_FTRGL));
 	mmc_writel(host, REG_TMOUT, 0xffffffff);
@@ -176,13 +240,13 @@ static void sunxi_mmc_start_dma(struct sunxi_mmc_host *host,
 
 	sunxi_mmc_init_idma_des(host, data);
 
+	sunxi_mmc_reset_fifo(host);
+	sunxi_mmc_reset_dmaif(host);
+	sunxi_mmc_reset_dmactl(host);
+
 	rval = mmc_readl(host, REG_GCTRL);
 	rval |= SDXC_DMA_ENABLE_BIT;
 	mmc_writel(host, REG_GCTRL, rval);
-	rval |= SDXC_DMA_RESET;
-	mmc_writel(host, REG_GCTRL, rval);
-
-	mmc_writel(host, REG_DMAC, SDXC_IDMAC_SOFT_RESET);
 
 	if (!(data->flags & MMC_DATA_WRITE))
 		mmc_writel(host, REG_IDIE, SDXC_IDMAC_RECEIVE_INTERRUPT);
@@ -525,6 +589,22 @@ static void sunxi_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 {
 	struct sunxi_mmc_host *host = mmc_priv(mmc);
 	u32 rval;
+	char* bus_mode[] = {"", "OD", "PP"};
+	char* pwr_mode[] = {"OFF", "UP", "ON"};
+	char* vdd[] = {"3.3V", "1.8V", "1.2V"};
+	char* timing[] = {"LEGACY(SDR12)", "MMC-HS(SDR20)", "SD-HS(SDR25)","UHS-SDR12","UHS-SDR25",
+			"UHS-SDR50","UHS-SDR104", "UHS-DDR50", "MMC-HS200","MMC-HS400"};
+	char* drv_type[] = {"B", "A", "C", "D"};
+
+	BUG_ON(ios->bus_mode >= sizeof(bus_mode)/sizeof(bus_mode[0]));
+	BUG_ON(ios->power_mode >= sizeof(pwr_mode)/sizeof(pwr_mode[0]));
+	BUG_ON(ios->timing >= sizeof(timing)/sizeof(timing[0]));
+	dev_info(mmc_dev(mmc), "sdc set ios: "
+		"clk %dHz bm %s pm %s vdd %d width %d timing %s dt %s\n",
+		ios->clock, bus_mode[ios->bus_mode],
+		pwr_mode[ios->power_mode], ios->vdd,
+		1 << ios->bus_width, timing[ios->timing], drv_type[ios->drv_type]);
+
 
 	/* Set the power state */
 	switch (ios->power_mode) {
@@ -839,7 +919,9 @@ static void sunxi_mmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		if(host->sunxi_mmc_thld_ctl){
 			host->sunxi_mmc_thld_ctl(host,&mmc->ios,data);
 		}
+		spin_unlock_irqrestore(&host->lock, iflags);
 		sunxi_mmc_start_dma(host, data);
+		spin_lock_irqsave(&host->lock, iflags);
 	}
 
 	host->mrq = mrq;
