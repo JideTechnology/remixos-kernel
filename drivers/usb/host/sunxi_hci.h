@@ -142,7 +142,7 @@
 #define	EHCI_PORTSC_CHANGE			(EHCI_PORTSC_OCC | EHCI_PORTSC_PEC | EHCI_PORTSC_CSC)
 
 #define  SUNXI_USB_HCI_DEBUG
-#define  KEY_USB_ENABLE				"usb_used"
+
 #define  KEY_USB_DRVVBUS_GPIO			"usb_drv_vbus_gpio"
 #define  KEY_USB_REGULATOR_IO			"usb_regulator_io"
 #define  KEY_USB_REGULATOR_IO_VOL		"usb_regulator_vol"
@@ -246,6 +246,7 @@ static inline void fpga_config_use_hci(struct sunxi_hci_hcd *sunxi_hci)
 
 int init_sunxi_hci(struct platform_device *pdev, int usbc_type);
 int exit_sunxi_hci(struct sunxi_hci_hcd *sunxi_hci);
+int sunxi_get_hci_num(struct platform_device *pdev);
 
 #endif   //__SUNXI_HCI_SUNXI_H__
 

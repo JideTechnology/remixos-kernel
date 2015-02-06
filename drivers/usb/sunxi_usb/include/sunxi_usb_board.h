@@ -27,7 +27,7 @@
 #define  KEY_USB_GLOBAL_ENABLE			"usb_global_enable"
 #define  KEY_USBC_NUM				"usbc_num"
 
-#define  KEY_USB_ENABLE				"usb_used"
+#define  KEY_USB_ENABLE			"usbc0_used"
 #define  KEY_USB_PORT_TYPE			"usb_port_type"
 #define  KEY_USB_ID_GPIO			"usb_id_gpio"
 #define  KEY_USB_DETVBUS_GPIO			"usb_det_vbus_gpio"
@@ -40,10 +40,6 @@
 
 #define  KEY_USB_HOST_INIT_STATE    		"usb_host_init_state"
 #define  KEY_USB_WAKEUP_SUSPEND		        "usb_wakeup_suspend"
-
-#define  KEY_USB_LUNS				"luns"
-#define  KEY_USB_SERIAL_UNIQUE			"serial_unique"
-#define  KEY_USB_SERIAL_NUMBER			"serial_number"
 
 /* USB config info */
 enum usb_gpio_group_type{

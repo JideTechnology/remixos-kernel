@@ -42,8 +42,6 @@ struct usb_cfg g_usb_cfg;
 int thread_device_run_flag = 0;
 int thread_host_run_flag = 0;
 
-struct completion udc_complete_notify;
-
 __u32 thread_run_flag = 1;
 static int thread_stopped_flag = 1;
 atomic_t thread_suspend_flag;
@@ -56,7 +54,6 @@ static int usb_device_scan_thread(void * pArg)
 	while(thread_device_run_flag) {
 
 		msleep(1000);  /* 1s */
-		wait_for_completion(&udc_complete_notify);
 		hw_rmmod_usb_host();
 		hw_rmmod_usb_device();
 		usb_msg_center(&g_usb_cfg);
@@ -102,10 +99,9 @@ static int usb_hardware_scan_thread(void * pArg)
 
 	while(thread_run_flag) {
 		msleep(1000);  /* 1s */
-		wait_for_completion(&udc_complete_notify);
 
 		if (atomic_read(&thread_suspend_flag))
-		continue;
+			continue;
 		usb_hw_scan(cfg);
 		usb_msg_center(cfg);
 	}
@@ -117,22 +113,25 @@ static int usb_hardware_scan_thread(void * pArg)
 static __s32 usb_script_parse(struct device_node *np, struct usb_cfg *cfg)
 {
 #ifdef CONFIG_OF
+	struct device_node *usbc_np = NULL;
 	int ret = -1;
 
+	usbc_np = of_find_node_by_type(NULL, SET_USB0);
+
 	/* usbc enable */
-	ret = of_property_read_u32(np, KEY_USB_ENABLE, &cfg->port.enable);
+	ret = of_property_read_u32(usbc_np, KEY_USB_ENABLE, &cfg->port.enable);
 	if (ret) {
 		 DMSG_INFO("get usb_used is fail, %d\n", -ret);
 	}
 
 	/* usbc port type */
-	ret = of_property_read_u32(np, KEY_USB_PORT_TYPE, &cfg->port.port_type);
+	ret = of_property_read_u32(usbc_np, KEY_USB_PORT_TYPE, &cfg->port.port_type);
 	if (ret) {
 		DMSG_INFO("get usb_port_type is fail, %d\n", -ret);
 	}
 
 	/* usbc det_vbus */
-	ret = of_property_read_string(np, KEY_USB_DETVBUS_GPIO, &cfg->port.det_vbus_name);
+	ret = of_property_read_string(usbc_np, KEY_USB_DETVBUS_GPIO, &cfg->port.det_vbus_name);
 	if (ret) {
 		DMSG_INFO("get det_vbus is fail, %d\n", -ret);
 		cfg->port.det_vbus.valid = 0;
@@ -142,7 +141,7 @@ static __s32 usb_script_parse(struct device_node *np, struct usb_cfg *cfg)
 			cfg->port.det_vbus.valid = 0;
 		} else {
 			/*get det vbus gpio*/
-			cfg->port.det_vbus.gpio_set.gpio.gpio = of_get_named_gpio_flags(np, KEY_USB_DETVBUS_GPIO, 0, &cfg->port.gpio_dev_flags);
+			cfg->port.det_vbus.gpio_set.gpio.gpio = of_get_named_gpio_flags(usbc_np, KEY_USB_DETVBUS_GPIO, 0, &cfg->port.gpio_dev_flags);
 			if (gpio_is_valid(cfg->port.det_vbus.gpio_set.gpio.gpio)) {
 				cfg->port.det_vbus.valid = 1;
 				cfg->port.det_vbus_type = USB_DET_VBUS_TYPE_GIPO;
@@ -153,7 +152,7 @@ static __s32 usb_script_parse(struct device_node *np, struct usb_cfg *cfg)
 	}
 
 	/* usbc id gpio*/
-	cfg->port.id.gpio_set.gpio.gpio = of_get_named_gpio_flags(np, KEY_USB_ID_GPIO, 0, &cfg->port.gpio_io_flags);
+	cfg->port.id.gpio_set.gpio.gpio = of_get_named_gpio_flags(usbc_np, KEY_USB_ID_GPIO, 0, &cfg->port.gpio_io_flags);
 	if (gpio_is_valid(cfg->port.id.gpio_set.gpio.gpio)) {
 		cfg->port.id.valid = 1;
 	}else{
@@ -261,8 +260,6 @@ static int sunxi_otg_manager_probe(struct platform_device *pdev)
 
 	if (g_usb_cfg.port.port_type == USB_PORT_TYPE_DEVICE) {
 
-		init_completion(&udc_complete_notify);
-
 		thread_device_run_flag = 1;
 		device_th = kthread_create(usb_device_scan_thread, NULL, "usb_device_chose");
 		if (IS_ERR(device_th)) {
@@ -294,7 +291,6 @@ static int sunxi_otg_manager_probe(struct platform_device *pdev)
 		thread_run_flag = 1;
 		thread_stopped_flag = 0;
 
-		init_completion(&udc_complete_notify);
 		th = kthread_create(usb_hardware_scan_thread, &g_usb_cfg, "usb-hardware-scan");
 		if (IS_ERR(th)) {
 			DMSG_PANIC("ERR: kthread_create failed\n");
@@ -329,11 +325,13 @@ static int sunxi_otg_manager_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int sunxi_otg_manager_suspend(struct device *dev)
 {
+	atomic_set(&thread_suspend_flag, 1);
 	return 0;
 }
 
 static int sunxi_otg_manager_resume(struct device *dev)
 {
+	atomic_set(&thread_suspend_flag, 0);
 	return 0;
 }
 

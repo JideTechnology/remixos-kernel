@@ -64,13 +64,7 @@ static u8 is_udc_enable = 0;   /* is udc enable by gadget? */
 
 static struct platform_device *g_udc_pdev = NULL;
 
-extern struct completion udc_complete_notify;
-
 static __u32 dma_working = 0;
-
-u32 luns = 1;
-u32 serial_unique = 0;
-char g_usb_serial_number[64];
 
 atomic_t vfs_read_flag;
 atomic_t vfs_write_flag;
@@ -2917,80 +2911,18 @@ EXPORT_SYMBOL_GPL(sunxi_usb_device_disable);
 
 int sunxi_udc_is_enable(struct platform_device *pdev)
 {
-	struct device_node *np = pdev->dev.of_node;
+	struct device_node *usbc_np = NULL;
 	int ret = 0;
 	int is_enable = 0;
 
-	ret = of_property_read_u32(np, "usb_used", &is_enable);
+	usbc_np = of_find_node_by_type(NULL, SET_USB0);
+
+	ret = of_property_read_u32(usbc_np, "usbc0_used", &is_enable);
 	if (ret) {
 		 DMSG_PANIC("get sunxi_udc_is_enable is fail, %d\n", -ret);
 	}
 
 	return is_enable;
-}
-
-static int get_function_cfg(struct platform_device *pdev)
-{
-#ifdef CONFIG_OF
-	struct device_node *np = pdev->dev.of_node;
-	const char *usb_serial_number;
-	int ret = -1;
-
-	/* usbc enable */
-	ret = of_property_read_u32(np, KEY_USB_LUNS, &luns);
-	if (ret) {
-		 DMSG_INFO("get luns is failn");
-	}
-
-	/* usbc init_state */
-	ret = of_property_read_u32(np, KEY_USB_SERIAL_UNIQUE, &serial_unique);
-	if (ret) {
-		 DMSG_INFO("get serial_unique is fail\n");
-	}
-
-	/* usbc det_vbus */
-	ret = of_property_read_string(np, KEY_USB_SERIAL_NUMBER, &usb_serial_number);
-	if (ret){
-		DMSG_INFO("get usb_serial_number is fail\n");
-		strcpy(g_usb_serial_number, "20080411");
-	}else{
-		if(usb_serial_number != NULL){
-			strcpy(g_usb_serial_number, usb_serial_number);
-		}
-	}
-
-#else
-	script_item_value_type_e type = 0;
-	script_item_u item_temp;
-
-	/* usbc enable */
-	type = script_get_item("usbc0", KEY_USB_LUNS, &item_temp);
-	if(type == SCIRPT_ITEM_VALUE_TYPE_INT){
-		luns = item_temp.val;
-	}else{
-		DMSG_INFO("get luns is fail\n");
-	}
-
-	/* host_init_state */
-	type = script_get_item("usbc0", KEY_USB_SERIAL_UNIQUE, &item_temp);
-	if(type == SCIRPT_ITEM_VALUE_TYPE_INT){
-		serial_unique = item_temp.val;
-	}else{
-		DMSG_INFO("get serial_unique is fail\n");
-	}
-
-	}
-
-	/* get regulator io information */
-	type = script_get_item("usbc0", KEY_USB_SERIAL_NUMBER, &item_temp);
-	if(type == SCIRPT_ITEM_VALUE_TYPE_STR){
-		strcpy(g_usb_serial_number, item_temp.str);
-	}else{
-		DMSG_INFO("get usb_serial_number is fail\n");
-		strcpy(g_usb_serial_number, "20080411");
-	}
-#endif
-	return 0;
 }
 
 static int sunxi_get_udc_resource(struct platform_device *pdev, sunxi_udc_io_t *sunxi_udc_io)
@@ -3018,8 +2950,6 @@ static int sunxi_get_udc_resource(struct platform_device *pdev, sunxi_udc_io_t *
 		goto err0;
 	}
 #endif
-
-	get_function_cfg(pdev);
 
 	return 0;
 err0:
@@ -3080,9 +3010,6 @@ static int sunxi_udc_probe_otg(struct platform_device *pdev)
 	device_create_file(&pdev->dev, &dev_attr_irq_debug);
 	device_create_file(&pdev->dev, &dev_attr_msc_read_debug);
 	device_create_file(&pdev->dev, &dev_attr_msc_write_debug);
-
-	/*to notice usb_hardware_scan_thread*/
-	complete(&udc_complete_notify);
 
 	return 0;
 

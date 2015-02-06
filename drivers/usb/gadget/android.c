@@ -27,6 +27,7 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/composite.h>
 #include <linux/usb/gadget.h>
+#include  <linux/of_device.h>
 
 #include "gadget_chips.h"
 
@@ -50,9 +51,84 @@ MODULE_LICENSE("GPL");
 MODULE_VERSION("1.0");
 
 #ifdef CONFIG_USB_SUNXI_UDC0
-extern u32 luns;
-extern u32 serial_unique;
-extern char g_usb_serial_number[64];
+
+#define  KEY_USB_LUNS				"usb_luns"
+#define  KEY_USB_SERIAL_UNIQUE			"usb_serial_unique"
+#define  KEY_USB_SERIAL_NUMBER			"usb_serial_number"
+
+u32 luns = 1;
+u32 serial_unique = 0;
+char g_usb_serial_number[64];
+
+static int get_android_usb_config(void)
+{
+#ifdef CONFIG_OF
+
+	struct device_node *usbc0_np = NULL;
+
+	const char *usb_serial_number;
+	int ret = -1;
+
+	usbc0_np = of_find_node_by_type(NULL, "usbc0");
+
+	/* usbc enable */
+	ret = of_property_read_u32(usbc0_np, KEY_USB_LUNS, &luns);
+	if (ret) {
+		 printk("get luns is failn");
+	}
+
+	/* usbc init_state */
+	ret = of_property_read_u32(usbc0_np, KEY_USB_SERIAL_UNIQUE, &serial_unique);
+	if (ret) {
+		 printk("get serial_unique is fail\n");
+	}
+
+	/* usbc det_vbus */
+	ret = of_property_read_string(usbc0_np, KEY_USB_SERIAL_NUMBER, &usb_serial_number);
+	if (ret){
+		printk("get usb_serial_number is fail\n");
+		strcpy(g_usb_serial_number, "20080411");
+	}else{
+		if(usb_serial_number != NULL){
+			strcpy(g_usb_serial_number, usb_serial_number);
+			printk("usb_serial_number:%s\n", usb_serial_number);
+		}
+	}
+
+#else
+	script_item_value_type_e type = 0;
+	script_item_u item_temp;
+
+	/* usbc enable */
+	type = script_get_item("usbc0", KEY_USB_LUNS, &item_temp);
+	if(type == SCIRPT_ITEM_VALUE_TYPE_INT){
+		luns = item_temp.val;
+	}else{
+		printk("get luns is fail\n");
+	}
+
+	/* host_init_state */
+	type = script_get_item("usbc0", KEY_USB_SERIAL_UNIQUE, &item_temp);
+	if(type == SCIRPT_ITEM_VALUE_TYPE_INT){
+		serial_unique = item_temp.val;
+	}else{
+		printk("get serial_unique is fail\n");
+	}
+
+	}
+
+	/* get regulator io information */
+	type = script_get_item("usbc0", KEY_USB_SERIAL_NUMBER, &item_temp);
+	if(type == SCIRPT_ITEM_VALUE_TYPE_STR){
+		strcpy(g_usb_serial_number, item_temp.str);
+	}else{
+		printk("get usb_serial_number is fail\n");
+		strcpy(g_usb_serial_number, "20080411");
+	}
+#endif
+	return 0;
+}
+
 #endif
 
 static const char longname[] = "Gadget Android";
@@ -1529,6 +1605,10 @@ static int __init init(void)
 {
 	struct android_dev *dev;
 	int err;
+
+#ifdef CONFIG_USB_SUNXI_UDC0
+	get_android_usb_config();
+#endif
 
 	android_class = class_create(THIS_MODULE, "android_usb");
 	if (IS_ERR(android_class))

@@ -445,30 +445,37 @@ static int sunxi_get_hci_clock(struct platform_device *pdev, struct sunxi_hci_hc
 
 static int get_usb_cfg(struct platform_device *pdev, struct sunxi_hci_hcd *sunxi_hci)
 {
-
 #ifdef CONFIG_OF
-	struct device_node *np = pdev->dev.of_node;
+	struct device_node *usbc_np = NULL;
+	char np_name[10];
+	char used_name[16];
 	int ret = -1;
 
+	sprintf(np_name, "usbc%d", sunxi_get_hci_num(pdev));
+	sprintf(used_name, "usbc%d_used", sunxi_get_hci_num(pdev));
+	printk("get_usb_cfg %s, %s, used_name\n", np_name, used_name);
+
+	usbc_np = of_find_node_by_type(NULL, np_name);
+
 	/* usbc enable */
-	ret = of_property_read_u32(np, KEY_USB_ENABLE, &sunxi_hci->used);
+	ret = of_property_read_u32(usbc_np, used_name, &sunxi_hci->used);
 	if (ret) {
 		 DMSG_PRINT("get %s used is fail, %d\n", sunxi_hci->hci_name, -ret);
 	}
 
 	/* usbc init_state */
-	ret = of_property_read_u32(np, KEY_USB_HOST_INIT_STATE, &sunxi_hci->host_init_state);
+	ret = of_property_read_u32(usbc_np, KEY_USB_HOST_INIT_STATE, &sunxi_hci->host_init_state);
 	if (ret) {
 		 DMSG_PRINT("get %s init_state is fail, %d\n", sunxi_hci->hci_name, -ret);
 	}
 
 	/* usbc wakeup_suspend */
-	ret = of_property_read_u32(np, KEY_USB_WAKEUP_SUSPEND, &sunxi_hci->wakeup_suspend);
+	ret = of_property_read_u32(usbc_np, KEY_USB_WAKEUP_SUSPEND, &sunxi_hci->wakeup_suspend);
 	if (ret) {
 		 DMSG_PRINT("get %s wakeup_suspend is fail, %d\n", sunxi_hci->hci_name, -ret);
 	}
 
-	sunxi_hci->drv_vbus_gpio_set.gpio.gpio = of_get_named_gpio_flags(np, KEY_USB_DRVVBUS_GPIO, 0, &sunxi_hci->gpio_flags);
+	sunxi_hci->drv_vbus_gpio_set.gpio.gpio = of_get_named_gpio_flags(usbc_np, KEY_USB_DRVVBUS_GPIO, 0, &sunxi_hci->gpio_flags);
 	if(gpio_is_valid(sunxi_hci->drv_vbus_gpio_set.gpio.gpio)){
 		sunxi_hci->drv_vbus_gpio_valid = 1;
 	}else{
@@ -477,7 +484,7 @@ static int get_usb_cfg(struct platform_device *pdev, struct sunxi_hci_hcd *sunxi
 	}
 
 	/* usbc regulator_io */
-	ret = of_property_read_string(np, KEY_USB_REGULATOR_IO, &sunxi_hci->regulator_io);
+	ret = of_property_read_string(usbc_np, KEY_USB_REGULATOR_IO, &sunxi_hci->regulator_io);
 	if (ret){
 		printk("get %s, regulator_io is fail, %d\n", sunxi_hci->hci_name, -ret);
 		sunxi_hci->regulator_io = NULL;
@@ -486,7 +493,7 @@ static int get_usb_cfg(struct platform_device *pdev, struct sunxi_hci_hcd *sunxi
 			 printk("get %s, regulator_io is no nocare\n", sunxi_hci->hci_name);
 			sunxi_hci->regulator_io = NULL;
 		}else{
-			ret = of_property_read_u32(np, KEY_USB_REGULATOR_IO_VOL, &sunxi_hci->regulator_value);
+			ret = of_property_read_u32(usbc_np, KEY_USB_REGULATOR_IO_VOL, &sunxi_hci->regulator_value);
 			if (ret) {
 				printk("get %s, regulator_value is fail, %d\n", sunxi_hci->hci_name, -ret);
 				sunxi_hci->regulator_io = NULL;
@@ -563,7 +570,7 @@ static int get_usb_cfg(struct platform_device *pdev, struct sunxi_hci_hcd *sunxi
 	return 0;
 }
 
-static int sunxi_get_hci_num(struct platform_device *pdev)
+int sunxi_get_hci_num(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
 	int ret = 0;
