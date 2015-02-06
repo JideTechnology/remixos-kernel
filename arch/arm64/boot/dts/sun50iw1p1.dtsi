@@ -726,6 +726,9 @@
 			/* vmmc-supply = <&reg_3p3v>;*/
 			/* vqmc-supply = <&reg_3p3v>;*/
 			/* vdmc-supply = <&reg_3p3v>;*/
+			/*vmmc = "vcc-card";*/
+			/*vqmc = "";*/
+			/*vdmc = "";*/	
 			/*sd-uhs-sdr50;*/
 			/*sd-uhs-ddr50;*/
 			/*cap-sdio-irq;*/
@@ -765,6 +768,9 @@
 			/* vmmc-supply = <&reg_3p3v>;*/
 			/* vqmc-supply = <&reg_3p3v>;*/
 			/* vdmc-supply = <&reg_3p3v>;*/
+			/*vmmc = "vcc-card";*/
+			/*vqmc = "";*/
+			/*vdmc = "";*/
 			/*sd-uhs-sdr50;*/
 			/*sd-uhs-ddr50;*/
 			/*cap-sdio-irq;*/
@@ -796,27 +802,31 @@
       pinctrl-names = "default","sleep";
 			pinctrl-0 = <&mmc2_pins_a>;
 			pinctrl-1 = <&mmc2_pins_b>;
-  		/*bus-width = <8>;*/
+  		bus-width = <8>;
       /*mmc-ddr-1_8v;*/
      /*mmc-hs200-1_8v;*/
       /*mmc-hs400-1_8v;*/
       /*non-removable;*/
-       /*max-frequency = <200000000>;*/
-
-       /*sdc_tm4_sm0_freq0 = <0x12345678>;*/
-       /*sdc_tm4_sm0_freq1 = <0x12345678>;*/
-       /*sdc_tm4_sm1_freq0 = <0x12345678>;*/
-       /*sdc_tm4_sm1_freq1 = <0x12345678>;*/
-       /*sdc_tm4_sm2_freq0 = <0x12345678>;*/
-       /*sdc_tm4_sm2_freq1 = <0x12345678>;*/
-       /*sdc_tm4_sm3_freq0 = <0x12345678>;*/
-       /*sdc_tm4_sm3_freq1 = <0x12345678>;*/
-       /*sdc_tm4_sm4_freq0 = <0x12345678>;*/
-       /*sdc_tm4_sm4_freq1 = <0x10345678>;*/
+      /*max-frequency = <200000000>;*/
+       max-frequency = <50000000>;
+ 
+       sdc_tm4_sm0_freq0 = <0>;
+       sdc_tm4_sm0_freq1 = <0>;
+       sdc_tm4_sm1_freq0 = <0>;
+       sdc_tm4_sm1_freq1 = <0>;
+       sdc_tm4_sm2_freq0 = <0>;
+       sdc_tm4_sm2_freq1 = <0>;
+       sdc_tm4_sm3_freq0 = <0>;
+       sdc_tm4_sm3_freq1 = <0>;
+       sdc_tm4_sm4_freq0 = <0>;
+       sdc_tm4_sm4_freq1 = <0>;
 
 			/*vmmc-supply = <&reg_3p3v>;*/
 			/*vqmc-supply = <&reg_3p3v>;*/
 			/*vdmc-supply = <&reg_3p3v>;*/
+			/*vmmc = "vcc-card";*/
+			/*vqmc = "";*/
+			/*vdmc = "";*/
 	    /*sunxi-power-save-mode;*/
 			status = "disabled";
 			/*status = "okay";*/
