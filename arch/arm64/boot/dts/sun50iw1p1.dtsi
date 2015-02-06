@@ -38,6 +38,8 @@
 		cci0 = &csi_cci0;
 		csi0 = &csi_0;
 		vfe0 = &vip0;
+		mmc0 = &mmc0;
+		mmc2 = &mmc2;
 	};
 
 	chosen {
