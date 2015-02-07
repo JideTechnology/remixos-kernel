@@ -1188,8 +1188,8 @@ u32 sunxi_load_arisc(void *image, size_t image_size, void *para, size_t para_siz
 	dst = ioremap(arisc_cfg.space.sram_dst, arisc_cfg.space.sram_size);
 	src = (void *)((ptrdiff_t)image + (ptrdiff_t)arisc_cfg.space.sram_offset);
 	size = arisc_cfg.space.sram_size;
-	memset(dst, 0, size);
-	memcpy(dst, src, size);
+	memset_io(dst, 0, size);
+	memcpy_toio(dst, src, size);
 
 	/* dram code space */
 	dst = phys_to_virt(arisc_cfg.space.dram_dst);
