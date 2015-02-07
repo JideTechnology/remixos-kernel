@@ -15,7 +15,9 @@
 #include <linux/io.h>
 #include <linux/err.h>
 #include <linux/string.h>
+#include <linux/of.h>
 #include <linux/delay.h>
+#include <linux/of_address.h>
 #include "clk-sunxi.h"
 #include "clk-factors.h"
 
@@ -434,3 +436,45 @@ int sunxi_clk_get_common_factors_search(struct sunxi_clk_factors_config* f_confi
     }
     return 0;
 }
+
+#ifdef CONFIG_OF
+
+
+/**
+*of_sunxi_clocks_init() - Clocks initialize 
+*/
+void of_sunxi_clocks_init(struct device_node *node)
+{
+	sunxi_clk_base = of_iomap(node ,0);
+	sunxi_clk_cpus_base = of_iomap(node , 1); 
+}
+EXPORT_SYMBOL_GPL(of_sunxi_clocks_init);
+CLK_OF_DECLARE(sunxi_clocks_init, "allwinner,sunxi-clk-init", of_sunxi_clocks_init);
+/**
+ * of_pll_clk_setup() - Setup function for pll factors clk
+ */
+void of_pll_clk_setup(struct device_node *node)
+{
+	struct clk *clk;
+	const char *clk_name = node->name;
+	struct sunxi_register_factors_config config;
+	
+	of_property_read_string(node, "clock-output-names", &clk_name);
+	//get init config from clk-sunXXiwYY.c 
+	if( get_sunxi_register_factors_config(clk_name , &config) < 0 )
+	{
+		pr_err("clk %s not found in %s\n",clk_name , __func__ );
+	}
+	//register clk
+    clk = sunxi_clk_register_factors(config.dev,  config.base , config.lock , config.init_data );
+	//add to of
+	if (!IS_ERR(clk))
+	{
+		clk_register_clkdev(clk, config.init_data->name, NULL);
+		of_clk_add_provider(node, of_clk_src_simple_get, clk);
+	}
+}
+
+EXPORT_SYMBOL_GPL(of_pll_clk_setup);
+CLK_OF_DECLARE(pll_clk, "allwinner,sunxi-pll-clock", of_pll_clk_setup);
+#endif

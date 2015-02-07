@@ -254,5 +254,24 @@ struct clk *sunxi_clk_register_factors(struct device *dev,void __iomem *base,spi
 int sunxi_clk_get_common_factors(struct sunxi_clk_factors_config* f_config,struct clk_factors_value *factor, struct sunxi_clk_factor_freq table[],unsigned long index,unsigned long tbl_size);
 int sunxi_clk_get_common_factors_search(struct sunxi_clk_factors_config* f_config,struct clk_factors_value *factor, struct sunxi_clk_factor_freq table[],unsigned long index,unsigned long tbl_count);
 
+#ifdef CONFIG_OF
+/**
+*of_sunxi_clocks_init() - Clocks initialize 
+*/
+void of_sunxi_clocks_init(struct device_node *node);
+
+
+void of_pll_clk_setup(struct device_node *np);
+
+struct sunxi_register_factors_config
+{
+	struct device *dev ;
+	void __iomem *base ;
+	spinlock_t *lock ;
+	struct factor_init_data* init_data;
+};
+
+int get_sunxi_register_factors_config(const char* clk_name , struct sunxi_register_factors_config* config);
+#endif
 
 #endif
