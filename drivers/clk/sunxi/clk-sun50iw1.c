@@ -15,6 +15,8 @@
 #include <linux/clkdev.h>
 #include <linux/delay.h>
 #include <linux/clk/sunxi.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
 //#include <mach/sys_config.h>
 #include "clk-sunxi.h"
 #include "clk-factors.h"
@@ -786,77 +788,137 @@ void __init sunxi_init_clocks(void)
 #endif
 }
 
+
 #ifdef CONFIG_OF
 
-int get_sunxi_register_periph_config(const char* clk_name , struct sunxi_register_periph_config* config)
+/**
+*of_sunxi_clocks_init() - Clocks initialize 
+*/
+void of_sunxi_clocks_init(struct device_node *node)
 {
-    struct periph_init_data *periph;
-	unsigned int i;
-	for(i=0; i<ARRAY_SIZE(sunxi_periphs_init); i++) {
-        periph = &sunxi_periphs_init[i];
-		if( 0 == strcmp(clk_name , periph->name) )
-		{
-			config->name = periph->name ;
-			config->parent_names = periph->parent_names;
-			config->num_parents = periph->num_parents;
-			config->flags = periph->flags;
-			config->base = sunxi_clk_base; 
-			config->periph = periph->periph;
-			return 0;
-		}
-    }
-	return -1;
-}
-
-int get_sunxi_register_periph_cpus_config(const char* clk_name , struct sunxi_register_periph_config* config)
-{
-    struct periph_init_data *periph;
-	unsigned int i;
-	for(i=0; i<ARRAY_SIZE(sunxi_periphs_cpus_init); i++) {
-        periph = &sunxi_periphs_cpus_init[i];
-		if( 0 == strcmp(clk_name , periph->name) )
-		{
-			config->name = periph->name ;
-			config->parent_names = periph->parent_names;
-			config->num_parents = periph->num_parents;
-			config->flags = periph->flags;
-			config->base = sunxi_clk_cpus_base; 
-			config->periph = periph->periph;
-			return 0;
-		}
-    }
-	return -1;
+	sunxi_clk_base = of_iomap(node ,0);
+	sunxi_clk_cpus_base = of_iomap(node , 1); 
+	const char* clk_name = "sunxi_clk_base  sunxi_clk_cpus_base";
+	/*do some initialize arguments here*/
+	sunxi_clk_factor_initlimits();
+	
+	sunxi_clk_get_factors_ops(&pll_mipi_ops);
+	pll_mipi_ops.get_parent = get_parent_pll_mipi;
+	pll_mipi_ops.set_parent = set_parent_pll_mipi;
+	pll_mipi_ops.enable = clk_enable_pll_mipi;
+	pll_mipi_ops.disable = clk_disable_pll_mipi;
+	
+	/*pr_err( "%s : %s \n", __func__ , clk_name );*/
 }
 
 
-int get_sunxi_register_factors_config(const char* clk_name , struct sunxi_register_factors_config* config)
+/**
+ * of_pll_clk_setup() - Setup function for pll factors clk
+ */
+void of_pll_clk_setup(struct device_node *node)
 {
-    struct factor_init_data *factor;
-	unsigned int i;
-
-	for(i=0; i<ARRAY_SIZE(sunxi_factos); i++) {
+	struct clk *clk;
+	const char *clk_name = node->name;
+	struct factor_init_data *factor;
+	int i;
+	of_property_read_string(node, "clock-output-names", &clk_name);
+	/*get pll clk init config */
+	for(i=0; i<ARRAY_SIZE(sunxi_factos); i++) 
+	{
         factor = &sunxi_factos[i];
 		if( 0 == strcmp(clk_name , factor->name) )
 		{
-			config->dev = NULL;
-			config->base = sunxi_clk_base;
-			config->lock = &clk_lock;
-			config->init_data = factor;
-
-			if( 0 == strcmp(clk_name , "pll_mipi") )
+			/*register clk */
+			clk = sunxi_clk_register_factors( NULL ,  sunxi_clk_base , &clk_lock , factor );
+			/*add to of */
+			if (!IS_ERR(clk))
 			{
-				sunxi_clk_get_factors_ops(&pll_mipi_ops);
-				pll_mipi_ops.get_parent = get_parent_pll_mipi;
-				pll_mipi_ops.set_parent = set_parent_pll_mipi;
-				pll_mipi_ops.enable = clk_enable_pll_mipi;
-				pll_mipi_ops.disable = clk_disable_pll_mipi;
+				clk_register_clkdev(clk, clk_name, NULL);
+				of_clk_add_provider(node, of_clk_src_simple_get, clk);
+				/*pr_err( "%s : %s \n", __func__ , clk_name );*/
+				return ;
 			}
-			return 0;
+			
 		}
-
-	
     }
-	return -1;
+	
+	pr_err("clk %s not found in %s\n",clk_name , __func__ );
 }
+
+/**
+ * of_periph_clk_setup() - Setup function for periph clk
+ */	
+void of_periph_clk_setup(struct device_node *node)
+{
+	struct clk *clk;
+	const char *clk_name = node->name;
+	struct periph_init_data *periph;
+	unsigned int i;
+	
+	of_property_read_string(node, "clock-output-names", &clk_name);
+
+	/*get periph clk init config */
+	for(i=0; i<ARRAY_SIZE(sunxi_periphs_init); i++) 
+	{
+        periph = &sunxi_periphs_init[i];
+		if( 0 == strcmp(clk_name , periph->name) )
+		{
+			/*register clk */
+			clk = sunxi_clk_register_periph( clk_name , periph->parent_names,
+						periph->num_parents , periph->flags , sunxi_clk_base , periph->periph );
+			/*add to of */
+			if (!IS_ERR(clk))
+			{
+				clk_register_clkdev(clk, clk_name, NULL);
+				of_clk_add_provider(node, of_clk_src_simple_get, clk);
+				/*pr_err( "%s : %s \n", __func__ , clk_name );*/
+				return ;
+			}
+			
+		}
+    }
+	pr_err("clk %s not found in %s\n",clk_name , __func__ );
+}
+
+/**
+ * of_periph_cpus_clk_setup() - Setup function for periph cpus clk
+ */	
+void of_periph_cpus_clk_setup(struct device_node *node)
+{
+	struct clk *clk;
+	const char *clk_name = node->name;
+	struct periph_init_data *periph;
+	unsigned int i;
+
+	of_property_read_string(node, "clock-output-names", &clk_name);
+
+	/*get periph cpus clk init config */
+	for(i=0; i<ARRAY_SIZE(sunxi_periphs_cpus_init); i++) {
+        periph = &sunxi_periphs_cpus_init[i];
+		if( 0 == strcmp(clk_name , periph->name) )
+		{			
+			/*register clk */
+			clk = sunxi_clk_register_periph( clk_name, periph->parent_names,
+						periph->num_parents, periph->flags, sunxi_clk_cpus_base, periph->periph);
+			/*add to of */
+			if (!IS_ERR(clk))
+			{
+				clk_register_clkdev(clk, clk_name, NULL);
+				of_clk_add_provider(node, of_clk_src_simple_get, clk);
+				/*pr_err( "%s : %s \n", __func__ , clk_name );*/
+				return ;
+			}
+		}
+    }
+	
+	pr_err("clk %s not found in %s\n",clk_name , __func__ );
+}
+
+
+CLK_OF_DECLARE(sunxi_clocks_init, "allwinner,sunxi-clk-init", of_sunxi_clocks_init);
+CLK_OF_DECLARE(pll_clk, "allwinner,sunxi-pll-clock", of_pll_clk_setup);
+CLK_OF_DECLARE(periph_clk, "allwinner,sunxi-periph-clock", of_periph_clk_setup);
+CLK_OF_DECLARE(periph_cpus_clk, "allwinner,sunxi-periph-cpus-clock", of_periph_cpus_clk_setup);
+
 #endif
 
