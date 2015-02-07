@@ -151,7 +151,7 @@ static void detect_dfp_work(struct work_struct *work)
 	}
 	mutex_unlock(&detect->lock);
 
-	dev_info(detect->phy->dev,
+	dev_dbg(detect->phy->dev,
 		"cc1_found = %d cc2_found = %d unattach dfp cc1 = %d, cc2 = %d",
 				cc1_found, cc2_found, cc1.v_rd, cc2.v_rd);
 
