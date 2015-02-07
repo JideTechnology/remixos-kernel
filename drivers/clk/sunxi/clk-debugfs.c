@@ -42,27 +42,27 @@ static void clktest_reg_dump(void)
 {
 	unsigned int i;
 	char dumpline[256];
-	printk("Dump Base 0x%x Regs %d as Follow:\n",(unsigned int __force)sunxi_clk_base, (unsigned int __force)sunxi_clk_maxreg);
+	printk("Dump Base 0x%llx Regs %d as Follow:\n",(u64 __force)sunxi_clk_base, (unsigned int __force)sunxi_clk_maxreg);
 	for(i=0;i<=sunxi_clk_maxreg;)
 	{
 			if(i+12 <= sunxi_clk_maxreg) 
                 sprintf(dumpline,"[Reg %08x] %08x %08x %08x %08x ",i
-						,*((unsigned int*)((unsigned int __force)(sunxi_clk_base +i)))
-						,*((unsigned int*)((unsigned int __force)(sunxi_clk_base +i+4)))
-						,*((unsigned int*)((unsigned int __force)(sunxi_clk_base +i+8)))
-						,*((unsigned int*)((unsigned int __force)(sunxi_clk_base +i+12))));
+						,*((unsigned int*)((char*)sunxi_clk_base +i))
+						,*((unsigned int*)((char*)sunxi_clk_base +i+4))
+						,*((unsigned int*)((char*)sunxi_clk_base +i+8))
+						,*((unsigned int*)((char*)sunxi_clk_base +i+12)));
 			else if(i+8 <= sunxi_clk_maxreg) 
 				sprintf(dumpline,"[Reg %08x] %08x %08x %08x ",i
-							,*((unsigned int*)((unsigned int __force)(sunxi_clk_base +i)))
-							,*((unsigned int*)((unsigned int __force)(sunxi_clk_base +i+4)))
-							,*((unsigned int*)((unsigned int __force)(sunxi_clk_base +i+8))));
+							,*((unsigned int*)((char*)sunxi_clk_base +i))
+							,*((unsigned int*)((char*)sunxi_clk_base +i+4))
+							,*((unsigned int*)((char*)sunxi_clk_base +i+8)));
 			else if(i+4 <= sunxi_clk_maxreg) 
 				sprintf(dumpline,"[Reg %08x] %08x %08x ",i
-							,*((unsigned int*)((unsigned int __force)(sunxi_clk_base +i)))
-							,*((unsigned int*)((unsigned int __force)(sunxi_clk_base +i+4))));
+							,*((unsigned int*)((char*)sunxi_clk_base +i))
+							,*((unsigned int*)((char*)sunxi_clk_base +i+4)));
 			else
 				sprintf(dumpline,"[Reg %08x] %08x ",i
-							,*((unsigned int*)((unsigned int __force)(sunxi_clk_base +i))));
+							,*((unsigned int*)((char*)sunxi_clk_base +i)));
 			printk("%s\n",dumpline);					
 			i = i+16;
 	}
@@ -70,27 +70,27 @@ static void clktest_reg_dump(void)
 
     if(cpus_clk_maxreg)
     {
-        printk("Dump CPUS Base 0x%x Regs %d as Follow:\n",(unsigned int __force)sunxi_clk_cpus_base,(unsigned int)cpus_clk_maxreg);
+        printk("Dump CPUS Base 0x%llx Regs %d as Follow:\n",(u64 __force)sunxi_clk_cpus_base,(unsigned int)cpus_clk_maxreg);
         for(i=0;i<=cpus_clk_maxreg;)
         {
                 if(i+12 <= cpus_clk_maxreg) 
                     sprintf(dumpline,"[Reg %08x] %08x %08x %08x %08x ",i
-                            ,*((unsigned int*)((unsigned int __force)(sunxi_clk_cpus_base +i)))
-                            ,*((unsigned int*)((unsigned int __force)(sunxi_clk_cpus_base +i+4)))
-                            ,*((unsigned int*)((unsigned int __force)(sunxi_clk_cpus_base +i+8)))
-                            ,*((unsigned int*)((unsigned int __force)(sunxi_clk_cpus_base +i+12))));
+                            ,*((unsigned int*)((char*)sunxi_clk_base +i))
+                            ,*((unsigned int*)((char*)sunxi_clk_base +i+4))
+                            ,*((unsigned int*)((char*)sunxi_clk_base +i+8))
+                            ,*((unsigned int*)((char*)sunxi_clk_base +i+12)));
                 else if(i+8 <= cpus_clk_maxreg) 
                     sprintf(dumpline,"[Reg %08x] %08x %08x %08x ",i
-                                ,*((unsigned int*)((unsigned int __force)(sunxi_clk_cpus_base +i)))
-                                ,*((unsigned int*)((unsigned int __force)(sunxi_clk_cpus_base +i+4)))
-                                ,*((unsigned int*)((unsigned int __force)(sunxi_clk_cpus_base +i+8))));
+                                ,*((unsigned int*)((char*)sunxi_clk_base +i))
+                                ,*((unsigned int*)((char*)sunxi_clk_base +i+4))
+                                ,*((unsigned int*)((char*)sunxi_clk_base +i+8)));
                 else if(i+4 <= cpus_clk_maxreg) 
                     sprintf(dumpline,"[Reg %08x] %08x %08x ",i
-                                ,*((unsigned int*)((unsigned int __force)(sunxi_clk_cpus_base +i)))
-                                ,*((unsigned int*)((unsigned int __force)(sunxi_clk_cpus_base +i+4))));
+                                ,*((unsigned int*)((char*)sunxi_clk_base +i))
+                                ,*((unsigned int*)((char*)sunxi_clk_base +i+4)));
                 else
                     sprintf(dumpline,"[Reg %08x] %08x ",i
-                                ,*((unsigned int*)((unsigned int __force)(sunxi_clk_cpus_base +i))));
+                                ,*((unsigned int*)((char*)sunxi_clk_base +i)));
                 printk("%s\n",dumpline);					
                 i = i+16;
         }
