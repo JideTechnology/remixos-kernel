@@ -1719,7 +1719,7 @@ static int  sunxi_arisc_probe(struct platform_device *pdev)
 
 	sunxi_arisc_parse_cfg(pdev);
 
-	message_addr = dma_alloc_coherent(NULL, PAGE_SIZE, &(message_phys), GFP_KERNEL);
+	message_addr = dma_alloc_coherent(&pdev->dev, PAGE_SIZE, &(message_phys), GFP_KERNEL);
 	message_size = PAGE_SIZE;
 	arisc_cfg.space.msgpool_dst = message_phys;
 	arisc_cfg.space.msgpool_size = message_size;
