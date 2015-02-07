@@ -7,7 +7,7 @@
 		r_pio: pinctrl@01f02c00 {
 			compatible = "allwinner,sun50i-r-pinctrl";
 			reg = <0x0 0x01f02c00 0x0 0x400>;
-			interrupts = <GIC_SPI 35 4>;
+			interrupts = <GIC_SPI 45 4>;
 			clocks = <&clk_cpurpio>;
 			//resets = <&apb0_rst 0>;
 			gpio-controller;

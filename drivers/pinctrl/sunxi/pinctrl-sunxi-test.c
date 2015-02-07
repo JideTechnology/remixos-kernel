@@ -29,8 +29,14 @@
 static struct of_device_id sunxi_pinctrl_test_match[] = {
 	{ .compatible = "allwinner,sun50i-vdevice"},
 };
-MODULE_DEVICE_TABLE(of, sunxi_pinctrl_match);
 
+static irqreturn_t test_sunxi_pinctrl_irq_handler(int irq, void *dev_id)
+{
+	pr_warn("[%s] handler for test pinctrl eint api.\n", __func__);
+	disable_irq_nosync(irq);
+	return IRQ_HANDLED;
+
+}
 
 
 static int sunxi_pinctrl_test_probe(struct platform_device *pdev)
@@ -38,6 +44,10 @@ static int sunxi_pinctrl_test_probe(struct platform_device *pdev)
 	struct gpio_config config;
 	unsigned int ret;
 	struct device_node *node;
+
+	int	req_irq_status;
+	int	req_status;
+	int	virq;
 
 	node=of_find_node_by_type(NULL, "vdevice");
 	if(!node){
@@ -53,6 +63,21 @@ static int sunxi_pinctrl_test_probe(struct platform_device *pdev)
 				, config.drv_level
 				, config.pull
 				, config.data);
+	req_status = gpio_request(config.gpio, NULL);
+	if (0 != req_status)
+		return -EINVAL;
+	virq = gpio_to_irq(config.gpio);
+	if (IS_ERR_VALUE(virq)) {
+		pr_warn("gpio[%d]get virq[%d] failed!\n", config.gpio, virq);
+		return -EINVAL;
+	}
+	req_irq_status = devm_request_irq(&pdev->dev, virq,
+					test_sunxi_pinctrl_irq_handler,
+					IRQF_TRIGGER_LOW, "GPIO_EINT", NULL);
+	if (IS_ERR_VALUE(req_irq_status)) {
+		pr_warn("request irq failed !\n");
+		return -EINVAL;
+	}
 	return 0;
 }
 

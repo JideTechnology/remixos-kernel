@@ -6,7 +6,7 @@ config PINCTRL_SUNXI_COMMON
 	select GENERIC_PINCONF
 
 config PINCTRL_SUNXI_TEST
-	bool "pinctrl sunxi test driver"
+	tristate "pinctrl sunxi test driver"
 	default m
 
 config PINCTRL_SUN4I_A10
