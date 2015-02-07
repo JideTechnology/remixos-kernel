@@ -24,7 +24,7 @@
 #define SDXC_DS_DL_SW_EN			(1u<<7)
 
 
-#define	SDXC_2X_TIMING_MODE			(1U<31)
+#define	SDXC_2X_TIMING_MODE			(1U<<31)
 
 
 //mask
