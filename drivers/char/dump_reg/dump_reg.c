@@ -33,6 +33,7 @@
 #define PLAT_PHYS_OFFSET        0x40000000UL
 #define SUNXI_IOMEM_VASE        0xffffff8000000000UL
 #define SUNXI_IOMEM_SIZE        SZ_2G
+#define SUNXI_MEM_PHYS_VASE     0xffffffc000000000UL
 
 typedef struct dump_reg {
 	unsigned long pst_addr;  /* start reg addr */
@@ -112,6 +113,7 @@ static const struct dump_struct dump_table[] = {
 	{SUNXI_IO_PHYS_BASE,    SUNXI_IO_PHYS_BASE + SUNXI_IO_SIZE,     NULL,   REMAPIO,    UNMAPIO,    GET_VADDR,  READ,   WRITE},
 	{PLAT_PHYS_OFFSET,      PLAT_PHYS_OFFSET + SZ_1G,               NULL,   REMAPMEM,   NULL,       GET_VADDR,  READ,   WRITE},
 	{SUNXI_IOMEM_VASE,      SUNXI_IOMEM_VASE + SUNXI_IOMEM_SIZE,    NULL,   NULL,       NULL,       GET_VADDR,  READ,   WRITE},
+	{SUNXI_MEM_PHYS_VASE,   SUNXI_MEM_PHYS_VASE + SZ_2G,            NULL,   NULL,       NULL,       GET_VADDR,  READ,   WRITE},
 };
 
 /**
