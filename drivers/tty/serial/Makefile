@@ -2,6 +2,8 @@
 # Makefile for the kernel serial device drivers.
 #
 
+ccflags-$(CONFIG_SERIAL_DEBUG) := -DDEBUG
+
 obj-$(CONFIG_SERIAL_CORE) += serial_core.o
 obj-$(CONFIG_SERIAL_21285) += 21285.o
 

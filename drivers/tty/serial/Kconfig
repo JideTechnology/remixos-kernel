@@ -1509,6 +1509,13 @@ config SERIAL_RP2_NR_UARTS
 	  If multiple cards are present, the default limit of 32 ports may
 	  need to be increased.
 
+config SERIAL_DEBUG
+	boolean "Debug support for serial drivers"
+	depends on DEBUG_KERNEL
+	help
+	  Say "yes" to enable debug messaging (like dev_dbg and pr_debug),
+	  sysfs, and debugfs support in serial core and serial drivers.
+
 endmenu
 
 endif # TTY
