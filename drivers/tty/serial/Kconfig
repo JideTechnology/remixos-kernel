@@ -1447,6 +1447,7 @@ config SERIAL_EFM32_UART_CONSOLE
 config SERIAL_SUNXI
 	tristate "SUNXI UART Controller"
 	depends on SERIAL_8250=n
+	depends on OF
 	select SERIAL_CORE
 	default y
 	help

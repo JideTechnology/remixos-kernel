@@ -829,7 +829,7 @@ static int sw_uart_request_port(struct uart_port *port)
 	struct resource	*mem_res;
 	int ret;
 
-	SERIAL_DBG("request port(ioremap & request io) %d\n", port->line);
+	SERIAL_DBG("request port(ioremap & request io) %d\n", sw_uport->id);
 
 	pdev = to_platform_device(port->dev);
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -1285,6 +1285,7 @@ static int sw_uart_probe(struct platform_device *pdev)
 	struct sw_uart_port *sw_uport;
 	struct sw_uart_pdata *pdata;
 	struct resource *res;
+	char uart_para[16] = {0};
 	int ret = -1;
 
 	pdev->id = of_alias_get_id(np, "serial");
@@ -1336,15 +1337,17 @@ static int sw_uart_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	ret = of_property_read_u32(np, "port-number", &port->line);
+	sprintf(uart_para, "uart%d_port", pdev->id);
+	ret = of_property_read_u32(np, uart_para, &port->line);
 	if (ret) {
-		SERIAL_MSG("uart%d error to get reg property\n", pdev->id);
+		SERIAL_MSG("uart%d error to get port property\n", pdev->id);
 		return -EINVAL;
 	}
 
-	ret = of_property_read_u32(np, "io-number", &pdata->io_num);
+	sprintf(uart_para, "uart%d_type", pdev->id);
+	ret = of_property_read_u32(np, uart_para, &pdata->io_num);
 	if (ret) {
-		SERIAL_MSG("uart%d error to get reg property\n", pdev->id);
+		SERIAL_MSG("uart%d error to get type property\n", pdev->id);
 		return -EINVAL;
 	}
 
@@ -1386,7 +1389,7 @@ static int sw_uart_suspend(struct device *dev)
 	struct sw_uart_port *sw_uport = UART_TO_SPORT(port);
 
 	if (port) {
-		SERIAL_MSG("uart%d suspend\n", port->line);
+		SERIAL_MSG("uart%d suspend\n", sw_uport->id);
 		uart_suspend_port(&sw_uart_driver, port);
 
 		if (SW_UART_NEED_SUSPEND(port)) {
@@ -1428,7 +1431,7 @@ static int sw_uart_resume(struct device *dev)
 		}
 #endif
 		uart_resume_port(&sw_uart_driver, port);
-		SERIAL_MSG("uart%d resume. DLH: %d, DLL: %d. \n", port->line, sw_uport->dlh, sw_uport->dll);
+		SERIAL_MSG("uart%d resume. DLH: %d, DLL: %d. \n", sw_uport->id, sw_uport->dlh, sw_uport->dll);
 	}
 
 	return 0;
