@@ -162,20 +162,21 @@ struct sunxi_tdm_info {
 	struct pinctrl_state  *pinstate;
 
 	/*tdm arg*/
-	u8 pcm_lrck_period;		/*pcm_lrck_period     = 32*/
-	u8 pcm_lrckr_period;		/*pcm_lrckr_period    = 1*/
-	u8 slot_width_select;			/*slot_width_select   = 16*/
+	u32 pcm_lrck_period;		/*pcm_lrck_period     = 32*/
+	u32 pcm_lrckr_period;		/*pcm_lrckr_period    = 1*/
+	u32 slot_width_select;			/*slot_width_select   = 16*/
 
-	u8 pcm_lsb_first;		/*msb_lsb_first*/
-	u8 tx_data_mode;
-	u8 rx_data_mode;
-	u8 daudio_master;
-	u8 audio_format;
-	u8 signal_inversion;
-	u16 samp_res;
+	u32 pcm_lsb_first;		/*msb_lsb_first*/
+	u32 tx_data_mode;
+	u32 rx_data_mode;
+	u32 daudio_master;
+	u32 audio_format;
+	u32 signal_inversion;
+	u32 samp_res;
+	u32 others;	/*other use*/
 	bool tdm_config;	/*1:i2s 0:pcm*/
 	bool frametype;	/*pcm format: 0-short frame,1-long frame*/
-	u8 others;	/*other use*/
+
 
 };
 

@@ -2005,23 +2005,29 @@ struct label {
 
 #define LABEL(constant) { #constant, constant }
 #define LABEL_END { NULL, -1 }
+
+struct spk_gpio_ {
+	u32 gpio;
+	bool cfg;
+};
 struct gain_config {
-	u8 headphonevol;
-	u8 spkervol;
-	u8 earpiecevol;
-	u8 maingain;
-	u8 headsetmicgain;
+	//u8 headphonevol;
+	u32 headphonevol;
+	u32 spkervol;
+	u32 earpiecevol;
+	u32 maingain;
+	u32 headsetmicgain;
 };
 struct codec_hw_config {
-	u8 adcagc_cfg:1;
-	u8 adcdrc_cfg:1;
-	u8 dacdrc_cfg:1;
-	u8 adchpf_cfg:1;
-	u8 dachpf_cfg:1;
+	u32 adcagc_cfg:1;
+	u32 adcdrc_cfg:1;
+	u32 dacdrc_cfg:1;
+	u32 adchpf_cfg:1;
+	u32 dachpf_cfg:1;
 };
 struct aif_config{
-	u8 aif2config:1;
-	u8 aif3config:1;
+	u32 aif2config:1;
+	u32 aif3config:1;
 };
 struct sunxi_codec {
 	void __iomem *codec_dbase;
@@ -2040,11 +2046,11 @@ struct sunxi_codec {
 	struct mutex adc_mutex;
 	struct mutex aifclk_mutex;
 	struct snd_soc_codec *codec;
-	u8 dac_enable;
-	u8 adc_enable;
-	u8 aif1_clken;
-	u8 aif2_clken;
-	u8 aif3_clken;
+	u32 dac_enable;
+	u32 adc_enable;
+	u32 aif1_clken;
+	u32 aif2_clken;
+	u32 aif3_clken;
 	u32 aif1_lrlk_div;
 	u32 aif2_lrlk_div;
 	//u8 sysconfig:1;

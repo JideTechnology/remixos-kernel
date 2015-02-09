@@ -30,6 +30,7 @@
 #include <linux/of_device.h>
 #include <linux/pm.h>
 #include <linux/of_gpio.h>
+#include <linux/sys_config.h>
 #include "sunxi_sun50iw1codec.h"
 #include "sunxi_rw_func.h"
 
@@ -43,7 +44,8 @@
 
 void __iomem *codec_digitaladress;
 void __iomem *codec_analogadress;
-static int spk_gpio;
+struct spk_gpio_ spk_gpio;
+
 
 static const DECLARE_TLV_DB_SCALE(headphone_vol_tlv, -6300, 100, 0);
 static const DECLARE_TLV_DB_SCALE(lineout_vol_tlv, -450, 150, 0);
@@ -585,14 +587,14 @@ static int ac_speaker_event(struct snd_soc_dapm_widget *w,
 	pr_debug("..speaker power state change.\n");
 	switch (event) {
 		case SND_SOC_DAPM_POST_PMU:
-#ifdef AUDIOCODEC_GPIO
-			gpio_set_value(spk_gpio, 1);
-#endif
+			if (spk_gpio.cfg)
+				gpio_set_value(spk_gpio.gpio, 1);
+
 			break;
 		case SND_SOC_DAPM_PRE_PMD :
-#ifdef AUDIOCODEC_GPIO
-			gpio_set_value(spk_gpio, 0);
-#endif
+			if (spk_gpio.cfg)
+				gpio_set_value(spk_gpio.gpio, 0);
+
 		default:
 			break;
 	}
@@ -2035,9 +2037,9 @@ static ssize_t store_audio_reg(struct device *dev, struct device_attribute *attr
 		}
 	} else if (input_reg_group == 2){
 		if(rw_flag) {
-			write_prcm_wvalue(input_reg_offset, input_reg_val & 0xff,codec_digitaladress);
+			write_prcm_wvalue(input_reg_offset, input_reg_val & 0xff,codec_analogadress);
 		}else{
-			 reg_val_read = read_prcm_wvalue(input_reg_offset,codec_digitaladress);
+			 reg_val_read = read_prcm_wvalue(input_reg_offset,codec_analogadress);
 			 printk("\n\n Reg[0x%x] : 0x%x\n\n",input_reg_offset,reg_val_read);
 		}
 	}
@@ -2066,8 +2068,10 @@ static const struct of_device_id sunxi_codec_of_match[] = {
 static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 {
 	s32 ret = -1;
-	u8 temp_val;
-	enum of_gpio_flags flags;
+	//u8 temp_val;
+	u32 temp_val;
+	//enum of_gpio_flags flags;
+	struct gpio_config config;
 	const struct of_device_id *device;
 	struct sunxi_codec *sunxi_internal_codec;
 	struct device_node *node = pdev->dev.of_node;
@@ -2110,23 +2114,26 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		goto err1;
 	}
 	/*initial speaker gpio */
-	spk_gpio = of_get_named_gpio_flags(node, "gpio-spk", 0, &flags);
-	if (!gpio_is_valid(spk_gpio)) {
-		pr_err("failed to get gpio-spk gpio from dts\n");
+	spk_gpio.gpio = of_get_named_gpio_flags(node, "gpio-spk", 0, (enum of_gpio_flags *)&config);
+	if (!gpio_is_valid(spk_gpio.gpio)) {
+		pr_err("failed to get gpio-spk gpio from dts,spk_gpio:%d\n",spk_gpio.gpio);
 		//ret = -EINVAL;
 		//goto err1;
+		spk_gpio.cfg = 0;
 	} else {
-		ret = devm_gpio_request(&pdev->dev, spk_gpio, "SPK");
+		ret = devm_gpio_request(&pdev->dev, spk_gpio.gpio, "SPK");
 		if (ret) {
+			spk_gpio.cfg = 0;
 			pr_err("failed to request gpio-spk gpio\n");
 			goto err1;
 		} else {
-			gpio_direction_output(spk_gpio, 1);
-			gpio_set_value(spk_gpio, 0);
+			spk_gpio.cfg = 1;
+			gpio_direction_output(spk_gpio.gpio, 1);
+			gpio_set_value(spk_gpio.gpio, 0);
 		}
 	}
 
-	ret = of_property_read_u8(node, "headphonevol",&temp_val);
+	ret = of_property_read_u32(node, "headphonevol",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-codec]headphonevol configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -2134,7 +2141,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 	} else {
 		sunxi_internal_codec->gain_config.headphonevol = temp_val;
 	}
-	ret = of_property_read_u8(node, "spkervol",&temp_val);
+	ret = of_property_read_u32(node, "spkervol",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-codec]spkervol configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -2143,7 +2150,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		sunxi_internal_codec->gain_config.spkervol = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "earpiecevol",&temp_val);
+	ret = of_property_read_u32(node, "earpiecevol",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-codec]earpiecevol configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -2152,7 +2159,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		sunxi_internal_codec->gain_config.earpiecevol = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "maingain",&temp_val);
+	ret = of_property_read_u32(node, "maingain",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-codec]maingain configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -2161,7 +2168,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		sunxi_internal_codec->gain_config.maingain = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "headsetmicgain",&temp_val);
+	ret = of_property_read_u32(node, "headsetmicgain",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-codec]headsetmicgain configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -2170,7 +2177,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		sunxi_internal_codec->gain_config.headsetmicgain = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "adcagc_cfg",&temp_val);
+	ret = of_property_read_u32(node, "adcagc_cfg",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-codec]adcagc_cfg configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -2179,7 +2186,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		sunxi_internal_codec->hwconfig.adcagc_cfg = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "adcdrc_cfg",&temp_val);
+	ret = of_property_read_u32(node, "adcdrc_cfg",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-codec]adcdrc_cfg configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -2188,7 +2195,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		sunxi_internal_codec->hwconfig.adcdrc_cfg = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "adchpf_cfg",&temp_val);
+	ret = of_property_read_u32(node, "adchpf_cfg",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-codec]adchpf_cfg configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -2198,7 +2205,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 	}
 
 
-	ret = of_property_read_u8(node, "dacdrc_cfg",&temp_val);
+	ret = of_property_read_u32(node, "dacdrc_cfg",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-codec]dacdrc_cfg configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -2207,7 +2214,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		sunxi_internal_codec->hwconfig.dacdrc_cfg = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "dachpf_cfg",&temp_val);
+	ret = of_property_read_u32(node, "dachpf_cfg",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-codec]dachpf_cfg configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -2216,7 +2223,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		sunxi_internal_codec->hwconfig.dachpf_cfg = temp_val;
 	}
 
-	ret = of_property_read_u8(node, "aif2config",&temp_val);
+	ret = of_property_read_u32(node, "aif2config",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-codec]aif2config configurations missing or invalid.\n");
 		ret = -EINVAL;
@@ -2226,7 +2233,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 	}
 
 
-	ret = of_property_read_u8(node, "aif3config",&temp_val);
+	ret = of_property_read_u32(node, "aif3config",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-codec]aif3config configurations missing or invalid.\n");
 		ret = -EINVAL;

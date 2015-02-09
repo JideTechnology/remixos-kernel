@@ -53,7 +53,7 @@ static int sun50iw1_check_jack_type(struct snd_soc_jack *jack)
 	reg_val = snd_soc_read(ctx->codec, SUNXI_HMIC_STS);
 	tempdata = (reg_val>>HMIC_DATA)&0x1f;
 	ctx->headset_basedata = tempdata;
-	if (tempdata >= ctx->HEADSET_DATA) {/*headset*/
+	if (ctx->HEADSET_DATA >= tempdata) {/*headset*/
 		jack_type = SND_JACK_HEADSET;
 	} else {/*headphone*/
 		/*disable hbias and adc*/
@@ -75,11 +75,14 @@ static void sun50iw1_check_hs_insert_status(struct work_struct *work)
 	if (jack_type != ctx->switch_status){
 		ctx->switch_status = jack_type;
 		snd_jack_report(ctx->jack.jack, jack_type);
+		pr_debug("switch:%d\n",jack_type);
 	}
 	/*clear headset insert pending.*/
 	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_STS, (0x1<<JACK_DET_IIN_ST), (0x1<<JACK_DET_IIN_ST));
+
+	/*if SND_JACK_HEADSET,enable mic detect irq*/
 	if (jack_type == SND_JACK_HEADSET)
-			snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0x1<<MIC_DET_IRQ_EN), (0x1<<MIC_DET_IRQ_EN));
+		snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0x1<<MIC_DET_IRQ_EN), (0x1<<MIC_DET_IRQ_EN));
 	mutex_unlock(&ctx->jack_mlock);
 }
 
@@ -87,10 +90,26 @@ static void sun50iw1_check_hs_insert_status(struct work_struct *work)
 static void sun50iw1_check_hs_button_status(struct work_struct *work)
 {
 	struct mc_private *ctx = container_of(work, struct mc_private, hs_button_work.work);
-	u32 reg_val = 0,tempdata= 0;
+	u32 reg_val = 0,tempdata = 0,jack_type = 0,temp_diff = 0;
 	mutex_lock(&ctx->jack_mlock);
 	reg_val = snd_soc_read(ctx->codec, SUNXI_HMIC_STS);
 	tempdata = (reg_val>>HMIC_DATA)&0x1f;
+	temp_diff = tempdata%ctx->headset_basedata;
+
+	if (temp_diff == 1)
+		jack_type = ctx->switch_status |SND_JACK_BTN_0;
+	else if (temp_diff == 3)
+		jack_type = ctx->switch_status |SND_JACK_BTN_1;
+	else if (temp_diff == 5)
+		jack_type = ctx->switch_status |SND_JACK_BTN_2;
+	else
+		jack_type = ctx->switch_status;
+
+	snd_jack_report(ctx->jack.jack, jack_type);
+	snd_jack_report(ctx->jack.jack, ctx->switch_status);
+//	msleep(50);
+	/*clear mic detect pending.*/
+	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_STS, (0x1<<MIC_DET_ST), (0x1<<MIC_DET_ST));
 	mutex_unlock(&ctx->jack_mlock);
 }
 /* Checks jack removal. */
@@ -107,6 +126,7 @@ static void sun50iw1_check_hs_remove_status(struct work_struct *work)
 static irqreturn_t jack_interrupt(int irq, void *dev_id)
 {
 	struct mc_private *ctx = dev_id;
+	pr_debug("jack interrupt happend..%s,SUNXI_HMIC_STS:%x\n",__func__,snd_soc_read(ctx->codec, SUNXI_HMIC_STS));
 	if (snd_soc_read(ctx->codec, SUNXI_HMIC_STS)&(1<<JACK_DET_IIN_ST)) {/*headphone insert*/
 		/*enable hbias and adc*/
 		snd_soc_update_bits(ctx->codec, JACK_MIC_CTRL, (0x1<<HMICBIASEN), (0x1<<HMICBIASEN));
@@ -114,8 +134,11 @@ static irqreturn_t jack_interrupt(int irq, void *dev_id)
 		schedule_delayed_work(&ctx->hs_insert_work,
 				msecs_to_jiffies(20));
 	} else if (snd_soc_read(ctx->codec, SUNXI_HMIC_STS)&(1<<MIC_DET_ST)) {/*key*/
-		schedule_delayed_work(&ctx->hs_button_work,
-				msecs_to_jiffies(20));
+		if (ctx->switch_status != SND_JACK_HEADSET)
+			schedule_delayed_work(&ctx->hs_button_work,
+					msecs_to_jiffies(20));
+		else
+			pr_err("The wrong scene....!\n");
 	} else if(snd_soc_read(ctx->codec, SUNXI_HMIC_STS)&(1<<JACK_DET_OIRQ)){/*headphone plugout*/
 		/*diable hbias and adc*/
 		snd_soc_update_bits(ctx->codec, JACK_MIC_CTRL, (0x1<<HMICBIASEN), (0x0<<HMICBIASEN));
@@ -160,7 +183,7 @@ static int sunxi_audio_init(struct snd_soc_pcm_runtime *runtime)
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct mc_private *ctx = snd_soc_card_get_drvdata(runtime->card);
 	ctx->codec = runtime->codec;
-
+	/*enable jack in /out irq*/
 	snd_soc_update_bits(codec, SUNXI_HMIC_CTRL1, (0x1<<JACK_IN_IRQ_EN), (0x1<<JACK_IN_IRQ_EN));
 	snd_soc_update_bits(codec, SUNXI_HMIC_CTRL1, (0x1<<JACK_OUT_IRQ_EN), (0x1<<JACK_OUT_IRQ_EN));
 	//snd_soc_update_bits(codec, SUNXI_HMIC_CTRL1, (0x1<<MIC_DET_IRQ_EN), (0x1<<MIC_DET_IRQ_EN));
@@ -178,7 +201,7 @@ static int sunxi_audio_init(struct snd_soc_pcm_runtime *runtime)
 	snd_jack_set_key(ctx->jack.jack, SND_JACK_BTN_0, KEY_MEDIA);
 	snd_jack_set_key(ctx->jack.jack, SND_JACK_BTN_1, KEY_VOLUMEUP);
 	snd_jack_set_key(ctx->jack.jack, SND_JACK_BTN_2, KEY_VOLUMEDOWN);
-
+	pr_debug("register jack interrupt.,jackirq:%d\n",ctx->jackirq);
 	ret = request_irq(ctx->jackirq, jack_interrupt, 0, "audio jack irq", ctx);
 
 	snd_soc_dapm_disable_pin(&codec->dapm,	"HPOUTR");
@@ -222,22 +245,25 @@ static int sunxi_sndpcm_hw_params(struct snd_pcm_substream *substream,
 	/* set the codec FLL */
 	ret = snd_soc_dai_set_pll(codec_dai, PLLCLK, 0, freq_in, freq_in);
 	if (ret < 0) {
-		pr_err("err:%s,line:%d\n", __func__, __LINE__);
+		pr_err("err:%s,set codec dai pll failed.\n", __func__);
+		return ret;
 	}
 	/*set system clock source freq */
 	ret = snd_soc_dai_set_sysclk(cpu_dai, 0, freq_in, 0);
 	if (ret < 0) {
+		pr_err("err:%s,set cpu dai sysclk failed.\n", __func__);
 		return ret;
 	}
 	/*set system clock source freq_in and set the mode as tdm or pcm*/
 	ret = snd_soc_dai_set_sysclk(codec_dai, AIF1_CLK, freq_in, 0);
 	if (ret < 0) {
+		pr_err("err:%s,set codec dai sysclk faided.\n", __func__);
 		return ret;
 	}
 	/*set system fmt:api2s:master aif1:slave*/
 	ret = snd_soc_dai_set_fmt(cpu_dai, 0);
 	if (ret < 0) {
-		pr_err("%s, line:%d\n", __func__, __LINE__);
+		pr_err("%s,set cpu dai fmt failed.\n", __func__);
 		return ret;
 	}
 
@@ -247,13 +273,13 @@ static int sunxi_sndpcm_hw_params(struct snd_pcm_substream *substream,
 	ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_I2S |
 			SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_CBS_CFS);
 	if (ret < 0) {
-		pr_err("%s, line:%d\n", __func__, __LINE__);
+		pr_err("%s,set codec dai fmt failed.\n", __func__);
 		return ret;
 	}
 
 	ret = snd_soc_dai_set_clkdiv(cpu_dai, 0, sample_rate);
 	if (ret < 0) {
-		pr_err("%s, line:%d\n", __func__, __LINE__);
+		pr_err("%s, set cpu dai clkdiv faided.\n", __func__);
 		return ret;
 	}
 
@@ -284,19 +310,19 @@ static int bb_voice_hw_params(struct snd_pcm_substream *substream,
 	/* set the codec aif1clk/aif2clk from pllclk */
 	ret = snd_soc_dai_set_pll(codec_dai, PLLCLK, 0, freq_in,freq_in);
 	if (ret < 0) {
-		pr_err("err:%s,line:%d\n", __func__, __LINE__);
+		pr_err("err:%s,set codec dai pll failed.\n", __func__);
 		return ret;
 	}
 	/*set system clock source aif2*/
 	ret = snd_soc_dai_set_sysclk(codec_dai, AIF2_CLK , 0, 0);
 	if (ret < 0) {
-		pr_err("err:%s,line:%d\n", __func__, __LINE__);
+		pr_err("err:%s,set codec dai sysclk faied\n", __func__);
 		return ret;
 	}
 	/* set codec DAI configuration */
 	ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_DSP_A | (ctx->aif2fmt << 8) | (ctx->aif2master << 12));
 	if (ret < 0) {
-		pr_err("err:%s,line:%d\n", __func__, __LINE__);
+		pr_err("err:%s,set codec dai fmt failed.\n", __func__);
 	}
 	return ret;
 }
@@ -369,7 +395,7 @@ static struct snd_soc_ops bt_voice_ops = {
 };
 static struct snd_soc_dai_link sunxi_sndpcm_dai_link[] = {
 	{
-	.name 			= "audiocodec",
+	.name = "audiocodec",
 	.stream_name 	= "SUNXI-CODEC",
 	.cpu_dai_name 	= "sunxi-internal-i2s",
 	.codec_dai_name = "codec-aif1",
