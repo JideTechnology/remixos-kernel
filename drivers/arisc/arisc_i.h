@@ -39,6 +39,7 @@
 #include <linux/arisc/arisc-notifier.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/of_platform.h>
 
 #define DRV_NAME    "sunxi-arisc"
 #define DEV_NAME    "sunxi-arisc"

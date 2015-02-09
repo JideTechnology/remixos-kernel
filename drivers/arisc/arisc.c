@@ -1081,16 +1081,18 @@ static int  sunxi_arisc_pin_cfg(struct platform_device *pdev)
 
 	return 0;
 #else /* CONFIG_OF */
-	struct device suart_dev;
-	struct device srsb_dev;
-	struct device sjtag_dev;
+	struct platform_device *pdev_srsb, *pdev_suart, *pdev_sjtag;
 	struct pinctrl *pinctrl = NULL;
 
 	ARISC_INF("device [%s] pin resource request enter\n", dev_name(&pdev->dev));
 	/* s_uart0 gpio */
 	if (arisc_cfg.suart.status) {
-		suart_dev.of_node = arisc_cfg.suart.np;
-		pinctrl = pinctrl_get_select_default(&suart_dev);
+		pdev_suart = of_find_device_by_node(arisc_cfg.suart.np);
+		if (!pdev_suart) {
+			ARISC_ERR("get s_uart0 platform_device error!\n");
+			return -EINVAL;
+		}
+		pinctrl = pinctrl_get_select_default(&pdev_suart->dev);
 		if(!pinctrl || IS_ERR(pinctrl)){
 			ARISC_ERR("set s_uart0 pin error!\n");
 			return -EINVAL;
@@ -1099,8 +1101,12 @@ static int  sunxi_arisc_pin_cfg(struct platform_device *pdev)
 
 	/* s_rsb0 gpio */
 	if (arisc_cfg.srsb.status) {
-		srsb_dev.of_node = arisc_cfg.srsb.np;
-		pinctrl = pinctrl_get_select_default(&srsb_dev);
+		pdev_srsb = of_find_device_by_node(arisc_cfg.srsb.np);
+		if (!pdev_srsb) {
+			ARISC_ERR("get s_rsb0 platform_device error!\n");
+			return -EINVAL;
+		}
+		pinctrl = pinctrl_get_select_default(&pdev_srsb->dev);
 		if(!pinctrl || IS_ERR(pinctrl)){
 			ARISC_ERR("set s_rsb0 pin error!\n");
 			return -EINVAL;
@@ -1109,8 +1115,12 @@ static int  sunxi_arisc_pin_cfg(struct platform_device *pdev)
 
 	/* s_jtag0 gpio */
 	if (arisc_cfg.sjtag.status) {
-		sjtag_dev.of_node = arisc_cfg.sjtag.np;
-		pinctrl = pinctrl_get_select_default(&sjtag_dev);
+		pdev_sjtag = of_find_device_by_node(arisc_cfg.sjtag.np);
+		if (!pdev_sjtag) {
+			ARISC_ERR("get s_jtag0 platform_device error!\n");
+			return -EINVAL;
+		}
+		pinctrl = pinctrl_get_select_default(&pdev_sjtag->dev);
 		if(!pinctrl || IS_ERR(pinctrl)){
 			ARISC_ERR("set s_jtag0 pin error!\n");
 			return -EINVAL;
