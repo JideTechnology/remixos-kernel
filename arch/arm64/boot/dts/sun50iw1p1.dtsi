@@ -39,11 +39,14 @@
 		vfe0 = &vip0;
 		mmc0 = &mmc0;
 		mmc2 = &mmc2;
+		nand0 =&nand0;
 	};
 
 	chosen {
 		bootargs = "earlyprintk=sunxi-uart,0x01c28000 loglevel=8 initcall_debug=1 console=ttyS0 init=/init";
-    };
+		linux,initrd-start = <0x0 0x0>;
+		linux,initrd-end = <0x0 0x0>;
+	};
 
 	cpus {
 		#address-cells = <2>;
