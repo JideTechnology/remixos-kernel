@@ -712,7 +712,7 @@ config I2C_STU300
 
 config I2C_SUNXI
 	tristate "SUNXI I2C controller"
-	depends on ARCH_SUNXI
+	depends on ARCH_SUNXI && OF_I2C
 	default y if MACH_SUNXI
 	help
 	  If you say yes to this option, support will be included for the

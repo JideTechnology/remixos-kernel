@@ -106,8 +106,8 @@
 			};
 
 			twi0_pins_a: twi0@0 {
-				//allwinner,pins = "PH0", "PH1";
-				allwinner,pins = "PB0", "PB1";	// for fpga
+				allwinner,pins = "PH0", "PH1";
+				allwinner,pname = "twi0_scl", "twi0_sda";
 				allwinner,function = "twi0";
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
@@ -115,6 +115,7 @@
 
 			twi1_pins_a: twi1@0 {
 				allwinner,pins = "PH2", "PH3";
+				allwinner,pname = "twi1_scl", "twi1_sda";
 				allwinner,function = "twi1";
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
@@ -122,14 +123,8 @@
 
 			twi2_pins_a: twi2@0 {
 				allwinner,pins = "PE14", "PE15";
+				allwinner,pname = "twi2_scl", "twi2_sda";
 				allwinner,function = "twi2";
-				allwinner,drive = <1>;
-				allwinner,pull = <0>;
-			};
-
-			twi3_pins_a: twi3@0 {
-				allwinner,pins = "PE16", "PE17";
-				allwinner,function = "twi3";
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};

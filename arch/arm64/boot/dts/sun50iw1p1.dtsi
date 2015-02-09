@@ -29,10 +29,10 @@
 		serial2 = &uart2;
 		serial3 = &uart3;
 		serial4 = &uart4;
-		twi0 = &soc_twi0;
-		twi1 = &soc_twi1;
-		twi2 = &soc_twi2;
-		twi3 = &soc_twi3;
+		twi0 = &twi0;
+		twi1 = &twi1;
+		twi2 = &twi2;
+		twi3 = &twi3;
 		spi0 = &soc_spi0;
 		global_timer0  = &soc_timer0;
 		cci0 = &csi_cci0;
@@ -435,10 +435,11 @@
 			status = "disabled";
 		};
 
-		soc_twi0: twi@0x01c2ac00{
+		twi0: twi@0x01c2ac00{
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "allwinner,sun50i-twi";
+			device_type = "twi0";
 			reg = <0x0 0x01c2ac00 0x0 0x400>;
 			interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_twi0>;
@@ -453,10 +454,11 @@
 			};
 		};
 
-		soc_twi1: twi@0x01c2b000{
+		twi1: twi@0x01c2b000{
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "allwinner,sun50i-twi";
+			device_type = "twi1";
 			reg = <0x0 0x01c2b000 0x0 0x400>;
 			interrupts = <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_twi1>;
@@ -466,29 +468,17 @@
 			status = "disable";
 		};
 
-		soc_twi2: twi@0x01c2b400{
+		twi2: twi@0x01c2b400{
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "allwinner,sun50i-twi";
+			device_type = "twi2";
 			reg = <0x0 0x01c2b400 0x0 0x400>;
 			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_twi2>;
 			clock-frequency = <200000>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&twi2_pins_a>;
-			status = "disable";
-		};
-
-		soc_twi3: twi@0x01c2b800{
-			#address-cells = <1>;
-			#size-cells = <0>;
-			compatible = "allwinner,sun50i-twi";
-			reg = <0x0 0x01c2b800 0x0 0x400>;
-			interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk_twi3>;
-			clock-frequency = <200000>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&twi3_pins_a>;
 			status = "disable";
 		};
 
