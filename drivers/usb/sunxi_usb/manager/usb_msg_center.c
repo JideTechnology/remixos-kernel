@@ -39,7 +39,9 @@
 #include  "usbc_platform.h"
 #include  "usb_hw_scan.h"
 #include  "usb_msg_center.h"
-
+#if defined(CONFIG_AW_AXP)
+#include <linux/mfd/axp-mfd.h>
+#endif
 int sunxi_usb_disable_ehci(__u32 usbc_no);
 int sunxi_usb_enable_ehci(__u32 usbc_no);
 int sunxi_usb_disable_ohci(__u32 usbc_no);

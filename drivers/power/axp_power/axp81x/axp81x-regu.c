@@ -229,7 +229,6 @@ static struct axp_reg_init axp_regl_init_data[] = {
 	},
 	[axp81x_vcc_ldo8] = {
 		{
-			.supply_regulator = "axp81x_eldo2",
 			.constraints = {
 				.name = "axp81x_dldo4",
 				.min_uV =  700000,
