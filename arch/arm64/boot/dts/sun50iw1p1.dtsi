@@ -719,7 +719,7 @@
 			device_type = "mmc0";
 			reg = <0x0 0x01c0f000 0x0 0x1000>; /* only sdmmc0 */
 			interrupts = <GIC_SPI 60 0x0104>;  /*  */
-			clocks = <&clk_hosc>,<&clk_pll_periph0>,<&clk_sdmmc0>;
+			clocks = <&clk_hosc>,<&clk_pll_periph0x2>,<&clk_sdmmc0>;
 			clock-names = "osc24m","pll_periph0","mmc";
 			pinctrl-names = "default","sleep";
 			pinctrl-0 = <&mmc0_pins_a>;
@@ -761,7 +761,7 @@
 			device_type = "mmc1";
 			reg = <0x0 0x1C10000 0x0 0x1000>;
 			interrupts = <GIC_SPI 61 0x0104>;  /*  */
-			clocks = <&clk_hosc>,<&clk_pll_periph1>,<&clk_sdmmc1>;
+			clocks = <&clk_hosc>,<&clk_pll_periph1x2>,<&clk_sdmmc1>;
 			clock-names = "osc24m","pll_periph0","mmc";
 			pinctrl-names = "default","sleep";
 			pinctrl-0 = <&mmc1_pins_a>;
@@ -803,28 +803,28 @@
 			device_type = "mmc2";
 			reg = <0x0 0x01C11000 0x0 0x1000>;
 			interrupts = <GIC_SPI 62 0x0104>;  /*  */
-			clocks = <&clk_hosc>,<&clk_pll_periph1>,<&clk_sdmmc2>;
+			clocks = <&clk_hosc>,<&clk_pll_periph1x2>,<&clk_sdmmc2>;
 	    clock-names = "osc24m","pll_periph0","mmc";
       pinctrl-names = "default","sleep";
 			pinctrl-0 = <&mmc2_pins_a>;
 			pinctrl-1 = <&mmc2_pins_b>;
   		bus-width = <8>;
       /*mmc-ddr-1_8v;*/
-     /*mmc-hs200-1_8v;*/
-      /*mmc-hs400-1_8v;*/
+     mmc-hs200-1_8v;
+      mmc-hs400-1_8v;
       /*non-removable;*/
       /*max-frequency = <200000000>;*/
-       max-frequency = <50000000>;
+       max-frequency = <100000000>;
  
        sdc_tm4_sm0_freq0 = <0>;
        sdc_tm4_sm0_freq1 = <0>;
-       sdc_tm4_sm1_freq0 = <0>;
+       sdc_tm4_sm1_freq0 = <0x00000000>;
        sdc_tm4_sm1_freq1 = <0>;
-       sdc_tm4_sm2_freq0 = <0>;
+       sdc_tm4_sm2_freq0 = <0x00000000>;
        sdc_tm4_sm2_freq1 = <0>;
-       sdc_tm4_sm3_freq0 = <0>;
+       sdc_tm4_sm3_freq0 = <0x0a000000>;
        sdc_tm4_sm3_freq1 = <0>;
-       sdc_tm4_sm4_freq0 = <0>;
+       sdc_tm4_sm4_freq0 = <0x0a050000>;
        sdc_tm4_sm4_freq1 = <0>;
 
 			/*vmmc-supply = <&reg_3p3v>;*/
