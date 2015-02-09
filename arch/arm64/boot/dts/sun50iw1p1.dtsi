@@ -32,7 +32,6 @@
 		twi0 = &twi0;
 		twi1 = &twi1;
 		twi2 = &twi2;
-		twi3 = &twi3;
 		spi0 = &soc_spi0;
 		global_timer0  = &soc_timer0;
 		cci0 = &csi_cci0;
