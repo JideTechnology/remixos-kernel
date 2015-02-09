@@ -5,11 +5,31 @@
  */
 
 /dts-v1/;
+
+/memreserve/ 0x58000000 0x08000000; /* ion carvout heap revserve  : [0x18000000~0x20000000], size = 128M  */
 #include "sun50iw1p1.dtsi"
 
 /{
 
 	soc@01c00000 {
+
+	};
+	
+	ion {
+		compatible = "allwinner,sunxi-ion";
+		/*types is list here:
+			ION_HEAP_TYPE_SYSTEM = 0,
+			ION_HEAP_TYPE_SYSTEM_CONTIG = 1,
+			ION_HEAP_TYPE_CARVEOUT = 2,
+			ION_HEAP_TYPE_CHUNK = 3,
+			ION_HEAP_TYPE_DMA = 4
+		**/
+		carvout{
+			type = <2>;
+			name = "carvout";
+			base = <0x58000000>;
+			size = <0x08000000>;
+		};
 
 	};
 };
