@@ -518,12 +518,12 @@ static const struct sunxi_desc_pin sun50iw1p1_pins[] = {
 		  SUNXI_FUNCTION(0x0, "gpio_in"),
 		  SUNXI_FUNCTION(0x1, "gpio_out"),
 		  SUNXI_FUNCTION(0x2, "pll_lock_dgb"),
-		  SUNXI_FUNCTION(0x3, "twi0")),		/* SCK */
+		  SUNXI_FUNCTION(0x3, "twi2")),		/* SCK */
 	SUNXI_PIN(SUNXI_PINCTRL_PIN(E, 15),
 		  SUNXI_FUNCTION(0x0, "gpio_in"),
 		  SUNXI_FUNCTION(0x1, "gpio_out"),
 		  SUNXI_FUNCTION(0x2, "pll_lock_dgb"),
-		  SUNXI_FUNCTION(0x3, "twi0")),		/* SDA */
+		  SUNXI_FUNCTION(0x3, "twi2")),		/* SDA */
 	SUNXI_PIN(SUNXI_PINCTRL_PIN(E, 16),
 		  SUNXI_FUNCTION(0x0, "gpio_in"),
 		  SUNXI_FUNCTION(0x1, "gpio_out")),
