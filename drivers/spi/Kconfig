@@ -440,7 +440,7 @@ config SPI_TEGRA20_SLINK
 
 config SPI_SUNXI
    tristate "SUNXI SPI Controller"
-   depends on ARCH_SUNXI
+   depends on ARCH_SUNXI && OF
    help
        Allwinner Soc SPI controller, present on SUNXI chips.
 

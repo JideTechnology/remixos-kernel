@@ -130,7 +130,8 @@
 			};
 
 			spi0_pins_a: spi0@0 {
-				allwinner,pins = "PC0", "PC1", "PC2";
+				allwinner,pins = "PC2", "PC0", "PC1";
+				allwinner,pname = "spi0_sclk", "spi0_mosi", "spi0_miso";
 				allwinner,function = "spi0";
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
@@ -138,7 +139,24 @@
 
 			spi0_pins_b: spi0@1 {
 				allwinner,pins = "PC3";
+				allwinner,pname = "spi0_cs0";
 				allwinner,function = "spi0";
+				allwinner,drive = <1>;
+				allwinner,pull = <1>; 	// only CS should be pulled up
+			};
+
+			spi1_pins_a: spi1@0 {
+				allwinner,pins = "PD1", "PD2", "PD3";
+				allwinner,pname = "spi1_sclk", "spi1_mosi", "spi1_miso";
+				allwinner,function = "spi1";
+				allwinner,drive = <1>;
+				allwinner,pull = <0>;
+			};
+
+			spi1_pins_b: spi1@1 {
+				allwinner,pins = "PD0";
+				allwinner,pname = "spi1_cs0";
+				allwinner,function = "spi1";
 				allwinner,drive = <1>;
 				allwinner,pull = <1>; 	// only CS should be pulled up
 			};

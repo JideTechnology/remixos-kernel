@@ -1636,6 +1636,7 @@ static int sunxi_spi_probe(struct platform_device *pdev)
 	struct sunxi_spi *sspi;
 	struct sunxi_spi_platform_data *pdata;
 	struct spi_master *master;
+	char spi_para[16] = {0};
 	int ret = 0, err = 0, irq;
 
 	if (np == NULL) {
@@ -1673,16 +1674,18 @@ static int sunxi_spi_probe(struct platform_device *pdev)
 		goto err0;
 	}
 
-	ret = of_property_read_u32(np, "cs-number", &pdata->cs_num);
+	sprintf(spi_para, "spi%d_cs_number", pdev->id);
+	ret = of_property_read_u32(np, spi_para, &pdata->cs_num);
 	if (ret) {
-		SPI_ERR("Failed to get cs-number property\n");
+		SPI_ERR("Failed to get cs_number property\n");
 		ret = -EINVAL;
 		goto err0;
 	}
 
-	ret = of_property_read_u32(np, "cs-bitmap", &pdata->cs_bitmap);
+	sprintf(spi_para, "spi%d_cs_bitmap", pdev->id);
+	ret = of_property_read_u32(np, spi_para, &pdata->cs_bitmap);
 	if (ret) {
-		SPI_ERR("Failed to get cs-bitmap property\n");
+		SPI_ERR("Failed to get cs_bitmap property\n");
 		ret = -EINVAL;
 		goto err0;
 	}
