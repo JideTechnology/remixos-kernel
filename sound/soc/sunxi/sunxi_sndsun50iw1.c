@@ -39,6 +39,9 @@ struct mc_private {
 	u32 HEADSET_DATA;	/*threshod for switch insert*/
 	u32 headset_basedata;
 	u32 switch_status;
+	u32 aif2master;
+	u32 aif2fmt;
+	u32 aif3fmt;
 };
 
 /* Identify the jack type as Headset/Headphone/None */
@@ -266,10 +269,18 @@ static int bb_voice_hw_params(struct snd_pcm_substream *substream,
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_card *card = rtd->card;
+	struct mc_private *ctx = NULL;
+
 	int ret = 0;
 	int freq_in = 24576000;
 	if (params_rate(params) != 8000)
 		return -EINVAL;
+	ctx = snd_soc_card_get_drvdata(card);
+	if (ctx == NULL ){
+		pr_err("err:%s,get ctx failed.\n",__func__);
+		return -EINVAL;
+	}
 	/* set the codec aif1clk/aif2clk from pllclk */
 	ret = snd_soc_dai_set_pll(codec_dai, PLLCLK, 0, freq_in,freq_in);
 	if (ret < 0) {
@@ -283,7 +294,7 @@ static int bb_voice_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 	/* set codec DAI configuration */
-	ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_DSP_A | SND_SOC_DAIFMT_IB_NF | SND_SOC_DAIFMT_CBM_CFM);
+	ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_DSP_A | (ctx->aif2fmt << 8) | (ctx->aif2master << 12));
 	if (ret < 0) {
 		pr_err("err:%s,line:%d\n", __func__, __LINE__);
 	}
@@ -293,16 +304,62 @@ static int bb_voice_hw_params(struct snd_pcm_substream *substream,
 static struct snd_soc_ops bb_voice_ops = {
 	.hw_params = bb_voice_hw_params,
 };
-static int bt_hw_params(struct snd_pcm_substream *substream,
+static int bb_clk_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_card *card = rtd->card;
+	struct mc_private *ctx = NULL;
+
+	int ret = 0;
+	int freq_in = 24576000;
+	if (params_rate(params) != 8000)
+		return -EINVAL;
+	ctx = snd_soc_card_get_drvdata(card);
+	if (ctx == NULL ){
+		pr_err("err:%s,get ctx failed.\n",__func__);
+		return -EINVAL;
+	}
+	/* set the codec aif1clk/aif2clk from pllclk */
+	ret = snd_soc_dai_set_pll(codec_dai, PLLCLK, 0, freq_in,freq_in);
+	if (ret < 0) {
+		pr_err("err:%s,set codec dai pll failed.\n", __func__);
+		return ret;
+	}
+	/*set system clock source aif2*/
+	ret = snd_soc_dai_set_sysclk(codec_dai, AIF2_CLK , 0, 0);
+	if (ret < 0) {
+		pr_err("err:%s,set codec dai sysclk faied\n", __func__);
+		return ret;
+	}
+	/* set codec DAI configuration */
+	ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_DSP_A | SND_SOC_DAIFMT_IB_NF | SND_SOC_DAIFMT_CBM_CFM);
+	if (ret < 0) {
+		pr_err("err:%s,set codec dai fmt failed.\n", __func__);
+	}
+	return ret;
+}
+static struct snd_soc_ops bb_clk_ops = {
+	.hw_params = bb_clk_hw_params,
+};
+static int bt_hw_params(struct snd_pcm_substream *substream,
+		struct snd_pcm_hw_params *params)
+{
+	struct mc_private *ctx = NULL;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_card *card = rtd->card;
 	int ret = 0;
 	if (params_rate(params) != 8000)
 		return -EINVAL;
+	ctx = snd_soc_card_get_drvdata(card);
+	if (ctx == NULL ){
+		pr_err("err:%s,get ctx failed.\n",__func__);
+		return -EINVAL;
+	}
 	/* set codec aif3 configuration */
-	ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_IB_NF);
+	ret = snd_soc_dai_set_fmt(codec_dai, (ctx->aif3fmt << 8));
 	if (ret < 0)
 		return ret;
 	return 0;
@@ -330,6 +387,15 @@ static struct snd_soc_dai_link sunxi_sndpcm_dai_link[] = {
 	.codec_dai_name = "codec-aif2",
 	.codec_name = "sunxi-pcm-codec",
 	.ops = &bb_voice_ops,
+	},
+/**/
+	{
+	.name = "bbclk",
+	.stream_name = "bb-bt-clk",
+	.cpu_dai_name = "bb-dai",
+	.codec_dai_name = "codec-aif2",
+	.codec_name = "sunxi-pcm-codec",
+	.ops = &bb_clk_ops,
 	},
 	{
 	.name = "bt",
@@ -381,6 +447,7 @@ static const struct snd_soc_component_driver voice_component = {
 static int sun50iw1_machine_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+	u32 temp_val;
 	struct mc_private *ctx = NULL;
 	struct device_node *np = pdev->dev.of_node;
 	if (!np) {
@@ -411,6 +478,33 @@ static int sun50iw1_machine_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto err1;
 	}
+
+	ret = of_property_read_u32(np, "aif2fmt",&temp_val);
+	if (ret < 0) {
+		pr_err("[audio]aif2fmt configurations missing or invalid.\n");
+	} else {
+		ctx->aif2fmt = temp_val;
+	}
+
+	ret = of_property_read_u32(np, "aif3fmt",&temp_val);
+	if (ret < 0) {
+		pr_err("[audio]aif3fmt configurations missing or invalid.\n");
+	} else {
+		ctx->aif3fmt = temp_val;
+	}
+
+	ret = of_property_read_u32(np, "aif3fmt",&temp_val);
+	if (ret < 0) {
+		pr_err("[audio]aif3fmt configurations missing or invalid.\n");
+	} else {
+		ctx->aif3fmt = temp_val;
+	}
+	ret = of_property_read_u32(np, "aif2master",&temp_val);
+	if (ret < 0) {
+		pr_err("[audio]aif2master configurations missing or invalid.\n");
+	} else {
+		ctx->aif2master = temp_val;
+	}
 	sunxi_sndpcm_dai_link[0].cpu_dai_name = NULL;
 	sunxi_sndpcm_dai_link[0].cpu_of_node = of_parse_phandle(np,
 				"sunxi,i2s-controller", 0);
@@ -433,8 +527,12 @@ static int sun50iw1_machine_probe(struct platform_device *pdev)
 	}
 	sunxi_sndpcm_dai_link[1].codec_name = NULL;
 	sunxi_sndpcm_dai_link[1].codec_of_node = sunxi_sndpcm_dai_link[0].codec_of_node;
+
 	sunxi_sndpcm_dai_link[2].codec_name = NULL;
 	sunxi_sndpcm_dai_link[2].codec_of_node = sunxi_sndpcm_dai_link[0].codec_of_node;
+
+	sunxi_sndpcm_dai_link[3].codec_name = NULL;
+	sunxi_sndpcm_dai_link[3].codec_of_node = sunxi_sndpcm_dai_link[0].codec_of_node;
 
 	ret = snd_soc_register_card(&snd_soc_sunxi_sndpcm);
 	if (ret) {

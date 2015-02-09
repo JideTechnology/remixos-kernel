@@ -2045,6 +2045,8 @@ struct sunxi_codec {
 	u8 aif1_clken;
 	u8 aif2_clken;
 	u8 aif3_clken;
+	u32 aif1_lrlk_div;
+	u32 aif2_lrlk_div;
 	//u8 sysconfig:1;
 };
 #endif

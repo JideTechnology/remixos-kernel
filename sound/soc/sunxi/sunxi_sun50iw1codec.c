@@ -1522,15 +1522,22 @@ static int codec_hw_params(struct snd_pcm_substream *substream,
 	int aif1_word_size = 16;
 	int aif1_lrlk_div = 64;
 	struct snd_soc_codec *codec = codec_dai->codec;
+	struct sunxi_codec *sunxi_internal_codec = snd_soc_codec_get_drvdata(codec);
 
 	switch (codec_dai->id) {
 		case 1:
 			AIF_CLK_CTRL = SUNXI_AIF1_CLK_CTRL;
-			aif1_lrlk_div = 64;
+			if (sunxi_internal_codec->aif1_lrlk_div == 0)
+				aif1_lrlk_div = 64;
+			else
+				aif1_lrlk_div = sunxi_internal_codec->aif1_lrlk_div;
 			break;
 		case 2:
 			AIF_CLK_CTRL = SUNXI_AIF2_CLK_CTRL;
-			aif1_lrlk_div = 64;
+			if (sunxi_internal_codec->aif2_lrlk_div == 0)
+				aif1_lrlk_div = 64;
+			else
+				aif1_lrlk_div = sunxi_internal_codec->aif2_lrlk_div;
 			break;
 		default:
 			return -EINVAL;
@@ -2227,9 +2234,27 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 	} else {
 		sunxi_internal_codec->aif_config.aif3config = temp_val;
 	}
+
+	ret = of_property_read_u32(node, "aif1_lrlk_div",&temp_val);
+	if (ret < 0) {
+		pr_err("[audio-codec]aif1_lrlk_div configurations missing or invalid.\n");
+		ret = -EINVAL;
+		goto err1;
+	} else {
+		sunxi_internal_codec->aif1_lrlk_div = temp_val;
+	}
+	ret = of_property_read_u32(node, "aif2_lrlk_div",&temp_val);
+	if (ret < 0) {
+		pr_err("[audio-codec]aif2_lrlk_div configurations missing or invalid.\n");
+		ret = -EINVAL;
+		goto err1;
+	} else {
+		sunxi_internal_codec->aif2_lrlk_div = temp_val;
+	}
+
 	pr_debug("headphonevol:%d,spkervol:%d, earpiecevol:%d maingain:%d headsetmicgain:%d \
 			adcagc_cfg:%d, adcdrc_cfg:%d, adchpf_cfg:%d, dacdrc_cfg:%d \
-			dachpf_cfg:%d,aif2config:%d,aif3config:%d\n",
+			dachpf_cfg:%d,aif2config:%d,aif3config:%d,aif1_lrlk_div:%d,aif2_lrlk_div:%d\n",
 		sunxi_internal_codec->gain_config.headphonevol,
 		sunxi_internal_codec->gain_config.spkervol,
 		sunxi_internal_codec->gain_config.earpiecevol,
@@ -2241,7 +2266,9 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		sunxi_internal_codec->hwconfig.dacdrc_cfg,
 		sunxi_internal_codec->hwconfig.dachpf_cfg,
 		sunxi_internal_codec->aif_config.aif2config,
-		sunxi_internal_codec->aif_config.aif3config
+		sunxi_internal_codec->aif_config.aif3config,
+		sunxi_internal_codec->aif1_lrlk_div,
+		sunxi_internal_codec->aif2_lrlk_div
 	);
 
 	snd_soc_register_codec(&pdev->dev, &soc_codec_dev_codec, codec_dai, ARRAY_SIZE(codec_dai));

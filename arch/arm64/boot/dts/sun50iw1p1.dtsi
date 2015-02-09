@@ -585,7 +585,8 @@
 			adchpf_cfg =  <0x0>;
 			dacdrc_cfg =  <0x0>;
 			dachpf_cfg =  <0x0>;
-
+ 			aif1_lrlk_div = <0x40>;
+ 			aif2_lrlk_div = <0x40>;
 			aif2config = <0x0>;
 			aif3config = <0x0>;
 			status = "okay";
@@ -603,6 +604,9 @@
 			interrupts = <GIC_SPI 61 0x101>;
 			sunxi,i2s-controller = <&sun50i2s>;
 			sunxi,audio-codec = <&sun50codec>;
+			aif2fmt = <3>;
+			aif3fmt = <3>;
+			aif2master = <1>;
 			status = "okay";
 		};
 
