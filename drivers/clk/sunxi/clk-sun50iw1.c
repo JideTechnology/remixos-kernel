@@ -833,8 +833,26 @@ void of_pll_clk_setup(struct device_node *node)
 			/*add to of */
 			if (!IS_ERR(clk))
 			{
+				u32 assigned_clock_rates = 0;
 				clk_register_clkdev(clk, clk_name, NULL);
 				of_clk_add_provider(node, of_clk_src_simple_get, clk);
+				
+				/*set pll default rate here , and make you know it is setted succeed or not*/
+				if( !of_property_read_u32( node , "assigned-clock-rates" , &assigned_clock_rates) )
+				{
+					u32 real_clock_rate = 0;
+					clk_set_rate(clk , assigned_clock_rates);
+					real_clock_rate = clk_get_rate(clk);
+					if( real_clock_rate != assigned_clock_rates )
+					{
+						pr_info("%s-set_default_rate=%u , but real_get_rate=%u failured!\n" , 
+							clk_name , assigned_clock_rates , real_clock_rate );
+					}
+					else
+					{
+						pr_info("%s-set_default_rate=%u success!\n", clk_name , assigned_clock_rates);
+					}
+				}
 				/*pr_err( "%s : %s \n", __func__ , clk_name );*/
 				return ;
 			}
