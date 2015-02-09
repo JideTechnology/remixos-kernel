@@ -798,7 +798,6 @@ void of_sunxi_clocks_init(struct device_node *node)
 {
 	sunxi_clk_base = of_iomap(node ,0);
 	sunxi_clk_cpus_base = of_iomap(node , 1); 
-	const char* clk_name = "sunxi_clk_base  sunxi_clk_cpus_base";
 	/*do some initialize arguments here*/
 	sunxi_clk_factor_initlimits();
 	
@@ -808,7 +807,7 @@ void of_sunxi_clocks_init(struct device_node *node)
 	pll_mipi_ops.enable = clk_enable_pll_mipi;
 	pll_mipi_ops.disable = clk_disable_pll_mipi;
 	
-	/*pr_err( "%s : %s \n", __func__ , clk_name );*/
+	/*pr_info( "%s : sunxi_clk_base[0x%llx] sunxi_clk_cpus_base[0x%llx] \n", __func__ , (u64)sunxi_clk_base , (u64)sunxi_clk_cpus_base );*/
 }
 
 
