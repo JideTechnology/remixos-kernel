@@ -299,17 +299,22 @@ static void sw_uart_force_lcr(struct sw_uart_port *sw_uport, unsigned msecs)
 	unsigned long expire = jiffies + msecs_to_jiffies(msecs);
 	struct uart_port *port = &sw_uport->port;
 
-	serial_out(port, SUNXI_UART_HALT_FORCECFG, SUNXI_UART_HALT);
+	/* hold tx so that uart will update lcr and baud in the gap of rx */
+	serial_out(port, SUNXI_UART_HALT_HTX|SUNXI_UART_HALT_FORCECFG, SUNXI_UART_HALT);
+	serial_out(port, sw_uport->lcr|SUNXI_UART_LCR_DLAB, SUNXI_UART_LCR);
 	serial_out(port, sw_uport->dll, SUNXI_UART_DLL);
 	serial_out(port, sw_uport->dlh, SUNXI_UART_DLH);
-	serial_out(port, sw_uport->lcr, SUNXI_UART_LCR);
-	serial_out(port, SUNXI_UART_HALT_FORCECFG|SUNXI_UART_HALT_LCRUP, SUNXI_UART_HALT);
+	serial_out(port, SUNXI_UART_HALT_HTX|SUNXI_UART_HALT_FORCECFG|SUNXI_UART_HALT_LCRUP, SUNXI_UART_HALT);
 	while (time_before(jiffies, expire) && (serial_in(port, SUNXI_UART_HALT) & SUNXI_UART_HALT_LCRUP));
-	/* do not call printk here, yemao 2013-5-20 15:00:38
-	if (serial_in(port, SUNXI_UART_HALT) & SUNXI_UART_HALT_LCRUP)
-		SERIAL_MSG("uart%d, Force LCR failed\n", sw_uport->id);
-	*/
-	serial_out(port, 0, SUNXI_UART_HALT);
+
+	/*
+	 * In fact there are two DLABs(DLAB and DLAB_BAK) in the hardware implementation.
+	 * The DLAB_BAK is sellected only when SW_UART_HALT_FORCECFG is set to 1,
+	 * and this bit can be access no matter uart is busy or not.
+	 * So we select the DLAB_BAK always by leaving SW_UART_HALT_FORCECFG to be 1.
+	 */
+	serial_out(port, sw_uport->lcr, SUNXI_UART_LCR);
+	serial_out(port, SUNXI_UART_HALT_FORCECFG, SUNXI_UART_HALT);
 }
 
 static irqreturn_t sw_uart_irq(int irq, void *dev_id)
@@ -617,7 +622,6 @@ static void sw_uart_set_termios(struct uart_port *port, struct ktermios *termios
 	struct sw_uart_port *sw_uport = UART_TO_SPORT(port);
 	unsigned long flags;
 	unsigned int baud, quot, lcr = 0, dll, dlh;
-	unsigned int lcr_fail = 0;
 
 	SERIAL_DBG("set termios ...\n");
 	switch (termios->c_cflag & CSIZE) {
@@ -683,16 +687,6 @@ static void sw_uart_set_termios(struct uart_port *port, struct ktermios *termios
 	if ((termios->c_cflag & CREAD) == 0)
 		port->ignore_status_mask |= SUNXI_UART_LSR_DR;
 
-	/*
-	 * if lcr & baud are changed, reset controller to disable transfer
-	 */
-	if (lcr != sw_uport->lcr || dll != sw_uport->dll || dlh != sw_uport->dlh) {
-//		SERIAL_DBG("LCR & BAUD changed, reset controller...\n");
-		sw_uart_reset(sw_uport);
-	}
-	sw_uport->dll = dll;
-	sw_uport->dlh = dlh;
-
 	/* flow control */
 	sw_uport->mcr &= ~SUNXI_UART_MCR_AFE;
 	if (termios->c_cflag & CRTSCTS)
@@ -712,27 +706,10 @@ static void sw_uart_set_termios(struct uart_port *port, struct ktermios *termios
 	serial_out(port, sw_uport->fcr, SUNXI_UART_FCR);
 
 	sw_uport->lcr = lcr;
-	serial_out(port, sw_uport->lcr|SUNXI_UART_LCR_DLAB, SUNXI_UART_LCR);
-	if (serial_in(port, SUNXI_UART_LCR) != (sw_uport->lcr|SUNXI_UART_LCR_DLAB)) {
-		lcr_fail = 1;
-	} else {
-		sw_uport->lcr = lcr;
-		serial_out(port, sw_uport->dll, SUNXI_UART_DLL);
-		serial_out(port, sw_uport->dlh, SUNXI_UART_DLH);
-		serial_out(port, sw_uport->lcr, SUNXI_UART_LCR);
-		if (serial_in(port, SUNXI_UART_LCR) != sw_uport->lcr) {
-			lcr_fail = 2;
-		}
-	}
+	sw_uport->dll = dll;
+	sw_uport->dlh = dlh;
+	sw_uart_force_lcr(sw_uport, 50);
 
-	#ifdef CONFIG_SW_UART_FORCE_LCR
-	if (lcr_fail) {
-		sw_uart_force_lcr(sw_uport, 50);
-		serial_in(port, SUNXI_UART_USR);
-	}
-	#endif
-	/* clear rxfifo after set lcr & baud to discard redundant data */
-	serial_out(port, sw_uport->fcr|SUNXI_UART_FCR_RXFIFO_RST, SUNXI_UART_FCR);
 	port->ops->set_mctrl(port, port->mctrl);
 
 	/* Must save the current config for the resume of console(no tty user). */
@@ -740,15 +717,7 @@ static void sw_uart_set_termios(struct uart_port *port, struct ktermios *termios
 		port->cons->cflag = termios->c_cflag;
 
 	spin_unlock_irqrestore(&port->lock, flags);
-	/* lately output force lcr information */
-	if (lcr_fail == 1) {
-		SERIAL_MSG("uart%d write LCR(pre-dlab) failed, lcr %x reg %x\n",
-			sw_uport->id, sw_uport->lcr|(u32)SUNXI_UART_LCR_DLAB,
-			serial_in(port, SUNXI_UART_LCR));
-	} else if (lcr_fail == 2) {
-		SERIAL_MSG("uart%d write LCR(post-dlab) failed, lcr %x reg %x\n",
-			sw_uport->id, sw_uport->lcr, serial_in(port, SUNXI_UART_LCR));
-	}
+
 	/* Don't rewrite B0 */
 	if (tty_termios_baud_rate(termios))
 		tty_termios_encode_baud_rate(termios, baud, baud);
