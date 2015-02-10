@@ -678,6 +678,7 @@ struct clk *__clk_lookup(const char *name)
 
 	return NULL;
 }
+EXPORT_SYMBOL(__clk_lookup);
 
 /***        clk api        ***/
 
