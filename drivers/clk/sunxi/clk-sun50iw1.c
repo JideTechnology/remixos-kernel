@@ -810,6 +810,55 @@ void of_sunxi_clocks_init(struct device_node *node)
 	/*pr_info( "%s : sunxi_clk_base[0x%llx] sunxi_clk_cpus_base[0x%llx] \n", __func__ , (u64)sunxi_clk_base , (u64)sunxi_clk_cpus_base );*/
 }
 
+void of_sunxi_fixed_clk_setup(struct device_node *node)
+{
+	struct clk *clk;
+	const char *clk_name = node->name;
+	u32 rate;
+
+	if (of_property_read_u32(node, "clock-frequency", &rate))
+		return;
+
+	of_property_read_string(node, "clock-output-names", &clk_name);
+
+	clk = clk_register_fixed_rate(NULL, clk_name, NULL, CLK_IS_ROOT, rate);
+	if (!IS_ERR(clk))
+	{
+		clk_register_clkdev(clk, clk_name, NULL);
+		of_clk_add_provider(node, of_clk_src_simple_get, clk);
+	}
+}
+
+void of_sunxi_fixed_factor_clk_setup(struct device_node *node)
+{
+	struct clk *clk;
+	const char *clk_name = node->name;
+	const char *parent_name;
+	u32 div, mult;
+
+	if (of_property_read_u32(node, "clock-div", &div)) {
+		pr_err("%s Fixed factor clock <%s> must have a clock-div property\n",
+			__func__, node->name);
+		return;
+	}
+
+	if (of_property_read_u32(node, "clock-mult", &mult)) {
+		pr_err("%s Fixed factor clock <%s> must have a clokc-mult property\n",
+			__func__, node->name);
+		return;
+	}
+
+	of_property_read_string(node, "clock-output-names", &clk_name);
+	parent_name = of_clk_get_parent_name(node, 0);
+
+	clk = clk_register_fixed_factor(NULL, clk_name, parent_name, 0,
+					mult, div);
+	if (!IS_ERR(clk))
+	{
+		clk_register_clkdev(clk, clk_name, NULL);
+		of_clk_add_provider(node, of_clk_src_simple_get, clk);
+	}
+}
 
 /**
  * of_pll_clk_setup() - Setup function for pll factors clk
@@ -933,7 +982,9 @@ void of_periph_cpus_clk_setup(struct device_node *node)
 
 
 CLK_OF_DECLARE(sunxi_clocks_init, "allwinner,sunxi-clk-init", of_sunxi_clocks_init);
+CLK_OF_DECLARE(sunxi_fixed_clk, "allwinner,fixed-clock", of_sunxi_fixed_clk_setup);
 CLK_OF_DECLARE(pll_clk, "allwinner,sunxi-pll-clock", of_pll_clk_setup);
+CLK_OF_DECLARE(sunxi_fixed_factor_clk, "allwinner,fixed-factor-clock", of_sunxi_fixed_factor_clk_setup);
 CLK_OF_DECLARE(periph_clk, "allwinner,sunxi-periph-clock", of_periph_clk_setup);
 CLK_OF_DECLARE(periph_cpus_clk, "allwinner,sunxi-periph-cpus-clock", of_periph_cpus_clk_setup);
 
