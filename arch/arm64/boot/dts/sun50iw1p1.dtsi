@@ -510,12 +510,12 @@
 			                      <0x0 0x01c00000 0x0 0x100>; /*sram base*/
 			interrupts          = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
 			clocks              = <&clk_usbphy0>, <&clk_usbotg>;
-			status = "okay";
+			status              = "okay";
 		};
 
 		ehci0:ehci0-controller@0x01c1a000 {
 			compatible          = "allwinner,sun50i-ehci0";
-			reg                 = <0x0 0x01c1a000 0x0 0x900>, /*ehci0 base*/
+			reg                 = <0x0 0x01c1a000 0x0 0xFFF>, /*hci0 base*/
 			                      <0x0 0x01c00000 0x0 0x100>, /*sram base*/
 			                      <0x0 0x01c19000 0x0 0x1000>; /*otg base*/
 			interrupts          = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
@@ -526,7 +526,7 @@
 
 		ohci0:ohci0-controller@0x01c1a400 {
 			compatible          = "allwinner,sun50i-ohci0";
-			reg                 = <0x0 0x01c1a400 0x0 0x500>, /*ohci0 base*/
+			reg                 = <0x0 0x01c1a000 0x0 0xFFF>, /*hci0 base*/
 			                      <0x0 0x01c00000 0x0 0x100>, /*sram base*/
 			                      <0x0 0x01c19000 0x0 0x1000>; /*otg base*/
 			interrupts          = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>;
@@ -537,18 +537,18 @@
 
 		usbc1@0 {
 			device_type         = "usbc1";
-			usb_used            = <1>;
+			usbc1_used          = <1>;
 			usb_drv_vbus_gpio   = <&pio PB 6 1 1 1 1>;
 			usb_host_init_state = <1>;
 			usb_regulator_io    = "nocare";
 			usb_regulator_vol   = <0>;
 			usb_wakeup_suspend  = <0>;
-			status = "okay";
+			status              = "okay";
 		};
 
 		ehci1:ehci1-controller@0x01c1b000 {
 			compatible          = "allwinner,sun50i-ehci1";
-			reg                 = <0x0 0x01c1b000 0x0 0x900>;/*ehci1 base*/
+			reg                 = <0x0 0x01c1b000 0x0 0xFFF>;/*hci1 base*/
 			interrupts          = <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>;
 			clocks              = <&clk_usbphy1>, <&clk_usbehci1>;
 			hci_ctrl_no         = <1>;
@@ -557,7 +557,7 @@
 
 		ohci1:ohci1-controller@0x01c1b400 {
 			compatible          = "allwinner,sun50i-ohci1";
-			reg                 = <0x0 0x01c1b400 0x0 0x500>;/*ohci1 base*/
+			reg                 = <0x0 0x01c1b000 0x0 0xFFF>;/*hci1 base*/
 			interrupts          = <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH>;
 			clocks              = <&clk_usbphy1>, <&clk_usbohci1>;
 			hci_ctrl_no         = <1>;

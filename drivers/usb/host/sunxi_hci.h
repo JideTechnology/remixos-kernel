@@ -73,7 +73,7 @@
 #define  USBC_REG_clear_bit_l(bp, reg)          (USBC_Writel((USBC_Readl(reg) & (~ (1 << (bp)))) , (reg)))
 
 #define SUNXI_USB_EHCI_BASE_OFFSET              0x00
-#define SUNXI_USB_OHCI_BASE_OFFSET              0x00
+#define SUNXI_USB_OHCI_BASE_OFFSET              0x400
 #define SUNXI_USB_EHCI_LEN                      0x58
 #define SUNXI_USB_OHCI_LEN                      0x58
 

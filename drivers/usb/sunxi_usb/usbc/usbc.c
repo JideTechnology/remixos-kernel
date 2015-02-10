@@ -608,9 +608,8 @@ void USBC_SelectBus(__hdle hUSB, __u32 io_type, __u32 ep_type, __u32 ep_index)
 
 	/* in 1667 1673 and later ic, FIFO_BUS_SEL bit(bit24 of reg0x40 for host/device)
 	 * is fixed to 1, the hw guarantee that it's ok for cpu/inner_dma/outer_dma transfer */
-#ifdef SW_UDC_DMA_INNER
+
 	reg_val |= 0x1<<USBC_BP_VEND0_BUS_SEL;
-#endif
 
 	USBC_Writeb(reg_val, USBC_REG_VEND0(usbc_otg->base_addr));
 }

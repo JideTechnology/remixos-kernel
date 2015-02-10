@@ -303,8 +303,7 @@ static int alloc_pin(struct sunxi_hci_hcd *sunxi_hci)
 	if(sunxi_hci->drv_vbus_gpio_valid){
 		ret = gpio_request(sunxi_hci->drv_vbus_gpio_set.gpio.gpio, NULL);
 		if(ret != 0){
-			DMSG_PANIC("ERR: gpio_request failed\n");
-			sunxi_hci->drv_vbus_gpio_valid = 0;
+			DMSG_PANIC("request %s gpio:%d\n", sunxi_hci->hci_name, sunxi_hci->drv_vbus_gpio_set.gpio.gpio);
 		}else{
 			gpio_direction_output(sunxi_hci->drv_vbus_gpio_set.gpio.gpio, 0);
 		}

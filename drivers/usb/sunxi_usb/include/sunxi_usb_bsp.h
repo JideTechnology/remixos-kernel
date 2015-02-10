@@ -123,7 +123,7 @@
 #define  USBC_REG_o_PHYBIST				0x0408
 #define  USBC_REG_o_PHYTUNE				0x040c
 
-#if !defined (CONFIG_ARCH_SUN50I)
+#ifdef   CONFIG_ARCH_SUN50I
 #define  USBPHYC_REG_o_PHYCTL		    0x0410
 #else
 #define  USBPHYC_REG_o_PHYCTL		    0x0404

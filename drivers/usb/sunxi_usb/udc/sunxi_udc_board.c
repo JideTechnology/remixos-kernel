@@ -56,6 +56,7 @@ u32  open_usb_clock(sunxi_udc_io_t *sunxi_udc_io)
 			sunxi_udc_io->ahb_otg, sunxi_udc_io->mod_usbotg, sunxi_udc_io->mod_usbphy, sunxi_udc_io->clk_is_open);
 	}
 
+	UsbPhyInit(0);
 #if defined (CONFIG_ARCH_SUN50I)
 	/*otg and hci0 Controller Shared phy in SUN50I*/
 	USBC_SelectPhyToDevice(sunxi_udc_io->usb_vbase);
@@ -107,6 +108,8 @@ __s32 sunxi_udc_bsp_init(sunxi_udc_io_t *sunxi_udc_io)
 	USBC_ForceVbusValid(sunxi_udc_io->usb_bsp_hdle, USBC_VBUS_TYPE_HIGH);
 
 	USBC_SelectBus(sunxi_udc_io->usb_bsp_hdle, USBC_IO_TYPE_PIO, 0, 0);
+
+	USBC_PHY_Clear_Ctl(sunxi_udc_io->usb_vbase, 1);
 
 	/* config usb fifo */
 	spin_lock_init(&lock);

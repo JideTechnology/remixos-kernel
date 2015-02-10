@@ -17,7 +17,7 @@
 #define  __SUNXI_UDC_DMA_H__
 
 #ifdef  SW_UDC_DMA
-#define  is_udc_support_dma()		0
+#define  is_udc_support_dma()		1
 #else
 #define  is_udc_support_dma()		0
 #endif

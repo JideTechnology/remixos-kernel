@@ -46,6 +46,10 @@
 #include  <linux/of_device.h>
 #include  <linux/dma-mapping.h>
 
+#if defined(CONFIG_AW_AXP)
+#include <linux/mfd/axp-mfd.h>
+#endif
+
 #define DRIVER_DESC	"SoftWinner USB Device Controller"
 #define DRIVER_VERSION	"20080411"
 #define DRIVER_AUTHOR	"SoftWinner USB Developer"
@@ -1526,7 +1530,6 @@ static irqreturn_t sunxi_udc_irq(int dummy, void *_dev)
 
 		dev->address = 0;
 		dev->ep0state = EP0_IDLE;
-		dev->gadget.speed = USB_SPEED_FULL;
 		g_irq_debug = 0;
 		g_queue_debug = 0;
 		g_dma_debug = 0;
