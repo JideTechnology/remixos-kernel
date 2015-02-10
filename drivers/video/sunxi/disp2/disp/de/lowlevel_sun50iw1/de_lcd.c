@@ -446,8 +446,6 @@ s32 tcon0_cfg(u32 sel, disp_panel_para * panel)
 		lcd_dev[sel]->tcon0_lvds_ctl.bits.tcon0_lvds_correct_mode = 0;
 		lcd_dev[sel]->tcon0_lvds_ctl.bits.tcon0_lvds_dir = 0;
 		lcd_dev[sel]->tcon0_lvds_ctl.bits.tcon0_lvds_clk_sel = 1;
-		lcd_dev[sel]->tcon0_lvds_ctl.bits.tcon0_lvds_data_revert = 0xf;
-		lcd_dev[sel]->tcon0_lvds_ctl.bits.tcon0_lvds_clk_revert = 0x1;
 		panel->lcd_fresh_mode = 0;
         tcon0_cfg_mode_auto(sel,panel);
 	}

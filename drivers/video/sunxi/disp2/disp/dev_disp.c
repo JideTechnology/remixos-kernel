@@ -442,7 +442,6 @@ static s32 parser_disp_init_para(const struct device_node *np, disp_init_para * 
 	return 0;
 }
 
-#ifdef FB_RESERVED_MEM
 void *disp_malloc(u32 num_bytes, void *phys_addr)
 {
 	u32 actual_bytes;
@@ -451,7 +450,7 @@ void *disp_malloc(u32 num_bytes, void *phys_addr)
 	if (num_bytes != 0) {
 		actual_bytes = MY_BYTE_ALIGN(num_bytes);
 
-		address = dma_alloc_coherent(NULL, actual_bytes, (dma_addr_t*)phys_addr, GFP_KERNEL);
+		address = dma_alloc_coherent(g_disp_drv.dev, actual_bytes, (dma_addr_t*)phys_addr, GFP_KERNEL);
 		if (address) {
 			__inf("dma_alloc_coherent ok, address=0x%p, size=0x%x\n", (void*)(*(unsigned long*)phys_addr), num_bytes);
 			return address;
@@ -472,11 +471,10 @@ void  disp_free(void *virt_addr, void* phys_addr, u32 num_bytes)
 
 	actual_bytes = MY_BYTE_ALIGN(num_bytes);
 	if (phys_addr && virt_addr)
-		dma_free_coherent(NULL, actual_bytes, virt_addr, (dma_addr_t)phys_addr);
+		dma_free_coherent(g_disp_drv.dev, actual_bytes, virt_addr, (dma_addr_t)phys_addr);
 
 	return ;
 }
-#endif
 
 s32 disp_set_hdmi_func(struct disp_hdmi_func * func)
 {

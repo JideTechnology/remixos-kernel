@@ -171,6 +171,7 @@ int disp_sys_script_get_item(char *main_name, char *sub_name, int value[], int t
 	u32 len = 0;
 	struct device_node *node;
 	int ret = 0;
+	struct gpio_config config;
 
 	len = sprintf(compat, "allwinner,sunxi-%s", main_name);
 	if (len > 32)
@@ -178,9 +179,9 @@ int disp_sys_script_get_item(char *main_name, char *sub_name, int value[], int t
 
 	node = of_find_compatible_node(NULL, NULL, compat);
 	if (!node) {
-        __wrn("of_find_compatible_node %s fail\n", compat);
+		__wrn("of_find_compatible_node %s fail\n", compat);
 		return ret;
-    }
+	}
 
 	if (1 == type) {
 		if (of_property_read_u32_array(node, sub_name, value, 1))
@@ -196,38 +197,25 @@ int disp_sys_script_get_item(char *main_name, char *sub_name, int value[], int t
 			ret = type;
 			memcpy((void*)value, str, strlen(str)+1);
 		}
-	}
-#if 0
-	script_item_u   val;
-	script_item_value_type_e  type;
-	int ret = -1;
-
-	type = script_get_item(main_name, sub_name, &val);
-	if (SCIRPT_ITEM_VALUE_TYPE_INT == type) {
-		ret = 0;
-		*value = val.val;
-		__inf("%s.%s=%d\n", main_name, sub_name, *value);
-	} else if (SCIRPT_ITEM_VALUE_TYPE_PIO == type) {
+	} else if (3 == type) {
 		disp_gpio_set_t *gpio_info = (disp_gpio_set_t *)value;
+		int gpio;
 
-		ret = 0;
-		gpio_info->gpio = val.gpio.gpio;
-		gpio_info->mul_sel = val.gpio.mul_sel;
-		gpio_info->pull = val.gpio.pull;
-		gpio_info->drv_level = val.gpio.drv_level;
-		gpio_info->data = val.gpio.data;
+		gpio = of_get_named_gpio_flags(node, sub_name, 0, (enum of_gpio_flags *)&config);
+		if (!gpio_is_valid(gpio))
+			goto exit;
+
+		gpio_info->gpio = config.gpio;
+		gpio_info->mul_sel = config.mul_sel;
+		gpio_info->pull = config.pull;
+		gpio_info->drv_level = config.drv_level;
+		gpio_info->data = config.data;
 		memcpy(gpio_info->gpio_name, sub_name, strlen(sub_name)+1);
 		__inf("%s.%s gpio=%d,mul_sel=%d,data:%d\n",main_name, sub_name, gpio_info->gpio, gpio_info->mul_sel, gpio_info->data);
-	} else if (SCIRPT_ITEM_VALUE_TYPE_STR == type) {
-		memcpy((void*)value, (void*)val.str, strlen(val.str)+1);
-		__inf("%s.%s=%s\n",main_name, sub_name, val.str);
-	} else {
-		ret = -1;
-		__inf("fetch script data %s.%s fail\n", main_name, sub_name);
+		ret = type;
 	}
 
-	return type;
-#endif
+exit:
 	return ret;
 }
 EXPORT_SYMBOL(disp_sys_script_get_item);
@@ -239,7 +227,6 @@ int disp_sys_get_ic_ver(void)
 
 int disp_sys_gpio_request(disp_gpio_set_t *gpio_list, u32 group_count_max)
 {
-#if 0
 	int ret = 0;
 	struct gpio_config pin_cfg;
 	char   pin_name[32];
@@ -258,7 +245,8 @@ int disp_sys_gpio_request(disp_gpio_set_t *gpio_list, u32 group_count_max)
 		__wrn("%s failed, gpio_name=%s, gpio=%d, ret=%d\n", __func__, gpio_list->gpio_name, gpio_list->gpio, ret);
 		return ret;
 	} else {
-		__inf("%s, gpio_name=%s, gpio=%d, ret=%d\n", __func__, gpio_list->gpio_name, gpio_list->gpio, ret);
+		__inf("%s, gpio_name=%s, gpio=%d, <%d,%d,%d,%d>ret=%d\n", __func__, gpio_list->gpio_name, gpio_list->gpio,\
+			gpio_list->mul_sel, gpio_list->pull, gpio_list->drv_level, gpio_list->data, ret);
 	}
 	ret = pin_cfg.gpio;
 
@@ -295,8 +283,6 @@ int disp_sys_gpio_request(disp_gpio_set_t *gpio_list, u32 group_count_max)
 	}
 
 	return ret;
-#endif
-	return 0;
 }
 EXPORT_SYMBOL(disp_sys_gpio_request);
 
@@ -444,9 +430,9 @@ exit:
 }
 EXPORT_SYMBOL(disp_sys_power_disable);
 
-int disp_sys_pwm_request(u32 pwm_id)
+uintptr_t disp_sys_pwm_request(u32 pwm_id)
 {
-	int ret = 0;
+	uintptr_t ret = 0;
 #ifdef CONFIG_PWM_SUNXI
 	struct pwm_device *pwm_dev;
 
@@ -462,7 +448,7 @@ int disp_sys_pwm_request(u32 pwm_id)
 	return ret;
 }
 
-int disp_sys_pwm_free(int p_handler)
+int disp_sys_pwm_free(uintptr_t p_handler)
 {
 	int ret = 0;
 #ifdef CONFIG_PWM_SUNXI
@@ -480,7 +466,7 @@ int disp_sys_pwm_free(int p_handler)
 	return ret;
 }
 
-int disp_sys_pwm_enable(int p_handler)
+int disp_sys_pwm_enable(uintptr_t p_handler)
 {
 	int ret = 0;
 #ifdef CONFIG_PWM_SUNXI
@@ -498,7 +484,7 @@ int disp_sys_pwm_enable(int p_handler)
 	return ret;
 }
 
-int disp_sys_pwm_disable(int p_handler)
+int disp_sys_pwm_disable(uintptr_t p_handler)
 {
 	int ret = 0;
 #ifdef CONFIG_PWM_SUNXI
@@ -516,7 +502,7 @@ int disp_sys_pwm_disable(int p_handler)
 	return ret;
 }
 
-int disp_sys_pwm_config(int p_handler, int duty_ns, int period_ns)
+int disp_sys_pwm_config(uintptr_t p_handler, int duty_ns, int period_ns)
 {
 	int ret = 0;
 #ifdef CONFIG_PWM_SUNXI
@@ -534,7 +520,7 @@ int disp_sys_pwm_config(int p_handler, int duty_ns, int period_ns)
 	return ret;
 }
 
-int disp_sys_pwm_set_polarity(int p_handler, int polarity)
+int disp_sys_pwm_set_polarity(uintptr_t p_handler, int polarity)
 {
 	int ret = 0;
 #ifdef CONFIG_PWM_SUNXI

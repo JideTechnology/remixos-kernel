@@ -17,7 +17,7 @@ struct disp_lcd_private_data
 	u32                       power_enabled;
 	u32                       bl_need_enabled;
 	struct {
-		s32                     dev;
+		uintptr_t               dev;
 		u32                     channel;
 		u32                     polarity;
 		u32                     period_ns;
@@ -627,7 +627,7 @@ static void lcd_get_sys_config(u32 disp, __disp_lcd_cfg_t *lcd_cfg)
 //lcd_bl_en
     lcd_cfg->lcd_bl_en_used = 0;
     gpio_info = &(lcd_cfg->lcd_bl_en);
-    ret = disp_sys_script_get_item(primary_key,"lcd_bl_en", (int *)gpio_info, sizeof(disp_gpio_set_t)/sizeof(int));
+    ret = disp_sys_script_get_item(primary_key,"lcd_bl_en", (int *)gpio_info, 3);
     if (ret == 3)
     {
         lcd_cfg->lcd_bl_en_used = 1;
@@ -644,7 +644,7 @@ static void lcd_get_sys_config(u32 disp, __disp_lcd_cfg_t *lcd_cfg)
 		else
 			sprintf(sub_name, "lcd_power%d", i);
 		lcd_cfg->lcd_power_type[i] = 0; /* invalid */
-		ret = disp_sys_script_get_item(primary_key,sub_name, (int *)(lcd_cfg->lcd_regu[i]), 25/sizeof(int));
+		ret = disp_sys_script_get_item(primary_key,sub_name, (int *)(lcd_cfg->lcd_regu[i]), 2);
 		if (ret == 3) {
 			/* gpio */
 		  lcd_cfg->lcd_power_type[i] = 1; /* gpio */
@@ -725,9 +725,12 @@ static void lcd_get_sys_config(u32 disp, __disp_lcd_cfg_t *lcd_cfg)
 	}
 }
 
+#include <linux/clk-provider.h>
 static s32 lcd_clk_init(struct disp_device* lcd)
 {
 	struct disp_lcd_private_data *lcdp = disp_lcd_get_priv(lcd);
+	struct clk *parent = NULL;
+	int ret;
 
 	if ((NULL == lcd) || (NULL == lcdp)) {
 		DE_WRN("NULL hdl!\n");
@@ -735,6 +738,17 @@ static s32 lcd_clk_init(struct disp_device* lcd)
 	}
 
 	DE_INF("lcd %d clk init\n", lcd->disp);
+
+	parent = __clk_lookup("pll_video0x2");
+
+	if (NULL == parent || IS_ERR(parent)) {
+		printk("Fail to get handle for clock %s.\n", "pll_video0x2");
+		return -1;
+	}
+
+	ret = clk_set_parent(lcdp->clk, parent);
+	if (0 != ret)
+		printk("Fail to set clk %s\n", "pll_video0x2");
 
 	lcdp->clk_parent = clk_get_parent(lcdp->clk);
 
@@ -749,6 +763,9 @@ static s32 lcd_clk_exit(struct disp_device* lcd)
 		DE_WRN("NULL hdl!\n");
 		return -1;
 	}
+
+	if (lcdp->clk_parent)
+		clk_put(lcdp->clk_parent);
 
 	return DIS_SUCCESS;
 }
@@ -771,9 +788,13 @@ static s32 lcd_clk_config(struct disp_device* lcd)
 	pll_rate = lcd_rate * clk_info.lcd_div;
 	dsi_rate = pll_rate / clk_info.dsi_div;
 
-	clk_set_rate(lcdp->clk_parent, pll_rate);
-	pll_rate_set = clk_get_rate(lcdp->clk_parent);
-	lcd_rate_set = pll_rate_set / clk_info.lcd_div;
+	if (lcdp->clk_parent) {
+		clk_set_rate(lcdp->clk_parent, pll_rate);
+		pll_rate_set = clk_get_rate(lcdp->clk_parent);
+	}
+
+	if (clk_info.lcd_div)
+		lcd_rate_set = pll_rate_set / clk_info.lcd_div;
 	clk_set_rate(lcdp->clk, lcd_rate_set);
 	lcd_rate_set = clk_get_rate(lcdp->clk);
 	if (LCD_IF_DSI == lcdp->panel_info.lcd_if) {

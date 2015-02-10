@@ -4,9 +4,9 @@
 //#include <linux/clk/sunxi.h>
 //#include <linux/clk-private.h>
 //#include <linux/pwm.h>
-//#include <linux/pinctrl/consumer.h>
-//#include <linux/pinctrl/pinconf-sunxi.h>
-//#include <mach/sys_config.h>
+#include <linux/pinctrl/consumer.h>
+#include <linux/pinctrl/pinconf-sunxi.h>
+#include <linux/sys_config.h>
 //#include <mach/gpio.h>
 //#include <linux/regulator/consumer.h>
 
@@ -55,12 +55,12 @@ int disp_sys_gpio_set_value(u32 p_handler, u32 value_to_gpio, const char *gpio_n
 int disp_sys_power_enable(char *name);
 int disp_sys_power_disable(char *name);
 
-int disp_sys_pwm_request(u32 pwm_id);
-int disp_sys_pwm_free(int p_handler);
-int disp_sys_pwm_enable(int p_handler);
-int disp_sys_pwm_disable(int p_handler);
-int disp_sys_pwm_config(int p_handler, int duty_ns, int period_ns);
-int disp_sys_pwm_set_polarity(int p_handler, int polarity);
+uintptr_t disp_sys_pwm_request(u32 pwm_id);
+int disp_sys_pwm_free(uintptr_t p_handler);
+int disp_sys_pwm_enable(uintptr_t p_handler);
+int disp_sys_pwm_disable(uintptr_t p_handler);
+int disp_sys_pwm_config(uintptr_t p_handler, int duty_ns, int period_ns);
+int disp_sys_pwm_set_polarity(uintptr_t p_handler, int polarity);
 
 /* clock */
 int disp_sys_clk_set_rate(const char *id, unsigned long rate);

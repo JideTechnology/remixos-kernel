@@ -281,6 +281,7 @@ int de_rtmx_init(unsigned int sel, uintptr_t reg_base)
 		__wrn("malloc blending memory fail! size=0x%x\n", (unsigned int)sizeof(__bld_reg_t));
 		return -1;
 	}
+
 	bld_attr_block[sel].off	= apb_base;
 	bld_attr_block[sel].val	= memory;
 	bld_attr_block[sel].size	= 0x44;
