@@ -66,6 +66,16 @@ long sunxi_ion_ioctl(struct ion_client *client, unsigned int cmd, unsigned long 
 
 struct ion_client *sunxi_ion_client_create(const char *name)
 {
+	/*
+	 * The assumption is that if there is a NULL device, the ion
+	 * driver has not yet probed.
+	 */
+	if (ion_device == NULL)
+		return ERR_PTR(-EPROBE_DEFER);
+
+	if (IS_ERR(ion_device))
+		return (struct ion_client *)ion_device;
+		
 	return ion_client_create(ion_device , name);
 }
 EXPORT_SYMBOL(sunxi_ion_client_create);
