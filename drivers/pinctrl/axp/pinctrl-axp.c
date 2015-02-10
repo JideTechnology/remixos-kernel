@@ -34,7 +34,7 @@
 #include <linux/mfd/core.h>
 #include <linux/seq_file.h>
 #include <linux/i2c.h>
-#include "core.h"
+#include "../core.h"
 #include "pinctrl-axp.h"
 
 #define MODULE_NAME "axp-pinctrl"
@@ -84,8 +84,8 @@ static int axp_gpio_get_data(int gpio)
 		return -ENXIO;
 	}
 	switch(gpio){
-		case 0:axp_read(axp->dev,AXP_GPIO01_STATE,&ret);ret &= 0x10;ret = ret>>4;break;
-		case 1:axp_read(axp->dev,AXP_GPIO01_STATE,&ret);ret &= 0x20;ret = ret>>5;break;
+		case 0:axp_read(axp->dev,AXP_GPIO01_STATE,&ret);ret &= 0x1;break;
+		case 1:axp_read(axp->dev,AXP_GPIO01_STATE,&ret);ret &= 0x2;break;
 		case 2:printk("This IO is not an input,no return value!");return -ENXIO;
 		case 3:printk("This IO is not an input,no return value!");return -ENXIO;
 		case 4:printk("This IO is not an input,no return value!");return -ENXIO;
@@ -186,6 +186,54 @@ static int axp_pmx_set(int gpio, int mux)
 	return -ENXIO;
 }
 
+static int axp_pmx_get(int gpio)
+{
+	struct axp_dev *axp = NULL;
+	uint8_t data;
+
+	PIN_MSG("%s enter... gpio = %d\n", __func__, gpio);
+
+#ifdef CONFIG_AW_AXP22
+	axp = axp_dev_lookup(AXP22);
+#elif defined(CONFIG_AW_AXP81X)
+	axp = axp_dev_lookup(AXP81X);
+#endif
+
+	if (NULL == axp) {
+		printk("%s: %d axp data is null\n", __func__, __LINE__);
+		return -ENXIO;
+	}
+
+	switch(gpio){
+	case 0:
+		axp_read(axp->dev, AXP_GPIO0_CFG, &data);
+		if (0 == (data & 0x06))
+			return 1;
+		else if (0x02 == (data & 0x07))
+			return 0;
+		else
+			return -ENXIO;
+	case 1:
+		axp_read(axp->dev, AXP_GPIO1_CFG, &data);
+		if (0 == (data & 0x06))
+			return 1;
+		else if (0x02 == (data & 0x07))
+			return 0;
+		else
+			return -ENXIO;
+	case 2:
+		return 1;
+	case 3:
+		axp_read(axp->dev, AXP_GPIO3_CFG, &data);
+		if (0 == (data & 0x10))
+			return 1;
+		else
+			return 0;
+	default:return -ENXIO;
+	}
+	return -ENXIO;
+}
+
 static int axp_gpio_request(struct gpio_chip *chip, unsigned offset)
 {
 	return pinctrl_request_gpio(chip->base + offset);
@@ -222,6 +270,34 @@ static int axp_gpio_direction_output(struct gpio_chip *chip,
 	return pinctrl_gpio_direction_output(chip->base + offset);
 }
 
+static int axp_pinctrl_gpio_of_xlate(struct gpio_chip *gc,
+				const struct of_phandle_args *gpiospec,
+				u32 *flags)
+{
+	struct gpio_config *config=(struct gpio_config *)flags;
+	int pin, base;
+
+	PIN_MSG("%s enter... gpiospec->args[0] = %d, gpiospec->args[1] = %d\n",
+		__func__, gpiospec->args[0], gpiospec->args[1]);
+
+	base = AXP_PIN_BASE;
+	pin = base + gpiospec->args[1];
+	config->gpio = pin;
+
+	pin = pin-gc->base;
+	if (pin > gc->ngpio)
+		return -EINVAL;
+
+	if (flags){
+		config->mul_sel = gpiospec->args[2];
+		config->drv_level = gpiospec->args[3];
+		config->pull = gpiospec->args[4];
+		config->data = gpiospec->args[5];
+	}
+
+	return pin;
+}
+
 static struct gpio_chip axp_gpio_chip = {
 	.label            = MODULE_NAME,
 	.owner            = THIS_MODULE,
@@ -231,6 +307,8 @@ static struct gpio_chip axp_gpio_chip = {
 	.direction_output = axp_gpio_direction_output,
 	.get              = axp_gpio_get,
 	.set              = axp_gpio_set,
+	.of_xlate         = axp_pinctrl_gpio_of_xlate,
+	.of_gpio_n_cells  = 6,
 	.base             = AXP_PIN_BASE,
 	.ngpio            = AXP_NUM_GPIOS,
 	.can_sleep        = 0,
@@ -508,6 +586,67 @@ static struct pinmux_ops axp_pmx_ops = {
 	.gpio_set_direction  = axp_pmx_gpio_set_direction,
 };
 
+static int axp_pinconf_get(struct pinctrl_dev *pctldev,
+		           unsigned pin,
+			   unsigned long *config)
+{
+	struct axp_pinctrl *pctl = pinctrl_dev_get_drvdata(pctldev);
+	int                 data;
+
+	PIN_MSG("%s enter... pin = %d\n", __func__, pin);
+
+	switch (SUNXI_PINCFG_UNPACK_TYPE(*config)) {
+	case SUNXI_PINCFG_TYPE_DAT:
+		data = axp_gpio_get_data(pin);
+		*config = SUNXI_PINCFG_PACK(SUNXI_PINCFG_TYPE_DAT, data);
+               pr_debug("axp pconf get pin [%s] data [%d]\n",
+		         pin_get_name(pctl->pctl_dev, pin), data);
+		break;
+	case SUNXI_PINCFG_TYPE_FUNC:
+		data = axp_pmx_get(pin);
+		*config = SUNXI_PINCFG_PACK(SUNXI_PINCFG_TYPE_FUNC, data);
+               pr_debug("axp pconf get pin [%s] funcs [%d]\n",
+		         pin_get_name(pctl->pctl_dev, pin), data);
+		break;
+	default:
+               pr_debug("invalid axp pconf type for get\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int axp_pinconf_set(struct pinctrl_dev *pctldev,
+		           unsigned pin,
+			   unsigned long *pin_config,
+			   unsigned num_configs)
+{
+	struct axp_pinctrl *pctl = pinctrl_dev_get_drvdata(pctldev);
+	unsigned long config = (unsigned long)pin_config;
+	int                  data;
+	int                  func;
+
+	PIN_MSG("%s enter... pin = %d\n", __func__, pin);
+
+	switch (SUNXI_PINCFG_UNPACK_TYPE(config)) {
+	case SUNXI_PINCFG_TYPE_DAT:
+		data = SUNXI_PINCFG_UNPACK_VALUE(config);
+		axp_gpio_set_data(pin, data);
+               pr_debug("axp pconf set pin [%s] data to [%d]\n",
+		         pin_get_name(pctl->pctl_dev, pin), data);
+		break;
+	case SUNXI_PINCFG_TYPE_FUNC:
+		func = SUNXI_PINCFG_UNPACK_VALUE(config);
+		axp_pmx_set(pin, func);
+               pr_debug("axp pconf set pin [%s] func to [%d]\n",
+		         pin_get_name(pctl->pctl_dev, pin), func);
+	       break;
+	default:
+               pr_debug("invalid axp pconf type for set\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+
 static int axp_pinconf_group_get(struct pinctrl_dev *pctldev,
 				 unsigned group,
 				 unsigned long *config)
@@ -535,6 +674,8 @@ static int axp_pinconf_group_set(struct pinctrl_dev *pctldev,
 }
 
 static struct pinconf_ops axp_pinconf_ops = {
+	.pin_config_get       = axp_pinconf_get,
+	.pin_config_set       = axp_pinconf_set,
 	.pin_config_group_get = axp_pinconf_group_get,
 	.pin_config_group_set = axp_pinconf_group_set,
 };
@@ -662,152 +803,6 @@ static int axp_pinctrl_build_state(struct platform_device *pdev)
 	return 0;
 }
 
-#ifndef CONFIG_OF
-static int axp_pin_cfg_to_pin_map(struct platform_device *pdev,
-                                  struct gpio_config *cfg,
-                                  struct pinctrl_map *map,
-                                  char  *mainkey_name)
-{
-	int          num_configs;
-	unsigned long *configs;
-	unsigned int pin_number;
-	const char   *pin_name;
-	const char   *ctrl_name = dev_name(&pdev->dev);
-	const char   *function_name;
-	struct axp_pinctrl *pctl = platform_get_drvdata(pdev);
-
-	/* convert axp pin config number to pinctrl number */
-	if (!IS_AXP_PIN(cfg->gpio)) {
-		/* invalid axp pin config, skip it */
-		return 0;
-	}
-	/* find pin name by number */
-	pin_number = cfg->gpio - AXP_PIN_BASE;
-	pin_name = pin_get_name(pctl->pctl_dev, pin_number);
-	if (!pin_name) {
-		pr_debug("invalid pin config under axp platform\n");
-		return 0;
-	}
-	/* mux pinctrl map */
-	if (cfg->mul_sel == AXP_PIN_INPUT_FUNC) {
-		/* pin mux : input */
-		function_name = "gpio_in";
-	} else if (cfg->mul_sel == AXP_PIN_OUTPUT_FUNC) {
-		/* pin mux : output */
-		function_name = "gpio_out";
-	} else {
-		/* invalid pin mux for axp pinctrl */
-		pr_debug("invalid pin mux value for axp pinctrl\n");
-		return 0;
-	}
-	map[0].dev_name      = mainkey_name;
-	map[0].name          = PINCTRL_STATE_DEFAULT;
-	map[0].type          = PIN_MAP_TYPE_MUX_GROUP;
-	map[0].ctrl_dev_name = ctrl_name;
-	map[0].data.mux.function = function_name;
-	map[0].data.mux.group    = pin_name;
-
-	/* configuration pinctrl map,
-	 * suppose max pin config is 1.
-	 * axp have only 1 type configurations: output-data/.
-	 * yes I know the configs memory will binding to pinctrl always,
-	 * if we binding it to pinctrl, we don't free it anywhere!
-	 * the configs memory will always allocate for pinctrl.
-	 * by sunny at 2013-4-28 15:52:16.
-	 */
-	num_configs = 0;
-	configs = kzalloc(sizeof(unsigned int) * 1, GFP_KERNEL);
-	if (!configs) {
-		pr_err("allocate memory for axp pin config failed\n");
-		return -ENOMEM;
-	}
-	if (cfg->data != GPIO_DATA_DEFAULT) {
-		configs[0] = SUNXI_PINCFG_PACK(SUNXI_PINCFG_TYPE_DAT, cfg->data);
-		num_configs++;
-	}
-	if (num_configs == 0) {
-		/* this pin have no configurations,
-		 * use hardware default value.
-		 * we have only one map.
-		 */
-		 kfree(configs);
-		 return 1;
-	}
-	map[1].dev_name      = mainkey_name;
-	map[1].name          = PINCTRL_STATE_DEFAULT;
-	map[1].type          = PIN_MAP_TYPE_CONFIGS_GROUP;
-	map[1].ctrl_dev_name = ctrl_name;
-	map[1].data.configs.group_or_pin = pin_name;
-	map[1].data.configs.configs      = configs;
-	map[1].data.configs.num_configs  = num_configs;
-
-	/* we have two maps: mux + configs */
-	return 2;
-}
-
-static int axp_pinctrl_parse_pin_cfg(struct platform_device *pdev)
-{
-	int             mainkey_count;
-	int             mainkey_idx;
-
-	/* get main key count */
-	mainkey_count = script_get_main_key_count();
-	pr_debug("mainkey total count : %d\n", mainkey_count);
-	for (mainkey_idx = 0; mainkey_idx < mainkey_count; mainkey_idx++) {
-		char           *mainkey_name;
-		script_item_u  *pin_list;
-		int             pin_count;
-		int 		pin_index;
-		int 		map_index;
-		struct pinctrl_map *maps;
-
-		/* get main key name by index */
-		mainkey_name = script_get_main_key_name(mainkey_idx);
-		if (!mainkey_name) {
-			/* get mainkey name failed */
-			pr_debug("get mainkey [%s] name failed\n", mainkey_name);
-			continue;
-		}
-
-		/* get main-key(device) pin configuration */
-		pin_count = script_get_pio_list(mainkey_name, &pin_list);
-		pr_debug("mainkey name : %s, pin count : %d\n", mainkey_name, pin_count);
-		if (pin_count == 0) {
-			/* the mainkey have no pin configuration */
-			continue;
-		}
-		/* allocate pinctrl_map table,
-		 * max map table size = pin count * 2 :
-		 * mux map and config map.
-		 */
-		maps = kzalloc(sizeof(*maps) * (pin_count * 2), GFP_KERNEL);
-		if (!maps) {
-			pr_err("allocate memory for axp pinctrl map table failed\n");
-			return -ENOMEM;
-		}
-		map_index = 0;
-		for (pin_index = 0; pin_index < pin_count; pin_index++) {
-			/* convert struct sunxi_pin_cfg to struct pinctrl_map */
-			map_index += axp_pin_cfg_to_pin_map(pdev,
-					&(pin_list[pin_index].gpio),
-					&(maps[map_index]),
-					mainkey_name);
-		}
-		if (map_index) {
-			/* register maps to pinctrl */
-			pr_debug("map mainkey [%s] to pinctrl, map number [%d]\n",
-			        mainkey_name, map_index);
-			pinctrl_register_mappings(maps, map_index);
-		}
-		/* free pinctrl_map table directly,
-		 * pinctrl subsytem will dup this map table
-		 */
-		kfree(maps);
-	}
-	return 0;
-}
-#endif /* CONFIG_OF */
-
 static struct of_device_id axp_pinctrl_match[] = {
 	{ .compatible = "allwinner,axp-pinctrl", .data = (void *)&axp_pinctrl_pins_desc },
 	{}
@@ -816,9 +811,8 @@ MODULE_DEVICE_TABLE(of, axp_pinctrl_match);
 
 static int axp_pinctrl_probe(struct platform_device *pdev)
 {
-#if defined(CONFIG_OF)
 	const struct of_device_id *device;
-#endif
+
 	struct device           *dev = &pdev->dev;
 	struct axp_pinctrl      *pctl;
 	struct pinctrl_pin_desc *pins;
@@ -835,14 +829,10 @@ static int axp_pinctrl_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, pctl);
 	pctl->dev  = dev;
 
-#if defined(CONFIG_OF)
 	device = of_match_device(axp_pinctrl_match, &pdev->dev);
 	if (!device)
 		return -ENODEV;
 	pctl->desc = (struct axp_pinctrl_desc *)device->data;
-#else
-	pctl->desc = &axp_pinctrl_pins_desc;
-#endif /* CONFIG_OF */
 
 	ret = axp_pinctrl_build_state(pdev);
 	if (ret) {
@@ -870,6 +860,7 @@ static int axp_pinctrl_probe(struct platform_device *pdev)
 			return rc;
 		return -EINVAL;
 	}
+
 	/* initialize axp-gpio-chip */
 	pctl->gpio_chip      = &axp_gpio_chip;
 	pctl->gpio_chip->dev = dev;
@@ -892,10 +883,6 @@ static int axp_pinctrl_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
-
-#ifndef CONFIG_OF
-	axp_pinctrl_parse_pin_cfg(pdev);
-#endif
 
 	pr_debug("axp pinctrl driver probe ok\n");
 	return 0;

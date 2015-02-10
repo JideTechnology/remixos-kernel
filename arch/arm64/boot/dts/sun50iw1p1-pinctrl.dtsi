@@ -290,17 +290,11 @@
 			};
 		};
 
-		axp-pinctrl@0 {
+		axp_pio: pinctrl@0 {
 			compatible = "allwinner,axp-pinctrl";
 			gpio-controller;
 			#size-cells = <0>;
-			#gpio-cells = <3>;
-			usb_pins_axp: usb@0 {
-				allwinner,pins = "power3";
-				allwinner,function = "gpio_out";
-				allwinner,drive = <1>;
-				allwinner,pull = <1>;
-			};
+			#gpio-cells = <6>;
 		};
 	};
 };

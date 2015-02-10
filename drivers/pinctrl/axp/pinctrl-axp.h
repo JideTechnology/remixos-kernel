@@ -14,7 +14,7 @@
 #define __PINCTRL_AXP_H
 
 #include <linux/kernel.h>
-//#include <mach/gpio.h>
+#include <linux/pinctrl/pinconf-sunxi.h>
 
 #define AXP_PINCTRL_GPIO0	PINCTRL_PIN(0, "GPIO0")     /* axp8xx GPIO0 */
 #define AXP_PINCTRL_GPIO1	PINCTRL_PIN(1, "GPIO1")     /* axp8xx GPIO1 */
