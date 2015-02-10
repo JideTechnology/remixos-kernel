@@ -1387,14 +1387,14 @@ static int sunxi_spi_clk_init(struct sunxi_spi *sspi, u32 mod_clk)
 	int ret = 0;
 	long rate = 0;
 
-	sspi->pclk = of_clk_get(&sspi->pdev->dev.of_node, 0);
+	sspi->pclk = of_clk_get(sspi->pdev->dev.of_node, 0);
 	if (IS_ERR_OR_NULL(sspi->pclk)) {
 		SPI_ERR("[spi-%d] Unable to acquire module clock '%s', return %x\n", 
 				sspi->master->bus_num, sspi->dev_name, PTR_RET(sspi->pclk));
 		return -1;
 	}
 
-	sspi->mclk = of_clk_get(&sspi->pdev->dev.of_node, 1);
+	sspi->mclk = of_clk_get(sspi->pdev->dev.of_node, 1);
 	if (IS_ERR_OR_NULL(sspi->mclk)) {
 		SPI_ERR("[spi-%d] Unable to acquire module clock '%s', return %x\n", 
 				sspi->master->bus_num, sspi->dev_name, PTR_RET(sspi->mclk));
@@ -1674,7 +1674,7 @@ static int sunxi_spi_probe(struct platform_device *pdev)
 		goto err0;
 	}
 
-	sprintf(spi_para, "spi%d_cs_number", pdev->id);
+	snprintf(spi_para, sizeof(spi_para), "spi%d_cs_number", pdev->id);
 	ret = of_property_read_u32(np, spi_para, &pdata->cs_num);
 	if (ret) {
 		SPI_ERR("Failed to get cs_number property\n");
@@ -1682,7 +1682,7 @@ static int sunxi_spi_probe(struct platform_device *pdev)
 		goto err0;
 	}
 
-	sprintf(spi_para, "spi%d_cs_bitmap", pdev->id);
+	snprintf(spi_para, sizeof(spi_para), "spi%d_cs_bitmap", pdev->id);
 	ret = of_property_read_u32(np, spi_para, &pdata->cs_bitmap);
 	if (ret) {
 		SPI_ERR("Failed to get cs_bitmap property\n");
@@ -1706,15 +1706,15 @@ static int sunxi_spi_probe(struct platform_device *pdev)
 	sspi->irq           = irq;
 
 #ifdef CONFIG_DMA_ENGINE
-	sspi->dma_rx.dir	= SPI_DMA_RWNULL;
-	sspi->dma_tx.dir	= SPI_DMA_RWNULL;
+	sspi->dma_rx.dir        = SPI_DMA_RWNULL;
+	sspi->dma_tx.dir        = SPI_DMA_RWNULL;
 #endif
-	sspi->cs_control	= sunxi_spi_cs_control;
-	sspi->cs_bitmap		= pdata->cs_bitmap; /* cs0-0x1; cs1-0x2; cs0&cs1-0x3. */
-	sspi->busy		= SPI_FREE;
-	sspi->mode_type		= MODE_TYPE_NULL;
+	sspi->cs_control        = sunxi_spi_cs_control;
+	sspi->cs_bitmap	        = pdata->cs_bitmap; /* cs0-0x1; cs1-0x2; cs0&cs1-0x3. */
+	sspi->busy              = SPI_FREE;
+	sspi->mode_type	        = MODE_TYPE_NULL;
 
-	master->dev.of_node = pdev->dev.of_node;
+	master->dev.of_node     = pdev->dev.of_node;
 	master->bus_num         = pdev->id;
 	master->setup           = sunxi_spi_setup;
 	master->cleanup         = sunxi_spi_cleanup;
