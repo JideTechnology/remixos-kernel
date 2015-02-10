@@ -895,31 +895,29 @@
 		soc_lcd0: lcd0@01c0c000 {
 			compatible = "allwinner,sunxi-lcd0";
 			interrupts = <GIC_SPI 86 0x0104>;
-//			pinctrl-names = "default";
-//			pinctrl-0 = <&lcd0_pins_a>,<&lcd0_pins_bl_en>;
 			lcd_driver_name = "default_lcd";
 			lcd_used = <1>;
-			lcd_if = <0>;
-			lcd_x = <800>;
-			lcd_y = <480>;
+			lcd_if = <3>;
+			lcd_x = <1280>;
+			lcd_y = <800>;
 			lcd_width = <150>;
 			lcd_height = <94>;
-			lcd_dclk_freq = <33>;
+			lcd_dclk_freq = <70>;
 			lcd_pwm_used = <1>;
 			lcd_pwm_ch = <0>;
 			lcd_pwm_freq = <5000>;
 			lcd_pwm_pol = <1>;
 			lcd_pwm_max_limit = <255>;
-			lcd_hbp = <46>;
-			lcd_ht = <1055>;
-			lcd_hspw = <0>;
-			lcd_vbp = <23>;
-			lcd_vt = <525>;
-			lcd_vspw = <0>;
+			lcd_hbp = <20>;
+			lcd_ht = <1418>;
+			lcd_hspw = <10>;
+			lcd_vbp = <10>;
+			lcd_vt = <814>;
+			lcd_vspw = <5>;
 			lcd_lvds_if = <0>;
 			lcd_lvds_colordepth = <1>;
 			lcd_lvds_mode = <0>;
-			lcd_frm = <0>;
+			lcd_frm = <1>;
 			lcd_hv_clk_phase = <0>;
 			lcd_hv_sync_polarity = <0>;
 			lcd_gamma_en = <0>;
@@ -929,9 +927,10 @@
 			lcd_power = "vcc-lcd-0";
 			lcd_io_regulator = "vcc-lvds-18";
 			lcd_io_regulator1 = "vcc-pd";
+			lcd_bl_en = <&pio PD 23 1 0 0 1>;
 
 			pinctrl-names = "default";
-			pinctrl-0 = <&lcd_pins_a>,<&lcd_pins_b>;
+			pinctrl-0 = <&lcd_pins_a>;
 
 			status = "okay";
 		};

@@ -276,16 +276,14 @@
 			};
 
 			lcd_pins_a: disp@0 {
-				allwinner,pins = "PD0", "PD1", "PD2", "PD3", "PD4", "PD5", "PD6", "PD7",
-					"PD8", "PD9", "PD10", "PD11", "PD12","PD13","PD14","PD15",
-					"PD16", "PD17", "PD18", "PD19", "PD20", "PD21", "PD22", "PD23", "PD24",
-					"PD25", "PD26", "PD27";
-				allwinner,function = "lcd0";
+				allwinner,pins = "PD12", "PD13", "PD14", "PD15", "PD16", "PD17", "PD18", "PD19", "PD20", "PD21";
+				allwinner,function = "lvds0";
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
+
 			lcd_pins_b: disp@1 {
-				allwinner,pins = "PH0";
+				allwinner,pins = "PD22";
 				allwinner,function = "gpio_out";
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;

@@ -41,7 +41,7 @@ clocks {
 		clk_pll_video0: pll_video0 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-pll-clock";
-			assigned-clock-rates = <297000000>;
+			assigned-clock-rates = <240000000>;
 			clock-output-names = "pll_video0";
 		};		
 		clk_pll_ve: pll_ve {
