@@ -45,9 +45,9 @@ static void __iomem *timer_base;
 static spinlock_t timer_spin_lock;
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS_BROADCAST
-extern void smp_timer_broadcast(const struct cpumask *mask);
+extern void tick_broadcast(const struct cpumask *mask);
 #else
-#define smp_timer_broadcast	NULL
+#define tick_broadcast	NULL
 #endif
 
 static void sunxi_clkevt_mode(enum clock_event_mode mode,
@@ -121,7 +121,7 @@ static struct clock_event_device sunxi_clockevent = {
 	.features = CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT,
 	.set_mode = sunxi_clkevt_mode,
 	.set_next_event = sunxi_clkevt_next_event,
-	.broadcast = smp_timer_broadcast,
+	.broadcast = tick_broadcast,
 };
 
 static irqreturn_t sunxi_timer_interrupt(int irq, void *dev_id)
