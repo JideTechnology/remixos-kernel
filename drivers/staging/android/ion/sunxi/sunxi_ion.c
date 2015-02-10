@@ -20,11 +20,49 @@
 #include <linux/device.h>
 #include <linux/slab.h>
 #include "../ion_priv.h"
+#include "../../uapi/ion_sunxi.h"
 #include <linux/of.h>
-
+#include <linux/mm.h>
+#include <linux/uaccess.h>
 struct ion_device;
 static struct ion_device *ion_device;
-long sunxi_ion_ioctl(struct ion_client *client, unsigned int cmd, unsigned long arg);
+
+
+
+long sunxi_ion_ioctl(struct ion_client *client, unsigned int cmd, unsigned long arg)
+{
+	long ret = 0;
+	struct ion_handle *ion_handle_get_by_id(struct ion_client *client,int id);
+	
+	switch(cmd) {
+	case ION_IOC_SUNXI_PHYS_ADDR:
+	{
+		sunxi_phys_data data;
+		struct ion_handle *handle;
+		if(copy_from_user(&data, (void __user *)arg, sizeof(sunxi_phys_data)))
+			return -EFAULT;
+			
+		handle = ion_handle_get_by_id(client, data.handle);		
+		if (IS_ERR(handle))
+		{
+			return PTR_ERR(handle);
+		}
+			
+		ret = ion_phys(client, handle, (ion_phys_addr_t *)&data.phys_addr, (size_t *)&data.size);
+		if(ret)
+		{
+			return -EINVAL;
+		}
+		if(copy_to_user((void __user *)arg, &data, sizeof(data)))
+			return -EFAULT;
+		break;
+	}
+	default:
+		return -ENOTTY;
+	}
+	
+	return ret;
+}
 
 struct ion_client *sunxi_ion_client_create(const char *name)
 {
