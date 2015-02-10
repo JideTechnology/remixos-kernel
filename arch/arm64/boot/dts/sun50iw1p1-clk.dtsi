@@ -9,21 +9,21 @@ clocks {
 /* register fixed rate clock*/
 		clk_losc: losc {
 			#clock-cells = <0>;
-			compatible = "fixed-clock";
+			compatible = "allwinner,fixed-clock";
 			clock-frequency = <32768>;
 			clock-output-names = "losc";
 		};
 			
 		clk_iosc: iosc {
 			#clock-cells = <0>;
-			compatible = "fixed-clock";
+			compatible = "allwinner,fixed-clock";
 			clock-frequency = <16000000>;
 			clock-output-names = "iosc";
 		};
 
 		clk_hosc: hosc {
 			#clock-cells = <0>;
-			compatible = "fixed-clock";
+			compatible = "allwinner,fixed-clock";
 			clock-frequency = <24000000>;
 			clock-output-names = "hosc";
 		};
@@ -99,7 +99,7 @@ clocks {
 /* register fixed factor clock*/
 		clk_pll_audiox8: pll_audiox8 {
 			#clock-cells = <0>;
-			compatible = "fixed-factor-clock";
+			compatible = "allwinner,fixed-factor-clock";
 			clocks = <&clk_pll_audio>;
 			clock-mult = <8>;
 			clock-div = <1>;
@@ -107,7 +107,7 @@ clocks {
 		};
 		clk_pll_audiox4: pll_audiox4 {
 			#clock-cells = <0>;
-			compatible = "fixed-factor-clock";
+			compatible = "allwinner,fixed-factor-clock";
 			clocks = <&clk_pll_audio>;
 			clock-mult = <8>;
 			clock-div = <2>;
@@ -115,7 +115,7 @@ clocks {
 		};
 		clk_pll_audiox2: pll_audiox2 {
 			#clock-cells = <0>;
-			compatible = "fixed-factor-clock";
+			compatible = "allwinner,fixed-factor-clock";
 			clocks = <&clk_pll_audio>;
 			clock-mult = <8>;
 			clock-div = <4>;
@@ -123,7 +123,7 @@ clocks {
 		};
 		clk_pll_video0x2: pll_video0x2 {
 			#clock-cells = <0>;
-			compatible = "fixed-factor-clock";
+			compatible = "allwinner,fixed-factor-clock";
 			clocks = <&clk_pll_video0>;
 			clock-mult = <2>;
 			clock-div = <1>;
@@ -131,7 +131,7 @@ clocks {
 		};		
 		clk_pll_periph0x2: pll_periph0x2 {
 			#clock-cells = <0>;
-			compatible = "fixed-factor-clock";
+			compatible = "allwinner,fixed-factor-clock";
 			clocks = <&clk_pll_periph0>;
 			clock-mult = <2>;
 			clock-div = <1>;
@@ -139,7 +139,7 @@ clocks {
 		};	
 		clk_pll_periph1x2: pll_periph1x2 {
 			#clock-cells = <0>;
-			compatible = "fixed-factor-clock";
+			compatible = "allwinner,fixed-factor-clock";
 			clocks = <&clk_pll_periph1>;
 			clock-mult = <2>;
 			clock-div = <1>;
@@ -147,7 +147,7 @@ clocks {
 		};	
 		clk_pll_periph0d2: pll_periph0d2 {
 			#clock-cells = <0>;
-			compatible = "fixed-factor-clock";
+			compatible = "allwinner,fixed-factor-clock";
 			clocks = <&clk_pll_periph0>;
 			clock-mult = <1>;
 			clock-div = <2>;
@@ -155,7 +155,7 @@ clocks {
 		};	
 		clk_hoscd2: hoscd2 {
 			#clock-cells = <0>;
-			compatible = "fixed-factor-clock";
+			compatible = "allwinner,fixed-factor-clock";
 			clocks = <&clk_hosc>;
 			clock-mult = <1>;
 			clock-div = <2>;
