@@ -17,6 +17,10 @@
 #ifndef __ION_SUNXI_H
 #define __ION_SUNXI_H
 
+typedef struct {
+	long 	start;
+	long 	end;
+}sunxi_cache_range;
 
 typedef struct {
 	ion_user_handle_t handle;
@@ -24,6 +28,7 @@ typedef struct {
 	unsigned long size;
 }sunxi_phys_data;
 
+#define ION_IOC_SUNXI_FLUSH_RANGE           5
 #define ION_IOC_SUNXI_PHYS_ADDR             7
 
 

@@ -22,6 +22,9 @@
 #include <linux/of.h>
 #include <linux/mm.h>
 #include <linux/uaccess.h>
+#include <linux/dma-mapping.h>
+#include <linux/dma-contiguous.h>
+#include <asm/cacheflush.h>
 #include "../ion_priv.h"
 #include "../../uapi/ion_sunxi.h"
 #include "ion_sunxi.h"
@@ -55,6 +58,20 @@ long sunxi_ion_ioctl(struct ion_client *client, unsigned int cmd, unsigned long 
 		}
 		if(copy_to_user((void __user *)arg, &data, sizeof(data)))
 			return -EFAULT;
+		break;
+	}
+	case ION_IOC_SUNXI_FLUSH_RANGE:
+	{
+		sunxi_cache_range data;
+
+		if(copy_from_user(&data, (void __user *)arg, sizeof(sunxi_cache_range)))
+			return -EFAULT;
+		
+		__dma_flush_range( (void*)data.start , (void*)data.end );
+		
+		if(copy_to_user((void __user *)arg, &data, sizeof(data)))
+			return -EFAULT;
+
 		break;
 	}
 	default:
