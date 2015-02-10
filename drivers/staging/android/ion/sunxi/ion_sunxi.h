@@ -1,5 +1,5 @@
 /*
- * include/linux/ion_sunxi.h
+ * drivers/staging/android/ion/sunxi/ion_sunxi.h
  *
  * Copyright(c) 2013-2015 Allwinnertech Co., Ltd.
  *      http://www.allwinnertech.com
@@ -14,9 +14,14 @@
  * (at your option) any later version.
  */
 
-#ifndef __INCLUDE_ION_SUNXI_H
-#define __INCLUDE_ION_SUNXI_H
+#ifndef __ION_SUNXI_H
+#define __ION_SUNXI_H
+
+/**
+ * ion_client_create() -  allocate a client and returns it
+ * @name:		used for debugging
+ */
+struct ion_client *sunxi_ion_client_create(const char *name);
 					 
-#include "../../drivers/staging/android/ion/sunxi/ion_sunxi.h"				 
 
 #endif

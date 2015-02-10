@@ -19,15 +19,15 @@
 #include <linux/platform_device.h>
 #include <linux/device.h>
 #include <linux/slab.h>
-#include "../ion_priv.h"
-#include "../../uapi/ion_sunxi.h"
 #include <linux/of.h>
 #include <linux/mm.h>
 #include <linux/uaccess.h>
+#include "../ion_priv.h"
+#include "../../uapi/ion_sunxi.h"
+#include "ion_sunxi.h"
+
 struct ion_device;
 static struct ion_device *ion_device;
-
-
 
 long sunxi_ion_ioctl(struct ion_client *client, unsigned int cmd, unsigned long arg)
 {
