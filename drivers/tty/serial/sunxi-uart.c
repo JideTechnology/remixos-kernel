@@ -1306,14 +1306,14 @@ static int sw_uart_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	sprintf(uart_para, "uart%d_port", pdev->id);
+	snprintf(uart_para, sizeof(uart_para), "uart%d_port", pdev->id);
 	ret = of_property_read_u32(np, uart_para, &port->line);
 	if (ret) {
 		SERIAL_MSG("uart%d error to get port property\n", pdev->id);
 		return -EINVAL;
 	}
 
-	sprintf(uart_para, "uart%d_type", pdev->id);
+	snprintf(uart_para, sizeof(uart_para), "uart%d_type", pdev->id);
 	ret = of_property_read_u32(np, uart_para, &pdata->io_num);
 	if (ret) {
 		SERIAL_MSG("uart%d error to get type property\n", pdev->id);
