@@ -224,6 +224,8 @@ int i915_scheduler_queue_execbuffer(struct i915_scheduler_queue_entry *qe)
 
 		trace_i915_scheduler_queue(qe->params.ring, qe);
 
+		WARN_ON(qe->params.fence_wait && (qe->params.fence_wait->status == 0));
+
 		scheduler->flags[qe->params.ring->id] |= i915_sf_submitting;
 		ret = dev_priv->gt.do_execfinal(&qe->params);
 		scheduler->stats[qe->params.ring->id].submitted++;

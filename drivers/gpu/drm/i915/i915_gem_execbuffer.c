@@ -1423,6 +1423,42 @@ eb_get_batch(struct eb_vmas *eb)
 	return vma->obj;
 }
 
+#ifdef CONFIG_SYNC
+static int i915_early_fence_wait(struct intel_engine_cs *ring, int fence_fd)
+{
+	struct sync_fence *fence;
+	int ret = 0;
+
+	if (fence_fd < 0) {
+		DRM_ERROR("Invalid wait fence fd %d on ring %d\n", fence_fd,
+			  (int) ring->id);
+		return 1;
+	}
+
+	fence = sync_fence_fdget(fence_fd);
+	if (fence == NULL) {
+		DRM_ERROR("Invalid wait fence %d on ring %d\n", fence_fd,
+			  (int) ring->id);
+		return 1;
+	}
+
+	if (fence->status == 0) {
+		struct drm_i915_private *dev_priv = ring->dev->dev_private;
+		struct i915_scheduler *scheduler = dev_priv->scheduler;
+
+		if (i915_safe_to_ignore_fence(ring, fence))
+			scheduler->stats[ring->id].fence_ignore++;
+		else {
+			scheduler->stats[ring->id].fence_wait++;
+			ret = sync_fence_wait(fence, 1000);
+		}
+	}
+
+	sync_fence_put(fence);
+	return ret;
+}
+#endif
+
 static int
 i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 		       struct drm_file *file,
@@ -1515,6 +1551,17 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	}
 
 	intel_runtime_pm_get(dev_priv);
+
+#ifdef CONFIG_SYNC
+	if ((args->flags & I915_EXEC_WAIT_FENCE) &&
+	    (i915.scheduler_override & i915_so_direct_submit)) {
+		ret = i915_early_fence_wait(ring, fd_fence_wait);
+		if (ret < 0)
+			goto pre_mutex_err;
+
+		args->flags &= ~I915_EXEC_WAIT_FENCE;
+	}
+#endif
 
 	ret = i915_mutex_lock_interruptible(dev);
 	if (ret)
