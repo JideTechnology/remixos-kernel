@@ -231,6 +231,10 @@ ENTRY(stext)
 	mov x21, #0x0
 	mov	w21, w0				// x21=FDT
 
+	mrs	x0, S3_1_c15_c2_1               // Read CPUECTLR_EL1
+	orr	x0, x0, #(1 << 6)               // Set the SMPEN bit
+	msr	S3_1_c15_c2_1, x0               // Write CPUECTLR_EL1
+
 	bl	el2_setup			// Drop to EL1, w20=cpu_boot_mode
 	bl	__calc_phys_offset		// x24=PHYS_OFFSET, x28=PHYS_OFFSET-PAGE_OFFSET
 	bl	set_cpu_boot_mode_flag
@@ -427,6 +431,14 @@ ENDPROC(secondary_holding_pen)
 	 */
 ENTRY(secondary_entry)
 	bl	__calc_phys_offset		// x2=phys offset
+
+	mrs	x0, S3_1_c15_c2_1		// Read CPUECTLR_EL1
+	orr	x0, x0, #(1 << 6)		// Set the SMPEN bit
+	msr	S3_1_c15_c2_1, x0		// Write CPUECTLR_EL1
+
+	mov	x0, #0x0
+	msr	cntvoff_el2, x0
+
 	bl	el2_setup			// Drop to EL1
 	b	secondary_startup
 ENDPROC(secondary_entry)
