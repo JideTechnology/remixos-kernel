@@ -471,7 +471,7 @@ CONFIG_CMA_AREAS=7
 #
 # Bus devices
 #
-# CONFIG_SUNXI_MBUS is not set
+CONFIG_SUNXI_MBUS=y
 # CONFIG_CONNECTOR is not set
 # CONFIG_MTD is not set
 CONFIG_DTC=y
