@@ -822,6 +822,46 @@ static int __set_clk_rates(struct device_node *node , struct clk* clk)
 }
 
 /**
+ * set default clk source for clk
+ */
+static int __set_clk_parents(struct device_node *node , struct clk* clk)
+{
+	int index = 0, rc ;
+	struct of_phandle_args clkspec;
+	struct clk *pclk;
+	
+	rc = of_parse_phandle_with_args(node, "assigned-clock-parents",
+				"#clock-cells",	index, &clkspec);
+	if (rc < 0) 
+	{
+		/* skip empty (null) phandles */
+		return rc;
+	}
+	
+	pclk = of_clk_get_from_provider(&clkspec);
+	if (IS_ERR(pclk)) 
+	{
+		pr_warn("clk: couldn't get parent clock %d for %s\n",
+				index, node->full_name);
+		return PTR_ERR(pclk);
+	}
+	
+	rc = clk_set_parent(clk, pclk);
+	if (rc < 0)
+	{
+		pr_err("%s-set_default_source=%s failed at: %d\n",
+		   __clk_get_name(clk), __clk_get_name(pclk), rc);
+	}
+	else
+	{
+		pr_info("%s-set_default_source=%s success!\n",
+			__clk_get_name(clk) , __clk_get_name(pclk) );
+	}
+		
+	return rc;
+}
+
+/**
 *of_sunxi_clocks_init() - Clocks initialize 
 */
 void of_sunxi_clocks_init(struct device_node *node)
@@ -913,6 +953,7 @@ void of_pll_clk_setup(struct device_node *node)
 			{
 				clk_register_clkdev(clk, clk_name, NULL);
 				of_clk_add_provider(node, of_clk_src_simple_get, clk);
+				__set_clk_parents(node , clk);
 				__set_clk_rates(node , clk);
 				/*pr_err( "%s : %s \n", __func__ , clk_name );*/
 				return ;
@@ -950,6 +991,7 @@ void of_periph_clk_setup(struct device_node *node)
 			{
 				clk_register_clkdev(clk, clk_name, NULL);
 				of_clk_add_provider(node, of_clk_src_simple_get, clk);
+				__set_clk_parents(node , clk);
 				__set_clk_rates(node , clk);
 				/*pr_err( "%s : %s \n", __func__ , clk_name );*/
 				return ;
@@ -985,6 +1027,7 @@ void of_periph_cpus_clk_setup(struct device_node *node)
 			{
 				clk_register_clkdev(clk, clk_name, NULL);
 				of_clk_add_provider(node, of_clk_src_simple_get, clk);
+				__set_clk_parents(node , clk);
 				__set_clk_rates(node , clk);
 				/*pr_err( "%s : %s \n", __func__ , clk_name );*/
 				return ;
