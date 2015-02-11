@@ -996,6 +996,15 @@
 			status = "okay";
 		};
 
+		soc_pwm: pwm@01c21400 {
+			compatible = "allwinner,sunxi-pwm0";
+			reg = <0x0 0x01c21400 0x0 0x3c>;
+			pwm-number = <1>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&pwm_pins_a>;
+			status = "okay";
+		};
+
 		csi_cci0:cci@0x01cb3000 {
 			compatible = "allwinner,sunxi-csi_cci";
 			reg = <0x0 0x01cb3000 0x0 0x1000>;	/*0x01cb3000--0x01cb4000*/

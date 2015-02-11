@@ -288,6 +288,13 @@
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
+
+			pwm_pins_a: pwm@0 {
+				allwinner,pins = "PD28";
+				allwinner,function = "pwm0";
+				allwinner,drive = <1>;
+				allwinner,pull = <1>;
+			};
 		};
 
 		axp_pio: pinctrl@0 {
