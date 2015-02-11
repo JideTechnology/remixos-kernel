@@ -1170,5 +1170,15 @@
 			nand0_p3 = <0x55aaaa55>;
 			status = "okay";
 		};
+
+		sunxi_ir:cir{
+			compatible = "allwinner,ir-receiver";
+			reg = <0x0 0x01f02000 0x0 0x400>;
+			interrupts = <GIC_SPI 37 IRQ_TYPE_NONE>;
+			clocks = <&clk_hosc>,<&clk_cpurcir>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&s_cir0_pins_a>;
+			status = "okay";
+		};
 	};
 };

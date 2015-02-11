@@ -15,6 +15,10 @@
 #define IR_FIFO_SIZE     (64)             /* 64Bytes */
 
 #if (defined CONFIG_FPGA_V4_PLATFORM) || (defined CONFIG_FPGA_V7_PLATFORM)
+#define CIR_FPGA
+#endif
+
+#ifdef CIR_FPGA
 #define IR_SIMPLE_UNIT	 (21333)	  /* simple in ns */
 #define IR_CLK		 (24000000)	  /* fpga clk output is fixed */
 #define IR_CIR_MODE      (0x3<<4)         /* CIR mode enable */
@@ -23,11 +27,11 @@
 #define IR_FIFO_32       (((IR_FIFO_SIZE>>1)-1)<<8)
 #define IR_IRQ_STATUS    ((0x1<<4)|0x3)
 #else
-#define IR_SIMPLE_UNIT	 (64000)	  /* simple in ns */
-#define IR_CLK		 (4000000)
+#define IR_SIMPLE_UNIT	 (32000)	  /* simple in ns */
+#define IR_CLK		 (8000000)
 #define IR_CIR_MODE      (0x3<<4)         /* CIR mode enable */
 #define IR_ENTIRE_ENABLE (0x3<<0)         /* IR entire enable */
-#define IR_SAMPLE_DEV    (0x2<<0)         /* 4MHz/256 =15625Hz (64000ns) */
+#define IR_SAMPLE_DEV    (0x2<<0)         /* 4MHz/256 =31250Hz (32000ns) */
 #define IR_FIFO_32       (((IR_FIFO_SIZE>>1)-1)<<8)
 #define IR_IRQ_STATUS    ((0x1<<4)|0x3)
 #endif
@@ -37,24 +41,17 @@
 #define IR_RXINTS_RXPE   (0x1<<1)         /* Rx Packet End */
 #define IR_RXINTS_RXDA   (0x1<<4)         /* Rx FIFO Data Available */
 
-#if (defined CONFIG_FPGA_V4_PLATFORM) || (defined CONFIG_FPGA_V7_PLATFORM)
-#define IR_RXFILT_VAL    (((16)&0x3f)<<2)  /* Filter Threshold = 16*21.3 = ~341us	< 500us */
+#ifdef CIR_FPGA
+#define IR_RXFILT_VAL    (((16)&0x3f)<<2)  /* Filter Threshold = 16*21.3 = ~341us < 500us */
 #define IR_RXIDLE_VAL    (((5)&0xff)<<8)  /* Idle Threshold = (5+1)*128*21.3 = ~16.4ms > 9ms */
 #define IR_ACTIVE_T      ((0&0xff)<<16)   /* Active Threshold */
 #define IR_ACTIVE_T_C    ((1&0xff)<<23)   /* Active Threshold */
 #else
-#define IR_RXFILT_VAL    (((6)&0x3f)<<2)  /* Filter Threshold = 6*64 = ~384us	< 500us */
-//#define IR_RXIDLE_VAL    (((1)&0xff)<<8)  /* Idle Threshold = (1+1)*128*64 = ~16.4ms > 9ms */
-#define IR_RXIDLE_VAL    (((2)&0xff)<<8)  /* Idle Threshold = (1+1)*128*64 = ~16.4ms > 9ms */
+#define IR_RXFILT_VAL    (((12)&0x3f)<<2)  /* Filter Threshold = 12*32 = ~384us < 500us */
+#define IR_RXIDLE_VAL    (((2)&0xff)<<8)  /* Idle Threshold = (2+1)*128*32 = ~23.8ms > 9ms */
 #define IR_ACTIVE_T      ((99&0xff)<<16)   /* Active Threshold */
 #define IR_ACTIVE_T_C    ((0&0xff)<<23)   /* Active Threshold */
 #endif
-
-#define IR_L1_MIN        (80)             /* 80*42.7 = ~3.4ms, Lead1(4.5ms) > IR_L1_MIN */
-#define IR_L0_MIN        (40)             /* 40*42.7 = ~1.7ms, Lead0(4.5ms) Lead0R(2.25ms)> IR_L0_MIN */
-#define IR_PMAX          (26)             /* 26*42.7 = ~1109us ~= 561*2, Pluse < IR_PMAX */
-#define IR_DMID          (26)             /* 26*42.7 = ~1109us ~= 561*2, D1 > IR_DMID, D0 =< IR_DMID */
-#define IR_DMAX          (53)             /* 53*42.7 = ~2263us ~= 561*4, D < IR_DMAX */
 
 #define IR_ERROR_CODE    (0xffffffff)
 #define IR_REPEAT_CODE   (0x00000000)
@@ -86,14 +83,19 @@ enum ir_irq_config {
 	IR_IRQ_ENABLE,
 	IR_IRQ_FIFO_SIZE,
 };
+enum {
+	IR_SUPLY_DISABLE = 0,
+	IR_SUPLY_ENABLE,
+};
 
 struct sunxi_ir_data{
+	void __iomem 	*reg_base;
 	struct platform_device	*pdev;
 	struct clk *mclk;
 	struct clk *pclk;
 	struct rc_dev *rcdev;
-	void __iomem 	*reg_base;
-	int	irq_num;
+	struct regulator *suply;
+	int irq_num;
 };
 
 int init_rc_map_sunxi(void);

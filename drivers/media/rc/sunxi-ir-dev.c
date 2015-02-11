@@ -23,7 +23,6 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <media/rc-core.h>
-//#include <linux/init-input.h>
 #include "sunxi-ir-rx.h"
 
 #define SUNXI_IR_DRIVER_NAME	"sunxi-rc-recv"
@@ -92,9 +91,10 @@ static irqreturn_t sunxi_ir_recv_irq(int irq, void *dev_id)
 		reg_data = ir_get_data();
 		pluse_now = (reg_data & 0x80)? true : false;
 			
-		if( pluse_pre == pluse_now){//the signal change
+		if( pluse_pre == pluse_now){/* the signal maintian */
 			/* the pluse or space lasting*/
 			rawir.duration += (u32)(reg_data & 0x7f);
+			dprintk(DEBUG_ERR,"raw: %d:%d \n",(reg_data & 0x80)>>7,(reg_data & 0x7f));
 		}else{
 			if(is_receiving){
 				rawir.duration *= IR_SIMPLE_UNIT;
@@ -102,13 +102,17 @@ static irqreturn_t sunxi_ir_recv_irq(int irq, void *dev_id)
 				ir_raw_event_store(sunxi_rcdev, &rawir);
 				rawir.pulse = pluse_now;
 				rawir.duration = (u32)(reg_data & 0x7f);	
+				dprintk(DEBUG_ERR,"raw: %d:%d \n",(reg_data & 0x80)>>7,(reg_data & 0x7f));
 			}else{
 				/* get the first pluse signal */
 				rawir.pulse = pluse_now;
 				rawir.duration = (u32)(reg_data & 0x7f);
+				#ifdef CIR_FPGA
 				rawir.duration += ((IR_ACTIVE_T>>16)+1) * ((IR_ACTIVE_T_C>>23 )? 128:1);
 				dprintk(DEBUG_INT, "get frist pulse,add head %d !!\n",((IR_ACTIVE_T>>16)+1) * ((IR_ACTIVE_T_C>>23 )? 128:1));
+				#endif
 				is_receiving = 1;
+				dprintk(DEBUG_ERR,"raw: %d:%d \n",(reg_data & 0x80)>>7,(reg_data & 0x7f));
 			}
 			pluse_pre = pluse_now;
 		}	
@@ -294,7 +298,7 @@ static void ir_setup(void)
 	return;
 }
 
-static int sunxi_ir_sartup(struct platform_device *pdev)
+static int sunxi_ir_startup(struct platform_device *pdev)
 {
 	struct device_node *np =NULL;
 	int ret = 0;
@@ -337,8 +341,8 @@ static int sunxi_ir_recv_probe(struct platform_device *pdev)
 	dprintk(DEBUG_INIT, "sunxi-ir probe start !\n");
 
 	if (pdev->dev.of_node) {
-		// get dt and sysconfig
-		rc = sunxi_ir_sartup(pdev);
+		/* get dt and sysconfig */
+		rc = sunxi_ir_startup(pdev);
 	}else{
 		pr_err("sunxi ir device tree err!\n");
 		return -EBUSY;
@@ -367,12 +371,12 @@ static int sunxi_ir_recv_probe(struct platform_device *pdev)
 	sunxi_rcdev->allowed_protos = RC_BIT_NEC;
 	sunxi_rcdev->map_name = RC_MAP_SUNXI;
 
+	init_rc_map_sunxi();
 	rc = rc_register_device(sunxi_rcdev);
 	if (rc < 0) {
 		dev_err(&pdev->dev, "failed to register rc device\n");
 		goto err_register_rc_device;
 	}
-	init_rc_map_sunxi();
 
 	sunxi_rcdev->input_dev->dev.init_name = &ir_dev_name[0];
 
@@ -397,7 +401,7 @@ static int sunxi_ir_recv_probe(struct platform_device *pdev)
 	dprintk(DEBUG_INIT, "ir probe end!\n");
 	return 0;
 
-err_request_irq://gai
+err_request_irq:
 	platform_set_drvdata(pdev, NULL);
 	rc_unregister_device(sunxi_rcdev);
 	sunxi_rcdev = NULL;
