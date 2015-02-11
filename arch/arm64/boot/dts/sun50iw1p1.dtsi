@@ -841,9 +841,9 @@
 			pinctrl-1 = <&mmc0_pins_b>;
 			max-frequency = <50000000>;
 			bus-width = <4>;
-			/*broken-cd;*/
+			broken-cd;
 			/*cd-inverted*/
-			/*cd-gpios = <&pio PF 6 0 1 2 0>;*/
+			cd-gpios = <&pio PF 6 0 1 2 0>;
 			/* vmmc-supply = <&reg_3p3v>;*/
 			/* vqmc-supply = <&reg_3p3v>;*/
 			/* vdmc-supply = <&reg_3p3v>;*/
