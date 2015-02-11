@@ -27,6 +27,10 @@
 #include <linux/mmc/card.h>
 #include <linux/mmc/slot-gpio.h>
 
+#ifdef CONFIG_ARCH_SUNXI
+#include <linux/sys_config.h>
+#endif
+
 #include "core.h"
 #include "host.h"
 
@@ -311,7 +315,11 @@ void mmc_of_parse(struct mmc_host *host)
 	struct device_node *np;
 	u32 bus_width;
 	bool explicit_inv_wp, gpio_inv_wp = false;
+#ifndef CONFIG_ARCH_SUNXI
 	enum of_gpio_flags flags;
+#else
+	struct gpio_config flags;
+#endif
 	int len, ret, gpio;
 
 	if (!host->parent || !host->parent->of_node)
@@ -366,11 +374,16 @@ void mmc_of_parse(struct mmc_host *host)
 		if (of_find_property(np, "broken-cd", &len))
 			host->caps |= MMC_CAP_NEEDS_POLL;
 
+#ifndef CONFIG_ARCH_SUNXI
 		gpio = of_get_named_gpio_flags(np, "cd-gpios", 0, &flags);
+#else
+		gpio = of_get_named_gpio_flags(np, "cd-gpios", 0, (enum of_gpio_flags *)&flags);
+#endif
 		if (gpio_is_valid(gpio)) {
-			//if (!(flags & OF_GPIO_ACTIVE_LOW))
-			//	gpio_inv_cd = true;
-
+#ifndef CONFIG_ARCH_SUNXI
+			if (!(flags & OF_GPIO_ACTIVE_LOW))
+				gpio_inv_cd = true;
+#endif
 			ret = mmc_gpio_request_cd(host, gpio);
 			if (ret < 0)
 				dev_err(host->parent,
@@ -388,10 +401,16 @@ void mmc_of_parse(struct mmc_host *host)
 	/* Parse Write Protection */
 	explicit_inv_wp = of_property_read_bool(np, "wp-inverted");
 
+#ifndef CONFIG_ARCH_SUNXI
 	gpio = of_get_named_gpio_flags(np, "wp-gpios", 0, &flags);
+#else
+	gpio = of_get_named_gpio_flags(np, "wp-gpios", 0, (enum of_gpio_flags *)&flags);
+#endif
 	if (gpio_is_valid(gpio)) {
-		//if (!(flags & OF_GPIO_ACTIVE_LOW))
-		//	gpio_inv_wp = true;
+#ifndef CONFIG_ARCH_SUNXI
+	if (!(flags & OF_GPIO_ACTIVE_LOW))
+			gpio_inv_wp = true;
+#endif
 
 		ret = mmc_gpio_request_ro(host, gpio);
 		if (ret < 0)
