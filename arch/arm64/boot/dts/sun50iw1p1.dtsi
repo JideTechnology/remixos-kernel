@@ -1193,5 +1193,57 @@
 			key4 = <857 28>;
 			key5 = <2000 102>;
 		};
+
+		sunxi-inputs{
+			compatible = "allwinner,inputs";
+			status = "okay";
+			sensor_cnt = <10>;
+
+			ctp{
+				status          = "okay";
+				twi_id          = <0>;
+				twi_addr        = <0x5d>;
+				screen_max_x    = <1280>;
+				screen_max_y    = <800>;
+				revert_x_flag   = <1>;
+				revert_y_flag   = <1>;
+				exchange_x_y_flag = <1>;
+				int_port        = <&pio PH 4 6 0 1 0>;
+				wakeup_port     = <&pio PH 8 1 0 1 0>;
+				power_ldo       = "vcc-ctp";
+				power_ldo_vol   = <3300>;
+			};
+
+			gsensor{
+				status      = "disable";
+				twi_id      = <1>;
+				twi_addr    = <0x18>;
+			};
+
+			gyrsensor{
+				status      = "disable";
+				twi_id      = <1>;
+				twi_addr    = <0x18>;
+			};
+
+			lssensor{
+				status      = "disable";
+				twi_id      = <1>;
+				twi_addr    = <0x18>;
+			};
+
+			compass{
+				status      = "disable";
+				twi_id      = <1>;
+				twi_addr    = <0x18>;
+			};
+
+			motor{
+				status      = "disable";
+				shake       = <0>;
+				ldo         = "vcc-vibrator";
+				ldo_voltage = <3300>;
+			};
+		};
 	};
 };
