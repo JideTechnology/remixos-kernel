@@ -228,6 +228,7 @@ section_table:
 #endif
 
 ENTRY(stext)
+	msr cntvoff_el2, xzr	// set timer to zero temporary
 	mov x21, #0x0
 	mov	w21, w0				// x21=FDT
 
