@@ -1180,5 +1180,18 @@
 			pinctrl-0 = <&s_cir0_pins_a>;
 			status = "okay";
 		};
+
+		sunxi_keyboard:keyboard{
+			compatible = "allwinner,keyboard_2000mv";
+			reg = <0x0 0x01c21800 0x0 0x400>;
+			interrupts = <GIC_SPI 30 IRQ_TYPE_NONE>;
+			status = "okay";
+			key_cnt = <5>;
+			key1 = <222 115>;
+			key2 = <444 114>;
+			key3 = <666 139>;
+			key4 = <857 28>;
+			key5 = <2000 102>;
+		};
 	};
 };
