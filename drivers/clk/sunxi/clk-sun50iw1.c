@@ -790,6 +790,36 @@ void __init sunxi_init_clocks(void)
 
 
 #ifdef CONFIG_OF
+/**
+ * set default rate for clk
+ */
+static int __set_clk_rates(struct device_node *node , struct clk* clk)
+{
+	u32 assigned_clock_rates = 0;
+	bool res = -1;
+	
+	/*set pll default rate here , and 
+		make you know it is setted succeed or not*/
+	if( !of_property_read_u32( node , "assigned-clock-rates" , &assigned_clock_rates) )
+	{
+		u32 real_clock_rate = 0;
+		clk_set_rate(clk , assigned_clock_rates);
+		real_clock_rate = clk_get_rate(clk);
+		if( real_clock_rate != assigned_clock_rates )
+		{
+			pr_info("%s-set_default_rate=%u , but real_get_rate=%u failured!\n" , 
+				__clk_get_name(clk) , assigned_clock_rates , real_clock_rate );
+		}
+		else
+		{
+			pr_info("%s-set_default_rate=%u success!\n",
+				__clk_get_name(clk) , assigned_clock_rates);
+			res = 0;
+		}
+	}
+	
+	return res;
+}
 
 /**
 *of_sunxi_clocks_init() - Clocks initialize 
@@ -881,26 +911,9 @@ void of_pll_clk_setup(struct device_node *node)
 			/*add to of */
 			if (!IS_ERR(clk))
 			{
-				u32 assigned_clock_rates = 0;
 				clk_register_clkdev(clk, clk_name, NULL);
 				of_clk_add_provider(node, of_clk_src_simple_get, clk);
-				
-				/*set pll default rate here , and make you know it is setted succeed or not*/
-				if( !of_property_read_u32( node , "assigned-clock-rates" , &assigned_clock_rates) )
-				{
-					u32 real_clock_rate = 0;
-					clk_set_rate(clk , assigned_clock_rates);
-					real_clock_rate = clk_get_rate(clk);
-					if( real_clock_rate != assigned_clock_rates )
-					{
-						pr_info("%s-set_default_rate=%u , but real_get_rate=%u failured!\n" , 
-							clk_name , assigned_clock_rates , real_clock_rate );
-					}
-					else
-					{
-						pr_info("%s-set_default_rate=%u success!\n", clk_name , assigned_clock_rates);
-					}
-				}
+				__set_clk_rates(node , clk);
 				/*pr_err( "%s : %s \n", __func__ , clk_name );*/
 				return ;
 			}
@@ -937,6 +950,7 @@ void of_periph_clk_setup(struct device_node *node)
 			{
 				clk_register_clkdev(clk, clk_name, NULL);
 				of_clk_add_provider(node, of_clk_src_simple_get, clk);
+				__set_clk_rates(node , clk);
 				/*pr_err( "%s : %s \n", __func__ , clk_name );*/
 				return ;
 			}
@@ -971,6 +985,7 @@ void of_periph_cpus_clk_setup(struct device_node *node)
 			{
 				clk_register_clkdev(clk, clk_name, NULL);
 				of_clk_add_provider(node, of_clk_src_simple_get, clk);
+				__set_clk_rates(node , clk);
 				/*pr_err( "%s : %s \n", __func__ , clk_name );*/
 				return ;
 			}
