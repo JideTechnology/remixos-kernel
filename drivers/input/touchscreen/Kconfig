@@ -888,4 +888,11 @@ config TOUCHSCREEN_TPS6507X
 	  To compile this driver as a module, choose M here: the
 	  module will be called tps6507x_ts.
 
+config  TOUCHSCREEN_GT82X
+       tristate  "gt82x touchscreen driver"
+       default m
+       depends on I2C
+       help
+         gt813,gt827,gt828 touchscreen driver
+
 endif
