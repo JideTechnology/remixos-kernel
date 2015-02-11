@@ -88,15 +88,15 @@ EXPORT_SYMBOL_GPL(vfe_set_pmu_channel);
 int vfe_set_mclk(struct v4l2_subdev *sd, enum on_off on_off)
 {
 #ifdef VFE_CLK
-	struct vfe_gpio_cfg gpio_list;
 	struct vfe_dev *dev=(struct vfe_dev *)dev_get_drvdata(sd->v4l2_dev->dev);
 	switch(on_off) {
 	case ON:
 		vfe_print("mclk on\n");
-		os_gpio_set(&dev->gpio[MCLK_PIN], 1);  //set mclk PIN to MCLKt.
+		dev->gpio[MCLK_PIN].mul_sel = 2; //set mclk PIN to MCLK func.
+		os_gpio_set(&dev->gpio[MCLK_PIN], 1);
 		usleep_range(10000,12000);
-		if(dev->clock.vfe_master_clk) {
-			if(os_clk_prepare_enable(dev->clock.vfe_master_clk)) {
+		if(dev->clock[VFE_MASTER_CLK]) {
+			if(os_clk_prepare_enable(dev->clock[VFE_MASTER_CLK])) {
 				vfe_err("vip%d master clock enable error\n",dev->vip_sel);
 				return -1;
 			}
@@ -107,16 +107,15 @@ int vfe_set_mclk(struct v4l2_subdev *sd, enum on_off on_off)
 		break;
 	case OFF:
 		vfe_print("mclk off\n");
-		if(dev->clock.vfe_master_clk) {
-			os_clk_disable_unprepare(dev->clock.vfe_master_clk);
+		if(dev->clock[VFE_MASTER_CLK]) {
+			os_clk_disable_unprepare(dev->clock[VFE_MASTER_CLK]);
 		} else {
 			vfe_err("vip%d master clock is null\n",dev->vip_sel);
 			return -1;
 		}
 		usleep_range(10000,12000);
-		memcpy(&gpio_list, &dev->gpio[MCLK_PIN], sizeof(struct vfe_gpio_cfg));
-		gpio_list.mul_sel = GPIO_OUTPUT; //set mclk PIN to output.
-		os_gpio_set(&gpio_list, 1);
+		dev->gpio[MCLK_PIN].mul_sel = GPIO_OUTPUT; //set mclk PIN to output.
+		os_gpio_set(&dev->gpio[MCLK_PIN], 1);
 		vfe_gpio_write(sd, MCLK_PIN, 0);
 		break;
 	default:
@@ -133,26 +132,26 @@ int vfe_set_mclk_freq(struct v4l2_subdev *sd, unsigned long freq)
 #ifdef VFE_CLK
 	struct vfe_dev *dev=(struct vfe_dev *)dev_get_drvdata(sd->v4l2_dev->dev);
 	struct clk *master_clk_src;
-  
+	int ret;  
 	if(freq==24000000 || freq==12000000 || freq==6000000) {
-			if(dev->clock.vfe_master_clk_24M_src) {
-				master_clk_src = dev->clock.vfe_master_clk_24M_src;
+			if(dev->clock[VFE_MASTER_CLK_24M_SRC]) {
+				master_clk_src = dev->clock_src[VFE_MASTER_CLK_24M_SRC];
 			} else {
 				vfe_err("vfe master clock 24M source is null\n");
 				return -1;
 			}
 	} else {
-		if(dev->clock.vfe_master_clk_pll_src) {
-			master_clk_src = dev->clock.vfe_master_clk_pll_src;
+		if(dev->clock[VFE_MASTER_CLK_PLL_SRC]) {
+			master_clk_src = dev->clock_src[VFE_MASTER_CLK_PLL_SRC];
 		} else {
 			vfe_err("vfe master clock pll source is null\n");
 			return -1;
 		}
 	}
   
-	if(dev->clock.vfe_master_clk) {
-		if(os_clk_set_parent(dev->clock.vfe_master_clk, master_clk_src)) {
-			vfe_err("set vfe master clock source failed \n");
+	if(dev->clock[VFE_MASTER_CLK]) {
+		if(os_clk_set_parent(dev->clock[VFE_MASTER_CLK], master_clk_src)) {
+			vfe_err("mclk src Name = %s, set vfe master clock source failed!!! \n",master_clk_src->name);
 			return -1;
 		}
 	} else {
@@ -160,8 +159,8 @@ int vfe_set_mclk_freq(struct v4l2_subdev *sd, unsigned long freq)
 		return -1;
 	}
   
-	if(dev->clock.vfe_master_clk) {
-		if(os_clk_set_rate(dev->clock.vfe_master_clk, freq)) {
+	if(dev->clock[VFE_MASTER_CLK]) {
+		if(os_clk_set_rate(dev->clock[VFE_MASTER_CLK], freq)) {
 			vfe_err("set vip%d master clock error\n",dev->vip_sel);
 			return -1;
 		}

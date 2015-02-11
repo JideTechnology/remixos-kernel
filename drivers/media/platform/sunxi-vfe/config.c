@@ -326,7 +326,7 @@ struct ccm_config ccm0_def_cfg[] = {
 			.afvdd_vol =2800000, /* voltage of sensor module for vcm sink */
 		},
 		.gpio = {
-			[MCLK_PIN] = {.gpio = 129, .mul_sel = 2, .pull = 0, .drv_level = 1, .data = 0,},
+			[MCLK_PIN] = {.gpio = 129, .mul_sel = 1, .pull = 0, .drv_level = 1, .data = 0,},
 			[RESET] = {144, 1, 0, 1, 0,},
 			[PWDN] = {145, 1, 0, 1, 0,},
 			[POWER_EN] = {GPIO_INDEX_INVALID, 	   0, 0, 0, 0,},
@@ -336,7 +336,7 @@ struct ccm_config ccm0_def_cfg[] = {
 		},
 		.flash_type = 0,	
 		.act_used = 0,
-		.act_name = "ad5820",
+		.act_name = "ad5820_act",
 		.act_slave = 0x18,
 	},
 };
@@ -344,9 +344,61 @@ struct ccm_config ccm0_def_cfg[] = {
 struct ccm_config ccm1_def_cfg[] = {
 
 };
+static int get_value_int(struct device_node *np, const char * name, u32 *value)
+{
+	int ret;
+	ret = of_property_read_u32(np, name, value);
+	if(ret){
+		*value = 0;
+		vfe_warn("fetch %s from device_tree failed\n",name);
+		return -EINVAL;
+	}
+	vfe_dbg(0,"%s = %x\n", name,*value);
+	//printk("%s = %x\n", name,*value);
+	return 0;	
+}
+static int get_value_string(struct device_node *np, const char * name, char *string)
+{
+	int ret;
+	const char * const_str;
+	ret = of_property_read_string(np, name, &const_str);
+	if(ret){
+		const char null_str[]="";
+		strcpy(string, null_str);
+		vfe_warn("fetch %s from device_tree failed\n",name);
+		return -EINVAL;
+	}
+	strcpy(string, const_str);
+	vfe_dbg(0,"%s = %s\n", name,string);
+	//printk("%s = %s\n", name,string);
+	return 0;	
+}
+
+static int get_gpio_info(struct device_node *np, const char * name, struct vfe_gpio_cfg *vgc) 
+{
+	unsigned int gnum;
+	struct gpio_config *gc = (struct gpio_config *)vgc;
+	gnum = of_get_named_gpio_flags(np, name, 0, (enum of_gpio_flags *)gc);
+	if (!gpio_is_valid(gnum)) {
+		vgc->gpio = GPIO_INDEX_INVALID;
+		vfe_warn("fetch %s from device_tree failed\n", name);
+		return -EINVAL;
+	}
+	vfe_dbg(0,"%s: pin=%d  mul-sel=%d  drive=%d  pull=%d  data=%d gnum=%d\n",
+	//printk("%s: pin=%d  mul-sel=%d  drive=%d  pull=%d  data=%d gnum=%d\n",
+			name,
+			gc->gpio,
+			gc->mul_sel,
+			gc->drv_level,
+			gc->pull,
+			gc->data,
+			gnum);
+	return 0;
+}
 
 int fetch_config(struct vfe_dev *dev)
 {
+#ifdef FPGA_VER
 	unsigned int i,j;
 	struct ccm_config *ccm_def_cfg = ccm0_def_cfg;
 
@@ -397,7 +449,95 @@ int fetch_config(struct vfe_dev *dev)
 			dev->ccm_cfg[i]->gpio[j].data = ccm_def_cfg[i].gpio[j].data;
 		}
 	}
+#else
+	int i = 0,ret = 0;
+	struct device_node *np = dev->pdev->dev.of_node;
+
+//	struct device_node *parent = dev->pdev->dev.of_node;
+//	struct device_node *np;	
+//	for_each_available_child_of_node(parent, np) {		
+//		i++;
+//	}
+	dev->dev_qty = 1;
+	if(dev->vip_define_sensor_list == 0xff) {
+		get_value_int(np,"vip0_sensor_list", &dev->vip_define_sensor_list );
+	}
 	
+	dev->ccm_cfg[0]->sensor_cfg_ini = kmalloc(sizeof(struct sensor_config_init),GFP_KERNEL);
+    if(!dev->ccm_cfg[0]->sensor_cfg_ini) {
+    	vfe_err("Sensor cfg ini kmalloc failed!\n");
+    }
+	memset(dev->ccm_cfg[0]->sensor_cfg_ini, 0,sizeof(struct sensor_config_init));
+	
+    if(dev->vip_define_sensor_list == 1)
+    {
+	    ret = get_value_string(np, "vip0_sensor_pos", dev->ccm_cfg[0]->sensor_pos);
+	    if (ret) {
+	    	const char tmp_str[]="rear";
+	    	strcpy(dev->ccm_cfg[0]->sensor_pos, tmp_str);
+	    }
+	    parse_sensor_list_info(dev->ccm_cfg[0]->sensor_cfg_ini, dev->ccm_cfg[0]->sensor_pos);
+    }
+
+	if((dev->ccm_cfg[0]->i2c_addr == 0xff) && (strcmp(dev->ccm_cfg[0]->ccm,""))) //when insmod without parm
+	{
+		get_value_int(np,"vip0_twi_addr", &dev->ccm_cfg[0]->i2c_addr);
+		ret = get_value_string(np, "vip0_mname", dev->ccm_cfg[0]->ccm);
+	    if (ret) {
+	    	const char tmp_str[]="ov5650";
+	    	strcpy(dev->ccm_cfg[0]->sensor_pos, tmp_str);
+	    } else {
+			strcpy(dev->ccm_cfg[0]->isp_cfg_name,dev->ccm_cfg[0]->ccm);
+		}
+	}
+
+	/* isp used mode */
+	get_value_int(np,"vip0_isp_used", &dev->ccm_cfg[0]->is_isp_used);
+    /* fmt */
+	get_value_int(np,"vip0_fmt", &dev->ccm_cfg[0]->is_bayer_raw);
+    /* standby mode */
+	get_value_int(np,"vip0_stby_mode", &dev->ccm_cfg[0]->power.stby_mode);
+    /* fetch flip issue */
+	get_value_int(np,"vip0_vflip", &dev->ccm_cfg[0]->vflip);
+	get_value_int(np,"vip0_hflip", &dev->ccm_cfg[0]->hflip);
+    /* fetch power issue*/
+	ret = get_value_string(np, "vip0_iovdd", dev->ccm_cfg[0]->iovdd_str);
+	if (!ret) {
+		get_value_int(np,"vip0_iovdd_vol", &dev->ccm_cfg[0]->power.iovdd_vol);
+	}
+	ret = get_value_string(np, "vip0_avdd", dev->ccm_cfg[0]->avdd_str);
+	if (!ret) {
+		get_value_int(np,"vip0_avdd_vol", &dev->ccm_cfg[0]->power.avdd_vol);
+	}
+	ret = get_value_string(np, "vip0_dvdd", dev->ccm_cfg[0]->dvdd_str);
+	if (!ret) {
+		get_value_int(np,"vip0_dvdd_vol", &dev->ccm_cfg[0]->power.dvdd_vol);
+	}
+	ret = get_value_string(np, "vip0_afvdd", dev->ccm_cfg[0]->afvdd_str);
+	if (!ret) {
+		get_value_int(np,"vip0_afvdd_vol", &dev->ccm_cfg[0]->power.afvdd_vol);
+	}
+	
+    /* fetch reset/power/standby/flash/af io issue */
+	get_gpio_info(np,"vip0_csi_mck", &dev->ccm_cfg[0]->gpio[MCLK_PIN]);
+	get_gpio_info(np,"vip0_reset", &dev->ccm_cfg[0]->gpio[RESET]);
+	get_gpio_info(np,"vip0_power_en", &dev->ccm_cfg[0]->gpio[POWER_EN]);
+	get_gpio_info(np,"vip0_pwdn", &dev->ccm_cfg[0]->gpio[PWDN]);
+	get_gpio_info(np,"vip0_af_pwdn", &dev->ccm_cfg[0]->gpio[AF_PWDN]);
+	get_gpio_info(np,"vip0_flash_en", &dev->ccm_cfg[0]->gpio[FLASH_EN]);
+	get_gpio_info(np,"vip0_flash_mode", &dev->ccm_cfg[0]->gpio[FLASH_MODE]);
+
+	/* fetch actuator issue */
+	get_value_int(np,"vip0_act_used", &dev->ccm_cfg[0]->act_used);
+	if (1 == dev->ccm_cfg[0]->act_used) {
+		if((dev->ccm_cfg[0]->act_slave == 0xff) && (strcmp(dev->ccm_cfg[0]->act_name,""))) {//when insmod without parm
+			ret = get_value_string(np, "vip0_act_name", dev->ccm_cfg[0]->act_name);
+			if (!ret) {
+				get_value_int(np,"vip0_act_slave", &dev->ccm_cfg[0]->act_slave);
+			}
+		}
+	}
+#endif
 	for(i = 0; i < dev->dev_qty; i ++)
 	{
 		vfe_dbg(0,"dev->ccm_cfg[%d]->ccm = %s\n",i,dev->ccm_cfg[i]->ccm);

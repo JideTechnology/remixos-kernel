@@ -605,95 +605,95 @@ static void isp_resource_release(struct vfe_dev *dev)
 	}
 }
 
+static char * clk_name[CLK_NUM] = {
+	"vfe_core_clk",
+	"vfe_master_clk",
+	"vfe_misc_clk",
+	"vfe_mipi_csi_clk",
+	"vfe_dphy_clk",
+};
+
+static char * clk_src_name[CLK_SRC_NUM] = {
+	"vfe_core_clk_src",
+	"vfe_master_clk_24M_src",
+	"vfe_master_clk_pll_src",
+	"vfe_mipi_csi_clk_src",
+	"vfe_dphy_clk_src",
+};
+
+int clk_index[][CLK_NUM] = {			//index of clk in device tree
+	{0,0,0,0,0},
+	{0,0,0,0,0},
+	{0,0,0,0,0},
+	{0,1,2,NOCLK,NOCLK}, 		
+};
+
+int clk_src_index[][CLK_SRC_NUM] = {	//index of clk source in device tree
+	{0,0,0,0,0},
+	{0,0,0,0,0},
+	{0,0,0,0,0},
+	{3,4,5,NOCLK,NOCLK}, 
+};
+
 static int vfe_clk_get(struct vfe_dev *dev)
 {
 #ifdef VFE_CLK
-	int ret;
-	//Get Core clk!
-	if(VFE_CORE_CLK)
+	int i;
+	int id = dev->platform_id;
+	struct device_node *np = dev->pdev->dev.of_node;
+	for(i = 0; i < CLK_NUM; i++)
 	{
-		dev->clock.vfe_core_clk = os_clk_get(NULL, VFE_CORE_CLK);
-		if(VFE_CORE_CLK_SRC){
-			dev->clock.vfe_core_clk_src = os_clk_get(NULL, VFE_CORE_CLK_SRC);
-			if(dev->clock.vfe_core_clk && dev->clock.vfe_core_clk_src)
-			{
-				ret=os_clk_set_parent(dev->clock.vfe_core_clk, dev->clock.vfe_core_clk_src);
-				if (ret != 0) {
-					vfe_err(" vfe core clock set parent failed \n");
-					return -1;
-				}
-			}
-		}
-		os_clk_set_rate(dev->clock.vfe_core_clk, VFE_CORE_CLK_RATE);
-		vfe_dbg(0,"vfe core clk = %ld\n",clk_get_rate(dev->clock.vfe_core_clk));
-	}
-	//Get Master clk!
-	if(dev->vip_sel == 0) {
-		if(VFE_MASTER_CLK0){
-			dev->clock.vfe_master_clk = os_clk_get(NULL, VFE_MASTER_CLK0);
+		if(clk_index[id][i] != NOCLK){
+			dev->clock[i] = os_clk_get(np, clk_index[id][i]);
+			if(!dev->clock[i])
+				vfe_warn("Get clk Index:%d , Name:%s is NULL!\n", (int)clk_index[id][i], clk_name[i]);
+			vfe_dbg(0,"Get clk Name:%s !\n", dev->clock[i]->name);
 		}
 	}
-	else if(dev->vip_sel == 1)
+	
+	for(i = 0; i < CLK_SRC_NUM; i++)
 	{
-		if(VFE_MASTER_CLK1){
-			dev->clock.vfe_master_clk = os_clk_get(NULL, VFE_MASTER_CLK1);
+		if(clk_src_index[id][i] != NOCLK){
+			dev->clock_src[i] = os_clk_get(np, clk_src_index[id][i]);
+			if(!dev->clock_src[i])
+				vfe_warn("Get clk Index:%d , Name:%s is NULL!\n", (int)clk_src_index[id][i], clk_src_name[i]);
+			vfe_dbg(0,"Get clk Name:%s !\n", dev->clock_src[i]->name);	
 		}
-	}
-	if(VFE_MASTER_CLK_24M_SRC){
-		dev->clock.vfe_master_clk_24M_src = os_clk_get(NULL, VFE_MASTER_CLK_24M_SRC);
-	}
-	if(VFE_MASTER_CLK_PLL_SRC){
-		dev->clock.vfe_master_clk_pll_src = os_clk_get(NULL, VFE_MASTER_CLK_PLL_SRC);
 	}
 
-	if(!dev->clock.vfe_master_clk || !dev->clock.vfe_core_clk)
-	{
-		vfe_err("vfe core clk or vfe master clk is NULL!\n");
-		ret = -1;
-	}
-	//Get MIPI clk!
-	if(VFE_MIPI_DPHY_CLK){
-		dev->clock.vfe_dphy_clk = os_clk_get(NULL, VFE_MIPI_DPHY_CLK);
-		if(VFE_MIPI_DPHY_CLK_SRC) {
-			dev->clock.vfe_dphy_clk_src = os_clk_get(NULL, VFE_MIPI_DPHY_CLK_SRC);
+	if(dev->clock[VFE_CORE_CLK] && dev->clock_src[VFE_CORE_CLK_SRC]) {
+		if (os_clk_set_parent(dev->clock[VFE_CORE_CLK], dev->clock_src[VFE_CORE_CLK_SRC])) {
+			vfe_err("sclk src Name:%s, vfe core clock set parent failed \n",dev->clock_src[VFE_CORE_CLK_SRC]->name);
+			return -1;
 		}
+		if (os_clk_set_rate(dev->clock[VFE_CORE_CLK], VFE_CORE_CLK_RATE)) {
+			vfe_err("set core clock rate error\n");
+			return -1;
+		}
+	} else {
+		vfe_err("vfe core clock is null\n");
+		return -1;
 	}
-	if(VFE_MIPI_CSI_CLK){
-		dev->clock.vfe_mipi_csi_clk = os_clk_get(NULL, VFE_MIPI_CSI_CLK);
-	}
-#ifdef VFE_MISC_CLK
-	dev->clock.vfe_misc_clk = os_clk_get(NULL, VFE_MISC_CLK);
+	vfe_dbg(0,"vfe core clk = %ld\n",clk_get_rate(dev->clock[VFE_CORE_CLK]));
 #endif
-
-#endif  
-  return 0;
+	return 0;
 }
 
 static int vfe_dphy_clk_set(struct vfe_dev *dev, unsigned long freq)
 {
 #ifdef VFE_CLK
-	if(VFE_MIPI_DPHY_CLK_SRC)
-	{
-		if(dev->clock.vfe_dphy_clk && dev->clock.vfe_dphy_clk_src) {
-			if(os_clk_set_parent(dev->clock.vfe_dphy_clk, dev->clock.vfe_dphy_clk_src)) {
-				vfe_err("set vfe dphy clock source failed \n");
-				return -1;
-			}
-		} else {
-			vfe_err("vfe dphy clock is null\n");
+	if(dev->clock[VFE_MIPI_DPHY_CLK] && dev->clock_src[VFE_MIPI_DPHY_CLK_SRC]) {
+		if(os_clk_set_parent(dev->clock[VFE_MIPI_DPHY_CLK], dev->clock_src[VFE_MIPI_DPHY_CLK_SRC])) {
+			vfe_err("set vfe dphy clock source failed \n");
 			return -1;
 		}
-	}
-	if(VFE_MIPI_DPHY_CLK){
-		if(dev->clock.vfe_dphy_clk) {
-			if(os_clk_set_rate(dev->clock.vfe_dphy_clk, freq)) {
-				vfe_err("set vip%d dphy clock error\n",dev->vip_sel);
-				return -1;
-			}
-		} else {
-			vfe_err("vfe master clock is null\n");
+		if(os_clk_set_rate(dev->clock[VFE_MIPI_DPHY_CLK], freq)) {
+			vfe_err("set vip%d dphy clock error\n",dev->vip_sel);
 			return -1;
 		}
+	} else {
+		vfe_warn("vfe dphy clock is null\n");
+		return -1;
 	}
 #endif  
   return 0;
@@ -703,44 +703,20 @@ static int vfe_clk_enable(struct vfe_dev *dev)
 {
 	int ret = 0;
 #ifdef VFE_CLK
-	if(dev->clock.vfe_core_clk) {
-		if(os_clk_prepare_enable(dev->clock.vfe_core_clk)){
-			vfe_err("vfe core clock enable error\n");
-			ret = -1;
+	int i;
+	for(i = 0; i < CLK_NUM; i++)
+	{
+		if(VFE_MASTER_CLK != i) {
+			if(dev->clock[i]) {
+				if(os_clk_prepare_enable(dev->clock[i])) {
+					vfe_err("%s enable error\n",clk_name[i]);
+					ret = -1;
+				}			
+			} else {
+				vfe_dbg(0,"%s is null\n",clk_name[i]);
+				ret = -1;
+			}
 		}
-
-	} else {
-		vfe_err("vfe core clock is null\n");
-		ret = -1;
-	}
-	//
-	if(dev->clock.vfe_dphy_clk) {
-		if(os_clk_prepare_enable(dev->clock.vfe_dphy_clk)){
-			vfe_err("vfe dphy clock enable error\n");
-			ret = -1;
-		}
-	} else {
-		vfe_dbg(0,"vfe dphy clock is null\n");
-		ret = -1;
-	}
-
-	if(dev->clock.vfe_mipi_csi_clk) {
-		if(os_clk_prepare_enable(dev->clock.vfe_mipi_csi_clk)){
-			vfe_err("vfe mipi csi clock enable error\n");
-			ret = -1;
-		}
-	} else {
-		vfe_dbg(0,"vfe mipi csi clock  is null\n");
-		ret = -1;
-	}
-	if(dev->clock.vfe_misc_clk) {
-		if(os_clk_prepare_enable(dev->clock.vfe_misc_clk)){
-			vfe_err("vfe misc clock enable error\n");
-			ret = -1;
-		}
-	} else {
-		vfe_dbg(0,"vfe misc clock is null\n");
-		ret = -1;
 	}
 #endif
 	return ret;
@@ -749,82 +725,49 @@ static int vfe_clk_enable(struct vfe_dev *dev)
 static void vfe_clk_disable(struct vfe_dev *dev)
 {
 #ifdef VFE_CLK
-	if(dev->clock.vfe_core_clk)
-		os_clk_disable_unprepare(dev->clock.vfe_core_clk);
-	else
-		vfe_dbg(0,"vfe core clock is null\n");
-
-	if(dev->clock.vfe_dphy_clk)
-		os_clk_disable_unprepare(dev->clock.vfe_dphy_clk);
-	else
-		vfe_dbg(0,"vfe dphy clock is null\n");
-
-	if(dev->clock.vfe_misc_clk)
-		os_clk_disable_unprepare(dev->clock.vfe_misc_clk);
-	else
-		vfe_dbg(0,"vfe dphy clock is null\n");
-
-	if(dev->clock.vfe_mipi_csi_clk)
-		os_clk_disable_unprepare(dev->clock.vfe_mipi_csi_clk);
-	else
-		vfe_dbg(0,"vfe mipi csi clock is null\n");
+	int i;
+	for(i = 0; i < CLK_NUM; i++)
+	{
+		if(VFE_MASTER_CLK != i) {
+			if(dev->clock[i])
+				os_clk_disable_unprepare(dev->clock[i]);
+			else 
+				vfe_dbg(0,"%s is null\n",clk_name[i]);
+		}
+	}
 #endif  
 }
 
 static void vfe_clk_release(struct vfe_dev *dev)
 {
 #ifdef VFE_CLK
-	if(dev->clock.vfe_core_clk)
-		os_clk_put(dev->clock.vfe_core_clk);
-	else
-		vfe_err("vfe core clock is null\n");
+	int i;
+	for(i = 0; i < CLK_NUM; i++)
+	{
+		if(dev->clock[i])
+			os_clk_put(dev->clock[i]);
+		else
+			vfe_dbg(0,"%s is null\n",clk_name[i]);
+	}
 
-	if(dev->clock.vfe_master_clk)
-		os_clk_put(dev->clock.vfe_master_clk);
-	else
-		vfe_err("vip%d master clock is null\n",dev->vip_sel);
-
-	if(dev->clock.vfe_dphy_clk)
-		os_clk_put(dev->clock.vfe_dphy_clk);
-	else
-		vfe_err("vfe dphy clock is null\n");
-	if(dev->clock.vfe_mipi_csi_clk)
-		os_clk_put(dev->clock.vfe_mipi_csi_clk);
-	else
-		vfe_warn("vfe mipi csi clock is null\n");
-
-	if(dev->clock.vfe_core_clk_src)
-		os_clk_put(dev->clock.vfe_core_clk_src);
-	else
-		vfe_warn("vfe core clock source is null\n");
-
-	if(dev->clock.vfe_master_clk_24M_src)
-		os_clk_put(dev->clock.vfe_master_clk_24M_src);
-	else
-		vfe_err("vfe master clock 24M source is null\n");
-
-	if(dev->clock.vfe_master_clk_pll_src)
-		os_clk_put(dev->clock.vfe_master_clk_pll_src);
-	else
-		vfe_warn("vfe master clock pll source is null\n");
-
-	if(dev->clock.vfe_dphy_clk_src)
-		os_clk_put(dev->clock.vfe_dphy_clk_src);
-	else
-		vfe_warn("vfe dphy clock source is null\n");
+	for(i = 0; i < CLK_SRC_NUM; i++)
+	{
+		if(dev->clock_src[i])
+			os_clk_put(dev->clock_src[i]);
+		else
+			vfe_dbg(0,"%s is null\n",clk_src_name[i]);
+	}
 #endif
 }
 
 static void vfe_reset_enable(struct vfe_dev *dev)
 {
-  os_clk_reset_assert(dev->clock.vfe_core_clk);
-//  os_clk_reset_assert(dev->clock.vfe_ahb_clk);
+	os_clk_reset_assert(dev->clock[VFE_CORE_CLK]);
 }
 
 static void vfe_reset_disable(struct vfe_dev *dev)
 {
-  os_clk_reset_deassert(dev->clock.vfe_core_clk);
-//  os_clk_reset_deassert(dev->clock.vfe_ahb_clk);
+	os_clk_reset_deassert(dev->clock[VFE_CORE_CLK]);
 }
 
 static int inline vfe_is_generating(struct vfe_dev *dev)
@@ -1398,7 +1341,6 @@ static irqreturn_t vfe_isr(int irq, void *priv)
 			return IRQ_HANDLED;
 		}
 	} 
-  
 	FUNCTION_LOG;
 	//spin_lock(&dev->slock);    
 	spin_lock_irqsave(&dev->slock, flags);
@@ -1423,7 +1365,6 @@ static irqreturn_t vfe_isr(int irq, void *priv)
 		else
 			goto unlock;
 	}
-
 isp_exp_handle:
 	if(dev->is_isp_used) {
 		if(bsp_isp_get_irq_status(SRC0_FIFO_INT_EN)) {
@@ -2199,16 +2140,16 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
     bsp_mipi_csi_dphy_disable(dev->mipi_sel);
     usleep_range(1000,2000);
     
-    if(dev->clock.vfe_dphy_clk) {
-      os_clk_disable(dev->clock.vfe_dphy_clk);
+    if(dev->clock[VFE_MIPI_DPHY_CLK]) {
+      os_clk_disable(dev->clock[VFE_MIPI_DPHY_CLK]);
     } else {
       vfe_warn("vfe dphy clock is null\n");
     }
     
     bsp_mipi_csi_dphy_enable(dev->mipi_sel);
     
-    if(dev->clock.vfe_dphy_clk) {
-      if(os_clk_enable(dev->clock.vfe_dphy_clk))
+    if(dev->clock[VFE_MIPI_DPHY_CLK]) {
+      if(os_clk_enable(dev->clock[VFE_MIPI_DPHY_CLK]))
         vfe_err("vfe dphy clock enable error\n");
     } else {
       vfe_warn("vfe dphy clock is null\n");
@@ -2620,7 +2561,6 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
   struct vfe_dev *dev = video_drvdata(file);
   struct vfe_dmaqueue *dma_q = &dev->vidq;
   int ret = 0;
-
   mutex_lock(&dev->stream_lock);
   vfe_dbg(0,"video stream off\n");
   if (!vfe_is_generating(dev)) {
@@ -2760,13 +2700,13 @@ static int internal_s_input(struct vfe_dev *dev, unsigned int i)
 	//set vfe core clk rate for each sensor!
 	if(get_sensor_info(dev->ccm_cfg[i]->ccm, &sensor_info) == 0)
 	{
-		os_clk_set_rate(dev->clock.vfe_core_clk, sensor_info.core_clk_for_sensor);
-		vfe_print("Set vfe core clk = %d, after Set vfe core clk = %ld \n",sensor_info.core_clk_for_sensor, clk_get_rate(dev->clock.vfe_core_clk));
+		os_clk_set_rate(dev->clock[VFE_CORE_CLK], sensor_info.core_clk_for_sensor);
+		vfe_print("Set vfe core clk = %d, after Set vfe core clk = %ld \n",sensor_info.core_clk_for_sensor, clk_get_rate(dev->clock[VFE_CORE_CLK]));
 	}
 	else
 	{
-		os_clk_set_rate(dev->clock.vfe_core_clk, VFE_CORE_CLK_RATE);
-		vfe_warn("Not find this sensor info, Set vfe core clk = %d, after Set vfe core clk = %ld \n",VFE_CORE_CLK_RATE, clk_get_rate(dev->clock.vfe_core_clk));
+		os_clk_set_rate(dev->clock[VFE_CORE_CLK], VFE_CORE_CLK_RATE);
+		vfe_warn("Not find this sensor info, Set vfe core clk = %d, after Set vfe core clk = %ld \n",VFE_CORE_CLK_RATE, clk_get_rate(dev->clock[VFE_CORE_CLK]));
 	}
 
 	//alternate isp setting
@@ -3217,7 +3157,6 @@ static int vfe_close(struct file *file)
 {
 	struct vfe_dev *dev = video_drvdata(file);
 	int ret;
-
 	vfe_print("vfe_close\n");
 	//device
 	vfe_stop_generating(dev);
@@ -3734,9 +3673,20 @@ static int vfe_request_pin(struct vfe_dev *dev, int enable)
 #endif
 
 #ifdef FPGA_PIN
-	//pin for FPGA
-	void __iomem      *gpio_base;
+	void __iomem *gpio_base,*clk_base;
 	vfe_print("directly write pin config @ FPGA\n");
+	
+	clk_base = ioremap(0x01c20000, 0x200);
+	if (!clk_base) {
+		ret = -EIO;
+		printk("clk_base directly write pin config EIO\n");
+		return ret;
+	}
+	writel(0xffffffff,(clk_base+0x64));
+	writel(0xffffffff,(clk_base+0x2c4));
+	writel(0x0000000f,(clk_base+0x100));
+	writel(0x80000000,(clk_base+0x130));//open misc clk gate
+	writel(0x80018000,(clk_base+0x134));//set sclk src pll_periph0 and mclk src clk_hosc
 	
 	gpio_base = ioremap(GPIO_REGS_VBASE, 0x120);
 	if (!gpio_base) {
@@ -3744,10 +3694,14 @@ static int vfe_request_pin(struct vfe_dev *dev, int enable)
 		printk("gpio_base directly write pin config EIO\n");
 		return ret;
 	}
-
-	writel(0x33333333,(gpio_base+0x90));
-	writel(0x33333333,(gpio_base+0x94));
-	writel(0x03333333,(gpio_base+0x98));
+	//pin for FPGA
+//	writel(0x33333333,(gpio_base+0x90));
+//	writel(0x33333333,(gpio_base+0x94));
+//	writel(0x03333333,(gpio_base+0x98));
+	//Direct write for pin of IC 
+	writel(0x22222222,(gpio_base+0x90));
+	writel(0x22222222,(gpio_base+0x94));
+	writel(0x11111111,(gpio_base+0x98));
 #endif
 	return ret;
 }
@@ -3830,7 +3784,6 @@ static int vfe_resource_request(struct platform_device *pdev ,struct vfe_dev *de
 #else
 	ret = os_request_irq(dev->irq, vfe_isr, IRQF_SHARED, pdev->name, dev);
 #endif
-
 	if (ret) {
 		vfe_err("failed to install irq (%d)\n", ret);
 		return -ENXIO;
@@ -3941,11 +3894,6 @@ static int vfe_get_regulator(struct vfe_dev *dev)
 		}
 		dev->vfe_system_power[i] = regul;
 	}
-	if(VFE_VPU_CLK){
-		dev->clock.vfe_vpu_clk = os_clk_get(NULL, VFE_VPU_CLK);
-	}else{
-		dev->clock.vfe_vpu_clk = NULL;
-	}
 	return 0;
 }
 static int vfe_enable_regulator_all(struct vfe_dev *dev)
@@ -3958,10 +3906,6 @@ static int vfe_enable_regulator_all(struct vfe_dev *dev)
 		}
 	}
 	usleep_range(5000,6000);
-	if(dev->clock.vfe_vpu_clk)
-		os_clk_prepare_enable(dev->clock.vfe_vpu_clk);
-	else
-		vfe_warn("vfe vpu clock is null\n");
 	return 0;
 }
 static int vfe_disable_regulator_all(struct vfe_dev *dev)
@@ -3973,10 +3917,6 @@ static int vfe_disable_regulator_all(struct vfe_dev *dev)
 			regulator_disable(dev->vfe_system_power[i]);
 		}
 	}
-	if(dev->clock.vfe_vpu_clk)
-		os_clk_disable_unprepare(dev->clock.vfe_vpu_clk);
-	else
-		vfe_warn("vfe vpu clock is null\n");
 	return 0;
 }
 static int vfe_put_regulator(struct vfe_dev *dev)
@@ -3988,10 +3928,6 @@ static int vfe_put_regulator(struct vfe_dev *dev)
 		  	regulator_put(dev->vfe_system_power[i]);
 		}
 	}
-	if(dev->clock.vfe_vpu_clk)
-		os_clk_put(dev->clock.vfe_vpu_clk);
-	else
-		vfe_warn("vfe vpu clock is null\n");
 	return 0;
 }
 

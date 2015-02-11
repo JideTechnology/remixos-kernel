@@ -22,13 +22,78 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <media/videobuf-dma-contig.h>
+#define SUNXI_MEM
 
+#ifdef SUNXI_MEM
+#include <linux/ion.h>          //for all "ion api"
+#include <linux/ion_sunxi.h>    //for import global variable "sunxi_ion_client_create"
+#include <linux/dma-mapping.h>  //just include"PAGE_SIZE" macro
+char *ion_name = "ion_video_buf";
+struct videobuf_dma_contig_memory {
+	u32 magic;
+	void *vaddr;
+	dma_addr_t dma_handle;
+	unsigned long size;
+	struct ion_client *client;
+	struct ion_handle *handle;
+
+};
+static int ion_alloc_coherent(struct videobuf_dma_contig_memory *mem)
+{
+	struct ion_client *client = mem->client;
+	struct ion_handle *handle = mem->handle;
+
+	client = sunxi_ion_client_create(ion_name);
+	if (IS_ERR(client))
+	{
+		printk("sunxi_ion_client_create failed!!");
+	}
+	handle = ion_alloc(client, mem->size, PAGE_SIZE, 
+							ION_HEAP_CARVEOUT_MASK/*|ION_HEAP_TYPE_DMA_MASK*/, 0);
+	if (IS_ERR(handle))
+	{
+		printk("ion_alloc failed!!\n");
+		goto err_alloc;
+	}
+	mem->vaddr = ion_map_kernel( client, handle);
+	if (IS_ERR(mem->vaddr))
+	{
+		printk("ion_map_kernel failed!!\n");
+		goto err_map_kernel;
+	}
+	if(ion_phys(client, handle, &mem->dma_handle, &mem->size ))
+	{
+		printk("ion_phys failed!!\n");
+		goto err_phys;
+	}
+	return 0;
+err_phys:	
+	ion_unmap_kernel( client, handle);
+err_map_kernel:
+	ion_free(client, handle);
+err_alloc:
+	ion_client_destroy(client);
+	return -ENOMEM;	
+
+}
+static int ion_free_coherent(struct videobuf_dma_contig_memory *mem)
+{
+	struct ion_client *client = mem->client;
+	struct ion_handle *handle = mem->handle;
+	if (IS_ERR_OR_NULL(client)||IS_ERR_OR_NULL(handle)||IS_ERR_OR_NULL(mem->vaddr))
+		return ;
+	ion_unmap_kernel(client, handle);
+	ion_free(client, handle);
+	ion_client_destroy(client);
+}
+#else
 struct videobuf_dma_contig_memory {
 	u32 magic;
 	void *vaddr;
 	dma_addr_t dma_handle;
 	unsigned long size;
 };
+#endif
 
 #define MAGIC_DC_MEM 0x0733ac61
 #define MAGIC_CHECK(is, should)						    \
@@ -42,6 +107,10 @@ static int __videobuf_dc_alloc(struct device *dev,
 			       unsigned long size, gfp_t flags)
 {
 	mem->size = size;
+
+#ifdef SUNXI_MEM
+	return ion_alloc_coherent(mem);
+#else
 	mem->vaddr = dma_alloc_coherent(dev, mem->size,
 					&mem->dma_handle, flags);
 
@@ -53,12 +122,20 @@ static int __videobuf_dc_alloc(struct device *dev,
 	dev_dbg(dev, "dma mapped data is at %p (%ld)\n", mem->vaddr, mem->size);
 
 	return 0;
+
+#endif
+
 }
 
 static void __videobuf_dc_free(struct device *dev,
 			       struct videobuf_dma_contig_memory *mem)
 {
+	
+#ifdef SUNXI_MEM
+	ion_free_coherent(mem);
+#else
 	dma_free_coherent(dev, mem->size, mem->vaddr, mem->dma_handle);
+#endif
 
 	mem->vaddr = NULL;
 }

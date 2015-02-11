@@ -1008,7 +1008,7 @@
 		csi_cci0:cci@0x01cb3000 {
 			compatible = "allwinner,sunxi-csi_cci";
 			reg = <0x0 0x01cb3000 0x0 0x1000>;	/*0x01cb3000--0x01cb4000*/
-			interrupts = <GIC_SPI 122 4>;/*SUNXI_IRQ_CSI0_CCI (SUNXI_GIC_START + 122)*/
+			interrupts = <GIC_SPI 85 4>;/*SUNXI_IRQ_CSI0_CCI (SUNXI_GIC_START + 85) = 117*/
 			status = "okay";
 		};
 		csi_0:csi@0x01cb0000 {
@@ -1017,14 +1017,16 @@
 			status = "okay";
 		};
 		vip0:vip@0 {
+			device_type= "vip0";
 			compatible = "allwinner,sunxi-vfe";
-			interrupts = <GIC_SPI 84 4>;/*SUNXI_IRQ_CSI0 (SUNXI_GIC_START + 84 )*/
-			clocks 				= <&clk_csi_s>, <&clk_pll_periph0>,
-										<&clk_csi_m>, <&clk_pll_video1>,
-										<&clk_csi_misc>, <&clk_hosc>;
+			interrupts = <GIC_SPI 84 4>;/*SUNXI_IRQ_CSI0 (SUNXI_GIC_START + 84 ) = 116*/
+			clocks 				= <&clk_csi_s>, <&clk_csi_m>,<&clk_csi_misc>,
+									<&clk_pll_periph0>,<&clk_hosc>,<&clk_pll_periph1>;
 			pinctrl-names 		= "default";
 			pinctrl-0 			= <&csi0_pins>;			
-			vip0_csi_mck 		= <&pio PE 1 2 0 1 0>; /*PE1 .mul_sel = 2, .pull = 0, .drv_level = 1, .data = 0*/	
+			vip0_sensor_list	= <0>;
+			vip0_sensor_pos		= "rear";
+			vip0_csi_mck 		= <&pio PE 1 1 0 1 0>; /*PE1 .mul_sel = 1, .pull = 0, .drv_level = 1, .data = 0*/	
 			vip0_mname          = "ov5640";
 			vip0_twi_addr       = <0x78>;
 			vip0_isp_used       = <1>;
@@ -1032,20 +1034,23 @@
 			vip0_stby_mode      = <0>;
 			vip0_vflip          = <0>;
 			vip0_hflip          = <0>;
-			vip0_iovdd          = "axp22_eldo3";
+			vip0_iovdd          = "axp81x_aldo1";
 			vip0_iovdd_vol      = <2800000>;
-			vip0_avdd           = "axp22_dldo4";
+			vip0_avdd           = "axp81x_dldo3";
 			vip0_avdd_vol       = <2800000>;
-			vip0_dvdd           = "axp22_eldo2";
+			vip0_dvdd           = "axp81x_eldo3";
 			vip0_dvdd_vol       = <1500000>;
-			vip0_afvdd          = "";
+			vip0_afvdd          = "axp81x_aldo1";
 			vip0_afvdd_vol      = <2800000>;
+			/*vip0_power_en		= <&pio PB 4 1 0 1 0>;*/	/*PB4 .mul_sel = 1, .pull = 0, .drv_level = 1, .data = 0*/
 			vip0_reset 			= <&pio PE 16 1 0 1 0>; /*PE16 .mul_sel = 1, .pull = 0, .drv_level = 1, .data = 0*/
 			vip0_pwdn 			= <&pio PE 17 1 0 1 0>; /*PE17 .mul_sel = 1, .pull = 0, .drv_level = 1, .data = 0*/
-			vip0_power_en		= <>;
-			vip0_flash_en		= <>;
-			vip0_flash_mode		= <>;
-			vip0_af_pwdn		= <>;			
+			/*vip0_flash_en		= <>;*/
+			/*vip0_flash_mode		= <>;*/
+			/*vip0_af_pwdn		= <>;*/
+			vip0_act_used       = <0>;
+			vip0_act_name       = "ad5820_act";
+			vip0_act_slave      = <0x18>;
 			status = "okay";
 		};
 		

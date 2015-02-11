@@ -33,18 +33,7 @@
 #define CPU_DRAM_PADDR_ORG 			    0x40000000
 #define HW_DMA_OFFSET					0x00000000
 #define MAX_VFE_INPUT   					1     //the maximum number of input source of video front end
-#define VFE_CORE_CLK					CSI_S_CLK
-#define VFE_CORE_CLK_SRC				PLL_PERIPH0_CLK
-#define VFE_MASTER_CLK0					CSI_M_CLK
-#define VFE_MASTER_CLK1					VFE_CLK_NOT_EXIST
-#define VFE_MASTER_CLK_24M_SRC		    HOSC_CLK
-#define VFE_MASTER_CLK_PLL_SRC		    PLL_VIDEO_CLK
-#define VFE_MIPI_DPHY_CLK				VFE_CLK_NOT_EXIST
-#define VFE_MIPI_DPHY_CLK_SRC			VFE_CLK_NOT_EXIST
-#define VFE_MIPI_CSI_CLK				VFE_CLK_NOT_EXIST
-#define VFE_MIPI_CSI_CLK_SRC			VFE_CLK_NOT_EXIST
-#define VFE_VPU_CLK						VFE_CLK_NOT_EXIST
-#define VFE_MISC_CLK						CSI_MISC_CLK
+
 
 //set vfe core clk base on sensor size
 #define CORE_CLK_RATE_FOR_2M (108*1000*1000)

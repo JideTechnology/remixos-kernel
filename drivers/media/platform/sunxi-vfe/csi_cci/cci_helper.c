@@ -688,6 +688,33 @@ int cci_write_a16_d16(struct v4l2_subdev *sd, unsigned short addr,
 
 EXPORT_SYMBOL_GPL(cci_write_a16_d16);
 
+int cci_write_a0_d16(struct v4l2_subdev *sd, unsigned short value)
+{
+#ifdef USE_SPECIFIC_CCI
+	struct cci_driver *cci_drv;
+	cci_drv = v4l2_get_subdevdata(sd);
+	return cci_wr_0_16(cci_drv->cci_id, value, cci_drv->cci_saddr);
+#else
+  struct i2c_msg msg;
+  unsigned char data[2];
+  int ret;
+  struct i2c_client *client = v4l2_get_subdevdata(sd);
+  data[0] = (value&0xff00)>>8;
+  data[1] = (value&0x00ff);
+  msg.addr = client->addr;
+  msg.flags = 0;
+  msg.len = 2;
+  msg.buf = data;
+  ret = i2c_transfer(client->adapter, &msg, 1);
+  if (ret >= 0) {
+    ret = 0;
+  } else {
+    cci_err("%s error! slave = 0x%x, value = 0x%4x\n ",__func__, client->addr,value);
+  }
+  return ret;
+#endif
+}
+EXPORT_SYMBOL_GPL(cci_write_a0_d16);
 int cci_write_a16_d8_continuous_helper(struct v4l2_subdev *sd, unsigned short addr, unsigned char *vals , uint size)
 {
 #ifdef USE_SPECIFIC_CCI
@@ -746,6 +773,10 @@ int cci_write(struct v4l2_subdev *sd, unsigned short addr, unsigned short value,
 	else if (16 == addr_width && 16 == data_width)
 	{
 		return cci_write_a16_d16(sd, addr, value);
+	}
+	else if (0 == addr_width && 16 == data_width)
+	{
+		return cci_write_a0_d16(sd, value);
 	}
 	else
 	{

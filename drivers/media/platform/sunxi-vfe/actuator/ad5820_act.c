@@ -38,13 +38,15 @@ static int subdev_i2c_write(struct actuator_ctrl_t *act_ctrl,
                             unsigned short halfword, void* pt)
 {
 	int ret=0;
-	unsigned char waddr,bdata;
-	waddr = (unsigned char)(halfword>>8);
-	bdata = (unsigned char)(0xff&halfword);
-	ret = cci_write_a8_d8(&act_ctrl->sdev,waddr,bdata);
+//	unsigned char waddr,bdata;
+//	waddr = (unsigned char)(halfword>>8);
+//	bdata = (unsigned char)(0xff&halfword);
+//	ret = cci_write_a8_d8(&act_ctrl->sdev,waddr,bdata);
+	ret = cci_write_a0_d16(&act_ctrl->sdev,halfword);
 	if(ret < 0)
 		act_dev_err("subdev_i2c_write write 0x%x err!\n ",halfword);
-	act_dev_dbg("set client->addr = [0x%x][0x%x, 0x%x]\n", halfword, waddr, bdata);
+//	act_dev_dbg("set client->addr = [0x%x][0x%x, 0x%x]\n", halfword, waddr, bdata);
+	act_dev_dbg("set value = [0x%x]\n", halfword);
 	return ret;
 }
 

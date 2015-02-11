@@ -34,7 +34,7 @@ extern unsigned int vfe_dbg_lv;
 #define vfe_print(x,arg...) printk(KERN_NOTICE"[VFE]"x,##arg)
 
 struct vfe_mm {    
-	unsigned int size;
+	size_t size;
 	void* phy_addr;
 	void* vir_addr;
 	void* dma_addr;
@@ -43,14 +43,14 @@ struct vfe_mm {
 };
 
 struct vfe_gpio_cfg {
-  int gpio;
-  int mul_sel;
-  int pull;
-  int drv_level;
-  int data;
+	u32 gpio;
+	u32 mul_sel;
+	u32 pull;
+	u32 drv_level;
+	u32 data;
 };
 
-extern struct clk *os_clk_get(struct device *dev, const char *id);
+struct clk *os_clk_get(struct device_node *np, int index);
 extern void  os_clk_put(struct clk *clk);
 extern int os_clk_set_parent(struct clk *clk, struct clk *parent);
 extern int os_clk_set_rate(struct clk *clk, unsigned long rate);

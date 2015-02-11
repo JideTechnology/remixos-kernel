@@ -6,13 +6,13 @@ unsigned int vfe_dbg_lv = 1;
 EXPORT_SYMBOL_GPL(vfe_dbg_en);
 EXPORT_SYMBOL_GPL(vfe_dbg_lv);
 
-struct clk *os_clk_get(struct device *dev, const char *id)  
+struct clk *os_clk_get(struct device_node *np, int index)
 {
 #ifdef VFE_CLK
 	struct clk *clk_p;
-	clk_p =  clk_get(dev, id);
-	if(clk_p == NULL)
-		vfe_warn("Get clk %s is NULL!\n",id);
+	clk_p = of_clk_get(np, index);
+	if(IS_ERR_OR_NULL(clk_p))
+		return NULL;
   	return clk_p;
 #else
 	return NULL;
@@ -305,7 +305,7 @@ int os_mem_alloc(struct vfe_mm *mem_man)
 		goto err_client;
 	}
 	mem_man->handle = ion_alloc(mem_man->client, mem_man->size, PAGE_SIZE, 
-							ION_HEAP_CARVEOUT_MASK|ION_HEAP_TYPE_DMA_MASK, 0);
+							ION_HEAP_CARVEOUT_MASK/*|ION_HEAP_TYPE_DMA_MASK*/, 0);
 	if (IS_ERR(mem_man->handle))
 	{
 		vfe_err("ion_alloc failed!!");
@@ -337,7 +337,7 @@ err_client:
 	mem_man->vir_addr = dma_alloc_coherent(NULL, (size_t)mem_man->size,
 			(dma_addr_t*)&mem_man->phy_addr, GFP_KERNEL);
 	if (!mem_man->vir_addr) {
-		vfe_err("memory alloc size %d failed\n", mem_man->size);
+		vfe_err("dma_alloc_coherent memory alloc size %d failed\n", mem_man->size);
 		return -ENOMEM;
 	} 
 	mem_man->dma_addr = mem_man->phy_addr + HW_DMA_OFFSET-CPU_DRAM_PADDR_ORG;

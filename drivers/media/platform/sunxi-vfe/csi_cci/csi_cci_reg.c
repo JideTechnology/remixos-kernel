@@ -289,7 +289,13 @@ void cci_print_info(unsigned int sel)
 	for(i=0; i<32; i+=4)
 	{
 		reg_val = vfe_reg_readl(csi_cci_base_addr[sel] + i);
-		printk("0x%x = 0x%x\n",i, reg_val);
+		printk("0x%lx = 0x%x\n",csi_cci_base_addr[sel] + i, reg_val);
+	}
+
+	for(i=0; i<12; i+=4)
+	{
+		reg_val = vfe_reg_readl(csi_cci_base_addr[sel] + 0x100 + i);
+		printk("0x%lx = 0x%x\n",csi_cci_base_addr[sel] + 0x100 + i, reg_val);
 	}
 }
 

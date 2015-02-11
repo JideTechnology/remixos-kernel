@@ -74,7 +74,7 @@ void bsp_csi_cci_init(unsigned int sel)
 	unsigned char div_coef[2];
 	csi_cci_reset(sel);
 	csi_cci_enable(sel);
-	cci_cal_div(300*1000, div_coef);
+	cci_cal_div(400*1000, div_coef);
 	csi_cci_set_clk_div(sel, div_coef);
 	csi_cci_set_pkt_interval(sel, 16);
 	csi_cci_set_ack_timeout(sel, 16);
