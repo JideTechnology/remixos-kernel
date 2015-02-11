@@ -218,15 +218,7 @@ static int sunxi_cpufreq_target(struct cpufreq_policy *policy,
 	/* notify that cpu clock will be adjust if needed */
 	if (policy) {
 #ifdef CONFIG_SMP
-		/*
-		 * Note that loops_per_jiffy is not updated on SMP systems in
-		 * cpufreq driver. So, update the per-CPU loops_per_jiffy value
-		 * on frequency transition. We need to update all dependent cpus
-		 */
 		for_each_cpu(i, policy->cpus) {
-			per_cpu(cpu_data, i).loops_per_jiffy =
-				 cpufreq_scale(per_cpu(cpu_data, i).loops_per_jiffy,
-						freqs.old, freqs.new);
 			freqs.cpu = i;
 			cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
 		}
