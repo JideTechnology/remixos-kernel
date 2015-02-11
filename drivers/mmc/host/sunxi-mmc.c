@@ -773,8 +773,8 @@ static int	sunxi_mmc_signal_voltage_switch(struct mmc_host *mmc, struct mmc_ios 
 				return -EIO;
 			}
 		}else{
-			dev_err(mmc_dev(mmc),"no vqmmc\n");
-			return -ENOSYS;
+			dev_info(mmc_dev(mmc),"no vqmmc,Check if there is regulator\n");
+			return 0;
 		}
 		/* Wait for 5ms */
 		//usleep_range(5000, 5500);
@@ -789,8 +789,8 @@ static int	sunxi_mmc_signal_voltage_switch(struct mmc_host *mmc, struct mmc_ios 
 				return -EIO;
 			}
 		}else{
-				dev_err(mmc_dev(mmc),"no vqmmc\n");
-				return -ENOSYS;
+			dev_info(mmc_dev(mmc),"no vqmmc,Check if there is regulator\n");
+			return 0;
 		}
 
 		/* Wait for 5ms */
@@ -805,8 +805,8 @@ static int	sunxi_mmc_signal_voltage_switch(struct mmc_host *mmc, struct mmc_ios 
 				return -EIO;
 			}
 		}else{
-			dev_err(mmc_dev(mmc),"no vqmmc\n");
-			return -ENOSYS;
+			dev_info(mmc_dev(mmc),"no vqmmc,Check if there is regulator\n");
+			return 0;
 		}
 
 		return 0;
@@ -1099,8 +1099,7 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 	ret = mmc_regulator_get_supply(host->mmc);
 	if (ret) {
 		if(ret == -EPROBE_DEFER){
-			dev_err(&pdev->dev, "Power supply is not ready\n");
-			return ret;
+			dev_err(&pdev->dev, "Power supply is not ready,Check if there is regulator\n");
 		}else{
 			dev_err(&pdev->dev, "Could not get power supply,used default ocr\n");
 		}		
