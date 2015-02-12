@@ -1053,8 +1053,7 @@
 						 <GIC_SPI 80 0xff01>; /* secure space */
 			clock-frequency = <300000000>, /* 300MHz */
 							  <200000000>; /* 200MHz for RSA */
-			clocks = <&clk_ce>,
-					 <&clk_pll_periph0>;
+			clocks = <&clk_ce>, <&clk_pll_periph0x2>;
 		};
 		di:deinterlace@0x01e00000{
 			#address-cells = <1>;
