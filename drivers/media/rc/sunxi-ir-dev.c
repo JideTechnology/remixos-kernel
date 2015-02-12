@@ -368,7 +368,7 @@ static int sunxi_ir_recv_probe(struct platform_device *pdev)
 	sunxi_rcdev->dev.parent = &pdev->dev;
 	sunxi_rcdev->driver_name = SUNXI_IR_DRIVER_NAME;
 
-	sunxi_rcdev->allowed_protos = RC_BIT_NEC;
+	sunxi_rcdev->allowed_protos = (u64)RC_BIT_NEC;
 	sunxi_rcdev->map_name = RC_MAP_SUNXI;
 
 	init_rc_map_sunxi();
@@ -377,7 +377,7 @@ static int sunxi_ir_recv_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to register rc device\n");
 		goto err_register_rc_device;
 	}
-
+	sunxi_rcdev->enabled_protocols = sunxi_rcdev->allowed_protos;;
 	sunxi_rcdev->input_dev->dev.init_name = &ir_dev_name[0];
 
 	if (0 != rc) {
