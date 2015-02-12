@@ -15,8 +15,8 @@
  */
 
 #include "config.h"
-#include "utility/cfg_op.h"
 #include "platform_cfg.h"
+#include "isp_cfg/isp_cfg.h"
 #define SIZE_OF_LSC_TBL_MOD0     7*768*2
 #define SIZE_OF_LSC_TBL_MOD1     8*768*2
 #define SIZE_OF_HDR_TBL     4*256*2
@@ -628,6 +628,7 @@ struct isp_init_config isp_init_def_cfg = {
 
       /*isp awb param */
       .awb_interval                 = 4,
+      .awb_speed = 8,
       //.awb_mode_select          = 1,
       .awb_color_temper_low     = 2500,
       .awb_color_temper_high    = 7500,
@@ -758,6 +759,8 @@ void set_adaptive_frame_rate(struct isp_init_config *isp_ini_cfg, void *value, i
 void set_force_frame_rate(struct isp_init_config *isp_ini_cfg, void *value, int len) { isp_ini_cfg->isp_3a_settings.force_frame_rate = *(int *)value; }
 
 void set_awb_interval(struct isp_init_config *isp_ini_cfg, void *value, int len) { isp_ini_cfg->isp_3a_settings.awb_interval = *(int *)value; }
+void set_awb_speed(struct isp_init_config *isp_ini_cfg, void *value, int len) { isp_ini_cfg->isp_3a_settings.awb_speed = *(int *)value; }
+
 //void set_awb_mode_select(struct isp_init_config *isp_ini_cfg, void *value, int len) { isp_ini_cfg->isp_3a_settings.awb_mode_select = *(int *)value; }
 //void set_awb_tolerance(struct isp_init_config *isp_ini_cfg, void *value, int len) { isp_ini_cfg->isp_3a_settings.awb_tolerance = *(int *)value; }
 
@@ -825,7 +828,7 @@ void set_awb_skin_color_info(struct isp_init_config *isp_ini_cfg, void *value, i
 	}
 }
 
-void set_awb_perset_gain(struct isp_init_config *isp_ini_cfg, void *value, int len)
+void set_awb_preset_gain(struct isp_init_config *isp_ini_cfg, void *value, int len)
 {
 	int i,*tmp;
 	tmp = (int *)value;
@@ -1137,6 +1140,7 @@ static struct IspParamAttribute Isp3aParam[] =
 	{ "isp_ae_cfg",   "force_frame_rate",         1 , set_force_frame_rate          ,},
 
 	{ "isp_awb_cfg",  "awb_interval",          1 ,  set_awb_interval          ,},
+	{ "isp_awb_cfg",  "awb_speed",          1 ,  set_awb_speed	,},
 
 	//{ "isp_awb_cfg",  "awb_mode_select",          1 ,  set_awb_mode_select          ,},
 
@@ -1156,7 +1160,7 @@ static struct IspParamAttribute Isp3aParam[] =
 	{ "isp_awb_cfg",  "awb_light_info_",             100 ,  set_awb_light_info           ,},
 	{ "isp_awb_cfg",  "awb_ext_light_info_",             60 ,  set_awb_ext_light_info             ,},
 	{ "isp_awb_cfg",  "awb_skin_color_info_",             40 ,  set_awb_skin_color_info             ,},
-	{ "isp_awb_cfg",  "awb_perset_gain_",             22 ,  set_awb_perset_gain             ,},
+	{ "isp_awb_cfg",  "awb_perset_gain_",             22 ,  set_awb_preset_gain             ,},
 
 	{ "isp_af_cfg",   "vcm_min_code",             1 ,  set_vcm_min_code             ,},
 	{ "isp_af_cfg",   "vcm_max_code",             1 ,  set_vcm_max_code             ,},
@@ -1364,23 +1368,60 @@ int fetch_isp_tbl(struct isp_init_config *isp_ini_cfg, char* tbl_patch)
 	return ret;
 }
 
-int read_ini_info(struct vfe_dev *dev,int isp_id)
+int match_isp_cfg(struct vfe_dev *dev,int isp_id)
+{
+	int ret;
+	struct isp_cfg_item isp_cfg_tmp;
+	struct isp_init_config *isp_ini_cfg = &dev->isp_gen_set[isp_id].isp_ini_cfg;
+	ret = get_isp_cfg(dev->ccm_cfg[isp_id]->isp_cfg_name,&isp_cfg_tmp);
+	if(ret < 0)
+	{
+		return -1;
+	}
+	isp_ini_cfg->isp_3a_settings = *isp_cfg_tmp.isp_cfg->isp_3a_settings;
+	isp_ini_cfg->isp_test_settings = *isp_cfg_tmp.isp_cfg->isp_test_settings;
+	isp_ini_cfg->isp_tunning_settings = *isp_cfg_tmp.isp_cfg->isp_tunning_settings;
+	isp_ini_cfg->isp_iso_settings = *isp_cfg_tmp.isp_cfg->isp_iso_settings;
+	memcpy(isp_ini_cfg->isp_tunning_settings.gamma_tbl, isp_ini_cfg->isp_tunning_settings.gamma_tbl_ini, ISP_GAMMA_MEM_SIZE);
+	memcpy(isp_ini_cfg->isp_tunning_settings.gamma_tbl_post, isp_ini_cfg->isp_tunning_settings.gamma_tbl_ini, ISP_GAMMA_MEM_SIZE);
+	return 0;
+}
+int read_ini_info(struct vfe_dev *dev,int isp_id, char *main_path)
 {
 	int i, ret = 0;
 	char isp_cfg_path[128],isp_tbl_path[128],file_name_path[128];
 	struct cfg_section *cfg_section;
+	struct file* fp;
 
-	vfe_print("read ini start\n");
 	if(dev->ccm_cfg[isp_id] != NULL && strcmp(dev->ccm_cfg[isp_id]->isp_cfg_name, "") != 0)
 	{
-		sprintf(isp_cfg_path, "/system/etc/hawkview/%s/", dev->ccm_cfg[isp_id]->isp_cfg_name);
-		sprintf(isp_tbl_path, "/system/etc/hawkview/%s/bin/", dev->ccm_cfg[isp_id]->isp_cfg_name);
+		sprintf(isp_cfg_path, "%s%s/",main_path, dev->ccm_cfg[isp_id]->isp_cfg_name);
+		sprintf(isp_tbl_path, "%s%s/bin/", main_path, dev->ccm_cfg[isp_id]->isp_cfg_name);
+
+		//sprintf(isp_cfg_path, "/system/etc/hawkview/%s/", dev->ccm_cfg[isp_id]->isp_cfg_name);
+		//sprintf(isp_tbl_path, "/system/etc/hawkview/%s/bin/", dev->ccm_cfg[isp_id]->isp_cfg_name);
+		//sprintf(isp_cfg_path, "/mnt/extsd/hawkview/%s/", dev->ccm_cfg[isp_id]->isp_cfg_name);
+		//sprintf(isp_tbl_path, "/mnt/extsd/hawkview/%s/bin/", dev->ccm_cfg[isp_id]->isp_cfg_name);
 	}
 	else
 	{
 		sprintf(isp_cfg_path, "/system/etc/hawkview/camera.ini");
 		sprintf(isp_tbl_path, "/system/etc/hawkview/bin/");
 	}
+
+	
+	sprintf(file_name_path,"%s%s",isp_cfg_path,FileAttr[0].file_name);	  
+	fp = filp_open(isp_cfg_path,O_RDONLY,0);
+	if(IS_ERR(fp)) {
+		vfe_print("Check open %s failed!\nMatch isp cfg  start!\n", file_name_path);
+		if(match_isp_cfg(dev,isp_id) == 0)
+		{
+			vfe_print("Match isp cfg ok\n");
+			goto read_ini_info_end;
+		}
+	}
+	vfe_print("read ini start\n");
+	
 	dev->isp_gen_set[isp_id].isp_ini_cfg = isp_init_def_cfg;
 	for(i=0; i< ARRAY_SIZE(FileAttr); i++)
 	{

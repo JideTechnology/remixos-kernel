@@ -211,9 +211,7 @@ struct ccm_config {
 };
 
 struct sunxi_vip_platform_data {
-//  unsigned int mipi_sel;
 	unsigned int vip_sel;
-//  unsigned int isp_sel;
 }; 
 
 static LIST_HEAD(devlist);

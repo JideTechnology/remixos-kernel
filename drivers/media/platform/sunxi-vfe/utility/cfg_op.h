@@ -15,7 +15,7 @@
 #define MAX_NAME_LEN      32
 #define MAX_VALUE_LEN     128
 #define MAX_MAINKEY_NUM   64
-#define MAX_SUBKEY_NUM    512
+#define MAX_SUBKEY_NUM    1024
 #define INI_MAX_CHAR_NUM (LINE_MAX_CHAR_NUM * MAX_LINE_NUM)
 #define BIN_MAX_SIZE			4096*4
 
@@ -71,4 +71,8 @@ int cfg_read_ini(char *file_path, struct cfg_section **cfg_section);
 int cfg_read_file(char *file_path, char *buf, size_t len);
 
 int cfg_get_one_subkey(struct cfg_section *cfg_section, char *main, char *sub, struct cfg_subkey *subkey);
+
+struct file* cfg_open_file(char *file_path);
+int cfg_close_file(struct file *fp);
+int cfg_write_file(	struct file* fp, char *buf, size_t len);
 #endif //__CFG__OP__H__

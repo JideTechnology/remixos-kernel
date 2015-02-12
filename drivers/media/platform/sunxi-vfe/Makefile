@@ -15,6 +15,7 @@ vfe_v4l2-y					+= csi/bsp_csi.o
 vfe_v4l2-y					+= bsp_common.o
 vfe_v4l2-y					+= config.o
 vfe_v4l2-y					+= utility/sensor_info.o
+vfe_v4l2-y					+= isp_cfg/isp_cfg.o
 vfe_v4l2-y					+= utility/cfg_op.o
 vfe_v4l2-y					+= vfe.o
 vfe_v4l2-y					+= lib/libisp

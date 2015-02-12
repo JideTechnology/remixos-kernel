@@ -58,7 +58,7 @@ static int mipi_probe(struct platform_device *pdev)
 	mipi->base = ioremap(res->start, resource_size(res));
 	if (!mipi->base) {
 		ret = -EIO;
-		goto eremap;
+		goto freedev;
 	}
 
 #if defined(CONFIG_ARCH_SUN8IW7P1)
@@ -85,7 +85,7 @@ static int mipi_probe(struct platform_device *pdev)
 
 ehwinit:
 	iounmap(mipi->base);
-eremap:
+freedev:
 	kfree(mipi);
 ekzalloc:
 	vfe_print("mipi probe err!\n");

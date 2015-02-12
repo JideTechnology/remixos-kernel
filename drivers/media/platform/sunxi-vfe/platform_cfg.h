@@ -49,6 +49,8 @@
 #include <linux/sys_config.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
+#include <linux/of_irq.h>
+#include <linux/of_address.h>
 
 #include <linux/slab.h>
 

@@ -123,6 +123,7 @@ static struct regval_list sensor_default_regs[] = {
 	{0x3021, 0x03},// ; Sleep latch, software standby at line blank
 	{0x3022, 0x01},//  ; LVDS disable, Enable power down MIPI when sleep
 	{0x3031, 0x0a},//  ; MIPI 10-bit mode
+	{0x303f, 0x0c},
 	{0x3305, 0xf1},//  ; ASRAM
 	{0x3307, 0x04},//  ; ASRAM
 	{0x3309, 0x29},//  ; ASRAM
@@ -272,6 +273,7 @@ static struct regval_list sensor_default_regs[] = {
 	{0x382d, 0x7f},//  ; black column end address
 	{0x3830, 0x04},//  ; blc use num/2
 	{0x3836, 0x01},//  ; r zline use num/2
+	{0x3837, 0x00},//
 	{0x3841, 0x02},//  ; r_rcnt_fix on
 	{0x3846, 0x08},//  ; fcnt_trig_rst_en on
 	{0x3847, 0x07},//  ; debug mode
@@ -763,121 +765,85 @@ static int sensor_s_sw_stby(struct v4l2_subdev *sd, int on_off)
  
 static int sensor_power(struct v4l2_subdev *sd, int on)
 {
-  int ret;
-  
-  //insure that clk_disable() and clk_enable() are called in pair 
-  //when calling CSI_SUBDEV_STBY_ON/OFF and CSI_SUBDEV_PWR_ON/OFF
-  ret = 0;
-  switch(on)
-  {
-    case CSI_SUBDEV_STBY_ON:
-      vfe_dev_dbg("CSI_SUBDEV_STBY_ON!\n");
-//      //disable io oe
-//      vfe_dev_print("disalbe oe!\n");
-//      ret = sensor_write_array(sd, sensor_oe_disable_regs, ARRAY_SIZE(sensor_oe_disable_regs));
-//      if(ret < 0)
-//        vfe_dev_err("disalbe oe falied!\n");           
-      //software standby on
-      ret = sensor_s_sw_stby(sd, CSI_STBY_ON);
-      if(ret < 0)
-        vfe_dev_err("soft stby falied!\n");
-      usleep_range(10000,12000);
-      //make sure that no device can access i2c bus during sensor initial or power down
-      //when using i2c_lock_adpater function, the following codes must not access i2c bus before calling i2c_unlock_adapter
-      cci_lock(sd);    
-      //standby on io
-      vfe_gpio_write(sd,PWDN,CSI_STBY_ON);
-      //remember to unlock i2c adapter, so the device can access the i2c bus again
-      cci_unlock(sd);  
-      //inactive mclk after stadby in
-      vfe_set_mclk(sd,OFF);
-      break;
-    case CSI_SUBDEV_STBY_OFF:
-      vfe_dev_dbg("CSI_SUBDEV_STBY_OFF!\n");
-      //make sure that no device can access i2c bus during sensor initial or power down
-      //when using i2c_lock_adpater function, the following codes must not access i2c bus before calling i2c_unlock_adapter
-      cci_lock(sd);    
-    
-      //active mclk before stadby out
-      vfe_set_mclk_freq(sd,MCLK);
-      vfe_set_mclk(sd,ON);
-      usleep_range(10000,12000);
-      //standby off io
-      vfe_gpio_write(sd,PWDN,CSI_STBY_OFF);
-      usleep_range(10000,12000);
-      //remember to unlock i2c adapter, so the device can access the i2c bus again
-      cci_unlock(sd);        
-//      //software standby
-//      ret = sensor_s_sw_stby(sd, CSI_STBY_OFF);
-//      if(ret < 0)
-//        vfe_dev_err("soft stby off falied!\n");
-//      mdelay(10);
-//      vfe_dev_print("enable oe!\n");
-//      ret = sensor_write_array(sd, sensor_oe_enable_regs);
-//      if(ret < 0)
-//        vfe_dev_err("enable oe falied!\n");
-      break;
-    case CSI_SUBDEV_PWR_ON:
-      vfe_dev_dbg("CSI_SUBDEV_PWR_ON!\n");
-      //make sure that no device can access i2c bus during sensor initial or power down
-      //when using i2c_lock_adpater function, the following codes must not access i2c bus before calling i2c_unlock_adapter
-      cci_lock(sd);    
+	int ret = 0;
+	switch(on)
+	{
+		case CSI_SUBDEV_STBY_ON:
+			vfe_dev_dbg("CSI_SUBDEV_STBY_ON!\n");
+			ret = sensor_s_sw_stby(sd, CSI_GPIO_LOW);
+			if(ret < 0)
+				vfe_dev_err("soft stby falied!\n");
+			usleep_range(10000,12000);
+			cci_lock(sd);    
+			vfe_gpio_write(sd,PWDN,CSI_GPIO_LOW);
+			cci_unlock(sd);    
+			vfe_set_mclk(sd,OFF);
+			break;
+		case CSI_SUBDEV_STBY_OFF:
+			vfe_dev_dbg("CSI_SUBDEV_STBY_OFF!\n");
+			cci_lock(sd);    
+			vfe_set_mclk_freq(sd,MCLK);
+			vfe_set_mclk(sd,ON);
+			usleep_range(10000,12000);
+			vfe_gpio_write(sd,PWDN,CSI_GPIO_HIGH);
+			usleep_range(10000,12000);
+			ret = sensor_s_sw_stby(sd, CSI_GPIO_HIGH);
+			if(ret < 0)
+				vfe_dev_err("soft stby off falied!\n");
+			cci_unlock(sd);    
+			break;
+		case CSI_SUBDEV_PWR_ON:
+			vfe_dev_dbg("CSI_SUBDEV_PWR_ON!\n");
+			cci_lock(sd);    
+			vfe_gpio_set_status(sd,PWDN,1);//set the gpio to output
+			vfe_gpio_set_status(sd,RESET,1);//set the gpio to output
+			vfe_gpio_set_status(sd,POWER_EN,1);//set the gpio to output
+			vfe_gpio_write(sd,PWDN,CSI_GPIO_LOW);
+			vfe_gpio_write(sd,RESET,CSI_GPIO_LOW);
+			vfe_set_pmu_channel(sd,IOVDD,ON);
+			usleep_range(10000,12000);
 
-      //power on reset
-      vfe_gpio_set_status(sd,PWDN,1);//set the gpio to output
-      vfe_gpio_set_status(sd,RESET,1);//set the gpio to output
-      //power down io
-      vfe_gpio_write(sd,PWDN,CSI_STBY_ON);
-      //reset on io
-      vfe_gpio_write(sd,RESET,CSI_RST_ON);
-      usleep_range(1000,1200);
-      //active mclk before power on
-      vfe_set_mclk_freq(sd,MCLK);
-      vfe_set_mclk(sd,ON);
-      usleep_range(10000,12000);
-      //power supply
-      vfe_gpio_write(sd,POWER_EN,CSI_PWR_ON);
-      vfe_set_pmu_channel(sd,IOVDD,ON);
-      vfe_set_pmu_channel(sd,AVDD,ON);
-      vfe_set_pmu_channel(sd,DVDD,ON);
-      vfe_set_pmu_channel(sd,AFVDD,ON);
-      //standby off io
-      vfe_gpio_write(sd,PWDN,CSI_STBY_OFF);
-      usleep_range(10000,12000);
-      //reset after power on
-      vfe_gpio_write(sd,RESET,CSI_RST_OFF);
-      usleep_range(30000,31000);
-      //remember to unlock i2c adapter, so the device can access the i2c bus again
-      cci_unlock(sd);  
-      break;
-    case CSI_SUBDEV_PWR_OFF:
-      vfe_dev_dbg("CSI_SUBDEV_PWR_OFF!\n");
-      //make sure that no device can access i2c bus during sensor initial or power down
-      //when using i2c_lock_adpater function, the following codes must not access i2c bus before calling i2c_unlock_adapter
-      cci_lock(sd);    
-      //inactive mclk before power off
-      vfe_set_mclk(sd,OFF);
-      //power supply off
-      vfe_gpio_write(sd,POWER_EN,CSI_PWR_OFF);
-      vfe_set_pmu_channel(sd,AFVDD,OFF);
-      vfe_set_pmu_channel(sd,DVDD,OFF);
-      vfe_set_pmu_channel(sd,AVDD,OFF);
-      vfe_set_pmu_channel(sd,IOVDD,OFF);  
-      //standby and reset io
-      usleep_range(10000,12000);
-      vfe_gpio_write(sd,POWER_EN,CSI_STBY_OFF);
-      vfe_gpio_write(sd,RESET,CSI_RST_ON);
-      //set the io to hi-z
-      vfe_gpio_set_status(sd,RESET,0);//set the gpio to input
-      vfe_gpio_set_status(sd,PWDN,0);//set the gpio to input
-      //remember to unlock i2c adapter, so the device can access the i2c bus again
-      cci_unlock(sd);  
-      break;
-    default:
-      return -EINVAL;
-  }   
+			vfe_set_pmu_channel(sd,AVDD,ON);
+			usleep_range(5000,6000);
+			vfe_gpio_write(sd,POWER_EN,CSI_PWR_ON);
+			vfe_set_pmu_channel(sd,DVDD,ON);
+			vfe_set_pmu_channel(sd,AFVDD,ON);
+			usleep_range(5000,6000);
+			vfe_gpio_write(sd,RESET,CSI_GPIO_HIGH);
+			vfe_gpio_write(sd,PWDN,CSI_GPIO_HIGH);
+			usleep_range(10000,12000);
+			vfe_set_mclk_freq(sd,MCLK);
+			vfe_set_mclk(sd,ON);
+			usleep_range(10000,12000);
+			cci_unlock(sd);    
+			break;
+		case CSI_SUBDEV_PWR_OFF:
+			vfe_dev_dbg("CSI_SUBDEV_PWR_OFF!\n");
+			cci_lock(sd);   
+			vfe_set_mclk(sd,OFF);
+			usleep_range(10000,12000);
+			vfe_gpio_write(sd,RESET,CSI_GPIO_LOW);
+			vfe_gpio_write(sd,PWDN,CSI_GPIO_LOW);
+			usleep_range(10000,12000);
+			vfe_set_pmu_channel(sd,AFVDD,OFF);
+			vfe_set_pmu_channel(sd,DVDD,OFF);
+			vfe_gpio_write(sd,POWER_EN,CSI_PWR_OFF);
+			usleep_range(5000,6000);
+			vfe_set_pmu_channel(sd,AVDD,OFF);
 
-  return 0;
+			usleep_range(5000,6000);
+			vfe_set_pmu_channel(sd,IOVDD,OFF);  
+			usleep_range(10000,12000);
+			vfe_gpio_set_status(sd,RESET,0);//set the gpio to input
+			vfe_gpio_set_status(sd,PWDN,0);//set the gpio to input
+			vfe_gpio_set_status(sd,POWER_EN,0);//set the gpio to input
+			cci_unlock(sd);    
+			break;
+		default:
+			return -EINVAL;
+	}   
+
+	return 0;
 }
  
 static int sensor_reset(struct v4l2_subdev *sd, u32 val)

@@ -60,7 +60,6 @@ extern void os_clk_disable(struct clk *clk);
 extern void os_clk_disable_unprepare(struct clk *clk);
 extern int os_clk_reset_assert(struct clk *clk);
 extern int os_clk_reset_deassert(struct clk *clk); 
-extern int os_request_irq(unsigned int irq, irq_handler_t handler, unsigned long flags,const char *name, void *dev);
 extern int os_gpio_request(struct vfe_gpio_cfg *gpio_list, __u32 group_count_max);
 extern int os_gpio_set(struct vfe_gpio_cfg *gpio_list, __u32 group_count_max);
 

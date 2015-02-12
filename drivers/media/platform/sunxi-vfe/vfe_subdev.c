@@ -132,7 +132,6 @@ int vfe_set_mclk_freq(struct v4l2_subdev *sd, unsigned long freq)
 #ifdef VFE_CLK
 	struct vfe_dev *dev=(struct vfe_dev *)dev_get_drvdata(sd->v4l2_dev->dev);
 	struct clk *master_clk_src;
-	int ret;  
 	if(freq==24000000 || freq==12000000 || freq==6000000) {
 			if(dev->clock[VFE_MASTER_CLK_24M_SRC]) {
 				master_clk_src = dev->clock_src[VFE_MASTER_CLK_24M_SRC];

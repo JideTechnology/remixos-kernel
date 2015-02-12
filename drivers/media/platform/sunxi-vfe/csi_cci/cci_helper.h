@@ -37,7 +37,7 @@ struct cci_driver
 	int data_width;
 	int read_flag;
 	short read_value;
-
+	struct mutex cci_mutex;
 	//int (*probe)(struct i2c_client *, const struct i2c_device_id *);
 	//int (*remove)(struct i2c_client *);
 	struct list_head cci_list;

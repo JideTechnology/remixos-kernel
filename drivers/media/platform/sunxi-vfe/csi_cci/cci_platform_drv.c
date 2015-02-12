@@ -25,6 +25,7 @@
 #include "../platform_cfg.h"
 #define CCI_MODULE_NAME "vfe_cci"
 
+#ifdef CCI_IRQ
 static irqreturn_t cci_irq_handler(int this_irq, void * dev)
 {
 	unsigned long flags = 0;
@@ -34,12 +35,12 @@ static irqreturn_t cci_irq_handler(int this_irq, void * dev)
 	spin_unlock_irqrestore(&cci->slock, flags);
 	return IRQ_HANDLED;
 }
+#endif
 
 static int cci_probe(struct platform_device *pdev)
 {
     struct device_node *np = pdev->dev.of_node;
 	struct cci_dev *cci = NULL;
-	struct resource *res = NULL;
 	struct cci_platform_data *pdata = NULL;
 	int ret, irq = 0;
 
@@ -47,17 +48,15 @@ static int cci_probe(struct platform_device *pdev)
 		vfe_err("CCI failed to get of node\n");
 		return -ENODEV;
 	}
-    
 	cci = kzalloc(sizeof(struct cci_dev), GFP_KERNEL);
 	if (!cci) {
 		ret = -ENOMEM;
 		goto ekzalloc;
 	}
-    
 	pdata = kzalloc(sizeof(struct cci_platform_data), GFP_KERNEL);
 	if (pdata == NULL) {
 		ret = -ENOMEM;
-		goto eremap;
+		goto freedev;
 	}
 	pdev->dev.platform_data = pdata;
 
@@ -65,45 +64,33 @@ static int cci_probe(struct platform_device *pdev)
 	if (pdev->id < 0) {
 		vfe_err("CCI failed to get alias id\n");
 		ret = -EINVAL;
-		goto erepdata;
+		goto freepdata;
 	}
 	pdata->cci_sel = pdev->id;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if(res == NULL) {
-		vfe_err("[CCI%d] failed to get MEM res\n", pdev->id);
-		ret = -ENXIO;
-		goto erepdata;
-	}
-	irq = platform_get_irq(pdev, 0);
-	if ( irq < 0) {
+	irq = irq_of_parse_and_map(np, 0);
+	if ( irq <= 0) {
 		vfe_err("[CCI%d] failed to get irq\n", pdev->id);
 		ret = -EINVAL;
-		goto erepdata;
+		goto freepdata;
 	}
-	cci->ioarea = request_mem_region(res->start, resource_size(res), res->name);
-	if (!cci->ioarea) {
-		vfe_err("[CCI%d] failed to request mem region\n", pdev->id);
-		ret = -EINVAL;
-		goto erepdata;
-	}
-    
-	cci->base = ioremap(res->start, resource_size(res));
+	cci->base = of_iomap(np, 0);
 	if (!cci->base) {
 		ret = -EIO;
-		goto out_map;
+		goto freepdata;
 	}
-    
 	cci->irq = irq;
 	cci->cci_sel = pdata->cci_sel;	
 	spin_lock_init(&cci->slock);
 	init_waitqueue_head(&cci->wait);
 	
+#ifdef CCI_IRQ
 	ret = request_irq(irq, cci_irq_handler, IRQF_DISABLED, CCI_MODULE_NAME, cci);
 	if (ret) {
 		vfe_err("[CCI%d] requeset irq failed!\n", cci->cci_sel);
 		goto ereqirq;
 	}
+#endif
 	ret = bsp_csi_cci_set_base_addr(0, (unsigned long)cci->base);
 	if(ret < 0)
 		goto ehwinit;
@@ -116,15 +103,15 @@ static int cci_probe(struct platform_device *pdev)
 	return 0;
 
 ehwinit:
+#ifdef CCI_IRQ
 	free_irq(irq, cci);
-ereqirq:
+	ereqirq:
+#endif
+
 	iounmap(cci->base);
-out_map:
-    release_resource(cci->ioarea);
-    kfree(cci->ioarea);
-erepdata:
+freepdata:
     kfree(pdata);
-eremap:
+freedev:
 	kfree(cci);
 ekzalloc:
 	vfe_print("cci probe err!\n");
@@ -135,11 +122,9 @@ static int cci_remove(struct platform_device *pdev)
 {
 	struct cci_dev *cci = platform_get_drvdata(pdev);
 	platform_set_drvdata(pdev, NULL);
+#ifdef CCI_IRQ
 	free_irq(cci->irq, cci);
-	if(cci->ioarea) {
-		release_resource(cci->ioarea);
-		kfree(cci->ioarea);
-	}
+#endif
 	if(cci->base)
 		iounmap(cci->base);
 	kfree(cci);

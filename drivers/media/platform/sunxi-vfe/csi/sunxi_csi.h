@@ -31,7 +31,6 @@ struct csi_dev
 	int irq;  
 	wait_queue_head_t   wait;
 	void __iomem      *base;
-    struct resource *ioarea;
 };
 
 int sunxi_csi_platform_register(void);

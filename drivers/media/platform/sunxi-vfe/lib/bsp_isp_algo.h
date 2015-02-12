@@ -609,6 +609,7 @@ struct isp_3a_param
 
 	/*isp awb param */
 	int awb_interval;
+	int awb_speed;
 	//int awb_mode_select;
 	//int awb_light_param[21];
 	//int awb_coeff[30];
@@ -620,9 +621,9 @@ struct isp_3a_param
 	int awb_light_num;
 	int awb_ext_light_num;
 	int awb_skin_color_num;
-	int awb_light_info[300];
-	int awb_ext_light_info[90];
-	int awb_skin_color_info[40];
+	int awb_light_info[320];
+	int awb_ext_light_info[320];
+	int awb_skin_color_info[160];
 	int awb_preset_gain[22];
 	//struct isp_rgb2rgb_gain_offset color_matrix_inv;
 
@@ -792,6 +793,7 @@ struct isp_gen_settings
 	int man_gain;
 	int sharp_cfg_to_hal[2];
 	int double_ch_flag;
+	int enable_log;
 	int awb_buf[3072];
 };
 

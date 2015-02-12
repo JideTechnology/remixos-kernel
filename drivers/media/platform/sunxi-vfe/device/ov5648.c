@@ -114,6 +114,7 @@ static struct regval_list sensor_default_regs[] = {
 	{0x3001, 0x00}, // D[7:0] set to input
 	{0x3002, 0x00}, // D[11:8] set to input
 	{0x3011, 0x02}, // Drive strength 2x
+	{0x3013, 0x08}, //extend dvdd
 	{0x3018, 0x4c}, // MIPI 2 lane
 	{0x3022, 0x00},
 	{0x3034, 0x1a}, // 10-bit mode
@@ -128,6 +129,8 @@ static struct regval_list sensor_default_regs[] = {
 	{0x303d, 0x30}, // PLLS
 	{0x3105, 0x11},
 	{0x3106, 0x05}, // PLL
+	{REG_DLY,0x05}, 
+	{0x3013, 0x08}, //disable internal regulator
 	{0x3304, 0x28},
 	{0x3305, 0x41},
 	{0x3306, 0x30},
@@ -264,9 +267,8 @@ static struct regval_list sensor_default_regs[] = {
 static struct regval_list sensor_qsxga_regs[] = {
 	// 2592x1944 15fps 2 lane MIPI 420Mbps/lane
 	{0x0100, 0x00},
-	{0x3500, 0x00}, // exposure [19:16]
-	{0x3501, 0x3d}, // exposure [15:8]
-	{0x3502, 0x00}, // exposure [7:0], exposure = 0x3d0 = 976
+	{0x3501, 0x7b}, // exposure
+	{0x2502, 0x00}, // exposure
 	{0x3708, 0x63},
 	{0x3709, 0x12},
 	{0x370c, 0xc0},
@@ -850,22 +852,23 @@ static int sensor_power(struct v4l2_subdev *sd, int on)
       //reset on io
       vfe_gpio_write(sd,RESET,CSI_RST_ON);
       mdelay(1);
+      //power supply
+      vfe_gpio_write(sd,POWER_EN,CSI_PWR_ON);
+      vfe_set_pmu_channel(sd,IOVDD,ON);
+      vfe_set_pmu_channel(sd,AFVDD,ON);
+      vfe_set_pmu_channel(sd,AVDD,ON);
+      vfe_set_pmu_channel(sd,DVDD,ON);
+      //standby off io
+      mdelay(10);
+      vfe_gpio_write(sd,PWDN,CSI_STBY_OFF);
+      mdelay(5);
+      //reset after power on
+      vfe_gpio_write(sd,RESET,CSI_RST_OFF);
+      mdelay(10);
       //active mclk before power on
       vfe_set_mclk_freq(sd,MCLK);
       vfe_set_mclk(sd,ON);
       mdelay(10);
-      //power supply
-      vfe_gpio_write(sd,POWER_EN,CSI_PWR_ON);
-      vfe_set_pmu_channel(sd,IOVDD,ON);
-      vfe_set_pmu_channel(sd,AVDD,ON);
-      vfe_set_pmu_channel(sd,DVDD,ON);
-      vfe_set_pmu_channel(sd,AFVDD,ON);
-      //standby off io
-      vfe_gpio_write(sd,PWDN,CSI_STBY_OFF);
-      mdelay(10);
-      //reset after power on
-      vfe_gpio_write(sd,RESET,CSI_RST_OFF);
-      mdelay(30);
       //remember to unlock i2c adapter, so the device can access the i2c bus again
       cci_unlock(sd);  
       break;
@@ -874,18 +877,19 @@ static int sensor_power(struct v4l2_subdev *sd, int on)
       //make sure that no device can access i2c bus during sensor initial or power down
       //when using i2c_lock_adpater function, the following codes must not access i2c bus before calling i2c_unlock_adapter
       cci_lock(sd);
-      //inactive mclk before power off
-      vfe_set_mclk(sd,OFF);
+      //standby and reset io
+      mdelay(5);
+      vfe_gpio_write(sd,PWDN,CSI_STBY_ON);
+      vfe_gpio_write(sd,RESET,CSI_RST_ON);
       //power supply off
       vfe_gpio_write(sd,POWER_EN,CSI_PWR_OFF);
-      vfe_set_pmu_channel(sd,AFVDD,OFF);
       vfe_set_pmu_channel(sd,DVDD,OFF);
+      //inactive mclk before power off
+      mdelay(1);
+      vfe_set_mclk(sd,OFF);
       vfe_set_pmu_channel(sd,AVDD,OFF);
       vfe_set_pmu_channel(sd,IOVDD,OFF);  
-      //standby and reset io
-      mdelay(10);
-      vfe_gpio_write(sd,POWER_EN,CSI_STBY_OFF);
-      vfe_gpio_write(sd,RESET,CSI_RST_ON);
+      vfe_set_pmu_channel(sd,AFVDD,OFF); 
       //set the io to hi-z
       vfe_gpio_set_status(sd,RESET,0);//set the gpio to input
       vfe_gpio_set_status(sd,PWDN,0);//set the gpio to input
@@ -958,8 +962,8 @@ static int sensor_init(struct v4l2_subdev *sd, u32 val)
   
   info->focus_status = 0;
   info->low_speed = 0;
-  info->width = QSXGA_WIDTH;
-  info->height = QSXGA_HEIGHT;
+  info->width = 0;
+  info->height = 0;
   info->hflip = 0;
   info->vflip = 0;
   info->gain = 0;

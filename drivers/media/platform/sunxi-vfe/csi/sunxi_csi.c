@@ -28,7 +28,6 @@ static int csi_probe(struct platform_device *pdev)
 {
     struct device_node *np = pdev->dev.of_node;
 	struct csi_dev *csi = NULL;
-	struct resource *res = NULL;
 	struct csi_platform_data *pdata = NULL;
 	int ret = 0;
 
@@ -36,17 +35,15 @@ static int csi_probe(struct platform_device *pdev)
 		vfe_err("CSI failed to get of node\n");
 		return -ENODEV;
 	}
-    
 	csi = kzalloc(sizeof(struct csi_dev), GFP_KERNEL);
 	if (!csi) {
 		ret = -ENOMEM;
 		goto ekzalloc;
 	}
-    
 	pdata = kzalloc(sizeof(struct csi_platform_data), GFP_KERNEL);
 	if (pdata == NULL) {
         ret = -ENOMEM;
-        goto eremap;
+        goto freedev;
 	}
 	pdev->dev.platform_data = pdata;
 
@@ -54,28 +51,15 @@ static int csi_probe(struct platform_device *pdev)
 	if (pdev->id < 0) {
 		vfe_err("CSI failed to get alias id\n");
 		ret = -EINVAL;
-		goto eremap;
+		goto freepdata;
 	}
 	pdata->csi_sel = pdev->id;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if(res == NULL) {
-		vfe_err("[CSI%d] failed to get MEM res\n", pdev->id);
-		ret = -ENXIO;
-		goto eremap;
-	}
-	csi->ioarea = request_mem_region(res->start, resource_size(res), res->name);
-	if (!csi->ioarea) {
-        vfe_err("[CSI%d] failed to request mem region\n", pdev->id);
-		ret = -EINVAL;
-        goto erepdata;
-	}
- 	csi->base = ioremap(res->start, resource_size(res));
+ 	csi->base = of_iomap(np, 0);
 	if (!csi->base) {
 		ret = -EIO;
-		goto out_map;
+		goto freepdata;
 	}
-    
 	csi->csi_sel = pdata->csi_sel;	
 	spin_lock_init(&csi->slock);
 	init_waitqueue_head(&csi->wait);
@@ -91,12 +75,9 @@ static int csi_probe(struct platform_device *pdev)
 
 ehwinit:
 	iounmap(csi->base);
-out_map:
-	release_resource(csi->ioarea);
-	kfree(csi->ioarea);
-erepdata:
+freepdata:
     kfree(pdata);
-eremap:
+freedev:
 	kfree(csi);
 ekzalloc:
 	vfe_print("csi probe err!\n");

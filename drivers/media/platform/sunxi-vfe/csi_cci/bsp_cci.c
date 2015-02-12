@@ -20,14 +20,21 @@
 #include <linux/delay.h>
 #include <linux/sched.h>
 #include <linux/mutex.h>
+#include <linux/semaphore.h>
 #define MAX_CCI_DEVICE 2
 wait_queue_head_t wait[MAX_CCI_DEVICE];
 static int status_err_flag[MAX_CCI_DEVICE] = {0};
 struct mutex            cci_mutex[MAX_CCI_DEVICE];
+struct semaphore		cci_sema[MAX_CCI_DEVICE];
+int cci_cnt_done = 0;
+int cci_cnt_irq = 0;
 int bsp_csi_cci_set_base_addr(unsigned int sel, unsigned long addr)
 {
+	cci_cnt_done = 0;
+	cci_cnt_irq = 0;
 	init_waitqueue_head(&wait[sel]);
 	mutex_init(&cci_mutex[sel]);
+	sema_init(&cci_sema[sel],1);
 	return csi_cci_set_base_addr(sel, addr);
 }
 
@@ -72,6 +79,7 @@ out:
 void bsp_csi_cci_init(unsigned int sel)
 {
 	unsigned char div_coef[2];
+	
 	csi_cci_reset(sel);
 	csi_cci_enable(sel);
 	cci_cal_div(400*1000, div_coef);
@@ -155,11 +163,18 @@ void bsp_cci_tx_data_rb(unsigned int sel, struct cci_msg *msg)
 	}
 	csi_cci_fifo_pt_reset(sel);
 }
-int bsp_cci_tx_start_wait_done(unsigned int sel, struct cci_msg *msg)
+static void bsp_cci_error_process(unsigned int sel)
 {
+	cci_int_clear_status(sel, CCI_INT_ERROR);
+	bsp_cci_bus_error_process(sel);
+	bsp_csi_cci_exit(sel);
+	bsp_csi_cci_init_helper(sel);
+}
+static int bsp_cci_tx_start_wait_done_unlocked(unsigned int sel, struct cci_msg *msg)
+{
+#ifdef CCI_IRQ
 	int ret = 0;
 	unsigned long timeout = 0;
-	mutex_lock(&cci_mutex[sel]);
 	bsp_cci_tx_start(sel, msg);
 #ifdef FPGA_VER
 	timeout = wait_event_timeout(wait[sel], csi_cci_get_trans_done(sel) == 0, HZ/50);
@@ -167,19 +182,64 @@ int bsp_cci_tx_start_wait_done(unsigned int sel, struct cci_msg *msg)
 #else
 	timeout = wait_event_timeout(wait[sel], csi_cci_get_trans_done(sel) == 0, HZ);
 	//cci_print_info(sel);
-	//printk("timeout = %ld \n",timeout);
 	if (timeout == 0) {
-		printk("[VFE CCI_%d ERR] timeout error at addr_8bit = %x, wr_flag = %d\n", sel, msg->bus_fmt.saddr_7bit<<1,msg->bus_fmt.wr_flag);
+		printk("[VFE CCI_%d ERR] timeout error at addr_8bit = %x, wr_flag = %d, val = %x\n", sel,msg->bus_fmt.saddr_7bit<<1,msg->bus_fmt.wr_flag, *(int *)msg->pkt_buf);
+		cci_cnt_done--;
 		ret = -1;
 	}
 #endif
+	//printk("cci_cnt_done = %d, cci_cnt_irq = %d\n",cci_cnt_done, cci_cnt_irq);
 	if(1 == status_err_flag[sel])
 	{
-		printk("[VFE CCI_%d ERR] Status error at addr_8bit = %x, wr_flag = %d\n", sel, msg->bus_fmt.saddr_7bit<<1,msg->bus_fmt.wr_flag);
+		printk("[VFE CCI_%d ERR] Status error at addr_8bit = %x, wr_flag = %d, val = %x\n", sel, msg->bus_fmt.saddr_7bit<<1,msg->bus_fmt.wr_flag, *(int *)msg->pkt_buf);
 		ret = -1;
 	}
 	if(msg->bus_fmt.wr_flag == 1)
 		bsp_cci_tx_data_rb(sel, msg);
+	return ret;
+#else
+	struct cci_int_status status;
+	int ret = 0;
+	bsp_cci_tx_start(sel, msg);
+	usleep_range(100,120);
+	while(1)
+	{
+		if(csi_cci_get_trans_done(sel) == 0)
+		{
+			break;
+		}
+		else
+		{
+			usleep_range(80,100);
+		}
+	};
+	cci_int_get_status(sel, &status);	
+	if(status.error) {
+		cci_int_clear_status(sel, CCI_INT_ERROR);
+		printk("[VFE CCI_%d ERR] Status error at addr_8bit = %x, wr_flag = %d\n", sel, msg->bus_fmt.saddr_7bit<<1,msg->bus_fmt.wr_flag);
+		bsp_cci_bus_error_process(sel);
+		bsp_csi_cci_exit(sel);
+		bsp_csi_cci_init_helper(sel);
+		ret = -1;
+	}
+	if(status.complete)
+		cci_int_clear_status(sel, CCI_INT_FINISH);
+	if(msg->bus_fmt.wr_flag == 1)
+		bsp_cci_tx_data_rb(sel, msg);
+	return ret;
+#endif
+}
+
+int bsp_cci_tx_start_wait_done(unsigned int sel, struct cci_msg *msg)
+{
+	int ret = -1;
+	mutex_lock(&cci_mutex[sel]);
+	if(down_trylock(&cci_sema[sel])){
+		printk("down_trylock fail!!!!!!!!!!!!!\n");
+		return -1;
+	}
+	ret = bsp_cci_tx_start_wait_done_unlocked(sel,msg);
+	up(&cci_sema[sel]);
 	mutex_unlock(&cci_mutex[sel]);
 	return ret;
 }
@@ -213,14 +273,10 @@ int bsp_cci_irq_process(unsigned int sel)
 {
 	struct cci_int_status status;
 	unsigned int ret = 0;
-	
+	cci_cnt_irq++;
 	cci_int_get_status(sel, &status);
 	if(status.error) {
-		cci_int_clear_status(sel, CCI_INT_ERROR);
-		//cci_print_info(sel);
-		bsp_cci_bus_error_process(sel);
-		bsp_csi_cci_exit(sel);
-		bsp_csi_cci_init_helper(sel);
+		bsp_cci_error_process(sel);
 		status_err_flag[sel] = 1;
 		ret = -1;
 	}

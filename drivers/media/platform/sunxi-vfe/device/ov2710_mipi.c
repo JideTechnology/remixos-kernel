@@ -110,6 +110,8 @@ static struct regval_list sensor_default_regs[] =
 static struct regval_list sensor_1080p_regs[] = { //1080: 1920*1080@30fps
 	{0x3103,0x93},
 	{0x3008,0x82},
+	{REG_DLY,0x10},
+	{0x3008,0x42},
 	{0x3017,0x00},//7f},pad output enable01  0-input 1-output
 	{0x3018,0x00},//fc},pad output enable02  0-input 1-output
 	{0x3706,0x61},
@@ -143,8 +145,8 @@ static struct regval_list sensor_1080p_regs[] = { //1080: 1920*1080@30fps
 	{0x4301,0xff},
 	{0x4303,0x00},
 	{0x3a00,0x78},
-	{0x300f,0x88},
-	{0x3011,0x28},
+//	{0x300f,0x88},
+//	{0x3011,0x28},
 	{0x3a1a,0x06},
 	{0x3a18,0x00},
 	{0x3a19,0x7a},
@@ -159,12 +161,13 @@ static struct regval_list sensor_1080p_regs[] = { //1080: 1920*1080@30fps
 	{0x5687,0x43},
 	{0x3011,0x0a},
 	{0x300f,0xc3},
+	{REG_DLY,0x10},
 	//{0x3017,0x00},
 	//{0x3018,0x00},
 	{0x300e,0x04},
 	{0x3030,0x2b},// extent dvdd 
 	{0x4801,0x0f},
-	{0x4800,0x24},
+//	{0x4800,0x24},
 	//AEC control 
 	{0x3a0f,0x40},
 	{0x3a10,0x38},
@@ -475,35 +478,35 @@ static int sensor_s_gain(struct v4l2_subdev *sd, int gain_val)
 	if(tmp_gain_val>31)
 	{
 		gainlow |= 0x10;
-        real_gain = real_gain * 2;
+		real_gain = real_gain * 2;
 		tmp_gain_val = tmp_gain_val>>1;
 	}
 	//determine ?gain_val>2*31
 	if(tmp_gain_val>31)
 	{
 		gainlow |= 0x20;
-        real_gain = real_gain * 2;
+		real_gain = real_gain * 2;
 		tmp_gain_val = tmp_gain_val>>1;
 	}
 	//determine ?gain_val>4*31
 	if(tmp_gain_val>31)
 	{
 		gainlow |= 0x40;
-        real_gain = real_gain * 2;
+		real_gain = real_gain * 2;
 		tmp_gain_val = tmp_gain_val>>1;
 	}
 	//determine ?gain_val>8*31
 	if(tmp_gain_val>31)
 	{
 		gainlow |= 0x80;
-        real_gain = real_gain * 2;
+		real_gain = real_gain * 2;
 		tmp_gain_val = tmp_gain_val>>1;
 	}
 	//determine ?gain_val>16*31
 	if(tmp_gain_val>31)
 	{
 		gainhigh = 0x01;
-        real_gain = real_gain * 2;
+		real_gain = real_gain * 2;
 		tmp_gain_val = tmp_gain_val>>1;
 	}
 	if(tmp_gain_val>=16)
@@ -849,7 +852,7 @@ static struct sensor_win_size sensor_win_sizes[] = {
 		.hts        = 2420,//2376,//2415,// 2382,//724,
 		.vts        = 1102,//1122,//1104,//1120,//1104,
 		.pclk       = 80*1000*1000,
-		.mipi_bps		= 420*1000*1000,
+		.mipi_bps		= 800*1000*1000,
 		.fps_fixed  = 1,
 		.bin_factor = 1,
 		.intg_min   = 1,
@@ -870,7 +873,7 @@ static struct sensor_win_size sensor_win_sizes[] = {
 		.hts		= 2420,//2376,//2415,// 2382,//724,
 		.vts		= 1102,//1122,//1104,//1120,//1104,
 		.pclk		= 80*1000*1000,
-		.mipi_bps		= 420*1000*1000,
+		.mipi_bps		= 800*1000*1000,
 		.fps_fixed	= 1,
 		.bin_factor = 1,
 		.intg_min	= 1,
@@ -893,7 +896,7 @@ static struct sensor_win_size sensor_win_sizes[] = {
 		.hts		  = 2420,//2376,//2415,// 2382,//724,
 		.vts		  = 1102,//1122,//1104,//1120,//1104,
 		.pclk 	  = 80*1000*1000,
-		.mipi_bps 	= 420*1000*1000,
+		.mipi_bps 	= 800*1000*1000,
 		.fps_fixed  = 1,
 		.bin_factor = 1,
 		.intg_min   = 1,
@@ -1043,6 +1046,8 @@ static int sensor_s_fmt(struct v4l2_subdev *sd,
 	info->fmt = sensor_fmt;
 	info->width = wsize->width;
 	info->height = wsize->height;
+	info->exp = 0;
+	info->gain = 0;
 	ov2710_sensor_vts = wsize->vts;  
    
 	vfe_dev_print("s_fmt set width = %d, height = %d\n",wsize->width,wsize->height);

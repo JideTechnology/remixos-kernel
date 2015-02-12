@@ -32,8 +32,6 @@ struct cci_dev
 	wait_queue_head_t   wait;
 
 	void __iomem      *base;
-	struct resource *ioarea;
-
 };
 
 

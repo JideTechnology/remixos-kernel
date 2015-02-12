@@ -82,6 +82,7 @@ static char act_name[I2C_NAME_SIZE] = "";
 static uint act_slave = 0xff;
 static uint define_sensor_list = 0xff;
 static uint vfe_i2c_dbg = 0;
+static uint isp_log = 0;
 static uint vips = 0xffff;
 
 static int touch_flash_flag = 0;
@@ -94,8 +95,7 @@ static unsigned int frame_cnt = 0;
 static unsigned int vfe_dump = 0;
 struct mutex probe_hdl_lock;
 struct file* fp_dbg = NULL;
-
-//#define DUMP_ISP_LOG
+static char LogFileName[128] = "/system/etc/hawkview/log.bin";
 
 module_param_string(ccm, ccm, sizeof(ccm), S_IRUGO|S_IWUSR);
 module_param(i2c_addr,uint, S_IRUGO|S_IWUSR);
@@ -104,6 +104,8 @@ module_param_string(act_name, act_name, sizeof(act_name), S_IRUGO|S_IWUSR);
 module_param(act_slave,uint, S_IRUGO|S_IWUSR);
 module_param(define_sensor_list,uint, S_IRUGO|S_IWUSR);
 module_param(vfe_i2c_dbg,uint, S_IRUGO|S_IWUSR);
+module_param(isp_log,uint, S_IRUGO|S_IWUSR);
+
 module_param(vips,uint, S_IRUGO|S_IWUSR);
 static ssize_t vfe_dbg_en_show(struct device *dev,
 		    struct device_attribute *attr, char *buf)
@@ -954,59 +956,66 @@ static void vfe_dump_isp_regs(struct vfe_dev *dev)
 		}
 	}
 }
-#ifdef DUMP_ISP_LOG
 
 static void vfe_init_isp_log(struct vfe_dev *dev)
 {
-	fp_dbg = cfg_open_file("/system/etc/hawkview/log.bin");
-	if(IS_ERR(fp_dbg)){
-		vfe_err("open log.txt error.");
+	if(isp_log == 1)
+	{
+		fp_dbg = cfg_open_file(LogFileName);
+		dev->isp_gen_set[0].enable_log = 1;
+		dev->isp_gen_set[1].enable_log = 1;
+		if(IS_ERR(fp_dbg)){
+			vfe_err("open log.txt error.");
+		}else{
+			//if(cfg_write_file(fp_dbg, "0123456789abcdef\n", 16) < 0)
+			//{
+			//	vfe_err("/system/etc/hawkview/log.txt write test failed.");
+			//}
+			;
+		}
 	}else{
-		//if(cfg_write_file(fp_dbg, "0123456789abcdef\n", 16) < 0)
-		//{
-		//	vfe_err("/system/etc/hawkview/log.txt write test failed.");
-		//}
-		;
+		dev->isp_gen_set[0].enable_log = 0;
+		dev->isp_gen_set[1].enable_log = 0;
 	}
 
 }
 static void vfe_exit_isp_log(struct vfe_dev *dev)
 {
-	cfg_close_file(fp_dbg);
+	if(isp_log == 1)
+	{
+		cfg_close_file(fp_dbg);
+	}
 }
 static void vfe_dump_isp_log(struct vfe_dev *dev)
 {
 
 	//dump isp log.
-	if(cfg_write_file(fp_dbg, dev->isp_gen_set_pt->stat.hist_buf, ISP_STAT_HIST_MEM_SIZE) < 0)
+	if(isp_log == 1 && (frame_cnt % 4 == 0))
 	{
-		vfe_err("dump isp hist faild.");
-		return;
-	}
-	if(cfg_write_file(fp_dbg, dev->isp_gen_set_pt->stat.ae_buf, ISP_STAT_AE_MEM_SIZE) < 0)
-	{
-		vfe_err("dump isp ae faild.");
-	}
-	if(cfg_write_file(fp_dbg, (char *)dev->isp_gen_set_pt->awb_buf, 3*ISP_STAT_AWB_WIN_MEM_SIZE) < 0)
-	{
-		vfe_err("dump awb log faild.");
-	}
-	
-	//if(cfg_write_file(fp_dbg, dev->isp_gen_set_pt->stat.af_buf, ISP_STAT_AF_MEM_SIZE) < 0)
-	//{
-	//	vfe_err("dump isp log faild.");
-	//}
-	///if(cfg_write_file(fp_dbg, "0123456789abcdef\n", 16) < 0)
-	///{
-	//	vfe_err("/system/etc/hawkview/log.txt write test failed.");
-	//}
+		if(cfg_write_file(fp_dbg, dev->isp_gen_set_pt->stat.hist_buf, ISP_STAT_HIST_MEM_SIZE) < 0)
+		{
+			vfe_err("dump isp hist faild.");
+			return;
+		}
+		if(cfg_write_file(fp_dbg, dev->isp_gen_set_pt->stat.ae_buf, ISP_STAT_AE_MEM_SIZE) < 0)
+		{
+			vfe_err("dump isp ae faild.");
+		}
+		if(cfg_write_file(fp_dbg, (char *)dev->isp_gen_set_pt->awb_buf, 3*ISP_STAT_AWB_WIN_MEM_SIZE) < 0)
+		{
+			vfe_err("dump awb log faild.");
+		}
 
+		//if(cfg_write_file(fp_dbg, dev->isp_gen_set_pt->stat.af_buf, ISP_STAT_AF_MEM_SIZE) < 0)
+		//{
+		//	vfe_err("dump isp log faild.");
+		//}
+		///if(cfg_write_file(fp_dbg, "0123456789abcdef\n", 16) < 0)
+		///{
+		//	vfe_err("/system/etc/hawkview/log.txt write test failed.");
+		//}
+	}
 }
-#else
-#define vfe_init_isp_log(dev) {}
-#define vfe_exit_isp_log(dev) {}
-#define vfe_dump_isp_log(dev) {}
-#endif
 
 static void isp_isr_bh_handle(struct work_struct *work)
 {
@@ -1020,7 +1029,7 @@ static void isp_isr_bh_handle(struct work_struct *work)
 		if(1 == isp_reparse_flag)
 		{
 			vfe_print("ISP reparse ini file!\n");
-			if(read_ini_info(dev,dev->input))
+			if(read_ini_info(dev,dev->input,"/system/etc/hawkview/"))
 			{
 				vfe_warn("ISP reparse ini fail, please check isp config!\n");
 				goto ISP_REPARSE_END;
@@ -1308,8 +1317,6 @@ static irqreturn_t vfe_isr(int irq, void *priv)
 	struct vfe_isp_stat_buf_queue *isp_stat_bq = &dev->isp_stat_bq;  
 	struct vfe_isp_stat_buf *stat_buf_pt;
 	FUNCTION_LOG;
-	vfe_dump_csi_regs(dev);
-	frame_cnt++;
 	vfe_dbg(0,"vfe interrupt!!!\n");
 	if(vfe_is_generating(dev) == 0)
 	{
@@ -1341,6 +1348,9 @@ static irqreturn_t vfe_isr(int irq, void *priv)
 			return IRQ_HANDLED;
 		}
 	} 
+	vfe_dump_csi_regs(dev);
+	frame_cnt++;
+
 	FUNCTION_LOG;
 	//spin_lock(&dev->slock);    
 	spin_lock_irqsave(&dev->slock, flags);
@@ -3113,7 +3123,10 @@ static int vfe_open(struct file *file)
 		ret = -EBUSY;
 		goto open_end;
 	}
-	down(&dev->standby_seq_sema);
+	if(down_trylock(&dev->standby_seq_sema)){
+		vfe_err("device not ready\n");
+		return -EAGAIN;
+	}
 	vfe_clk_open(dev);
 #ifdef USE_SPECIFIC_CCI
 	csi_cci_init_helper(dev->vip_sel);
@@ -3769,35 +3782,31 @@ static void vfe_gpio_release(struct vfe_dev *dev)
 static int vfe_resource_request(struct platform_device *pdev ,struct vfe_dev *dev)
 {
 	int ret;
-	struct resource   *res;
+	struct device_node *np = pdev->dev.of_node;
   	vfe_dbg(0,"get irq resource\n");
 	/*get irq resource*/
-	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (!res) {
+	dev->irq = irq_of_parse_and_map(np, 0);
+	if (dev->irq <= 0)
+	{
 		vfe_err("failed to get IRQ resource\n");
 		return -ENXIO;
 	}
-	dev->irq = res->start;
-	//  sprintf(vfe_name,"sunxi-vfe.%d",dev->id);
 #ifndef FPGA_VER
-	ret = os_request_irq(dev->irq, vfe_isr, IRQF_DISABLED, pdev->name, dev);
+	ret = request_irq(dev->irq, vfe_isr, IRQF_DISABLED, pdev->name, dev);
 #else
-	ret = os_request_irq(dev->irq, vfe_isr, IRQF_SHARED, pdev->name, dev);
+	ret = request_irq(dev->irq, vfe_isr, IRQF_SHARED, pdev->name, dev);
 #endif
 	if (ret) {
 		vfe_err("failed to install irq (%d)\n", ret);
 		return -ENXIO;
 	}
-  
 	vfe_dbg(0,"clock resource\n");
 	/*clock resource*/
 	if (vfe_clk_get(dev)) {
 		vfe_err("vfe clock get failed!\n");
 		return -ENXIO;
 	}
-  
 	vfe_dbg(0,"get pin resource\n");
-
 	/* pin resource */
 	/* request gpio */  
 	vfe_request_pin(dev, 1);
@@ -4613,7 +4622,7 @@ static void probe_work_handle(struct work_struct *work)
 		}
 		if(dev->ccm_cfg[input_num]->is_isp_used && dev->ccm_cfg[input_num]->is_bayer_raw)
 		{
-			if(read_ini_info(dev,input_num))
+			if(read_ini_info(dev,input_num, "/system/etc/hawkview/"))
 			{
 				vfe_warn("read ini info fail\n");
 			}
@@ -4626,7 +4635,7 @@ static void probe_work_handle(struct work_struct *work)
 			if(vfe_actuator_subdev_register(dev,dev->ccm_cfg[input_num], &dev->dev_act[input_num]) != 0)
 				;//goto probe_hdl_free_dev;
 		}
-		snesor_register_end:
+snesor_register_end:
 		vfe_dbg(0,"dev->ccm_cfg[%d] = %p\n",input_num,dev->ccm_cfg[input_num]);
 		vfe_dbg(0,"dev->ccm_cfg[%d]->sd = %p\n",input_num,dev->ccm_cfg[input_num]->sd);
 		//    vfe_dbg(0,"dev->ccm_cfg[%d]->ccm_info = %p\n",input_num,&dev->ccm_cfg[input_num]->ccm_info);
@@ -4688,23 +4697,21 @@ static void probe_work_handle(struct work_struct *work)
 	vfe_print("probe_work_handle end!\n");
 	mutex_unlock(&probe_hdl_lock);
 	return ;
-
-	probe_hdl_rel_vdev:
+probe_hdl_rel_vdev:
 	video_device_release(vfd);
 	vfe_print("video_device_release @ probe_hdl!\n");
-	probe_hdl_unreg_dev:
+probe_hdl_unreg_dev:
 	vfe_print("v4l2_device_unregister @ probe_hdl!\n");
 	v4l2_device_unregister(&dev->v4l2_dev); 
-	probe_hdl_free_dev: 
+probe_hdl_free_dev: 
 	vfe_print("vfe_resource_release @ probe_hdl!\n");
 #ifdef USE_SPECIFIC_CCI
 	csi_cci_exit_helper(dev->vip_sel);
 	vfe_clk_close(dev);
 #endif
-	//vfe_resource_release(dev);
+	vfe_resource_release(dev);
 	vfe_print("vfe_exit @ probe_hdl!\n");
 	//vfe_exit();
-
 	vfe_err("Failed to install at probe handle\n");
 	mutex_unlock(&probe_hdl_lock);
 	return ;
@@ -4726,19 +4733,21 @@ static int vfe_probe(struct platform_device *pdev)
 	dev = kzalloc(sizeof(struct vfe_dev), GFP_KERNEL);
 	if (!dev) {
 		vfe_err("request dev mem failed!\n");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto ekzalloc;
 	}
-    
 	pdata = kzalloc(sizeof(struct csi_platform_data), GFP_KERNEL);
 	if (pdata == NULL) {
-        return -ENOMEM;
+        ret = -ENOMEM;
+		goto freedev;
 	}
 	pdev->dev.platform_data = pdata;
 
     pdev->id = of_alias_get_id(np, "vfe");
 	if (pdev->id < 0) {
 		vfe_err("VFE failed to get alias id\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto freepdata;
 	}
 	pdata->vip_sel = pdev->id;
 
@@ -4746,19 +4755,13 @@ static int vfe_probe(struct platform_device *pdev)
 
 	dev->id = pdev->id;
 	dev->pdev = pdev;
-//	pdata = pdev->dev.platform_data;    
-//	dev->mipi_sel = pdata->mipi_sel;
 	dev->vip_sel = pdata->vip_sel;
-//	dev->isp_sel = pdata->isp_sel;
-    
 	dev->generating = 0;
 	dev->opened = 0;
 	dev->vfe_sensor_power_cnt = 0;
 	dev->vfe_s_input_flag = 0;
 	vfe_print("pdev->id = %d\n",pdev->id);
-//	vfe_print("dev->mipi_sel = %d\n",pdata->mipi_sel);
 	vfe_print("dev->vip_sel = %d\n",pdata->vip_sel);
-//	vfe_print("dev->isp_sel = %d\n",pdata->isp_sel);
 
 	//to cheat the pinctrl
 	dev_set_name(&dev->pdev->dev,"csi%d",dev->id);
@@ -4782,7 +4785,7 @@ static int vfe_probe(struct platform_device *pdev)
 	ret = fetch_config(dev);
 	if (ret) {
 		vfe_err("Error at fetch_config\n");
-		goto error;
+		goto freepdata;
 	}
 
 	if(vips!=0xffff)
@@ -4797,7 +4800,7 @@ static int vfe_probe(struct platform_device *pdev)
 	vfe_enable_regulator_all(dev);
 	ret = vfe_resource_request(pdev,dev);
 	if(ret < 0)
-		goto free_resource;
+		goto freepdata;
 #ifdef USE_SPECIFIC_CCI
 	vfe_clk_open(dev);
 #endif
@@ -4816,15 +4819,13 @@ static int vfe_probe(struct platform_device *pdev)
 	dev->arrange.row = 1;
 	dev->arrange.column = 1;
 	dev->isp_init_para.isp_src_ch_mode = ISP_SINGLE_CH;
-	for(i=0;i<MAX_ISP_SRC_CH_NUM;i++)
+	for(i = 0; i < MAX_ISP_SRC_CH_NUM; i++)
 		dev->isp_init_para.isp_src_ch_en[i] = 0;
 	dev->isp_init_para.isp_src_ch_en[dev->id] = 1;
 
 	//=======================================
-
 	/* init video dma queues */
 	INIT_LIST_HEAD(&dev->vidq.active);
-
 	//init_waitqueue_head(&dev->vidq.wq);
 	INIT_WORK(&dev->resume_work, resume_work_handle);
 	INIT_DELAYED_WORK(&dev->probe_work, probe_work_handle);
@@ -4832,23 +4833,19 @@ static int vfe_probe(struct platform_device *pdev)
 	mutex_init(&dev->stream_lock);
 	mutex_init(&dev->opened_lock);
 	sema_init(&dev->standby_seq_sema,1);
-
 	schedule_delayed_work(&dev->probe_work,msecs_to_jiffies(1));
-
 	/* initial state */
 	dev->capture_mode = V4L2_MODE_PREVIEW;
 
 	//=======================================
 	return 0;
 
-	//rel_vdev:
-	//  video_device_release(vfd);  
-	//unreg_dev:
-	//  v4l2_device_unregister(&dev->v4l2_dev);
-	free_resource:
-	//vfe_resource_release(dev);
-	error:
-	vfe_err("failed to install\n");
+freepdata:
+	kfree(pdata);
+freedev:
+	kfree(dev);
+ekzalloc:
+	vfe_print("vfe probe err!\n");
 	return ret;
 }
 

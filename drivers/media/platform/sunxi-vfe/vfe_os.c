@@ -110,13 +110,6 @@ int os_clk_reset_deassert(struct clk *clk)
 }
 EXPORT_SYMBOL_GPL(os_clk_reset_deassert);
 
-int os_request_irq(unsigned int irq, irq_handler_t handler, unsigned long flags,
-      const char *name, void *dev)
-{
-	return request_irq(irq,handler,flags,name,dev);
-}
-EXPORT_SYMBOL_GPL(os_request_irq);
-
 int os_gpio_request(struct vfe_gpio_cfg *gpio_list, __u32 group_count_max)
 {    
 #ifdef VFE_GPIO
@@ -317,7 +310,7 @@ int os_mem_alloc(struct vfe_mm *mem_man)
 		vfe_err("ion_map_kernel failed!!");
 		goto err_map_kernel;
 	}
-	ret = ion_phys( mem_man->client,  mem_man->handle, &mem_man->phy_addr, &mem_man->size );
+	ret = ion_phys( mem_man->client,  mem_man->handle, (ion_phys_addr_t *)&mem_man->phy_addr, &mem_man->size );
 	if( ret )
 	{
 		vfe_err("ion_phys failed!!");

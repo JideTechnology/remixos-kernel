@@ -552,6 +552,31 @@ void cfg_section_release(struct cfg_section **cfg_sct)
     kfree(*cfg_sct);
 }
 
+struct file* cfg_open_file(char *file_path)
+{
+	struct file* fp;
+	fp = filp_open(file_path, O_RDWR | O_APPEND | O_CREAT, 644);
+	if(IS_ERR_OR_NULL(fp)) {
+		printk("[vfe_warn]open %s failed!, ERR NO is %ld.\n",file_path,  (long)fp);
+	}
+	return fp;
+}
+int cfg_close_file(struct file *fp)
+{
+	if(IS_ERR(fp))
+	{
+		printk("[vfe_warn]colse file failed,fp is invaild!\n");
+		return -1;
+	}
+	else
+	{
+		filp_close(fp,NULL);
+		return 0;
+	}
+}
+
+
+
 /*
  * name:    cfg_read_file
  * func:    API: read from file to buf
@@ -586,6 +611,31 @@ int cfg_read_file(char *file_path, char *buf, size_t len)
   
   return buf_len;
 }
+
+int cfg_write_file(	struct file* fp, char *buf, size_t len)
+{
+	mm_segment_t old_fs;
+	loff_t pos = 0;
+	int buf_len;
+	if(IS_ERR_OR_NULL(fp))
+	{
+		printk("cfg write file error, fp is null!");
+		return -1;
+	}
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+	buf_len = vfs_write(fp, buf, len, &pos);
+	set_fs(old_fs);
+	//printk("bin len = %d\n",buf_len);
+	if(buf_len < 0)
+		return -1;
+	if(buf_len != len)
+	{
+		printk("buf_len = %x, len = %lx\n", buf_len, len);
+	}
+	return buf_len;
+}
+
 
 /*
  * name:    cfg_read_ini

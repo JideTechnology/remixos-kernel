@@ -8,7 +8,7 @@
 #define __BSP_CCI__H__
 
 #include "csi_cci_reg.h"
-
+#define CCI_IRQ
 struct cci_tx_mode
 {
 	struct cci_tx_buf			tx_buf_mode;

@@ -706,7 +706,7 @@ static int isp_probe(struct platform_device *pdev)
 	sunxi_isp_init_subdev(isp);
 	isp->ioarea = request_mem_region(res->start, resource_size(res), res->name);
 	if (!isp->ioarea) {
-		goto eremap;
+		goto freedev;
 	}
 	isp->isp_sel = pdata->isp_sel;
 	
@@ -738,7 +738,7 @@ ereqirq:
 out_map:
 	release_resource(isp->ioarea);
 	kfree(isp->ioarea);
-eremap:
+freedev:
 	kfree(isp);
 ekzalloc:
 	vfe_print("isp probe err!\n");
