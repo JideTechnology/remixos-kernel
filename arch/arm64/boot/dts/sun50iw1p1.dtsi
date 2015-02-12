@@ -1127,7 +1127,7 @@
 		pmu0_regu:regu@0{
 			compatible = "allwinner,pmu0_regu";
 			regulator_count = <23>;
-			regulator1      = "axp81x_dcdc1 none vcc-nand vcc-emmc vcc-sdc vcc-usb-30 vcc-wifi-io vcc-pc vcc-pd vcc-pg";
+			regulator1      = "axp81x_dcdc1 none vcc-nand vcc-emmc vcc-sdc vcc-usb-30 vcc-wifi-io vcc-io vcc-pc vcc-pd vcc-pg";
 			regulator2      = "axp81x_dcdc2 none vdd-cpua";
 			regulator3      = "axp81x_dcdc3 none";
 			regulator4      = "axp81x_dcdc4 none";
@@ -1139,7 +1139,7 @@
 			regulator10     = "axp81x_aldo2 none vcc-pl";
 			regulator11     = "axp81x_aldo3 none vcc-avcc vcc-pll";
 			regulator12     = "axp81x_dldo1 none vcc-hsic-33 vcc-hdmi-33 vcc-dsi-33 vcc-gmac-33";
-			regulator13     = "axp81x_dldo2 none vcc-io vcc-gmac-25";
+			regulator13     = "axp81x_dldo2 none vcc-deviceio vcc-gmac-25";
 			regulator14     = "axp81x_dldo3 none avdd-csi";
 			regulator15     = "axp81x_dldo4 none vcc-wifi";
 			regulator16     = "axp81x_eldo1 none vdd-lpddr-18 vcc-cpvdd";
