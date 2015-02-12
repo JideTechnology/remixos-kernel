@@ -495,12 +495,7 @@
 			clock-frequency = <400000>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&twi0_pins_a>;
-			status = "okay";
-
-			eeprom@50 {
-				compatible = "atmel,24c16";
-				reg = <0x50>;
-			};
+			status = "disabled";
 		};
 
 		twi1: twi@0x01c2b000{
@@ -514,7 +509,7 @@
 			clock-frequency = <200000>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&twi1_pins_a>;
-			status = "disable";
+			status = "disabled";
 		};
 
 		twi2: twi@0x01c2b400{
@@ -528,7 +523,7 @@
 			clock-frequency = <200000>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&twi2_pins_a>;
-			status = "disable";
+			status = "disabled";
 		};
 
 		usbc0@0 {

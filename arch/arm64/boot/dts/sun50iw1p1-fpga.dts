@@ -14,6 +14,15 @@
 			status = "okay";
 		};
 
+		twi0: twi@0x01c2ac00{
+			status = "disabled";
+
+			eeprom@50 {
+				compatible = "atmel,24c16";
+				reg = <0x50>;
+			};
+		};
+
 		spi0: spi@01c68000 {
 			status = "disabled";
 
