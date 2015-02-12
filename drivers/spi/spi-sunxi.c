@@ -63,15 +63,15 @@ enum spi_mode_type {
     MODE_TYPE_NULL,
 };
 
+#ifdef CONFIG_DMA_ENGINE
+
+#define SPI_MAX_PAGES	32
+
 enum spi_dma_dir {
 	SPI_DMA_RWNULL,
 	SPI_DMA_WDEV = DMA_TO_DEVICE,
 	SPI_DMA_RDEV = DMA_FROM_DEVICE,
 };
-
-#ifdef CONFIG_DMA_ENGINE
-
-#define SPI_MAX_PAGES	32
 
 typedef struct {
 	enum spi_dma_dir dir;
@@ -80,6 +80,9 @@ typedef struct {
 	struct scatterlist sg[SPI_MAX_PAGES];
 	struct page *pages[SPI_MAX_PAGES];
 } spi_dma_info_t;
+
+u64 sunxi_spi_dma_mask = DMA_BIT_MASK(32);
+
 #endif
 
 struct sunxi_spi {
@@ -1623,7 +1626,6 @@ static void sunxi_spi_sysfs(struct platform_device *_pdev)
 	device_create_file(&_pdev->dev, &sunxi_spi_status_attr);
 }
 
-u64 sunxi_spi_dma_mask = DMA_BIT_MASK(32);
 
 static int sunxi_spi_probe(struct platform_device *pdev)
 {
@@ -1646,8 +1648,10 @@ static int sunxi_spi_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+#ifdef CONFIG_DMA_ENGINE
 	pdev->dev.dma_mask = &sunxi_spi_dma_mask;
 	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+#endif
 
 	pdata = kzalloc(sizeof(struct sunxi_spi_platform_data), GFP_KERNEL);
 	if (pdata == NULL) {
