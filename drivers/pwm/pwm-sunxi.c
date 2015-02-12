@@ -45,6 +45,9 @@
 
 #define PWM_OFFSET 15
 
+#define PWM_PIN_STATE_ACTIVE "active"
+#define PWM_PIN_STATE_SLEEP "sleep"
+
 #if PWM_DEBUG
 #define pwm_debug(msg...) pr_info
 #else
@@ -87,6 +90,37 @@ static inline u32 sunxi_pwm_writel(struct pwm_chip *chip, u32 offset, u32 value)
 	writel(value, pc->base + offset);
 
 	return 0;
+}
+
+static int sunxi_pwm_pin_set_state(struct device *dev, char *name)
+{
+	struct pinctrl *pctl;
+	struct pinctrl_state *state;
+	int ret = -1;
+
+	pctl = pinctrl_get(dev);
+	if (IS_ERR(pctl)) {
+		dev_err(dev, "pinctrl_get failed!\n");
+		ret = PTR_ERR(pctl);
+		goto exit;
+	}
+
+	state = pinctrl_lookup_state(pctl, name);
+	if (IS_ERR(state)) {
+		dev_err(dev, "pinctrl_lookup_state(%s) failed!\n", name);
+		ret = PTR_ERR(state);
+		goto exit;
+	}
+
+	ret = pinctrl_select_state(pctl, state);
+	if (ret < 0) {
+		dev_err(dev, "pinctrl_select_state(%s) failed!\n", name);
+		goto exit;
+	}
+	ret = 0;
+
+exit:
+	return ret;
 }
 
 static void sunxi_pwm_get_config(int pwm, struct sunxi_pwm_cfg *sunxi_pwm_cfg)
@@ -187,29 +221,7 @@ static int sunxi_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 	u32 temp;
 	u32 value = 0;
 
-#if 0
-	int i;
-	u32 ret = 0;
-	char pin_name[255];
-	u32 config;
-
-	for (i = 0; i < pwm_pin_count[pwm->pwm]; i++) {
-		ret = gpio_request(pwm_cfg[pwm->pwm].list[i].gpio.gpio, NULL);
-		if (ret != 0) {
-			pr_warn("pwm gpio %d request failed!\n", pwm_cfg[pwm->pwm].list[i].gpio.gpio);
-		}
-		if (!IS_AXP_PIN(pwm_cfg[pwm->pwm].list[i].gpio.gpio)) {
-			sunxi_gpio_to_name(pwm_cfg[pwm->pwm].list[i].gpio.gpio, pin_name);
-			config = SUNXI_PINCFG_PACK(SUNXI_PINCFG_TYPE_FUNC, pwm_cfg[pwm->pwm].list[i].gpio.mul_sel);
-			pin_config_set(SUNXI_PINCTRL, pin_name, config);
-		}
-		else {
-			pr_warn("this is axp pin!\n");
-		}
-
-		gpio_free(pwm_cfg[pwm->pwm].list[i].gpio.gpio);
-	}
-#endif
+	sunxi_pwm_pin_set_state(chip->dev, PWM_PIN_STATE_ACTIVE);
 
 	temp = sunxi_pwm_readl(chip, PWM_REG_CONTROL);
 	value |= (0x1 << PWM_ENABLE) | (0x1 << PWM_CLK_GATE);
@@ -226,36 +238,14 @@ static void sunxi_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 	u32 temp;
 	u32 value = 0;
 
-#if 0
-	int i;
-	u32 ret = 0;
-	char pin_name[255];
-	u32 config;
-
-	for (i = 0; i < pwm_pin_count[pwm->pwm]; i++) {
-		ret = gpio_request(pwm_cfg[pwm->pwm].list[i].gpio.gpio, NULL);
-		if (ret != 0) {
-			pr_warn("pwm gpio %d request failed!\n", pwm_cfg[pwm->pwm].list[i].gpio.gpio);
-		}
-		if (!IS_AXP_PIN(pwm_cfg[pwm->pwm].list[i].gpio.gpio)) {
-			sunxi_gpio_to_name(pwm_cfg[pwm->pwm].list[i].gpio.gpio, pin_name);
-			config = SUNXI_PINCFG_PACK(SUNXI_PINCFG_TYPE_FUNC, 0x7);
-			pin_config_set(SUNXI_PINCTRL, pin_name, config);
-		}
-		else {
-			pr_warn("this is axp pin!\n");
-		}
-
-		gpio_free(pwm_cfg[pwm->pwm].list[i].gpio.gpio);
-	}
-#endif
-
 	temp = sunxi_pwm_readl(chip, 0);
 	value |= (0x1 << PWM_ENABLE) | (0x1 << PWM_CLK_GATE);
 	value = value << (PWM_OFFSET << pwm->pwm);
 	temp &= ~value;
 
 	sunxi_pwm_writel(chip, PWM_REG_CONTROL, temp);
+
+	sunxi_pwm_pin_set_state(chip->dev, PWM_PIN_STATE_SLEEP);
 }
 
 static struct pwm_ops sunxi_pwm_ops = {
@@ -297,6 +287,7 @@ static int sunxi_pwm_probe(struct platform_device *pdev)
 	pwm->chip.dev = &pdev->dev;
 	pwm->chip.ops = &sunxi_pwm_ops;
 	pwm->chip.base = -1;
+	pwm->chip.dev = &pdev->dev;
 
 	/* add pwm chip to pwm-core */
 	ret = pwmchip_add(&pwm->chip);
