@@ -283,15 +283,22 @@
 			};
 
 			lcd_pins_b: disp@1 {
-				allwinner,pins = "PD22";
-				allwinner,function = "gpio_out";
+				allwinner,pins = "PD12", "PD13", "PD14", "PD15", "PD16", "PD17", "PD18", "PD19", "PD20", "PD21";
+				allwinner,function = "io_disabled";
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
 
 			pwm_pins_a: pwm@0 {
-				allwinner,pins = "PD28";
+				allwinner,pins = "PD22";
 				allwinner,function = "pwm0";
+				allwinner,drive = <1>;
+				allwinner,pull = <1>;
+			};
+
+			pwm_pins_b: pwm@1 {
+				allwinner,pins = "PD22";
+				allwinner,function = "io_disabled";
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};

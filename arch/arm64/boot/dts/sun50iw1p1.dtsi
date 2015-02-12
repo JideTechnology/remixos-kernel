@@ -933,8 +933,6 @@
 			fb1_width = <0>;
 			fb1_height = <0>;
 
-			pinctrl-names = "default";
-			pinctrl-0 = <&lcd_pins_a>,<&lcd_pins_b>;
 			status = "okay";
 		};
 
@@ -975,8 +973,11 @@
 			lcd_io_regulator1 = "vcc-pd";
 			lcd_bl_en = <&pio PD 23 1 0 0 1>;
 
-			pinctrl-names = "default";
+			pinctrl-names = "active","sleep";
 			pinctrl-0 = <&lcd_pins_a>;
+			pinctrl-1 = <&lcd_pins_b>;
+
+			lcd_backlight = <50>;
 
 			status = "okay";
 		};
@@ -1000,8 +1001,9 @@
 			compatible = "allwinner,sunxi-pwm0";
 			reg = <0x0 0x01c21400 0x0 0x3c>;
 			pwm-number = <1>;
-			pinctrl-names = "default";
+			pinctrl-names = "active", "sleep";
 			pinctrl-0 = <&pwm_pins_a>;
+			pinctrl-1 = <&pwm_pins_b>;
 			status = "okay";
 		};
 

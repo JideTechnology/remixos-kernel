@@ -300,19 +300,21 @@ clocks {
 		clk_de: de {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
-			clocks = <&clk_pll_de>;
-			clock-frequency = <250000000>;
+			assigned-clock-parents = <&clk_pll_de>;
+			assigned-clock-rates = <250000000>;
 			clock-output-names = "de";
 		};
 		clk_tcon0: tcon0 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
+			assigned-clock-parents = <&clk_pll_video0x2>;
 			clock-output-names = "tcon0";
 		};
 		clk_tcon1: tcon1 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
-			clock-frequency = <297000000>;
+			assigned-clock-parents = <&clk_pll_video1>;
+			assigned-clock-rates = <297000000>;
 			clock-output-names = "tcon1";
 		};	
 		clk_deinterlace: deinterlace {
@@ -358,7 +360,8 @@ clocks {
 		clk_hdmi: hdmi {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
-			clocks = <&clk_pll_video1>;
+			assigned-clock-parents = <&clk_pll_video1>;
+			assigned-clock-rates = <297000000>;
 			clock-output-names = "hdmi";
 		};	
 		clk_hdmi_slow: hdmi_slow {
