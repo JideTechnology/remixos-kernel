@@ -443,12 +443,12 @@ static s32 axp_battery_remove(struct platform_device *dev)
 
 static s32 axp81x_suspend(struct platform_device *dev, pm_message_t state)
 {
-	s32 ret;
 	struct axp_charger *charger = platform_get_drvdata(dev);
+	/*s32 ret;
 
 	ret = axp_disable_irq(charger, 6);
 	if (ret < 0)
-		return ret;
+		return ret;*/
 	schedule_delayed_work(&charger->usbwork, 0);
 	flush_delayed_work(&charger->usbwork);
 	cancel_delayed_work_sync(&charger->work);
@@ -462,7 +462,7 @@ static s32 axp81x_resume(struct platform_device *dev)
 	struct axp_charger *charger = platform_get_drvdata(dev);
 	s32 pre_rest_vol;
 
-	axp_enable_irq(charger);
+	/*axp_enable_irq(charger);*/
 	pre_rest_vol = charger->rest_vol;
 	axp_charger_update_state(charger);
 	axp_charger_update(charger, &axp81x_config);
