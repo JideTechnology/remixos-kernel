@@ -362,11 +362,7 @@ static void spi_reset_fifo(void __iomem *base_addr)
 
 	/* Set the trigger level of RxFIFO/TxFIFO. */
 	reg_val &= ~(SPI_FIFO_CTL_RX_LEVEL|SPI_FIFO_CTL_TX_LEVEL);
-#ifdef CONFIG_ARCH_SUN8IW7P1
 	reg_val |= (0x20<<16) | 0x20;
-#else
-	reg_val |= (0x40<<16) | 0x1;
-#endif
 	writel(reg_val, base_addr + SPI_FIFO_CTL_REG);
 }
 

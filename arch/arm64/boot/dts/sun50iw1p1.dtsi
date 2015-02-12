@@ -743,20 +743,6 @@
 			spi0_cs_number = <1>;
 			spi0_cs_bitmap = <1>;
 			status = "disabled";
-
-			nor-flash@0 {
-				#address-cells = <1>;
-				#size-cells = <1>;
-				compatible = "atmel,at25df641";
-				reg = <0>;	/* Chip select 0 */
-				spi-max-frequency = <50000000>;
-				mode = <0>;
-
-				partition@0 {
-					label = "NorFlash part0";
-					reg = <0x00000000 0x0002000>;
-				};
-			};
 		};
 
 		spi1: spi@01c69000 {
@@ -766,7 +752,7 @@
 			device_type = "spi1";
 			reg = <0x0 0x01c69000 0x0 0x1000>;
 			interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk_pll_periph0>, <&clk_spi0>;
+			clocks = <&clk_pll_periph0>, <&clk_spi1>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&spi1_pins_a &spi1_pins_b>;
 			spi1_cs_number = <1>;

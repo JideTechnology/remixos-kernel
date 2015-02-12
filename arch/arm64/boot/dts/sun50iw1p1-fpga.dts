@@ -10,6 +10,21 @@
 /{
 
 	soc@01c00000 {
+		spi0: spi@01c68000 {
+			status = "disabled";
 
+			nor_flash@0 {
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "atmel,at25df641";
+				spi-max-frequency = <50000000>;
+				reg = <0>;	/* Chip select 0 */
+
+				partition@0 {
+					label = "NorFlash part0";
+					reg = <0x00000000 0x00800000>;
+				};
+			};
+		};
 	};
 };
