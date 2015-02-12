@@ -429,7 +429,7 @@
 			pinctrl-0 = <&uart0_pins_a>;
 			uart0_port = <0>;
 			uart0_type = <2>;
-			status = "okay";
+			status = "disabled";
 		};
 
 		uart1: uart@01c28400 {
