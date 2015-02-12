@@ -20,7 +20,7 @@ static de_reg_blocks fce_para_block[DEVICE_NUM][CHN_NUM];
 static de_reg_blocks fce_celut_block[DEVICE_NUM][CHN_NUM];
 static de_reg_blocks fce_hist_block[DEVICE_NUM][CHN_NUM];
 
-static unsigned int fce_hw_base[DEVICE_NUM][CHN_NUM] = {{0}};
+static uintptr_t fce_hw_base[DEVICE_NUM][CHN_NUM] = {{0}};
 
 //for hist
 extern unsigned int *g_hist[DEVICE_NUM][CHN_NUM];

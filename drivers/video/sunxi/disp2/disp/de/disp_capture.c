@@ -292,9 +292,6 @@ s32 disp_capture_sync(struct disp_capture *cptr)
 			struct disp_capture_config config;
 			enum disp_csc_type cs = DISP_CSC_TYPE_RGB;
 			u32 width = 0, height = 0;
-			{
-				__inf("disp %d\n", cptr->disp);
-			}
 
 			memset(&config, 0, sizeof(struct disp_capture_config));
 			memcpy(&config.out_frame, &info_list->info.out_frame, sizeof(struct disp_s_frame));

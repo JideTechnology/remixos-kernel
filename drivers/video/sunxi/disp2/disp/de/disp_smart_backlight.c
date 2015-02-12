@@ -340,10 +340,10 @@ static s32 disp_smbl_dump(struct disp_smbl *smbl, char* buf)
 
 	memcpy(&info, &smblp->info, sizeof(struct disp_smbl_info));
 
-	count += sprintf(buf + count, "smart_backlight %d: %s, window<%d,%d,%d,%d>, save_power=%d percent\n",
+	count += sprintf(buf + count, "smart_backlight %d: %s, window<%d,%d,%d,%d>, backlight=%d, save_power=%d percent\n",
 		smbl->disp, (info.enable==1)?"enable":"disable",
 		info.window.x, info.window.y, info.window.width, info.window.height,
-		100 - info.backlight_dimming * 100 / 256);
+		smbl->backlight, 100 - info.backlight_dimming * 100 / 256);
 
 	return count;
 }

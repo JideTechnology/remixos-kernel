@@ -31,6 +31,8 @@ typedef struct
 } disp_gpio_set_t;
 
 #define DISP_IRQ_RETURN IRQ_HANDLED
+#define DISP_PIN_STATE_ACTIVE "active"
+#define DISP_PIN_STATE_SLEEP "sleep"
 
 void disp_sys_cache_flush(void*address, u32 length, u32 flags);
 
@@ -52,8 +54,11 @@ int disp_sys_gpio_release(int p_handler, s32 if_release_to_default_status);
 int disp_sys_gpio_set_direction(u32 p_handler, u32 direction, const char *gpio_name);
 int disp_sys_gpio_get_value(u32 p_handler, const char *gpio_name);
 int disp_sys_gpio_set_value(u32 p_handler, u32 value_to_gpio, const char *gpio_name);
+int disp_sys_pin_set_state(char *dev_name, char *name);
+
 int disp_sys_power_enable(char *name);
 int disp_sys_power_disable(char *name);
+
 
 uintptr_t disp_sys_pwm_request(u32 pwm_id);
 int disp_sys_pwm_free(uintptr_t p_handler);

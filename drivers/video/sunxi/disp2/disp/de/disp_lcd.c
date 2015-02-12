@@ -345,8 +345,8 @@ static s32 lcd_parse_panel_para(u32 disp, disp_panel_para * info)
         info->lcd_xtal_freq = value;
     }
 
-    ret = disp_sys_script_get_item(primary_key, "lcd_size", (int*)info->lcd_size, 25/sizeof(int));
-    ret = disp_sys_script_get_item(primary_key, "lcd_model_name", (int*)info->lcd_model_name, 25/sizeof(int));
+    ret = disp_sys_script_get_item(primary_key, "lcd_size", (int*)info->lcd_size, 2);
+    ret = disp_sys_script_get_item(primary_key, "lcd_model_name", (int*)info->lcd_model_name, 2);
 
     return 0;
 }
@@ -634,7 +634,7 @@ static void lcd_get_sys_config(u32 disp, __disp_lcd_cfg_t *lcd_cfg)
     }
 
 	sprintf(sub_name, "lcd_bl_regulator");
-	ret = disp_sys_script_get_item(primary_key, sub_name, (int *)lcd_cfg->lcd_bl_regulator, 25/sizeof(int));
+	ret = disp_sys_script_get_item(primary_key, sub_name, (int *)lcd_cfg->lcd_bl_regulator, 2);
 
 //lcd_power0
 	for (i=0; i<LCD_POWER_NUM; i++)
@@ -661,7 +661,7 @@ static void lcd_get_sys_config(u32 disp, __disp_lcd_cfg_t *lcd_cfg)
         sprintf(sub_name, "lcd_gpio_%d", i);
 
         gpio_info = &(lcd_cfg->lcd_gpio[i]);
-        ret = disp_sys_script_get_item(primary_key,sub_name, (int *)gpio_info, sizeof(disp_gpio_set_t)/sizeof(int));
+        ret = disp_sys_script_get_item(primary_key,sub_name, (int *)gpio_info, 3);
         if (ret == 3)
         {
             lcd_cfg->lcd_gpio_used[i]= 1;
@@ -670,13 +670,13 @@ static void lcd_get_sys_config(u32 disp, __disp_lcd_cfg_t *lcd_cfg)
 
 //lcd_gpio_scl,lcd_gpio_sda
     gpio_info = &(lcd_cfg->lcd_gpio[LCD_GPIO_SCL]);
-    ret = disp_sys_script_get_item(primary_key,"lcd_gpio_scl", (int *)gpio_info, sizeof(disp_gpio_set_t)/sizeof(int));
+    ret = disp_sys_script_get_item(primary_key,"lcd_gpio_scl", (int *)gpio_info, 3);
     if (ret == 3)
     {
         lcd_cfg->lcd_gpio_used[LCD_GPIO_SCL]= 1;
     }
     gpio_info = &(lcd_cfg->lcd_gpio[LCD_GPIO_SDA]);
-    ret = disp_sys_script_get_item(primary_key,"lcd_gpio_sda", (int *)gpio_info, sizeof(disp_gpio_set_t)/sizeof(int));
+    ret = disp_sys_script_get_item(primary_key,"lcd_gpio_sda", (int *)gpio_info, 3);
     if (ret == 3)
     {
         lcd_cfg->lcd_gpio_used[LCD_GPIO_SDA]= 1;
@@ -686,14 +686,14 @@ static void lcd_get_sys_config(u32 disp, __disp_lcd_cfg_t *lcd_cfg)
 	{
 		sprintf(sub_name, "lcd_gpio_regulator%d", i);
 
-		ret = disp_sys_script_get_item(primary_key, sub_name, (int *)lcd_cfg->lcd_gpio_regulator[i], 25/sizeof(int));
+		ret = disp_sys_script_get_item(primary_key, sub_name, (int *)lcd_cfg->lcd_gpio_regulator[i], 2);
 	}
 
 //lcd io
     for (i=0; i<28; i++)
     {
         gpio_info = &(lcd_cfg->lcd_io[i]);
-        ret = disp_sys_script_get_item(primary_key,io_name[i], (int *)gpio_info, sizeof(disp_gpio_set_t)/sizeof(int));
+        ret = disp_sys_script_get_item(primary_key,io_name[i], (int *)gpio_info, 3);
         if (ret == 3)
         {
             lcd_cfg->lcd_io_used[i]= 1;
@@ -705,7 +705,7 @@ static void lcd_get_sys_config(u32 disp, __disp_lcd_cfg_t *lcd_cfg)
 			sprintf(sub_name, "lcd_io_regulator");
 		else
 			sprintf(sub_name, "lcd_io_regulator%d", i);
-		ret = disp_sys_script_get_item(primary_key, sub_name, (int *)lcd_cfg->lcd_io_regulator[i], 25/sizeof(int));
+		ret = disp_sys_script_get_item(primary_key, sub_name, (int *)lcd_cfg->lcd_io_regulator[i], 2);
 	}
 
 //backlight adjust
@@ -723,14 +723,21 @@ static void lcd_get_sys_config(u32 disp, __disp_lcd_cfg_t *lcd_cfg)
 			lcd_cfg->backlight_curve_adjust[i] = value;
 		}
 	}
+
+	sprintf(sub_name, "lcd_backlight");
+	ret = disp_sys_script_get_item(primary_key, sub_name, &value, 1);
+	if(ret == 1) {
+		value = (value > 256)? 256:value;
+		lcd_cfg->backlight_bright = value;
+	} else {
+		lcd_cfg->backlight_bright = 197;
+	}
 }
 
 #include <linux/clk-provider.h>
 static s32 lcd_clk_init(struct disp_device* lcd)
 {
 	struct disp_lcd_private_data *lcdp = disp_lcd_get_priv(lcd);
-	struct clk *parent = NULL;
-	int ret;
 
 	if ((NULL == lcd) || (NULL == lcdp)) {
 		DE_WRN("NULL hdl!\n");
@@ -738,17 +745,6 @@ static s32 lcd_clk_init(struct disp_device* lcd)
 	}
 
 	DE_INF("lcd %d clk init\n", lcd->disp);
-
-	parent = __clk_lookup("pll_video0x2");
-
-	if (NULL == parent || IS_ERR(parent)) {
-		printk("Fail to get handle for clock %s.\n", "pll_video0x2");
-		return -1;
-	}
-
-	ret = clk_set_parent(lcdp->clk, parent);
-	if (0 != ret)
-		printk("Fail to set clk %s\n", "pll_video0x2");
 
 	lcdp->clk_parent = clk_get_parent(lcdp->clk);
 
@@ -883,9 +879,9 @@ static s32 disp_lcd_tcon_disable(struct disp_device *lcd)
 
 static s32 disp_lcd_pin_cfg(struct disp_device *lcd, u32 bon)
 {
-	int lcd_pin_hdl;
 	int  i;
 	struct disp_lcd_private_data *lcdp = disp_lcd_get_priv(lcd);
+	char dev_name[25];
 
 	if ((NULL == lcd) || (NULL == lcdp)) {
 		DE_WRN("NULL hdl!\n");
@@ -901,22 +897,9 @@ static s32 disp_lcd_pin_cfg(struct disp_device *lcd, u32 bon)
 		}
 	}
 
-	for (i=0; i<28; i++)	{
-		if (lcdp->lcd_cfg.lcd_io_used[i]) {
-			disp_gpio_set_t  gpio_info[1];
+	sprintf(dev_name, "lcd%d", lcd->disp);
+	disp_sys_pin_set_state(dev_name, (1==bon)? DISP_PIN_STATE_ACTIVE:DISP_PIN_STATE_SLEEP);
 
-			memcpy(gpio_info, &(lcdp->lcd_cfg.lcd_io[i]), sizeof(disp_gpio_set_t));
-			if (!bon) {
-				gpio_info->mul_sel = 7;
-			}	else {
-				if ((lcdp->panel_info.lcd_if == 3) && (gpio_info->mul_sel==2))	{
-					gpio_info->mul_sel = 3;
-				}
-			}
-			lcd_pin_hdl = disp_sys_gpio_request(gpio_info, 1);
-			disp_sys_gpio_release(lcd_pin_hdl, 2);
-		}
-	}
 	disp_al_lcd_io_cfg(lcd->disp, bon, &lcdp->panel_info);
 
 	if (bon == 0) {

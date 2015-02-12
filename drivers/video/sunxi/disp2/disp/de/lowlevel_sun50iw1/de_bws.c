@@ -20,7 +20,7 @@ static volatile __bws_reg_t *bws_dev[DEVICE_NUM][CHN_NUM];
 static de_reg_blocks bws_block[DEVICE_NUM][CHN_NUM];
 static de_reg_blocks bws_para_block[DEVICE_NUM][CHN_NUM];
 
-static unsigned int bws_hw_base[DEVICE_NUM][CHN_NUM] = {{0}};
+static uintptr_t bws_hw_base[DEVICE_NUM][CHN_NUM] = {{0}};
 
 //for bws
 __bws_status_t *g_bws_status[DEVICE_NUM][CHN_NUM];

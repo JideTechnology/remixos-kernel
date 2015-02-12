@@ -459,24 +459,11 @@ static s32 disp_mgr_event_proc(void *parg)
 static s32 disp_mgr_clk_init(struct disp_manager *mgr)
 {
 	struct disp_manager_private_data *mgrp = disp_mgr_get_priv(mgr);
-	struct clk* parent = NULL;
-	int ret;
 
 	if ((NULL == mgr) || (NULL == mgrp)) {
 		DE_WRN("NULL hdl!\n");
 		return -1;
 	}
-
-	parent = clk_get(NULL, "pll_de");
-
-	if (NULL == parent || IS_ERR(parent)) {
-		DE_WRN("Fail to get clock %s.\n", "pll_de");
-		return -1;
-	}
-
-	ret = clk_set_parent(mgrp->clk, parent);
-	if (0 != ret)
-		DE_WRN("Fail to set parent %s for de\n", "pll_de");
 
 	mgrp->clk_parent = clk_get_parent(mgrp->clk);
 

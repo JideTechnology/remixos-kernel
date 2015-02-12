@@ -371,6 +371,58 @@ int disp_sys_gpio_set_value(u32 p_handler, u32 value_to_gpio, const char *gpio_n
 	return 0;
 }
 
+int disp_sys_pin_set_state(char *dev_name, char *name)
+{
+	char compat[32];
+	u32 len = 0;
+	struct device_node *node;
+	struct platform_device *pdev;
+	struct pinctrl *pctl;
+	struct pinctrl_state *state;
+	int ret = -1;
+
+	len = sprintf(compat, "allwinner,sunxi-%s", dev_name);
+	if (len > 32)
+		__wrn("size of mian_name is out of range\n");
+
+	node = of_find_compatible_node(NULL, NULL, compat);
+	if (!node) {
+		__wrn("of_find_compatible_node %s fail\n", compat);
+		goto exit;
+	}
+
+	pdev = of_find_device_by_node(node);
+	if (!node) {
+		__wrn("of_find_device_by_node for %s fail\n", compat);
+		goto exit;
+	}
+
+	pctl = pinctrl_get(&pdev->dev);
+	if (IS_ERR(pctl)) {
+		__wrn("pinctrl_get for %s fail\n", compat);
+		ret = PTR_ERR(pctl);
+		goto exit;
+	}
+
+	state = pinctrl_lookup_state(pctl, name);
+	if (IS_ERR(state)) {
+		__wrn("pinctrl_lookup_state for %s fail\n", compat);
+		ret = PTR_ERR(state);
+		goto exit;
+	}
+
+	ret = pinctrl_select_state(pctl, state);
+	if (ret < 0) {
+		__wrn("pinctrl_select_state(%s) for %s fail\n", name, compat);
+		goto exit;
+	}
+	ret = 0;
+
+exit:
+	return ret;
+}
+EXPORT_SYMBOL(disp_sys_pin_set_state);
+
 int disp_sys_power_enable(char *name)
 {
 	int ret = 0;
@@ -443,7 +495,7 @@ uintptr_t disp_sys_pwm_request(u32 pwm_id)
 	} else {
 		__inf("disp_sys_pwm_request pwm %d success!\n", pwm_id);
 	}
-	ret = (int)pwm_dev;
+	ret = (uintptr_t)pwm_dev;
 #endif
 	return ret;
 }
