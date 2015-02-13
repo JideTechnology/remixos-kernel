@@ -121,13 +121,13 @@ static int __init arm64_idle_init(void)
 			return ret;
 		}
 	}
-
+#if 0
 	ret = cpuidle_register(drv, NULL);
 	if (ret) {
 		pr_err("failed to register cpuidle driver\n");
 		return ret;
 	}
-
+#endif
 	return 0;
 }
 device_initcall(arm64_idle_init);
