@@ -25,3 +25,8 @@ config USB_SUNXI_USB_DEBUG
     help
         SUNXI USB driver debug message.
 
+config USB_SUNXI_USB_ADB
+    tristate "SUNXI USB driver use adb source"
+    depends on USB_SUNXI_USB
+    help
+        SUNXI USB driver debug message.
