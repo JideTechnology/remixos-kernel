@@ -534,7 +534,7 @@
 			usb_detect_type     = <1>;
 			usb_id_gpio         = <&pio PH 9 0 1 1 1>;
 			usb_det_vbus_gpio   = "axp_ctrl";
-			usb_drv_vbus_gpio   = <&pio PB 7 1 1 1 1>;
+			usb_drv_vbus_gpio   = <&axp_pio PP 3 1 1 1 1>;
 			usb_host_init_state = <0>;
 			usb_regulator_io    = "nocare";
 			usb_regulator_vol   = <0>;

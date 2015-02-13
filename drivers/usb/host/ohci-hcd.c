@@ -790,6 +790,18 @@ static irqreturn_t ohci_irq (struct usb_hcd *hcd)
 	 */
 	ints = ohci_readl(ohci, &regs->intrstatus);
 
+{
+	if(ints & OHCI_INTR_RHSC){
+		int portstatus0 = 0;
+
+		portstatus0 = ohci_readl(ohci, &ohci->regs->roothub.portstatus[0]);
+		if((portstatus0 & RH_PS_CCS) && (portstatus0 & RH_PS_CSC)){
+			printk("ohci_irq: fullspeed or lowspeed device connect\n");
+		}else if(!(portstatus0 & RH_PS_CCS) && (portstatus0 & RH_PS_CSC)){
+			printk("ohci_irq: fullspeed or lowspeed device disconnect\n");
+		}
+	}
+}
 	/* Check for an all 1's result which is a typical consequence
 	 * of dead, unclocked, or unplugged (CardBus...) devices
 	 */
