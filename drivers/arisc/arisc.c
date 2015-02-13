@@ -1792,6 +1792,9 @@ static int  sunxi_arisc_probe(struct platform_device *pdev)
 
 	sunxi_arisc_sysfs(pdev);
 
+	/* arisc init ok */
+	arisc_notify(ARISC_INIT_READY, NULL);
+
 	/* arisc initialize succeeded */
 	ARISC_LOG("sunxi-arisc driver v%s startup succeeded\n", DRV_VERSION);
 
@@ -1826,9 +1829,6 @@ static int __init arisc_init(void)
 		ARISC_ERR("register sunxi arisc platform driver failed\n");
 		goto err_platform_driver_register;
 	}
-
-	/* arisc init ok */
-	arisc_notify(ARISC_INIT_READY, NULL);
 
 	return 0;
 
