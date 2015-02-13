@@ -367,7 +367,7 @@ int __init nand_init(void)
 	if(exit_probe_flag == 0)
 	{
 		nand_dbg_err("Failed to insmod nand!!!\n");
-		rerurn 0;
+		return 0;
 	}
 
 	ret = of_property_read_u32(ndfc_dev->of_node, "nand0_cache_level", &nand_cache_level);
