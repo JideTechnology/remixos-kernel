@@ -1,6 +1,7 @@
 /{
 clocks {
 	compatible = "allwinner,sunxi-clk-init";
+	device_type = "clocks";
 	#address-cells = <2>;
 	#size-cells = <2>;
 	ranges;

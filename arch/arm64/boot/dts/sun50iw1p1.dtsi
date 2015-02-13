@@ -112,9 +112,52 @@
 					1344000>;
 			clock-latency = <2000000>;
 			clock-frequency = <1008000000>;
+			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0 &SYS_SLEEP_0>;
+		};
+		idle-states {
+			entry-method = "arm,psci";
+
+			CPU_SLEEP_0: cpu-sleep-0 {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x0010000>;
+				entry-latency-us = <40>;
+				exit-latency-us = <100>;
+				min-residency-us = <150>;
+			};
+
+			CLUSTER_SLEEP_0: cluster-sleep-0 {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x1010000>;
+				entry-latency-us = <500>;
+				exit-latency-us = <1000>;
+				min-residency-us = <2500>;
+			};
+
+			SYS_SLEEP_0: sys-sleep-0 {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x0000000>;
+				entry-latency-us = <1000>;
+				exit-latency-us = <2000>;
+				min-residency-us = <4500>;
+			};
 		};
 	};
 
+	psci {
+	    compatible		=  "arm,psci-0.2", "arm,psci";
+	    method		=  "smc";
+	    psci_version	=  <0xc4000000>;
+	    cpu_suspend		=  <0xc4000001>;
+	    cpu_off		=  <0xc4000002>;
+	    cpu_on		=  <0xc4000003>;
+	    affinity_info	=  <0xc4000004>;
+	    migrate		=  <0xc4000005>;
+	    migrate_info_type	=  <0xc4000006>;
+	    migrate_info_up_cpu =  <0xc4000007>;
+	    system_off		=  <0xc4000008>;
+	    system_reset	=  <0xc4000009>;
+
+	};
 	n_brom {
 		compatible = "allwinner,n-brom";
 		reg = <0x0 0x0 0x0 0xc000>;
@@ -209,6 +252,7 @@
 		compatible = "arm,cortex-a15-gic", "arm,cortex-a9-gic";
 		#interrupt-cells = <3>;
 		#address-cells = <0>;
+		device_type = "gic"; 
 		interrupt-controller;
 		reg = <0x0 0x01c81000 0 0x1000>, /* GIC Dist */
 		      <0x0 0x01c82000 0 0x2000>, /* GIC CPU */
@@ -347,13 +391,27 @@
 			space3 = <0x40024000 0x00000000 0x00001000>; /* para space        */
 		};
 
+		standby_space {
+			compatible = "allwinner,standby_space";
+			/* num    dst        offset     size						*/
+			space1 = <0x40025000 0x00000000 0x00000800>; /* super standby para space        */
+		};
+
+		rtc@1f00000 {
+			compatible = "allwinner,rtc";
+			device_type = "rtc";
+			reg = <0x0 0x1f00000 0x0 0x218>;
+			gpr_offset = <0x100>;
+			gpr_len	   = <4>;
+		};
+
 		msgbox: msgbox@1c17000 {
 			compatible = "allwinner,msgbox";
 			clocks = <&clk_msgbox>;
-			clock-names = "clk_msgbox";
-			reg = <0x0 0x01c17000 0x0 0x1000>;
-			interrupts = <GIC_SPI 49 IRQ_TYPE_EDGE_RISING>;
-			status = "okay";
+		     	clock-names = "clk_msgbox";
+		    	reg = <0x0 0x01c17000 0x0 0x1000>;
+		    	interrupts = <GIC_SPI 49 IRQ_TYPE_EDGE_RISING>;
+		    	status = "okay";
 		};
 
 		hwspinlock: hwspinlock@1c18000 {
@@ -402,6 +460,7 @@
 
 		soc_timer0: timer@1c20c00 {
 			compatible = "allwinner,sunxi-timer";
+			device_type = "timer";
 			reg = <0x0 0x01c20c00 0x0 0x90>;
 			interrupts = <GIC_SPI 18 IRQ_TYPE_EDGE_RISING>;
 			clock-frequency = <24000000>;
