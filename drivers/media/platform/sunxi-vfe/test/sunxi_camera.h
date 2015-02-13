@@ -36,6 +36,14 @@ struct v4l2_win_coordinate {
 	__s32			x2;
 	__s32			y2;	
 };
+
+#define V4L2_MAX_WIN_NUM	10
+
+struct v4l2_win_setting {
+	__s32 win_num;
+	struct v4l2_win_coordinate coor[V4L2_MAX_WIN_NUM];
+};
+
 enum v4l2_gain_shift {
 	V4L2_GAIN_SHIFT	= 0,
 	V4L2_SHARP_LEVEL_SHIFT	= 8,
@@ -43,18 +51,14 @@ enum v4l2_gain_shift {
 	V4L2_NDF_SHIFT	= 26,
 };
 
-
-
 #define MAX_EXP_FRAMES     5
 
 #define V4L2_CID_HFLIP_THUMB					(V4L2_CID_USER_SUNXI_CAMERA_BASE+0)
 #define V4L2_CID_VFLIP_THUMB					(V4L2_CID_USER_SUNXI_CAMERA_BASE+1)
-#define V4L2_CID_AUTO_FOCUS_WIN_NUM			(V4L2_CID_USER_SUNXI_CAMERA_BASE+2)
-#define V4L2_CID_AUTO_FOCUS_INIT				(V4L2_CID_USER_SUNXI_CAMERA_BASE+3)
-#define V4L2_CID_AUTO_FOCUS_RELEASE			(V4L2_CID_USER_SUNXI_CAMERA_BASE+4)
-#define V4L2_CID_AUTO_EXPOSURE_WIN_NUM	(V4L2_CID_USER_SUNXI_CAMERA_BASE+5)
-#define V4L2_CID_GSENSOR_ROTATION			(V4L2_CID_USER_SUNXI_CAMERA_BASE+6)
-#define V4L2_CID_FRAME_RATE             				(V4L2_CID_USER_SUNXI_CAMERA_BASE+7)
+#define V4L2_CID_AUTO_FOCUS_INIT				(V4L2_CID_USER_SUNXI_CAMERA_BASE+2)
+#define V4L2_CID_AUTO_FOCUS_RELEASE				(V4L2_CID_USER_SUNXI_CAMERA_BASE+3)
+#define V4L2_CID_GSENSOR_ROTATION				(V4L2_CID_USER_SUNXI_CAMERA_BASE+4)
+#define V4L2_CID_FRAME_RATE             		(V4L2_CID_USER_SUNXI_CAMERA_BASE+5)
 
 enum v4l2_take_picture {
 	V4L2_TAKE_PICTURE_STOP	= 0,
@@ -71,8 +75,15 @@ struct isp_hdr_setting_t {
   __s32 values[MAX_EXP_FRAMES];
 };
 
-#define V4L2_CID_TAKE_PICTURE			(V4L2_CID_USER_SUNXI_CAMERA_BASE+8)
-#define V4L2_CID_HDR                   			(V4L2_CID_USER_SUNXI_CAMERA_BASE+9)
+#define HDR_CTRL_GET    0
+#define HDR_CTRL_SET     1
+struct isp_hdr_ctrl {
+	__s32 flag;
+	__s32 count;
+	struct isp_hdr_setting_t hdr_t;
+};
+
+#define V4L2_CID_TAKE_PICTURE			(V4L2_CID_USER_SUNXI_CAMERA_BASE+6)
 
 typedef union
 {
@@ -88,12 +99,12 @@ typedef union
 	} bits;
 } IMAGE_FLAG_t;
 
-#define  V4L2_CID_HOR_VISUAL_ANGLE	(V4L2_CID_USER_SUNXI_CAMERA_BASE+10)
-#define  V4L2_CID_VER_VISUAL_ANGLE       (V4L2_CID_USER_SUNXI_CAMERA_BASE+11)
-#define  V4L2_CID_FOCUS_LENGTH               (V4L2_CID_USER_SUNXI_CAMERA_BASE+12)
-#define  V4L2_CID_R_GAIN					(V4L2_CID_USER_SUNXI_CAMERA_BASE+13)
-#define  V4L2_CID_G_GAIN   			   	(V4L2_CID_USER_SUNXI_CAMERA_BASE+14)
-#define  V4L2_CID_B_GAIN    		           	(V4L2_CID_USER_SUNXI_CAMERA_BASE+15)
+#define  V4L2_CID_HOR_VISUAL_ANGLE	(V4L2_CID_USER_SUNXI_CAMERA_BASE+7)
+#define  V4L2_CID_VER_VISUAL_ANGLE       (V4L2_CID_USER_SUNXI_CAMERA_BASE+8)
+#define  V4L2_CID_FOCUS_LENGTH               (V4L2_CID_USER_SUNXI_CAMERA_BASE+9)
+#define  V4L2_CID_R_GAIN					(V4L2_CID_USER_SUNXI_CAMERA_BASE+10)
+#define  V4L2_CID_G_GAIN   			   	(V4L2_CID_USER_SUNXI_CAMERA_BASE+11)
+#define  V4L2_CID_B_GAIN    		           	(V4L2_CID_USER_SUNXI_CAMERA_BASE+12)
 
 enum v4l2_sensor_type
 {
@@ -101,7 +112,7 @@ enum v4l2_sensor_type
 	V4L2_SENSOR_TYPE_RAW		= 1,
 };
 
-#define V4L2_CID_SENSOR_TYPE			(V4L2_CID_USER_SUNXI_CAMERA_BASE+16)
+#define V4L2_CID_SENSOR_TYPE			(V4L2_CID_USER_SUNXI_CAMERA_BASE+13)
 
 /*
  *	PRIVATE IOCTRLS
@@ -133,6 +144,12 @@ struct isp_exif_attribute {
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 4, struct isp_exif_attribute)	
 #define VIDIOC_ISP_GAMMA_REQ \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 5, struct isp_stat_buf)
+#define VIDIOC_AUTO_FOCUS_WIN \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 6, struct v4l2_win_setting)	
+#define VIDIOC_AUTO_EXPOSURE_WIN \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 7, struct v4l2_win_setting)
+#define VIDIOC_HDR_CTRL \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 8, struct isp_hdr_ctrl)
 
 #endif /*_SUNXI_CAMERA_H_*/
 

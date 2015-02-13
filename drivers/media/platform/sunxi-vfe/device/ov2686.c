@@ -2327,8 +2327,6 @@ static int sensor_queryctrl(struct v4l2_subdev *sd,
 		return v4l2_ctrl_query_fill(qc, 0, 15, 1, 0);
 	case V4L2_CID_FLASH_LED_MODE:
 	  	return v4l2_ctrl_query_fill(qc, 0, 4, 1, 0);
-	case V4L2_CID_AUTO_EXPOSURE_WIN_NUM:
-		return v4l2_ctrl_query_fill(qc, 0, 1, 1, 0);
 	}
 	return -EINVAL;
 }
@@ -2366,9 +2364,6 @@ static int sensor_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 		return sensor_g_colorfx(sd,	&ctrl->value);
 	case V4L2_CID_FLASH_LED_MODE:
 		return sensor_g_flash_mode(sd, &ctrl->value);
-	case V4L2_CID_AUTO_EXPOSURE_WIN_NUM:
-		ctrl->value=1;
-		return 0;
   }
   return -EINVAL;
 }
@@ -2425,8 +2420,6 @@ static int sensor_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 		return sensor_s_colorfx(sd,(enum v4l2_colorfx) ctrl->value);
 	case V4L2_CID_FLASH_LED_MODE:
 	  	return sensor_s_flash_mode(sd,(enum v4l2_flash_led_mode) ctrl->value);
-	case V4L2_CID_AUTO_EXPOSURE_WIN_NUM:
-		return 0;
 	}
   	return -EINVAL;
 }

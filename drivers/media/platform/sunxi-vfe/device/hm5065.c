@@ -4280,10 +4280,29 @@ static int sensor_init(struct v4l2_subdev *sd, u32 val)
   return 0;
 }
 
+static void sensor_s_af_win(struct v4l2_subdev *sd, struct v4l2_win_setting * af_win)
+{
+	sensor_s_af_zone(sd, &af_win->coor[0]);
+}
+static void sensor_s_ae_win(struct v4l2_subdev *sd, struct v4l2_win_setting * ae_win)
+{
+
+}
+
 static long sensor_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
-  int ret=0;
-  return ret;
+	int ret=0;
+	switch(cmd) {
+		case SET_AUTO_FOCUS_WIN:
+			sensor_s_af_win(sd, (struct v4l2_win_setting *)arg);
+			break;
+		case SET_AUTO_EXPOSURE_WIN:
+			sensor_s_ae_win(sd, (struct v4l2_win_setting *)arg);
+			break;
+		default:
+			return -EINVAL;
+	}
+	return ret;
 }
 
 
@@ -4880,10 +4899,6 @@ static int sensor_queryctrl(struct v4l2_subdev *sd,
     return v4l2_ctrl_query_fill(qc, 0, 0, 0, 0);
   case V4L2_CID_FOCUS_AUTO:
     return v4l2_ctrl_query_fill(qc, 0, 1, 1, 0);
-  case V4L2_CID_AUTO_EXPOSURE_WIN_NUM:
-    return v4l2_ctrl_query_fill(qc, 0, 1, 1, 0);
-  case V4L2_CID_AUTO_FOCUS_WIN_NUM:
-    return v4l2_ctrl_query_fill(qc, 0, 1, 1, 0);
   }
   return -EINVAL;
 }
@@ -4936,12 +4951,6 @@ static int sensor_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
   case V4L2_CID_AUTO_FOCUS_STATUS:
   	return sensor_g_af_status(sd);
 //  case V4L2_CID_FOCUS_AUTO:
-  case V4L2_CID_AUTO_FOCUS_WIN_NUM:
-  	ctrl->value=1;
-  	return 0;
-  case V4L2_CID_AUTO_EXPOSURE_WIN_NUM:
-  	ctrl->value=1;
-  	return 0;
   }
   return -EINVAL;
 }
@@ -5021,12 +5030,6 @@ static int sensor_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 	  case V4L2_CID_AUTO_FOCUS_STATUS:
 	  case V4L2_CID_FOCUS_AUTO:
 	  	return sensor_s_continueous_af(sd);
-	//  case V4L2_CID_AUTO_FOCUS_WIN_NUM:
-	  //	vfe_dev_dbg("s_ctrl win value=%d\n",ctrl->value);
-	//	pix = (struct v4l2_pix_size*)ctrl->user_pt;	
-	  //	return sensor_s_af_zone(sd,pix->width,pix->height);
-	  case V4L2_CID_AUTO_EXPOSURE_WIN_NUM:
-	  	return 0;
   }
   return -EINVAL;
 }

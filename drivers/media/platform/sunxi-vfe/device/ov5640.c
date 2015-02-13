@@ -3114,7 +3114,7 @@ static int sensor_download_af_fw(struct v4l2_subdev *sd)
     vfe_dev_err("download af fw error\n");
     return ret;
   }
-  vfe_dev_print("sizeof(af_fw_start_reg)=%d\n",sizeof(af_fw_start_reg));
+  vfe_dev_print("sizeof(af_fw_start_reg)=%ld\n",sizeof(af_fw_start_reg));
   //start af firmware
   ret = sensor_write_array(sd, af_fw_start_reg ,ARRAY_SIZE(af_fw_start_reg));
   if(ret < 0) {
@@ -4316,7 +4316,6 @@ static int sensor_g_exif(struct v4l2_subdev *sd, struct sensor_exif_attribute *e
 }
 static void sensor_s_af_win(struct v4l2_subdev *sd, struct v4l2_win_setting * af_win)
 {
-	printk("af_win->coor[0] = %d, %d, %d, %d\n", af_win->coor[0].x1, af_win->coor[0].y1, af_win->coor[0].x2,af_win->coor[0].y2);
 	sensor_s_af_zone(sd, &af_win->coor[0]);
 }
 static void sensor_s_ae_win(struct v4l2_subdev *sd, struct v4l2_win_setting * ae_win)
@@ -5021,10 +5020,6 @@ static int sensor_queryctrl(struct v4l2_subdev *sd,
     return v4l2_ctrl_query_fill(qc, 0, 0, 0, 0);
   case V4L2_CID_FOCUS_AUTO:
     return v4l2_ctrl_query_fill(qc, 0, 1, 1, 0);
-  case V4L2_CID_AUTO_EXPOSURE_WIN_NUM:
-    return v4l2_ctrl_query_fill(qc, 0, 1, 1, 0);
-  case V4L2_CID_AUTO_FOCUS_WIN_NUM:
-    return v4l2_ctrl_query_fill(qc, 0, 1, 1, 0);
   }
   return -EINVAL;
 }
@@ -5077,12 +5072,6 @@ static int sensor_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
   case V4L2_CID_AUTO_FOCUS_STATUS:
   	return sensor_g_af_status(sd);
 //  case V4L2_CID_FOCUS_AUTO:
-  case V4L2_CID_AUTO_FOCUS_WIN_NUM:
-  	ctrl->value=1;
-  	return 0;
-  case V4L2_CID_AUTO_EXPOSURE_WIN_NUM:
-  	ctrl->value=1;
-  	return 0;
   }
   return -EINVAL;
 }

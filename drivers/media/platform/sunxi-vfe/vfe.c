@@ -3123,40 +3123,41 @@ static int  __isp_auto_exp_win(struct vfe_dev *dev, struct v4l2_win_setting *ae_
 int vidioc_auto_focus_win(struct file *file, struct v4l2_fh *fh, struct v4l2_win_setting *af_win)
 {
 	struct vfe_dev *dev = video_drvdata(file);
-	struct v4l2_win_setting af_win_to;
 	int ret=0;
-	if(copy_from_user(&af_win_to, af_win, sizeof(af_win_to)))
-	{
-		ret = -EFAULT;
-		goto err;
-	}
 	if(dev->isp_gen_set_pt && dev->is_bayer_raw){
-		__isp_auto_focus_win(dev, &af_win_to);
+		ret = __isp_auto_focus_win(dev, af_win);
 	}else{
-		ret = v4l2_subdev_call(dev->sd,core,ioctl, SET_AUTO_FOCUS_WIN, &af_win_to);	
+		ret = v4l2_subdev_call(dev->sd,core,ioctl, SET_AUTO_FOCUS_WIN, af_win);	
 	}
-
-err:
 	return ret;
 }
 
 int vidioc_auto_exposure_win(struct file *file, struct v4l2_fh *fh, struct v4l2_win_setting *exp_win)
 {
 	struct vfe_dev *dev = video_drvdata(file);
-	struct v4l2_win_setting exp_win_to;
 	int ret=0;
-	if(copy_from_user(&exp_win_to, exp_win, sizeof(exp_win_to)))
-	{
-		ret = -EFAULT;
-		goto err;
-	}
 	if(dev->isp_gen_set_pt && dev->is_bayer_raw){
-		ret = __isp_auto_exp_win(dev, &exp_win_to);
+		ret = __isp_auto_exp_win(dev, exp_win);
 	}else{
-		ret = v4l2_subdev_call(dev->sd,core,ioctl, SET_AUTO_EXPOSURE_WIN,&exp_win_to);	
+		ret = v4l2_subdev_call(dev->sd,core,ioctl, SET_AUTO_EXPOSURE_WIN,exp_win);	
 	}
-err:
 	return ret;
+}
+int vidioc_hdr_ctrl(struct file *file, struct v4l2_fh *fh, struct isp_hdr_ctrl *hdr)
+{
+	struct vfe_dev *dev = video_drvdata(file);
+	if(dev->isp_gen_set_pt && dev->is_bayer_raw)
+	{
+		if(hdr->flag == HDR_CTRL_SET) {
+			bsp_isp_s_hdr(dev->isp_gen_set_pt, (struct hdr_setting_t *)(&hdr->hdr_t));
+			dev->isp_3a_result_pt->image_quality.bits.hdr_cnt = 0;
+		}else{
+			hdr->count = dev->isp_gen_set_pt->hdr_setting.frames_count -1;			
+			memcpy(&hdr->hdr_t,&dev->isp_gen_set_pt->hdr_setting,sizeof(struct isp_hdr_setting_t));		
+		}
+		return 0;
+	}
+	return -EINVAL;
 }
 
 static long vfe_param_handler(struct file *file, void *priv,
@@ -3187,6 +3188,9 @@ static long vfe_param_handler(struct file *file, void *priv,
 			break;
 		case VIDIOC_AUTO_EXPOSURE_WIN:
 			ret = vidioc_auto_exposure_win(file, fh, (struct v4l2_win_setting*)param);
+			break;
+		case VIDIOC_HDR_CTRL:
+			ret = vidioc_hdr_ctrl(file, fh, (struct isp_hdr_ctrl*)param);
 			break;
 		default:
 		ret = -ENOTTY;
@@ -3432,12 +3436,6 @@ static int vfe_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 		case V4L2_CID_AUTO_FOCUS_STATUS:  //Read-Only
 			ctrl->val = common_af_status_to_v4l2(dev->isp_3a_result_pt->af_status);
 			break;
-		case V4L2_CID_HDR:
-//			struct isp_hdr_setting_t hdr_setting;		
-//			ctrl->val = dev->isp_gen_set_pt->hdr_setting.frames_count -1;
-//			memcpy(&hdr_setting,&dev->isp_gen_set_pt->hdr_setting,sizeof(struct isp_hdr_setting_t));		
-//			ctrl->user_pt = (unsigned int)&hdr_setting;
-			break;
 		case V4L2_CID_SENSOR_TYPE:
 			ctrl->val = dev->is_bayer_raw;
 			break;
@@ -3637,58 +3635,16 @@ static int vfe_s_ctrl(struct v4l2_ctrl *ctrl)
 			}
 			break;
 		//V4L2_CID_PRIVATE_BASE
-		case V4L2_CID_AUTO_FOCUS_WIN_NUM:
-//			if(ctrl->val == 0) {
-//				bsp_isp_s_auto_focus_win_num(dev->isp_gen_set_pt, AF_AUTO_WIN, NULL);
-//			} else if(ctrl->val > MAX_AF_WIN_NUM) {
-//				return -EINVAL;
-//			} else {
-//				struct v4l2_win_coordinate *win_coor = (struct v4l2_win_coordinate *)(ctrl->user_pt);
-//				for(i = 0; i < ctrl->val; i++) {
-//					dev->ctrl_para.af_coor[i].x1 = win_coor[i].x1;
-//					dev->ctrl_para.af_coor[i].y1 = win_coor[i].y1;
-//					dev->ctrl_para.af_coor[i].x2 = win_coor[i].x2;
-//					dev->ctrl_para.af_coor[i].y2 = win_coor[i].y2;
-//				}
-//				bsp_isp_s_auto_focus_win_num(dev->isp_gen_set_pt, AF_NUM_WIN, dev->ctrl_para.af_coor);
-//			}
-			break;
 		case V4L2_CID_AUTO_FOCUS_INIT:
 			return 0;
 		case V4L2_CID_AUTO_FOCUS_RELEASE:
 			return 0;
-		case V4L2_CID_AUTO_EXPOSURE_WIN_NUM:
-//			if(ctrl->val == 0) {
-//				bsp_isp_s_auto_exposure_win_num(dev->isp_gen_set_pt, AE_AUTO_WIN, NULL);
-//			} else if(ctrl->val > MAX_AE_WIN_NUM) {
-//				return -EINVAL;
-//			} else {
-//				struct v4l2_win_coordinate *win_coor = (struct v4l2_win_coordinate *)(ctrl->user_pt);
-//				for(i = 0; i < ctrl->val; i++) {
-//					dev->ctrl_para.ae_coor[i].x1 = win_coor[i].x1;
-//					dev->ctrl_para.ae_coor[i].y1 = win_coor[i].y1;
-//					dev->ctrl_para.ae_coor[i].x2 = win_coor[i].x2;
-//					dev->ctrl_para.ae_coor[i].y2 = win_coor[i].y2;
-//					//printk("V4L2_CID_AUTO_EXPOSURE_WIN_NUM, [%d, %d, %d, %d]\n", win_coor[i].x1, win_coor[i].y1, win_coor[i].x2, win_coor[i].y2);
-//				}
-//				//TODO
-//				dev->isp_gen_set_pt->win.hist_coor.x1 = win_coor[0].x1;
-//				dev->isp_gen_set_pt->win.hist_coor.y1 = win_coor[0].y1;
-//				dev->isp_gen_set_pt->win.hist_coor.x2 = win_coor[0].x2;
-//				dev->isp_gen_set_pt->win.hist_coor.y2 = win_coor[0].y2;
-//				bsp_isp_s_auto_exposure_win_num(dev->isp_gen_set_pt, AE_SINGLE_WIN, dev->ctrl_para.ae_coor);
-//			}
-			break;
 		case V4L2_CID_GSENSOR_ROTATION:
 			bsp_isp_s_gsensor_rotation(dev->isp_gen_set_pt, ctrl->val);
 			dev->ctrl_para.gsensor_rot = ctrl->val;
 			break;
 		case V4L2_CID_TAKE_PICTURE:
 			bsp_isp_s_take_pic(dev->isp_gen_set_pt,ctrl->val);
-			break;
-		case V4L2_CID_HDR:
-//			bsp_isp_s_hdr(dev->isp_gen_set_pt, (struct hdr_setting_t *)(ctrl->user_pt));
-//			dev->isp_3a_result_pt->image_quality.bits.hdr_cnt = 0;
 			break;
 		case V4L2_CID_R_GAIN:	
 			bsp_isp_s_r_gain(dev->isp_gen_set_pt, ctrl->val);
@@ -4501,16 +4457,6 @@ static const struct v4l2_ctrl_config custom_ctrls[] =
 	},
 	{
 		.ops = &vfe_ctrl_ops,
-		.id = V4L2_CID_AUTO_FOCUS_WIN_NUM,
-		.name = "AutoFocus Windows Number",
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.min = 0,
-		.max = 10,
-		.step = 1,
-		.def = 0,
-	},
-	{
-		.ops = &vfe_ctrl_ops,
 		.id = V4L2_CID_AUTO_FOCUS_INIT,
 		.name = "AutoFocus Initial",
 		.type = V4L2_CTRL_TYPE_BUTTON,
@@ -4527,16 +4473,6 @@ static const struct v4l2_ctrl_config custom_ctrls[] =
 		.min = 0,
 		.max = 0,
 		.step = 0,
-		.def = 0,
-	},
-	{
-		.ops = &vfe_ctrl_ops,
-		.id = V4L2_CID_AUTO_EXPOSURE_WIN_NUM,
-		.name = "AutoExposure Windows Number",
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.min = 0,
-		.max = 10,
-		.step = 1,
 		.def = 0,
 	},
 	{
@@ -4558,17 +4494,6 @@ static const struct v4l2_ctrl_config custom_ctrls[] =
 		.max = 16,
 		.step = 1,
 		.def = 0,
-	},
-	{
-		.ops = &vfe_ctrl_ops,
-		.id = V4L2_CID_HDR,
-		.name = "Set HDR",
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.min = 0,
-		.max = 10,
-		.step = 1,
-		.def = 0,
-		.flags = V4L2_CTRL_FLAG_VOLATILE,
 	},
 	{
 		.ops = &vfe_ctrl_ops,
@@ -5252,7 +5177,7 @@ static const struct of_device_id sunxi_vfe_match[] = {
 
 static struct platform_driver vfe_driver = {
 	.probe    = vfe_probe,
-    .remove   = vfe_remove,
+	.remove   = vfe_remove,
 	.suspend  = vfe_suspend,
 	.resume   = vfe_resume,
 	.shutdown = vfe_shutdown,

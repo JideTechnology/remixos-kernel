@@ -2701,12 +2701,6 @@ static int sensor_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 //  case V4L2_CID_AUTO_FOCUS_STATUS:
 //  	return 0;//sensor_g_af_status(sd);
 ////  case V4L2_CID_FOCUS_AUTO:
-//  case V4L2_CID_AUTO_FOCUS_WIN_NUM:
-//  	ctrl->value=1;
-//  	return 0;
-//  case V4L2_CID_AUTO_EXPOSURE_WIN_NUM:
-//  	ctrl->value=1;
-//  	return 0;
 	}
 	return -EINVAL;
 }
@@ -2785,11 +2779,6 @@ static int sensor_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 //	    return 0;
 //	  case V4L2_CID_FOCUS_AUTO:
 //	  	return sensor_s_continueous_af(sd, ctrl->value);
-//	  case V4L2_CID_AUTO_FOCUS_WIN_NUM:
-//	  	vfe_dev_dbg("s_ctrl win value=%d\n",ctrl->value);
-//	  	return sensor_s_af_zone(sd, (struct v4l2_win_coordinate *)(ctrl->user_pt));
-//	  case V4L2_CID_AUTO_EXPOSURE_WIN_NUM:
-//	  	return 0;
 	}
 	return -EINVAL;
 }
