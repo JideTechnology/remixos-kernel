@@ -688,6 +688,10 @@ int __sysfs_dump_mainkey(script_main_key_t *pmainkey, char *buf)
 	cnt += sprintf(buf + cnt, "    sub_key:   name           type      value\n");
 	psubkey = pmainkey->subkey;
 	while(psubkey) {
+		if (cnt > PAGE_SIZE - 100) {
+			printk("%s err: cnt %d\n", __func__, cnt);
+			return cnt;
+		}
 		switch(psubkey->type) {
 		case SCIRPT_ITEM_VALUE_TYPE_INT:
 			cnt += sprintf(buf + cnt, "               %-15s%-10s%d\n", psubkey->name,
