@@ -153,28 +153,28 @@ enum VDD_BIT
 };
 
 typedef struct {
-	u32 mask_bit;
+	unsigned int mask_bit;
 	char id_name[20];
 }bitmap_name_mapping_t;
 
 extern const bitmap_name_mapping_t pwr_dm_bitmap_name_mapping[VCC_MAX_INDEX];
-extern s32 pwr_dm_bitmap_name_mapping_cnt;
+extern signed int pwr_dm_bitmap_name_mapping_cnt;
 
 /* internal interface*/
-void set_pwr_regu_tree(u32 value, u32 bitmap);
-s32 axp_check_sys_id(const char *supply_id);
-char *axp_get_sys_id(u32 bitmap);
-s32 get_ldo_dependence(const char *ldo_name, s32 count);
-void set_sys_pwr_dm_mask(u32 bitmap, u32 enable);
+void set_pwr_regu_tree(unsigned int value, unsigned int bitmap);
+signed int axp_check_sys_id(const char *supply_id);
+char *axp_get_sys_id(unsigned int bitmap);
+signed int get_ldo_dependence(const char *ldo_name, signed int count);
+void set_sys_pwr_dm_mask(unsigned int bitmap, unsigned int enable);
 
 /* external interface*/
 extern unsigned int get_sys_pwr_dm_mask(void);
 extern int add_sys_pwr_dm(const char *id);
 extern int del_sys_pwr_dm(const char *id);
 extern int is_sys_pwr_dm_id(const char *id);
-extern int is_sys_pwr_dm_active(u32 bitmap);
-extern char *get_sys_pwr_dm_id(u32 bitmap);
-extern u32 (* get_pwr_regu_tree(void))[VCC_MAX_INDEX];
-extern u32 parse_pwr_dm_map(char *s, u32 size, u32 bitmap);
+extern int is_sys_pwr_dm_active(unsigned int bitmap);
+extern char *get_sys_pwr_dm_id(unsigned int bitmap);
+extern unsigned int (* get_pwr_regu_tree(void))[VCC_MAX_INDEX];
+extern unsigned int parse_pwr_dm_map(char *s, unsigned int size, unsigned int bitmap);
 #endif /* __AXP_DEPEND_H__ */
 

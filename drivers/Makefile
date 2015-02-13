@@ -7,6 +7,7 @@
 
 obj-y				+= irqchip/
 obj-y				+= bus/
+obj-y				+= soc/
 
 # GPIO must come after pinctrl as gpios may need to mux pins etc
 obj-y				+= pinctrl/

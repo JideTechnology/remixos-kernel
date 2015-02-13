@@ -19,6 +19,7 @@
 #define __AW_PM_H__
 
 #include "axp_depend.h"
+#include <linux/types.h>
 
 #define BITMAP(bit) (0x1<<bit)
 
@@ -566,6 +567,15 @@ typedef enum event_cpu_id
     CPUS_ID,
     CPU0_ID,
 } event_cpu_id_e;
+
+typedef struct standby_space_cfg
+{
+    struct device_node *np;
+    phys_addr_t standby_mem_base;
+    phys_addr_t extended_standby_mem_base;
+    phys_addr_t mem_offset;
+    size_t mem_size;
+} standby_space_cfg_t;
 
 extern unsigned int parse_wakeup_gpio_group_map(char *s, unsigned int size, unsigned int gpio_map);
 
