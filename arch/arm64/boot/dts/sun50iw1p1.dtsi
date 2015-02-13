@@ -1017,13 +1017,13 @@
 			vip0_stby_mode      = <0>;
 			vip0_vflip          = <0>;
 			vip0_hflip          = <0>;
-			vip0_iovdd          = "axp81x_aldo1";
+			vip0_iovdd          = "iovdd-csi";
 			vip0_iovdd_vol      = <2800000>;
-			vip0_avdd           = "axp81x_dldo3";
+			vip0_avdd           = "avdd-csi";
 			vip0_avdd_vol       = <2800000>;
-			vip0_dvdd           = "axp81x_eldo3";
+			vip0_dvdd           = "dvdd-csi-18";
 			vip0_dvdd_vol       = <1500000>;
-			vip0_afvdd          = "axp81x_aldo1";
+			vip0_afvdd          = "afvcc-csi";
 			vip0_afvdd_vol      = <2800000>;
 			/*vip0_power_en		= <&pio PB 4 1 0 1 0>;*/	/*PB4 .mul_sel = 1, .pull = 0, .drv_level = 1, .data = 0*/
 			vip0_reset 			= <&pio PE 16 1 0 1 0>; /*PE16 .mul_sel = 1, .pull = 0, .drv_level = 1, .data = 0*/
