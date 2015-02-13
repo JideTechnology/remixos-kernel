@@ -3412,8 +3412,7 @@ static int sensor_s_relaunch_af_zone(struct v4l2_subdev *sd)
 }
 #endif
 
-static int sensor_s_af_zone(struct v4l2_subdev *sd,
-														struct v4l2_win_coordinate * win_c)
+static int sensor_s_af_zone(struct v4l2_subdev *sd, struct v4l2_win_coordinate * win_c)
 {
   struct sensor_info *info = to_state(sd);
   int ret;
@@ -4315,13 +4314,27 @@ static int sensor_g_exif(struct v4l2_subdev *sd, struct sensor_exif_attribute *e
 	exif->exposure_time_den = 15;
 	return ret;
 }
+static void sensor_s_af_win(struct v4l2_subdev *sd, struct v4l2_win_setting * af_win)
+{
+	printk("af_win->coor[0] = %d, %d, %d, %d\n", af_win->coor[0].x1, af_win->coor[0].y1, af_win->coor[0].x2,af_win->coor[0].y2);
+	sensor_s_af_zone(sd, &af_win->coor[0]);
+}
+static void sensor_s_ae_win(struct v4l2_subdev *sd, struct v4l2_win_setting * ae_win)
+{
 
+}
 static long sensor_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
 	int ret=0;
 	switch(cmd) {
 		case GET_SENSOR_EXIF:
 			sensor_g_exif(sd, (struct sensor_exif_attribute *)arg);
+			break;
+		case SET_AUTO_FOCUS_WIN:
+			sensor_s_af_win(sd, (struct v4l2_win_setting *)arg);
+			break;
+		case SET_AUTO_EXPOSURE_WIN:
+			sensor_s_ae_win(sd, (struct v4l2_win_setting *)arg);
 			break;
 		default:
 			return -EINVAL;
@@ -5148,11 +5161,8 @@ static int sensor_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 	//  case V4L2_CID_AUTO_FOCUS_STATUS:
 	  case V4L2_CID_FOCUS_AUTO:
 	  	return sensor_s_continueous_af(sd, ctrl->value);
-	  case V4L2_CID_AUTO_FOCUS_WIN_NUM:
-	  	vfe_dev_dbg("s_ctrl win value=%d\n",ctrl->value);
-//	  	return sensor_s_af_zone(sd, (struct v4l2_win_coordinate *)(ctrl->user_pt));
-	  case V4L2_CID_AUTO_EXPOSURE_WIN_NUM:
-	  	return 0;
+	default: 
+		  return -EINVAL;
   }
   return -EINVAL;
 }

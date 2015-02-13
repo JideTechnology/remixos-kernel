@@ -3038,31 +3038,157 @@ static int isp_exif_req (struct file *file, struct v4l2_fh *fh, struct isp_exif_
 	}
 	return 0;
 }
+static int  __isp_auto_focus_win(struct vfe_dev *dev, struct v4l2_win_setting *af_win)
+{
+	int i;
+	struct ccm_config *ccm_curr = &dev->ccm_cfg_content[dev->input];
+	if(af_win->win_num == 0) {
+		bsp_isp_s_auto_focus_win_num(dev->isp_gen_set_pt, AF_AUTO_WIN, NULL);
+	} else if(af_win->win_num > V4L2_MAX_WIN_NUM) {
+		return -EINVAL;
+	} else {
+		struct v4l2_win_coordinate *win_coor = &af_win->coor[0];
+		for(i = 0; i < af_win->win_num; i++)
+		{
+			if(ccm_curr->vflip == 1)
+			{
+				dev->ctrl_para.af_coor[i].y1 = - win_coor[0].y1;
+				dev->ctrl_para.af_coor[i].y2 = - win_coor[0].y2;
+			}
+			else
+			{
+				dev->ctrl_para.af_coor[i].y1 = win_coor[i].y1;
+				dev->ctrl_para.af_coor[i].y2 = win_coor[i].y2;
+			}
+			if(ccm_curr->hflip == 1)
+			{
+				dev->ctrl_para.af_coor[i].x1 = - win_coor[0].x1;
+				dev->ctrl_para.af_coor[i].x2 = - win_coor[0].x2;
+			}
+			else
+			{
+				dev->ctrl_para.af_coor[i].x1 = win_coor[0].x1;
+				dev->ctrl_para.af_coor[i].x2 = win_coor[0].x2;
+			}
+		}
+		bsp_isp_s_auto_focus_win_num(dev->isp_gen_set_pt, AF_NUM_WIN, &dev->ctrl_para.af_coor[0]);
+	}
+	return 0;
+}
+static int  __isp_auto_exp_win(struct vfe_dev *dev, struct v4l2_win_setting *ae_win)
+{
+	int i;
+	struct ccm_config *ccm_curr = &dev->ccm_cfg_content[dev->input];
+
+	if(ae_win->win_num == 0) {
+		bsp_isp_s_auto_exposure_win_num(dev->isp_gen_set_pt, AE_AUTO_WIN, NULL);
+	} else if(ae_win->win_num > V4L2_MAX_WIN_NUM) {
+		return -EINVAL;
+	} else {
+		struct v4l2_win_coordinate *win_coor = &ae_win->coor[0];
+		for(i = 0; i < ae_win->win_num; i++)
+		{
+		if(ccm_curr->vflip == 1)
+		{
+			dev->ctrl_para.ae_coor[i].y1 = - win_coor[0].y1;
+			dev->ctrl_para.ae_coor[i].y2 = - win_coor[0].y2;
+		}
+		else
+		{
+			dev->ctrl_para.ae_coor[i].y1 = win_coor[i].y1;
+			dev->ctrl_para.ae_coor[i].y2 = win_coor[i].y2;
+		}
+		if(ccm_curr->hflip == 1)
+		{
+			dev->ctrl_para.ae_coor[i].x1 = - win_coor[0].x1;
+			dev->ctrl_para.ae_coor[i].x2 = - win_coor[0].x2;
+		}
+		else
+		{
+			dev->ctrl_para.ae_coor[i].x1 = win_coor[0].x1;
+			dev->ctrl_para.ae_coor[i].x2 = win_coor[0].x2;
+		}
+		//printk("V4L2_CID_AUTO_EXPOSURE_WIN_NUM, [%d, %d, %d, %d]\n", win_coor[i].x1, win_coor[i].y1, win_coor[i].x2, win_coor[i].y2);
+		}
+		//TODO
+		dev->isp_gen_set_pt->win.hist_coor.x1 = win_coor[0].x1;
+		dev->isp_gen_set_pt->win.hist_coor.y1 = win_coor[0].y1;
+		dev->isp_gen_set_pt->win.hist_coor.x2 = win_coor[0].x2;
+		dev->isp_gen_set_pt->win.hist_coor.y2 = win_coor[0].y2;
+		bsp_isp_s_auto_exposure_win_num(dev->isp_gen_set_pt, AE_SINGLE_WIN, &dev->ctrl_para.ae_coor[0]);
+	}
+	return 0;
+}
+
+int vidioc_auto_focus_win(struct file *file, struct v4l2_fh *fh, struct v4l2_win_setting *af_win)
+{
+	struct vfe_dev *dev = video_drvdata(file);
+	struct v4l2_win_setting af_win_to;
+	int ret=0;
+	if(copy_from_user(&af_win_to, af_win, sizeof(af_win_to)))
+	{
+		ret = -EFAULT;
+		goto err;
+	}
+	if(dev->isp_gen_set_pt && dev->is_bayer_raw){
+		__isp_auto_focus_win(dev, &af_win_to);
+	}else{
+		ret = v4l2_subdev_call(dev->sd,core,ioctl, SET_AUTO_FOCUS_WIN, &af_win_to);	
+	}
+
+err:
+	return ret;
+}
+
+int vidioc_auto_exposure_win(struct file *file, struct v4l2_fh *fh, struct v4l2_win_setting *exp_win)
+{
+	struct vfe_dev *dev = video_drvdata(file);
+	struct v4l2_win_setting exp_win_to;
+	int ret=0;
+	if(copy_from_user(&exp_win_to, exp_win, sizeof(exp_win_to)))
+	{
+		ret = -EFAULT;
+		goto err;
+	}
+	if(dev->isp_gen_set_pt && dev->is_bayer_raw){
+		ret = __isp_auto_exp_win(dev, &exp_win_to);
+	}else{
+		ret = v4l2_subdev_call(dev->sd,core,ioctl, SET_AUTO_EXPOSURE_WIN,&exp_win_to);	
+	}
+err:
+	return ret;
+}
 
 static long vfe_param_handler(struct file *file, void *priv,
 		bool valid_prio, unsigned int cmd, void *param)
 {
 	int ret = 0;
-    struct v4l2_fh *fh = (struct v4l2_fh *)priv;
-    struct isp_stat_buf *stat = (struct isp_stat_buf *) param;
+	struct v4l2_fh *fh = (struct v4l2_fh *)priv;
+	struct isp_stat_buf *stat = (struct isp_stat_buf *) param;
 	//v4l2_dbg(2, debug, &dev->v4l2_dev, "vfe_param_handler\n");
 	switch (cmd) {
-	case VIDIOC_ISP_AE_STAT_REQ:
-        ret = isp_ae_stat_req(file, fh, stat);
-		break;
-    case VIDIOC_ISP_AF_STAT_REQ:
-        ret = isp_af_stat_req(file, fh, stat);
-        break;
-    case VIDIOC_ISP_HIST_STAT_REQ:
-        ret = isp_hist_stat_req(file, fh, stat);
-        break;
-    case VIDIOC_ISP_EXIF_REQ:
-        ret = isp_exif_req(file, fh, (struct isp_exif_attribute *)param);
-        break;
-    case VIDIOC_ISP_GAMMA_REQ:
-        ret = isp_gamma_req(file, fh, stat);
-        break;
-	default:
+		case VIDIOC_ISP_AE_STAT_REQ:
+			ret = isp_ae_stat_req(file, fh, stat);
+			break;
+		case VIDIOC_ISP_AF_STAT_REQ:
+			ret = isp_af_stat_req(file, fh, stat);
+			break;
+		case VIDIOC_ISP_HIST_STAT_REQ:
+			ret = isp_hist_stat_req(file, fh, stat);
+			break;
+		case VIDIOC_ISP_EXIF_REQ:
+			ret = isp_exif_req(file, fh, (struct isp_exif_attribute *)param);
+			break;
+		case VIDIOC_ISP_GAMMA_REQ:
+			ret = isp_gamma_req(file, fh, stat);
+			break;
+		case VIDIOC_AUTO_FOCUS_WIN:
+			ret = vidioc_auto_focus_win(file, fh, (struct v4l2_win_setting*)param);
+			break;
+		case VIDIOC_AUTO_EXPOSURE_WIN:
+			ret = vidioc_auto_exposure_win(file, fh, (struct v4l2_win_setting*)param);
+			break;
+		default:
 		ret = -ENOTTY;
 	}
 	return ret;

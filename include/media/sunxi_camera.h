@@ -37,14 +37,20 @@ struct v4l2_win_coordinate {
 	__s32			x2;
 	__s32			y2;	
 };
+
+#define V4L2_MAX_WIN_NUM	10
+
+struct v4l2_win_setting {
+	__s32 win_num;
+	struct v4l2_win_coordinate coor[V4L2_MAX_WIN_NUM];
+};
+
 enum v4l2_gain_shift {
 	V4L2_GAIN_SHIFT	= 0,
 	V4L2_SHARP_LEVEL_SHIFT	= 8,
 	V4L2_SHARP_MIN_SHIFT	= 20,
 	V4L2_NDF_SHIFT	= 26,
 };
-
-
 
 #define MAX_EXP_FRAMES     5
 
@@ -134,6 +140,11 @@ struct isp_exif_attribute {
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 4, struct isp_exif_attribute)	
 #define VIDIOC_ISP_GAMMA_REQ \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 5, struct isp_stat_buf)
+
+#define VIDIOC_AUTO_FOCUS_WIN \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 6, struct v4l2_win_setting)	
+#define VIDIOC_AUTO_EXPOSURE_WIN \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 7, struct v4l2_win_setting)
 
 #endif /*_SUNXI_CAMERA_H_*/
 
