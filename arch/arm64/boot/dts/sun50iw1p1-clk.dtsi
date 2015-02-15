@@ -385,6 +385,11 @@ clocks {
 			compatible = "allwinner,sunxi-periph-clock";
 			clock-output-names = "gpu";
 		};	
+		clk_usbohci_16: usbehci_16 {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-clock";
+			clock-output-names = "usbohci_16";
+		};
 		clk_usbehci1: usbehci1 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
