@@ -84,7 +84,14 @@ build_gpu_sun9iw1()
 
 build_gpu()
 {
-    echo "$0"
+	if [ "x${LICHEE_PLATFORM}" = "xandroid" ] ; then
+	{
+        unset OUT
+        unset TOP
+	}
+	fi
+	
+	make -C modules/gpu LICHEE_MOD_DIR=${LICHEE_MOD_DIR} LICHEE_KDIR=${LICHEE_KDIR}
 }
 
 clean_gpu_sun9iw1()
@@ -184,7 +191,8 @@ build_modules()
 	build_nand_lib
 	make -C modules/nand LICHEE_MOD_DIR=${LICHEE_MOD_DIR} LICHEE_KDIR=${LICHEE_KDIR} \
 		CONFIG_CHIP_ID=${CONFIG_CHIP_ID} install
-
+	
+	build_gpu
 }
 
 regen_rootfs_cpio()
