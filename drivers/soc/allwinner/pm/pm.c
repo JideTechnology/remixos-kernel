@@ -635,10 +635,6 @@ static int aw_pm_valid(suspend_state_t state)
 
 #endif
 
-#ifdef GET_CYCLE_CNT
-		// init counters:
-		init_perfcounters (1, 0);
-#endif
 
     return 1;
 
@@ -675,10 +671,6 @@ static int aw_pm_begin(suspend_state_t state)
 #endif
 
 	/*must init perfcounter, because delay_us and delay_ms is depandant perf counter*/
-#ifndef GET_CYCLE_CNT
-	backup_perfcounter();
-	init_perfcounters (1, 0);
-#endif
 
 	//check rtc status, if err happened, do sth to fix it.
 	suspend_status = get_pm_secure_mem_status(); 
@@ -853,6 +845,7 @@ static int aw_early_suspend(void)
 #if 1
    asm("wfi");
 #else
+   busy_waiting();
    cpu_suspend(3);
 #endif
     exit_wakeup_src(super_standby_para_info.event);
@@ -1109,11 +1102,6 @@ out:
 */
 static void aw_pm_end(void)
 {
-#ifndef GET_CYCLE_CNT
-	#ifndef IO_MEASURE
-			restore_perfcounter();
-	#endif
-#endif
 
 	save_pm_secure_mem_status(RESUME_COMPLETE_FLAG);
 	PM_DBG("aw_pm_end!\n");

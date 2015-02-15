@@ -15,6 +15,7 @@
 #include "pm_debug.h"
 #include "pm_of.h"
 #include <linux/of.h>
+#include <linux/delay.h>
 #include <linux/of_address.h>
 #include "mem_cpu.h"
 #include "mem_ccmu.h"

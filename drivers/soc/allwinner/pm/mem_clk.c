@@ -155,10 +155,10 @@ __s32 mem_clk_setdiv(struct clk_div_t *clk_div)
 	//set ahb1/apb1 clock divide ratio
 	//first, config ratio; 
 	*(volatile __u32 *)(&CmuReg->Ahb1Div) = (((clk_div->ahb_apb_div)&(~0x3000)) | (0x1000));
-	delay_us(5);
+	udelay(5);
 	//sec, config src.
 	*(volatile __u32 *)(&CmuReg->Ahb1Div) = (clk_div->ahb_apb_div);
-	delay_us(5);
+	udelay(5);
 	//notice: pll6 is enabled by cpus.
 	//the relationship between pll6&mbus&dram?
 

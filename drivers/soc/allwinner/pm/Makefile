@@ -19,11 +19,8 @@ pm_tmp-y :=	mem_mapping.o               \
 		mem_usb.o                   \
 		mem_tmr.o                   \
 		mem_tmstmp.o                \
-		mem_gpio.o                  \
-		mem_sram.o                  \
 		pm_debug.o                  \
 		pm_debug_secure.o           \
-		mem_timing.o                \
 		mem_hwspinlock.o            \
 		pm.o                        \
 		aw_pm.o			    \

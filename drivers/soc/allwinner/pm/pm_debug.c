@@ -265,7 +265,7 @@ void io_high(int num)
 	//pull low 10ms
 	data &= (~(1<<num));
 	*(volatile unsigned int *)(PORT_DATA) = data;
-	delay_us(10000);
+	udelay(10000);
 	//pull high
 	data |= (1<<num);
 	*(volatile unsigned int *)(PORT_DATA) = data;
