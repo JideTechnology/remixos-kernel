@@ -231,6 +231,20 @@ static int get_factors_pll_video1(u32 rate, u32 parent_rate, struct clk_factors_
     index = tmp_rate;
  	if(sunxi_clk_get_common_factors_search(&sunxi_clk_factor_pll_video1,factor, factor_pllvideo1_tbl,index,sizeof(factor_pllvideo1_tbl)/sizeof(struct sunxi_clk_factor_freq)))
  		return -1;
+    if(rate == 297000000) {
+        factor->frac_mode = 0;
+        factor->frac_freq = 1;
+        factor->factorm = 0;
+    }
+    else if(rate == 270000000) {
+        factor->frac_mode = 0;
+        factor->frac_freq = 0;
+        factor->factorm = 0;
+    } else {
+        factor->frac_mode = 1;
+        factor->frac_freq = 0;
+    }
+
     return 0;
 }
 
@@ -246,6 +260,20 @@ static int get_factors_pll_gpu(u32 rate, u32 parent_rate, struct clk_factors_val
     index = tmp_rate;
  		if(sunxi_clk_get_common_factors_search(&sunxi_clk_factor_pll_gpu,factor, factor_pllgpu_tbl,index,sizeof(factor_pllgpu_tbl)/sizeof(struct sunxi_clk_factor_freq)))
  			return -1;
+    if(rate == 297000000) {
+        factor->frac_mode = 0;
+        factor->frac_freq = 1;
+        factor->factorm = 0;
+    }
+    else if(rate == 270000000) {
+        factor->frac_mode = 0;
+        factor->frac_freq = 0;
+        factor->factorm = 0;
+    } else {
+        factor->frac_mode = 1;
+        factor->frac_freq = 0;
+    }
+
     return 0;
 }
 
