@@ -210,11 +210,7 @@ typedef struct {
 	u32 irq;
 	s8  dev_name[8];
 	
-	struct workqueue_struct *workqueue;
-	struct work_struct work;
-	struct crypto_queue queue;
 	spinlock_t lock;
-
 	s32 suspend;
 } sunxi_ss_t;
 

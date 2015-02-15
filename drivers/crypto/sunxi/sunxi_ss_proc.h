@@ -51,7 +51,5 @@ int ss_hash_update(struct ahash_request *req);
 int ss_hash_final(struct ahash_request *req);
 int ss_hash_finup(struct ahash_request *req);
 
-void sunxi_ss_work(struct work_struct *work);
-
 #endif /* end of _SUNXI_SECURITY_SYSTEM_PROC_H_ */
 

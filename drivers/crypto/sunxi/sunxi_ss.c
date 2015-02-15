@@ -767,21 +767,10 @@ static int sunxi_ss_probe(struct platform_device *pdev)
 		goto err1;
 	}
 
-	spin_lock_init(&sss->lock);
-	INIT_WORK(&sss->work, sunxi_ss_work);
-	crypto_init_queue(&sss->queue, 16);
-
-	sss->workqueue = create_singlethread_workqueue(sss->dev_name);
-	if (sss->workqueue == NULL) {
-		SS_ERR("Unable to create workqueue\n");
-		ret = -EPERM;
-		goto err2;
-	}
-
 	ret = sunxi_ss_alg_register();
 	if (ret != 0) {
 		SS_ERR("sunxi_ss_alg_register() failed! return %d \n", ret);
-		goto err3;
+		goto err2;
 	}
 
 	sunxi_ss_sysfs_create(pdev);
@@ -790,8 +779,6 @@ static int sunxi_ss_probe(struct platform_device *pdev)
 	SS_DBG("SS driver probe succeed, base 0x%p, irq %d!\n", sss->base_addr, sss->irq);
 	return 0;
 
-err3:
-	destroy_workqueue(sss->workqueue);
 err2:
 	sunxi_ss_hw_exit(sss);
 err1:
@@ -807,10 +794,6 @@ static int sunxi_ss_remove(struct platform_device *pdev)
 
 	ss_wait_idle();
 	sunxi_ss_sysfs_remove(pdev);
-
-	cancel_work_sync(&sss->work);
-	flush_workqueue(sss->workqueue);
-	destroy_workqueue(sss->workqueue);
 
 	sunxi_ss_alg_unregister();
 	sunxi_ss_hw_exit(sss);

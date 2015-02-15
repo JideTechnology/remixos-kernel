@@ -58,8 +58,6 @@ int ss_sg_cnt(struct scatterlist *sg, int total)
 
 int ss_aes_crypt(struct ablkcipher_request *req, int dir, int method, int mode)
 {
-	int err = 0;
-	unsigned long flags = 0;
 	ss_aes_req_ctx_t *req_ctx = ablkcipher_request_ctx(req);
 
 	SS_DBG("nbytes: %d, dec: %d, method: %d, mode: %d\n", req->nbytes, dir, method, mode);
@@ -73,12 +71,7 @@ int ss_aes_crypt(struct ablkcipher_request *req, int dir, int method, int mode)
 	req_ctx->mode = mode;
 	req->base.flags |= SS_FLAG_AES;
 
-	spin_lock_irqsave(&ss_dev->lock, flags);
-	err = ablkcipher_enqueue_request(&ss_dev->queue, req);
-	spin_unlock_irqrestore(&ss_dev->lock, flags);
-
-	queue_work(ss_dev->workqueue, &ss_dev->work);
-	return err;
+	return ss_aes_one_req(ss_dev, req);
 }
 
 #ifdef SS_TRNG_ENABLE
@@ -175,11 +168,39 @@ int ss_hash_padding(ss_hash_ctx_t *ctx, int type)
 	return p + 8 - ctx->pad;
 }
 
+static int ss_hash_one_req(sunxi_ss_t *sss, struct ahash_request *req)
+{
+	int ret = 0;
+	ss_aes_req_ctx_t *req_ctx = NULL;
+	ss_hash_ctx_t *ctx = crypto_ahash_ctx(crypto_ahash_reqtfm(req));
+
+	SS_ENTER();
+	if (!req->src) {
+		SS_ERR("Invalid sg: src = %p\n", req->src);
+		return -EINVAL;
+	}
+
+	ss_dev_lock();
+
+	req_ctx = ahash_request_ctx(req);
+	req_ctx->dma_src.sg = req->src;
+
+	ss_hash_padding_data_prepare(ctx, req->result, req->nbytes%ss_hash_blk_size(req_ctx->type));
+
+	ret = ss_hash_start(ctx, req_ctx, req->nbytes);
+	if (ret < 0)
+		SS_ERR("ss_hash_start fail(%d)\n", ret);
+
+	ss_dev_unlock();
+
+	if (req->base.complete)
+		req->base.complete(&req->base, ret);
+
+	return ret;
+}
+
 int ss_hash_update(struct ahash_request *req)
 {
-	int err = 0;
-	unsigned long flags = 0;
-
 	if (!req->nbytes) {
 		SS_ERR("Invalid length: %d. \n", req->nbytes);
 		return 0;
@@ -192,13 +213,7 @@ int ss_hash_update(struct ahash_request *req)
 	}
 
 	req->base.flags |= SS_FLAG_HASH;
-
-	spin_lock_irqsave(&ss_dev->lock, flags);
-	err = ahash_enqueue_request(&ss_dev->queue, req);
-	spin_unlock_irqrestore(&ss_dev->lock, flags);
-
-	queue_work(ss_dev->workqueue, &ss_dev->work);
-	return err;
+	return ss_hash_one_req(ss_dev, req);
 }
 
 int ss_hash_final(struct ahash_request *req)
@@ -253,37 +268,6 @@ int ss_hash_finup(struct ahash_request *req)
 	return ss_hash_final(req);
 }
 
-static int ss_hash_one_req(sunxi_ss_t *sss, struct ahash_request *req)
-{
-	int ret = 0;
-	ss_aes_req_ctx_t *req_ctx = NULL;
-	ss_hash_ctx_t *ctx = crypto_ahash_ctx(crypto_ahash_reqtfm(req));
-
-	SS_ENTER();
-	if (!req->src) {
-		SS_ERR("Invalid sg: src = %p\n", req->src);
-		return -EINVAL;
-	}
-
-	ss_dev_lock();
-
-	req_ctx = ahash_request_ctx(req);
-	req_ctx->dma_src.sg = req->src;
-	
-	ss_hash_padding_data_prepare(ctx, req->result, req->nbytes%ss_hash_blk_size(req_ctx->type));
-
-	ret = ss_hash_start(ctx, req_ctx, req->nbytes);
-	if (ret < 0)
-		SS_ERR("ss_hash_start fail(%d)\n", ret);
-
-	ss_dev_unlock();
-
-	if (req->base.complete)
-		req->base.complete(&req->base, ret);
-
-	return ret;
-}
-
 #ifdef SS_TRNG_POSTPROCESS_ENABLE
 void ss_trng_postprocess(u8 *out, u32 outlen, u8 *in, u32 inlen)
 {
@@ -316,35 +300,4 @@ void ss_trng_postprocess(u8 *out, u32 outlen, u8 *in, u32 inlen)
 	crypto_free_hash(tfm);
 }
 #endif
-
-void sunxi_ss_work(struct work_struct *work)
-{
-	int ret = 0;
-    unsigned long flags = 0;
-	sunxi_ss_t *sss = container_of(work, sunxi_ss_t, work);
-	struct crypto_async_request *async_req = NULL;
-	struct crypto_async_request *backlog = NULL;
-
-	/* empty the crypto queue and then return */
-	do {
-		spin_lock_irqsave(&sss->lock, flags);
-		backlog = crypto_get_backlog(&sss->queue);
-		async_req = crypto_dequeue_request(&sss->queue);
-		spin_unlock_irqrestore(&sss->lock, flags);
-
-		if (!async_req) {
-			SS_DBG("async_req is NULL! \n");
-			break;
-		}
-
-		if (backlog)
-			backlog->complete(backlog, -EINPROGRESS);
-
-		SS_DBG("async_req->flags = %#x \n", async_req->flags);
-		if (async_req->flags & SS_FLAG_AES)
-			ret = ss_aes_one_req(sss, ablkcipher_request_cast(async_req));
-		else if (async_req->flags & SS_FLAG_HASH)
-			ret = ss_hash_one_req(sss, ahash_request_cast(async_req));
-	} while (!ret);
-}
 
