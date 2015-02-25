@@ -386,16 +386,16 @@ static struct axp_funcdev_info axp_regldevs[] = {
 		.platform_data = &axp_regl_init_data[axp81x_vcc_ldo7],
 	}, {
 		.name = "axp-regulator",
-		.id = AXP81X_ID_LDO10,
-		.platform_data = &axp_regl_init_data[axp81x_vcc_ldo10],
+		.id = AXP81X_ID_LDO8,
+		.platform_data = &axp_regl_init_data[axp81x_vcc_ldo8],
 	}, {
 		.name = "axp-regulator",
 		.id = AXP81X_ID_LDO9,
 		.platform_data = &axp_regl_init_data[axp81x_vcc_ldo9],
 	}, {
 		.name = "axp-regulator",
-		.id = AXP81X_ID_LDO8,
-		.platform_data = &axp_regl_init_data[axp81x_vcc_ldo8],
+		.id = AXP81X_ID_LDO10,
+		.platform_data = &axp_regl_init_data[axp81x_vcc_ldo10],
 	}, {
 		.name = "axp-regulator",
 		.id = AXP81X_ID_LDO11,
