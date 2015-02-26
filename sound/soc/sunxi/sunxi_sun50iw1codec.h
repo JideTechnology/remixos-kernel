@@ -755,8 +755,9 @@
 #define MDATA_THRESHOLD_EN						(15)
 #define MDATA_DISCARD							(13)
 #define HMIC_DATA								(8)
-#define JACK_DET_IIN_ST							(4)
-#define JACK_DET_OIRQ							(3)
+#define JACK_DET_OUT_ST							(4)
+#define JACK_DET_IIN_ST							(3)
+//#define JACK_DET_OIRQ							(3)
 #define MIC_DET_ST								(0)
 
 /*
@@ -2037,6 +2038,10 @@ struct sunxi_codec {
 	struct pinctrl *pinctrl;
 	struct pinctrl_state  *aif2_pinstate;
 	struct pinctrl_state  *aif3_pinstate;
+
+	/*for sleep*/
+	struct pinctrl_state  *aif2sleep_pinstate;
+	struct pinctrl_state  *aif3sleep_pinstate;
 
 	struct gain_config gain_config;
 	struct codec_hw_config hwconfig;
