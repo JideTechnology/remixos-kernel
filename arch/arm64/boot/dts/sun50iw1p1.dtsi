@@ -488,8 +488,9 @@
 			reg = <0x0 0x01c28000 0x0 0x400>;
 			interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_uart0>;
-			pinctrl-names = "default";
+			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&uart0_pins_a>;
+			pinctrl-1 = <&uart0_pins_b>;
 			uart0_port = <0>;
 			uart0_type = <2>;
 			status = "disabled";
@@ -501,8 +502,9 @@
 			reg = <0x0 0x01c28400 0x0 0x400>;
 			interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_uart1>;
-			pinctrl-names = "default";
+			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&uart1_pins_a>;
+			pinctrl-1 = <&uart1_pins_b>;
 			uart1_port = <1>;
 			uart1_type = <4>;
 			status = "disabled";
@@ -514,8 +516,9 @@
 			reg = <0x0 0x01c28800 0x0 0x400>;
 			interrupts = <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_uart2>;
-			pinctrl-names = "default";
+			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&uart2_pins_a>;
+			pinctrl-1 = <&uart2_pins_b>;
 			uart2_port = <2>;
 			uart2_type = <4>;
 			status = "disabled";
@@ -527,8 +530,9 @@
 			reg = <0x0 0x01c28c00 0x0 0x400>;
 			interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_uart3>;
-			pinctrl-names = "default";
+			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&uart3_pins_a>;
+			pinctrl-1 = <&uart3_pins_b>;
 			uart3_port = <3>;
 			uart3_type = <4>;
 			status = "disabled";
@@ -540,8 +544,9 @@
 			reg = <0x0 0x01c29000 0x0 0x400>;
 			interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_uart4>;
-			pinctrl-names = "default";
+			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&uart4_pins_a>;
+			pinctrl-1 = <&uart4_pins_b>;
 			uart4_port = <4>;
 			uart4_type = <4>;
 			status = "disabled";
@@ -556,8 +561,9 @@
 			interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_twi0>;
 			clock-frequency = <400000>;
-			pinctrl-names = "default";
+			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&twi0_pins_a>;
+			pinctrl-1 = <&twi0_pins_b>;
 			status = "disabled";
 		};
 
@@ -570,8 +576,9 @@
 			interrupts = <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_twi1>;
 			clock-frequency = <200000>;
-			pinctrl-names = "default";
+			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&twi1_pins_a>;
+			pinctrl-1 = <&twi1_pins_b>;
 			status = "disabled";
 		};
 
@@ -584,8 +591,9 @@
 			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_twi2>;
 			clock-frequency = <200000>;
-			pinctrl-names = "default";
+			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&twi2_pins_a>;
+			pinctrl-1 = <&twi2_pins_b>;
 			status = "disabled";
 		};
 
@@ -796,8 +804,9 @@
 			reg = <0x0 0x01c68000 0x0 0x1000>;
 			interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_pll_periph0>, <&clk_spi0>;
-			pinctrl-names = "default";
+			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&spi0_pins_a &spi0_pins_b>;
+			pinctrl-1 = <&spi0_pins_c>;
 			spi0_cs_number = <1>;
 			spi0_cs_bitmap = <1>;
 			status = "disabled";
@@ -811,8 +820,9 @@
 			reg = <0x0 0x01c69000 0x0 0x1000>;
 			interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_pll_periph0>, <&clk_spi1>;
-			pinctrl-names = "default";
+			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&spi1_pins_a &spi1_pins_b>;
+			pinctrl-1 = <&spi1_pins_c>;
 			spi1_cs_number = <1>;
 			spi1_cs_bitmap = <1>;
 			status = "disabled";
