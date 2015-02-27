@@ -211,6 +211,10 @@
 			type = <4>;
 			name = "cma";
 		};
+		system{
+			type = <0>;
+			name = "system";
+		};
 	};
 
 	dram {
