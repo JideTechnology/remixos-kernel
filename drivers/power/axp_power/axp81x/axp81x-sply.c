@@ -515,7 +515,7 @@ static void axp_battery_exit(void)
 	platform_driver_unregister(&axp_battery_driver);
 }
 
-subsys_initcall(axp_battery_init);
+device_initcall(axp_battery_init);
 module_exit(axp_battery_exit);
 
 MODULE_DESCRIPTION("AXP81X battery driver");
