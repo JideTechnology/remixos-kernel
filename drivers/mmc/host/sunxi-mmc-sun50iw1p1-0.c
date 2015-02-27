@@ -24,8 +24,57 @@
 
 
 #include "sunxi-mmc.h"
-#include "sunxi-mmc-sun50iw1p1-0_1.h"
+#include "sunxi-mmc-sun50iw1p1-0.h"
 
+//reg
+#define SDXC_REG_EDSD		(0x010C)    /*SMHC eMMC4.5 DDR Start Bit Detection Control Register*/
+#define SDXC_REG_CSDC		(0x0054)    /*SMHC CRC Status Detect Control Register*/
+#define SDXC_REG_THLD		(0x0100)    /*SMHC Card Threshold Control Register*/
+#define SDXC_REG_DRV_DL	 	(0x0140)    /*SMHC Drive Delay Control Register*/
+#define SDXC_REG_SAMP_DL	(0x0144)	/*SMHC Sample Delay Control Register*/
+#define SDXC_REG_DS_DL		(0x0148)	/*SMHC Data Strobe Delay Control Register*/
+#define SDXC_REG_SD_NTSR	(0x005C)	/*SMHC NewTiming Set Register*/
+
+
+
+
+//bit
+#define SDXC_HS400_MD_EN				(1U<<31)
+#define SDXC_CARD_WR_THLD_ENB		(1U<<2)
+#define SDXC_CARD_RD_THLD_ENB		(1U)
+
+#define SDXC_DAT_DRV_PH_SEL			(1U<<17)
+#define SDXC_CMD_DRV_PH_SEL			(1U<<16)
+#define SDXC_SAMP_DL_SW_EN			(1u<<7)
+#define SDXC_DS_DL_SW_EN			(1u<<7)
+
+
+#define	SDXC_2X_TIMING_MODE			(1U<<31)
+
+
+//mask
+#define SDXC_CRC_DET_PARA_MASK		(0xf)
+#define SDXC_CARD_RD_THLD_MASK		(0x0FFF0000)
+#define SDXC_TX_TL_MASK				(0xff)
+#define SDXC_RX_TL_MASK				(0x00FF0000)
+
+#define SDXC_SAMP_DL_SW_MASK		(0x0000003F)
+#define SDXC_DS_DL_SW_MASK			(0x0000003F)
+
+#define SDXC_SAM_TIMING_PH_MASK		(0x00000030)
+
+//value
+#define SDXC_CRC_DET_PARA_HS400		(6)
+#define SDXC_CRC_DET_PARA_OTHER		(3)
+#define SDXC_FIFO_DETH					(1024>>2)
+
+//size
+#define SDXC_CARD_RD_THLD_SIZE		(0x00000FFF)
+
+//shit
+#define SDXC_CARD_RD_THLD_SIZE_SHIFT		(16)
+
+#define SDXC_SAM_TIMING_PH_SHIFT			(4)
 
 
 enum sunxi_mmc_clk_mode
@@ -376,7 +425,7 @@ static  void sunxi_mmc_2xmod_onoff(struct sunxi_mmc_host* host, u32 newmode_en)
 }
 
 
-int sunxi_mmc_clk_set_rate_for_sdmmc_01(struct sunxi_mmc_host *host,
+int sunxi_mmc_clk_set_rate_for_sdmmc0(struct sunxi_mmc_host *host,
 				  struct mmc_ios *ios)
 {
 	u32 mod_clk = 0;
@@ -496,7 +545,7 @@ int sunxi_mmc_clk_set_rate_for_sdmmc_01(struct sunxi_mmc_host *host,
 	return sunxi_mmc_oclk_onoff(host, 1);
 }
 
-void sunxi_mmc_thld_ctl_for_sdmmc_01(struct sunxi_mmc_host *host,
+void sunxi_mmc_thld_ctl_for_sdmmc0(struct sunxi_mmc_host *host,
 			  struct mmc_ios *ios, struct mmc_data *data)
 {
 	u32 bsz = data->blksz;
@@ -524,7 +573,7 @@ void sunxi_mmc_thld_ctl_for_sdmmc_01(struct sunxi_mmc_host *host,
 }
 
 
-void sunxi_mmc_save_spec_reg_01(struct sunxi_mmc_host *host)
+void sunxi_mmc_save_spec_reg0(struct sunxi_mmc_host *host)
 {
 	bak_spec_regs.drv_dl	= mmc_readl(host,REG_DRV_DL);
 	bak_spec_regs.samp_dl	= mmc_readl(host,REG_SAMP_DL);
@@ -532,7 +581,7 @@ void sunxi_mmc_save_spec_reg_01(struct sunxi_mmc_host *host)
 	bak_spec_regs.sd_ntsr	= mmc_readl(host,REG_SD_NTSR);
 }
 
-void sunxi_mmc_restore_spec_reg_01(struct sunxi_mmc_host *host)
+void sunxi_mmc_restore_spec_reg0(struct sunxi_mmc_host *host)
 {
 	mmc_writel(host,REG_DRV_DL,bak_spec_regs.drv_dl);
 	mmc_writel(host,REG_SAMP_DL,bak_spec_regs.samp_dl);

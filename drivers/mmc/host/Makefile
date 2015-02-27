@@ -48,7 +48,6 @@ obj-$(CONFIG_MMC_JZ4740)	+= jz4740_mmc.o
 obj-$(CONFIG_MMC_VUB300)	+= vub300.o
 obj-$(CONFIG_MMC_USHC)		+= ushc.o
 obj-$(CONFIG_MMC_WMT)		+= wmt-sdmmc.o
-obj-$(CONFIG_MMC_SUNXI)		+= sunxi-mmc.o
 
 obj-$(CONFIG_MMC_REALTEK_PCI)	+= rtsx_pci_sdmmc.o
 
@@ -63,7 +62,7 @@ obj-$(CONFIG_MMC_SDHCI_OF_ESDHC)	+= sdhci-of-esdhc.o
 obj-$(CONFIG_MMC_SDHCI_OF_HLWD)		+= sdhci-of-hlwd.o
 obj-$(CONFIG_MMC_SDHCI_BCM2835)		+= sdhci-bcm2835.o
 
-obj-$(CONFIG_MMC_SUNXI)		+= sunxi-mmc.o sunxi-mmc-sun50iw1p1-2.o sunxi-mmc-sun50iw1p1-0_1.o sunxi-mmc-debug.o sunxi-mmc-export.o
+obj-$(CONFIG_MMC_SUNXI)		+= sunxi-mmc.o sunxi-mmc-sun50iw1p1-2.o sunxi-mmc-sun50iw1p1-1.o sunxi-mmc-sun50iw1p1-0.o sunxi-mmc-debug.o sunxi-mmc-export.o
 
 
 

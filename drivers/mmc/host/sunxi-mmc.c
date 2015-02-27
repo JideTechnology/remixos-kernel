@@ -47,7 +47,8 @@
 
 #include "sunxi-mmc.h"
 #include "sunxi-mmc-sun50iw1p1-2.h"
-#include "sunxi-mmc-sun50iw1p1-0_1.h"
+#include "sunxi-mmc-sun50iw1p1-0.h"
+#include "sunxi-mmc-sun50iw1p1-1.h"
 #include "sunxi-mmc-debug.h"
 #include "sunxi-mmc-export.h"
 
@@ -1063,27 +1064,27 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
  		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc2;
 		host->dma_tl = (0x3<<28)|(15<<16)|240;
 		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc2;
-		host->sunxi_mmc_save_spec_reg = sunxi_mmc_save_spec_reg_2;
-		host->sunxi_mmc_restore_spec_reg = sunxi_mmc_save_spec_reg_2;
-		host->sunxi_mmc_dump_dly_table  = sunxi_mmc_dump_dly_2;
+		host->sunxi_mmc_save_spec_reg = sunxi_mmc_save_spec_reg2;
+		host->sunxi_mmc_restore_spec_reg = sunxi_mmc_restore_spec_reg2;
+		host->sunxi_mmc_dump_dly_table  = sunxi_mmc_dump_dly2;
 		sunxi_mmc_reg_ex_res_inter(host,2);
 		host->sunxi_mmc_set_acmda = sunxi_mmc_set_a12a;
 		host->sunxi_mmc_shutdown = sunxi_mmc_do_shutdown;
  	}else if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc0")){
-  		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc_01;
+  		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc0;
 		//host->dma_tl = (0x2<<28)|(15<<16)|240;
 		host->dma_tl = (0x2<<28)|(7<<16)|248;
-		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc_01;
-		host->sunxi_mmc_save_spec_reg = sunxi_mmc_save_spec_reg_01;
-		host->sunxi_mmc_restore_spec_reg = sunxi_mmc_save_spec_reg_01;		
+		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc0;
+		host->sunxi_mmc_save_spec_reg = sunxi_mmc_save_spec_reg0;
+		host->sunxi_mmc_restore_spec_reg = sunxi_mmc_restore_spec_reg0;
 		sunxi_mmc_reg_ex_res_inter(host,0);
 		host->sunxi_mmc_set_acmda = sunxi_mmc_set_a12a;
  	}else if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc1")){
- 		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc_01;
+ 		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc1;
 		host->dma_tl = (0x3<<28)|(15<<16)|240;
-		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc_01;
-		host->sunxi_mmc_save_spec_reg = sunxi_mmc_save_spec_reg_01;
-		host->sunxi_mmc_restore_spec_reg = sunxi_mmc_save_spec_reg_01;		
+		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc1;
+		host->sunxi_mmc_save_spec_reg = sunxi_mmc_save_spec_reg1;
+		host->sunxi_mmc_restore_spec_reg = sunxi_mmc_restore_spec_reg1;
 		sunxi_mmc_reg_ex_res_inter(host,1);
 		host->sunxi_mmc_set_acmda = sunxi_mmc_set_a12a;
  	}else{
