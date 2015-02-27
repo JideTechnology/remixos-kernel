@@ -356,7 +356,7 @@
 		};
 	};
 
-	soc@01c00000 {
+	soc: soc@01c00000 {
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -455,7 +455,7 @@
 			status = "okay";
 		};
 
-		s_jtag0 {
+		s_jtag0: s_jtag0 {
 			compatible = "allwinner,s_jtag";
 			pinctrl-names = "default";
 			pinctrl-0 = <&s_jtag0_pins_a>;
@@ -1114,7 +1114,7 @@
 			status = "okay";
 		};
 		
-		vdevice@0{
+		vdevice: vdevice@0{
 			device_type = "vdevice";
 			compatible = "allwinner,sun50i-vdevice";
 			pinctrl-names = "default";
