@@ -97,7 +97,7 @@ static int de_tr_clk_enable(void)
 	/* clk div */
 	reg_val = tr_readl(base + 0xc);
 	reg_val &= ~(0xf << 12);
-	reg_val |= (0x1 << 12);
+	reg_val |= (0x0 << 12);
 	tr_writel(reg_val, base + 0xc);
 
 	/* reset */
