@@ -1,15 +1,17 @@
+/*-------------------------------------------------------------------------
+    
+-------------------------------------------------------------------------*/
 #ifndef DEV_COMPOSER_C_C
 #define DEV_COMPOSER_C_C
 
-#if defined(CONFIG_ARCH_SUN8IW6)
-#define DISP_SUPPORT_TRANSFORM
-#endif
 #include <linux/sw_sync.h>
 #include <linux/sync.h>
 #include <linux/file.h>
 #include "dev_disp.h"
 #include <video/sunxi_display2.h>
-#include <linux/sunxi_tr.h>
+//#include <linux/sunxi_tr.h>
+#include <linux/slab.h>
+
 static struct   mutex	gcommit_mutek;
 static struct   mutex	gwb_mutek;
 #if !defined(ALIGN)
@@ -18,6 +20,17 @@ static struct   mutex	gwb_mutek;
 #define DBG_TIME_TYPE 3
 #define DBG_TIME_SIZE 100
 //#define DEBUG_WB
+//#define HW_ROTATE_MOD
+
+//#define HW_FOR_HWC
+
+//extern struct sync_pt *sw_sync_pt_create(struct sw_sync_timeline *obj, u32 value);
+//extern void sw_sync_timeline_inc(struct sw_sync_timeline *obj, u32 inc);
+//extern int sync_fence_wait(struct sync_fence *fence, long timeout);
+//extern struct sw_sync_timeline *sw_sync_timeline_create(const char *name);
+
+
+#define DISP_NUMS_SCREEN 2
 enum {
     /* flip source image horizontally (around the vertical axis) */
     HAL_TRANSFORM_FLIP_H    = 0x01,
@@ -33,132 +46,534 @@ enum {
     HAL_TRANSFORM_RESERVED  = 0x08,
 };
 
-typedef struct
+enum {
+    HWC_DISPLAY_NOACTIVE = 0,
+    HWC_DISPLAY_PREACTIVE,
+    HWC_DISPLAY_ACTIVE,
+};
+
+struct composer_health_info
 {
 	unsigned long         time[DBG_TIME_TYPE][DBG_TIME_SIZE];
 	unsigned int          time_index[DBG_TIME_TYPE];
 	unsigned int          count[DBG_TIME_TYPE];
-}composer_health_info;
+};
 
-typedef struct {
-    int                 outaquirefencefd;
-    int                 rotate;
-    struct disp_capture_info   capturedata;
-}WriteBack_t;
-typedef struct
+struct WriteBack{
+    int                         syncfd;
+    int                         rotate;
+    struct disp_capture_info    capturedata;
+};
+
+struct setup_dispc_data
 {
-    int                 forceflip;
-    int                 layer_num[2];
-    struct disp_layer_config   layer_info[2][16];
-    int                 firstdisplay;
-    int*                aquireFenceFd;
-    int                 aquireFenceCnt;
-    int                 firstDispFenceCnt;
-    int*                returnfenceFd;
-    bool                needWB[2]; //[0] is HDMI, [1] is miracast
-    unsigned int        ehancemode[2]; //0 is close,1 is whole,2 is half mode
-    unsigned int        androidfrmnum;
-    WriteBack_t         *WriteBackdata;
-}setup_dispc_data_t;
+    int                         forceflip;
+    int                         layer_num[2];
+    struct disp_layer_config    layer_info[2][16];
+    int                         firstdisplay;
+    int                         *aquireFenceFd;
+    int                         aquireFenceCnt;
+    int                         firstDispFenceCnt;
+    int                         *returnfenceFd;
+    bool                        needWB[2]; //[0] is HDMI, [1] is miracast
+    unsigned int                ehancemode[2]; //0 is close,1 is whole,2 is half mode
+    unsigned int                androidfrmnum;
+    struct WriteBack            *WriteBackdata;
+};
 
-typedef struct
+struct format_info
+{
+    enum disp_pixel_format      format;
+    unsigned char               bpp;
+    unsigned char               plan;
+    unsigned char               plnbpp[3];
+    unsigned char               plan_scale_w[3];
+    unsigned char               plan_scale_h[3];
+    unsigned char               align[3];
+    bool                        swapUV;
+};
+
+enum HWC_IOCTL
+{
+    HWC_IOCTL_COMMIT = 0,
+    HWC_IOCTL_WBSYNC = 1,
+    HWC_IOCTL_ALLIGN = 2,
+};
+
+struct hwc_ioctl_arg
+{
+    enum HWC_IOCTL  cmd;
+    void            *arg;
+};
+
+struct hwc_sync_info
+{
+    unsigned int    timelinenum;
+    unsigned int    androidOrWB;
+    unsigned int    vsyncVeryfy;
+};
+
+struct WB_data_list
+{
+    struct list_head            list;
+    bool                        isforHDMI;
+    struct hwc_sync_info        *psSyncInfo;
+    struct sync_fence           *outaquirefence;
+    struct disp_capture_info    *pscapture;
+    struct WriteBack            WriteBackdata;
+};
+
+struct dispc_data_list
+{
+    struct list_head            list;
+    struct hwc_sync_info        *psSyncInfo;
+    struct WB_data_list         *WB_data;
+    struct setup_dispc_data     hwc_data;
+    struct sync_fence           **fence_array;;
+};
+
+struct dumplayer
 {
     struct list_head    list;
-    unsigned  int       glbframenumber;
-    unsigned  int       wbframenumber;
-    struct sync_fence   *outaquirefence;
-    void                *tmpaddr;
-    unsigned int        bpp;
-    unsigned int        plan;
-    unsigned char       pln[3];
-    unsigned int        wbsize;
-    unsigned int        totalsize;
-    struct disp_capture_info   *pscapture;
-    WriteBack_t         WriteBackdata;
-    wait_queue_head_t	wq;
-}WB_data_list_t;
-
-typedef struct
-{
-    struct list_head    list;
-    unsigned  int       framenumber;
-    unsigned  int       androidfrmnum;
-    WB_data_list_t      *WB_data;
-    setup_dispc_data_t  hwc_data;
-}dispc_data_list_t;
-
-typedef struct
-{
-    struct list_head    list;
-    void *              vm_addr;
-    void*               p_addr;
+    void                *vm_addr;
+    void                *p_addr;
     unsigned int        size;
-    unsigned  int       androidfrmnum;
+    unsigned int        androidfrmnum; 
     bool                isphaddr;
     bool                update;
-}dumplayer_t;
+};
+
+struct wb_layer
+{
+    void                    *p_addr;
+    unsigned int            size;
+    struct disp_rectsz      screen;
+    struct disp_rect        crop;
+    unsigned int            frame;
+    enum disp_pixel_format  format;
+    bool                    isfree;
+    bool                    islayer;
+};
+
+struct miracast_handle
+{
+    struct list_head    list;
+    struct wb_layer     handle_info;
+};
+
+enum FREE_QUEUE
+{
+    FREE_LITTLE,
+    FREE_PREC,
+    FREE_ALL
+};
 
 struct composer_private_data
 {
-	struct work_struct    post2_cb_work;
-	u32	                  Cur_Write_Cnt;
-	u32                   Cur_Disp_Cnt[2];
-	u32                   last_wb_cnt[2];
-	bool                  b_no_output;
-	char                  display_active[2];
-	bool                  countrotate[2];
-	struct                mutex	runtime_lock;
-	struct list_head        update_regs_list;
+	struct work_struct          post2_cb_work;
+	unsigned int	            Cur_Write_Cnt;
+    unsigned int                Cur_Disp2_WB;
+	unsigned int                Cur_Disp_Cnt[2];
+    unsigned int                last_wb_cnt;
+    unsigned int                Cur_Disp_wb;
+	bool                        b_no_output;
+    bool                        countrotate[2];
+    char                        display_active[2];
+	struct mutex	            runtime_lock;
+	struct list_head            update_regs_list;
 
-	unsigned int            timeline_max;
-	struct mutex            update_regs_list_lock;
-	spinlock_t              update_reg_lock;
-	struct work_struct      commit_work;
-	struct workqueue_struct *Display_commit_work;
-	struct sw_sync_timeline *relseastimeline;
+	unsigned int                timeline_max;
+	struct mutex                update_regs_list_lock;
+	spinlock_t                  update_reg_lock;
+	struct work_struct          commit_work;
+    struct workqueue_struct     *Display_commit_work;
+    struct sw_sync_timeline     *relseastimeline;
 
-	struct work_struct      WB_work;
-	struct workqueue_struct *Display_WB_work;
-	struct sw_sync_timeline *writebacktimeline;
-	struct list_head        WB_list;//current only display0
-	unsigned int            WB_count;
-	spinlock_t              WB_lock;
-	bool                    WB_status[2];
+	struct composer_health_info health_info;
+    int                         tr_fd;
+    struct setup_dispc_data     *tmptransfer;
+    disp_drv_info               *psg_disp_drv;
+    unsigned int                ehancemode[2];
+    
+    struct list_head            dumplyr_list;
+    spinlock_t                  dumplyr_lock;
+    unsigned int                listcnt;
+    unsigned char               dumpCnt;
+    unsigned char               display;
+    unsigned char               layerNum;
+    unsigned char               channelNum;
+    unsigned char               firstdisp;
+    int                         controlbywb:1;
+    int                         pause:1;
+    int                         cancel:1;
+    int                         dumpstart:1;
+    int                         initrial:1;
 
-	setup_dispc_data_t      *tmptransfer;
-	disp_drv_info           *psg_disp_drv;
+    struct work_struct          WB_work;
+    struct workqueue_struct     *Display_WB_work;
+    struct sw_sync_timeline     *writebacktimeline;
+    struct list_head            WB_list;//current only display0
+    struct list_head            WB_err_list;
+    struct list_head            WB_miracast_list;
+    unsigned int                WB_count;
+    spinlock_t                  WB_lock;
+    struct mutex	            queue_lock;
+    bool                        WB_status[2];
+    bool                        need_rotate;
+    struct wb_layer             *wb_queue;
+    int                         queue_num;
+    int                         rotate_num;
+    int                         max_queue;
+    struct disp_layer_config    *layer_info;
+    struct wb_layer             *pswb_now;
+    wait_queue_head_t           waite_for_vsync;;
+    unsigned int                vsyncnum;
 
-	struct list_head        dumplyr_list;
-	spinlock_t              dumplyr_lock;
-	unsigned int            listcnt;
-	unsigned char           dumpCnt;
-	unsigned char           display;
-	unsigned char           layerNum;
-	unsigned char           channelNum;
-	bool                    pause;
-	bool                    cancel;
-	bool                    dumpstart;
-	bool                    initrial;
-	unsigned int            ehancemode[2];
-	composer_health_info    health_info;
-	int                     tr_fd;
+    struct kmem_cache           *disp_slab;
+    char                        hw_allined;
+    char                        yuv_alligned;
+
 };
+
 static struct composer_private_data composer_priv;
 
+#if defined(HW_ROTATE_MOD)
 extern int sunxi_tr_request(void);
 extern int sunxi_tr_release(int hdl);
-extern int sunxi_tr_commit(int hdl, tr_info *info);
+extern int sunxi_tr_commit(int hdl, struct tr_info *info);
 extern int sunxi_tr_query(int hdl);
+#endif
 
+static void imp_finish_cb(bool force_all);
 
-int dispc_gralloc_queue(setup_dispc_data_t *psDispcData, unsigned int framenuber, struct disp_capture_info *psWBdata);
+static inline bool hwc_compare_crop(struct disp_rect *src_crop, struct disp_rect  *dst_crop)
+{
+    if(src_crop->x != dst_crop->x || src_crop->y != dst_crop->y 
+                        ||src_crop->width != dst_crop->width ||src_crop->height != dst_crop->height )
+    {
+        return 1;
+    }
+    return 0;
+}
+
+static inline bool hwc_compare_screen(struct disp_rectsz *src_screen,struct disp_rectsz *dst_screen)
+{
+   if( src_screen->width == dst_screen->width && src_screen->height == dst_screen->height )
+   {
+        return 0;
+   }
+   return 1;
+}
+
+static bool inline hwc_format_info(struct format_info *format_info,enum disp_pixel_format format)
+{
+    format_info->format = format;
+    format_info->align[0] = composer_priv.hw_allined;
+    format_info->plan = 1;
+    format_info->plan_scale_h[0] = 1;
+    format_info->plan_scale_w[0] = 1;
+    format_info->swapUV = 0;
+    format_info->bpp = 32;
+    format_info->plnbpp[0] = 32;
+    switch(format_info->format)
+    {
+        case DISP_FORMAT_ABGR_8888:
+        case DISP_FORMAT_ARGB_8888:
+        case DISP_FORMAT_XRGB_8888:
+        case DISP_FORMAT_XBGR_8888:
+            format_info->bpp = 32;
+            format_info->plan = 1;
+            format_info->plnbpp[0] = 32;
+            format_info->plnbpp[1] = 0;
+            format_info->plnbpp[2] = 0;
+        break;
+        case DISP_FORMAT_BGR_888:
+            format_info->bpp = 24;
+            format_info->plan = 1;
+            format_info->plnbpp[0] = 24;
+            format_info->plnbpp[1] = 0;
+            format_info->plnbpp[2] = 0;
+        break;
+        case DISP_FORMAT_RGB_565:
+            format_info->bpp = 16;
+            format_info->plan = 1;
+            format_info->plnbpp[0] = 16;
+            format_info->plnbpp[1] = 0;
+            format_info->plnbpp[2] = 0;
+        break;
+        case DISP_FORMAT_YUV420_P:
+            format_info->bpp = 12;
+            format_info->plan = 3;
+            format_info->plnbpp[0] = 8;
+            format_info->plnbpp[1] = 8;
+            format_info->plnbpp[2] = 8;
+            format_info->align[0] = composer_priv.yuv_alligned;
+            format_info->align[1] = composer_priv.yuv_alligned/2;
+            format_info->align[2] = composer_priv.yuv_alligned/2;
+            format_info->plan_scale_h[1] = 2;
+            format_info->plan_scale_w[1] = 2;
+            format_info->plan_scale_h[2] = 2;
+            format_info->plan_scale_w[2] = 2;
+            format_info->swapUV = 1;
+        break;
+        case DISP_FORMAT_YUV420_SP_VUVU:
+        case DISP_FORMAT_YUV420_SP_UVUV:
+            format_info->bpp = 12;
+            format_info->plan = 2;
+            format_info->plnbpp[0] = 8;
+            format_info->plnbpp[1] = 16;
+            format_info->plnbpp[2] = 0;
+            format_info->align[0] = composer_priv.yuv_alligned;
+            format_info->align[1] = composer_priv.yuv_alligned/2;
+            format_info->plan_scale_h[1] = 2;
+            format_info->plan_scale_w[1] = 2;
+
+        break;
+        default:
+            printk("we got a err info..\n");
+            return 1;
+   }
+    return 0;
+}
+#if defined(HW_FOR_HWC)
+bool hwc_memset(struct wb_layer *pswb_queue,struct format_info *format_info)
+{
+    void *vaddr = NULL,*iniaddr = NULL;
+    int i = 0, j = 0;
+    unsigned int size0 = 0, size1 = 0, size2 = 0;
+    vaddr = sunxi_map_kernel((unsigned int)pswb_queue->p_addr,pswb_queue->size);
+    if(vaddr == NULL)
+    {
+        return 1;
+    }
+    iniaddr = vaddr;
+    while(i < format_info->plan)
+    {
+        size0 = format_info->plnbpp[i] * pswb_queue->crop.y /format_info->plan_scale_h[i] * pswb_queue->screen.width / format_info->plan_scale_w[i] /8;
+        memset(vaddr, 0, size0);
+        size1 = format_info->plnbpp[i] * (pswb_queue->crop.y + pswb_queue->crop.height) / format_info->plan_scale_h[i] * pswb_queue->screen.width / format_info->plan_scale_w[i] /8;
+        size2 = format_info->plnbpp[i] * (pswb_queue->screen.height - pswb_queue->crop.y - pswb_queue->crop.height) / format_info->plan_scale_h[i] * pswb_queue->screen.width / format_info->plan_scale_w[i] /8;
+        memset(vaddr + size1, 0, size2);
+        vaddr += size0;
+        size0 = format_info->plnbpp[i] * (pswb_queue->crop.x / format_info->plan_scale_w[i]) /8;
+        size1 = format_info->plnbpp[i] * (pswb_queue->screen.width - pswb_queue->crop.x - pswb_queue->crop.width) / format_info->plan_scale_w[i] /8;
+        j = 0;
+        while( j < pswb_queue->crop.height / format_info->plan_scale_h[i])
+        {
+            memset(vaddr, 0, size0);
+            memset(vaddr + format_info->plnbpp[i] *(pswb_queue->crop.x + pswb_queue->crop.width) / format_info->plan_scale_w[i] /8, 0, size1);
+            vaddr += format_info->plnbpp[i] * (pswb_queue->screen.width / format_info->plan_scale_w[i]) /8;
+            j++;
+        }
+        vaddr += size2;
+        i++;
+    }
+    sunxi_unmap_kernel(iniaddr);
+    return 0;
+}
+
+struct wb_layer * wb_dequeue(struct disp_rectsz screen, struct disp_rect crop, enum disp_pixel_format format, unsigned int frame,bool islayer)
+{
+    int i = 0,fix = 255;
+    struct wb_layer  *pswb_queue = NULL;
+    struct format_info format_info;
+    int allocsize;
+//here  only the hwc_setup_wbdata() function setup, no need mutex 
+    if(composer_priv.wb_queue == NULL)
+    {
+        composer_priv.wb_queue = kzalloc(sizeof(wb_layer)*composer_priv.max_queue,GFP_KERNEL);
+        if(composer_priv.wb_queue == NULL)
+        {
+            printk("alloc the wb_queue err.\n");
+            goto err;
+        }
+        composer_priv.queue_num = 0;
+    }
+    if(hwc_format_info(&format_info,format))
+    {
+        printk("get format err\n");
+        goto err;
+    }
+    allocsize = ALIGN(screen.width,format_info.align[0]) * screen.height * format_info.bpp /8;
+
+    //here add a mutex
+    mutex_lock(&composer_priv.queue_lock);
+    while( i < composer_priv.queue_num )
+    {
+        pswb_queue = &composer_priv.wb_queue[i];
+        if(pswb_queue->p_addr != NULL)
+        {
+            if(pswb_queue->isfree)
+            {
+                if(!hwc_compare_screen(&pswb_queue->screen,&screen) && pswb_queue->format == format)
+                {
+                    if(hwc_compare_crop(&pswb_queue->crop,&crop))
+                    {
+                        pswb_queue->crop = crop;
+                        if(hwc_memset(pswb_queue,&format_info))
+                        {
+                            mutex_unlock(&composer_priv.queue_lock);
+                            goto err;
+                        }
+                    }
+                    goto ret_ok;
+                }else{
+                    sunxi_mem_free((unsigned int)pswb_queue->p_addr,pswb_queue->size);
+                    pswb_queue->p_addr = NULL;
+                    pswb_queue->size = 0;
+                    pswb_queue->frame = 0;
+                    pswb_queue->screen.width = 0;
+                    pswb_queue->screen.height = 0;
+                    fix = i;
+                }
+            }
+        }else{
+            fix = i;
+            break;
+        }
+        i++;
+    }
+    if(fix == 255 && composer_priv.queue_num < composer_priv.max_queue)
+    {
+        fix = composer_priv.queue_num;
+        composer_priv.queue_num++;
+    }
+    if(fix == 255)
+    {
+        printk("hwc wb have no buffer:wbsend[%d][%d][%d][%d]\n",composer_priv.Cur_Disp_Cnt[0],composer_priv.last_wb_cnt,composer_priv.Cur_Disp2_WB,composer_priv.Cur_Disp_wb);
+        mutex_unlock(&composer_priv.queue_lock);
+        goto err;
+    }
+    pswb_queue = &composer_priv.wb_queue[fix];
+    pswb_queue->p_addr = (void *)sunxi_mem_alloc(allocsize);
+    if(pswb_queue->p_addr == NULL)
+    {
+        mutex_unlock(&composer_priv.queue_lock);
+        goto err;
+    }
+    pswb_queue->screen = screen;
+    pswb_queue->crop = crop;
+    pswb_queue->size = allocsize;
+    pswb_queue->format = format;
+    if(hwc_memset(pswb_queue,&format_info))
+    {
+        mutex_unlock(&composer_priv.queue_lock);
+        goto err;
+    }
+ret_ok:
+    pswb_queue->frame = frame;
+    pswb_queue->isfree = 0;
+    pswb_queue->islayer = islayer;
+    mutex_unlock(&composer_priv.queue_lock);
+    return pswb_queue;
+
+err:
+    return NULL;
+}
+
+static inline void wb_queue(unsigned int frame,enum FREE_QUEUE precision,bool islayer)
+{
+    struct wb_layer *pswb_queue = NULL;
+    int i = 0;
+    while(i < composer_priv.queue_num)
+    {
+        pswb_queue = &composer_priv.wb_queue[i];
+        if( (precision == FREE_LITTLE && pswb_queue->frame < frame)
+            ||(precision == FREE_PREC && pswb_queue->frame == frame && pswb_queue->islayer)
+            ||(precision == FREE_ALL)
+          )
+        {
+            pswb_queue->isfree = 1;
+        }
+        i++;
+    }
+}
+
+void wb_free(void)
+{
+    int i = 0;
+    struct wb_layer  *pswb_queue = NULL;
+    if(composer_priv.wb_queue)
+    {
+        while(i < composer_priv.queue_num)
+        {
+            pswb_queue = &composer_priv.wb_queue[i];
+            if(pswb_queue->p_addr != NULL)
+            {
+                sunxi_mem_free((unsigned int)pswb_queue->p_addr,pswb_queue->size);
+                pswb_queue->p_addr = NULL;
+                pswb_queue->size = 0;
+                pswb_queue->frame = 0;
+            }
+            i++;
+        }
+        kfree(composer_priv.wb_queue);
+    }
+    printk("hwc  wb_free the memory\n");
+    composer_priv.queue_num = 0;
+    composer_priv.wb_queue = NULL;
+}
+
+void hwc_setup_layer(struct disp_layer_config *pslayer_info,struct  disp_s_frame *out_frame,struct  disp_rectsz *screen, unsigned long long addr)
+{
+    int i = 0;
+    struct format_info format_info;
+
+    pslayer_info->channel = 0;
+    pslayer_info->enable = 1;
+    pslayer_info->layer_id = 0;
+    pslayer_info->info.zorder = 0;
+    pslayer_info->info.screen_win = out_frame->crop;
+    pslayer_info->info.fb.crop.x = 0;
+    pslayer_info->info.fb.crop.y = 0;
+    pslayer_info->info.fb.crop.width = ((long long)screen->width)<<32;
+    pslayer_info->info.fb.crop.height = ((long long)screen->height)<<32;
+    pslayer_info->info.fb.format = out_frame->format;
+    hwc_format_info(&format_info,out_frame->format);
+    pslayer_info->info.fb.addr[0] = addr;
+    while(i < format_info.plan)
+    {
+        if(i>0)
+        {
+            pslayer_info->info.fb.addr[i] = pslayer_info->info.fb.addr[i-1]
+                +pslayer_info->info.fb.size[i-1].width * pslayer_info->info.fb.size[i-1].height * format_info.plnbpp[i-1] / 8;
+        }
+        pslayer_info->info.fb.size[i].width = screen->width / format_info.plan_scale_w[i];
+        pslayer_info->info.fb.size[i].height = screen->height / format_info.plan_scale_h[i];
+        pslayer_info->info.fb.align[i] = format_info.align[i];
+        i++;
+    }
+    if(format_info.swapUV)
+    {
+        unsigned long long swapAddr;
+        swapAddr = pslayer_info->info.fb.addr[1];
+        pslayer_info->info.fb.addr[1] = pslayer_info->info.fb.addr[2];
+        pslayer_info->info.fb.addr[2] = swapAddr;
+    }
+    i = 1;
+    while(i < 8)
+    {
+        pslayer_info++;
+        pslayer_info->channel = i/4;
+        pslayer_info->enable = 0;
+        pslayer_info->layer_id = i%4;
+        i++;
+    }
+}
+
+static inline unsigned int  hwc_get_sync( void)
+{
+    return composer_priv.Cur_Disp_wb;
+}
+#endif
+int dispc_gralloc_queue(struct setup_dispc_data *psDispcData, struct hwc_sync_info *sync, struct disp_capture_info *psWBdata);
 
 //type: 0:acquire, 1:release; 2:display
-static s32 composer_get_frame_fps(u32 type)
+static s32 composer_get_frame_fps(unsigned int type)
 {
-	u32 pre_time_index, cur_time_index;
-	u32 pre_time, cur_time;
-	u32 fps = 0xff;
+	unsigned int pre_time_index, cur_time_index;
+	unsigned int pre_time, cur_time;
+	unsigned int fps = 0xff;
 
 	pre_time_index = composer_priv.health_info.time_index[type];
 	cur_time_index = (pre_time_index == 0)? (DBG_TIME_SIZE -1):(pre_time_index-1);
@@ -166,7 +581,7 @@ static s32 composer_get_frame_fps(u32 type)
 	pre_time = composer_priv.health_info.time[type][pre_time_index];
 	cur_time = composer_priv.health_info.time[type][cur_time_index];
 
-	if (pre_time != cur_time) {
+	if(pre_time != cur_time) {
 		fps = 1000 * 100 / (cur_time - pre_time);
 	}
 
@@ -174,9 +589,9 @@ static s32 composer_get_frame_fps(u32 type)
 }
 
 //type: 0:acquire, 1:release; 2:display
-static void composer_frame_checkin(u32 type)
+static void composer_frame_checkin(unsigned int type)
 {
-	u32 index = composer_priv.health_info.time_index[type];
+	unsigned int index = composer_priv.health_info.time_index[type];
 	composer_priv.health_info.time[type][index] = jiffies;
 	index ++;
 	index = (index>=DBG_TIME_SIZE)?0:index;
@@ -186,8 +601,8 @@ static void composer_frame_checkin(u32 type)
 
 unsigned int composer_dump(char* buf)
 {
-	u32 fps0,fps1,fps2;
-	u32 cnt0,cnt1,cnt2;
+	unsigned int fps0,fps1,fps2;
+	unsigned int cnt0,cnt1,cnt2;
 
 	fps0 = composer_get_frame_fps(0);
 	fps1 = composer_get_frame_fps(1);
@@ -199,64 +614,43 @@ unsigned int composer_dump(char* buf)
 	return sprintf(buf, "acquire: %d, %d.%d fps\nrelease: %d, %d.%d fps\ndisplay: %d, %d.%d fps\n",
 		cnt0, fps0/10, fps0%10, cnt1, fps1/10, fps1%10, cnt2, fps2/10, fps2%10);
 }
-
+#if defined(HW_FOR_HWC)
 int dev_composer_debug(setup_dispc_data_t *psDispcData, unsigned int framenuber)
 {
     unsigned int  size = 0 ;
     void *kmaddr = NULL,*vm_addr = NULL,*sunxi_addr = NULL;
     struct disp_layer_config *dumlayer = NULL;
-    dumplayer_t *dmplyr = NULL, *next = NULL, *tmplyr = NULL;
+    struct dumplayer *dmplyr = NULL, *next = NULL, *tmplyr = NULL;
     bool    find = 0;
-    if (composer_priv.cancel && composer_priv.display != 255 && composer_priv.channelNum != 255 && composer_priv.layerNum != 255)
+    struct format_info format_info;
+    if(composer_priv.cancel && composer_priv.display != 255 && composer_priv.channelNum != 255 && composer_priv.layerNum != 255)
     {
         dumlayer = &(psDispcData->layer_info[composer_priv.display][composer_priv.channelNum*4+composer_priv.layerNum]);
         dumlayer->enable =0;
     }
-    if (composer_priv.dumpstart)
+    if(composer_priv.dumpstart)
     {
-        if (composer_priv.dumpCnt > 0 && composer_priv.display != 255 && composer_priv.channelNum != 255 && composer_priv.layerNum != 255 )
+        if(composer_priv.dumpCnt > 0 && composer_priv.display != 255 && composer_priv.channelNum != 255 && composer_priv.layerNum != 255 )
         {
-            dumlayer = &(psDispcData->layer_info[composer_priv.display][composer_priv.channelNum*4+composer_priv.layerNum]);
-            if (dumlayer != NULL && dumlayer->enable)
+            dumlayer = &(psDispcData->layer_info[composer_priv.display][composer_priv.channelNum*4 + composer_priv.layerNum]);
+            if(dumlayer != NULL && dumlayer->enable)
             {
-                switch(dumlayer->info.fb.format)
+                if(hwc_format_info(&format_info,dumlayer->info.fb.format))
                 {
-                    case DISP_FORMAT_ABGR_8888:
-                    case DISP_FORMAT_ARGB_8888:
-                    case DISP_FORMAT_XRGB_8888:
-                    case DISP_FORMAT_XBGR_8888:
-                        size = 4*dumlayer->info.fb.size[0].width * dumlayer->info.fb.size[0].height;
-                    break;
-                    case DISP_FORMAT_BGR_888:
-                        size = 3*dumlayer->info.fb.size[0].width * dumlayer->info.fb.size[0].height;
-                    break;
-                    case DISP_FORMAT_RGB_565:
-                        size = 2*dumlayer->info.fb.size[0].width * dumlayer->info.fb.size[0].height;
-                    break;
-                    case DISP_FORMAT_YUV420_P:
-                        size = dumlayer->info.fb.size[0].width * dumlayer->info.fb.size[0].height
-                            +dumlayer->info.fb.size[1].width * dumlayer->info.fb.size[1].height
-                            +dumlayer->info.fb.size[2].width * dumlayer->info.fb.size[2].height;
-                    break;
-                    case DISP_FORMAT_YUV420_SP_VUVU:
-                    case DISP_FORMAT_YUV420_SP_UVUV:
-                        size = dumlayer->info.fb.size[0].width * dumlayer->info.fb.size[0].height
-                            + 2*dumlayer->info.fb.size[1].width * dumlayer->info.fb.size[1].height;
-                    break;
-                    default:
-                        printk("we got a err info..\n");
+                    goto err;
                 }
+                size = dumlayer->info.fb.size[0].width * dumlayer->info.fb.size[0].height * format_info.bpp / 8;
                 sunxi_addr = sunxi_map_kernel((unsigned int)dumlayer->info.fb.addr[0],size);
-                if (sunxi_addr == NULL)
+                if(sunxi_addr == NULL)
                 {
                     printk("map mem err...\n");
                     goto err;
                 }
                 list_for_each_entry_safe(dmplyr, next, &composer_priv.dumplyr_list, list)
                 {
-                    if (!dmplyr->update)
+                    if(!dmplyr->update)
                     {
-                        if (dmplyr->size == size)
+                        if(dmplyr->size == size)
                         {
                             find = 1;
                             break;
@@ -265,21 +659,21 @@ int dev_composer_debug(setup_dispc_data_t *psDispcData, unsigned int framenuber)
                         }
                     }
                 }
-                if (find)
+                if(find)
                 {
                     memcpy(dmplyr->vm_addr, sunxi_addr, size);
-                    sunxi_unmap_kernel(sunxi_addr,dumlayer->info.fb.addr[0],size);
+                    sunxi_unmap_kernel(sunxi_addr);
                     dmplyr->update = 1;
                     dmplyr->androidfrmnum = framenuber;
                     composer_priv.dumpCnt--;
                     goto ok;
-                }else if (tmplyr != NULL)
+                }else if(tmplyr != NULL)
                 {
                     dmplyr = tmplyr;
-                     if (dmplyr->isphaddr)
+                     if(dmplyr->isphaddr)
                         {
-                            sunxi_unmap_kernel(dmplyr->vm_addr,dmplyr->isphaddr,dmplyr->size);
-                            sunxi_free_phys((unsigned int)dmplyr->p_addr,dmplyr->size);
+                            sunxi_unmap_kernel(dmplyr->vm_addr);
+                            sunxi_mem_free((unsigned int)dmplyr->p_addr,dmplyr->size);
                         }else{
                             kfree((void *)dmplyr->vm_addr);
                         }
@@ -288,33 +682,34 @@ int dev_composer_debug(setup_dispc_data_t *psDispcData, unsigned int framenuber)
                         dmplyr->size = 0;
                 }else{
                     dmplyr = kzalloc(sizeof(dumplayer_t),GFP_KERNEL);
-                    if (dmplyr == NULL)
+                    if(dmplyr == NULL)
                     {
                         printk("kzalloc mem err...\n");
-			sunxi_unmap_kernel(sunxi_addr,dumlayer->info.fb.addr[0],size);
+                        sunxi_unmap_kernel(sunxi_addr);
                         goto err;
                     }
                 }
-                vm_addr = sunxi_buf_alloc(size, (unsigned int*)&kmaddr);
+                kmaddr = (void *)sunxi_mem_alloc(size);
                 dmplyr->isphaddr = 1;
-                if (kmaddr == 0)
+                if(kmaddr == 0)
                 {
                     vm_addr = kzalloc(size,GFP_KERNEL);
                     dmplyr->isphaddr = 0;
-                    if (vm_addr == NULL)
+                    if(vm_addr == NULL)
                     {
-			sunxi_unmap_kernel(sunxi_addr,dumlayer->info.fb.addr[0],size);
+                        sunxi_unmap_kernel(sunxi_addr);
                         dmplyr->update = 0;
                         printk("kzalloc mem err...\n");
                         goto err;
                     }
                     dmplyr->vm_addr = vm_addr;
                 }
-                if (dmplyr->isphaddr)
+                if(dmplyr->isphaddr)
                 {
-                    if (dmplyr->vm_addr == NULL)
+                    dmplyr->vm_addr = sunxi_map_kernel((unsigned int)kmaddr,size);
+                    if(dmplyr->vm_addr == NULL)
                     {
-			sunxi_unmap_kernel(sunxi_addr,dumlayer->info.fb.addr[0],size);
+                        sunxi_unmap_kernel(sunxi_addr);
                         dmplyr->update = 0;
                         printk("kzalloc mem err...\n ");
                         goto err;
@@ -324,9 +719,9 @@ int dev_composer_debug(setup_dispc_data_t *psDispcData, unsigned int framenuber)
                 dmplyr->size = size;
                 dmplyr->androidfrmnum = framenuber;
                 memcpy(dmplyr->vm_addr, sunxi_addr, size);
-		sunxi_unmap_kernel(sunxi_addr,dumlayer->info.fb.addr[0],size);
+                sunxi_unmap_kernel(sunxi_addr);
                 dmplyr->update = 1;
-                if (tmplyr == NULL)
+                if(tmplyr == NULL)
                 {
                     composer_priv.listcnt++;
                     list_add_tail(&dmplyr->list, &composer_priv.dumplyr_list);
@@ -340,24 +735,25 @@ ok:
 err:
     return -1;
 }
-static int debug_write_file(dumplayer_t *dumplyr)
+
+static int debug_write_file(struct dumplayer *dumplyr)
 {
     char s[30];
     struct file *dumfile;
     mm_segment_t old_fs;
     int cnt;
-    if (dumplyr->vm_addr != NULL && dumplyr->size != 0)
+    if(dumplyr->vm_addr != NULL && dumplyr->size != 0)
     {
         cnt = sprintf(s, "/mnt/sdcard/dumplayer%d",dumplyr->androidfrmnum);
         dumfile = filp_open(s, O_RDWR|O_CREAT, 0755);
-        if (IS_ERR(dumfile))
+        if(IS_ERR(dumfile))
         {
             printk("open %s err[%d]\n",s,(int)dumfile);
             return 0;
         }
         old_fs = get_fs();
         set_fs(KERNEL_DS);
-        if (dumplyr->vm_addr != NULL && dumplyr->size !=0)
+        if(dumplyr->vm_addr != NULL && dumplyr->size !=0)
         {
             dumfile->f_op->write(dumfile, dumplyr->vm_addr, dumplyr->size, &dumfile->f_pos);
         }
@@ -369,20 +765,290 @@ static int debug_write_file(dumplayer_t *dumplyr)
    return 0 ;
 }
 
+static bool hwc_check_needwq(struct hwc_sync_info *psSyncInfo, struct wb_layer *psNow,struct disp_rectsz *screen, struct disp_rect *crop)
+{
+    if(psSyncInfo->timelinenum - composer_priv.Cur_Disp_Cnt[0] <= 1)
+    {
+        goto need;
+    }
+    if(psNow == NULL)
+    {
+        goto need;
+    }
+    if(hwc_compare_crop(&psNow->crop,crop) || hwc_compare_screen(&psNow->screen,screen))
+    {
+        goto need;
+    }
+    return 0;
+need:
+    return 1;
+}
+
+static bool hwc_check_miracat(struct disp_s_frame *psout_frame)
+{
+    struct miracast_handle  *data = NULL, *next = NULL;
+    struct wb_layer *pswb_layer = NULL;
+    bool find = 0;
+    struct format_info format_info;
+    list_for_each_entry_safe(data, next, &composer_priv.WB_miracast_list, list)
+    {
+        if(((unsigned int)data->handle_info.p_addr) == psout_frame->addr[0])
+        {
+            find = 1;
+            break;
+        }
+    }
+    if(!find)
+    {
+        data = kzalloc(sizeof(miracast_handle_t),GFP_KERNEL);
+        if(data == NULL)
+        {
+            goto ret_err;
+        }
+        list_add_tail(&data->list, &composer_priv.WB_miracast_list);
+    }
+    pswb_layer = &data->handle_info;
+    if(pswb_layer->format == psout_frame->format
+        && !hwc_compare_crop(&pswb_layer->crop,&psout_frame->crop)
+        && hwc_compare_screen(&pswb_layer->screen, &psout_frame->size[0]))
+    {
+        goto ret_ok;
+    }
+    hwc_format_info(&format_info,psout_frame->format);
+    pswb_layer->format = psout_frame->format;
+    pswb_layer->crop = psout_frame->crop;
+    pswb_layer->screen = psout_frame->size[0];
+    hwc_memset(pswb_layer,&format_info);
+
+ret_ok:
+    return 0;
+ret_err:
+    return 1;
+}
+
+static inline void hwc_setup_capture(struct disp_s_frame *psout_frame,struct format_info *format_info,struct disp_rectsz screen,struct disp_rect crop,struct wb_layer *pswb_now)
+{
+    int i = 1;
+    psout_frame->addr[0] = (unsigned int)pswb_now->p_addr;
+    psout_frame->crop = crop;
+    psout_frame->size[0] = screen;
+    psout_frame->format = format_info->format;
+
+    while(i < format_info->plan)
+    {
+        psout_frame->size[i].width = screen.width / format_info->plan_scale_w[i];
+        psout_frame->size[i].height = screen.height / format_info->plan_scale_h[i];
+        psout_frame->addr[i] = psout_frame->addr[i-1] + psout_frame->size[i-1].width * psout_frame->size[i-1].height * format_info->plnbpp[i-1] /8;
+        i++;
+    }
+    if(format_info->swapUV)
+    {
+        unsigned long long swapAddr;
+        swapAddr = psout_frame->addr[1];
+        psout_frame->addr[1] = psout_frame->addr[2];
+        psout_frame->addr[2] = swapAddr;
+    }
+}
+
+static struct disp_capture_info * hwc_setup_wbdata(struct WB_data_list *WB_data, struct hwc_sync_info *psSyncInfo)
+{
+    struct disp_s_frame *psout_frame = NULL;
+    struct disp_rect *pswindow = NULL;
+    bool  haserr = 0;
+    struct disp_rectsz screen;
+    struct disp_rect crop;
+    struct format_info format_info;
+    enum disp_pixel_format format;
+    
+    if(WB_data != NULL)
+    {
+#if defined(HW_ROTATE_MOD)
+        if(composer_priv.tr_fd  == 0)
+        {
+            composer_priv.tr_fd = sunxi_tr_request();
+            if(composer_priv.tr_fd == (int)NULL)
+            {
+                haserr = 1;
+                printk("%s   get tr_fd failed\n",__func__);
+                goto ret_wb;
+            }
+        }
+#endif
+        composer_priv.need_rotate = !!WB_data->WriteBackdata.rotate;
+        format = WB_data->WriteBackdata.capturedata.out_frame.format;
+        hwc_format_info(&format_info,format);
+        psout_frame = &WB_data->WriteBackdata.capturedata.out_frame;
+        pswindow = &WB_data->WriteBackdata.capturedata.window;
+        if(WB_data->isforHDMI)
+        {
+            screen.width = pswindow->width;
+            screen.height = pswindow->height;
+            crop.x = pswindow->x;
+            crop.y = pswindow->y;
+            crop.width = pswindow->width;
+            crop.height = pswindow->height;
+            composer_priv.controlbywb = WB_data->isforHDMI;
+        }else{
+            if(WB_data->WriteBackdata.rotate & HAL_TRANSFORM_ROT_90)
+            {
+                screen.width = psout_frame->size[0].height;
+                screen.height = psout_frame->size[0].width;
+                crop.x = psout_frame->crop.y;
+                crop.y = psout_frame->crop.x;
+                crop.width = psout_frame->crop.height;
+                crop.height = psout_frame->crop.width;
+            }else{
+                screen.width = psout_frame->size[0].width;
+                screen.height = psout_frame->size[0].height;
+                crop = psout_frame->crop;
+            }
+        }
+        if(WB_data->WriteBackdata.rotate
+            || ( WB_data->outaquirefence != NULL ? !WB_data->outaquirefence->status : 0)
+            || WB_data->isforHDMI)
+        {
+            WB_data->pscapture = kzalloc(sizeof(disp_capture_info), GFP_KERNEL);
+            if(WB_data->pscapture == NULL)
+            {
+                haserr = 1;
+                printk("%s   kzalloc err\n",__func__);
+                goto ret_wb;
+            }
+            WB_data->pscapture->window = WB_data->WriteBackdata.capturedata.window;
+            psout_frame = &WB_data->pscapture->out_frame;
+            if(hwc_check_needwq(psSyncInfo, composer_priv.pswb_now,&screen,&crop))
+            {
+                composer_priv.pswb_now = wb_dequeue(screen, crop, format, psSyncInfo->timelinenum,0);
+                if( composer_priv.pswb_now == NULL )
+                {
+                    haserr = 1;
+                    goto ret_wb;
+                }
+            }else{
+                if(psSyncInfo->vsyncVeryfy == psSyncInfo->timelinenum)
+                {
+                    psSyncInfo->vsyncVeryfy = composer_priv.Cur_Disp_Cnt[0];
+                }
+            }
+
+            hwc_setup_capture(psout_frame,&format_info,screen,crop,composer_priv.pswb_now);
+        }else{
+            if(hwc_check_miracat(psout_frame))
+            {
+                haserr = 1;
+                goto ret_haserr;
+            }
+        }
+ret_wb:
+        spin_lock(&composer_priv.WB_lock);
+        list_add_tail(&(WB_data->list), &composer_priv.WB_list);
+        spin_unlock(&composer_priv.WB_lock);
+#if defined(DEBUG_WB)
+        printk("\ntime:%d\nLCD[%d,%d,%d,%d] ADDR[0x%llx,0x%llx,0x%llx] Size[[%d,%d][%d,%d][%d,%d]] TR:%02x"
+                 "\nVir[%d,%d,%d,%d] ADDR[0x%llx,0x%llx,0x%llx] Size[[%d,%d][%d,%d][%d,%d]] \n\n"
+            ,psSyncInfo->timelinenum
+            ,WB_data->pscapture != NULL ? WB_data->pscapture->out_frame.crop.x:0
+            ,WB_data->pscapture != NULL ? WB_data->pscapture->out_frame.crop.y:0
+            ,WB_data->pscapture != NULL ? WB_data->pscapture->out_frame.crop.width:0
+            ,WB_data->pscapture != NULL ? WB_data->pscapture->out_frame.crop.height:0
+            ,WB_data->pscapture != NULL ? WB_data->pscapture->out_frame.addr[0]:0
+            ,WB_data->pscapture != NULL ? WB_data->pscapture->out_frame.addr[1]:0
+            ,WB_data->pscapture != NULL ? WB_data->pscapture->out_frame.addr[2]:0
+            ,WB_data->pscapture != NULL ? WB_data->pscapture->out_frame.size[0].width:0
+            ,WB_data->pscapture != NULL ? WB_data->pscapture->out_frame.size[0].height:0
+            ,WB_data->pscapture != NULL ? WB_data->pscapture->out_frame.size[1].width:0
+            ,WB_data->pscapture != NULL ? WB_data->pscapture->out_frame.size[1].height:0
+            ,WB_data->pscapture != NULL ? WB_data->pscapture->out_frame.size[2].width:0
+            ,WB_data->pscapture != NULL ? WB_data->pscapture->out_frame.size[2].height:0
+            ,WB_data->pscapture != NULL ? WB_data->WriteBackdata.rotate:0
+            ,WB_data->WriteBackdata.capturedata.out_frame.crop.x
+            ,WB_data->WriteBackdata.capturedata.out_frame.crop.y
+            ,WB_data->WriteBackdata.capturedata.out_frame.crop.width
+            ,WB_data->WriteBackdata.capturedata.out_frame.crop.height
+            ,WB_data->WriteBackdata.capturedata.out_frame.addr[0]
+            ,WB_data->WriteBackdata.capturedata.out_frame.addr[1]
+            ,WB_data->WriteBackdata.capturedata.out_frame.addr[2]
+            ,WB_data->WriteBackdata.capturedata.out_frame.size[0].width
+            ,WB_data->WriteBackdata.capturedata.out_frame.size[0].height
+            ,WB_data->WriteBackdata.capturedata.out_frame.size[1].width
+            ,WB_data->WriteBackdata.capturedata.out_frame.size[1].height
+            ,WB_data->WriteBackdata.capturedata.out_frame.size[2].width
+            ,WB_data->WriteBackdata.capturedata.out_frame.size[2].height
+            );
+#endif
+    }else{
+#if defined(HW_ROTATE_MOD)    
+        if(composer_priv.tr_fd  != 0)
+        {
+            sunxi_tr_release(composer_priv.tr_fd);
+            composer_priv.tr_fd = 0;
+        }
+#endif
+        haserr = 1;
+    }
+ret_haserr:
+    if(haserr)
+    {
+        if(WB_data != NULL && WB_data->pscapture != NULL)
+        {
+            kfree(WB_data->pscapture);
+            WB_data->pscapture = NULL;
+        }
+        return NULL;
+    }
+    return WB_data->pscapture != NULL ? WB_data->pscapture : &WB_data->WriteBackdata.capturedata;
+}
+#endif
+static void inline hwc_check_alive(struct setup_dispc_data *disp_data)
+{
+    int forwhile = DISP_NUMS_SCREEN;
+    bool needresigned = 0;
+    if(composer_priv.firstdisp != disp_data->firstdisplay)
+    {
+        needresigned = 1;
+        composer_priv.firstdisp = disp_data->firstdisplay;
+    }
+    while(forwhile-- && !disp_data->forceflip)
+    {
+        if(forwhile != disp_data->firstdisplay || needresigned)
+        {
+            if((composer_priv.display_active[forwhile] == HWC_DISPLAY_NOACTIVE && disp_data->layer_num[forwhile]) || needresigned)
+            {
+                composer_priv.display_active[forwhile] = HWC_DISPLAY_PREACTIVE;
+            }
+            if(!disp_data->layer_num[forwhile])
+            {
+                composer_priv.display_active[forwhile] = HWC_DISPLAY_NOACTIVE;
+            }
+         }else{
+            if(composer_priv.initrial == HWC_DISPLAY_NOACTIVE)
+            {
+                composer_priv.display_active[forwhile] = HWC_DISPLAY_PREACTIVE;
+                composer_priv.initrial = 1;
+            }
+        }
+    }
+    if(needresigned)
+    {
+       unsigned int vysncnum = composer_priv.vsyncnum;
+       int err = wait_event_interruptible_timeout(composer_priv.waite_for_vsync,vysncnum != composer_priv.vsyncnum,3000);
+       if(err < 0)
+       {
+           	mutex_lock(&composer_priv.runtime_lock);
+	        imp_finish_cb(1);
+	        mutex_unlock(&composer_priv.runtime_lock);
+       }
+    }
+}
+
 static void hwc_commit_work(struct work_struct *work)
 {
-    dispc_data_list_t *data, *next;
+    struct dispc_data_list *data, *next;
     struct list_head saved_list;
-    int err;
-    int i,j,k,disp;
-    unsigned char memset_val;
-    struct sync_fence *AcquireFence = NULL;
-    void *kmaddr = NULL,*vm_addr = NULL,*mem_off = NULL;
-    unsigned int size = 0,totalsize = 0;
+    int err,i,disp;
+
     struct disp_capture_info *psWBdata = NULL;
-    struct disp_capture_info  *tmpWBdat = NULL;
-    bool swp = 0,hasWB = 0;
-    unsigned int lcd_h_scale,lcd_w_scale,lcd_w,lcd_h,memset_w_off,memset_h_off,memset_w,memset_h;
+    struct sync_fence *AcquireFence = NULL;
 
     mutex_lock(&(gcommit_mutek));
     mutex_lock(&(composer_priv.update_regs_list_lock));
@@ -391,49 +1057,41 @@ static void hwc_commit_work(struct work_struct *work)
 
     list_for_each_entry_safe(data, next, &saved_list, list)
     {
-        psWBdata = NULL;
-        tmpWBdat = NULL;
-        kmaddr =NULL;
-        vm_addr = NULL;
-        mem_off = NULL;
-        swp = 0,
-        size = 0;
-        totalsize = 0;
-        hasWB = 0;
         disp = 0;
         list_del(&data->list);
-        if (data->hwc_data.forceflip)
+        if(data->hwc_data.forceflip)
         {
             printk("HWC give a forcflip frame\n");
-            printk("androidfrmnum:%d  ker:%d  timeline:%d\n",data->hwc_data.androidfrmnum,data->framenumber,composer_priv.relseastimeline->value);
-            composer_priv.Cur_Write_Cnt = data->framenumber;
+            printk("androidfrmnum:%d  ker:%d  timeline:%d\n",data->hwc_data.androidfrmnum ,data->psSyncInfo->timelinenum,composer_priv.relseastimeline->value);
+            composer_priv.Cur_Write_Cnt = data->psSyncInfo->timelinenum;
             sw_sync_timeline_inc(composer_priv.relseastimeline, 1);
-            if (data->WB_data != NULL)
+            if(data->WB_data != NULL)
             {
                 kfree(data->WB_data);
             }
             goto free;
         }
-	    for (i = 0; i < data->hwc_data.aquireFenceCnt; i++)
+	    for(i = 0; i < data->hwc_data.aquireFenceCnt; i++)
 	    {
-            if (i >= data->hwc_data.firstDispFenceCnt && data->hwc_data.firstDispFenceCnt != 0)
+            disp = composer_priv.firstdisp;
+            if(i >= data->hwc_data.firstDispFenceCnt && data->hwc_data.firstDispFenceCnt != 0)
             {
-                disp = 1;
+                disp = (composer_priv.firstdisp ? 0 : 1);
             }
-            if (composer_priv.display_active[disp] != 0)
+            if(composer_priv.display_active[disp] != 0)
             {
-                AcquireFence =(struct sync_fence *) data->hwc_data.aquireFenceFd[i];
-                if (AcquireFence != NULL)
+                AcquireFence =(struct sync_fence *) data->fence_array[i];
+                if(AcquireFence != NULL)
                 {
                     err = sync_fence_wait(AcquireFence,3000);
                     sync_fence_put(AcquireFence);
                     if (err < 0)
 	                {
                         printk("synce_fence_wait timeout disp[%d]fence:%p\n",disp,AcquireFence);
-                        printk("androidfrmnum:%d  ker:%d  timeline:%d\n",data->hwc_data.androidfrmnum,data->framenumber,composer_priv.relseastimeline->value);
-                        composer_priv.Cur_Write_Cnt = data->framenumber;
+                        printk("androidfrmnum:%d  ker:%d  timeline:%d\n",data->hwc_data.androidfrmnum,data->psSyncInfo->timelinenum,composer_priv.relseastimeline->value);
+                        composer_priv.Cur_Write_Cnt = data->psSyncInfo->timelinenum;
                         sw_sync_timeline_inc(composer_priv.relseastimeline, 1);
-                        if (data->WB_data != NULL)
+                        if(data->WB_data != NULL)
                         {
                             kfree(data->WB_data);
                         }
@@ -442,312 +1100,63 @@ static void hwc_commit_work(struct work_struct *work)
                 }
             }
 	    }
-        if (data->WB_data != NULL)
+
+        if(data->psSyncInfo->timelinenum - composer_priv.Cur_Disp_Cnt[0] > 1)
         {
-#if defined(DISP_SUPPORT_TRANSFORM)
-            if (composer_priv.tr_fd  == 0)
-            {
-                composer_priv.tr_fd = sunxi_tr_request();
-                if (composer_priv.tr_fd == (int)NULL)
-                {
-                    printk("get tr_fd failed\n");
-                }
-            }
-#endif
-            hasWB = 1;
-            psWBdata = &data->WB_data->WriteBackdata.capturedata;
-            data->WB_data->plan = 1;
-            switch(psWBdata->out_frame.format)
-            {
-                case DISP_FORMAT_ABGR_8888:
-                case DISP_FORMAT_ARGB_8888:
-                case DISP_FORMAT_XRGB_8888:
-                case DISP_FORMAT_XBGR_8888:
-                    data->WB_data->bpp = 32;
-                    data->WB_data->pln[0] = 32;
-                break;
-                case DISP_FORMAT_BGR_888:
-                    data->WB_data->bpp = 24;
-                    data->WB_data->pln[0] = 24;
-                break;
-                case DISP_FORMAT_RGB_565:
-                    data->WB_data->bpp = 16;
-                    data->WB_data->pln[0] = 16;
-                break;
-                case DISP_FORMAT_YUV420_P:
-                case DISP_FORMAT_YUV420_SP_VUVU:
-                case DISP_FORMAT_YUV420_SP_UVUV:
-                    data->WB_data->bpp = 12;
-                break;
-                default:
-                    hasWB = 0;
-                    goto fix_wb;
-                    printk("we got a err format...\n");
-            }
-            size = psWBdata->out_frame.size[0].width * psWBdata->out_frame.size[0].height * data->WB_data->bpp / 8;
-            totalsize = psWBdata->out_frame.size[0].width * psWBdata->out_frame.size[0].height * data->WB_data->bpp / 8;
-            if ((data->WB_data->outaquirefence && data->WB_data->outaquirefence->status == 0 ) || data->WB_data->WriteBackdata.rotate)
-            {
-
-                tmpWBdat = kzalloc(sizeof(struct disp_capture_info),GFP_KERNEL);
-                memcpy(&tmpWBdat->window,&psWBdata->window,sizeof(struct disp_rect));
-                tmpWBdat->out_frame.format = psWBdata->out_frame.format;
-
-                lcd_h_scale = psWBdata->out_frame.crop.height;
-                lcd_w_scale = psWBdata->out_frame.crop.width;
-                lcd_w = psWBdata->out_frame.size[0].width;
-                lcd_h = psWBdata->out_frame.size[0].height;
-                if (data->WB_data->WriteBackdata.rotate & HAL_TRANSFORM_ROT_90)
-                {
-                    lcd_h_scale = psWBdata->out_frame.crop.width;
-                    lcd_w_scale = psWBdata->out_frame.crop.height;
-                    lcd_w = psWBdata->out_frame.size[0].height;
-                    lcd_h = psWBdata->out_frame.size[0].width;
-                }
-                vm_addr = sunxi_buf_alloc(size, (unsigned int*)&kmaddr);
-                if (kmaddr != 0)
-                {
-                    tmpWBdat->out_frame.crop.x = (lcd_w - lcd_w_scale) / 2;
-                    tmpWBdat->out_frame.crop.y = (lcd_h- lcd_h_scale) / 2;
-                    tmpWBdat->out_frame.crop.width = lcd_w_scale;
-                    tmpWBdat->out_frame.crop.height = lcd_h_scale;
-                    tmpWBdat->out_frame.addr[0] = (unsigned int)kmaddr;
-                    tmpWBdat->out_frame.size[0].width = lcd_w;
-                    tmpWBdat->out_frame.size[0].height = lcd_h;
-
-                    switch(psWBdata->out_frame.format)
-                    {
-                        case DISP_FORMAT_YUV420_P:
-                            data->WB_data->plan = 3;
-                            data->WB_data->pln[0] = 8;
-                            data->WB_data->pln[1] = 8;
-                            data->WB_data->pln[2] = 8;
-                            tmpWBdat->out_frame.size[1].width = tmpWBdat->out_frame.size[0].width  / 2;
-                            tmpWBdat->out_frame.size[2].height = tmpWBdat->out_frame.size[0].height / 2;
-                            tmpWBdat->out_frame.size[1].width = tmpWBdat->out_frame.size[0].width  / 2;
-                            tmpWBdat->out_frame.size[2].height = tmpWBdat->out_frame.size[0].height / 2;
-                            tmpWBdat->out_frame.addr[2] = (unsigned int)(kmaddr) + tmpWBdat->out_frame.size[0].width  * tmpWBdat->out_frame.size[0].height;
-                            tmpWBdat->out_frame.addr[1] = tmpWBdat->out_frame.addr[2] + tmpWBdat->out_frame.size[0].height * tmpWBdat->out_frame.size[0].width  / 4;
-                        break;
-                        case DISP_FORMAT_YUV420_SP_VUVU:
-                        case DISP_FORMAT_YUV420_SP_UVUV:
-                            data->WB_data->plan = 2;
-                            data->WB_data->pln[0] = 8;
-                            data->WB_data->pln[1] = 16;
-                            tmpWBdat->out_frame.size[1].width = tmpWBdat->out_frame.size[0].width / 2;
-                            tmpWBdat->out_frame.addr[1] = (unsigned int)kmaddr + tmpWBdat->out_frame.size[0].height * tmpWBdat->out_frame.size[0].width;
-                        break;
-                        default:
-                        break;
-                    }
-                    if (vm_addr == NULL)
-                    {
-                            printk("map mem err...\n");
-                    }else{
-                        if (tmpWBdat->out_frame.crop.x)
-                        {
-                            for (k = 0; k < data->WB_data->plan; k++)
-                            {
-                                if (k)
-                                {
-                                   mem_off = vm_addr + tmpWBdat->out_frame.size[k-1].width * tmpWBdat->out_frame.size[k-1].height * data->WB_data->pln[k-1]/8;
-                                }else{
-                                   mem_off = vm_addr;
-                                }
-                                memset_w_off = tmpWBdat->out_frame.crop.x;
-                                memset_w = tmpWBdat->out_frame.crop.width;
-                                if (data->WB_data->plan > 1)
-                                {
-                                    if (k)
-                                    {
-                                        memset_val = 16;
-                                        memset_w_off = tmpWBdat->out_frame.crop.x / 2;
-                                        memset_w = tmpWBdat->out_frame.crop.width / 2;
-                                    }else{
-                                        memset_val = 128;
-                                    }
-                                }else{
-                                    memset_val = 0;
-                                }
-                                j = 0;
-                                while(j < tmpWBdat->out_frame.size[k].height)
-                                {
-                                    memset(mem_off + tmpWBdat->out_frame.size[k].width * j *data->WB_data->pln[k] / 8 , memset_val, memset_w_off * data->WB_data->pln[k] / 8);
-                                    memset(mem_off + (memset_w_off + memset_w + tmpWBdat->out_frame.size[k].width * j) * data->WB_data->pln[k] / 8, memset_val,(tmpWBdat->out_frame.size[k].width - memset_w_off- memset_w ) * data->WB_data->pln[k] / 8);
-                                    j++;
-                                }
-                            }
-                        }else{
-                            for (k = 0; k < data->WB_data->plan; k++)
-                            {
-                                if (k)
-                                {
-                                   mem_off = vm_addr + tmpWBdat->out_frame.size[k-1].width * tmpWBdat->out_frame.size[k-1].height * data->WB_data->pln[k-1]/8;
-                                }else{
-                                   mem_off = vm_addr;
-                                }
-                                memset_w_off = tmpWBdat->out_frame.crop.x;
-                                memset_w = tmpWBdat->out_frame.crop.width;
-                                memset_h = tmpWBdat->out_frame.crop.height;
-                                memset_h_off = tmpWBdat->out_frame.crop.y;
-                                if (data->WB_data->plan > 1)
-                                {
-                                    if (k)
-                                    {
-                                        memset_val = 16;
-                                        memset_w_off = tmpWBdat->out_frame.crop.x / 2;
-                                        memset_w = tmpWBdat->out_frame.crop.width / 2;
-                                        memset_h = tmpWBdat->out_frame.crop.height / 2;
-                                        memset_h_off = tmpWBdat->out_frame.crop.y / 2;
-                                    }else{
-                                        memset_val = 128;
-                                    }
-                                }else{
-                                    memset_val = 0;
-                                }
-                                memset(mem_off, memset_val, memset_h_off * tmpWBdat->out_frame.size[k].width * data->WB_data->pln[k] / 8);
-                                memset(mem_off +(memset_h_off + memset_h)* tmpWBdat->out_frame.size[k].width  * data->WB_data->pln[k] / 8, memset_val, (tmpWBdat->out_frame.size[k].height - memset_h - memset_h_off ) * tmpWBdat->out_frame.size[k].width * data->WB_data->pln[k]/8);
-                            }
-                        }
-
-                        sunxi_unmap_kernel(vm_addr, (unsigned int)kmaddr,size);
-                    }
-                }else{
-                    hasWB = 0;
-                }
-                swp = 1;
-            }else{
-                vm_addr = sunxi_map_kernel(data->WB_data->WriteBackdata.capturedata.out_frame.addr[0],size);
-                if (vm_addr == NULL)
-                {
-                    printk("map mem err...\n");
-                }else{
-                    for (k = 0; k < data->WB_data->plan; k++)
-                    {
-                        if (k)
-                        {
-                            mem_off = vm_addr + data->WB_data->WriteBackdata.capturedata.out_frame.size[k-1].width * data->WB_data->WriteBackdata.capturedata.out_frame.size[k-1].height * data->WB_data->pln[k-1]/8;
-                        }else{
-                           mem_off = vm_addr;
-                        }
-                        memset_w_off = data->WB_data->WriteBackdata.capturedata.out_frame.crop.x;
-                        memset_w = data->WB_data->WriteBackdata.capturedata.out_frame.crop.width;
-                        if (data->WB_data->plan > 1)
-                        {
-                            if (k)
-                            {
-                                memset_val = 16;
-                                memset_w_off = data->WB_data->WriteBackdata.capturedata.out_frame.crop.x / 2;
-                                memset_w = data->WB_data->WriteBackdata.capturedata.out_frame.crop.width / 2;
-                            }else{
-                                memset_val = 128;
-                            }
-                         }else{
-                            memset_val = 0;
-                         }
-                         j = 0;
-                         while(j < data->WB_data->WriteBackdata.capturedata.out_frame.size[k].height)
-                         {
-                            memset(mem_off + data->WB_data->WriteBackdata.capturedata.out_frame.size[k].width * data->WB_data->pln[k] * j / 8 , memset_val, memset_w_off * data->WB_data->pln[k] / 8);
-                            memset(mem_off + (memset_w_off + memset_w + data->WB_data->WriteBackdata.capturedata.out_frame.size[k].width * j) * data->WB_data->pln[k] / 8, memset_val,(data->WB_data->WriteBackdata.capturedata.out_frame.size[k].width - memset_w_off- memset_w) * data->WB_data->pln[k] / 8);
-                            j++;
-                        }
-                    }
-                    sunxi_unmap_kernel(vm_addr,data->WB_data->WriteBackdata.capturedata.out_frame.addr[0],size);
-                }
-            }
-fix_wb:
-            data->WB_data->wbsize = size;
-            data->WB_data->totalsize = totalsize;
-            data->WB_data->pscapture = tmpWBdat;
-            data->WB_data->tmpaddr = kmaddr;
-            spin_lock(&composer_priv.WB_lock);
-            list_add_tail(&(data->WB_data->list), &composer_priv.WB_list);
-            spin_unlock(&composer_priv.WB_lock);
-#if defined(DEBUG_WB)
-            printk("data:%p\nLCD[%d,%d,%d,%d] ADDR[0x%llx,0x%llx,0x%llx] Size[[%d,%d][%d,%d][%d,%d]] TR:%02x"
-                    "\nVir[%d,%d,%d,%d] ADDR[0x%llx,0x%llx,0x%llx] Size[[%d,%d][%d,%d][%d,%d]] %p\n\n"
-                ,data->WB_data
-                ,tmpWBdat != NULL ? data->WB_data->pscapture->out_frame.crop.x:0
-                ,tmpWBdat != NULL ? data->WB_data->pscapture->out_frame.crop.y:0
-                ,tmpWBdat != NULL ? data->WB_data->pscapture->out_frame.crop.width:0
-                ,tmpWBdat != NULL ? data->WB_data->pscapture->out_frame.crop.height:0
-                ,tmpWBdat != NULL ? data->WB_data->pscapture->out_frame.addr[0]:0
-                ,tmpWBdat != NULL ? data->WB_data->pscapture->out_frame.addr[1]:0
-                ,tmpWBdat != NULL ? data->WB_data->pscapture->out_frame.addr[2]:0
-                ,tmpWBdat != NULL ? data->WB_data->pscapture->out_frame.size[0].width:0
-                ,tmpWBdat != NULL ? data->WB_data->pscapture->out_frame.size[0].height:0
-                ,tmpWBdat != NULL ? data->WB_data->pscapture->out_frame.size[1].width:0
-                ,tmpWBdat != NULL ? data->WB_data->pscapture->out_frame.size[1].height:0
-                ,tmpWBdat != NULL ? data->WB_data->pscapture->out_frame.size[2].width:0
-                ,tmpWBdat != NULL ? data->WB_data->pscapture->out_frame.size[2].height:0
-                ,tmpWBdat != NULL ? data->WB_data->WriteBackdata.rotate:0
-                ,psWBdata->out_frame.crop.x
-                ,psWBdata->out_frame.crop.y
-                ,psWBdata->out_frame.crop.width
-                ,psWBdata->out_frame.crop.height
-                ,psWBdata->out_frame.addr[0]
-                ,psWBdata->out_frame.addr[1]
-                ,psWBdata->out_frame.addr[2]
-                ,psWBdata->out_frame.size[0].width
-                ,psWBdata->out_frame.size[0].height
-                ,psWBdata->out_frame.size[1].width
-                ,psWBdata->out_frame.size[1].height
-                ,psWBdata->out_frame.size[2].width
-                ,psWBdata->out_frame.size[2].height
-                ,kmaddr);
-#endif
-        }else{
-#if defined(DISP_SUPPORT_TRANSFORM)
-            if (composer_priv.tr_fd  != 0)
-            {
-                sunxi_tr_release(composer_priv.tr_fd);
-                composer_priv.tr_fd = 0;
-            }
-#endif
+            wait_event_interruptible_timeout(composer_priv.waite_for_vsync,data->psSyncInfo->timelinenum - composer_priv.Cur_Disp_Cnt[0] <= 1,30);
         }
-        dev_composer_debug(&data->hwc_data, data->hwc_data.androidfrmnum);
-        if (composer_priv.pause == 0)
+        if(data->psSyncInfo->timelinenum - composer_priv.Cur_Disp_Cnt[0] > 1)
         {
-            dispc_gralloc_queue(&data->hwc_data, data->framenumber,hasWB ? (swp ? tmpWBdat : psWBdata ):NULL);
+            printk("hwc skip a frame :%d %d\n",data->psSyncInfo->timelinenum,composer_priv.Cur_Disp_Cnt[0]);
+        }
+        //dev_composer_debug(&data->hwc_data, data->hwc_data.androidfrmnum);
+        //psWBdata = hwc_setup_wbdata(data->WB_data,data->psSyncInfo);
+        if(composer_priv.pause == 0)
+        {
+            dispc_gralloc_queue(&data->hwc_data, data->psSyncInfo, psWBdata);
         }
 free:
-        if (data->hwc_data.aquireFenceFd !=NULL)
+        if(data->fence_array !=NULL)
         {
-            kfree(data->hwc_data.aquireFenceFd);
+            kfree(data->fence_array);
         }
-        kfree(data);
+        if(data->WB_data == NULL)
+        {
+            kfree(data->psSyncInfo);
+        }
+        kmem_cache_free(composer_priv.disp_slab, data);
     }
 	mutex_unlock(&(gcommit_mutek));
 }
 
-static int hwc_commit(setup_dispc_data_t *disp_data)
+static bool hwc_get_fence(struct setup_dispc_data *disp_data,struct sync_fence ***fencefd)
 {
-	dispc_data_list_t *disp_data_list;
-	struct sync_fence *fence;
-	struct sync_pt *pt;
-	int fd[2] = {-1,-1};
     int cout = 0, coutoffence = 0,forwhile = 0,cnt = 0;
     bool samefence = 0;
-    int *fencefd = NULL;
-    WB_data_list_t   *WB_data = NULL;
-    if (disp_data->aquireFenceCnt > 0)
+    int *psfencefd = NULL;
+    struct  sync_fence **fence_array = NULL; 
+    struct sync_fence *fence = NULL;
+    if(disp_data->aquireFenceCnt > 0)
     {
-        fencefd = kzalloc(( disp_data->aquireFenceCnt * sizeof(int)),GFP_KERNEL);
-        if (copy_from_user( fencefd, (void __user *)disp_data->aquireFenceFd, disp_data->aquireFenceCnt * sizeof(int)))
+        psfencefd = (int *)kzalloc(( disp_data->aquireFenceCnt * sizeof(int)),GFP_KERNEL);
+        fence_array = (struct sync_fence **)kzalloc(( disp_data->aquireFenceCnt * sizeof(struct sync_fence *)),GFP_KERNEL);
+        if(psfencefd == NULL || fence_array == NULL)
         {
-                printk("copy_from_user fail\n");
-                goto err;
+            printk("hwc kzalloc err\n");
         }
-
-        cnt = disp_data->firstDispFenceCnt;
-        for (cout = 0; cout < disp_data->aquireFenceCnt; cout++)
+        if(copy_from_user( psfencefd, (void __user *)disp_data->aquireFenceFd, disp_data->aquireFenceCnt * sizeof(int)))
         {
-            fence = sync_fence_fdget(fencefd[cout]);
-            if (!fence)
+            printk("copy_from_user fail\n");
+            goto err;
+        }
+        cnt = disp_data->firstDispFenceCnt;
+        for(cout = 0; cout < disp_data->aquireFenceCnt; cout++)
+        {
+            fence = sync_fence_fdget(psfencefd[cout]);
+            if(!fence)
             {
-                printk("sync_fence_fdget failed,fd[%d]:%d\n",cout, fencefd[cout]);
-                if (cout < cnt)
+                printk("sync_fence_fdget failed,fd[%d]:%d\n",cout, psfencefd[cout]);
+                if(cout < cnt)
                 {
                     disp_data->firstDispFenceCnt--;
                 }
@@ -756,10 +1165,10 @@ static int hwc_commit(setup_dispc_data_t *disp_data)
             forwhile = coutoffence;
             while(forwhile)
             {
-                if (fence == (struct sync_fence *)fencefd[forwhile])
+                if(fence == fence_array[forwhile])
                 {
                     samefence = 1;
-                    if (cout < cnt)
+                    if(cout < cnt)
                     {
                         disp_data->firstDispFenceCnt--;
                     }
@@ -767,202 +1176,636 @@ static int hwc_commit(setup_dispc_data_t *disp_data)
                 }
                 forwhile--;
             }
-            if (samefence)
+            if(samefence)
             {
                 samefence = 0;
                 continue;
             }
-            fencefd[coutoffence] = (int)fence;
+            fence_array[coutoffence] = fence;
             coutoffence++;
         }
     }
-    disp_data->aquireFenceFd = fencefd;
     disp_data->aquireFenceCnt = coutoffence;
-    if (disp_data->needWB[0] || disp_data->needWB[1] )
+    *fencefd = fence_array;
+    kfree(psfencefd);
+    return 0;
+err:
+    if(fence_array != NULL)
     {
-        WB_data = kzalloc(sizeof(WB_data_list_t),GFP_KERNEL);
-        if (copy_from_user(&WB_data->WriteBackdata, (void __user *)disp_data->WriteBackdata, sizeof(WriteBack_t)))
-        {
-            printk("copy_from_user WB_data fail\n");
-            goto err;
-		}
-        WB_data->outaquirefence = sync_fence_fdget(WB_data->WriteBackdata.outaquirefencefd);
-        init_waitqueue_head(&WB_data->wq);
+        kfree(fence_array);
+    }
+    if(psfencefd != NULL)
+    {
+        kfree(psfencefd);
+    }
+    return -1;
+}
+
+static int hwc_assign_wb(struct setup_dispc_data *disp_data, struct WB_data_list **WB_data, struct hwc_sync_info *psSyncInfo)
+{
+    int fd = -1;
+    struct sync_fence *fence = NULL;
+	struct sync_pt *pt;
+    struct WB_data_list *psWB_data = NULL;
+    psWB_data = kzalloc(sizeof(struct WB_data_list),GFP_KERNEL);
+    if(psWB_data == NULL)
+    {
+        goto err_assign_wb;
+    }
+    if(copy_from_user(&psWB_data->WriteBackdata, (void __user *)disp_data->WriteBackdata, sizeof(struct WriteBack)))
+    {
+        printk("copy_from_user WB_data fail\n");
+        goto err_assign_wb;
     }
 
-    if (1)
+    if(disp_data->needWB[1] && !disp_data->needWB[0])
     {
-	    if (disp_data->layer_num[0]+disp_data->layer_num[1] > 0 || disp_data->forceflip)
-	    {
-            forwhile = DEVICE_NUM;
-            while(forwhile-- && !disp_data->forceflip)
-            {
-                if (forwhile != disp_data->firstdisplay)
-                {
-                    if (composer_priv.display_active[forwhile] == 2 && !disp_data->layer_num[forwhile])
-                    {
-                        composer_priv.display_active[forwhile] = 0;
-                    }
-                    if (composer_priv.display_active[forwhile] == 0 && disp_data->layer_num[forwhile])
-                    {
-                        composer_priv.display_active[forwhile] = 1;
-                    }
-                }else{
-                    if (composer_priv.initrial == 0)
-                    {
-                        composer_priv.display_active[forwhile] = 1;
-                        composer_priv.initrial =1;
-                    }
-                }
-            }
-            fd[0] = get_unused_fd();
-            if (fd < 0)
-            {
-                printk("get unused fd faild\n");
-                goto err;
-            }
-            composer_priv.timeline_max++;
-            pt = sw_sync_pt_create(composer_priv.relseastimeline, composer_priv.timeline_max);
-            fence = sync_fence_create("sunxi_display", pt);
-            sync_fence_install(fence, fd[0]);
-            if (disp_data->needWB[0] || disp_data->needWB[1])
-            {
-                fd[1] = get_unused_fd();
-                composer_priv.WB_count++;
-                pt = sw_sync_pt_create(composer_priv.writebacktimeline, composer_priv.WB_count);
-                fence = sync_fence_create("sunxi_WB", pt);
-                sync_fence_install(fence, fd[1]);
-                WB_data->wbframenumber = composer_priv.WB_count;
-                WB_data->glbframenumber = composer_priv.timeline_max;
-            }
-            disp_data_list = kzalloc(sizeof(dispc_data_list_t), GFP_KERNEL);
-            memcpy(&disp_data_list->hwc_data, disp_data, sizeof(setup_dispc_data_t));
-            disp_data_list->framenumber = composer_priv.timeline_max;
-            disp_data_list->WB_data = WB_data;
-            mutex_lock(&(composer_priv.update_regs_list_lock));
-            list_add_tail(&disp_data_list->list, &composer_priv.update_regs_list);
-            mutex_unlock(&(composer_priv.update_regs_list_lock));
-            if (!composer_priv.pause)
-            {
-                queue_work(composer_priv.Display_commit_work, &composer_priv.commit_work);
-            }
-	    }else{
-	        printk("No layer from android set\n");
-	        goto err;
+        if(psWB_data->WriteBackdata.syncfd >= 0)
+        {
+            psWB_data->outaquirefence = sync_fence_fdget(psWB_data->WriteBackdata.syncfd);
         }
-    }else{
-        flush_workqueue(composer_priv.Display_commit_work);
+        fd = get_unused_fd();
+        composer_priv.WB_count++;
+        pt = sw_sync_pt_create(composer_priv.writebacktimeline, composer_priv.WB_count);
+        fence = sync_fence_create("sunxi_WB", pt);
+        sync_fence_install(fence, fd);
+        psSyncInfo->androidOrWB = composer_priv.WB_count;
+    }
+    if(disp_data->needWB[0])
+    {
+        if(composer_priv.layer_info == NULL)
+        {
+            composer_priv.layer_info = kzalloc(sizeof(struct disp_layer_config)*8,GFP_KERNEL);
+        }
+    }
+    psWB_data->psSyncInfo = psSyncInfo;
+    psWB_data->isforHDMI = disp_data->needWB[0];
+    *WB_data = psWB_data;
+    return fd;
+
+err_assign_wb:
+    printk("hwc fix an err...\n");
+    if(psWB_data != NULL)
+    {
+        kfree(psWB_data);
+    }
+    psWB_data = NULL;
+    *WB_data = NULL; 
+    return -1;
+}
+
+static int hwc_commit(struct setup_dispc_data *disp_data)
+{
+	struct dispc_data_list *disp_data_list = NULL;
+	struct sync_fence *fence = NULL;
+	struct sync_pt *pt = NULL;
+	int fd[2] = {-1,-1};
+    struct sync_fence **sync_fence_array = NULL;
+    struct WB_data_list   *WB_data = NULL;
+    struct hwc_sync_info    *psSyncInfo = NULL;
+    if(hwc_get_fence(disp_data,&sync_fence_array))
+    {
+        printk("hwc get fence err\n");
         goto err;
     }
-    if (copy_to_user((void __user *)disp_data->returnfenceFd, fd, sizeof(int)*2))
+	if(disp_data->layer_num[0]+disp_data->layer_num[1] > 0 || disp_data->forceflip)
+	{
+        hwc_check_alive(disp_data);
+        fd[0] = get_unused_fd();
+        if (fd < 0)
+        {
+            printk("get unused fd faild\n");
+            goto err;
+        }
+        composer_priv.timeline_max++;
+        pt = sw_sync_pt_create(composer_priv.relseastimeline, composer_priv.timeline_max);
+        fence = sync_fence_create("sunxi_display", pt);
+        sync_fence_install(fence, fd[0]);
+
+        disp_data_list = (struct dispc_data_list *)kmem_cache_zalloc(composer_priv.disp_slab,GFP_KERNEL);
+        psSyncInfo = kzalloc(sizeof(struct hwc_sync_info), GFP_KERNEL);
+        if(disp_data_list == NULL || psSyncInfo == NULL)
+        {
+            printk("hwc kzalloc disp_data_list[%p] psSyncInfo[%p]\n",disp_data_list,psSyncInfo);
+            goto err;
+        }
+        psSyncInfo->timelinenum = composer_priv.timeline_max;
+        psSyncInfo->androidOrWB = disp_data->androidfrmnum;
+        psSyncInfo->vsyncVeryfy = composer_priv.timeline_max;
+        if((disp_data->needWB[0] || disp_data->needWB[1])&& !composer_priv.b_no_output)
+        {
+            fd[1] = hwc_assign_wb(disp_data,&WB_data,psSyncInfo);
+        }
+        memcpy(&disp_data_list->hwc_data, disp_data, sizeof(struct setup_dispc_data));
+        disp_data_list->psSyncInfo = psSyncInfo;
+        disp_data_list->WB_data = WB_data;
+        disp_data_list->fence_array = sync_fence_array;
+        mutex_lock(&(composer_priv.update_regs_list_lock));
+        list_add_tail(&disp_data_list->list, &composer_priv.update_regs_list);
+        mutex_unlock(&(composer_priv.update_regs_list_lock));
+        if(!composer_priv.pause)
+        {
+            queue_work(composer_priv.Display_commit_work, &composer_priv.commit_work);
+        }
+	}else{
+	    printk("No layer from android set\n");
+	    goto err;
+    }
+    if(composer_priv.b_no_output)
+    {
+        flush_workqueue(composer_priv.Display_commit_work);
+#if defined(HW_FOR_HWC)
+        if(!list_empty_careful(&composer_priv.WB_list))
+        {
+            flush_workqueue(composer_priv.Display_WB_work);
+            wb_queue(0,FREE_ALL,0);
+        }
+#endif
+    }
+    if(copy_to_user((void __user *)disp_data->returnfenceFd, fd, sizeof(int)*2))
     {
 	    printk("copy_to_user fail\n");
         goto err;
 	}
 	return 0;
 err:
-    if (WB_data != NULL)
+    if(WB_data != NULL)
     {
        kfree(WB_data);
     }
-    kfree(fencefd);
+    if(psSyncInfo != NULL)
+    {
+        kfree(psSyncInfo);
+    }
+    if(disp_data_list != NULL)
+    {
+        kmem_cache_free(composer_priv.disp_slab, disp_data_list);
+    }
+    if(sync_fence_array != NULL)
+    {
+        kfree(sync_fence_array);
+    }
     return -EFAULT;
 }
 
 static int hwc_commit_ioctl(unsigned int cmd, unsigned long arg)
 {
-    int ret = -1;
-	if (DISP_HWC_COMMIT == cmd)
+    int ret = -EFAULT;
+    //unsigned int    sync;
+    char alligned[2];
+	if(DISP_HWC_COMMIT == cmd)
     {
+        struct hwc_ioctl_arg   hwc_cmd;
         unsigned long *ubuffer;
         ubuffer = (unsigned long *)arg;
-        memset(composer_priv.tmptransfer, 0, sizeof(setup_dispc_data_t));
-        if (copy_from_user(composer_priv.tmptransfer, (void __user *)ubuffer[1], sizeof(setup_dispc_data_t)))
+        if(copy_from_user(&hwc_cmd, (void __user *)ubuffer[1], sizeof(struct hwc_ioctl_arg)))
         {
-            printk("copy_from_user fail\n");
+            printk("hwc_cmd copy_from_user fail\n");
             return  -EFAULT;
-		}
-        ret = hwc_commit(composer_priv.tmptransfer);
+        }
+        switch(hwc_cmd.cmd)
+        {
+            case HWC_IOCTL_COMMIT:
+                memset(composer_priv.tmptransfer, 0, sizeof(struct setup_dispc_data));
+                if(copy_from_user(composer_priv.tmptransfer, (void __user *)hwc_cmd.arg, sizeof(struct setup_dispc_data)))
+                {
+                    printk("copy_from_user fail\n");
+                    return  -EFAULT;
+		        }
+                ret = hwc_commit(composer_priv.tmptransfer);
+            break;
+#if defined(HW_FOR_HWC)
+            case HWC_IOCTL_WBSYNC:
+                 sync = hwc_get_sync();
+                 if(copy_to_user((void __user *)hwc_cmd.arg, &sync , sizeof(unsigned int)))
+                 {
+                    ret = -EFAULT;
+                 }else{
+                    ret = 0;
+                 }
+            break;
+#endif
+            case HWC_IOCTL_ALLIGN:
+
+                 if(copy_from_user(alligned, (void __user *)hwc_cmd.arg , 2*sizeof(unsigned char)))
+                 {
+                    ret = -EFAULT;
+                 }else{
+                   composer_priv.hw_allined = alligned[0];
+                   composer_priv.yuv_alligned = alligned[1];
+                 }    
+            break;
+            default:
+                printk("hwc get an err cmd\n");
+        }
 	}
 	return ret;
 }
-
-static void disp_composer_proc(u32 sel)
+#if defined(HW_FOR_HWC)
+static void hwc_query_wb(unsigned int framenm)
 {
-    if (sel<2)
+    static int lastqueryed;
+    int ret = 0;
+    struct WB_data_list *data, *next;
+    disp_drv_info *psg_disp_drv = composer_priv.psg_disp_drv;
+    struct disp_manager *psmgr = NULL;
+    struct disp_capture *psWriteBack = NULL;
+    psmgr = psg_disp_drv->mgr[0];
+    psWriteBack = psmgr->cptr;
+    if(framenm == lastqueryed)
     {
-        if (composer_priv.Cur_Write_Cnt < composer_priv.Cur_Disp_Cnt[sel])
+        return ;
+    }else{
+        lastqueryed = framenm;
+    }
+    ret = psWriteBack->query(psWriteBack);
+    list_for_each_entry_safe(data, next, &composer_priv.WB_list, list)
+    {
+        if(data->psSyncInfo->timelinenum == framenm && data->psSyncInfo->vsyncVeryfy == framenm)
         {
-            composer_priv.countrotate[sel] = 1;
+            data->psSyncInfo->vsyncVeryfy = ret;
         }
-        composer_priv.last_wb_cnt[sel]= composer_priv.Cur_Disp_Cnt[sel];
-        composer_priv.Cur_Disp_Cnt[sel] = composer_priv.Cur_Write_Cnt;
-    }
-	schedule_work(&composer_priv.post2_cb_work);
-    if (!list_empty(&composer_priv.WB_list))
-    {
-        queue_work(composer_priv.Display_WB_work, &composer_priv.WB_work);
-    }
-	return ;
+    }  
 }
+
+
+static bool hwc_setup_rotate(struct disp_s_frame *psInCapture, struct disp_s_frame *psOutCaptuer,int rotate)
+{
+#if defined(HW_ROTATE_MOD)
+    tr_info tr;
+    memset(&tr,0,sizeof(tr_info));
+    switch(rotate)
+    {
+        case HAL_TRANSFORM_ROT_90:
+            tr.mode = TR_ROT_90;
+        break;
+        case HAL_TRANSFORM_ROT_180:
+            tr.mode = TR_ROT_180;
+        break;
+        case HAL_TRANSFORM_ROT_270:
+            tr.mode = TR_ROT_270;
+        break;
+        default:
+            tr.mode = TR_ROT_0;
+    }
+    tr.src_frame.fmt = psInCapture->format;
+    tr.src_frame.laddr[0] = psInCapture->addr[0];
+    tr.src_frame.laddr[1] = psInCapture->addr[1];
+    tr.src_frame.laddr[2] = psInCapture->addr[2];
+    tr.src_frame.pitch[0] = psInCapture->size[0].width;
+    tr.src_frame.pitch[1] = psInCapture->size[1].width;
+    tr.src_frame.pitch[2] = psInCapture->size[2].width;
+    tr.src_frame.height[0] = psInCapture->size[0].height;
+    tr.src_frame.height[1] = psInCapture->size[1].height;
+    tr.src_frame.height[2] = psInCapture->size[2].height;
+    tr.src_rect.x = 0;
+    tr.src_rect.y = 0;
+    tr.src_rect.w = psInCapture->size[0].width;
+    tr.src_rect.h = psInCapture->size[0].height;
+    tr.dst_frame.fmt = psOutCaptuer->format;
+    tr.dst_frame.laddr[0] = psOutCaptuer->addr[0];
+    tr.dst_frame.laddr[1] = psOutCaptuer->addr[1];
+    tr.dst_frame.laddr[2] = psOutCaptuer->addr[2];
+    tr.dst_frame.pitch[0] = psOutCaptuer->size[0].width;
+    tr.dst_frame.pitch[1] = psOutCaptuer->size[1].width;
+    tr.dst_frame.pitch[2] = psOutCaptuer->size[2].width;
+    tr.dst_frame.height[0] = psOutCaptuer->size[0].height;
+    tr.dst_frame.height[1] = psOutCaptuer->size[1].height;
+    tr.dst_frame.height[2] = psOutCaptuer->size[2].height;
+    tr.dst_rect.x = 0;
+    tr.dst_rect.y = 0;
+    tr.dst_rect.w =psOutCaptuer->size[0].width;
+    tr.dst_rect.h = psOutCaptuer->size[0].height;
+    if(composer_priv.tr_fd == 0)
+    {
+        printk("tr_fd is [0] err...\n");
+        goto err_rotate;
+    }
+    tr.fd = composer_priv.tr_fd;
+    sunxi_tr_commit(tr.fd,&tr);
+    msleep(3);
+    if(sunxi_tr_query(tr.fd) == 1)
+    msleep(1);
+#endif
+    return 0;
+err_rotate:
+    return 1;
+}
+
+static inline bool hwc_copy_memory(struct disp_s_frame * psout_put, struct disp_s_frame * psin_put)
+{
+    void *dstvaddr = NULL, *srcvaddr = NULL;
+    struct format_info format_info;
+    int srcsize = 0, dstsize = 0;
+    bool ret = 0;
+
+    if(hwc_format_info(&format_info,psin_put->format))
+    {
+        goto err_ctl;
+    }
+    srcsize = psin_put->size[0].width * psin_put->size[0].height * format_info.bpp / 8;
+    if(hwc_format_info(&format_info,psout_put->format))
+    {
+        goto err_ctl;
+    }
+    dstsize = psout_put->size[0].width * psout_put->size[0].height * format_info.bpp / 8;
+    srcvaddr = sunxi_map_kernel(psin_put->addr[0],srcsize);
+    dstvaddr = sunxi_map_kernel(psout_put->addr[0],dstsize);
+    if(srcvaddr == NULL || dstvaddr == NULL)
+    {
+        ret = 1;
+        goto err_ctl;
+    }
+    memcpy(srcvaddr,dstvaddr,dstsize >= dstsize ? dstsize : dstsize);
+err_ctl:
+    if(srcvaddr != NULL)
+    {
+        sunxi_unmap_kernel(srcvaddr);
+    }
+    if(dstvaddr != NULL)
+    {
+        sunxi_unmap_kernel(dstvaddr);
+    }
+    return ret;
+}
+
+static inline void hwc_wb_errctl(struct WB_data_list *wb_list,bool err)
+{
+    if(!err)
+    {
+        bool ret = 0;
+        struct WB_data_list *data, *next;
+        if(list_empty_careful(&composer_priv.WB_err_list))
+        {
+            return;
+        }
+        list_for_each_entry_safe(data, next, &composer_priv.WB_err_list, list)
+        {
+            ret = hwc_copy_memory(&data->WriteBackdata.capturedata.out_frame,&wb_list->WriteBackdata.capturedata.out_frame);
+            if(!ret)
+            {
+                list_del(&data->list);
+            }
+        }
+    }else{
+            list_add_tail(&wb_list->list, &composer_priv.WB_err_list);
+    }
+}
+
+static void hwc_write_back(struct work_struct *work)
+{
+    struct WB_data_list *data, *next;
+    struct disp_layer_config   *layer_info = NULL;
+    struct disp_manager *psmgr = NULL;
+    struct disp_s_frame *psout_frame = NULL;
+    struct hwc_sync_info *psSyncInfo = NULL;
+    int err = 0, whilecnt = 5;
+    unsigned int start_cnt = 0;
+    struct wb_layer   *wb_rotate = NULL;
+    bool free_wq = 0;
+    struct disp_rectsz screen;
+    struct disp_rect crop;
+    disp_drv_info *psg_disp_drv = composer_priv.psg_disp_drv;
+    struct disp_rect *pswindow = NULL;
+    struct format_info format_info;
+
+    mutex_lock(&(gwb_mutek));
+    list_for_each_entry_safe(data, next, &composer_priv.WB_list, list)
+    {
+        err = 0;
+        free_wq = 0;
+        psmgr = NULL;
+        psout_frame = NULL;
+        pswindow = NULL;
+        wb_rotate = NULL;
+        if(composer_priv.last_wb_cnt >= data->psSyncInfo->timelinenum || composer_priv.b_no_output)
+        {
+            psSyncInfo = data->psSyncInfo;
+            if(psSyncInfo->vsyncVeryfy != 0 || composer_priv.b_no_output)
+            {
+                err = 1;
+                free_wq = 1;
+                goto ret_ctl;
+            }
+            psout_frame = &data->WriteBackdata.capturedata.out_frame;
+            if(data->pscapture != NULL)
+            {
+                if(data->outaquirefence != NULL && !data->outaquirefence->status)
+                {
+                    err = sync_fence_wait(data->outaquirefence,3000);
+                    sync_fence_put(data->outaquirefence);
+                    if (err < 0)
+	                {
+                        printk("hwc wait for wb fence err.\n");
+					    goto ret_ctl;
+	                }
+                }
+                if(data->isforHDMI)
+                {
+                    if((composer_priv.last_wb_cnt == data->psSyncInfo->timelinenum) 
+                        && data->pscapture->out_frame.addr[0] != 0)
+                    {
+                        layer_info = &composer_priv.layer_info[0];
+                        memset(layer_info,0,sizeof(disp_layer_config)*8);
+                        if(data->WriteBackdata.rotate)
+                        {
+                            pswindow = &data->pscapture->window;
+                            if(data->WriteBackdata.rotate & HAL_TRANSFORM_ROT_90)
+                            {
+                                screen.width = pswindow->height;
+                                screen.height = pswindow->width;
+                                crop.x = pswindow->y;
+                                crop.y = pswindow->x;
+                                crop.width = pswindow->height;
+                                crop.height = pswindow->width;
+                            }else{
+                                screen.width = pswindow->width;
+                                screen.height = pswindow->height;
+                                crop.x = pswindow->x;
+                                crop.y = pswindow->y;
+                                crop.width = pswindow->width;
+                                crop.height = pswindow->height;
+                            }
+                            wb_rotate = wb_dequeue(screen, crop, data->pscapture->out_frame.format, data->psSyncInfo->timelinenum, 1);
+                            if(wb_rotate == NULL)
+                            {
+                                err = 1;
+                                free_wq = 1;
+                                printk("hwc wb_rotate dequeue err\n");
+                                goto ret_ctl;
+                            }
+                        }
+                        if(wb_rotate != NULL)
+                        {
+                            hwc_setup_layer(layer_info, psout_frame, &wb_rotate->screen,(unsigned int)wb_rotate->p_addr);
+                            hwc_format_info(&format_info,data->pscapture->out_frame.format);
+                            hwc_setup_capture(psout_frame, &format_info, screen, crop, wb_rotate);
+                        }else{
+                            hwc_setup_layer(layer_info, psout_frame, &data->pscapture->out_frame.size[0],data->pscapture->out_frame.addr[0]);
+                        }
+                    }else{
+                        err = 1;
+                        free_wq = 1;
+                        goto ret_ctl;
+                    }
+                }
+                if(data->WriteBackdata.rotate)
+                {
+                    err = hwc_setup_rotate(&data->pscapture->out_frame,psout_frame,data->WriteBackdata.rotate);
+                    if(err)
+                    {
+                        free_wq = 1;
+                        printk("hwc rotate has a err\n");
+                        goto ret_ctl;
+                    }
+                }else if(!data->isforHDMI){
+                    err = hwc_copy_memory(psout_frame,&data->pscapture->out_frame);
+                    if(err)
+                    {
+                        free_wq = 1;
+                        printk("hwc has a memcopy err\n");
+                        goto ret_ctl;
+                    }
+                }
+                if(data->isforHDMI)
+                {
+                    psmgr = psg_disp_drv->mgr[1];
+                    if(psmgr != NULL && composer_priv.controlbywb)
+                    {
+                        bsp_disp_shadow_protect(1,true);
+                        psmgr->set_layer_config(psmgr, layer_info, 8);
+                        bsp_disp_shadow_protect(1,false);
+                        composer_priv.Cur_Disp2_WB = data->psSyncInfo->timelinenum;
+                        start_cnt= composer_priv.Cur_Disp_wb;
+                        whilecnt = 5;
+                        while(start_cnt + 1 != data->psSyncInfo->timelinenum)
+                        {
+                            wb_queue(++start_cnt,FREE_PREC,0);
+                            wb_queue(start_cnt,FREE_PREC,1);
+                            if(whilecnt--)
+                            {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+ret_ctl:
+            spin_lock(&composer_priv.WB_lock);
+            list_del(&data->list);
+            spin_unlock(&composer_priv.WB_lock);
+            if(!data->isforHDMI)
+            {
+                hwc_wb_errctl(data,err);
+            }else{
+                err = 1;
+            }
+            if(free_wq)
+            {
+                wb_queue(data->psSyncInfo->timelinenum,FREE_PREC,0);
+            }
+            if(data->pscapture != NULL)
+            {
+                kfree(data->pscapture);
+            }
+            if(data->psSyncInfo != NULL)
+            {
+                kfree(data->psSyncInfo);
+            }
+            if(!err)
+            {
+                while(!data->isforHDMI && composer_priv.writebacktimeline->value != data->psSyncInfo->androidOrWB)
+                {
+                    sw_sync_timeline_inc(composer_priv.writebacktimeline, 1);
+                }
+                kfree(data);
+            }
+        }else{
+            break;
+        }
+    }
+    mutex_unlock(&(gwb_mutek));
+    return ;
+}
+#endif
+static void post2_cb(struct work_struct *work)
+{
+	mutex_lock(&composer_priv.runtime_lock);
+    imp_finish_cb(composer_priv.b_no_output);
+	mutex_unlock(&composer_priv.runtime_lock);
+}
+
+extern s32  bsp_disp_shadow_protect(unsigned int disp, bool protect);
 
 static void imp_finish_cb(bool force_all)
 {
-    u32 little = 1;
+    u32 little = composer_priv.Cur_Write_Cnt;
 	u32 flag = 0;
     bool rotate = 0;
+    int secenddsp = 1;
+#if defined(HW_FOR_HWC)
+    disp_drv_info *psg_disp_drv = composer_priv.psg_disp_drv;
+    struct disp_manager *psmgr = NULL;
+    struct disp_capture *psWriteBack = NULL;
+#endif
+    if(composer_priv.firstdisp == 1)
+    {
+        secenddsp = 0;
+    }
 
-    if (composer_priv.pause)
+    if(composer_priv.pause)
     {
         return;
     }
-    if (composer_priv.display_active[0] == 2)
+    wake_up(&composer_priv.waite_for_vsync);
+    if(composer_priv.display_active[composer_priv.firstdisp] == HWC_DISPLAY_ACTIVE)
     {
-        little = composer_priv.Cur_Disp_Cnt[0];
+        little = composer_priv.Cur_Disp_Cnt[composer_priv.firstdisp];
     }
-    if ( (composer_priv.display_active[0] == 2) && composer_priv.countrotate[0]
-        &&(composer_priv.display_active[1] == 2)&& composer_priv.countrotate[1])
+    if( (composer_priv.display_active[composer_priv.firstdisp] == HWC_DISPLAY_ACTIVE) && composer_priv.countrotate[composer_priv.firstdisp]
+        &&(composer_priv.display_active[secenddsp] == HWC_DISPLAY_ACTIVE)&& composer_priv.countrotate[secenddsp])
     {
-        composer_priv.countrotate[0] = 0;
-        composer_priv.countrotate[1] = 0;
+        composer_priv.countrotate[composer_priv.firstdisp] = 0;
+        composer_priv.countrotate[secenddsp] = 0;
     }
-    if (composer_priv.display_active[1] == 2)
+    if(composer_priv.display_active[secenddsp] == HWC_DISPLAY_ACTIVE)
     {
-        if ( composer_priv.display_active[0] == 2)
+        if( composer_priv.display_active[composer_priv.firstdisp] == HWC_DISPLAY_ACTIVE)
         {
-            if (composer_priv.countrotate[0] != composer_priv.countrotate[1])
+            if(composer_priv.countrotate[composer_priv.firstdisp] != composer_priv.countrotate[1])
             {
-                if (composer_priv.countrotate[0] && (composer_priv.display_active[0]== 2))
+                if(composer_priv.countrotate[composer_priv.firstdisp] && (composer_priv.display_active[composer_priv.firstdisp]== HWC_DISPLAY_ACTIVE))
                 {
-                    little = composer_priv.Cur_Disp_Cnt[1];
+                    little = composer_priv.Cur_Disp_Cnt[secenddsp];
                 }else{
-                    little = composer_priv.Cur_Disp_Cnt[0];
+                    little = composer_priv.Cur_Disp_Cnt[composer_priv.firstdisp];
                 }
             }else{
-                if (composer_priv.Cur_Disp_Cnt[1] > composer_priv.Cur_Disp_Cnt[0])
+                if(composer_priv.Cur_Disp_Cnt[secenddsp] > composer_priv.Cur_Disp_Cnt[composer_priv.firstdisp])
                 {
-                    little = composer_priv.Cur_Disp_Cnt[0];
+                    little = composer_priv.Cur_Disp_Cnt[composer_priv.firstdisp];
                 }else{
-                    little = composer_priv.Cur_Disp_Cnt[1];
+                    little = composer_priv.Cur_Disp_Cnt[secenddsp];
                 }
             }
       }else{
-            little = composer_priv.Cur_Disp_Cnt[1];
+            little = composer_priv.Cur_Disp_Cnt[secenddsp];
       }
     }
     while(composer_priv.relseastimeline->value != composer_priv.Cur_Write_Cnt)
     {
-        if (composer_priv.relseastimeline->value > composer_priv.Cur_Write_Cnt)
+        if(composer_priv.relseastimeline->value > composer_priv.Cur_Write_Cnt)
         {
             rotate = 1;
         }
-        if (rotate && composer_priv.relseastimeline->value > little - 1)
+        if(rotate && composer_priv.relseastimeline->value > little - 1)
         {
             rotate = 1;
         }else{
             rotate = 0;
         }
-        if ( !force_all
+        if( !force_all
             &&(rotate == 0 ? composer_priv.relseastimeline->value >= little - 1
                            : composer_priv.relseastimeline->value == little - 1 ))
         {
@@ -972,221 +1815,60 @@ static void imp_finish_cb(bool force_all)
         composer_frame_checkin(1);
         flag = 1;
     }
-#if defined(DEBUG_WB)
-    printk("composer_priv.Cur_Disp_Cnt[0][%d][%d] [1][%d][%d]  timeline[%d] little[%d]\n "
-        ,composer_priv.display_active[0]
-        ,composer_priv.Cur_Disp_Cnt[0]
-        ,composer_priv.Cur_Disp_Cnt[1]
-        ,composer_priv.display_active[1]
-        ,composer_priv.relseastimeline->value
-        ,little);
-#endif
-    if (flag)
-		composer_frame_checkin(2);
-}
-
-static void write_back(struct work_struct *work)
-{
-    WB_data_list_t *data, *next;
-    void*vm_addr = NULL,*sunxi_vaddr = NULL;
-    int err= -1;
-    int cnt =0;
-#if defined(DISP_SUPPORT_TRANSFORM)
-    tr_info tr;
-    struct disp_s_frame * pslcdptcture = NULL;
-#endif
-    mutex_lock(&(gwb_mutek));
-    list_for_each_entry_safe(data, next, &composer_priv.WB_list, list)
+    if(flag)
     {
-        err= -1;
-        if (composer_priv.last_wb_cnt[0] >= data->glbframenumber )
-        {
-            if (data->tmpaddr != NULL)
-            {
-                if (data->WriteBackdata.rotate)
-                {
-#if defined(DISP_SUPPORT_TRANSFORM)
-                    if (data->outaquirefence != NULL && data->outaquirefence->status == 0 )
-                    {
-                        err = sync_fence_wait(data->outaquirefence,1000);
-                        sync_fence_put(data->outaquirefence);
-                        if (err < 0)
-	                    {
-	                        printk("synce_fence_wait timeout outaquirefence:%p\n",data->outaquirefence);
-                            goto err;
-	                    }
-                    }
-                    pslcdptcture = &data->pscapture->out_frame;
-                    memset(&tr,0,sizeof(tr_info));
-                    switch(data->WriteBackdata.rotate)
-                    {
-                        case HAL_TRANSFORM_ROT_90:
-                            tr.mode = TR_ROT_90;
-                        break;
-                        case HAL_TRANSFORM_ROT_180:
-                            tr.mode = TR_ROT_180;
-                        break;
-                        case HAL_TRANSFORM_ROT_270:
-                            tr.mode = TR_ROT_270;
-                        break;
-                        default:
-                        printk("a err TR\n ");
-                    }
-                    tr.src_frame.fmt = pslcdptcture->format;
-                    tr.src_frame.laddr[0] = pslcdptcture->addr[0];
-                    tr.src_frame.laddr[1] = pslcdptcture->addr[1];
-                    tr.src_frame.laddr[2] = pslcdptcture->addr[2];
-                    tr.src_frame.pitch[0] = pslcdptcture->size[0].width;
-                    tr.src_frame.pitch[1] = pslcdptcture->size[1].width;
-                    tr.src_frame.pitch[2] = pslcdptcture->size[2].width;
-                    tr.src_frame.height[0] = pslcdptcture->size[0].height;
-                    tr.src_frame.height[1] = pslcdptcture->size[1].height;
-                    tr.src_frame.height[2] = pslcdptcture->size[2].height;
-                    tr.src_rect.x = 0;
-                    tr.src_rect.y = 0;
-                    tr.src_rect.w = pslcdptcture->size[0].width;
-                    tr.src_rect.h = pslcdptcture->size[0].height;
-                    tr.dst_frame.fmt = data->WriteBackdata.capturedata.out_frame.format;
-                    tr.dst_frame.laddr[0] = data->WriteBackdata.capturedata.out_frame.addr[0];
-                    tr.dst_frame.laddr[1] = data->WriteBackdata.capturedata.out_frame.addr[1];
-                    tr.dst_frame.laddr[2] = data->WriteBackdata.capturedata.out_frame.addr[2];
-                    tr.dst_frame.pitch[0] = data->WriteBackdata.capturedata.out_frame.size[0].width;
-                    tr.dst_frame.pitch[1] = data->WriteBackdata.capturedata.out_frame.size[1].width;
-                    tr.dst_frame.pitch[2] = data->WriteBackdata.capturedata.out_frame.size[2].width;
-                    tr.dst_frame.height[0] = data->WriteBackdata.capturedata.out_frame.size[0].height;
-                    tr.dst_frame.height[1] = data->WriteBackdata.capturedata.out_frame.size[1].height;
-                    tr.dst_frame.height[2] = data->WriteBackdata.capturedata.out_frame.size[2].height;
-                    tr.dst_rect.x = 0;
-                    tr.dst_rect.y = 0;
-                    tr.dst_rect.w = data->WriteBackdata.capturedata.out_frame.size[0].width;
-                    tr.dst_rect.h = data->WriteBackdata.capturedata.out_frame.size[0].height;
-                    if (composer_priv.tr_fd == 0)
-                    {
-                         printk("tr_fd is [0] err...\n");
-                         goto err;
-                    }
-                    tr.fd = composer_priv.tr_fd;
-                    sunxi_tr_commit(tr.fd,&tr);
-                    msleep(3);
-                    //printk("#####sunxi_tr_query(%d)  cnt[%d]\n",sunxi_tr_query(tr.fd),cnt);
-                    //must check with tyl to change the way of wait for complete
-                    if (sunxi_tr_query(tr.fd) == 1)
-                    msleep(1);
-#if defined(DEBUG_WB)
-            printk("\nTR:%02x:\nF:%x Saddr[0x%x,0x%x,0x%x] pitch[%d,%d,%d] height[%d,%d,%d] crop[%d,%d,%d,%d]"
-                           "\nF:%x Daddr[0x%x,0x%x,0x%x] pitch[%d,%d,%d] height[%d,%d,%d] crop[%d,%d,%d,%d]\n"
-                ,tr.mode
-                ,tr.src_frame.fmt
-                ,tr.src_frame.laddr[0]
-                ,tr.src_frame.laddr[1]
-                ,tr.src_frame.laddr[2]
-                ,tr.src_frame.pitch[0]
-                ,tr.src_frame.pitch[1]
-                ,tr.src_frame.pitch[2]
-                ,tr.src_frame.height[0]
-                ,tr.src_frame.height[1]
-                ,tr.src_frame.height[2]
-                ,tr.src_rect.x
-                ,tr.src_rect.y = 0
-                ,tr.src_rect.w
-                ,tr.src_rect.h
-                ,tr.dst_frame.fmt
-                ,tr.dst_frame.laddr[0]
-                ,tr.dst_frame.laddr[1]
-                ,tr.dst_frame.laddr[2]
-                ,tr.dst_frame.pitch[0]
-                ,tr.dst_frame.pitch[1]
-                ,tr.dst_frame.pitch[2]
-                ,tr.dst_frame.height[0]
-                ,tr.dst_frame.height[1]
-                ,tr.dst_frame.height[2]
-                ,tr.dst_rect.x
-                ,tr.dst_rect.y
-                ,tr.dst_rect.w
-                ,tr.dst_rect.h
-                );
-#endif
-
-#endif//defined(DISP_SUPPORT_TRANSFORM)
-                }else{
-                    if (data->outaquirefence != NULL)
-                    {
-                        err = sync_fence_wait(data->outaquirefence,1000);
-                        sync_fence_put(data->outaquirefence);
-                        if (err < 0)
-	                    {
-	                        printk("synce_fence_wait timeout outaquirefence:%p\n",data->outaquirefence);
-                            goto err;
-	                    }
-                        sunxi_vaddr = sunxi_map_kernel((unsigned int)data->WriteBackdata.capturedata.out_frame.addr[0],data->totalsize);
-                        if (sunxi_vaddr == NULL)
-                        {
-                            printk("map mem err...\n");
-                            goto err;
-                        }
-                        vm_addr = sunxi_map_kernel((unsigned int)data->tmpaddr,data->wbsize);
-                        if (vm_addr == NULL)
-                        {
-                            printk("map mem err...\n");
-                            sunxi_unmap_kernel(sunxi_vaddr,(unsigned int)data->WriteBackdata.capturedata.out_frame.addr[0],data->totalsize);
-                            goto err;
-                        }
-                        memcpy(sunxi_vaddr, vm_addr, data->wbsize);
-			sunxi_unmap_kernel(vm_addr, (unsigned int)data->tmpaddr,data->wbsize);
-			sunxi_unmap_kernel(sunxi_vaddr,(unsigned int)data->WriteBackdata.capturedata.out_frame.addr[0],data->totalsize);
-                    }
-                }
-            }
-#if defined(DEBUG_WB)
-            printk("pt:%d  wb:%d ADDR:[%llx][%llx][%llx]  TR:%02x paddr:%p,size:%d(%d)\n\n"
-            ,composer_priv.writebacktimeline->value
-            ,data->wbframenumber
-            ,data->WriteBackdata.capturedata.out_frame.addr[0]
-            ,data->WriteBackdata.capturedata.out_frame.addr[1]
-            ,data->WriteBackdata.capturedata.out_frame.addr[2]
-            ,data->WriteBackdata.rotate
-            ,data->tmpaddr
-            ,data->wbsize
-            ,data->totalsize);
-#endif
-err:
-            spin_lock(&composer_priv.WB_lock);
-            list_del(&data->list);
-            spin_unlock(&composer_priv.WB_lock);
-            if (data->tmpaddr != NULL)
-            {
-                sunxi_free_phys((unsigned int)data->tmpaddr,data->wbsize);
-            }
-            if (data->pscapture != NULL)
-            {
-                kfree(data->pscapture);
-            }
-            while(composer_priv.writebacktimeline->value != data->wbframenumber)
-            {
-                sw_sync_timeline_inc(composer_priv.writebacktimeline, 1);
-            }
-            kfree(data);
-        }else{
-            break;
-        }
-        cnt++;
+		composer_frame_checkin(2);
     }
-    mutex_unlock(&(gwb_mutek));
-#if defined(DEBUG_WB)
-        printk("WB_count :[%d,%d]  D[%d,%d]\n",composer_priv.WB_count,composer_priv.writebacktimeline->value,composer_priv.timeline_max,composer_priv.relseastimeline->value);
+#if defined(HW_FOR_HWC)
+    if(force_all && !list_empty_careful(&composer_priv.WB_list))
+    {
+        flush_workqueue(composer_priv.Display_WB_work);
+        wb_queue(0,FREE_ALL,0);
+        wb_free();
+        psmgr = psg_disp_drv->mgr[0];
+        psWriteBack = psmgr->cptr;
+        if(composer_priv.WB_status[0] == 1)
+        {
+            psWriteBack->stop(psWriteBack);
+            composer_priv.WB_status[0] = 0;
+        }
+    }
 #endif
-    return ;
 }
 
-
-static void post2_cb(struct work_struct *work)
+static void disp_composer_proc(unsigned int sel)
 {
-	mutex_lock(&composer_priv.runtime_lock);
-    imp_finish_cb(composer_priv.b_no_output);
-	mutex_unlock(&composer_priv.runtime_lock);
+
+    if(sel < 2)
+    {
+        if(composer_priv.Cur_Write_Cnt < composer_priv.Cur_Disp_Cnt[sel])
+        {
+            composer_priv.countrotate[sel] = 1;
+        }
+#if defined(HW_FOR_HWC)
+        if(!list_empty_careful(&composer_priv.WB_list))
+        {
+            if(sel == 0)
+            {
+                hwc_query_wb(composer_priv.Cur_Disp_Cnt[0]);
+                composer_priv.last_wb_cnt = composer_priv.Cur_Disp_Cnt[0];
+                queue_work(composer_priv.Display_WB_work, &composer_priv.WB_work);
+            }
+            if(sel == 1)
+            {
+                composer_priv.Cur_Disp_wb = composer_priv.Cur_Disp2_WB;
+                wb_queue(composer_priv.Cur_Disp_wb,FREE_LITTLE,0);
+            }
+        }
+#endif
+        composer_priv.Cur_Disp_Cnt[sel] = composer_priv.Cur_Write_Cnt;
+    }
+
+	schedule_work(&composer_priv.post2_cb_work);
+	return ;
 }
-extern s32  bsp_disp_shadow_protect(u32 disp, bool protect);
-int dispc_gralloc_queue(setup_dispc_data_t *psDispcData, unsigned int framenuber, struct disp_capture_info *psWBdata)
+
+int dispc_gralloc_queue(struct setup_dispc_data *psDispcData, struct hwc_sync_info *hwc_sync, struct disp_capture_info *psWBdata)
 {
     int disp;
     disp_drv_info *psg_disp_drv = composer_priv.psg_disp_drv;
@@ -1195,10 +1877,9 @@ int dispc_gralloc_queue(setup_dispc_data_t *psDispcData, unsigned int framenuber
     struct disp_capture *psWriteBack = NULL;
     struct disp_layer_config *psconfig;
     disp = 0;
-
-    while( disp < DEVICE_NUM )
+    while( disp < DISP_NUMS_SCREEN )
     {
-        if (!composer_priv.display_active[disp])
+        if(!composer_priv.display_active[disp] || (disp ==1 && composer_priv.controlbywb))
         {
             disp++;
             continue;
@@ -1206,12 +1887,22 @@ int dispc_gralloc_queue(setup_dispc_data_t *psDispcData, unsigned int framenuber
         psmgr = psg_disp_drv->mgr[disp];
         psenhance = psmgr->enhance;
         psWriteBack = psmgr->cptr;
-        if ( psmgr != NULL  )
+        if( psmgr != NULL )
         {
             bsp_disp_shadow_protect(disp,true);
-            if (psDispcData->ehancemode[disp] )
+            if(disp == 0)
             {
-                if (psDispcData->ehancemode[disp] != composer_priv.ehancemode[disp])
+                if(hwc_sync->vsyncVeryfy != hwc_sync->timelinenum )
+                {
+                    if(hwc_sync->vsyncVeryfy == composer_priv.Cur_Disp_Cnt[0])
+                    {
+                        hwc_sync->vsyncVeryfy = hwc_sync->timelinenum;
+                    }
+                }
+            }
+            if(psDispcData->ehancemode[disp] )
+            {
+                if(psDispcData->ehancemode[disp] != composer_priv.ehancemode[disp])
                 {
                     switch (psDispcData->ehancemode[disp])
                     {
@@ -1230,26 +1921,26 @@ int dispc_gralloc_queue(setup_dispc_data_t *psDispcData, unsigned int framenuber
                 }
                 composer_priv.ehancemode[disp] = psDispcData->ehancemode[disp];
             }else{
-                if (composer_priv.ehancemode[disp])
+                if(composer_priv.ehancemode[disp])
                 {
                     psenhance->disable(psenhance);
                     composer_priv.ehancemode[disp] = 0;
                 }
             }
-            if (disp == 0)
+            if(disp == 0)
             {
-                if (psWBdata != NULL)
+                if(psWBdata != NULL && !composer_priv.b_no_output)
                 {
-                    if (composer_priv.WB_status[0] != 1)
+                    if(composer_priv.WB_status[0] != 1)
                     {
                         psWriteBack->start(psWriteBack);
                         composer_priv.WB_status[0] = 1;
                     }
                     psWriteBack->commmit(psWriteBack,psWBdata);
                 }else{
-                    if (list_empty(&composer_priv.WB_list))
+                    if(list_empty(&composer_priv.WB_list))
                     {
-                        if (composer_priv.WB_status[0] == 1)
+                        if(composer_priv.WB_status[0] == 1)
                         {
                             psWriteBack->stop(psWriteBack);
                             composer_priv.WB_status[0] = 0;
@@ -1258,20 +1949,19 @@ int dispc_gralloc_queue(setup_dispc_data_t *psDispcData, unsigned int framenuber
                 }
             }
             psconfig = &psDispcData->layer_info[disp][0];
-            psmgr->set_layer_config(psmgr, psconfig, disp?8:16);
+            psmgr->set_layer_config(psmgr, psconfig, disp? 8 : 16);
             bsp_disp_shadow_protect(disp,false);
-            if (composer_priv.display_active[disp] == 1)
+            if(composer_priv.display_active[disp] == HWC_DISPLAY_PREACTIVE)
             {
-                // no need lock,THK lot
-                composer_priv.display_active[disp] = 2;
-                composer_priv.Cur_Disp_Cnt[disp] = framenuber;
+                composer_priv.display_active[disp] = HWC_DISPLAY_ACTIVE;
+                composer_priv.Cur_Disp_Cnt[disp] = hwc_sync->timelinenum;
             }
         }
         disp++;
     }
-    composer_priv.Cur_Write_Cnt = framenuber;
+    composer_priv.Cur_Write_Cnt = hwc_sync->timelinenum;
     composer_frame_checkin(0);
-    if (composer_priv.b_no_output)
+    if(composer_priv.b_no_output)
     {
         mutex_lock(&composer_priv.runtime_lock);
 	    imp_finish_cb(1);
@@ -1296,12 +1986,14 @@ static int hwc_resume(void)
 	printk("%s\n", __func__);
 	return 0;
 }
+#if defined(HW_FOR_HWC)
 static struct dentry *composer_pdbg_root;
 
 static int dumplayer_open(struct inode * inode, struct file * file)
 {
 	return 0;
 }
+
 static int dumplayer_release(struct inode * inode, struct file * file)
 {
 	return 0;
@@ -1309,14 +2001,14 @@ static int dumplayer_release(struct inode * inode, struct file * file)
 
 static ssize_t dumplayer_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 {
-    dumplayer_t *dmplyr = NULL, *next = NULL;
+    struct dumplayer *dmplyr = NULL, *next = NULL;
     composer_priv.dumpstart = 1;
 
     while(composer_priv.dumpCnt != 0)
     {
         list_for_each_entry_safe(dmplyr, next, &composer_priv.dumplyr_list, list)
         {
-            if (dmplyr->update)
+            if(dmplyr->update)
             {
                 debug_write_file(dmplyr);
             }
@@ -1326,14 +2018,14 @@ static ssize_t dumplayer_read(struct file *file, char __user *buf, size_t count,
     list_for_each_entry_safe(dmplyr, next, &composer_priv.dumplyr_list, list)
     {
         list_del(&dmplyr->list);
-        if (dmplyr->update)
+        if(dmplyr->update)
         {
             debug_write_file(dmplyr);
         }
-        if (dmplyr->isphaddr)
+        if(dmplyr->isphaddr)
         {
-            sunxi_unmap_kernel(dmplyr->vm_addr,dmplyr->isphaddr,dmplyr->size);
-            sunxi_free_phys((unsigned int)dmplyr->p_addr,dmplyr->size);
+            sunxi_unmap_kernel(dmplyr->vm_addr);
+            sunxi_mem_free((unsigned int)dmplyr->p_addr,dmplyr->size);
         }else{
             kfree(dmplyr->vm_addr);
         }
@@ -1342,13 +2034,14 @@ static ssize_t dumplayer_read(struct file *file, char __user *buf, size_t count,
     composer_priv.dumpstart = 0;
 	return 0;
 }
+
 static ssize_t dumplayer_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
 {
-    dumplayer_t *dmplyr = NULL, *next = NULL;
+    struct dumplayer *dmplyr = NULL, *next = NULL;
     char temp[count+1];
     char *s = temp;
     int cnt=0;
-    if (copy_from_user( temp, (void __user *)buf, count))
+    if(copy_from_user( temp, (void __user *)buf, count))
     {
         printk("copy_from_user fail\n");
         return  -EFAULT;
@@ -1368,10 +2061,10 @@ static ssize_t dumplayer_write(struct file *file, const char __user *buf, size_t
             list_for_each_entry_safe(dmplyr, next, &composer_priv.dumplyr_list, list)
             {
                 list_del(&dmplyr->list);
-                if (dmplyr->isphaddr)
+                if(dmplyr->isphaddr)
                 {
-                    sunxi_unmap_kernel(dmplyr->vm_addr,dmplyr->isphaddr,dmplyr->size);
-                    sunxi_free_phys((unsigned int)dmplyr->p_addr,dmplyr->size);
+                    sunxi_unmap_kernel(dmplyr->vm_addr);
+                    sunxi_mem_free((unsigned int)dmplyr->p_addr,dmplyr->size);
                 }else{
                     kfree(dmplyr->vm_addr);
                 }
@@ -1384,7 +2077,7 @@ static ssize_t dumplayer_write(struct file *file, const char __user *buf, size_t
             composer_priv.pause = 0;
             composer_priv.display = (*s >= 48 && *s <=49)? *s - 48 : 255;
             s++;
-            if (*s == 'c')
+            if(*s == 'c')
             {
                 s++;
                 composer_priv.channelNum = (*s >= 48 && *s <=51)? *s - 48 : 255;
@@ -1393,7 +2086,7 @@ static ssize_t dumplayer_write(struct file *file, const char __user *buf, size_t
                 break;
             }
             s++;
-            if (*s == 'l')
+            if(*s == 'l')
             {
                 s++;
                 composer_priv.layerNum = (*s >= 48 && *s <=51)? *s - 48 : 255;
@@ -1402,11 +2095,11 @@ static ssize_t dumplayer_write(struct file *file, const char __user *buf, size_t
                 break;
             }
             s++;
-            if (*s == 'n')
+            if(*s == 'n')
             {
                 while(*++s != '\0')
                 {
-                    if ( 57< *s || *s <48)
+                    if( 57< *s || *s <48)
                         break;
                     cnt += (*s-48);
                     cnt *=10;
@@ -1424,18 +2117,16 @@ static ssize_t dumplayer_write(struct file *file, const char __user *buf, size_t
     return count;
 }
 
-
 static const struct file_operations dumplayer_ops = {
 	.write        = dumplayer_write,
 	.read        = dumplayer_read,
 	.open        = dumplayer_open,
 	.release    = dumplayer_release,
 };
-
 int composer_dbg(void)
 {
 	composer_pdbg_root = debugfs_create_dir("composerdbg", NULL);
-	if (!debugfs_create_file("dumplayer", 0644, composer_pdbg_root, NULL,&dumplayer_ops))
+	if(!debugfs_create_file("dumplayer", 0644, composer_pdbg_root, NULL,&dumplayer_ops))
 		goto Fail;
 	return 0;
 
@@ -1444,21 +2135,25 @@ Fail:
 	composer_pdbg_root = NULL;
 	return -ENOENT;
 }
-
-s32 composer_init(disp_drv_info *psg_disp_drv)
+#endif
+int composer_init(disp_drv_info *psg_disp_drv)
 {
 
 	memset(&composer_priv, 0x0, sizeof(struct composer_private_data));
 	INIT_WORK(&composer_priv.post2_cb_work, post2_cb);
 	mutex_init(&composer_priv.runtime_lock);
+    mutex_init(&composer_priv.queue_lock);
     composer_priv.Display_commit_work = create_freezable_workqueue("SunxiDisCommit");
     composer_priv.Display_WB_work = create_freezable_workqueue("Sunxi_WB");
     INIT_WORK(&composer_priv.commit_work, hwc_commit_work);
-    INIT_WORK(&composer_priv.WB_work, write_back);
+    //INIT_WORK(&composer_priv.WB_work, hwc_write_back);
 
 	INIT_LIST_HEAD(&composer_priv.update_regs_list);
     INIT_LIST_HEAD(&composer_priv.dumplyr_list);
     INIT_LIST_HEAD(&composer_priv.WB_list);
+    INIT_LIST_HEAD(&composer_priv.WB_err_list);
+    INIT_LIST_HEAD(&composer_priv.WB_miracast_list);
+
 	composer_priv.relseastimeline = sw_sync_timeline_create("sunxi-display");
     composer_priv.writebacktimeline = sw_sync_timeline_create("Sunxi-WB");
     composer_priv.WB_count = 0;
@@ -1473,10 +2168,25 @@ s32 composer_init(disp_drv_info *psg_disp_drv)
     composer_priv.countrotate[1] = 0;
     composer_priv.pause = 0;
     composer_priv.listcnt = 0;
-    composer_priv.last_wb_cnt[0] = 0;
-    composer_priv.last_wb_cnt[1] = 0;
+    composer_priv.last_wb_cnt = 0;
     composer_priv.tr_fd = 0;
     composer_priv.initrial = 0;
+    composer_priv.controlbywb = 0;
+    composer_priv.max_queue = 4;
+    composer_priv.layer_info = NULL;
+    composer_priv.wb_queue = NULL;
+    composer_priv.queue_num = 0;
+    composer_priv.yuv_alligned = 16;
+    composer_priv.hw_allined = 32;
+
+    composer_priv.disp_slab = kmem_cache_create("display_data",sizeof(struct dispc_data_list),0,0,NULL);
+    //composer_priv.sync_info_slab = kmem_cache_create("sync info",sizeof(hwc_sync_info),GFP_KERNEL,NULL);
+    if(composer_priv.disp_slab == NULL  )
+    {
+        printk("hwc creat slab err\n");
+    }
+    init_waitqueue_head(&composer_priv.waite_for_vsync);
+
 	mutex_init(&composer_priv.update_regs_list_lock);
     mutex_init(&gcommit_mutek);
     mutex_init(&gwb_mutek);
@@ -1486,10 +2196,10 @@ s32 composer_init(disp_drv_info *psg_disp_drv)
 	disp_register_ioctl_func(DISP_HWC_COMMIT, hwc_commit_ioctl);
     disp_register_sync_finish_proc(disp_composer_proc);
 	disp_register_standby_func(hwc_suspend, hwc_resume);
-    composer_priv.tmptransfer = kzalloc(sizeof(setup_dispc_data_t),GFP_KERNEL);
+    composer_priv.tmptransfer = kzalloc(sizeof(struct setup_dispc_data),GFP_KERNEL);
     composer_priv.psg_disp_drv = psg_disp_drv;
-    composer_dbg();
+//    composer_dbg();
+    printk("hwc init  successfull\n");
     return 0;
 }
 #endif
-

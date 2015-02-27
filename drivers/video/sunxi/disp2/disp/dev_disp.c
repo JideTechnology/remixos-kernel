@@ -817,7 +817,7 @@ static s32 disp_init(struct platform_device *pdev)
 	bsp_disp_open();
 
 	fb_init(pdev);
-	//composer_init(&g_disp_drv);
+	composer_init(&g_disp_drv);
 	g_disp_drv.inited = true;
 	start_process();
 
