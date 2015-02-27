@@ -42,7 +42,7 @@ clocks {
 		clk_pll_video0: pll_video0 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-pll-clock";
-			assigned-clock-rates = <240000000>;
+			assigned-clock-rates = <297000000>;
 			clock-output-names = "pll_video0";
 		};		
 		clk_pll_ve: pll_ve {
@@ -89,7 +89,7 @@ clocks {
 		clk_pll_de: pll_de {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-pll-clock";
-			assigned-clock-rates = <250000000>;
+			assigned-clock-rates = <297000000>;
 			clock-output-names = "pll_de";
 		};	
 		clk_pll_ddr1: pll_ddr1 {
@@ -302,19 +302,19 @@ clocks {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
 			assigned-clock-parents = <&clk_pll_de>;
-			assigned-clock-rates = <250000000>;
+			assigned-clock-rates = <297000000>;
 			clock-output-names = "de";
 		};
 		clk_tcon0: tcon0 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
-			assigned-clock-parents = <&clk_pll_video0x2>;
+			assigned-clock-parents = <&clk_pll_mipi>;
 			clock-output-names = "tcon0";
 		};
 		clk_tcon1: tcon1 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
-			assigned-clock-parents = <&clk_pll_video1>;
+			assigned-clock-parents = <&clk_pll_video0>;
 			assigned-clock-rates = <297000000>;
 			clock-output-names = "tcon1";
 		};	
@@ -361,7 +361,7 @@ clocks {
 		clk_hdmi: hdmi {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
-			assigned-clock-parents = <&clk_pll_video1>;
+			assigned-clock-parents = <&clk_pll_video0>;
 			assigned-clock-rates = <297000000>;
 			clock-output-names = "hdmi";
 		};	

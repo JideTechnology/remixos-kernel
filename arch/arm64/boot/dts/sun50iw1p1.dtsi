@@ -956,8 +956,8 @@
 		soc_disp: disp@01000000 {
 			compatible = "allwinner,sun50i-disp";
 			reg = <0x0 0x01000000 0x0 0x00200000>,/*de*/
-				<0x0 0x01c0c000 0x0 0x7fc>;/*lcd*/
-			interrupts = <GIC_SPI 86 0x0104>;
+				<0x0 0x01c0c000 0x0 0x17fc>;/*lcd*/
+			interrupts = <GIC_SPI 86 0x0104>, <GIC_SPI 87 0x0104>;
 			clocks = <&clk_de>,<&clk_tcon0>,
 				<&clk_lvds>,<&clk_mipidsi>,<&clk_tcon1>;
 			disp_init_enable = <1>;
@@ -1009,13 +1009,14 @@
 			lcd_cmap_en = <0>;
 
 			lcd_power = "vcc-lcd-0";
-			lcd_io_regulator = "vcc-lvds-18";
-			lcd_io_regulator1 = "vcc-pd";
 			lcd_bl_en = <&pio PD 23 1 0 0 1>;
+			lcd_bl_en_power = "none";/* power for lcd_bl_en pin */
+			lcd_fix_power = "vcc-dsi-33";/* power for lcd controler */
 
 			pinctrl-names = "active","sleep";
 			pinctrl-0 = <&lcd_pins_a>;
 			pinctrl-1 = <&lcd_pins_b>;
+			lcd_pin_power = "vcc-pd";/* power for pinctrl-0/1.. */
 
 			lcd_backlight = <50>;
 
@@ -1026,6 +1027,9 @@
 			compatible = "allwinner,sunxi-hdmi";
 			reg = <0x0 0x01ee0000 0x0 0x20000>;
 			clocks = <&clk_hdmi>,<&clk_hdmi_slow>;
+			hdmi_power = "vcc-hdmi-33";
+			hdmi_hdcp_enable = <0>;
+			hdmi_cts_compatibility = <0>;
 			status = "okay";
 		};
 
