@@ -872,6 +872,7 @@ CONFIG_HWMON=y
 #
 # Native drivers
 #
+# CONFIG_SENSORS_BMA250 is not set
 # CONFIG_SENSORS_F71805F is not set
 # CONFIG_SENSORS_F71882FG is not set
 # CONFIG_SENSORS_GPIO_FAN is not set

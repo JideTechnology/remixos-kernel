@@ -12,6 +12,7 @@ obj-$(CONFIG_SENSORS_ATK0110)	+= asus_atk0110.o
 # Native drivers
 # asb100, then w83781d go first, as they can override other drivers' addresses.
 obj-$(CONFIG_SENSORS_ASB100)	+= asb100.o
+obj-$(CONFIG_SENSORS_BMA250)	+= bma250.o
 obj-$(CONFIG_SENSORS_W83627HF)	+= w83627hf.o
 obj-$(CONFIG_SENSORS_W83792D)	+= w83792d.o
 obj-$(CONFIG_SENSORS_W83793)	+= w83793.o
