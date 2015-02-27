@@ -6,7 +6,7 @@ struct disp_lcd_private_data
 	disp_lcd_flow             close_flow;
 	disp_panel_para           panel_info;
 	panel_extend_para         panel_extend_info;
-	__disp_lcd_cfg_t          lcd_cfg;
+	disp_lcd_cfg              lcd_cfg;
 	disp_lcd_panel_fun        lcd_panel_fun;
 	bool                      enabling;
 	bool                      disabling;
@@ -601,11 +601,8 @@ static void lcd_panel_parameter_check(u32 disp, struct disp_device* lcd)
 }
 #endif
 
-static void lcd_get_sys_config(u32 disp, __disp_lcd_cfg_t *lcd_cfg)
+static void lcd_get_sys_config(u32 disp, disp_lcd_cfg *lcd_cfg)
 {
-    static char io_name[28][20] = {"lcdd0", "lcdd1", "lcdd2", "lcdd3", "lcdd4", "lcdd5", "lcdd6", "lcdd7", "lcdd8", "lcdd9", "lcdd10", "lcdd11",
-                         "lcdd12", "lcdd13", "lcdd14", "lcdd15", "lcdd16", "lcdd17", "lcdd18", "lcdd19", "lcdd20", "lcdd21", "lcdd22",
-                         "lcdd23", "lcdclk", "lcdde", "lcdhsync", "lcdvsync"};
     disp_gpio_set_t  *gpio_info;
     int  value = 1;
     char primary_key[20], sub_name[25];
@@ -633,25 +630,36 @@ static void lcd_get_sys_config(u32 disp, __disp_lcd_cfg_t *lcd_cfg)
         lcd_cfg->lcd_bl_en_used = 1;
     }
 
-	sprintf(sub_name, "lcd_bl_regulator");
-	ret = disp_sys_script_get_item(primary_key, sub_name, (int *)lcd_cfg->lcd_bl_regulator, 2);
+	sprintf(sub_name, "lcd_bl_en_power");
+	ret = disp_sys_script_get_item(primary_key, sub_name, (int *)lcd_cfg->lcd_bl_en_power, 2);
 
-//lcd_power0
+//lcd fix power
+	for (i=0; i<LCD_POWER_NUM; i++)
+	{
+		if (i==0)
+			sprintf(sub_name, "lcd_fix_power");
+		else
+			sprintf(sub_name, "lcd_fix_power%d", i);
+		lcd_cfg->lcd_power_used[i] = 0;
+		ret = disp_sys_script_get_item(primary_key,sub_name, (int *)(lcd_cfg->lcd_fix_power[i]), 2);
+		if (ret == 2) {
+			/* str */
+			lcd_cfg->lcd_fix_power_used[i] = 1;
+		}
+	}
+
+//lcd_power
 	for (i=0; i<LCD_POWER_NUM; i++)
 	{
 		if (i==0)
 			sprintf(sub_name, "lcd_power");
 		else
 			sprintf(sub_name, "lcd_power%d", i);
-		lcd_cfg->lcd_power_type[i] = 0; /* invalid */
-		ret = disp_sys_script_get_item(primary_key,sub_name, (int *)(lcd_cfg->lcd_regu[i]), 2);
-		if (ret == 3) {
-			/* gpio */
-		  lcd_cfg->lcd_power_type[i] = 1; /* gpio */
-		  memcpy(&(lcd_cfg->lcd_power[i]), lcd_cfg->lcd_regu[i], sizeof(disp_gpio_set_t));
-		} else if (ret == 2) {
+		lcd_cfg->lcd_power_used[i] = 0;
+		ret = disp_sys_script_get_item(primary_key,sub_name, (int *)(lcd_cfg->lcd_power[i]), 2);
+		if (ret == 2) {
 			/* str */
-			lcd_cfg->lcd_power_type[i] = 2; /* regulator */
+			lcd_cfg->lcd_power_used[i] = 1;
 		}
 	}
 
@@ -684,28 +692,17 @@ static void lcd_get_sys_config(u32 disp, __disp_lcd_cfg_t *lcd_cfg)
 
 	for (i = 0; i < LCD_GPIO_REGU_NUM; i++)
 	{
-		sprintf(sub_name, "lcd_gpio_regulator%d", i);
+		sprintf(sub_name, "lcd_gpio_power%d", i);
 
-		ret = disp_sys_script_get_item(primary_key, sub_name, (int *)lcd_cfg->lcd_gpio_regulator[i], 2);
+		ret = disp_sys_script_get_item(primary_key, sub_name, (int *)lcd_cfg->lcd_gpio_power[i], 2);
 	}
-
-//lcd io
-    for (i=0; i<28; i++)
-    {
-        gpio_info = &(lcd_cfg->lcd_io[i]);
-        ret = disp_sys_script_get_item(primary_key,io_name[i], (int *)gpio_info, 3);
-        if (ret == 3)
-        {
-            lcd_cfg->lcd_io_used[i]= 1;
-        }
-    }
 
 	for (i=0; i<LCD_GPIO_REGU_NUM; i++) {
 		if (0==i)
-			sprintf(sub_name, "lcd_io_regulator");
+			sprintf(sub_name, "lcd_pin_power");
 		else
-			sprintf(sub_name, "lcd_io_regulator%d", i);
-		ret = disp_sys_script_get_item(primary_key, sub_name, (int *)lcd_cfg->lcd_io_regulator[i], 2);
+			sprintf(sub_name, "lcd_pin_power%d", i);
+		ret = disp_sys_script_get_item(primary_key, sub_name, (int *)lcd_cfg->lcd_pin_power[i], 2);
 	}
 
 //backlight adjust
@@ -726,7 +723,7 @@ static void lcd_get_sys_config(u32 disp, __disp_lcd_cfg_t *lcd_cfg)
 
 	sprintf(sub_name, "lcd_backlight");
 	ret = disp_sys_script_get_item(primary_key, sub_name, &value, 1);
-	if(ret == 1) {
+	if (ret == 1) {
 		value = (value > 256)? 256:value;
 		lcd_cfg->backlight_bright = value;
 	} else {
@@ -892,8 +889,8 @@ static s32 disp_lcd_pin_cfg(struct disp_device *lcd, u32 bon)
 	//io-pad
 	if (bon == 1) {
 		for (i=0; i<LCD_GPIO_REGU_NUM; i++) {
-			if (!((!strcmp(lcdp->lcd_cfg.lcd_io_regulator[i], "")) || (!strcmp(lcdp->lcd_cfg.lcd_io_regulator[i], "none"))))
-				disp_sys_power_enable(lcdp->lcd_cfg.lcd_io_regulator[i]);
+			if (!((!strcmp(lcdp->lcd_cfg.lcd_pin_power[i], "")) || (!strcmp(lcdp->lcd_cfg.lcd_pin_power[i], "none"))))
+				disp_sys_power_enable(lcdp->lcd_cfg.lcd_pin_power[i]);
 		}
 	}
 
@@ -904,8 +901,8 @@ static s32 disp_lcd_pin_cfg(struct disp_device *lcd, u32 bon)
 
 	if (bon == 0) {
 		for (i=LCD_GPIO_REGU_NUM-1; i>=0; i--) {
-			if (!((!strcmp(lcdp->lcd_cfg.lcd_io_regulator[i], "")) || (!strcmp(lcdp->lcd_cfg.lcd_io_regulator[i], "none"))))
-				disp_sys_power_disable(lcdp->lcd_cfg.lcd_io_regulator[i]);
+			if (!((!strcmp(lcdp->lcd_cfg.lcd_pin_power[i], "")) || (!strcmp(lcdp->lcd_cfg.lcd_pin_power[i], "none"))))
+				disp_sys_power_disable(lcdp->lcd_cfg.lcd_pin_power[i]);
 		}
 	}
 
@@ -966,8 +963,8 @@ static s32 disp_lcd_backlight_enable(struct disp_device *lcd)
 		unsigned bl;
 		if (lcdp->lcd_cfg.lcd_bl_en_used) {
 			//io-pad
-			if (!((!strcmp(lcdp->lcd_cfg.lcd_bl_regulator, "")) || (!strcmp(lcdp->lcd_cfg.lcd_bl_regulator, "none"))))
-				disp_sys_power_enable(lcdp->lcd_cfg.lcd_bl_regulator);
+			if (!((!strcmp(lcdp->lcd_cfg.lcd_bl_en_power, "")) || (!strcmp(lcdp->lcd_cfg.lcd_bl_en_power, "none"))))
+				disp_sys_power_enable(lcdp->lcd_cfg.lcd_bl_en_power);
 
 			memcpy(gpio_info, &(lcdp->lcd_cfg.lcd_bl_en), sizeof(disp_gpio_set_t));
 
@@ -1001,8 +998,8 @@ static s32 disp_lcd_backlight_disable(struct disp_device *lcd)
 			disp_sys_gpio_release(hdl, 2);
 
 			//io-pad
-			if (!((!strcmp(lcdp->lcd_cfg.lcd_bl_regulator, "")) || (!strcmp(lcdp->lcd_cfg.lcd_bl_regulator, "none"))))
-				disp_sys_power_disable(lcdp->lcd_cfg.lcd_bl_regulator);
+			if (!((!strcmp(lcdp->lcd_cfg.lcd_bl_en_power, "")) || (!strcmp(lcdp->lcd_cfg.lcd_bl_en_power, "none"))))
+				disp_sys_power_disable(lcdp->lcd_cfg.lcd_bl_en_power);
 		}
 	}
 
@@ -1011,8 +1008,6 @@ static s32 disp_lcd_backlight_disable(struct disp_device *lcd)
 
 static s32 disp_lcd_power_enable(struct disp_device *lcd, u32 power_id)
 {
-	disp_gpio_set_t  gpio_info[1];
-	int hdl;
 	struct disp_lcd_private_data *lcdp = disp_lcd_get_priv(lcd);
 
 	if ((NULL == lcd) || (NULL == lcdp)) {
@@ -1021,15 +1016,9 @@ static s32 disp_lcd_power_enable(struct disp_device *lcd, u32 power_id)
 	}
 
 	if (disp_lcd_is_used(lcd)) {
-		if (lcdp->lcd_cfg.lcd_power_type[power_id] == 1) {
-			/* gpio type */
-			memcpy(gpio_info, &(lcdp->lcd_cfg.lcd_power[power_id]), sizeof(disp_gpio_set_t));
-
-			hdl = disp_sys_gpio_request(gpio_info, 1);
-			disp_sys_gpio_release(hdl, 2);
-		} else if (lcdp->lcd_cfg.lcd_power_type[power_id] == 2) {
+		if (1 == lcdp->lcd_cfg.lcd_power_used[power_id]) {
 			/* regulator type */
-			disp_sys_power_enable(lcdp->lcd_cfg.lcd_regu[power_id]);
+			disp_sys_power_enable(lcdp->lcd_cfg.lcd_power[power_id]);
 		}
 	}
 
@@ -1038,8 +1027,6 @@ static s32 disp_lcd_power_enable(struct disp_device *lcd, u32 power_id)
 
 static s32 disp_lcd_power_disable(struct disp_device *lcd, u32 power_id)
 {
-	disp_gpio_set_t  gpio_info[1];
-	int hdl;
 	struct disp_lcd_private_data *lcdp = disp_lcd_get_priv(lcd);
 
 	if ((NULL == lcd) || (NULL == lcdp)) {
@@ -1048,15 +1035,9 @@ static s32 disp_lcd_power_disable(struct disp_device *lcd, u32 power_id)
 	}
 
 	if (disp_lcd_is_used(lcd)) {
-		if (lcdp->lcd_cfg.lcd_power_type[power_id] == 1) {
-			memcpy(gpio_info, &(lcdp->lcd_cfg.lcd_power[power_id]), sizeof(disp_gpio_set_t));
-			gpio_info->data = (gpio_info->data==0)?1:0;
-			gpio_info->mul_sel = 7;
-			hdl = disp_sys_gpio_request(gpio_info, 1);
-			disp_sys_gpio_release(hdl, 2);
-		} else if (lcdp->lcd_cfg.lcd_power_type[power_id] == 2) {
+		if (1 == lcdp->lcd_cfg.lcd_power_used[power_id]) {
 			/* regulator type */
-			disp_sys_power_disable(lcdp->lcd_cfg.lcd_regu[power_id]);
+			disp_sys_power_disable(lcdp->lcd_cfg.lcd_power[power_id]);
 		}
 	}
 
@@ -1246,8 +1227,7 @@ static s32 disp_lcd_event_proc(void *parg)
 		if (cur_line <= (start_delay-4)) {
 			sync_event_proc(mgr->disp, false);
 		} else {
-            sync_event_proc(mgr->disp, false);
-			//sync_event_proc(mgr->disp, true);
+			sync_event_proc(mgr->disp, true);
 		}
 	}
 
@@ -1277,6 +1257,13 @@ static s32 disp_lcd_enable(struct disp_device* lcd)
 
 	if (mgr->enable)
 		mgr->enable(mgr);
+
+	/* init fix power */
+	for (i=0; i<LCD_POWER_NUM; i++) {
+		if (1 == lcdp->lcd_cfg.lcd_fix_power_used[i]) {
+			disp_sys_power_enable(lcdp->lcd_cfg.lcd_fix_power[i]);
+		}
+	}
 
 	disp_sys_register_irq(lcdp->irq_no,0,disp_lcd_event_proc,(void*)lcd,0,0);
 	disp_sys_enable_irq(lcdp->irq_no);
@@ -1340,6 +1327,13 @@ static s32 disp_lcd_fake_enable(struct disp_device* lcd)
 
 	if (mgr->enable)
 		mgr->enable(mgr);
+
+	/* init fix power */
+	for (i=0; i<LCD_POWER_NUM; i++) {
+		if (1 == lcdp->lcd_cfg.lcd_fix_power_used[i]) {
+			disp_sys_power_enable(lcdp->lcd_cfg.lcd_fix_power[i]);
+		}
+	}
 
 	disp_sys_register_irq(lcdp->irq_no,0,disp_lcd_event_proc,(void*)lcd,0,0);
 	disp_sys_enable_irq(lcdp->irq_no);
@@ -1419,6 +1413,13 @@ static s32 disp_lcd_disable(struct disp_device* lcd)
 	disp_sys_disable_irq(lcdp->irq_no);
 	disp_sys_unregister_irq(lcdp->irq_no, disp_lcd_event_proc,(void*)lcd);
 
+	/* disable fix power */
+	for (i=LCD_POWER_NUM -1; i>=0; i--) {
+		if (1 == lcdp->lcd_cfg.lcd_fix_power_used[i]) {
+			disp_sys_power_disable(lcdp->lcd_cfg.lcd_fix_power[i]);
+		}
+	}
+
 	if (mgr->disable)
 		mgr->disable(mgr);
 
@@ -1446,26 +1447,25 @@ static s32 disp_lcd_sw_enable(struct disp_device* lcd)
 	if (mgr->sw_enable)
 		mgr->sw_enable(mgr);
 
-	/* init power */
+	/* init fix power */
 	for (i=0; i<LCD_POWER_NUM; i++) {
-		if (lcdp->lcd_cfg.lcd_power_type[i] == 1) {
-			u32 hdl;
-			/* gpio type */
-			memcpy(gpio_info, &(lcdp->lcd_cfg.lcd_power[i]), sizeof(disp_gpio_set_t));
+		if (1 == lcdp->lcd_cfg.lcd_fix_power_used[i]) {
+			disp_sys_power_enable(lcdp->lcd_cfg.lcd_fix_power[i]);
+		}
+	}
 
-			hdl = disp_sys_gpio_request(gpio_info, 1);
-			disp_sys_gpio_release(hdl, 2);
-		} else if (lcdp->lcd_cfg.lcd_power_type[i] == 2) {
-			/* regulator type */
-			disp_sys_power_enable(lcdp->lcd_cfg.lcd_regu[i]);
+	/* init lcd power */
+	for (i=0; i<LCD_POWER_NUM; i++) {
+		if (1 == lcdp->lcd_cfg.lcd_power_used[i]) {
+			disp_sys_power_enable(lcdp->lcd_cfg.lcd_power[i]);
 		}
 	}
 
 	/* init gpio */
 	for (i = 0; i < LCD_GPIO_REGU_NUM; i++)
 	{
-		if (!((!strcmp(lcdp->lcd_cfg.lcd_gpio_regulator[i], "")) || (!strcmp(lcdp->lcd_cfg.lcd_gpio_regulator[i], "none"))))
-			disp_sys_power_enable(lcdp->lcd_cfg.lcd_gpio_regulator[i]);
+		if (!((!strcmp(lcdp->lcd_cfg.lcd_gpio_power[i], "")) || (!strcmp(lcdp->lcd_cfg.lcd_gpio_power[i], "none"))))
+			disp_sys_power_enable(lcdp->lcd_cfg.lcd_gpio_power[i]);
 	}
 
 	for (i=0; i<LCD_GPIO_NUM; i++) {
@@ -1479,15 +1479,15 @@ static s32 disp_lcd_sw_enable(struct disp_device* lcd)
 
 	/* init lcd pin */
 	for (i=0; i<LCD_GPIO_REGU_NUM; i++) {
-		if (!((!strcmp(lcdp->lcd_cfg.lcd_io_regulator[i], "")) || (!strcmp(lcdp->lcd_cfg.lcd_io_regulator[i], "none"))))
-			disp_sys_power_enable(lcdp->lcd_cfg.lcd_io_regulator[i]);
+		if (!((!strcmp(lcdp->lcd_cfg.lcd_pin_power[i], "")) || (!strcmp(lcdp->lcd_cfg.lcd_pin_power[i], "none"))))
+			disp_sys_power_enable(lcdp->lcd_cfg.lcd_pin_power[i]);
 	}
 
 	/* init bl */
 	if (lcdp->lcd_cfg.lcd_bl_en_used) {
 		//io-pad
-		if (!((!strcmp(lcdp->lcd_cfg.lcd_bl_regulator, "")) || (!strcmp(lcdp->lcd_cfg.lcd_bl_regulator, "none"))))
-			disp_sys_power_enable(lcdp->lcd_cfg.lcd_bl_regulator);
+		if (!((!strcmp(lcdp->lcd_cfg.lcd_bl_en_power, "")) || (!strcmp(lcdp->lcd_cfg.lcd_bl_en_power, "none"))))
+			disp_sys_power_enable(lcdp->lcd_cfg.lcd_bl_en_power);
 	}
 
 	spin_lock_irqsave(&lcd_data_lock, flags);
@@ -1593,8 +1593,8 @@ s32 disp_lcd_gpio_init(struct disp_device* lcd)
 	//io-pad
 	for (i = 0; i < LCD_GPIO_REGU_NUM; i++)
 	{
-		if (!((!strcmp(lcdp->lcd_cfg.lcd_gpio_regulator[i], "")) || (!strcmp(lcdp->lcd_cfg.lcd_gpio_regulator[i], "none"))))
-			disp_sys_power_enable(lcdp->lcd_cfg.lcd_gpio_regulator[i]);
+		if (!((!strcmp(lcdp->lcd_cfg.lcd_gpio_power[i], "")) || (!strcmp(lcdp->lcd_cfg.lcd_gpio_power[i], "none"))))
+			disp_sys_power_enable(lcdp->lcd_cfg.lcd_gpio_power[i]);
 	}
 
 	for (i=0; i<LCD_GPIO_NUM; i++) {
@@ -1638,8 +1638,8 @@ s32 disp_lcd_gpio_exit(struct disp_device* lcd)
 	//io-pad
 	for (i = LCD_GPIO_REGU_NUM-1; i>=0; i--)
 	{
-		if (!((!strcmp(lcdp->lcd_cfg.lcd_gpio_regulator[i], "")) || (!strcmp(lcdp->lcd_cfg.lcd_gpio_regulator[i], "none"))))
-			disp_sys_power_disable(lcdp->lcd_cfg.lcd_gpio_regulator[i]);
+		if (!((!strcmp(lcdp->lcd_cfg.lcd_gpio_power[i], "")) || (!strcmp(lcdp->lcd_cfg.lcd_gpio_power[i], "none"))))
+			disp_sys_power_disable(lcdp->lcd_cfg.lcd_gpio_power[i]);
 	}
 
 	return 0;

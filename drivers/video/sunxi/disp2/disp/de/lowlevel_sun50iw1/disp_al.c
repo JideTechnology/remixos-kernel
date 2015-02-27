@@ -43,6 +43,13 @@ int disp_al_manager_apply(unsigned int disp, struct disp_manager_data *data)
 		al_priv.disp_disp[data->config.disp_device] = disp;
 	}
 
+	if (al_priv.output_type[data->config.disp_device] == (u32)DISP_OUTPUT_TYPE_HDMI) {
+		if (data->config.cs != 0)//YUV output
+			tcon1_hdmi_color_remap(data->config.disp_device,1);
+		else
+			tcon1_hdmi_color_remap(data->config.disp_device,0);
+	}
+
 	return de_al_mgr_apply(disp, data);
 }
 
@@ -364,6 +371,38 @@ int disp_al_hdmi_cfg(u32 screen_id, struct disp_video_timings *video_info)
 	return 0;
 }
 
+/* tv */
+int disp_al_tv_enable(u32 screen_id)
+{
+	tcon1_open(screen_id);
+	return 0;
+}
+
+int disp_al_tv_disable(u32 screen_id)
+{
+	tcon1_close(screen_id);
+	tcon_exit(screen_id);
+
+	return 0;
+}
+
+int disp_al_tv_cfg(u32 screen_id, struct disp_video_timings *video_info)
+{
+	al_priv.output_type[screen_id] = (u32)DISP_OUTPUT_TYPE_TV;
+	al_priv.output_mode[screen_id] = (u32)video_info->tv_mode;
+	al_priv.output_fps[screen_id] = video_info->pixel_clk / video_info->hor_total_time /\
+		video_info->ver_total_time;
+	al_priv.tcon_index[screen_id] = 1;
+
+	de_update_device_fps(al_priv.disp_disp[screen_id], al_priv.output_fps[screen_id]);
+
+	tcon_init(screen_id);
+	tcon1_set_timming(screen_id, video_info);
+	tcon1_yuv_range(screen_id, 1);
+
+	return 0;
+}
+
 int disp_al_vdevice_cfg(u32 screen_id, struct disp_video_timings *video_info, struct disp_vdevice_interface_para *para)
 {
 	struct lcd_clk_info clk_info;
@@ -389,7 +428,11 @@ int disp_al_vdevice_cfg(u32 screen_id, struct disp_video_timings *video_info, st
 	info.lcd_vt = video_info->ver_total_time;
 	info.lcd_vbp = video_info->ver_back_porch + video_info->ver_sync_time;
 	info.lcd_vspw = video_info->ver_sync_time;
+	info.lcd_interlace = video_info->b_interlace;
 	info.lcd_hv_syuv_fdly = para->fdelay;
+	info.lcd_hv_clk_phase = para->clk_phase;
+	info.lcd_hv_sync_polarity = para->sync_polarity;
+
 	if (LCD_HV_IF_CCIR656_2CYC == info.lcd_hv_if)
 		info.lcd_hv_syuv_seq = para->sequence;
 	else
@@ -429,15 +472,14 @@ int disp_al_vdevice_disable(u32 screen_id)
 /* screen_id: used for index of manager */
 int disp_al_device_get_cur_line(u32 screen_id)
 {
-	u32 tcon_index = 0;
+	u32 tcon_index = al_priv.tcon_index[screen_id];
 
-	tcon_index = (al_priv.output_type[screen_id] == (u32)DISP_OUTPUT_TYPE_LCD)?0:1;
 	return tcon_get_cur_line(screen_id, tcon_index);
 }
 
 int disp_al_device_get_start_delay(u32 screen_id)
 {
-	u32 tcon_index = 0;
+	u32 tcon_index = al_priv.tcon_index[screen_id];
 
 	tcon_index = (al_priv.output_type[screen_id] == (u32)DISP_OUTPUT_TYPE_LCD)?0:1;
 	return tcon_get_start_delay(screen_id, tcon_index);
@@ -448,7 +490,7 @@ int disp_al_device_query_irq(u32 screen_id)
 	int ret = 0;
 	int irq_id = 0;
 
-	irq_id = (al_priv.output_type[screen_id] == (u32)DISP_OUTPUT_TYPE_LCD)?\
+	irq_id = (al_priv.tcon_index[screen_id] == 0)?\
 		LCD_IRQ_TCON0_VBLK:LCD_IRQ_TCON1_VBLK;
 	ret = tcon_irq_query(screen_id, irq_id);
 
@@ -460,7 +502,7 @@ int disp_al_device_enable_irq(u32 screen_id)
 	int ret = 0;
 	int irq_id = 0;
 
-	irq_id = (al_priv.output_type[screen_id] == (u32)DISP_OUTPUT_TYPE_LCD)?\
+	irq_id = (al_priv.tcon_index[screen_id] == 0)?\
 		LCD_IRQ_TCON0_VBLK:LCD_IRQ_TCON1_VBLK;
 	ret = tcon_irq_enable(screen_id, irq_id);
 
@@ -472,7 +514,7 @@ int disp_al_device_disable_irq(u32 screen_id)
 	int ret = 0;
 	int irq_id = 0;
 
-	irq_id = (al_priv.output_type[screen_id] == (u32)DISP_OUTPUT_TYPE_LCD)?\
+	irq_id = (al_priv.tcon_index[screen_id] == 0)?\
 		LCD_IRQ_TCON0_VBLK:LCD_IRQ_TCON1_VBLK;
 	ret = tcon_irq_disable(screen_id, irq_id);
 
@@ -519,9 +561,15 @@ int disp_init_al(disp_bsp_init_para * para)
 		disp_device = al_priv.disp_device[disp];
 
 		/* should take care about this, extend display treated as a LCD OUTPUT */
-		al_priv.output_type[disp_device] = (DISP_OUTPUT_TYPE_HDMI == para->boot_info.type)?DISP_OUTPUT_TYPE_HDMI:DISP_OUTPUT_TYPE_LCD;
+		al_priv.output_type[disp_device] = para->boot_info.type;
 		al_priv.output_mode[disp_device] = para->boot_info.mode;
-		al_priv.tcon_index[disp_device] = (DISP_OUTPUT_TYPE_HDMI == para->boot_info.type)?1:0;
+		al_priv.tcon_index[disp_device] = 0;
+#if defined(SUPPORT_HDMI)
+		al_priv.tcon_index[disp_device] = (DISP_OUTPUT_TYPE_HDMI == para->boot_info.type)?1:al_priv.tcon_index[disp_device];
+#endif
+#if defined(SUPPORT_TV)
+		al_priv.tcon_index[disp_device] = (DISP_OUTPUT_TYPE_TV == para->boot_info.type)?1:al_priv.tcon_index[disp_device];
+#endif
 
 		de_rtmx_sync_hw(disp);
 		de_rtmx_get_display_size(disp, &al_priv.disp_size[disp].width, &al_priv.disp_size[disp].height);

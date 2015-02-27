@@ -12,7 +12,6 @@ struct disp_manager_private_data {
 	u32 irq_no;
 	struct clk *clk;
 	struct clk *clk_parent;
-	unsigned long clk_rate;
 };
 
 #if defined(__LINUX_PLAT__)
@@ -923,7 +922,6 @@ static s32 disp_mgr_apply(struct disp_manager *mgr)
 		u32 num_layers = bsp_disp_feat_get_num_layers(mgr->disp);
 		struct disp_layer_config_data *lyr_cfg = disp_mgr_get_layer_cfg_head(mgr);
 
-		//FIXME, disp 1' lyr_cfgs should start from 16
 		disp_al_layer_apply(mgr->disp, lyr_cfg, num_layers);
 	}
 	disp_mgr_shadow_protect(mgr, false);
@@ -1172,7 +1170,6 @@ s32 disp_init_mgr(disp_bsp_init_para * para)
 		mgrp->irq_no = para->irq_no[DISP_MOD_DE];
 		mgrp->shadow_protect = para->shadow_protect;
 		mgrp->clk = para->mclk[DISP_MOD_DE];
-		mgrp->clk_rate = DE_CORE_CLK_RATE;
 
 		mgr->enable = disp_mgr_enable;
 		mgr->sw_enable = disp_mgr_sw_enable;

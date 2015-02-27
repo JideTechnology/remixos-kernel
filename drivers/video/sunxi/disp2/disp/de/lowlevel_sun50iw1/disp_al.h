@@ -65,6 +65,9 @@ int disp_al_hdmi_enable(u32 screen_id);
 int disp_al_hdmi_disable(u32 screen_id);
 int disp_al_hdmi_cfg(u32 screen_id, struct disp_video_timings *video_info);
 
+int disp_al_tv_enable(u32 screen_id);
+int disp_al_tv_disable(u32 screen_id);
+int disp_al_tv_cfg(u32 screen_id, struct disp_video_timings *video_info);
 int disp_al_vdevice_cfg(u32 screen_id, struct disp_video_timings *video_info, struct disp_vdevice_interface_para *para);
 int disp_al_vdevice_enable(u32 screen_id);
 int disp_al_vdevice_disable(u32 screen_id);

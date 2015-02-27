@@ -50,11 +50,11 @@
 s32 bsp_disp_get_print_level(void);
 
 #if 1
-#define __inf(msg...)       do{if (bsp_disp_get_print_level()){printk(KERN_WARNING "[DISP] %s,line:%d:",__func__,__LINE__);printk(msg);}}while(0)
-#define __msg(msg...)       do{if (bsp_disp_get_print_level()){printk(KERN_WARNING "[DISP] %s,line:%d:",__func__,__LINE__);printk(msg);}}while(0)
-#define __wrn(msg...)       do{{printk(KERN_WARNING "[DISP] %s,line:%d:",__func__,__LINE__);printk(msg);}}while(0)
-#define __here__            do{if (bsp_disp_get_print_level()==2){printk(KERN_WARNING "[DISP] %s,line:%d\n",__func__,__LINE__);}}while(0)
-#define __debug(msg...)     do{if (bsp_disp_get_print_level()==2){printk(KERN_WARNING "[DISP] %s,line:%d:",__func__,__LINE__);printk(msg);}}while(0)
+#define __inf(msg...)       do{if (bsp_disp_get_print_level()){printk(KERN_WARNING "[DISP] %s,line:%d:",__func__,__LINE__);printk(msg);}}while (0)
+#define __msg(msg...)       do{if (bsp_disp_get_print_level()){printk(KERN_WARNING "[DISP] %s,line:%d:",__func__,__LINE__);printk(msg);}}while (0)
+#define __wrn(msg...)       do{{printk(KERN_WARNING "[DISP] %s,line:%d:",__func__,__LINE__);printk(msg);}}while (0)
+#define __here__            do{if (bsp_disp_get_print_level()==2){printk(KERN_WARNING "[DISP] %s,line:%d\n",__func__,__LINE__);}}while (0)
+#define __debug(msg...)     do{if (bsp_disp_get_print_level()==2){printk(KERN_WARNING "[DISP] %s,line:%d:",__func__,__LINE__);printk(msg);}}while (0)
 #else
 #define __inf(msg...)  printk(msg)
 #define __msg(msg...)  printk(msg)
@@ -537,6 +537,7 @@ typedef struct
 	unsigned int            lcd_vspw;
 	unsigned int            lcd_hspw;
 
+	unsigned int            lcd_interlace;
 	unsigned int            lcd_hv_clk_phase;
 	unsigned int            lcd_hv_sync_polarity;
 
@@ -584,6 +585,7 @@ typedef struct
 	unsigned int          skip_cnt;
 	unsigned int          error_cnt;//under flow .ect
 	unsigned int          irq_cnt;
+	unsigned int          vsync_cnt;
 }disp_health_info;
 
 typedef struct
@@ -695,8 +697,9 @@ struct disp_device {
 	s32 (*set_mode)(struct disp_device *dispdev, u32 mode);
 	s32 (*get_mode)(struct disp_device *dispdev);
 	s32 (*check_support_mode)(struct disp_device* dispdev, u32 mode);
-	s32 (*set_func)(struct disp_device*  dispdev, struct disp_hdmi_func * func);
+	s32 (*set_func)(struct disp_device*  dispdev, struct disp_device_func * func);
 	s32 (*set_tv_func)(struct disp_device*  dispdev, struct disp_tv_func * func);
+	s32 (*set_enhance_mode)(struct disp_device *dispdev, u32 mode);
 
 	/* LCD */
 	s32 (*set_bright)(struct disp_device *dispdev, u32 bright);

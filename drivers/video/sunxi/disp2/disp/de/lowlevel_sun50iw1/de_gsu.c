@@ -253,11 +253,17 @@ int de_gsu_calc_scaler_para(de_rect64 crop, de_rect frame, de_rect *crop_fix,sca
 	unsigned long long tmp = 0;
 
 	tmp = (N2_POWER(crop.w,GSU_PHASE_FRAC_BITWIDTH));
-	do_div(tmp, frame.w);
+	if (frame.w)
+		do_div(tmp, frame.w);
+	else
+		tmp = 0;
 	para->hstep= (unsigned int)(tmp>>GSU_FB_FRAC_BITWIDTH);
 
 	tmp = (N2_POWER(crop.h,GSU_PHASE_FRAC_BITWIDTH));
-	do_div(tmp, frame.h);
+	if (frame.h)
+		do_div(tmp, frame.h);
+	else
+		tmp = 0;
 	para->vstep= (unsigned int)(tmp>>GSU_FB_FRAC_BITWIDTH);
 
 	para->hphase = ((crop.x & 0xffffffff)>>(32-GSU_PHASE_FRAC_BITWIDTH));

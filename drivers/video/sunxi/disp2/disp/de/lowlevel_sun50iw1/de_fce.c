@@ -417,7 +417,7 @@ static void auto_ce_model(unsigned int width, unsigned height, unsigned int sumc
 	u32 i;
 	u32 mean;
 	u32 total_pixel, total_pixel_r, total_size;
-	__s32 uthr, lthr;
+	s32 uthr, lthr;
 	u32 rate, half;
 	int tmp;
 	unsigned int black_str_lv;

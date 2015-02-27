@@ -29,7 +29,7 @@ typedef struct
 	u32                     pseudo_palette [FB_MAX][16];
 	wait_queue_head_t       wait[3];
 	unsigned long           wait_count[3];
-	struct work_struct      vsync_work[3];
+	struct task_struct      *vsync_task[3];
 	ktime_t                 vsync_timestamp[3];
 
 	int                     blank[3];
@@ -666,42 +666,40 @@ s32 drv_disp_vsync_event(u32 sel)
 {
 	g_fbi.vsync_timestamp[sel] = ktime_get();
 
-	schedule_work(&g_fbi.vsync_work[sel]);
+	if (g_fbi.vsync_task[sel])
+		wake_up_process(g_fbi.vsync_task[sel]);
 
 	return 0;
 }
 
-static void send_vsync_work_0(struct work_struct *work)
+static int vsync_proc(u32 disp)
 {
 	char buf[64];
 	char *envp[2];
 
-	snprintf(buf, sizeof(buf), "VSYNC0=%llu",ktime_to_ns(g_fbi.vsync_timestamp[0]));
+	snprintf(buf, sizeof(buf), "VSYNC%d=%llu",disp, ktime_to_ns(g_fbi.vsync_timestamp[disp]));
 	envp[0] = buf;
 	envp[1] = NULL;
 	kobject_uevent_env(&g_fbi.dev->kobj, KOBJ_CHANGE, envp);
+
+	return 0;
 }
 
-static void send_vsync_work_1(struct work_struct *work)
+static int vsync_thread(void *parg)
 {
-	char buf[64];
-	char *envp[2];
+	unsigned long disp = (unsigned long)parg;
 
-	snprintf(buf, sizeof(buf), "VSYNC1=%llu",ktime_to_ns(g_fbi.vsync_timestamp[1]));
-	envp[0] = buf;
-	envp[1] = NULL;
-	kobject_uevent_env(&g_fbi.dev->kobj, KOBJ_CHANGE, envp);
-}
+	while (1) {
 
-static void send_vsync_work_2(struct work_struct *work)
-{
-	char buf[64];
-	char *envp[2];
+		vsync_proc(disp);
+		set_current_state(TASK_INTERRUPTIBLE);
+		schedule();
+		if (kthread_should_stop())
+			break;
+		set_current_state(TASK_RUNNING);
+	}
 
-	snprintf(buf, sizeof(buf), "VSYNC2=%llu",ktime_to_ns(g_fbi.vsync_timestamp[2]));
-	envp[0] = buf;
-	envp[1] = NULL;
-	kobject_uevent_env(&g_fbi.dev->kobj, KOBJ_CHANGE, envp);
+	return 0;
 }
 
 void DRV_disp_int_process(u32 sel)
@@ -1226,17 +1224,30 @@ s32 Display_set_fb_timming(u32 sel)
 s32 fb_init(struct platform_device *pdev)
 {
 	struct disp_fb_create_info fb_para;
-	s32 i;
+	unsigned long i;
 	u32 num_screens;
+	//struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
 
 	g_fbi.dev = &pdev->dev;
 	num_screens = bsp_disp_feat_get_num_screens();
 
 	__inf("[DISP] %s\n", __func__);
 
-	INIT_WORK(&g_fbi.vsync_work[0], send_vsync_work_0);
-	INIT_WORK(&g_fbi.vsync_work[1], send_vsync_work_1);
-	INIT_WORK(&g_fbi.vsync_work[2], send_vsync_work_2);
+	for (i=0; i<num_screens; i++) {
+		char task_name[25];
+
+		sprintf(task_name, "vsync proc %ld", i);
+		g_fbi.vsync_task[i] = kthread_create(vsync_thread, (void*)i, task_name);
+		if (IS_ERR(g_fbi.vsync_task[i])) {
+			s32 err = 0;
+			__wrn("Unable to start kernel thread %s.\n","hdmi proc");
+			err = PTR_ERR(g_fbi.vsync_task[i]);
+			g_fbi.vsync_task[i] = NULL;
+		} else {
+			//sched_setscheduler(g_fbi.vsync_task[i], SCHED_FIFO, &param);
+			wake_up_process(g_fbi.vsync_task[i]);
+		}
+	}
 	init_waitqueue_head(&g_fbi.wait[0]);
 	init_waitqueue_head(&g_fbi.wait[1]);
 	init_waitqueue_head(&g_fbi.wait[2]);

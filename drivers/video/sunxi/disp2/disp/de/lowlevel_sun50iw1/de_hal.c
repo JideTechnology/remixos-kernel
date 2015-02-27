@@ -176,16 +176,10 @@ int de_al_lyr_apply(unsigned int screen_id, struct disp_layer_config_data *data,
 	struct disp_rect dispsize[CHN_NUM] = {{0}};
 	struct disp_layer_config_data *data1;
 	data1 = data;
-#if 0
-	for (i=0; i<8; i++) {
-		dump_layer_config(data1);
-		data1 ++;
-	}
-#endif
+
 	chn = de_feat_get_num_chns(screen_id);
 	vi_chn = de_feat_get_num_vi_chns(screen_id);
 	layno = LAYER_MAX_NUM_PER_CHN;
-//	layno = de_feat_get_num_layers(screen_id);
 
 	/* parse zorder of channel */
 	data1 = data;
@@ -413,7 +407,9 @@ int de_al_mgr_apply(unsigned int screen_id, struct disp_manager_data *data)
 		de_rtmx_set_enable(screen_id, data->config.enable);
 		de_rtmx_mux(screen_id, data->config.disp_device);
 		de_rtmx_set_outitl(screen_id,data->config.interlace);
-		//FIXME
+	}
+
+	if (data->flag & MANAGER_COLOR_SPACE_DIRTY) {
 		de_dcsc_get_config(screen_id, &csc_cfg_temp);
 		csc_cfg.enhance_mode = csc_cfg_temp.enhance_mode;
 		csc_cfg.in_fmt = DISP_CSC_TYPE_RGB;

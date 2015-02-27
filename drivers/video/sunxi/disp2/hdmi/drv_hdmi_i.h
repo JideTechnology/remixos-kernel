@@ -41,11 +41,11 @@ extern u32 hdmi_print;
 extern u32 rgb_only;
 extern u32 hdmi_hpd_mask;//0x10: force unplug; 0x11: force plug
 
-#define OSAL_PRINTF(msg...) do{printk(KERN_WARNING "[HDMI] ");printk(msg);}while(0)
-#define __inf(msg...)       do{if (hdmi_print){printk(KERN_WARNING "[HDMI] ");printk(msg);}}while(0)
-#define __msg(msg...)       do{if (hdmi_print){printk(KERN_WARNING "[HDMI] file:%s,line:%d:",__FILE__,__LINE__);printk(msg);}}while(0)
-#define __wrn(msg...)       do{printk(KERN_WARNING "[HDMI WRN] file:%s,line:%d:    ",__FILE__,__LINE__);printk(msg);}while(0)
-#define __here__            do{if (hdmi_print){printk(KERN_WARNING "[HDMI] file:%s,line:%d\n",__FILE__,__LINE__);}}while(0)
+#define OSAL_PRINTF(msg...) do{printk(KERN_WARNING "[HDMI] ");printk(msg);}while (0)
+#define __inf(msg...)       do{if (hdmi_print){printk(KERN_WARNING "[HDMI] ");printk(msg);}}while (0)
+#define __msg(msg...)       do{if (hdmi_print){printk(KERN_WARNING "[HDMI] file:%s,line:%d:",__FILE__,__LINE__);printk(msg);}}while (0)
+#define __wrn(msg...)       do{printk(KERN_WARNING "[HDMI WRN] file:%s,line:%d:    ",__FILE__,__LINE__);printk(msg);}while (0)
+#define __here__            do{if (hdmi_print){printk(KERN_WARNING "[HDMI] file:%s,line:%d\n",__FILE__,__LINE__);}}while (0)
 
 
 s32 hdmi_init(struct platform_device *pdev);

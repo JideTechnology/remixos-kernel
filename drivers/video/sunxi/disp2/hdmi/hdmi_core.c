@@ -18,7 +18,7 @@ static struct mutex hdmi_lock;
 static s32 audio_config_internal(void);
 extern u32 is_exp;
 u32	hdmi_print = 0;
-u32 hdmi_hpd_mask = 0x00;//0x10: force unplug; 0x11: force plug
+u32 hdmi_hpd_mask = 0x00;//0x10: force unplug; 0x11: force plug; 0x1xx: unreport hpd state
 
 static s32 video_config(u32 vic);
 
@@ -82,7 +82,8 @@ s32 hdmi_core_initial(bool sw_only)
 		if (bsp_hdmi_get_hpd()) {
 			hdmi_edid_parse();
 			video_on = 1;
-			hdmi_hpd_event();
+			if (0 == (hdmi_hpd_mask & 0x100))
+				hdmi_hpd_event();
 		}
 	} else {
 		bsp_hdmi_init();
@@ -137,7 +138,8 @@ s32 hdmi_core_loop(void)
 			hdmi_state = HDMI_State_Idle;
 			video_on = 0;
 			audio_on = 0;
-			hdmi_hpd_event();
+			if (0 == (hdmi_hpd_mask & 0x100))
+				hdmi_hpd_event();
 		}
 
 		if ((times++) >= 10) {
@@ -169,7 +171,8 @@ s32 hdmi_core_loop(void)
 			__inf("HDMI_State_EDID_Parse\n");
 			hdmi_edid_parse();
 			hdmi_state = HDMI_State_HPD_Done;
-			hdmi_hpd_event();
+			if (0 == (hdmi_hpd_mask & 0x100))
+				hdmi_hpd_event();
 
 			if (video_enable)
 				hdmi_core_set_video_enable(true);

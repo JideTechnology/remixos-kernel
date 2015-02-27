@@ -10,19 +10,6 @@ static struct disp_device_private_data *g_ptv_private = NULL;
 static bool g_tv_used = 0;
 disp_bsp_init_para g_init_para;
 
-struct disp_device* disp_get_tv(u32 disp)
-{
-	u32 num_screens;
-
-	num_screens = bsp_disp_feat_get_num_screens();
-	if (disp >= num_screens || !bsp_disp_feat_is_supported_output_types(disp, DISP_OUTPUT_TYPE_TV)) {
-		DE_WRN("disp %d not support TV output\n", disp);
-		return NULL;
-	}
-
-	return &g_ptv_devices[disp];
-}
-
 static struct disp_device_private_data *disp_tv_get_priv(struct disp_device *ptv)
 {
 	if (NULL == ptv) {
@@ -30,7 +17,7 @@ static struct disp_device_private_data *disp_tv_get_priv(struct disp_device *ptv
 		return NULL;
 	}
 
-	if (!bsp_disp_feat_is_supported_output_types(ptv->disp, DISP_OUTPUT_TYPE_TV)) { //modify  1
+	if (!bsp_disp_feat_is_supported_output_types(ptv->disp, DISP_OUTPUT_TYPE_TV)) {
 	    DE_WRN("screen %d do not support TV TYPE!\n", ptv->disp);
 	    return NULL;
 	}
@@ -46,15 +33,22 @@ static s32 disp_tv_event_proc(int irq, void *parg)
 static s32 disp_tv_event_proc(void *parg)
 #endif
 {
-	u32 disp = (u32)parg;
-	struct disp_device *ptv = disp_get_tv(disp);
+	struct disp_device *ptv = (struct disp_device *)parg;
 	struct disp_manager *mgr = NULL;
+	u32 disp;
 
-	mgr = ptv->manager;
-	if (disp_al_device_query_irq(disp)) {		//modify
+	if (ptv==NULL) {
+		DE_WRN("ptv is null.\n");
+		return DISP_IRQ_RETURN;
+	}
+
+	disp = ptv->disp;
+	if (disp_al_device_query_irq(disp)) {
 		int cur_line = disp_al_device_get_cur_line(disp);
 		int start_delay = disp_al_device_get_start_delay(disp);
-		if ((NULL == ptv) || (NULL == mgr))
+
+		mgr = ptv->manager;
+		if (NULL == mgr)
 			return DISP_IRQ_RETURN;
 
 		if (cur_line <= (start_delay-4)) {
@@ -71,21 +65,42 @@ static s32 disp_tv_event_proc(void *parg)
 static s32 tv_clk_init(struct disp_device*  ptv)
 {
 	struct disp_device_private_data *ptvp = disp_tv_get_priv(ptv);
+
 	if (!ptv || !ptvp) {
 	    DE_WRN("tv init null hdl!\n");
 	    return DIS_FAIL;
 	}
-	return disp_sys_clk_set_parent(ptvp->clk, ptvp->clk_parent);
+
+	ptvp->clk_parent = clk_get_parent(ptvp->clk);
+
+	return 0;
+}
+
+static s32 tv_clk_exit(struct disp_device*  ptv)
+{
+	struct disp_device_private_data *ptvp = disp_tv_get_priv(ptv);
+
+	if (!ptv || !ptvp) {
+	    DE_WRN("tv init null hdl!\n");
+	    return DIS_FAIL;
+	}
+
+	if (ptvp->clk_parent)
+		clk_put(ptvp->clk_parent);
+
+	return 0;
 }
 
 static s32 tv_clk_config(struct disp_device*  ptv)
 {
 	struct disp_device_private_data *ptvp = disp_tv_get_priv(ptv);
+
 	if (!ptv || !ptvp) {
 		DE_WRN("tv init null hdl!\n");
 		return DIS_FAIL;
 	}
-	return disp_sys_clk_set_rate(ptvp->clk, ptv->timings.pixel_clk);
+
+	return clk_set_rate(ptvp->clk, ptv->timings.pixel_clk);
 }
 
 #endif
@@ -93,39 +108,44 @@ static s32 tv_clk_config(struct disp_device*  ptv)
 static s32 tv_clk_enable(struct disp_device*  ptv)
 {
 	struct disp_device_private_data *ptvp = disp_tv_get_priv(ptv);
+
 	if (!ptv || !ptvp) {
 	    DE_WRN("tv init null hdl!\n");
 	    return DIS_FAIL;
 	}
-	return disp_sys_clk_enable(ptvp->clk);
+
+	return clk_prepare_enable(ptvp->clk);
 
 }
 
 static s32 tv_clk_disable(struct disp_device*  ptv)
 {
 	struct disp_device_private_data *ptvp = disp_tv_get_priv(ptv);
+
 	if (!ptv || !ptvp) {
 	    DE_WRN("tv init null hdl!\n");
 	    return DIS_FAIL;
 	}
-	return disp_sys_clk_disable(ptvp->clk);
+
+	clk_disable(ptvp->clk);
+
+	return 0;
 }
 
 s32 disp_tv_enable( struct disp_device* ptv)
 {
+	int ret;
 	struct disp_manager *mgr = NULL;
 	unsigned long flags;
 	struct disp_device_private_data *ptvp = disp_tv_get_priv(ptv);
 
-	DE_INF("%s, disp%d\n", __func__, ptv->disp);
 	if (!ptv || !ptvp) {
-		DE_WRN("tv init null hdl!\n");
-		pr_debug("[DISP_TV] ptv | ptvp is wrong\n");
+		DE_WRN(" ptv | ptvp is null\n");
 		return DIS_FAIL;
 	}
 
 	if ((NULL == ptv) || (NULL == ptvp)) {
-		DE_WRN("hdmi set func null  hdl!\n");
+		DE_WRN("tv set func null  hdl!\n");
 		return DIS_FAIL;
 	}
 	mgr = ptv->manager;
@@ -165,7 +185,10 @@ s32 disp_tv_enable( struct disp_device* ptv)
 	disp_al_tv_cfg(ptv->disp, ptvp->video_info);
 	disp_al_tv_enable(ptv->disp);
 
-	disp_sys_register_irq(ptvp->irq_no,0,disp_tv_event_proc,(void*)ptv->disp,0,0);
+	ret = disp_sys_register_irq(ptvp->irq_no,0,disp_tv_event_proc,(void*)ptv,0,0);
+	if (ret!=0) {
+		DE_WRN("tv request irq failed!\n");
+	}
 	disp_sys_enable_irq(ptvp->irq_no);
 	spin_lock_irqsave(&g_tv_data_lock, flags);
 	ptvp->enabled = 1;
@@ -178,7 +201,7 @@ s32 disp_tv_sw_enable( struct disp_device* ptv)
 	struct disp_manager *mgr = NULL;
 	unsigned long flags;
 	struct disp_device_private_data *ptvp = disp_tv_get_priv(ptv);
-	printk("[disp_tv]enter disp_tv_sw_enable");
+
 	if (!ptv || !ptvp) {
 		DE_WRN("tv init null hdl!\n");
 		pr_debug("[DISP_TV] ptv | ptvp is wrong\n");
@@ -218,7 +241,7 @@ s32 disp_tv_sw_enable( struct disp_device* ptv)
 		return -1;
 	}
 
-	disp_sys_register_irq(ptvp->irq_no,0,disp_tv_event_proc,(void*)ptv->disp,0,0);
+	disp_sys_register_irq(ptvp->irq_no,0,disp_tv_event_proc,(void*)ptv,0,0);
 	disp_sys_enable_irq(ptvp->irq_no);
 
 	spin_lock_irqsave(&g_tv_data_lock, flags);
@@ -233,6 +256,7 @@ s32 disp_tv_disable(struct disp_device* ptv)
 	struct disp_device_private_data *ptvp = disp_tv_get_priv(ptv);
 	unsigned long flags;
 	struct disp_manager *mgr = NULL;
+
 	if ((NULL == ptv) || (NULL == ptvp)) {
 	    DE_WRN("tv set func null  hdl!\n");
 	    return DIS_FAIL;
@@ -264,19 +288,15 @@ s32 disp_tv_disable(struct disp_device* ptv)
 	spin_unlock_irqrestore(&g_tv_data_lock, flags);
 
 	disp_sys_disable_irq(ptvp->irq_no);
-	disp_sys_unregister_irq(ptvp->irq_no, disp_tv_event_proc,(void*)ptv->disp);
+	disp_sys_unregister_irq(ptvp->irq_no, disp_tv_event_proc,(void*)ptv);
 	disp_delay_ms(1000);
-	return 0;
-}
-
-static s32 tv_clk_exit(struct disp_device*  ptv)
-{
 	return 0;
 }
 
 static s32 disp_tv_init(struct disp_device*  ptv)
 {
 	struct disp_device_private_data *ptvp = disp_tv_get_priv(ptv);
+
 	if (!ptv || !ptvp) {
 	    DE_WRN("tv init null hdl!\n");
 	    return DIS_FAIL;
@@ -291,12 +311,15 @@ static s32 disp_tv_init(struct disp_device*  ptv)
 s32 disp_tv_exit(struct disp_device* ptv)
 {
 	struct disp_device_private_data *ptvp = disp_tv_get_priv(ptv);
+
 	if (!ptv || !ptvp) {
 	    DE_WRN("tv init null hdl!\n");
 	    return DIS_FAIL;
 	}
 	disp_tv_disable(ptv);
+#if defined(CONFIG_ARCH_SUN8IW6)
 	tv_clk_exit(ptv);
+#endif
 	kfree(ptv);
 	kfree(ptvp);
 	ptv = NULL;
@@ -307,6 +330,7 @@ s32 disp_tv_exit(struct disp_device* ptv)
 s32 disp_tv_is_enabled(struct disp_device* ptv)
 {
 	struct disp_device_private_data *ptvp = disp_tv_get_priv(ptv);
+
 	if ((NULL == ptv) || (NULL == ptvp)) {
 		DE_WRN("tv set func null  hdl!\n");
 		return DIS_FAIL;
@@ -320,13 +344,17 @@ s32 disp_tv_is_enabled(struct disp_device* ptv)
 s32 disp_tv_suspend(struct disp_device* ptv)
 {
 	struct disp_device_private_data *ptvp = disp_tv_get_priv(ptv);
+
 	if ((NULL == ptv) || (NULL == ptvp)) {
 		DE_WRN("tv set func null  hdl!\n");
 		return DIS_FAIL;
 	}
 
-	if (ptvp->tv_func.tv_suspend != NULL) {
-		ptvp->tv_func.tv_suspend();
+	if (false == ptvp->suspended) {
+		ptvp->suspended = true;
+		if (ptvp->tv_func.tv_suspend != NULL) {
+			ptvp->tv_func.tv_suspend();
+		}
 	}
 	return 0;
 }
@@ -334,14 +362,19 @@ s32 disp_tv_suspend(struct disp_device* ptv)
 s32 disp_tv_resume(struct disp_device* ptv)
 {
 	struct disp_device_private_data *ptvp = disp_tv_get_priv(ptv);
+
 	if ((NULL == ptv) || (NULL == ptvp)) {
 		DE_WRN("tv set func null  hdl!\n");
 		return DIS_FAIL;
 	}
 
-	if (ptvp->tv_func.tv_resume != NULL) {
-		ptvp->tv_func.tv_resume();
+	if (true == ptvp->suspended) {
+		if (ptvp->tv_func.tv_resume != NULL) {
+			ptvp->tv_func.tv_resume();
+		}
+		ptvp->suspended = false;
 	}
+
 	return 0;
 }
 
@@ -349,6 +382,7 @@ s32 disp_tv_set_mode(struct disp_device* ptv, enum disp_output_type tv_mode)
 {
 	s32 ret = 0;
 	struct disp_device_private_data *ptvp = disp_tv_get_priv(ptv);
+
 	if ((NULL == ptv) || (NULL == ptvp)) {
 		DE_WRN("tv set func null  hdl!\n");
 		return DIS_FAIL;
@@ -372,6 +406,7 @@ s32 disp_tv_get_mode(struct disp_device* ptv)
 
 	enum disp_output_type  tv_mode;
 	struct disp_device_private_data *ptvp = disp_tv_get_priv(ptv);
+
 	if ((NULL == ptv) || (NULL == ptvp)) {
 		DE_WRN("tv set func null  hdl!\n");
 		return DIS_FAIL;
@@ -394,6 +429,7 @@ s32 disp_tv_get_mode(struct disp_device* ptv)
 s32 disp_tv_get_input_csc(struct disp_device* ptv)
 {
 	struct disp_device_private_data *ptvp = disp_tv_get_priv(ptv);
+
 	if ((NULL == ptv) || (NULL == ptvp)) {
 		DE_WRN("tv set func null  hdl!\n");
 		return DIS_FAIL;
@@ -412,7 +448,7 @@ s32 disp_tv_set_func(struct disp_device*  ptv, struct disp_tv_func * func)
 
 	if ((NULL == ptv) || (NULL == ptvp)) {
 		DE_WRN("tv set func null  hdl!\n");
-		DE_WRN("in  disp_set_tv_func,point  ptv = %u, point  ptvp = %u\n", (s32)ptv, (s32)ptvp);
+		DE_WRN("in  disp_set_tv_func,point  ptv = %p, point  ptvp = %p\n", ptv, ptvp);
 		return DIS_FAIL;
 	}
 	ptvp->tv_func.tv_enable = func->tv_enable;
@@ -425,6 +461,8 @@ s32 disp_tv_set_func(struct disp_device*  ptv, struct disp_tv_func * func)
 	ptvp->tv_func.tv_get_video_timing_info = func->tv_get_video_timing_info;
 	ptvp->tv_func.tv_mode_support = func->tv_mode_support;
 	ptvp->tv_func.tv_hot_plugging_detect = func->tv_hot_plugging_detect;
+	ptvp->tv_func.tv_set_enhance_mode = func->tv_set_enhance_mode;
+
 	return 0;
 }
 
@@ -432,6 +470,7 @@ s32 disp_tv_check_support_mode(struct disp_device*  ptv, enum disp_output_type t
 {
 
 	struct disp_device_private_data *ptvp = disp_tv_get_priv(ptv);
+
 	if ((NULL == ptv) || (NULL == ptvp)) {
 		DE_WRN("tv set func null  hdl!\n");
 		return DIS_FAIL;
@@ -454,6 +493,7 @@ s32 disp_init_tv_para(disp_bsp_init_para * para)
 s32 disp_tv_set_hpd(struct disp_device*  ptv, u32 state)
 {
 	struct disp_device_private_data *ptvp = disp_tv_get_priv(ptv);
+
 	if ((NULL == ptv) || (NULL == ptvp)) {
 		DE_WRN("tv set phd  null!\n");
 		return DIS_FAIL;
@@ -465,6 +505,24 @@ s32 disp_tv_set_hpd(struct disp_device*  ptv, u32 state)
 	return ptvp->tv_func.tv_hot_plugging_detect(state);
 
 }
+
+s32	disp_set_enhance_mode(struct disp_device *ptv, u32 mode)
+{
+	struct disp_device_private_data *ptvp = disp_tv_get_priv(ptv);
+
+	if ((NULL == ptv) || (NULL == ptvp)) {
+		printk("tv private is null!\n");
+		return DIS_FAIL;
+	}
+
+	if (ptvp->tv_func.tv_hot_plugging_detect== NULL) {
+		printk("tv set_enhance_mode is null!\n");
+		return DIS_FAIL;
+	}
+
+	return ptvp->tv_func.tv_set_enhance_mode(ptv->disp, mode);
+}
+
 
 s32 disp_init_tv(void)//disp_bsp_init_para * para)  //call by disp_display
 {
@@ -511,8 +569,7 @@ s32 disp_init_tv(void)//disp_bsp_init_para * para)  //call by disp_display
 			p_tv->type = DISP_OUTPUT_TYPE_TV;
 			p_tvp->tv_mode = DISP_TV_MOD_PAL;
 			p_tvp->irq_no = g_init_para.irq_no[DISP_MOD_LCD0 + disp];
-			p_tvp->clk = "tcon1";
-			p_tvp->clk_parent = "pll_video0";
+			p_tvp->clk = g_init_para.mclk[DISP_MOD_LCD0 + disp];
 
 			p_tv->set_manager = disp_device_set_manager;
 			p_tv->unset_manager = disp_device_unset_manager;
@@ -532,9 +589,10 @@ s32 disp_init_tv(void)//disp_bsp_init_para * para)  //call by disp_display
 			p_tv->get_input_csc = disp_tv_get_input_csc;
 			p_tv->suspend = disp_tv_suspend;
 			p_tv->resume = disp_tv_resume;
+			p_tv->set_enhance_mode = disp_set_enhance_mode;
 			p_tv->init(p_tv);
 			if (bsp_disp_feat_is_supported_output_types(disp, DISP_OUTPUT_TYPE_TV)) {
-				printk("[DISP_TV] disp tv device_registered\n");
+				__inf("disp tv device_registered\n");
 				disp_device_register(p_tv);
 			}
 		}

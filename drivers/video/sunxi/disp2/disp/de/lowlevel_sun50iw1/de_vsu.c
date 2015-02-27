@@ -267,6 +267,10 @@ int de_vsu_set_para(unsigned int sel, unsigned int chno, unsigned int enable, un
 	vsu_dev[sel][chno]->yhphase.dwval = ypara->hphase<<VSU_PHASE_FRAC_REG_SHIFT;
 	vsu_dev[sel][chno]->yvphase0.dwval = ypara->vphase<<VSU_PHASE_FRAC_REG_SHIFT;
 
+	//modify 14-11-8
+	vsu_dev[sel][chno]->chphase.dwval = cpara->hphase<<VSU_PHASE_FRAC_REG_SHIFT;
+	vsu_dev[sel][chno]->cvphase0.dwval = cpara->vphase<<VSU_PHASE_FRAC_REG_SHIFT;
+
 	//fir coefficient
 	//ch0
 	pt_coef = de_vsu_calc_fir_coef(ypara->hstep);
@@ -367,11 +371,17 @@ int de_vsu_calc_scaler_para(unsigned char fmt, de_rect64 crop, de_rect frame, de
 	}
 
 	tmp = (N2_POWER(crop.w,VSU_PHASE_FRAC_BITWIDTH));
-	do_div(tmp, frame.w);
+	if (frame.w)
+		do_div(tmp, frame.w);
+	else
+		tmp = 0;
 	ypara->hstep= (unsigned int)(tmp>>VSU_FB_FRAC_BITWIDTH);
 
 	tmp = (N2_POWER(crop.h,VSU_PHASE_FRAC_BITWIDTH));
-	do_div(tmp, frame.h);
+	if (frame.h)
+		do_div(tmp, frame.h);
+	else
+		tmp = 0;
 	ypara->vstep= (unsigned int)(tmp>>VSU_FB_FRAC_BITWIDTH);
 
 	ypara->hphase = ((crop.x & 0xffffffff)>>(32-VSU_PHASE_FRAC_BITWIDTH));

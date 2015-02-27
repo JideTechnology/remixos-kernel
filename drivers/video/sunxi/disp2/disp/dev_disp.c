@@ -28,7 +28,7 @@ static dev_t devid ;
 static struct class *disp_class;
 static struct device *display_dev;
 
-static unsigned int g_disp = 0, g_enhance_mode = 0;
+static unsigned int g_disp = 0, g_enhance_mode = 0, g_cvbs_enhance_mode = 0;
 static u32 DISP_print = 0xffff;   //print cmd which eq DISP_print
 
 #ifndef CONFIG_OF
@@ -93,7 +93,7 @@ static ssize_t disp_sys_show(struct device *dev,
 		}
 		if (dispdev->type != DISP_OUTPUT_TYPE_NONE) {
 			count += sprintf(buf + count, "\t%4ux%4u\n", width, height);
-			count += sprintf(buf + count, "\terr:%u\tskip:%u\tirq:%u\n", info.error_cnt, info.skip_cnt, info.irq_cnt);
+			count += sprintf(buf + count, "\terr:%u\tskip:%u\tirq:%u\tvsync:%u\n", info.error_cnt, info.skip_cnt, info.irq_cnt, info.vsync_cnt);
 		}
 
 		num_chans = bsp_disp_feat_get_num_channels(screen_id);
@@ -115,7 +115,7 @@ static ssize_t disp_sys_show(struct device *dev,
 		}
 	}
 
-	//count += composer_dump(buf+count);
+	count += composer_dump(buf+count);
 
 	return count;
 }
@@ -164,7 +164,7 @@ static DEVICE_ATTR(disp, S_IRUGO|S_IWUSR|S_IWGRP,
 static ssize_t disp_enhance_mode_show(struct device *dev,
     struct device_attribute *attr, char *buf)
 {
-  return sprintf(buf, "%d\n", g_enhance_mode);
+	return sprintf(buf, "%d\n", g_enhance_mode);
 }
 
 static ssize_t disp_enhance_mode_store(struct device *dev,
@@ -209,10 +209,49 @@ static ssize_t disp_enhance_mode_store(struct device *dev,
 static DEVICE_ATTR(enhance_mode, S_IRUGO|S_IWUSR|S_IWGRP,
     disp_enhance_mode_show, disp_enhance_mode_store);
 
+
+
+static ssize_t disp_cvbs_enhance_show(struct device *dev,
+    struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", g_cvbs_enhance_mode);
+}
+
+static ssize_t disp_cvbs_enhance_store(struct device *dev,
+    struct device_attribute *attr, const char *buf, size_t count)
+{
+	int err;
+	unsigned long val;
+
+	err = strict_strtoul(buf, 10, &val);
+	if (val>2)
+		printk("Invalid value, 0/1/2 is expected!\n");
+	else {
+		int num_screens = 0;
+		unsigned int disp;
+		struct disp_device*  ptv = NULL;
+
+		g_cvbs_enhance_mode = val;
+		num_screens = bsp_disp_feat_get_num_screens();
+
+		for (disp=0; disp<num_screens; disp++) {
+			ptv = disp_device_find(disp, DISP_OUTPUT_TYPE_TV);
+			if (ptv && ptv->set_enhance_mode)
+				ptv->set_enhance_mode(ptv, g_cvbs_enhance_mode);
+		}
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(cvbs_enhacne_mode, S_IRUGO|S_IWUSR|S_IWGRP,
+    disp_cvbs_enhance_show, disp_cvbs_enhance_store);
+
 static struct attribute *disp_attributes[] = {
     &dev_attr_sys.attr,
     &dev_attr_disp.attr,
     &dev_attr_enhance_mode.attr,
+    &dev_attr_cvbs_enhacne_mode.attr,
     NULL
 };
 
@@ -476,7 +515,7 @@ void  disp_free(void *virt_addr, void* phys_addr, u32 num_bytes)
 	return ;
 }
 
-s32 disp_set_hdmi_func(struct disp_hdmi_func * func)
+s32 disp_set_hdmi_func(struct disp_device_func * func)
 {
 	return bsp_disp_set_hdmi_func(func);
 }
@@ -528,7 +567,7 @@ static void start_work(struct work_struct *work)
 	int count = 0;
 
 	num_screens = bsp_disp_feat_get_num_screens();
-	while((g_disp_drv.inited == 0) && (count < 5)) {
+	while ((g_disp_drv.inited == 0) && (count < 5)) {
 		count ++;
 		msleep(10);
 	}

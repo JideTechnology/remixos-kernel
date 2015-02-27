@@ -16,7 +16,7 @@ struct disp_capture_private_data
 	struct list_head req_list;
 	s32 (*shadow_protect)(u32 sel, bool protect);
 
-	char *clk;
+	struct clk *clk;
 #if defined(__LINUX_PLAT__)
 	struct mutex              mlock;
 	spinlock_t                data_lock;
@@ -113,7 +113,7 @@ static s32 disp_capture_clk_enable(struct disp_capture *cptr)
 		return 0;
 	}
 
-	disp_sys_clk_enable(cptrp->clk);
+	clk_prepare_enable(cptrp->clk);
 
 	return 0;
 }
@@ -127,7 +127,7 @@ static s32 disp_capture_clk_disable(struct disp_capture *cptr)
 		return 0;
 	}
 
-	disp_sys_clk_disable(cptrp->clk);
+	clk_disable(cptrp->clk);
 
 	return 0;
 }
@@ -441,7 +441,7 @@ s32 disp_init_capture(disp_bsp_init_para *para)
 		spin_lock_init(&(capturep->data_lock));
 #endif
 
-		capturep->clk = DE_CORE_CLK;
+		capturep->clk = para->mclk[DISP_MOD_DE];
 		switch(capture_id) {
 		case 0:
 			capture->disp = 0;

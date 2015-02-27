@@ -254,8 +254,6 @@ int de_smbl_update_regs(unsigned int sel)
 	unsigned int reg_val;
 
 	if (smbl_ctrl_block[sel].dirty == 0x1){
-        memcpy((void *)smbl_ctrl_block[sel].val,smbl_ctrl_block[sel].val,smbl_ctrl_block[sel].size);
-        pr_warn("---------------------------------------------\n");
 		memcpy((void *)smbl_ctrl_block[sel].off,smbl_ctrl_block[sel].val,smbl_ctrl_block[sel].size);
 		smbl_ctrl_block[sel].dirty = 0x0;
 	}
@@ -273,7 +271,6 @@ int de_smbl_update_regs(unsigned int sel)
 int de_smbl_set_reg_base(unsigned int sel, void *base)
 {
 	smbl_dev[sel] = (__smbl_reg_t *)base;
-    __inf("%s, base=0x%p\n", __func__, base);
 
 	return 0;
 }

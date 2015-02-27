@@ -250,7 +250,7 @@ inline __s64 IntRightShift64(__s64 datain, unsigned int shiftbit)
 	return dataout;
 }
 
-static __s32 iDE_SCAL_Matrix_Mul(__scal_matrix4x4 *in1, __scal_matrix4x4 in2, __scal_matrix4x4 *result)
+static s32 iDE_SCAL_Matrix_Mul(__scal_matrix4x4 *in1, __scal_matrix4x4 in2, __scal_matrix4x4 *result)
 {
 
 	result->x00 = IntRightShift64(in1->x00 * in2.x00 + in1->x01 * in2.x10 + in1->x02 * in2.x20 + in1->x03 * in2.x30 ,10);
@@ -296,7 +296,7 @@ int de_csc_coeff_calc(unsigned int infmt, unsigned int incscmod, unsigned int ou
 	oper = 0;
 
 	//BYPASS
-	if (infmt == outfmt && incscmod == outcscmod && out_color_range == 0 && brightness == 50 && contrast == 50 && saturation == 50 && hue == 50)
+	if (infmt == outfmt && incscmod == outcscmod && out_color_range == DISP_COLOR_RANGE_0_255 && brightness == 50 && contrast == 50 && saturation == 50 && hue == 50)
 	{
 		memcpy(csc_coeff, bypass_csc, 48);
 		return 0;

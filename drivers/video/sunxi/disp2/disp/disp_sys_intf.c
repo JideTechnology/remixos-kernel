@@ -191,7 +191,7 @@ int disp_sys_script_get_item(char *main_name, char *sub_name, int value[], int t
 	} else if (2 == type) {
 		const char *str;
 
-		if(of_property_read_string(node, sub_name, &str))
+		if (of_property_read_string(node, sub_name, &str))
 			__inf("of_property_read_string %s.%s fail\n", main_name, sub_name);
 		else {
 			ret = type;

@@ -6,7 +6,7 @@ extern s32 disp_delay_ms(u32 ms);
 u32  dsi_bits_per_pixel[4] = {24,24,18,16};
 
 static volatile __de_dsi_dev_t *dsi_dev[2];
-__s32 dsi_hs_clk(u32 sel,u32 on_off);
+s32 dsi_hs_clk(u32 sel,u32 on_off);
 
 s32 dsi_delay_ms(u32 ms)
 {
@@ -22,7 +22,7 @@ s32 dsi_delay_us(u32 us)
 	return 0;
 }
 
-__s32 dsi_set_reg_base(u32 sel, uintptr_t base)
+s32 dsi_set_reg_base(u32 sel, uintptr_t base)
 {
 	dsi_dev[sel]=(__de_dsi_dev_t *)base;
 
@@ -44,7 +44,7 @@ u32 dsi_get_cur_line(u32 sel)
 	return 0;
 }
 
-__s32 dsi_irq_enable(u32 sel, __dsi_irq_id_t id)
+s32 dsi_irq_enable(u32 sel, __dsi_irq_id_t id)
 {
 	if (id<32)
 	{
@@ -57,7 +57,7 @@ __s32 dsi_irq_enable(u32 sel, __dsi_irq_id_t id)
 	return 0;
 }
 
-__s32 dsi_irq_disable(u32 sel, __dsi_irq_id_t id)
+s32 dsi_irq_disable(u32 sel, __dsi_irq_id_t id)
 {
 	if (id<32)
 	{
@@ -70,7 +70,7 @@ __s32 dsi_irq_disable(u32 sel, __dsi_irq_id_t id)
     return 0;
 }
 
-static __s32 dsi_irq_disable_all(u32 sel)
+static s32 dsi_irq_disable_all(u32 sel)
 {
 	dsi_dev[sel]->dsi_irq_en0.dwval = 0xffffffff;
 	dsi_dev[sel]->dsi_irq_en1.dwval = 0xffffffff;
@@ -82,17 +82,17 @@ u32 dsi_irq_query(u32 sel,__dsi_irq_id_t id)
 	return 0;
 }
 
-__s32 dsi_inst_busy(u32 sel)
+s32 dsi_inst_busy(u32 sel)
 {
 	return 0;
 }
 
-__s32 dsi_start(u32 sel,__dsi_start_t func)
+s32 dsi_start(u32 sel,__dsi_start_t func)
 {
 	return 0;
 }
 
-__s32 dsi_open(u32 sel,disp_panel_para * panel)
+s32 dsi_open(u32 sel,disp_panel_para * panel)
 {
 	dsi_dev[sel]->dsi_cmd_ctl.bits.cmd_mode_en		  = 0;
 	dsi_dev[sel]->dsi_vid_ctl0.bits.video_mode_en	  = 1;
@@ -101,7 +101,7 @@ __s32 dsi_open(u32 sel,disp_panel_para * panel)
 	return 0;
 }
 
-__s32 dsi_close(u32 sel)
+s32 dsi_close(u32 sel)
 {
 	dsi_dev[sel]->dsi_cfg1.bits.dpi_src = 0;
 	//FIXME
@@ -113,12 +113,12 @@ __s32 dsi_close(u32 sel)
 	return 0;
 }
 
-__s32 dsi_tri_start(u32 sel)
+s32 dsi_tri_start(u32 sel)
 {
 	return 0;
 }
 
- __s32 dsi_dcs_wr(u32 sel,u8 cmd,u8* para_p,u32 para_num)
+ s32 dsi_dcs_wr(u32 sel,u8 cmd,u8* para_p,u32 para_num)
 {
 	u8 dt,data0,data1;
 	u8 vc = 0;
@@ -150,7 +150,7 @@ __s32 dsi_tri_start(u32 sel)
 									       *(para_p+i+0) <<  8 |
 									         cmd		 <<  0 ;
 		i+=3;
-		while(i<para_num)
+		while (i<para_num)
 		{
 			dsi_dev[sel]->dsi_pkg_ctl1.dwval = *(para_p+i+3) << 24 |
 											   *(para_p+i+2) << 16 |
@@ -165,33 +165,33 @@ __s32 dsi_tri_start(u32 sel)
 	return 0;
 }
 
-__s32 dsi_dcs_wr_index(u32 sel,u8 index)
+s32 dsi_dcs_wr_index(u32 sel,u8 index)
 {
 
 	return 0;
 }
 
-__s32 dsi_dcs_wr_data(u32 sel,u8 data)
+s32 dsi_dcs_wr_data(u32 sel,u8 data)
 {
 
 	return 0;
 }
 
-__s32 dsi_dcs_wr_0para(u32 sel,u8 cmd)
+s32 dsi_dcs_wr_0para(u32 sel,u8 cmd)
 {
 	u8 tmp;
 	dsi_dcs_wr(0,cmd,&tmp,0);
 	return 0;
 }
 
-__s32 dsi_dcs_wr_1para(u32 sel,u8 cmd,u8 para)
+s32 dsi_dcs_wr_1para(u32 sel,u8 cmd,u8 para)
 {
 	u8 tmp = para;
 	dsi_dcs_wr(0,cmd,&tmp,1);
 	return 0;
 }
 
-__s32 dsi_dcs_wr_2para(u32 sel,u8 cmd,u8 para1,u8 para2)
+s32 dsi_dcs_wr_2para(u32 sel,u8 cmd,u8 para1,u8 para2)
 {
 	u8 tmp[2];
 	tmp[0] = para1;
@@ -200,7 +200,7 @@ __s32 dsi_dcs_wr_2para(u32 sel,u8 cmd,u8 para1,u8 para2)
 	return 0;
 }
 
-__s32 dsi_dcs_wr_3para(u32 sel,u8 cmd,u8 para1,u8 para2,u8 para3)
+s32 dsi_dcs_wr_3para(u32 sel,u8 cmd,u8 para1,u8 para2,u8 para3)
 {
 	u8 tmp[3];
 	tmp[0] = para1;
@@ -209,7 +209,7 @@ __s32 dsi_dcs_wr_3para(u32 sel,u8 cmd,u8 para1,u8 para2,u8 para3)
 	dsi_dcs_wr(0,cmd,tmp,3);
 	return 0;
 }
-__s32 dsi_dcs_wr_4para(u32 sel,u8 cmd,u8 para1,u8 para2,u8 para3,u8 para4)
+s32 dsi_dcs_wr_4para(u32 sel,u8 cmd,u8 para1,u8 para2,u8 para3,u8 para4)
 {
 	u8 tmp[4];
 	tmp[0] = para1;
@@ -220,7 +220,7 @@ __s32 dsi_dcs_wr_4para(u32 sel,u8 cmd,u8 para1,u8 para2,u8 para3,u8 para4)
 	return 0;
 }
 
-__s32 dsi_dcs_wr_5para(u32 sel,u8 cmd,u8 para1,u8 para2,u8 para3,u8 para4,u8 para5)
+s32 dsi_dcs_wr_5para(u32 sel,u8 cmd,u8 para1,u8 para2,u8 para3,u8 para4,u8 para5)
 {
 	u8 tmp[5];
 	tmp[0] = para1;
@@ -232,7 +232,7 @@ __s32 dsi_dcs_wr_5para(u32 sel,u8 cmd,u8 para1,u8 para2,u8 para3,u8 para4,u8 par
 	return 0;
 }
 
-__s32 dsi_dcs_wr_memory(u32 sel,u32* p_data,u32 length)
+s32 dsi_dcs_wr_memory(u32 sel,u32* p_data,u32 length)
 {
 	u32 tx_cntr=length;
 	u32 tx_num;
@@ -241,7 +241,7 @@ __s32 dsi_dcs_wr_memory(u32 sel,u32* p_data,u32 length)
 	u32 i;
 	u32 start=1;
 
-	while(tx_cntr)
+	while (tx_cntr)
 	{
 		if (tx_cntr>=83)
 			tx_num = 83;
@@ -270,7 +270,7 @@ __s32 dsi_dcs_wr_memory(u32 sel,u32* p_data,u32 length)
 	return 0;
 }
 
-__s32 dsi_gen_wr(u32 sel,u8 cmd,u8* para_p,u32 para_num)
+s32 dsi_gen_wr(u32 sel,u8 cmd,u8* para_p,u32 para_num)
 {
 	u8 dt,data0,data1;
 	switch(para_num)
@@ -287,8 +287,8 @@ __s32 dsi_gen_wr(u32 sel,u8 cmd,u8* para_p,u32 para_num)
 		break;
 	default:
 		dt		= DSI_DT_GEN_LONG_WR;
-		data0	= (para_num>>0) & 0xff;
-		data1 	= (para_num>>8) & 0xff;
+		data0	= ((para_num+1)>>0) & 0xff;
+		data1 	= ((para_num+1)>>8) & 0xff;
 		break;
 	}
 
@@ -300,7 +300,7 @@ __s32 dsi_gen_wr(u32 sel,u8 cmd,u8* para_p,u32 para_num)
 									       *(para_p+i+0) <<  8 |
 									         cmd		 <<  0 ;
 		i+=3;
-		while(i<para_num)
+		while (i<para_num)
 		{
 			dsi_dev[sel]->dsi_pkg_ctl1.dwval = *(para_p+i+3) << 24 |
 											   *(para_p+i+2) << 16 |
@@ -315,21 +315,21 @@ __s32 dsi_gen_wr(u32 sel,u8 cmd,u8* para_p,u32 para_num)
 	return 0;
 }
 
-__s32 dsi_gen_wr_0para(u32 sel,u8 cmd)
+s32 dsi_gen_wr_0para(u32 sel,u8 cmd)
 {
 	u8 tmp;
 	dsi_gen_wr(sel,cmd,&tmp,0);
 	return 0;
 }
 
-__s32 dsi_gen_wr_1para(u32 sel,u8 cmd,u8 para)
+s32 dsi_gen_wr_1para(u32 sel,u8 cmd,u8 para)
 {
 	u8 tmp = para;
 	dsi_gen_wr(sel,cmd,&tmp,1);
 	return 0;
 }
 
-__s32 dsi_gen_wr_2para(u32 sel,u8 cmd,u8 para1,u8 para2)
+s32 dsi_gen_wr_2para(u32 sel,u8 cmd,u8 para1,u8 para2)
 {
 	u8 tmp[2];
 	tmp[0] = para1;
@@ -338,7 +338,7 @@ __s32 dsi_gen_wr_2para(u32 sel,u8 cmd,u8 para1,u8 para2)
 	return 0;
 }
 
-__s32 dsi_gen_wr_3para(u32 sel,u8 cmd,u8 para1,u8 para2,u8 para3)
+s32 dsi_gen_wr_3para(u32 sel,u8 cmd,u8 para1,u8 para2,u8 para3)
 {
 	u8 tmp[3];
 	tmp[0] = para1;
@@ -347,7 +347,7 @@ __s32 dsi_gen_wr_3para(u32 sel,u8 cmd,u8 para1,u8 para2,u8 para3)
 	dsi_gen_wr(sel,cmd,tmp,3);
 	return 0;
 }
-__s32 dsi_gen_wr_4para(u32 sel,u8 cmd,u8 para1,u8 para2,u8 para3,u8 para4)
+s32 dsi_gen_wr_4para(u32 sel,u8 cmd,u8 para1,u8 para2,u8 para3,u8 para4)
 {
 	u8 tmp[4];
 	tmp[0] = para1;
@@ -358,7 +358,7 @@ __s32 dsi_gen_wr_4para(u32 sel,u8 cmd,u8 para1,u8 para2,u8 para3,u8 para4)
 	return 0;
 }
 
-__s32 dsi_gen_wr_5para(u32 sel,u8 cmd,u8 para1,u8 para2,u8 para3,u8 para4,u8 para5)
+s32 dsi_gen_wr_5para(u32 sel,u8 cmd,u8 para1,u8 para2,u8 para3,u8 para4,u8 para5)
 {
 	u8 tmp[5];
 	tmp[0] = para1;
@@ -370,24 +370,24 @@ __s32 dsi_gen_wr_5para(u32 sel,u8 cmd,u8 para1,u8 para2,u8 para3,u8 para4,u8 par
 	return 0;
 }
 
-__s32 dsi_set_max_ret_size(u32 sel,u32 size)
+s32 dsi_set_max_ret_size(u32 sel,u32 size)
 {
 	return 0;
 }
 
-__s32 dsi_dcs_rd(u32 sel,u8 cmd,u8* para_p,u32* num_p)
-{
-	return 0;
-}
-
-
-__s32 dsi_dcs_rd_memory(u32 sel,u32* p_data,u32 length)
+s32 dsi_dcs_rd(u32 sel,u8 cmd,u8* para_p,u32* num_p)
 {
 	return 0;
 }
 
 
-__s32 dsi_hs_clk(u32 sel,u32 on_off)
+s32 dsi_dcs_rd_memory(u32 sel,u32* p_data,u32 length)
+{
+	return 0;
+}
+
+
+s32 dsi_hs_clk(u32 sel,u32 on_off)
 {
 	if (on_off)
 	{
@@ -411,7 +411,7 @@ __s32 dsi_hs_clk(u32 sel,u32 on_off)
 	return 0;
 }
 
-__s32 dsi_dphy_cfg_0data(u32 sel,u32 code)
+s32 dsi_dphy_cfg_0data(u32 sel,u32 code)
 {
 	dsi_delay_us(5);
 	dsi_dev[sel]->dsi_phy_ctl3.bits.phy_cfg_en	= 1;
@@ -428,7 +428,7 @@ __s32 dsi_dphy_cfg_0data(u32 sel,u32 code)
 	return 0;
 }
 
-__s32 dsi_dphy_cfg_1data(u32 sel,u32 code,u32 data)
+s32 dsi_dphy_cfg_1data(u32 sel,u32 code,u32 data)
 {
 	dsi_delay_us(5);
 	dsi_dev[sel]->dsi_phy_ctl3.bits.phy_cfg_en	= 1;
@@ -452,7 +452,7 @@ __s32 dsi_dphy_cfg_1data(u32 sel,u32 code,u32 data)
 	return 0;
 }
 
-__s32 dsi_dphy_cfg_2data(u32 sel,u32 code,u32 data0,u32 data1)
+s32 dsi_dphy_cfg_2data(u32 sel,u32 code,u32 data0,u32 data1)
 {
 	dsi_delay_us(5);
 	dsi_dev[sel]->dsi_phy_ctl3.bits.phy_cfg_en		= 1;
@@ -483,7 +483,7 @@ __s32 dsi_dphy_cfg_2data(u32 sel,u32 code,u32 data0,u32 data1)
 	return 0;
 }
 
-static __s32 dsi_dphy_cfg_hsfrq(u32 sel,u32 hs_frq)
+static s32 dsi_dphy_cfg_hsfrq(u32 sel,u32 hs_frq)
 {
 	u32 hs_frq_set;
 	u32 hs_frq_tmp;
@@ -535,7 +535,7 @@ static __s32 dsi_dphy_cfg_hsfrq(u32 sel,u32 hs_frq)
 	return 0;
 }
 
-static __s32 dsi_dphy_cfg_pll(u32 sel,u32 m,u32 n)
+static s32 dsi_dphy_cfg_pll(u32 sel,u32 m,u32 n)
 {
 	dsi_dphy_cfg_1data(sel,0x19,0x30);
 	dsi_dphy_cfg_1data(sel,0x17,n-1);
@@ -544,7 +544,7 @@ static __s32 dsi_dphy_cfg_pll(u32 sel,u32 m,u32 n)
 	return 0;
 }
 
-static __s32 dsi_dphy_cfg(u32 sel,disp_panel_para * panel)
+static s32 dsi_dphy_cfg(u32 sel,disp_panel_para * panel)
 {
 	/*Input sequence:
 	1.Set RSTZ = 1'b0.
@@ -651,13 +651,13 @@ u32 dsi_io_close(u32 sel)
 	return 0;
 }
 
-__s32 dsi_clk_enable(u32 sel, u32 en)
+s32 dsi_clk_enable(u32 sel, u32 en)
 {
 	dsi_hs_clk(sel,en);
 	return 0;
 }
 
-static __s32 dsi_basic_cfg(u32 sel,disp_panel_para * panel)
+static s32 dsi_basic_cfg(u32 sel,disp_panel_para * panel)
 {
 	u32 mode, lane, format, dclk;
 
@@ -734,7 +734,7 @@ static __s32 dsi_basic_cfg(u32 sel,disp_panel_para * panel)
 	return 0;
 }
 
-static __s32 dsi_packet_cfg(u32 sel,disp_panel_para * panel)
+static s32 dsi_packet_cfg(u32 sel,disp_panel_para * panel)
 {
 	if (panel->lcd_dsi_if == LCD_DSI_IF_COMMAND_MODE)
 	{
@@ -876,7 +876,7 @@ static __s32 dsi_packet_cfg(u32 sel,disp_panel_para * panel)
 }
 
 
-__s32 dsi_cfg(u32 sel,disp_panel_para * panel)
+s32 dsi_cfg(u32 sel,disp_panel_para * panel)
 {
 	dsi_irq_disable_all(sel);
   	dsi_basic_cfg(sel,panel);
@@ -886,7 +886,7 @@ __s32 dsi_cfg(u32 sel,disp_panel_para * panel)
 }
 
 
-__s32 dsi_exit(u32 sel)
+s32 dsi_exit(u32 sel)
 {
 	return 0;
 }

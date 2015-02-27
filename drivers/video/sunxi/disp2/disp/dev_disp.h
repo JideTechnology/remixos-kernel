@@ -189,7 +189,7 @@ extern s32 fb_init(struct platform_device *pdev);
 extern s32 fb_exit(void);
 extern int lcd_init(void);
 
-s32 disp_set_hdmi_func(struct disp_hdmi_func * func);
+s32 disp_set_hdmi_func(struct disp_device_func * func);
 s32 sunxi_get_fb_addr_para(struct __fb_addr_para *fb_addr_para);
 s32 fb_draw_colorbar(char* base, u32 width, u32 height, struct fb_var_screeninfo *var);
 s32 fb_draw_gray_pictures(char* base, u32 width, u32 height, struct fb_var_screeninfo *var);

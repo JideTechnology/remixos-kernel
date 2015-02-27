@@ -325,25 +325,6 @@ enum disp_init_mode
 	DISP_INIT_MODE_TWO_DIFF_SCREEN_SAME_CONTENTS = 5,//fb0 for two different screen(screen0 layer is normal layer, screen1 layer is scaler layer);
 };
 
-struct disp_hdmi_func
-{
-	int (*hdmi_enable)(void);
-	int (*hdmi_disable)(void);
-	int (*hdmi_set_mode)(enum disp_tv_mode mode);
-	int (*hdmi_mode_support)(enum disp_tv_mode mode);
-	int (*hdmi_get_HPD_status)(void);
-	int (*hdmi_set_pll)(unsigned int pll, unsigned int clk);
-	int (*hdmi_dvi_enable)(unsigned int mode);
-	int (*hdmi_dvi_support)(void);
-	int (*hdmi_get_input_csc)(void);
-	int (*hdmi_get_hdcp_enable)(void);
-	int (*hdmi_get_video_timing_info)(struct disp_video_timings **video_info);
-	int (*hdmi_suspend)(void);
-	int (*hdmi_resume)(void);
-	int (*hdmi_early_suspend)(void);
-	int (*hdmi_late_resume)(void);
-};
-
 struct disp_tv_func
 {
 		int (*tv_enable)(u32 sel);
@@ -356,21 +337,50 @@ struct disp_tv_func
 		int (* tv_get_video_timing_info) (u32 sel, struct disp_video_timings **video_info);
 		int (*tv_mode_support) (enum disp_tv_mode mode);
 		int (*tv_hot_plugging_detect)(u32 state);
-
+		int (*tv_set_enhance_mode)(u32 sel, u32 mode);
 };
 
+/* disp_vdevice_interface_para - vdevice interaface parameter
+ *
+ * @intf:interface
+ * 	0:hv, 1:cpu, 3:lvds, 4:dsi
+ * @sub_intf:  sub interface
+ * 	rgb interface: 0:parallel hv, 8:serial hv, 10:dummy rgb, 11: rgb dummy, 12: ccir656
+ *	cpu interface: 0:18 pin, 10:9pin, 12:6pin, 8:16pin, 14:8pin
+ *	lvds interface:0:single link, 1:dual link
+ *	dsi inerafce:   0:video mode, 1:command mode, 2: video burst mode
+ * @sequence:output sequence
+ * 	rgb output: 0:rgb rgb, 1:rgb brg, 2:rgb gbr, 4:brg rgb, 5:brg brg, 6:brg gbr
+ *	8:grb rgb, 9:grb brg, 10:grb gbr
+ *	yuv output:0:yuyv, 1: yvyu, 2:uyvy, 3:vyuy
+ * @fdelay:yuv eav/sav F line delay
+ * 	0: F toggle right after active video line
+ *	1: delay 2 line(CCIR NTSC)
+ *	2: delay 3 line(CCIR PAL)
+ * @clk_phase:clk phase
+ * 	0: 0 degree, 1:90 degree, 2: 180 degree, 3:270 degree
+ * @sync_polarity:sync signals polarity
+ * 	0: vsync active low,hsync active low
+ *	1: vsync active high,hsync active low
+ *	2: vsync active low,hsync active high
+ *	3: vsync active high,hsync active high
+ */
 struct disp_vdevice_interface_para
 {
 	unsigned int intf;
 	unsigned int sub_intf;
 	unsigned int sequence;
 	unsigned int fdelay;
+	unsigned int clk_phase;
+	unsigned int sync_polarity;
 };
 
 struct disp_vdevice_source_ops
 {
 	int (*tcon_enable)(struct disp_device *dispdev);
 	int (*tcon_disable)(struct disp_device *dispdev);
+	int (*tcon_simple_enable)(struct disp_device *dispdev);
+	int (*tcon_simple_disable)(struct disp_device *dispdev);
 };
 
 struct disp_device_func

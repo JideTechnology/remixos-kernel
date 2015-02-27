@@ -4,11 +4,11 @@
 #include "../include.h"
 #include "de_feat.h"
 
-#define DE_TOP_CFG(_clk_no, _freq, _ahb_gate_adr, _ahb_gate_shift, _ahb_reset_adr, _ahb_reset_shift,\
+#define DE_TOP_CFG(_clk_no, _div, _ahb_gate_adr, _ahb_gate_shift, _ahb_reset_adr, _ahb_reset_shift,\
 					_dram_gate_adr, _dram_gate_shift, _mod_adr, _mod_enable_shift, _mod_div_adr, _mod_div_shift, _mod_div_width)\
 {\
 	.clk_no = _clk_no,\
-	.freq = _freq,\
+	.div = _div,\
 	.ahb_gate_adr = (void __iomem *)_ahb_gate_adr,\
 	.ahb_gate_shift = _ahb_gate_shift,\
 	.ahb_reset_adr = (void __iomem *)_ahb_reset_adr,\
@@ -33,7 +33,7 @@ typedef enum
 
 typedef struct {
 	de_clk_id clk_no;
-	u32 freq;
+	u32 div;//fix div
 	void __iomem * ahb_gate_adr;
 	u32 ahb_gate_shift;
 	void __iomem * ahb_reset_adr;

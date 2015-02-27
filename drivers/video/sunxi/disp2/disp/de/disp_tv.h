@@ -11,6 +11,7 @@ s32 disp_tv_set_hpd(struct disp_device*  ptv, u32 state);
 
 struct disp_device_private_data {
 	u32 enabled;
+	bool suspended;
 
 	enum disp_output_type tv_mode;
 
@@ -20,9 +21,9 @@ struct disp_device_private_data {
 
 	struct disp_clk_info lcd_clk;
 
-	char *clk;
+	struct clk *clk;
 
-	char *clk_parent;
+	struct clk *clk_parent;
 
 	u32 irq_no;
 };

@@ -84,7 +84,7 @@ s32 	hmid_src_sel(u32 sel);
 s32 	dsi_src_sel(u32 sel);
 s32   lvds_open(u32 sel, disp_panel_para * panel);
 s32   lvds_close(u32 sel);
-
+u32 tcon_get_cur_field(u32 sel, u32 tcon_index);
 s32 tcon_irq_enable(u32 sel, __lcd_irq_id_t id);
 s32 tcon_irq_disable(u32 sel, __lcd_irq_id_t id);
 s32 	tcon_set_reg_base(u32 sel, uintptr_t address);
@@ -130,6 +130,7 @@ s32 tcon1_cfg(u32 sel,struct disp_video_timings* timing);
 s32 tcon1_set_tv_mode(u32 sel,enum disp_output_type mode);
 s32 hmdi_src_sel(u32 sel);
 s32 tcon1_hdmi_color_remap(u32 sel,u32 onoff);
+s32 tcon1_yuv_range(u32 sel,u32 onoff);
 
 #endif
 

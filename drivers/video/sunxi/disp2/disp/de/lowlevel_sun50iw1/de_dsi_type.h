@@ -676,9 +676,9 @@ typedef struct
 u8 	dsi_ecc_pro(u32 dsi_ph);
 u16 	dsi_crc_pro(u8* pd_p,u32 pd_bytes);
 u16 	dsi_crc_pro_pd_repeat(u8 pd,u32 pd_bytes);
-//__s32 	dsi_dphy_init(u32 sel,__panel_para_t * panel);
-//__s32 	dsi_inst_init(u32 sel,__panel_para_t * panel);
-//__s32 	dsi_packet_init(u32 sel,__panel_para_t * panel);
+//s32 	dsi_dphy_init(u32 sel,__panel_para_t * panel);
+//s32 	dsi_inst_init(u32 sel,__panel_para_t * panel);
+//s32 	dsi_packet_init(u32 sel,__panel_para_t * panel);
 
 
 

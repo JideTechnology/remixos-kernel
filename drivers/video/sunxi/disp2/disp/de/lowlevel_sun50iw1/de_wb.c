@@ -41,7 +41,7 @@ unsigned int wb_lan2coefftab16_down[16] = {
 // return         :
 //                  success
 //***********************************************************************************
-__s32 WB_EBIOS_Set_Reg_Base(u32 sel, uintptr_t base)
+s32 WB_EBIOS_Set_Reg_Base(u32 sel, uintptr_t base)
 {
 	__inf("sel=%d, base=0x%p\n", sel, (void*)(base + WB_OFFSET));
 	wb_dev[sel] = (__wb_reg_t *)(base + WB_OFFSET);
@@ -76,7 +76,7 @@ uintptr_t WB_EBIOS_Get_Reg_Base(u32 sel)
 // return         :
 //                  success
 //***********************************************************************************
-__s32 WB_EBIOS_Init(disp_bsp_init_para *para)
+s32 WB_EBIOS_Init(disp_bsp_init_para *para)
 {
 	WB_EBIOS_Set_Reg_Base(0, para->reg_base[DISP_MOD_DE]);
 	//FIXME, need?
@@ -92,7 +92,7 @@ __s32 WB_EBIOS_Init(disp_bsp_init_para *para)
 // return         :
 //                  success
 //***********************************************************************************
-__s32 WB_EBIOS_Writeback_Enable(u32 sel, bool en)
+s32 WB_EBIOS_Writeback_Enable(u32 sel, bool en)
 {
 	wb_dev[sel]->gctrl.dwval |= ((0 == en) ? 0x0 : 0x00000001);
 
@@ -145,7 +145,7 @@ s32 WB_EBIOS_Update_Regs(u32 sel)
 // note  		  : Don't support YUV input yet 14-02-28
 //					when write-back format is yuv, default 16-235 output
 //***********************************************************************************
-__s32 WB_EBIOS_Set_Para(u32 sel, struct disp_capture_config *cfg)
+s32 WB_EBIOS_Set_Para(u32 sel, struct disp_capture_config *cfg)
 {
 	u32 in_port;
 	u32 in_w,in_h;
@@ -384,13 +384,13 @@ u32 WB_EBIOS_Get_Status(u32 sel)
 }
 
 ///INTERUPT
-__s32 WB_EBIOS_EnableINT(u32 sel)
+s32 WB_EBIOS_EnableINT(u32 sel)
 {
 	wb_dev[sel]->intr.dwval |= 0x00000001;
 	return 0;
 }
 
-__s32 WB_EBIOS_DisableINT(u32 sel)
+s32 WB_EBIOS_DisableINT(u32 sel)
 {
 	wb_dev[sel]->intr.dwval &= 0xfffffffe;
 	return 0;

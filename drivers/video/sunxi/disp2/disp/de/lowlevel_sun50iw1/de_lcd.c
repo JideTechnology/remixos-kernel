@@ -89,7 +89,22 @@ s32 lvds_close(u32 sel)
 	return 0;
 }
 
-s32 tcon_get_timing(u32 sel,u32 index,struct disp_video_timings* tt)
+u32 tcon_get_cur_field(u32 sel, u32 tcon_index)
+{
+	if (tcon_index == 0)
+	{
+		return lcd_dev[sel]->tcon_debug.bits.tcon0_field_polarity;
+	}
+	else if (tcon_index == 1)
+	{
+		return lcd_dev[sel]->tcon_debug.bits.tcon1_field_polarity;
+	}
+
+	return 0;
+}
+
+
+s32 tcon_get_timing(u32 sel,u32 index, struct disp_video_timings* tt)
 {
     u32 x,y,ht,hbp,vt,vbp,hspw,vspw;
     u32 lcd_if, lcd_hv_if = 0;
@@ -290,7 +305,7 @@ s32 tcon0_close(u32 sel)
 	tcon_irq_disable(sel,LCD_IRQ_TCON0_CNTR);
 	tcon_irq_disable(sel,LCD_IRQ_TCON0_VBLK);
 	tcon_irq_disable(sel,LCD_IRQ_TCON0_TRIF);
-	//while(lcd_dev[sel]->tcon0_cpu_ctl.bits.trigger_start);
+	//while (lcd_dev[sel]->tcon0_cpu_ctl.bits.trigger_start);
 	lcd_dev[sel]->tcon0_ctl.bits.tcon0_en = 0;
 	lcd_dev[sel]->tcon0_dclk.bits.tcon0_dclk_en = 0x0;
 	disp_delay_ms(30);
@@ -312,8 +327,14 @@ static s32 tcon0_cfg_mode_auto(u32 sel, disp_panel_para * panel)
 	start_delay = panel->lcd_vt-panel->lcd_y-10;
   if (panel->lcd_hv_if == LCD_HV_IF_CCIR656_2CYC)
   {
-      lcd_dev[sel]->tcon0_basic0.bits.y = panel->lcd_y/2-1;
-      lcd_dev[sel]->tcon0_basic2.bits.vt = (panel->lcd_hv_syuv_fdly == LCD_HV_SRGB_FDLY_2LINE)? 525:625;
+	if (panel->lcd_interlace){
+		lcd_dev[sel]->tcon0_basic0.bits.y = panel->lcd_y/2 - 1;
+		lcd_dev[sel]->tcon0_basic2.bits.vt = (panel->lcd_hv_syuv_fdly == LCD_HV_SRGB_FDLY_2LINE)? 525:625;
+	  } else {
+		lcd_dev[sel]->tcon0_basic0.bits.y = panel->lcd_y - 1;
+		lcd_dev[sel]->tcon0_basic2.bits.vt = (panel->lcd_hv_syuv_fdly == LCD_HV_SRGB_FDLY_2LINE)? 1050:1250;
+	  }
+
       lcd_dev[sel]->tcon0_basic1.bits.ht = (panel->lcd_ht==0)? 0:(panel->lcd_ht*2-1);
       lcd_dev[sel]->tcon0_basic1.bits.hbp = (panel->lcd_hbp==0)? 0:(panel->lcd_hbp*2-1);
       lcd_dev[sel]->tcon0_basic3.bits.hspw = (panel->lcd_hspw==0)? 0:(panel->lcd_hspw*2-1);
@@ -446,6 +467,10 @@ s32 tcon0_cfg(u32 sel, disp_panel_para * panel)
 		lcd_dev[sel]->tcon0_lvds_ctl.bits.tcon0_lvds_correct_mode = 0;
 		lcd_dev[sel]->tcon0_lvds_ctl.bits.tcon0_lvds_dir = 0;
 		lcd_dev[sel]->tcon0_lvds_ctl.bits.tcon0_lvds_clk_sel = 1;
+#if defined(LVDS_REVERT)
+		lcd_dev[sel]->tcon0_lvds_ctl.bits.tcon0_lvds_data_revert = 0xf;
+		lcd_dev[sel]->tcon0_lvds_ctl.bits.tcon0_lvds_clk_revert = 0x1;
+#endif
 		panel->lcd_fresh_mode = 0;
         tcon0_cfg_mode_auto(sel,panel);
 	}
@@ -627,7 +652,7 @@ u32 tcon0_cpu_busy(u32 sel)
 s32 tcon0_cpu_wr_24b_index(u32 sel, u32 index)
 {
 	u32 count = 0;
-	while((tcon0_cpu_busy(sel)) && (count < 50)) {
+	while ((tcon0_cpu_busy(sel)) && (count < 50)) {
 		count ++;
 		disp_delay_us(100);
 	}
@@ -639,7 +664,7 @@ s32 tcon0_cpu_wr_24b_index(u32 sel, u32 index)
 s32 tcon0_cpu_wr_24b_data(u32 sel, u32 data)
 {
 	u32 count = 0;
-	while((tcon0_cpu_busy(sel)) && (count < 50)) {
+	while ((tcon0_cpu_busy(sel)) && (count < 50)) {
 		count ++;
 		disp_delay_us(100);
 	}
@@ -823,6 +848,39 @@ s32 tcon1_hdmi_color_remap(u32 sel,u32 onoff)
 
 	return 0;
 }
+
+s32 tcon1_yuv_range(u32 sel,u32 onoff)
+{
+	lcd_dev[sel]->tcon_ceu_coef_rr.bits.value = 0x100;
+	lcd_dev[sel]->tcon_ceu_coef_rg.bits.value = 0;
+	lcd_dev[sel]->tcon_ceu_coef_rb.bits.value = 0;
+	lcd_dev[sel]->tcon_ceu_coef_rc.bits.value = 0;
+
+	lcd_dev[sel]->tcon_ceu_coef_gr.bits.value = 0;
+	lcd_dev[sel]->tcon_ceu_coef_gg.bits.value = 0x100;
+	lcd_dev[sel]->tcon_ceu_coef_gb.bits.value = 0;
+	lcd_dev[sel]->tcon_ceu_coef_gc.bits.value = 0;
+
+	lcd_dev[sel]->tcon_ceu_coef_br.bits.value = 0;
+	lcd_dev[sel]->tcon_ceu_coef_bg.bits.value = 0;
+	lcd_dev[sel]->tcon_ceu_coef_bb.bits.value = 0x100;
+	lcd_dev[sel]->tcon_ceu_coef_bc.bits.value = 0;
+
+	lcd_dev[sel]->tcon_ceu_coef_rv.bits.max = 235;
+	lcd_dev[sel]->tcon_ceu_coef_rv.bits.min = 16;
+	lcd_dev[sel]->tcon_ceu_coef_gv.bits.max = 240;
+	lcd_dev[sel]->tcon_ceu_coef_gv.bits.min = 16;
+	lcd_dev[sel]->tcon_ceu_coef_bv.bits.max = 240;
+	lcd_dev[sel]->tcon_ceu_coef_bv.bits.min = 16;
+
+	if (onoff)
+		lcd_dev[sel]->tcon_ceu_ctl.bits.ceu_en = 1;
+	else
+		lcd_dev[sel]->tcon_ceu_ctl.bits.ceu_en = 0;
+
+	return 0;
+}
+
 
 s32 tcon1_set_timming(u32 sel, struct disp_video_timings *timming)
 {

@@ -361,7 +361,7 @@ s32 bsp_disp_shadow_protect(u32 disp, bool protect)
 	}
 
 	if (protect) {
-		while((0 != ret) && (cnt < max_cnt)) {
+		while ((0 != ret) && (cnt < max_cnt)) {
 #ifdef __LINUX_PLAT__
 			spin_lock_irqsave(&gdisp.screen[disp].flag_lock, flags);
 #endif
@@ -469,8 +469,6 @@ s32 bsp_disp_get_health_info(u32 disp, disp_health_info *info)
 
 void sync_event_proc(u32 disp, bool timeout)
 {
-	//u32 cur_line = 0, start_delay = 0;
-
 #if defined(__LINUX_PLAT__)
 	unsigned long flags;
 
@@ -481,16 +479,6 @@ void sync_event_proc(u32 disp, bool timeout)
 
 	gdisp.screen[disp].health_info.irq_cnt ++;
 #endif
-	/*
-	if (disp < 2) {
-		//FIXME
-		cur_line = disp_al_lcd_get_cur_line(disp);
-		start_delay = disp_al_lcd_get_start_delay(disp);
-		if (cur_line > start_delay-4) {
-			return ;
-		}
-	}
-	*/
 
 #if defined(__LINUX_PLAT__)
 	spin_lock_irqsave(&gdisp.screen[disp].flag_lock, flags);
@@ -511,8 +499,10 @@ void sync_event_proc(u32 disp, bool timeout)
 #endif
 	}
 
-	if (gdisp.screen[disp].vsync_event_en && gdisp.init_para.vsync_event)
+	if (gdisp.screen[disp].vsync_event_en && gdisp.init_para.vsync_event) {
 		gdisp.init_para.vsync_event(disp);
+		gdisp.screen[disp].health_info.vsync_cnt ++;
+	}
 #if defined(__LINUX_PLAT__)
 	tasklet_schedule(&gdisp.screen[disp].tasklet);
 #endif
@@ -812,7 +802,7 @@ s32 bsp_disp_get_screen_height_from_output_type(u32 disp, u32 output_type, u32 o
 	return height;
 }
 
-s32 bsp_disp_set_hdmi_func(struct disp_hdmi_func * func)
+s32 bsp_disp_set_hdmi_func(struct disp_device_func * func)
 {
 		u32 disp = 0;
 	u32 num_screens = 0;

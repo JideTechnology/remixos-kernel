@@ -343,16 +343,6 @@ static s32 hdmi_get_HPD_status(void)
 	return hdmi_core_hpd_check();
 }
 
-static s32 hdmi_dvi_enable(u32 mode)
-{
-	return hdmi_core_set_cts_enable(mode);//hdmi_hal_dvi_enable(mode);
-}
-
-static s32 hdmi_dvi_support(void)
-{
-	return hdmi_core_dvi_support();
-}
-
 static s32 hdmi_get_hdcp_enable(void)
 {
 	return hdmi_core_get_hdcp_enable();
@@ -530,7 +520,7 @@ static s32 hdmi_resume(void)
 #if defined(CONFIG_SND_SUNXI_SOC_HDMIAUDIO)
 extern void audio_set_hdmi_func(__audio_hdmi_func * hdmi_func);
 #endif
-extern s32 disp_set_hdmi_func(struct disp_hdmi_func * func);
+extern s32 disp_set_hdmi_func(struct disp_device_func * func);
 extern unsigned int disp_boot_para_parse(void);
 
 s32 hdmi_init(struct platform_device *pdev)
@@ -542,7 +532,7 @@ s32 hdmi_init(struct platform_device *pdev)
 #endif
 #endif
 	unsigned int value, output_type0, output_mode0, output_type1, output_mode1;
-	struct disp_hdmi_func disp_func;
+	struct disp_device_func disp_func;
 	int ret;
 	uintptr_t reg_base;
 
@@ -626,9 +616,14 @@ s32 hdmi_init(struct platform_device *pdev)
 	if (1 == ret) {
 		hdmi_core_set_cts_enable(value);
 	}
-	ret = disp_sys_script_get_item("para", "hdmi_hdcp_enable", &value, 1);
+	ret = disp_sys_script_get_item("hdmi", "hdmi_hdcp_enable", &value, 1);
 	if (1 == ret) {
 		hdmi_core_set_hdcp_enable(value);
+	}
+
+	ret = disp_sys_script_get_item("hdmi", "hdmi_hpd_mask", &value, 1);
+	if (1 == ret) {
+		hdmi_hpd_mask = value;
 	}
 
 	hdmi_core_initial(boot_hdmi);
@@ -660,20 +655,19 @@ s32 hdmi_init(struct platform_device *pdev)
 	audio_set_muti_hdmi_func(&audio_func_muti);
 #endif
 #endif
-	memset(&disp_func, 0, sizeof(struct disp_hdmi_func));
-	disp_func.hdmi_enable = hdmi_enable;
-	disp_func.hdmi_disable = hdmi_disable;
-	disp_func.hdmi_set_mode = hdmi_set_display_mode;
-	disp_func.hdmi_mode_support = hdmi_mode_support;
-	disp_func.hdmi_get_HPD_status = hdmi_get_HPD_status;
-	disp_func.hdmi_dvi_enable= hdmi_dvi_enable;
-	disp_func.hdmi_dvi_support= hdmi_dvi_support;
-	disp_func.hdmi_get_input_csc = hdmi_get_input_csc;
-	disp_func.hdmi_get_hdcp_enable = hdmi_get_hdcp_enable;
-	disp_func.hdmi_get_video_timing_info = hdmi_get_video_timming_info;
-	disp_func.hdmi_suspend = hdmi_suspend;
-	disp_func.hdmi_resume = hdmi_resume;
+	memset(&disp_func, 0, sizeof(struct disp_device_func));
+	disp_func.enable = hdmi_enable;
+	disp_func.disable = hdmi_disable;
+	disp_func.set_mode = hdmi_set_display_mode;
+	disp_func.mode_support = hdmi_mode_support;
+	disp_func.get_HPD_status = hdmi_get_HPD_status;
+	disp_func.get_input_csc = hdmi_get_input_csc;
+	disp_func.get_video_timing_info = hdmi_get_video_timming_info;
+	disp_func.suspend = hdmi_suspend;
+	disp_func.resume = hdmi_resume;
 	disp_set_hdmi_func(&disp_func);
+
+	return 0;
 
 err_thread:
 	kfree(run_sem);
@@ -685,8 +679,7 @@ err_clk_enable:
 err_clk_get:
 	iounmap((char __iomem *)reg_base);
 err_iomap:
-
-	return 0;
+	return -1;
 }
 
 s32 hdmi_exit(void)
@@ -819,7 +812,7 @@ static DEVICE_ATTR(rgb_only, S_IRUGO|S_IWUSR|S_IWGRP,hdmi_rgb_only_show, hdmi_rg
 
 static ssize_t hdmi_hpd_mask_show(struct device *dev,struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%d\n", hdmi_hpd_mask);
+	return sprintf(buf, "0x%x\n", hdmi_hpd_mask);
 }
 
 static ssize_t hdmi_hpd_mask_store(struct device *dev,

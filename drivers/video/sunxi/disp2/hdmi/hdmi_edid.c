@@ -177,7 +177,7 @@ static s32 edid_parse_dtd_block(u8 *pbuf)
 static s32 edid_parse_videodata_block(u8 *pbuf,u8 size)
 {
 	int i=0;
-	while(i<size) {
+	while (i<size) {
 		Device_Support_VIC[pbuf[i] &0x7f] = 1;
 		if (pbuf[i] &0x80)	{
 			__inf("edid_parse_videodata_block: VIC %d(native) support\n", pbuf[i]&0x7f);
@@ -195,7 +195,7 @@ static s32 edid_parse_audiodata_block(u8 *pbuf,u8 size)
 {
 	u8 sum = 0;
 
-	while(sum < size) {
+	while (sum < size) {
 		if ( (pbuf[sum]&0xf8) == 0x08) {
 			__inf("edid_parse_audiodata_block: max channel=%d\n",(pbuf[sum]&0x7)+1);
 			__inf("edid_parse_audiodata_block: SampleRate code=%x\n",pbuf[sum+1]);
@@ -346,7 +346,7 @@ s32 hdmi_edid_parse(void)
 				/* deal with reserved data block */
 				if (offset > 4) {
 					u8 bsum = 4;
-					while(bsum < offset)
+					while (bsum < offset)
 					{
 						u8 tag = EDID_Buf[0x80*i+bsum]>>5;
 						u8 len = EDID_Buf[0x80*i+bsum]&0x1f;
@@ -374,7 +374,7 @@ s32 hdmi_edid_parse(void)
 
 				/* deal with 18-byte timing block */
 				if (offset >= 4)	{
-					while(offset < (0x80-18)) {
+					while (offset < (0x80-18)) {
 						edid_parse_dtd_block(EDID_Buf + 0x80*i + offset);
 						offset += 18;
 					}

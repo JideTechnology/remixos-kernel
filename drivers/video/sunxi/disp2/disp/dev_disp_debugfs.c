@@ -182,6 +182,12 @@ static void dispdbg_process(void)
 
 		}
 #endif
+		else if (!strncmp(dispdbg_priv.command,"vsync_enable",12)) {
+			u32 enable;
+
+			enable = simple_strtoul(dispdbg_priv.param,NULL,10);
+			bsp_disp_vsync_event_enable(disp, (1==enable)? true:false);
+		}
 		else {
 			sprintf(dispdbg_priv.info,"not support command for %s!", dispdbg_priv.name);
 			return ;

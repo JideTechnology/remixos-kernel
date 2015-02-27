@@ -1305,6 +1305,16 @@ int de_rtmx_set_blend_mode(unsigned int sel, unsigned int bldno, unsigned char m
 	return 0;
 }
 
+int de_rtmx_set_blend_color(unsigned int sel, unsigned int bldno, unsigned int color)
+{
+	de200_rtmx[sel].bld_ctl->bld_pipe_attr[bldno].fcolor.dwval = (0xff<<24)|(color&0xffffff);
+	bld_attr_block[sel].dirty = 1;
+
+	return 0;
+}
+
+
+
 int de_rtmx_set_outitl(unsigned int sel, unsigned char interlace_en)
 {
 
