@@ -718,8 +718,8 @@ static int sun50iw1_machine_suspend(struct platform_device *pdev, pm_message_t m
 {
 	struct snd_soc_card *soc_card = platform_get_drvdata(pdev);
 	struct mc_private *ctx = snd_soc_card_get_drvdata(soc_card);
-	pr_debug("[codec-machine]  suspend.\n")
 	disable_irq(ctx->jackirq);
+	pr_debug("[codec-machine]  suspend.\n");
 	return 0;
 }
 
@@ -727,7 +727,6 @@ static int sun50iw1_machine_resume(struct platform_device *pdev)
 {
 	struct snd_soc_card *soc_card = platform_get_drvdata(pdev);
 	struct mc_private *ctx = snd_soc_card_get_drvdata(soc_card);
-	pr_debug("[codec-machine]  resume.\n")
 	/*0x314*/
 	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL2, (0xffff<<0), (0x0<<0));
 	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL2, (0x1f<<8), (0x17<<8));
@@ -745,6 +744,7 @@ static int sun50iw1_machine_resume(struct platform_device *pdev)
 	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0x1<<JACK_IN_IRQ_EN), (0x1<<JACK_IN_IRQ_EN));
 	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0xf<<HMIC_N), (0xf<<HMIC_N));
 	enable_irq(ctx->jackirq);
+	pr_debug("[codec-machine]  resume.\n");
 	return 0;
 }
 #else
