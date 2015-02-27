@@ -33,6 +33,11 @@
 #include <unistd.h>
 
 #include <libfdt_env.h>
+#include <common.h>
+#include <dictionary.h>
+#include <iniparser.h>
+#include <script.h>
+#include <script_to_dts.h>
 #include <fdt.h>
 
 #include "util.h"
@@ -66,7 +71,10 @@ typedef uint32_t cell_t;
 #define strneq(a, b, n)	(strncmp((a), (b), (n)) == 0)
 
 #define ALIGN(x, a)	(((x) + (a) - 1) & ~((a) - 1))
+
+#if 0
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+#endif
 
 /* Data blobs */
 enum markertype {
@@ -259,7 +267,6 @@ void dt_to_asm(FILE *f, struct boot_info *bi, int version);
 struct boot_info *dt_from_blob(const char *fname);
 
 /* Tree source */
-
 void dt_to_source(FILE *f, struct boot_info *bi);
 struct boot_info *dt_from_source(const char *f);
 

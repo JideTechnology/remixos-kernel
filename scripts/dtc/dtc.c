@@ -20,7 +20,7 @@
 
 #include "dtc.h"
 #include "srcpos.h"
-
+#include "updatetree.h"
 #include "version_gen.h"
 
 /*
@@ -31,6 +31,7 @@ int reservenum;		/* Number of memory reservation slots */
 int minsize;		/* Minimum blob size */
 int padsize;		/* Additional padding to blob */
 int phandle_format = PHANDLE_BOTH;	/* Use linux,phandle or phandle properties */
+
 
 static void fill_fullpaths(struct node *tree, const char *prefix)
 {
@@ -106,6 +107,7 @@ int main(int argc, char *argv[])
 	const char *outform = "dts";
 	const char *outname = "-";
 	const char *depname = NULL;
+	const char *fexname = NULL;
 	int force = 0, sort = 0;
 	const char *arg;
 	int opt;
@@ -118,7 +120,7 @@ int main(int argc, char *argv[])
 	minsize    = 0;
 	padsize    = 0;
 
-	while ((opt = getopt(argc, argv, "hI:O:o:V:d:R:S:p:fqb:i:vH:sW:E:"))
+	while ((opt = getopt(argc, argv, "hI:O:o:V:d:R:S:p:fqb:i:vH:sW:E:F:"))
 			!= EOF) {
 		switch (opt) {
 		case 'I':
@@ -184,6 +186,10 @@ int main(int argc, char *argv[])
 			parse_checks_option(false, true, optarg);
 			break;
 
+		case 'F':
+			fexname = optarg;
+			break;
+
 		case 'h':
 		default:
 			usage();
@@ -242,6 +248,14 @@ int main(int argc, char *argv[])
 		if (! outf)
 			die("Couldn't open output file %s: %s\n",
 			    outname, strerror(errno));
+	}
+	/* add by huangshr.
+	 * here we parser script file and
+	 * insert mainkey info into bi struct.
+	 */
+
+	if (fexname) {
+		dt_update_source(fexname, outf, bi);
 	}
 
 	if (streq(outform, "dts")) {
