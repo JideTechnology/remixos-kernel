@@ -326,9 +326,9 @@ struct ccm_config ccm0_def_cfg[] = {
 			.afvdd_vol =2800000, /* voltage of sensor module for vcm sink */
 		},
 		.gpio = {
-			[MCLK_PIN] = {.gpio = 129, .mul_sel = 1, .pull = 0, .drv_level = 1, .data = 0,},
-			[RESET] = {144, 1, 0, 1, 0,},
-			[PWDN] = {145, 1, 0, 1, 0,},
+			[MCLK_PIN] = {.gpio = GPIOE(1)/*129*/, .mul_sel = 1, .pull = 0, .drv_level = 1, .data = 0,},
+			[RESET] = {GPIOE(14)/*142*/, 1, 0, 1, 0,},
+			[PWDN] = {GPIOE(15)/*143*/, 1, 0, 1, 0,},
 			[POWER_EN] = {GPIO_INDEX_INVALID, 	   0, 0, 0, 0,},
 			[FLASH_EN] =  {GPIO_INDEX_INVALID, 	  0, 0, 0, 0,},
 			[FLASH_MODE] =  {GPIO_INDEX_INVALID, 	 0, 0, 0, 0,},

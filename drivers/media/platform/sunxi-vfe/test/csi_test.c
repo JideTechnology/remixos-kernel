@@ -1,5 +1,6 @@
 
-//#Rockie Cheng
+//zw 
+//for csi & isp test
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,18 +25,24 @@
 #include "sunxi_camera.h"
 
 #define CLEAR(x) memset (&(x), 0, sizeof (x))
-
-int count;
-
-struct buffer {
-        void *		start;
-        size_t		length;
-};
+#define ALIGN_4K(x) (((x) + (4095)) & ~(4095))
 #define ALIGN_16B(x) (((x) + (15)) & ~(15))
+#define ALIGN_nB(n,x) (((x) + (n-1)) & ~(n-1))	//n Byte ALIGN 
+/*
+**function: calculate the next member address
+**	start: the address of the previous member
+**	type: the type of the member which will be calculated
+*/
+#define NEXT_MEMBER_ADDR(start, type) (type*)ALIGN_nB(sizeof(type),((long)(start) + sizeof(*start)))
 
 struct size{
 	int width;
 	int height;
+};
+
+struct buffer {
+    void * start;
+    size_t length;
 };
 
 static char path_name[20] = {'\0'};
@@ -44,18 +51,12 @@ static int      fd              = -1;
 struct buffer *   buffers       = NULL;
 static unsigned int   n_buffers	= 0;
 
-FILE *file_fd = NULL;
-#define ALIGN_4K(x) (((x) + (4095)) & ~(4095))
-
 struct size input_size;
 struct size subch_size;
-unsigned int  csi_format;
-unsigned int  subch_format;
 
-unsigned int  csi_field;
-unsigned int  read_num=40;
-unsigned int  req_frame_num;
-unsigned int  fps=30;
+unsigned int  req_frame_num = 8;
+unsigned int  read_num = 20;
+unsigned int  count;
 
 int buf_size[3]={0};
 
@@ -64,9 +65,9 @@ static int read_frame (int mode)
 	struct v4l2_buffer buf;
 	char fdstr[30];
 	void * bfstart = NULL;
+	FILE *file_fd = NULL;
 	int i,num;
 
-	
 	CLEAR (buf);
 	buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	buf.memory = V4L2_MEMORY_MMAP;
@@ -76,7 +77,7 @@ static int read_frame (int mode)
 	    
 	assert (buf.index < n_buffers);
 
-	if (count == (read_num - 20))
+	if (count == read_num/2)
     	{
 		printf("file length = %d\n",buffers[buf.index].length);
 		printf("file start = %x\n",buffers[buf.index].start); 
@@ -138,7 +139,7 @@ static int req_frame_buffers(void)
 			printf ("VIDIOC_QUERYBUF error\n");
 
 		buffers[n_buffers].length = buf.length;
-		buffers[n_buffers].start = mmap (NULL /* start anywhere */, 
+		buffers[n_buffers].start  = mmap (NULL /* start anywhere */, 
 								         buf.length,
 								         PROT_READ | PROT_WRITE /* required */,
 								         MAP_SHARED /* recommended */,
@@ -206,7 +207,7 @@ static int camera_init(int sel, int mode)
 	//VIDIOC_S_PARM			
 	parms.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	parms.parm.capture.timeperframe.numerator = 1;
-	parms.parm.capture.timeperframe.denominator = fps;
+	parms.parm.capture.timeperframe.denominator =30;
 	parms.parm.capture.capturemode = V4L2_MODE_VIDEO; //V4L2_MODE_IMAGE
 
 	if (-1 == ioctl (fd, VIDIOC_S_PARM, &parms)) 
@@ -221,29 +222,36 @@ static int camera_init(int sel, int mode)
 
 static int camera_fmt_set(int subch, int angle)
 {
+	union {
+		struct v4l2_pix_format pix;
+		__u8	raw_data[200];	//Reserved space for pix
+	}subch_fmt_t;
 	struct v4l2_format fmt;
-	struct v4l2_pix_format subch_fmt;
+	struct v4l2_pix_format *subch_fmt = &subch_fmt_t.pix;
+	__u32 *sub_rot_angle_pt = NEXT_MEMBER_ADDR(&subch_fmt->priv, __u32);	//&subch_fmt.rot_angle
+	__u32 * rot_angle_pt = NEXT_MEMBER_ADDR(&fmt.fmt.pix.priv, __u32);		//&fmt.fmt.pix.rot_angle
+	struct v4l2_pix_format **subch_pt = NEXT_MEMBER_ADDR(rot_angle_pt, struct v4l2_pix_format *);//&fmt.fmt.pix.subchannel
 
 	//VIDIOC_S_FMT
 	CLEAR (fmt);
 	fmt.type                	= V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	fmt.fmt.pix.width       	= input_size.width; 	//640; 
 	fmt.fmt.pix.height      	= input_size.height; 	//480;
-	fmt.fmt.pix.pixelformat 	= csi_format;			//V4L2_PIX_FMT_YUV422P;//V4L2_PIX_FMT_NV12;//V4L2_PIX_FMT_YUYV;
-	fmt.fmt.pix.field       	= csi_field;			//V4L2_FIELD_INTERLACED;//V4L2_FIELD_NONE;
-	//fmt.fmt.pix.rot_angle	    = 0;
-	
-	//if (0 == subch)
-	//	fmt.fmt.pix.subchannel	= NULL;	
-	//else
-	//{
-	//	fmt.fmt.pix.subchannel	= &subch_fmt;
-	//	subch_fmt.width 		= subch_size.width;
-	//	subch_fmt.height		= subch_size.height;
-	//	subch_fmt.pixelformat	= subch_format; 		//V4L2_PIX_FMT_YUV422P;//V4L2_PIX_FMT_NV12;//V4L2_PIX_FMT_YUYV;
-	//	subch_fmt.field 		= csi_field;			//V4L2_FIELD_INTERLACED;//V4L2_FIELD_NONE;
-	//	subch_fmt.rot_angle 	= angle;
-	//}
+	fmt.fmt.pix.pixelformat 	= V4L2_PIX_FMT_YUV420;		//V4L2_PIX_FMT_YUV422P;//V4L2_PIX_FMT_NV12;//V4L2_PIX_FMT_YUYV;
+	fmt.fmt.pix.field       	= V4L2_FIELD_NONE;			//V4L2_FIELD_INTERLACED;//V4L2_FIELD_NONE;
+	*rot_angle_pt				= 0;					//fmt.fmt.pix.rot_angle	    = 0;
+
+	if (0 == subch)
+		*subch_pt = NULL;								//fmt.fmt.pix.subchannel	= NULL;
+	else
+	{
+		*subch_pt				= subch_fmt;			//fmt.fmt.pix.subchannel	= &subch_fmt;
+		subch_fmt->width 		= subch_size.width;
+		subch_fmt->height		= subch_size.height;
+		subch_fmt->pixelformat	= V4L2_PIX_FMT_YUV420; 		//V4L2_PIX_FMT_YUV422P;//V4L2_PIX_FMT_NV12;//V4L2_PIX_FMT_YUYV;
+		subch_fmt->field 		= V4L2_FIELD_NONE;			//V4L2_FIELD_INTERLACED;//V4L2_FIELD_NONE;
+		*sub_rot_angle_pt		= angle;				//subch_fmt.rot_angle 	= angle;
+	}
 
 	if (-1 == ioctl (fd, VIDIOC_S_FMT, &fmt))
 	{
@@ -296,7 +304,6 @@ static int main_test (int sel, int mode)
 		printf ("VIDIOC_STREAMON ok\n");
 
 	count = read_num;
-	    
 	while (count-->0)
 	{	    
 		for (;;) 
@@ -352,52 +359,44 @@ int main(int argc,char *argv[])
 	int sel = 0;
 	int width = 640;
 	int height = 480;
-	int mode = 1;
-	
-	csi_format = V4L2_PIX_FMT_YUV420;		//V4L2_PIX_FMT_NV21;//V4L2_PIX_FMT_YUV444;//V4L2_PIX_FMT_NV16;//V4L2_PIX_FMT_NV12;//V4L2_PIX_FMT_NV21;
-	csi_field = V4L2_FIELD_NONE;			//V4L2_FIELD_INTERLACED;//V4L2_FIELD_NONE;
-	subch_format = V4L2_PIX_FMT_YUV420;	//V4L2_PIX_FMT_NV21;
-
-	req_frame_num = 4;
-	
-	printf("argc = %d !!!!!!!!!!!!!!!!!!!!!!!!!!!\n",argc);
+    int mode = 1;
 	
 	CLEAR (dev_name);
-	CLEAR (path_name);
-	if( argc == 1 ) {
+    CLEAR (path_name);
+    if( argc == 1 ) {
 		sprintf(dev_name,"/dev/video0");
-		sprintf(path_name,"/mnt/sdcard");
-	}
-	else if( argc == 3 ) {
+        sprintf(path_name,"/mnt/sdcard");
+    }
+    else if( argc == 3 ) {
 		sel = atoi(argv[1]);
 		sprintf(dev_name,"/dev/video%d",sel);
 		sel = atoi(argv[2]);
-		sprintf(path_name,"/mnt/sdcard");
-	}
-	else if( argc == 5 ) {
-		sel = atoi(argv[1]);
-		sprintf(dev_name,"/dev/video%d",sel);
-		sel = atoi(argv[2]);
-		width = atoi(argv[3]);
-		height = atoi(argv[4]);
-		sprintf(path_name,"/mnt/sdcard");
-	}
-	else if( argc == 6 ) {
+        sprintf(path_name,"/mnt/sdcard");
+    }
+    else if( argc == 5 ) {
 		sel = atoi(argv[1]);
 		sprintf(dev_name,"/dev/video%d",sel);
 		sel = atoi(argv[2]);
 		width = atoi(argv[3]);
 		height = atoi(argv[4]);
-		sprintf(path_name,"%s",argv[5]);
-	}
-	else if( argc == 7 ) {
+        sprintf(path_name,"/mnt/sdcard");
+    }
+    else if( argc == 6 ) {
 		sel = atoi(argv[1]);
 		sprintf(dev_name,"/dev/video%d",sel);
 		sel = atoi(argv[2]);
 		width = atoi(argv[3]);
 		height = atoi(argv[4]);
-		sprintf(path_name,"%s",argv[5]);
-		mode = atoi(argv[6]);
+        sprintf(path_name,"%s",argv[5]);
+    }
+    else if( argc == 7 ) {
+		sel = atoi(argv[1]);
+		sprintf(dev_name,"/dev/video%d",sel);
+		sel = atoi(argv[2]);
+		width = atoi(argv[3]);
+		height = atoi(argv[4]);
+        sprintf(path_name,"%s",argv[5]);
+        mode = atoi(argv[6]);
 	}else{
 		printf("please select the video device: 0-video0 1-video1 ......\n"); 	//select the video device
 		scanf("%d", &sel);
@@ -409,10 +408,10 @@ int main(int argc,char *argv[])
 		printf("please input the resolution: width height......\n");		//input the resolution
 		scanf("%d %d", &width, &height);
 
-		printf("please input the frame saving path......\n");		//input the frame saving path
+        printf("please input the frame saving path......\n");		//input the frame saving path
 		scanf("%15s", path_name);
 
-		printf("please input the test mode: 1~4......\n");		//input the frame saving path
+        printf("please input the test mode: 1~4......\n");		//input the frame saving path
 		scanf("%d", &mode);
 	}
 	
@@ -426,13 +425,17 @@ int main(int argc,char *argv[])
 	buf_size[1] = ALIGN_16B(subch_size.width)*subch_size.height*3/2;
 	buf_size[2] = ALIGN_16B(subch_size.height)*subch_size.width*3/2;
 
-	for (i = 0; i < mode; i ++)
-	{
-		if (0 == main_test(sel, i))
-			printf("*************************mode %d test done \n", i) ;
-		else
-			printf("*************************mode %d test failed \n", i) ;			
-	}
+//	for (i = 0; i < mode; i ++)
+//	{
+//		if (0 == main_test(sel, i))
+//			printf("*************************mode %d test done \n", i) ;
+//		else
+//			printf("*************************mode %d test failed \n", i) ;			
+//	}
+	if (0 == main_test(sel, mode - 1))
+		printf("*************************mode %d test done \n", mode) ;
+	else
+		printf("*************************mode %d test failed \n", mode) ;
 
 	return 0;
 }

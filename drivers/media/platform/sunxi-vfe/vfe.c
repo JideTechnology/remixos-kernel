@@ -889,27 +889,6 @@ static inline void vfe_set_addr(struct vfe_dev *dev,struct vfe_buffer *buffer)
 	vfe_dbg(3,"csi_buf_addr_orginal=%llx\n", addr_org);
 }
 
-static unsigned int common_af_status_to_v4l2(enum auto_focus_status af_status)
-{
-	switch(af_status) {
-		case AUTO_FOCUS_STATUS_IDLE:
-			return V4L2_AUTO_FOCUS_STATUS_IDLE;
-		case AUTO_FOCUS_STATUS_BUSY:
-			return V4L2_AUTO_FOCUS_STATUS_BUSY;
-		case AUTO_FOCUS_STATUS_REACHED:
-			return V4L2_AUTO_FOCUS_STATUS_REACHED;
-		case AUTO_FOCUS_STATUS_APPROCH:
-			return V4L2_AUTO_FOCUS_STATUS_BUSY;
-		case AUTO_FOCUS_STATUS_REFOCUS:
-			return V4L2_AUTO_FOCUS_STATUS_BUSY;
-		case AUTO_FOCUS_STATUS_FINDED:
-			return V4L2_AUTO_FOCUS_STATUS_BUSY;
-		case AUTO_FOCUS_STATUS_FAILED:
-			return V4L2_AUTO_FOCUS_STATUS_FAILED;
-		default:
-		      return V4L2_AUTO_FOCUS_STATUS_IDLE;
-	}
-}
 static void vfe_dump_csi_regs(struct vfe_dev *dev)
 {
 	int i = 0;
@@ -2844,53 +2823,182 @@ static int vidioc_s_input(struct file *file, void *priv, unsigned int i)
 	return ret;
 }
 
-static enum power_line_frequency v4l2_bf_to_common(enum v4l2_power_line_frequency band_stop_mode)
+struct vfe_command 
 {
-  return band_stop_mode;
-}
+	char name[32];
+	int v4l2_item;
+	int isp_item;	
+};
 
-static enum colorfx v4l2_colorfx_to_common(enum v4l2_colorfx colorfx)
+static struct vfe_command vfe_power_line_frequency[] = 
 {
-  return colorfx;
-}
+	{"frequency disabled", V4L2_CID_POWER_LINE_FREQUENCY_DISABLED  , 	FREQUENCY_DISABLED,	},
+	{"frequency 50hz", V4L2_CID_POWER_LINE_FREQUENCY_50HZ	    , 	FREQUENCY_50HZ, 		},
+	{"frequency 60hz", V4L2_CID_POWER_LINE_FREQUENCY_60HZ	    , 	FREQUENCY_60HZ,    	},
+	{"frequency auto", V4L2_CID_POWER_LINE_FREQUENCY_AUTO		, 		FREQUENCY_AUTO,   	} ,
+};
 
-static enum exposure_mode v4l2_ae_mode_to_common(enum v4l2_exposure_auto_type ae_mode)
+static struct vfe_command vfe_colorfx[] = 
 {
-  switch(ae_mode) {
-    case V4L2_EXPOSURE_AUTO:
-    case V4L2_EXPOSURE_SHUTTER_PRIORITY:
-    case V4L2_EXPOSURE_APERTURE_PRIORITY:
-      return EXP_AUTO;
-    case V4L2_EXPOSURE_MANUAL:
-      return EXP_MANUAL;
-    default:
-      return EXP_AUTO;
-  }
-}
+	{"NONE        ",     V4L2_COLORFX_NONE        , 	COLORFX_NONE        , },
+	{"BW          ",     V4L2_COLORFX_BW          ,  	COLORFX_BW          , 	},
+	{"SEPIA       ",     V4L2_COLORFX_SEPIA       ,  	COLORFX_SEPIA       , },
+	{"NEGATIVE    ",     V4L2_COLORFX_NEGATIVE    ,  	COLORFX_NEGATIVE    , } ,
+	{"EMBOSS      ",     V4L2_COLORFX_EMBOSS      ,    COLORFX_EMBOSS      , },
+	{"SKETCH      ",     V4L2_COLORFX_SKETCH      ,    COLORFX_SKETCH      , },
+	{"SKY_BLUE    ",     V4L2_COLORFX_SKY_BLUE    ,    COLORFX_SKY_BLUE    , },
+	{"GRASS_GREEN ",     V4L2_COLORFX_GRASS_GREEN ,    COLORFX_GRASS_GREEN , },
+	{"SKIN_WHITEN ",     V4L2_COLORFX_SKIN_WHITEN ,    COLORFX_SKIN_WHITEN , },
+	{"VIVID       ",     V4L2_COLORFX_VIVID       ,    COLORFX_VIVID       , },
+	{"AQUA        ",     V4L2_COLORFX_AQUA        ,    COLORFX_AQUA        , },
+	{"ART_FREEZE  ",     V4L2_COLORFX_ART_FREEZE  ,    COLORFX_ART_FREEZE  , },
+	{"SILHOUETTE  ",     V4L2_COLORFX_SILHOUETTE  ,    COLORFX_SILHOUETTE  , },
+	{"SOLARIZATION",     V4L2_COLORFX_SOLARIZATION,    COLORFX_SOLARIZATION, },
+	{"ANTIQUE     ",     V4L2_COLORFX_ANTIQUE     ,    COLORFX_ANTIQUE     , },
+	{"SET_CBCR    ",     V4L2_COLORFX_SET_CBCR    ,    COLORFX_SET_CBCR    , },
+};
+static struct vfe_command vfe_ae_mode[] = 
+{
+	{"EXPOSURE_AUTO", 			V4L2_EXPOSURE_AUTO  , 			EXP_AUTO,	},
+	{"EXPOSURE_MANUAL", 		V4L2_EXPOSURE_MANUAL	    , 	EXP_MANUAL, },
+	{"EXPOSURE_SHUTTER_PRIORITY",V4L2_EXPOSURE_SHUTTER_PRIORITY,EXP_AUTO, },
+	{"EXPOSURE_APERTURE_PRIORITY",V4L2_EXPOSURE_APERTURE_PRIORITY, EXP_AUTO, } ,
+};
+static struct vfe_command vfe_wb[] = 
+{
+	{"WB_MANUAL       ",     V4L2_WHITE_BALANCE_MANUAL        , 	WB_MANUAL       , },
+	{"WB_AUTO         ",     V4L2_WHITE_BALANCE_AUTO          ,  	WB_AUTO         , 	},
+	{"WB_INCANDESCENT ",     V4L2_WHITE_BALANCE_INCANDESCENT  ,  	WB_INCANDESCENT , },
+	{"WB_FLUORESCENT  ",     V4L2_WHITE_BALANCE_FLUORESCENT   ,  	WB_FLUORESCENT  , } ,
+	{"WB_FLUORESCENT_H",     V4L2_WHITE_BALANCE_FLUORESCENT_H ,    WB_FLUORESCENT_H, },
+	{"WB_HORIZON      ",     V4L2_WHITE_BALANCE_HORIZON       ,    WB_HORIZON      , },
+	{"WB_DAYLIGHT     ",     V4L2_WHITE_BALANCE_DAYLIGHT      ,    WB_DAYLIGHT     , },
+	{"WB_FLASH        ",     V4L2_WHITE_BALANCE_FLASH         ,    WB_FLASH        , },
+	{"WB_CLOUDY       ",     V4L2_WHITE_BALANCE_CLOUDY        ,    WB_CLOUDY       , },
+	{"WB_SHADE        ",     V4L2_WHITE_BALANCE_SHADE         ,    WB_SHADE        , },
+};
 
-static enum white_balance_mode v4l2_wb_preset_to_common(enum v4l2_auto_n_preset_white_balance wb_preset)
+static struct vfe_command vfe_iso[] = 
 {
-  return wb_preset;
-}
+	{"ISO_SENSITIVITY_MANUAL",  V4L2_ISO_SENSITIVITY_MANUAL  , ISO_MANUAL,	},
+	{"ISO_SENSITIVITY_AUTO",   V4L2_ISO_SENSITIVITY_AUTO	    , 	ISO_AUTO, },
+};
+static struct vfe_command vfe_scene[] = 
+{
+	{"SCENE_MODE_NONE        ",     V4L2_SCENE_MODE_NONE        , 	SCENE_MODE_NONE        },
+	{"SCENE_MODE_BACKLIGHT   ",     V4L2_SCENE_MODE_BACKLIGHT   ,  SCENE_MODE_BACKLIGHT     , 	},
+	{"SCENE_MODE_BEACH_SNOW  ",     V4L2_SCENE_MODE_BEACH_SNOW  ,  SCENE_MODE_BEACH_SNOW    , },
+	{"SCENE_MODE_CANDLE_LIGHT",     V4L2_SCENE_MODE_CANDLE_LIGHT,  SCENE_MODE_CANDLE_LIGHT  , } ,
+	{"SCENE_MODE_DAWN_DUSK   ",     V4L2_SCENE_MODE_DAWN_DUSK   ,  SCENE_MODE_DAWN_DUSK   , },
+	{"SCENE_MODE_FALL_COLORS ",     V4L2_SCENE_MODE_FALL_COLORS ,  SCENE_MODE_FALL_COLORS , },
+	{"SCENE_MODE_FIREWORKS   ",     V4L2_SCENE_MODE_FIREWORKS   ,  SCENE_MODE_FIREWORKS   , },
+	{"SCENE_MODE_LANDSCAPE   ",     V4L2_SCENE_MODE_LANDSCAPE   ,  SCENE_MODE_LANDSCAPE   , },
+	{"SCENE_MODE_NIGHT       ",     V4L2_SCENE_MODE_NIGHT       ,  SCENE_MODE_NIGHT       , },
+	{"SCENE_MODE_PARTY_INDOOR",     V4L2_SCENE_MODE_PARTY_INDOOR,  SCENE_MODE_PARTY_INDOOR, },
+	{"SCENE_MODE_PORTRAIT    ",     V4L2_SCENE_MODE_PORTRAIT    ,  SCENE_MODE_PORTRAIT    , },
+	{"SCENE_MODE_SPORTS      ",     V4L2_SCENE_MODE_SPORTS      ,  SCENE_MODE_SPORTS      , },
+	{"SCENE_MODE_SUNSET      ",     V4L2_SCENE_MODE_SUNSET      ,  SCENE_MODE_SUNSET      , },
+	{"SCENE_MODE_TEXT        ",     V4L2_SCENE_MODE_TEXT        ,  SCENE_MODE_TEXT        , },
+};
 
-static enum iso_mode v4l2_iso_mode_to_common(enum v4l2_iso_sensitivity_auto_type iso_mode)
-{
-  return iso_mode;
-}
 
-static enum scene_mode v4l2_scene_to_common(enum v4l2_scene_mode scene_mode)
+static struct vfe_command vfe_af_range[] = 
 {
-  return scene_mode;
-}
+	{"AF_RANGE_AUTO", 		V4L2_AUTO_FOCUS_RANGE_AUTO    , AF_RANGE_AUTO    ,	},
+	{"AF_RANGE_NORMAL", 	V4L2_AUTO_FOCUS_RANGE_NORMAL  , AF_RANGE_NORMAL  , },
+	{"AF_RANGE_MACRO",		V4L2_AUTO_FOCUS_RANGE_MACRO   ,	AF_RANGE_MACRO   , },
+	{"AF_RANGE_INFINITY",	V4L2_AUTO_FOCUS_RANGE_INFINITY	, AF_RANGE_INFINITY, } ,
+};
+static struct vfe_command vfe_flash_mode[] = 
+{
+	{"FLASH_LED_MODE_NONE	 ",	V4L2_FLASH_LED_MODE_NONE		, FLASH_MODE_OFF,	},
+	{"FLASH_LED_MODE_FLASH	 ",	V4L2_FLASH_LED_MODE_FLASH		, FLASH_MODE_ON, },
+	{"FLASH_LED_MODE_TORCH	 ",	V4L2_FLASH_LED_MODE_TORCH		, FLASH_MODE_TORCH	, },
+	{"FLASH_LED_MODE_AUTO	 ",	V4L2_FLASH_LED_MODE_AUTO		, FLASH_MODE_AUTO	, } ,	
+	{"FLASH_LED_MODE_RED_EYE", 		V4L2_FLASH_LED_MODE_RED_EYE	, FLASH_MODE_RED_EYE, } ,
+};
 
-static enum auto_focus_range v4l2_af_range_to_common(enum v4l2_auto_focus_range af_range)
-{
-  return af_range;
-}
 
-static enum flash_mode v4l2_flash_mode_to_common(enum v4l2_flash_led_mode flash_mode)
+static struct vfe_command vfe_focus_status[] = 
 {
-	return flash_mode;
+	{"V4L2_AUTO_FOCUS_STATUS_IDLE	 ",	V4L2_AUTO_FOCUS_STATUS_IDLE		, 			AUTO_FOCUS_STATUS_IDLE,	},
+	{"V4L2_AUTO_FOCUS_STATUS_BUSY	 ",	V4L2_AUTO_FOCUS_STATUS_BUSY		, 			AUTO_FOCUS_STATUS_BUSY, },
+	{"V4L2_AUTO_FOCUS_STATUS_REACHED	 ",	V4L2_AUTO_FOCUS_STATUS_REACHED		, 			AUTO_FOCUS_STATUS_REACHED	, },
+	{"V4L2_AUTO_FOCUS_STATUS_BUSY	 ",	V4L2_AUTO_FOCUS_STATUS_BUSY		, 			V4L2_AUTO_FOCUS_STATUS_BUSY	, },
+	{"V4L2_AUTO_FOCUS_STATUS_BUSY", 		V4L2_AUTO_FOCUS_STATUS_BUSY	, 			AUTO_FOCUS_STATUS_REFOCUS, } ,
+	{"V4L2_AUTO_FOCUS_STATUS_BUSY	 ",	V4L2_AUTO_FOCUS_STATUS_BUSY		, 			AUTO_FOCUS_STATUS_FINDED	, },	
+	{"V4L2_AUTO_FOCUS_STATUS_FAILED",		V4L2_AUTO_FOCUS_STATUS_FAILED	,			AUTO_FOCUS_STATUS_FAILED, } ,
+};
+
+enum vfe_command_tpye
+{
+	VFE_POWER_LINE_FREQUENCY, 
+	VFE_COLORFX,
+	VFE_AE_MODE, 
+	VFE_WB,
+	VFE_ISO, 
+	VFE_SCENE,
+	VFE_AF_RANGE, 
+	VFE_FLASH_MODE,
+	VFE_FOCUS_STATUS,
+	VFE_COMMAND_MAX,
+};
+
+struct vfe_command_adapter
+{
+	struct vfe_command * cmd_pt;
+	int					size;
+};
+
+struct vfe_command_adapter vfe_cmd_adapter[] = 
+{
+	{&vfe_power_line_frequency[0], ARRAY_SIZE(vfe_power_line_frequency)},
+	{&vfe_colorfx[0], ARRAY_SIZE(vfe_colorfx)},
+	{&vfe_ae_mode[0], ARRAY_SIZE(vfe_ae_mode)},
+	{&vfe_wb[0], ARRAY_SIZE(vfe_wb)},
+	{&vfe_iso[0], ARRAY_SIZE(vfe_iso)},
+	{&vfe_scene[0], ARRAY_SIZE(vfe_scene)},
+	{&vfe_af_range[0], ARRAY_SIZE(vfe_af_range)},
+	{&vfe_flash_mode[0], ARRAY_SIZE(vfe_flash_mode)},
+	{&vfe_focus_status[0], ARRAY_SIZE(vfe_focus_status)},
+};
+enum {
+	V4L2_TO_ISP, 
+	ISP_TO_V4L2,
+};
+int vfe_v4l2_isp(int type, int cmd, int flag)
+{
+	struct vfe_command_adapter cmd_adapter;
+	int i;
+	if(type >= ARRAY_SIZE(vfe_cmd_adapter))
+	{
+		vfe_err("vfe command tpye ERR, type = %d\n", type);
+	}
+	cmd_adapter = vfe_cmd_adapter[type];
+	if(V4L2_TO_ISP == flag)
+	{
+		for(i = 0; i < cmd_adapter.size; i++)
+		{
+			if(cmd == cmd_adapter.cmd_pt[i].v4l2_item)
+			{
+				vfe_dbg(0,"vfe set %s, cmd = %d\n",cmd_adapter.cmd_pt[i].name,	cmd);
+				return cmd_adapter.cmd_pt[i].isp_item;
+			}
+		}
+	}
+	else if(ISP_TO_V4L2 == flag)
+	{
+		for(i = 0; i < cmd_adapter.size; i++)
+		{
+			if(cmd == cmd_adapter.cmd_pt[i].isp_item)
+			{
+				vfe_dbg(0,"vfe get %s, cmd = %d\n",cmd_adapter.cmd_pt[i].name,	cmd);
+				return cmd_adapter.cmd_pt[i].v4l2_item;
+			}
+		}
+	}
+	vfe_err("command conver ERR, cmd = %d\n", cmd);
+	return 0;	
 }
 
 static int vidioc_g_parm(struct file *file, void *priv,
@@ -3434,7 +3542,7 @@ static int vfe_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 			}
 			break; 
 		case V4L2_CID_AUTO_FOCUS_STATUS:  //Read-Only
-			ctrl->val = common_af_status_to_v4l2(dev->isp_3a_result_pt->af_status);
+			ctrl->val = vfe_v4l2_isp(VFE_FOCUS_STATUS, dev->isp_3a_result_pt->af_status, ISP_TO_V4L2);
 			break;
 		case V4L2_CID_SENSOR_TYPE:
 			ctrl->val = dev->is_bayer_raw;
@@ -3502,7 +3610,7 @@ static int vfe_s_ctrl(struct v4l2_ctrl *ctrl)
 		case V4L2_CID_GAIN: 
 			return v4l2_subdev_call(dev->sd,core,s_ctrl,&c);	
 		case V4L2_CID_POWER_LINE_FREQUENCY:
-			bsp_isp_s_power_line_frequency(dev->isp_gen_set_pt, v4l2_bf_to_common(ctrl->val));
+			bsp_isp_s_power_line_frequency(dev->isp_gen_set_pt, vfe_v4l2_isp(VFE_POWER_LINE_FREQUENCY,ctrl->val, V4L2_TO_ISP));
 			break;
 		case V4L2_CID_HUE_AUTO:
 			bsp_isp_s_hue_auto(dev->isp_gen_set_pt, ctrl->val);
@@ -3517,7 +3625,7 @@ static int vfe_s_ctrl(struct v4l2_ctrl *ctrl)
 			bsp_isp_s_chroma_agc(dev->isp_gen_set_pt, ctrl->val);
 			break;
 		case V4L2_CID_COLORFX:
-			bsp_isp_s_colorfx(dev->isp_gen_set_pt, v4l2_colorfx_to_common(ctrl->val));
+			bsp_isp_s_colorfx(dev->isp_gen_set_pt, vfe_v4l2_isp(VFE_COLORFX,ctrl->val, V4L2_TO_ISP));
 			break;
 		case V4L2_CID_AUTOBRIGHTNESS:
 			bsp_isp_s_auto_brightness(dev->isp_gen_set_pt, ctrl->val);
@@ -3533,7 +3641,7 @@ static int vfe_s_ctrl(struct v4l2_ctrl *ctrl)
 			break;
 		//V4L2_CID_CAMERA_CLASS_BASE
 		case V4L2_CID_EXPOSURE_AUTO:
-			bsp_isp_s_exposure_auto(dev->isp_gen_set_pt, v4l2_ae_mode_to_common(ctrl->val));
+			bsp_isp_s_exposure_auto(dev->isp_gen_set_pt, vfe_v4l2_isp(VFE_AE_MODE,ctrl->val, V4L2_TO_ISP));
 			dev->ctrl_para.exp_auto_mode = ctrl->val;
 			break;
 		case V4L2_CID_EXPOSURE_ABSOLUTE:
@@ -3560,7 +3668,7 @@ static int vfe_s_ctrl(struct v4l2_ctrl *ctrl)
 			dev->ctrl_para.exp_bias = ctrl->val;
 			break;
 		case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
-			bsp_isp_s_auto_n_preset_white_balance(dev->isp_gen_set_pt, v4l2_wb_preset_to_common(ctrl->val));
+			bsp_isp_s_auto_n_preset_white_balance(dev->isp_gen_set_pt, vfe_v4l2_isp(VFE_WB,ctrl->val, V4L2_TO_ISP));
 			break;
 		case V4L2_CID_WIDE_DYNAMIC_RANGE:
 			bsp_isp_s_wide_dynamic_rage(dev->isp_gen_set_pt, ctrl->val);
@@ -3572,12 +3680,12 @@ static int vfe_s_ctrl(struct v4l2_ctrl *ctrl)
 			bsp_isp_s_iso_sensitivity(dev->isp_gen_set_pt, ctrl->val);
 			break;
 		case V4L2_CID_ISO_SENSITIVITY_AUTO:
-			bsp_isp_s_iso_sensitivity_auto(dev->isp_gen_set_pt, v4l2_iso_mode_to_common(ctrl->val));
+			bsp_isp_s_iso_sensitivity_auto(dev->isp_gen_set_pt, vfe_v4l2_isp(VFE_ISO,ctrl->val, V4L2_TO_ISP));
 			break;
 		case V4L2_CID_EXPOSURE_METERING:
 			return -EINVAL;
 		case V4L2_CID_SCENE_MODE:
-			bsp_isp_s_scene_mode(dev->isp_gen_set_pt, v4l2_scene_to_common(ctrl->val));
+			bsp_isp_s_scene_mode(dev->isp_gen_set_pt, vfe_v4l2_isp(VFE_SCENE,ctrl->val, V4L2_TO_ISP));
 			break;
 		case V4L2_CID_3A_LOCK:
 			//printk("V4L2_CID_3A_LOCK = %x!\n",ctrl->value);
@@ -3620,11 +3728,11 @@ static int vfe_s_ctrl(struct v4l2_ctrl *ctrl)
 #endif
 			break;
 		case V4L2_CID_AUTO_FOCUS_RANGE:
-			bsp_isp_s_auto_focus_range(dev->isp_gen_set_pt, v4l2_af_range_to_common(ctrl->val));
+			bsp_isp_s_auto_focus_range(dev->isp_gen_set_pt, vfe_v4l2_isp(VFE_AF_RANGE,ctrl->val, V4L2_TO_ISP));
 			break;
 		//V4L2_CID_FLASH_CLASS_BASE
 		case V4L2_CID_FLASH_LED_MODE:
-			bsp_isp_s_flash_mode(dev->isp_gen_set_pt, v4l2_flash_mode_to_common(ctrl->val));
+			bsp_isp_s_flash_mode(dev->isp_gen_set_pt, vfe_v4l2_isp(VFE_FLASH_MODE,ctrl->val, V4L2_TO_ISP));
 			if(ctrl->val == V4L2_FLASH_LED_MODE_TORCH)
 			{
 				io_set_flash_ctrl(dev->sd, SW_CTRL_TORCH_ON, dev->fl_dev_info);
@@ -3670,9 +3778,7 @@ static int vfe_s_ctrl(struct v4l2_ctrl *ctrl)
 		}
 		ret = v4l2_subdev_call(dev->sd,core,s_ctrl,&c);
 		if (ret < 0)
-		{
 			vfe_warn("v4l2 sub device s_ctrl fail!\n");
-		}
 	}
 	return ret;
 }
