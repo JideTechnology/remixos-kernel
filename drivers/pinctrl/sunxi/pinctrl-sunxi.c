@@ -625,18 +625,18 @@ static int sunxi_pinctrl_gpio_of_xlate(struct gpio_chip *gc,
 				const struct of_phandle_args *gpiospec,
 				u32 *flags)
 {
-	struct gpio_config *config=(struct gpio_config *)flags;
+	struct gpio_config *config;
 	int pin, base;
 
 	base = PINS_PER_BANK * gpiospec->args[0];
 	pin = base + gpiospec->args[1];
-	config->gpio = pin;
-
 	pin = pin-gc->base;
 	if (pin > gc->ngpio)
 		return -EINVAL;
 
 	if (flags){
+		config=(struct gpio_config *)flags;
+		config->gpio = base + gpiospec->args[1];
 		config->mul_sel = gpiospec->args[2];
 		config->drv_level = gpiospec->args[3];
 		config->pull = gpiospec->args[4];
