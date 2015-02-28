@@ -2,18 +2,19 @@
 /* 
  ***************************************************************************************
  * 
- * cci_platform_drv.h
+ * sunxi_csi.h
  * 
- * Hawkview ISP - csi_platform_drv.h module
+ * Hawkview ISP - sunxi_csi.h module
  * 
- * Copyright (c) 2014 by Allwinnertech Co., Ltd.  http://www.allwinnertech.com
+ * Copyright (c) 2015 by Allwinnertech Co., Ltd.  http://www.allwinnertech.com
  * 
  * Version		  Author         Date		    Description
  * 
- *   2.0		  Yang Feng   	2014/06/23	      Second Version
+ *   3.0		  Yang Feng   	2015/02/27	ISP Tuning Tools Support
  * 
  ****************************************************************************************
  */
+
 #ifndef _SUNXI_CSI_H_
 #define _SUNXI_CSI_H_
 

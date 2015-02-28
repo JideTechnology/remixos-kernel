@@ -36,55 +36,49 @@ struct videobuf_dma_contig_memory {
 	unsigned long size;
 	struct ion_client *client;
 	struct ion_handle *handle;
-
 };
 static int ion_alloc_coherent(struct videobuf_dma_contig_memory *mem)
 {
-	struct ion_client *client = mem->client;
-	struct ion_handle *handle = mem->handle;
-
-	client = sunxi_ion_client_create(ion_name);
-	if (IS_ERR(client))
+	mem->client = sunxi_ion_client_create(ion_name);
+	if (IS_ERR_OR_NULL(mem->client))
 	{
 		printk("sunxi_ion_client_create failed!!");
 	}
-	handle = ion_alloc(client, mem->size, PAGE_SIZE, 
-							ION_HEAP_CARVEOUT_MASK/*|ION_HEAP_TYPE_DMA_MASK*/, 0);
-	if (IS_ERR(handle))
+	mem->handle = ion_alloc(mem->client, mem->size, PAGE_SIZE,
+							/*ION_HEAP_CARVEOUT_MASK|*/ION_HEAP_TYPE_DMA_MASK, 0);
+	if (IS_ERR_OR_NULL(mem->handle))
 	{
 		printk("ion_alloc failed!!\n");
 		goto err_alloc;
 	}
-	mem->vaddr = ion_map_kernel( client, handle);
-	if (IS_ERR(mem->vaddr))
+	mem->vaddr = ion_map_kernel( mem->client, mem->handle);
+	if (IS_ERR_OR_NULL(mem->vaddr))
 	{
 		printk("ion_map_kernel failed!!\n");
 		goto err_map_kernel;
 	}
-	if(ion_phys(client, handle, &mem->dma_handle, &mem->size ))
+	if(ion_phys(mem->client, mem->handle, (ion_phys_addr_t *)&mem->dma_handle, &mem->size ))
 	{
 		printk("ion_phys failed!!\n");
 		goto err_phys;
 	}
 	return 0;
 err_phys:	
-	ion_unmap_kernel( client, handle);
+	ion_unmap_kernel( mem->client, mem->handle);
 err_map_kernel:
-	ion_free(client, handle);
+	ion_free(mem->client, mem->handle);
 err_alloc:
-	ion_client_destroy(client);
+	ion_client_destroy(mem->client);
 	return -ENOMEM;	
-
 }
 static int ion_free_coherent(struct videobuf_dma_contig_memory *mem)
 {
-	struct ion_client *client = mem->client;
-	struct ion_handle *handle = mem->handle;
-	if (IS_ERR_OR_NULL(client)||IS_ERR_OR_NULL(handle)||IS_ERR_OR_NULL(mem->vaddr))
-		return ;
-	ion_unmap_kernel(client, handle);
-	ion_free(client, handle);
-	ion_client_destroy(client);
+	if (IS_ERR_OR_NULL(mem->client )||IS_ERR_OR_NULL(mem->handle)||IS_ERR_OR_NULL(mem->vaddr))
+		return -1;
+	ion_unmap_kernel(mem->client , mem->handle);
+	ion_free(mem->client , mem->handle);
+	ion_client_destroy(mem->client );
+	return 0;
 }
 #else
 struct videobuf_dma_contig_memory {

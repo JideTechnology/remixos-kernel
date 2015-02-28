@@ -6,14 +6,15 @@
  * 
  * Hawkview ISP - sunxi_mipi.c module
  * 
- * Copyright (c) 2014 by Allwinnertech Co., Ltd.  http://www.allwinnertech.com
+ * Copyright (c) 2015 by Allwinnertech Co., Ltd.  http://www.allwinnertech.com
  * 
  * Version		  Author         Date		    Description
  * 
- *   2.0		  Yang Feng   	2014/06/23	      Second Version
+ *   3.0		  Yang Feng   	2015/02/27	ISP Tuning Tools Support
  * 
  ****************************************************************************************
  */
+
 #include <linux/platform_device.h>
 #include <linux/kernel.h>
 #include <linux/module.h>

@@ -4718,7 +4718,7 @@ static void probe_work_handle(struct work_struct *work)
 		vfe_err("Error v4l2 ctrls new!!\n");
 		goto probe_hdl_unreg_dev;
 	}
-    dev->v4l2_dev.ctrl_handler = &dev->ctrl_handler;
+	dev->v4l2_dev.ctrl_handler = &dev->ctrl_handler;
     
 	dev_set_drvdata(&dev->pdev->dev, (dev));
 	vfe_dbg(0,"v4l2 subdev register\n");
@@ -4900,7 +4900,7 @@ static int vfe_probe(struct platform_device *pdev)
 	}
 	pdev->dev.platform_data = pdata;
 
-    pdev->id = of_alias_get_id(np, "vfe");
+	pdev->id = of_alias_get_id(np, "vfe");
 	if (pdev->id < 0) {
 		vfe_err("VFE failed to get alias id\n");
 		ret = -EINVAL;
@@ -4908,7 +4908,7 @@ static int vfe_probe(struct platform_device *pdev)
 	}
 	pdata->vip_sel = pdev->id;
 
-    dev->platform_id = SUNXI_PLATFORM_ID;
+	dev->platform_id = SUNXI_PLATFORM_ID;
 
 	dev->id = pdev->id;
 	dev->pdev = pdev;

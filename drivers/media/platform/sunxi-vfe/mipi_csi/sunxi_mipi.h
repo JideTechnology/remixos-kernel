@@ -2,15 +2,15 @@
 /* 
  ***************************************************************************************
  * 
- * cci_platform_drv.h
+ * sunxi_mipi.h
  * 
- * Hawkview ISP - cci_platform_drv.h module
+ * Hawkview ISP - sunxi_mipi.h module
  * 
- * Copyright (c) 2014 by Allwinnertech Co., Ltd.  http://www.allwinnertech.com
+ * Copyright (c) 2015 by Allwinnertech Co., Ltd.  http://www.allwinnertech.com
  * 
  * Version		  Author         Date		    Description
  * 
- *   2.0		  Yang Feng   	2014/06/23	      Second Version
+ *   3.0		  Yang Feng   	2015/02/27	ISP Tuning Tools Support
  * 
  ****************************************************************************************
  */

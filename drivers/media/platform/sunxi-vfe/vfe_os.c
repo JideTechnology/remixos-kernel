@@ -292,20 +292,20 @@ int os_mem_alloc(struct vfe_mm *mem_man)
 	int ret = -1;
 	char *ion_name = "ion_vfe";
 	mem_man->client = sunxi_ion_client_create(ion_name);
-	if (IS_ERR(mem_man->client))
+	if (IS_ERR_OR_NULL(mem_man->client))
 	{
 		vfe_err("sunxi_ion_client_create failed!!");
 		goto err_client;
 	}
 	mem_man->handle = ion_alloc(mem_man->client, mem_man->size, PAGE_SIZE, 
-							ION_HEAP_CARVEOUT_MASK/*|ION_HEAP_TYPE_DMA_MASK*/, 0);
-	if (IS_ERR(mem_man->handle))
+							/*ION_HEAP_CARVEOUT_MASK|*/ION_HEAP_TYPE_DMA_MASK, 0);
+	if (IS_ERR_OR_NULL(mem_man->handle))
 	{
 		vfe_err("ion_alloc failed!!");
 		goto err_alloc;
 	}
 	mem_man->vir_addr = ion_map_kernel( mem_man->client, mem_man->handle);
-	if (IS_ERR(mem_man->vir_addr))
+	if (IS_ERR_OR_NULL(mem_man->vir_addr))
 	{
 		vfe_err("ion_map_kernel failed!!");
 		goto err_map_kernel;
