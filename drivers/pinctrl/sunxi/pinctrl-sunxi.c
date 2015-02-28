@@ -495,7 +495,8 @@ static int sunxi_pmx_get_func_groups(struct pinctrl_dev *pctldev,
 
 static void sunxi_pmx_set(struct pinctrl_dev *pctldev,
 				 unsigned pin,
-				 u8 config)
+				 u8 config,
+				 bool enable)
 {
 	struct sunxi_pinctrl *pctl = pinctrl_dev_get_drvdata(pctldev);
 	unsigned long flags;
@@ -506,13 +507,17 @@ static void sunxi_pmx_set(struct pinctrl_dev *pctldev,
 	pin -= pctl->desc->pin_base;
 	val = readl(pctl->membase + sunxi_mux_reg(pin));
 	mask = MUX_PINS_MASK << sunxi_mux_offset(pin);
-	writel((val & ~mask) | config << sunxi_mux_offset(pin),
-		pctl->membase + sunxi_mux_reg(pin));
+	if (enable) {
+		val = (val & ~mask) | config << sunxi_mux_offset(pin);
+	} else {
+		val = (val & ~mask) | MUX_PINS_MASK << sunxi_mux_offset(pin);
+	}
+	writel(val, pctl->membase + sunxi_mux_reg(pin));
 
 	spin_unlock_irqrestore(&pctl->lock, flags);
 }
 
-static int sunxi_pmx_set_mux(struct pinctrl_dev *pctldev,
+static int sunxi_pmx_set_mux_enable(struct pinctrl_dev *pctldev,
 			     unsigned function,
 			     unsigned group)
 {
@@ -527,10 +532,26 @@ static int sunxi_pmx_set_mux(struct pinctrl_dev *pctldev,
 	if (!desc)
 		return -EINVAL;
 
-	sunxi_pmx_set(pctldev, g->pin, desc->muxval);
+	sunxi_pmx_set(pctldev, g->pin, desc->muxval, true);
 
 	return 0;
 }
+
+static void sunxi_pmx_set_mux_disable(struct pinctrl_dev *pctldev,
+			     unsigned function,
+			     unsigned group)
+{
+	struct sunxi_pinctrl *pctl = pinctrl_dev_get_drvdata(pctldev);
+	struct sunxi_pinctrl_group *g = pctl->groups + group;
+	struct sunxi_pinctrl_function *func = pctl->functions + function;
+	struct sunxi_desc_function *desc =
+		sunxi_pinctrl_desc_find_function_by_name(pctl,
+							 g->name,
+							 func->name);
+
+	sunxi_pmx_set(pctldev, g->pin, desc->muxval, false);
+}
+
 
 static int
 sunxi_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
@@ -551,7 +572,7 @@ sunxi_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
 	if (!desc)
 		return -EINVAL;
 
-	sunxi_pmx_set(pctldev, offset, desc->muxval);
+	sunxi_pmx_set(pctldev, offset, desc->muxval, true);
 
 	return 0;
 }
@@ -560,7 +581,8 @@ static const struct pinmux_ops sunxi_pmx_ops = {
 	.get_functions_count	= sunxi_pmx_get_funcs_cnt,
 	.get_function_name	= sunxi_pmx_get_func_name,
 	.get_function_groups	= sunxi_pmx_get_func_groups,
-	.enable			= sunxi_pmx_set_mux,
+	.enable			= sunxi_pmx_set_mux_enable,
+	.disable		= sunxi_pmx_set_mux_disable,
 	.gpio_set_direction	= sunxi_pmx_gpio_set_direction,
 };
 
@@ -688,7 +710,7 @@ static int sunxi_pinctrl_irq_request_resources(struct irq_data *d)
 	}
 
 	/* Change muxing to INT mode */
-	sunxi_pmx_set(pctl->pctl_dev, pctl->irq_array[d->hwirq], func->muxval);
+	sunxi_pmx_set(pctl->pctl_dev, pctl->irq_array[d->hwirq], func->muxval, true);
 
 	return 0;
 }
@@ -746,7 +768,7 @@ static int sunxi_pinctrl_irq_set_type(struct irq_data *d, unsigned int type)
 		return -EINVAL;
 	}
 	/* Change muxing to INT mode */
-	sunxi_pmx_set(pctl->pctl_dev, pctl->irq_array[d->hwirq], func->muxval);
+	sunxi_pmx_set(pctl->pctl_dev, pctl->irq_array[d->hwirq], func->muxval, true);
 
 
 	spin_lock_irqsave(&pctl->lock, flags);
