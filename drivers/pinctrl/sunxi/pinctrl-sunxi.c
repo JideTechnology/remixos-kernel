@@ -643,6 +643,35 @@ static int sunxi_pinctrl_gpio_direction_output(struct gpio_chip *chip,
 	return pinctrl_gpio_direction_output(chip->base + offset);
 }
 
+static int sunxi_pinctrl_gpio_set_debounce(struct gpio_chip *chip,
+					unsigned offset, unsigned value)
+{
+	int			reg_val;
+	unsigned int 		val_clk_per_scale;
+	unsigned int		val_clk_select;
+	unsigned long flags;
+
+	struct sunxi_pinctrl  *pctl = dev_get_drvdata(chip->dev);
+	u32 reg = sunxi_irq_debounce_reg(offset);
+
+	spin_lock_irqsave(&pctl->lock, flags);
+	reg_val = readl(pctl->membase + reg);
+	val_clk_select = value & 1;
+	val_clk_per_scale= (value >> 4) & 0b111;
+
+	/*set debounce pio interrupt clock select */
+	reg_val &= ~(1 << 0);
+	reg_val |= val_clk_select ;
+
+	/* set debounce clock pre scale */
+	reg_val &= ~(7 << 4);
+	reg_val |= val_clk_per_scale << 4;
+	writel(reg_val, pctl->membase + reg);
+	spin_unlock_irqrestore(&pctl->lock, flags);
+
+	return 0;
+}
+
 static int sunxi_pinctrl_gpio_of_xlate(struct gpio_chip *gc,
 				const struct of_phandle_args *gpiospec,
 				u32 *flags)
@@ -1084,6 +1113,7 @@ int sunxi_pinctrl_init(struct platform_device *pdev,
 	pctl->chip->direction_output = sunxi_pinctrl_gpio_direction_output,
 	pctl->chip->get = sunxi_pinctrl_gpio_get,
 	pctl->chip->set = sunxi_pinctrl_gpio_set,
+	pctl->chip->set_debounce = sunxi_pinctrl_gpio_set_debounce,
 	pctl->chip->of_xlate = sunxi_pinctrl_gpio_of_xlate,
 	pctl->chip->to_irq = sunxi_pinctrl_gpio_to_irq,
 	pctl->chip->of_gpio_n_cells = 6,

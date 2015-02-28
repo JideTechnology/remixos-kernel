@@ -69,6 +69,7 @@
 #define IRQ_STATUS_IRQ_PER_REG		32
 #define IRQ_STATUS_IRQ_BITS		1
 #define IRQ_STATUS_IRQ_MASK		((1 << IRQ_STATUS_IRQ_BITS) - 1)
+#define IRQ_DEBOUNCE_REG		0x218
 
 #define IRQ_MEM_SIZE		0x20
 
@@ -278,6 +279,14 @@ static inline u32 sunxi_irq_status_offset(u16 irq)
 {
 	u32 irq_num = irq % IRQ_STATUS_IRQ_PER_REG;
 	return irq_num * IRQ_STATUS_IRQ_BITS;
+}
+
+static inline u32 sunxi_irq_debounce_reg(u16 pin)
+{
+	u8	bank = pin / PINS_PER_BANK;
+	u32	offset = bank * IRQ_MEM_SIZE;
+	offset += IRQ_DEBOUNCE_REG;
+	return round_down(offset, 4);
 }
 
 int sunxi_pinctrl_init(struct platform_device *pdev,
