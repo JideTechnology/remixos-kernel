@@ -32,8 +32,6 @@ typedef struct {
 
 #define	DI_IOC_MAGIC		'D'
 #define	DI_IOCSTART		_IOWR(DI_IOC_MAGIC, 0, __di_para_t *)
-#define	DI_IOC_REQ_MEM		_IOWR(DI_IOC_MAGIC, 1, __di_mem_t *)
-#define	DI_IOC_FREE_MEM		_IOWR(DI_IOC_MAGIC, 2, __di_mem_t *)
 
 enum {
 	DEBUG_INIT = 1U << 0,

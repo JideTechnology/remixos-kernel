@@ -40,7 +40,7 @@ static struct device *di_device = NULL;
 static struct clk *di_clk;
 static struct clk *di_clk_source;
 
-static u32 debug_mask = 0x0;
+static u32 debug_mask = 0xff;
 
 #ifdef DI_RESERVED_MEM
 #define MY_BYTE_ALIGN(x) ( ( (x + (4*1024-1)) >> 12) << 12)             /* alloc based on 4K byte */
@@ -52,7 +52,7 @@ void *sunxi_di_alloc(u32 num_bytes, unsigned long phys_addr)
 	if (num_bytes != 0) {
 	    actual_bytes = MY_BYTE_ALIGN(num_bytes);
 
-	    address = dma_alloc_coherent(NULL, actual_bytes, (dma_addr_t*)phys_addr, GFP_KERNEL);
+	    address = dma_alloc_coherent(di_device, actual_bytes, (dma_addr_t*)phys_addr, GFP_KERNEL);
 	    if (address) {
 		printk(KERN_ERR "dma_alloc_coherent ok, address=0x%p, size=0x%x\n", (void*)(*(unsigned long*)phys_addr), num_bytes);
 		return address;
@@ -73,7 +73,7 @@ void sunxi_di_free(void* virt_addr, unsigned long phys_addr, u32 num_bytes)
 
 	actual_bytes = MY_BYTE_ALIGN(num_bytes);
 	if (phys_addr && virt_addr)
-	    dma_free_coherent(NULL, actual_bytes, virt_addr, (dma_addr_t)phys_addr);
+	    dma_free_coherent(di_device, actual_bytes, virt_addr, (dma_addr_t)phys_addr);
 
 	return ;
 }
@@ -82,12 +82,28 @@ void sunxi_di_free(void* virt_addr, unsigned long phys_addr, u32 num_bytes)
 static int di_mem_request(__di_mem_t *di_mem)
 {
 #ifndef DI_RESERVED_MEM
-	di_mem->v_addr = kzalloc(di_mem->size, GFP_KERNEL);
-	if (NULL == di_mem->v_addr) {
-		printk(KERN_ERR "%s: failed!\n", __func__);
+	unsigned map_size = 0;
+	struct page *page;
+
+	map_size = PAGE_ALIGN(di_mem->size);
+
+	page = alloc_pages(GFP_KERNEL,get_order(map_size));
+	if (page != NULL) {
+		di_mem->v_addr = page_address(page);
+		if (NULL == di_mem->v_addr)	{
+			free_pages((unsigned long)(page),get_order(map_size));
+			printk(KERN_ERR "page_address fail!\n");
+			return -ENOMEM;
+		}
+		di_mem->p_addr = virt_to_phys(di_mem->v_addr);
+		memset(di_mem->v_addr,0,di_mem->size);
+
+		dprintk(DEBUG_DATA_INFO,"pa=0x%p va=0x%p size:0x%x\n",(void*)di_mem->p_addr, di_mem->v_addr, di_mem->size);
+		return 0;
+	}	else {
+		printk(KERN_ERR "alloc_pages fail!\n");
 		return -ENOMEM;
 	}
-	di_mem->p_addr = virt_to_phys(di_mem->v_addr);
 #else
 	di_mem->v_addr = sunxi_di_alloc(di_mem->size, di_mem->p_addr);
 	if (NULL == di_mem->v_addr) {
@@ -100,13 +116,21 @@ static int di_mem_request(__di_mem_t *di_mem)
 
 static int di_mem_release(__di_mem_t *di_mem)
 {
+#ifndef DI_RESERVED_MEM
+	unsigned map_size = PAGE_ALIGN(di_mem->size);
+	unsigned page_size = map_size;
+
 	if (NULL == di_mem->v_addr) {
 		printk(KERN_ERR "%s: failed!\n", __func__);
 		return -1;
 	}
-#ifndef DI_RESERVED_MEM
-	kfree(di_mem->v_addr);
+
+	free_pages((unsigned long)(di_mem->v_addr),get_order(page_size));
 #else
+	if (NULL == di_mem->v_addr) {
+		printk(KERN_ERR "%s: failed!\n", __func__);
+		return -1;
+	}
 	sunxi_di_free(di_mem->v_addr, di_mem->p_addr, di_mem->size);
 #endif
   return 0;
@@ -343,6 +367,7 @@ static long sunxi_di_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 	u32 field = 0;
 
 	dprintk(DEBUG_TEST, "%s: enter!!\n", __func__);
+
 	switch (cmd) {
 	case DI_IOCSTART:
 		{
@@ -407,21 +432,10 @@ static long sunxi_di_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 			ret = di_complete_check_get();
 		}
 		break;
-	case DI_IOC_REQ_MEM:
-		{
-			__di_mem_t __user *di_mem = argp;
-			ret = di_mem_request(di_mem);
-		}
-		break;
-	case DI_IOC_FREE_MEM:
-		{
-			__di_mem_t __user *di_mem = argp;
-			ret = di_mem_release(di_mem);
-		}
-		break;
 	default:
 		break;
 	}
+
 	dprintk(DEBUG_TEST, "%s: out!!\n", __func__);
 	return ret;
 }
