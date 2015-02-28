@@ -1,8 +1,9 @@
 /*
  * sound\soc\sunxi\sunxi_sun50iw1codec.c
- * (C) Copyright 2010-2016
+ * (C) Copyright 2014-2017
  * Reuuimlla Technology Co., Ltd. <www.allwinnertech.com>
  * huangxin <huangxin@allwinnertech.com>
+ * Liu shaohua <liushaohua@allwinnertech.com>
  *
  * some simple description for this code
  *
@@ -314,6 +315,15 @@ static int codec_init(struct sunxi_codec *sunxi_internal_codec)
 				return -EINVAL;
 			}
 		}
+
+		if (!sunxi_internal_codec->aif2sleep_pinstate){
+			sunxi_internal_codec->aif2sleep_pinstate = pinctrl_lookup_state(sunxi_internal_codec->pinctrl, "aif2-sleep");
+			if (IS_ERR_OR_NULL(sunxi_internal_codec->aif2sleep_pinstate)) {
+				pr_warn("[audio-codec]lookup aif2-sleep state failed\n");
+				return -EINVAL;
+			}
+		}
+
 		ret = pinctrl_select_state(sunxi_internal_codec->pinctrl, sunxi_internal_codec->aif2_pinstate);
 		if (ret) {
 			pr_warn("[audio-codec]select aif2-default state failed\n");
@@ -328,6 +338,15 @@ static int codec_init(struct sunxi_codec *sunxi_internal_codec)
 				return -EINVAL;
 			}
 		}
+
+		if (!sunxi_internal_codec->aif3sleep_pinstate){
+			sunxi_internal_codec->aif3sleep_pinstate = pinctrl_lookup_state(sunxi_internal_codec->pinctrl, "aif3-sleep");
+			if (IS_ERR_OR_NULL(sunxi_internal_codec->aif3sleep_pinstate)) {
+				pr_warn("[audio-codec]lookup aif3-sleep state failed\n");
+				return -EINVAL;
+			}
+		}
+
 		ret = pinctrl_select_state(sunxi_internal_codec->pinctrl, sunxi_internal_codec->aif3_pinstate);
 		if (ret) {
 			pr_warn("[audio-codec]select aif3-default state failed\n");
@@ -1898,17 +1917,59 @@ static int codec_soc_probe(struct snd_soc_codec *codec)
 	return 0;
 }
 
+int audio_gpio_iodisable(u32 gpio){
+	char pin_name[8];
+	u32 config,ret;
+	sunxi_gpio_to_name(gpio, pin_name);
+	config = (((7) << 16) | (0 & 0xFFFF));
+	ret = pin_config_set(SUNXI_PINCTRL, pin_name, config);
+	return ret;
+}
+
 static int codec_suspend(struct snd_soc_codec *codec)
 {
+	int ret = 0;
 	struct sunxi_codec *sunxi_internal_codec = snd_soc_codec_get_drvdata(codec);
-	pr_debug("[audio codec]:suspend start\n");
+	pr_debug("[audio codec]:suspend start.%s\n",__func__);
+
+
+	if (sunxi_internal_codec->aif_config.aif3config) {
+		ret = pinctrl_select_state(sunxi_internal_codec->pinctrl, sunxi_internal_codec->aif3sleep_pinstate);
+		if (ret) {
+			pr_warn("[audio-codec]select aif3-sleep state failed\n");
+			return ret;
+		}
+	}
+	if (sunxi_internal_codec->aif_config.aif2config) {
+		ret = pinctrl_select_state(sunxi_internal_codec->pinctrl, sunxi_internal_codec->aif2sleep_pinstate);
+		if (ret) {
+			pr_warn("[audio-codec]select aif2-sleep state failed\n");
+			return ret;
+		}
+	}
+
 	if (sunxi_internal_codec->aif_config.aif2config || sunxi_internal_codec->aif_config.aif3config){
 		devm_pinctrl_put(sunxi_internal_codec->pinctrl);
 		sunxi_internal_codec->pinctrl = NULL;
 		sunxi_internal_codec->aif3_pinstate = NULL;
 		sunxi_internal_codec->aif2_pinstate = NULL;
+		sunxi_internal_codec->aif3sleep_pinstate = NULL;
+		sunxi_internal_codec->aif2sleep_pinstate = NULL;
 	}
-	pr_debug("[audio codec]:suspend end\n");
+	if (spk_gpio.cfg) {
+		audio_gpio_iodisable(spk_gpio.gpio);
+	}
+#if 0
+
+	if (sunxi_internal_codec->vol_supply.cpvdd){
+		regulator_disable(sunxi_internal_codec->vol_supply.cpvdd);
+	}
+
+	if (sunxi_internal_codec->vol_supply.avcc) {
+		regulator_disable(sunxi_internal_codec->vol_supply.avcc);
+	}
+#endif
+	pr_debug("[audio codec]:suspend end..\n");
 	return 0;
 }
 
@@ -1916,8 +1977,29 @@ static int codec_resume(struct snd_soc_codec *codec)
 {
 	struct sunxi_codec *sunxi_internal_codec = snd_soc_codec_get_drvdata(codec);
 	pr_debug("[audio codec]:resume start\n");
+	#if 0
+	int ret ;
+	if (sunxi_internal_codec->vol_supply.cpvdd){
+		ret = regulator_enable(sunxi_internal_codec->vol_supply.cpvdd);
+		if (ret) {
+			pr_err("[%s]: cpvdd:regulator_enable() failed!\n",__func__);
+		}
+	}
+
+	if (sunxi_internal_codec->vol_supply.avcc) {
+		ret = regulator_enable(sunxi_internal_codec->vol_supply.avcc);
+		if (ret) {
+			pr_err("[%s]: avcc:regulator_enable() failed!\n",__func__);
+		}
+	}
+	#endif
+
 	codec_init(sunxi_internal_codec);
-	pr_debug("[audio codec]:resume end\n");
+	if (spk_gpio.cfg) {
+		gpio_direction_output(spk_gpio.gpio, 1);
+		gpio_set_value(spk_gpio.gpio, 0);
+	}
+	pr_debug("[audio codec]:resume end..\n");
 	return 0;
 }
 
@@ -2067,7 +2149,7 @@ static const struct of_device_id sunxi_codec_of_match[] = {
 };
 static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 {
-	s32 ret = -1;
+	s32 ret = 0;
 	//u8 temp_val;
 	u32 temp_val;
 	//enum of_gpio_flags flags;
@@ -2093,6 +2175,36 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto err1;
 	}
+
+	/*voltage*/
+	sunxi_internal_codec->vol_supply.cpvdd =  regulator_get(NULL, "vcc-cpvdd");
+	if (!sunxi_internal_codec->vol_supply.cpvdd) {
+		pr_err("get audio cpvdd failed\n");
+		ret = -EFAULT;
+		goto err1;
+	}else{
+		//regulator_set_voltage(bt_aldo2_vol, 1800000, 1800000);
+		ret = regulator_enable(sunxi_internal_codec->vol_supply.cpvdd);
+		if (ret) {
+			pr_err("[%s]: cpvdd:regulator_enable() failed!\n",__func__);
+			goto err1;
+		}
+	}
+
+	sunxi_internal_codec->vol_supply.avcc = regulator_get(NULL, "vcc-avcc");
+	if (!sunxi_internal_codec->vol_supply.avcc) {
+		pr_err("[%s]:get audio avcc failed\n",__func__);
+		ret = -EFAULT;
+		goto err1;
+	}else{
+		//regulator_set_voltage(bt_aldo2_vol, 1800000, 1800000);
+		ret = regulator_enable(sunxi_internal_codec->vol_supply.avcc);
+		if (ret) {
+			pr_err("[%s]: avcc:regulator_enable() failed!\n",__func__);
+			goto err1;
+		}
+	}
+
 	sunxi_internal_codec->codec_abase = NULL;
 	sunxi_internal_codec->codec_dbase = NULL;
 	sunxi_internal_codec->codec_dbase = of_iomap(node, 0);

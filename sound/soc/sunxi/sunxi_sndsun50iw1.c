@@ -105,9 +105,14 @@ static void sun50iw1_check_hs_insert_status(struct work_struct *work)
 		ctx->headset_basedata = (reg_val>>HMIC_DATA)&0x1f;
 		ctx->headset_basedata -= 2;
 		/*disable autowrite*/
-		snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL2, (0x1f<<MDATA_THRESHOLD), (ctx->headset_basedata<<MDATA_THRESHOLD));
-		snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0x1<<MIC_DET_IRQ_EN), (0x1<<MIC_DET_IRQ_EN));
+		//pr_debug("ctx->headset_basedata:%x,%d\n",ctx->headset_basedata,__LINE__);
+
 		do_gettimeofday(&ctx->tv_headset_plugin);
+		//pr_debug("time1:%llx\n",ctx->tv_headset_plugin.tv_sec);
+		usleep_range(1000, 2000);
+		snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL2, (0x1f<<MDATA_THRESHOLD), (0x14<<MDATA_THRESHOLD));
+		snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0x1<<MIC_DET_IRQ_EN), (0x1<<MIC_DET_IRQ_EN));
+
 	} else if (jack_type == SND_JACK_HEADPHONE) {
 	/*if is HEADPHONE 3,close mic detect irq*/
 		snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0x1<<MIC_DET_IRQ_EN), (0x0<<MIC_DET_IRQ_EN));
@@ -154,6 +159,7 @@ static irqreturn_t jack_interrupt(int irq, void *dev_id)
 	struct mc_private *ctx = dev_id;
 	struct timeval tv;
 	u32 tempdata = 0,regval = 0;
+	//pr_debug("SUNXI_HMIC_STS:%x,%d\n",snd_soc_read(ctx->codec, SUNXI_HMIC_STS),__LINE__);
 	if ((snd_soc_read(ctx->codec, SUNXI_HMIC_STS)&(1<<JACK_DET_IIN_ST)) && (snd_soc_read(ctx->codec, SUNXI_HMIC_CTRL1)&(1<<JACK_IN_IRQ_EN))) {/*headphone insert*/
 		snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0x1<<JACK_IN_IRQ_EN), (0x0<<JACK_IN_IRQ_EN));
 		regval = snd_soc_read(ctx->codec, SUNXI_HMIC_STS);
@@ -163,7 +169,7 @@ static irqreturn_t jack_interrupt(int irq, void *dev_id)
 		/*enable hbias and adc*/
 		snd_soc_update_bits(ctx->codec, JACK_MIC_CTRL, (0x1<<HMICBIASEN), (0x1<<HMICBIASEN));
 		snd_soc_update_bits(ctx->codec, JACK_MIC_CTRL, (0x1<<MICADCEN), (0x1<<MICADCEN));
-		schedule_delayed_work(&ctx->hs_insert_work,msecs_to_jiffies(500));
+		schedule_delayed_work(&ctx->hs_insert_work,msecs_to_jiffies(200));
 
 	} else if((snd_soc_read(ctx->codec, SUNXI_HMIC_STS)&(1<<JACK_DET_OUT_ST)) &&(snd_soc_read(ctx->codec, SUNXI_HMIC_CTRL1)&(1<<JACK_OUT_IRQ_EN))){/*headphone plugout*/
 		snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0x1<<JACK_OUT_IRQ_EN), (0x0<<JACK_OUT_IRQ_EN));
@@ -187,9 +193,13 @@ static irqreturn_t jack_interrupt(int irq, void *dev_id)
 		regval &= ~(0x1<<JACK_DET_OUT_ST);
 		regval |= 0x1<<MIC_DET_ST;
 		snd_soc_write(ctx->codec, SUNXI_HMIC_STS, regval);
+		//if (ctx->switch_status != 0)
+		//	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0x1<<JACK_IN_IRQ_EN), (0x0<<JACK_IN_IRQ_EN));
 
 		do_gettimeofday(&tv);
-		if ((tv.tv_sec > ctx->tv_headset_plugin.tv_sec) &&(tv.tv_sec - ctx->tv_headset_plugin.tv_sec > 2)){
+		//pr_debug("time2:%x\n",tv.tv_sec);
+		//pr_debug("time1-time2:%x\n",(tv.tv_sec - ctx->tv_headset_plugin.tv_sec));
+		if (((tv.tv_sec)%(ctx->tv_headset_plugin.tv_sec) > 2)){
 			tempdata =snd_soc_read(ctx->codec, SUNXI_HMIC_STS);
 			tempdata = (tempdata&0x1f00)>>8;
 			if(tempdata == 2){
@@ -233,7 +243,7 @@ static irqreturn_t jack_interrupt(int irq, void *dev_id)
 
 
 			} else {
-				pr_debug("tempdata:%d,Key data err:\n",tempdata);
+				pr_debug("tempdata:%x,Key data err:\n",tempdata);
 				ctx->key_volup = 0;
 				ctx->key_voldown = 0;
 				ctx->key_hook = 0;
@@ -508,6 +518,37 @@ static struct snd_soc_dai_link sunxi_sndpcm_dai_link[] = {
 	},
 /**/
 };
+static int sun50iw1_suspend(struct snd_soc_card *card)
+{
+	struct mc_private *ctx = snd_soc_card_get_drvdata(card);
+	disable_irq(ctx->jackirq);
+	pr_debug("[codec-machine]  suspend.\n");
+	return 0;
+}
+
+static int sun50iw1_resume(struct snd_soc_card *card)
+{
+	struct mc_private *ctx = snd_soc_card_get_drvdata(card);
+	/*0x314*/
+	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL2, (0xffff<<0), (0x0<<0));
+	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL2, (0x1f<<8), (0x17<<8));
+	/*0x318*/
+	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_STS, (0xffff<<0), (0x0<<0));
+	/*0x1c*/
+	snd_soc_update_bits(ctx->codec, MDET_CTRL, (0xffff<<0), (0x0<<0));
+	/*0x1d*/
+	snd_soc_update_bits(ctx->codec, JACK_MIC_CTRL, (0xffff<<0), (0x0<<0));
+	snd_soc_update_bits(ctx->codec, JACK_MIC_CTRL, (0x1<<JACKDETEN), (0x1<<JACKDETEN));
+	snd_soc_update_bits(ctx->codec, JACK_MIC_CTRL, (0x1<<INNERRESEN), (0x1<<INNERRESEN));
+	snd_soc_update_bits(ctx->codec, JACK_MIC_CTRL, (0x1<<AUTOPLEN), (0x1<<AUTOPLEN));
+
+	/*enable jack in /out irq*//*0x310*/
+	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0x1<<JACK_IN_IRQ_EN), (0x1<<JACK_IN_IRQ_EN));
+	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0xf<<HMIC_N), (0xf<<HMIC_N));
+	enable_irq(ctx->jackirq);
+	pr_debug("[codec-machine]  resume.\n");
+	return 0;
+}
 
 static struct snd_soc_card snd_soc_sunxi_sndpcm = {
 	.name 		= "audiocodec",
@@ -520,7 +561,10 @@ static struct snd_soc_card snd_soc_sunxi_sndpcm = {
 	.num_dapm_routes = ARRAY_SIZE(audio_map),
 	.controls = ac_pin_controls,
 	.num_controls = ARRAY_SIZE(ac_pin_controls),
+	.suspend_post = sun50iw1_suspend,
+	.resume_post = sun50iw1_resume,
 };
+
 static struct snd_soc_dai_driver voice_dai[] = {
 	{
 		.name = "bb-dai",
@@ -713,44 +757,6 @@ static const struct of_device_id sunxi_sun50iw1machine_of_match[] = {
 	{ .compatible = "allwinner,sunxi-codec-machine", },
 	{},
 };
-#ifdef CONFIG_PM
-static int sun50iw1_machine_suspend(struct platform_device *pdev, pm_message_t mesg)
-{
-	struct snd_soc_card *soc_card = platform_get_drvdata(pdev);
-	struct mc_private *ctx = snd_soc_card_get_drvdata(soc_card);
-	disable_irq(ctx->jackirq);
-	pr_debug("[codec-machine]  suspend.\n");
-	return 0;
-}
-
-static int sun50iw1_machine_resume(struct platform_device *pdev)
-{
-	struct snd_soc_card *soc_card = platform_get_drvdata(pdev);
-	struct mc_private *ctx = snd_soc_card_get_drvdata(soc_card);
-	/*0x314*/
-	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL2, (0xffff<<0), (0x0<<0));
-	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL2, (0x1f<<8), (0x17<<8));
-	/*0x318*/
-	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_STS, (0xffff<<0), (0x0<<0));
-	/*0x1c*/
-	snd_soc_update_bits(ctx->codec, MDET_CTRL, (0xffff<<0), (0x0<<0));
-	/*0x1d*/
-	snd_soc_update_bits(ctx->codec, JACK_MIC_CTRL, (0xffff<<0), (0x0<<0));
-	snd_soc_update_bits(ctx->codec, JACK_MIC_CTRL, (0x1<<JACKDETEN), (0x1<<JACKDETEN));
-	snd_soc_update_bits(ctx->codec, JACK_MIC_CTRL, (0x1<<INNERRESEN), (0x1<<INNERRESEN));
-	snd_soc_update_bits(ctx->codec, JACK_MIC_CTRL, (0x1<<AUTOPLEN), (0x1<<AUTOPLEN));
-
-	/*enable jack in /out irq*//*0x310*/
-	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0x1<<JACK_IN_IRQ_EN), (0x1<<JACK_IN_IRQ_EN));
-	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0xf<<HMIC_N), (0xf<<HMIC_N));
-	enable_irq(ctx->jackirq);
-	pr_debug("[codec-machine]  resume.\n");
-	return 0;
-}
-#else
-#define	sun50iw1_machine_suspend	NULL
-#define	sun50iw1_machine_resume	NULL
-#endif
 
 /*method relating*/
 static struct platform_driver sun50iw1_machine_driver = {
@@ -762,8 +768,6 @@ static struct platform_driver sun50iw1_machine_driver = {
 	},
 	.probe = sun50iw1_machine_probe,
 	.shutdown = sun50iw1_machine_shutdown,
-	.suspend	= sun50iw1_machine_suspend,
-	.resume		= sun50iw1_machine_resume,
 };
 
 static int __init sun50iw1_machine_init(void)

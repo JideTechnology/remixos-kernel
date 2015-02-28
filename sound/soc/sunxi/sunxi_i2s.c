@@ -393,8 +393,15 @@ static int sunxi_i2s_suspend(struct snd_soc_dai *cpu_dai)
 {
 	struct sunxi_i2s *sunxi_i2s = snd_soc_dai_get_drvdata(cpu_dai);
 	pr_debug("[internal-i2s] suspend entered. %s\n", __func__);
+
+	if (sunxi_i2s->moduleclk != NULL)
+		clk_disable(sunxi_i2s->moduleclk);
+
+	if (sunxi_i2s->pllclk != NULL)
+		clk_disable(sunxi_i2s->pllclk);
+
 	/*global disable*/
-	codec_wr_control(sunxi_i2s->sunxi_i2s_membase+SUNXI_DA_CTL, 0x1, GEN, 0x1);
+	codec_wr_control(sunxi_i2s->sunxi_i2s_membase+SUNXI_DA_CTL, 0x1, GEN, 0x0);
 	pr_debug("[internal-i2s] suspend out. %s\n", __func__);
 	return 0;
 }
@@ -403,6 +410,19 @@ static int sunxi_i2s_resume(struct snd_soc_dai *cpu_dai)
 {
 	struct sunxi_i2s *sunxi_i2s = snd_soc_dai_get_drvdata(cpu_dai);
 	pr_debug("[internal-i2s] resume entered. %s\n", __func__);
+
+	if (sunxi_i2s->pllclk != NULL) {
+		if (clk_prepare_enable(sunxi_i2s->pllclk)) {
+			pr_err("open sunxi_i2s->pllclk failed! line = %d\n", __LINE__);
+		}
+	}
+
+	if (sunxi_i2s->moduleclk != NULL) {
+		if (clk_prepare_enable(sunxi_i2s->moduleclk)) {
+			pr_err("open sunxi_i2s->moduleclk failed! line = %d\n", __LINE__);
+		}
+	}
+
 	/*global enable*/
 	codec_wr_control(sunxi_i2s->sunxi_i2s_membase+SUNXI_DA_CTL, 0x1, GEN, 0x1);
 	pr_debug("[internal-i2s] resume out. %s\n", __func__);

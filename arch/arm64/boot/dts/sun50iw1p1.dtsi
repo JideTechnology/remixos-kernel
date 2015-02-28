@@ -681,9 +681,11 @@
 			      <0x0 0x01f015c0 0x0 0x0>;/*analog baseadress*/
 			clocks = <&clk_pll_audiox4>;
 
-			pinctrl-names = "aif2-default","aif3-default";
-			pinctrl-0 = <&aif2_default_pins>;
-			pinctrl-1 = <&aif3_default_pins>;
+			pinctrl-names = "aif2-default","aif3-default","aif2-sleep","aif3-sleep";
+			pinctrl-0 = <&aif2_pins_a>;
+			pinctrl-1 = <&aif3_pins_a>;
+			pinctrl-2 = <&aif2_pins_b>;
+			pinctrl-3 = <&aif3_pins_b>;
 
 			/*gpio-spk=<&pio 6 7 0>;*/
 			gpio-spk = <&pio PH 7 1 1 1 1>;
@@ -727,8 +729,9 @@
 			compatible = "allwinner,sunxi-daudio";
 			reg = <0x0 0x01c22000 0x0 0x58>;
 			clocks = <&clk_pll_audio>,<&clk_i2s0>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&daudio0_pins>;
+			pinctrl-names = "default","sleep";
+			pinctrl-0 = <&daudio0_pins_a>;
+			pinctrl-1 = <&daudio0_pins_b>;
 			pcm_lrck_period =  <0x20>;
 			pcm_lrckr_period =  <0x01>;
 			slot_width_select =  <0x10>;
@@ -750,8 +753,9 @@
 		daudio1:daudio@0x01c22400 {
 			compatible = "allwinner,sunxi-daudio";
 			reg = <0x0 0x01c22400 0x0 0x58>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&daudio1_pins>;
+			pinctrl-names = "default","sleep";
+			pinctrl-0 = <&daudio1_pins_a>;
+			pinctrl-1 = <&daudio1_pins_b>;
 			clocks = <&clk_pll_audio>,<&clk_i2s1>;
 			pcm_lrck_period =  <0x20>;
 			pcm_lrckr_period =  <0x01>;
@@ -786,8 +790,9 @@
 			compatible = "allwinner,sunxi-spdif";
 			reg = <0x0 0x01c21000 0x0 0x38>;
 			clocks = <&clk_pll_audio>,<&clk_spdif>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&spdif_pins>;
+			pinctrl-names = "default","sleep";
+			pinctrl-0 = <&spdif_pins_a>;
+			pinctrl-1 = <&spdif_pins_b>;
 			status = "okay";
 		};
 		spdif_machine:spdifmach{

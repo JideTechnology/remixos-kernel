@@ -2030,6 +2030,10 @@ struct aif_config{
 	u32 aif2config:1;
 	u32 aif3config:1;
 };
+struct voltage_supply {
+	struct regulator *cpvdd;
+	struct regulator *avcc;
+};
 struct sunxi_codec {
 	void __iomem *codec_dbase;
 	void __iomem *codec_abase;
@@ -2051,6 +2055,7 @@ struct sunxi_codec {
 	struct mutex adc_mutex;
 	struct mutex aifclk_mutex;
 	struct snd_soc_codec *codec;
+	struct voltage_supply vol_supply;
 	u32 dac_enable;
 	u32 adc_enable;
 	u32 aif1_clken;

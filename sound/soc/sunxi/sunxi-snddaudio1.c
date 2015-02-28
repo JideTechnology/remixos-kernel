@@ -23,6 +23,7 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include "sunxi_tdm_utils.h"
+#include "codec-utils.h"
 
 static int sunxi_snddaudio1_hw_params(struct snd_pcm_substream *substream,
 					struct snd_pcm_hw_params *params)
@@ -104,9 +105,9 @@ static struct snd_soc_dai_link sunxi_snddaudio_dai_link = {
 	.stream_name 	= "SUNXI-TDM1",
 	.cpu_dai_name 	= "sunxi-daudio",
 	//.codec_dai_name = "snddaudio",
-	.codec_dai_name = "snd-soc-dummy-dai",
+	//.codec_dai_name = "snd-soc-dummy-dai",
 	//.codec_name 	= "sunxi-daudio-codec.0",
-	.codec_name 	= "snd-soc-dummy",
+	//.codec_name 	= "snd-soc-dummy",
 	.init 			= sunxi_daudio_init,
 	.platform_name 	= "sunxi-daudio",
 	.ops 			= &sunxi_snddaudio_ops,
@@ -135,6 +136,13 @@ static int  sunxi_snddaudio1_dev_probe(struct platform_device *pdev)
 	}
 	sunxi_snddaudio_dai_link.platform_name = NULL;
 	sunxi_snddaudio_dai_link.platform_of_node = sunxi_snddaudio_dai_link.cpu_of_node;
+
+	if (sunxi_snddaudio_dai_link.codec_dai_name == NULL
+			&& sunxi_snddaudio_dai_link.codec_name == NULL){
+			codec_utils_probe(pdev);
+			sunxi_snddaudio_dai_link.codec_dai_name = pdev->name;
+			sunxi_snddaudio_dai_link.codec_name 	= pdev->name;
+	}
 	ret = snd_soc_register_card(card);
 	if (ret) {
 		dev_err(&pdev->dev, "snd_soc_register_card() failed: %d\n", ret);

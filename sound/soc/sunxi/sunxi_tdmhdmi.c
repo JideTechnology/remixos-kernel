@@ -141,12 +141,33 @@ static int sunxi_hdmi_dai_probe(struct snd_soc_dai *dai)
 }
 static int sunxi_hdmi_suspend(struct snd_soc_dai *cpu_dai)
 {
+	struct sunxi_tdm_info  *sunxi_tdmhdmi = snd_soc_dai_get_drvdata(cpu_dai);
 	pr_debug("[HDMI-TDM]Entered %s\n", __func__);
+
+	if (sunxi_tdmhdmi->tdm_moduleclk != NULL) {
+		clk_disable(sunxi_tdmhdmi->tdm_moduleclk);
+	}
+	if (sunxi_tdmhdmi->tdm_pllclk != NULL) {
+		clk_disable(sunxi_tdmhdmi->tdm_pllclk);
+	}
 	return 0;
 }
 
 static int sunxi_hdmi_resume(struct snd_soc_dai *cpu_dai)
 {
+	struct sunxi_tdm_info  *sunxi_tdmhdmi = snd_soc_dai_get_drvdata(cpu_dai);
+	if (sunxi_tdmhdmi->tdm_pllclk != NULL) {
+		if (clk_prepare_enable(sunxi_tdmhdmi->tdm_pllclk)) {
+			pr_err("open sunxi_tdmhdmi->tdm_pllclk failed! line = %d\n", __LINE__);
+		}
+	}
+
+	if (sunxi_tdmhdmi->tdm_moduleclk != NULL) {
+		if (clk_prepare_enable(sunxi_tdmhdmi->tdm_moduleclk)) {
+			pr_err("open sunxi_tdmhdmi->tdm_moduleclk failed! line = %d\n", __LINE__);
+		}
+	}
+
 	pr_debug("[HDMI-TDM]Entered %s\n", __func__);
 	return 0;
 }

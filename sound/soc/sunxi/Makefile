@@ -1,6 +1,7 @@
 # SUNXI platform Support
 
 snd-sunxi-soc-objs := sunxi_dma.o
+snd-sunxi-soc-objs += codec_utils.o
 ifneq ($(CONFIG_SND_SOC_SUNXI_RW),)
 snd-sunxi-soc-objs += sunxi_rw_func.o
 endif

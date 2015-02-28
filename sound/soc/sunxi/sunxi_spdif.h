@@ -156,6 +156,7 @@ struct sunxi_spdif_info {
 	struct sunxi_dma_params capture_dma_param;
 	struct pinctrl *pinctrl;
 	struct pinctrl_state  *pinstate;
+	struct pinctrl_state  *pinstate_sleep;
 };
 
 //extern struct sunxi_spdif_info sunxi_spdif;

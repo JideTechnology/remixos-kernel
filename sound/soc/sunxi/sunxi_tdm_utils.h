@@ -160,6 +160,7 @@ struct sunxi_tdm_info {
 
 	struct pinctrl *pinctrl;
 	struct pinctrl_state  *pinstate;
+	struct pinctrl_state  *pinstate_sleep;
 
 	/*tdm arg*/
 	u32 pcm_lrck_period;		/*pcm_lrck_period     = 32*/

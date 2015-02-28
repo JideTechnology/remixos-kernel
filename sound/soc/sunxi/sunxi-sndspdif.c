@@ -23,6 +23,7 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include "sunxi_spdif.h"
+#include "codec-utils.h"
 
 
 static int spdif_format = 1;
@@ -231,9 +232,9 @@ static struct snd_soc_dai_link sunxi_sndspdif_dai_link = {
 	.name 			= "SPDIF",
 	.stream_name 	= "SUNXI-SPDIF",
 	.cpu_dai_name 	= "sunxi-spdif",
-	.codec_dai_name = "snd-soc-dummy-dai",
+	//.codec_dai_name = "snd-soc-dummy-dai",
 	.platform_name 	= "sunxi-spdif",
-	.codec_name 	= "snd-soc-dummy",
+	//.codec_name 	= "snd-soc-dummy",
 	.init 			= sunxi_spdif_init,
 	.ops 			= &sunxi_sndspdif_ops,
 };
@@ -262,6 +263,13 @@ static int sunxi_sndspdif_dev_probe(struct platform_device *pdev)
 	sunxi_sndspdif_dai_link.platform_name = NULL;
 	sunxi_sndspdif_dai_link.platform_of_node = sunxi_sndspdif_dai_link.cpu_of_node;
 
+	if (sunxi_sndspdif_dai_link.codec_dai_name == NULL
+			&& sunxi_sndspdif_dai_link.codec_name == NULL){
+			codec_utils_probe(pdev);
+			sunxi_sndspdif_dai_link.codec_dai_name = pdev->name;
+			sunxi_sndspdif_dai_link.codec_name 	= pdev->name;
+	}
+
 	ret = snd_soc_register_card(card);
 	if (ret) {
 		dev_err(&pdev->dev, "snd_soc_register_card() failed: %d\n", ret);
@@ -286,6 +294,7 @@ static struct platform_driver sunxi_spdif_driver = {
 		.name = "sndspdif",
 		.owner = THIS_MODULE,
 		.of_match_table = sunxi_spdif_of_match,
+		.pm = &snd_soc_pm_ops,
 	},
 	.probe = sunxi_sndspdif_dev_probe,
 	.remove = sunxi_sndspdif_dev_remove,

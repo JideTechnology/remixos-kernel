@@ -589,16 +589,32 @@ static int sunxi_spdif_dai_remove(struct snd_soc_dai *dai)
 
 static int sunxi_spdif_suspend(struct snd_soc_dai *cpu_dai)
 {
-	u32 reg_val;
+	u32 reg_val = 0,ret = 0;
 	struct sunxi_spdif_info *sunxi_spdif = snd_soc_dai_get_drvdata(cpu_dai);
 	pr_debug("[SPDIF]Enter %s\n", __func__);
 	reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_CTL);
 	reg_val &= ~SUNXI_SPDIF_CTL_GEN;
 	writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_CTL);
-
-	devm_pinctrl_put(sunxi_spdif->pinctrl);
+	if (NULL != sunxi_spdif->pinstate_sleep) {
+		ret = pinctrl_select_state(sunxi_spdif->pinctrl, sunxi_spdif->pinstate_sleep);
+		if (ret) {
+			pr_warn("[spdif]select pin sleep state failed\n");
+			return ret;
+		}
+	}
+	if (sunxi_spdif->pinctrl !=NULL)
+		devm_pinctrl_put(sunxi_spdif->pinctrl);
 	sunxi_spdif->pinctrl = NULL;
 	sunxi_spdif->pinstate = NULL;
+	sunxi_spdif->pinstate_sleep = NULL;
+
+	if (sunxi_spdif->moduleclk != NULL) {
+		clk_disable(sunxi_spdif->moduleclk);
+	}
+	if (sunxi_spdif->pllclk != NULL) {
+		clk_disable(sunxi_spdif->pllclk);
+	}
+
 	pr_debug("[SPDIF]End %s\n", __func__);
 	return 0;
 }
@@ -609,6 +625,18 @@ static int sunxi_spdif_resume(struct snd_soc_dai *cpu_dai)
 	s32 ret = 0;
 	struct sunxi_spdif_info *sunxi_spdif = snd_soc_dai_get_drvdata(cpu_dai);
 	pr_debug("[SPDIF]Enter %s\n", __func__);
+
+	if (sunxi_spdif->pllclk != NULL) {
+		if (clk_prepare_enable(sunxi_spdif->pllclk)) {
+			pr_err("open sunxi_spdif->pllclk failed! line = %d\n", __LINE__);
+		}
+	}
+
+	if (sunxi_spdif->moduleclk != NULL) {
+		if (clk_prepare_enable(sunxi_spdif->moduleclk)) {
+			pr_err("open sunxi_spdif->moduleclk failed! line = %d\n", __LINE__);
+		}
+	}
 
 	reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_CTL);
 	reg_val |= SUNXI_SPDIF_CTL_GEN;
@@ -627,6 +655,15 @@ static int sunxi_spdif_resume(struct snd_soc_dai *cpu_dai)
 			return -EINVAL;
 		}
 	}
+
+	if (!sunxi_spdif->pinstate_sleep){
+		sunxi_spdif->pinstate_sleep = pinctrl_lookup_state(sunxi_spdif->pinctrl, PINCTRL_STATE_SLEEP);
+		if (IS_ERR_OR_NULL(sunxi_spdif->pinstate_sleep)) {
+			pr_warn("[spdif]lookup pin sleep state failed\n");
+			return -EINVAL;
+		}
+	}
+
 	ret = pinctrl_select_state(sunxi_spdif->pinctrl, sunxi_spdif->pinstate);
 	if (ret) {
 		pr_warn("[spdif]select pin default state failed\n");
@@ -729,6 +766,8 @@ static int __init sunxi_spdif_dev_probe(struct platform_device *pdev)
 	sunxi_spdif->capture_dma_param.dma_drq_type_num = DRQSRC_SPDIFRX;
 	sunxi_spdif->capture_dma_param.src_maxburst = 8;
 	sunxi_spdif->capture_dma_param.dst_maxburst = 8;
+
+	sunxi_spdif->pinctrl = NULL;
 
 	ret = snd_soc_register_component(&pdev->dev, &sunxi_spdif_component,
 				   &sunxi_spdif->dai, 1);

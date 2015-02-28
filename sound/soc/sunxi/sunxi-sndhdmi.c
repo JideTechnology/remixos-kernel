@@ -193,6 +193,7 @@ static struct platform_driver sunxi_hdmiaudio_driver = {
 		.name = "sndhdmi",
 		.owner = THIS_MODULE,
 		.of_match_table = sunxi_hdmi_of_match,
+		.pm = &snd_soc_pm_ops,
 	},
 	.probe = sunxi_sndhdmi_dev_probe,
 	.remove = sunxi_sndhdmi_dev_remove,

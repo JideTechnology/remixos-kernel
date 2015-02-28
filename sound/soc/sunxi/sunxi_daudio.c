@@ -98,11 +98,28 @@ static int sunxi_daudio_dai_remove(struct snd_soc_dai *dai)
 
 static int sunxi_daudio_suspend(struct snd_soc_dai *cpu_dai)
 {
+	int ret = 0;
 	struct sunxi_tdm_info  *sunxi_daudio = snd_soc_dai_get_drvdata(cpu_dai);
+	pr_debug("[daudio] suspend .%s\n",cpu_dai->name);
+	if (sunxi_daudio->tdm_moduleclk != NULL) {
+		clk_disable(sunxi_daudio->tdm_moduleclk);
+	}
+	if (sunxi_daudio->tdm_pllclk != NULL) {
+		clk_disable(sunxi_daudio->tdm_pllclk);
+	}
+	if (sunxi_daudio->pinstate_sleep){
+		ret = pinctrl_select_state(sunxi_daudio->pinctrl, sunxi_daudio->pinstate_sleep);
+		if (ret) {
+			pr_warn("[daudio]select pin sleep state failed\n");
+			return ret;
+		}
+	}
 	/*release gpio resource*/
-	devm_pinctrl_put(sunxi_daudio->pinctrl);
+	if (sunxi_daudio->pinctrl != NULL)
+		devm_pinctrl_put(sunxi_daudio->pinctrl);
 	sunxi_daudio->pinctrl = NULL;
 	sunxi_daudio->pinstate = NULL;
+	sunxi_daudio->pinstate_sleep = NULL;
 	return 0;
 }
 
@@ -110,6 +127,19 @@ static int sunxi_daudio_resume(struct snd_soc_dai *cpu_dai)
 {
 	int ret = 0;
 	struct sunxi_tdm_info  *sunxi_daudio = snd_soc_dai_get_drvdata(cpu_dai);
+	pr_debug("[daudio] resume .%s\n",cpu_dai->name);
+	if (sunxi_daudio->tdm_pllclk != NULL) {
+		if (clk_prepare_enable(sunxi_daudio->tdm_pllclk)) {
+			pr_err("open sunxi_daudio->tdm_pllclk failed! line = %d\n", __LINE__);
+		}
+	}
+
+	if (sunxi_daudio->tdm_moduleclk != NULL) {
+		if (clk_prepare_enable(sunxi_daudio->tdm_moduleclk)) {
+			pr_err("open sunxi_daudio->tdm_moduleclk failed! line = %d\n", __LINE__);
+		}
+	}
+
 	if (!sunxi_daudio->pinctrl) {
 		sunxi_daudio->pinctrl = devm_pinctrl_get(cpu_dai->dev);
 		if (IS_ERR_OR_NULL(sunxi_daudio->pinctrl)) {
@@ -120,6 +150,13 @@ static int sunxi_daudio_resume(struct snd_soc_dai *cpu_dai)
 	if (!sunxi_daudio->pinstate){
 		sunxi_daudio->pinstate = pinctrl_lookup_state(sunxi_daudio->pinctrl, PINCTRL_STATE_DEFAULT);
 		if (IS_ERR_OR_NULL(sunxi_daudio->pinstate)) {
+			pr_warn("[daudio]lookup pin default state failed\n");
+			return -EINVAL;
+		}
+	}
+	if (!sunxi_daudio->pinstate_sleep){
+		sunxi_daudio->pinstate_sleep = pinctrl_lookup_state(sunxi_daudio->pinctrl, PINCTRL_STATE_SLEEP);
+		if (IS_ERR_OR_NULL(sunxi_daudio->pinstate_sleep)) {
 			pr_warn("[daudio]lookup pin default state failed\n");
 			return -EINVAL;
 		}
@@ -227,6 +264,7 @@ static int __init sunxi_daudio_platform_probe(struct platform_device *pdev)
 	sunxi_daudio->capture_dma_param.dma_drq_type_num = DRQSRC_DAUDIO_0_RX;
 	sunxi_daudio->capture_dma_param.src_maxburst = 8;
 	sunxi_daudio->capture_dma_param.dst_maxburst = 8;
+	sunxi_daudio->pinctrl = NULL ;
 
 	ret = of_property_read_u32(node, "daudio_master",&temp_val);
 	if (ret < 0) {
