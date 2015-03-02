@@ -284,11 +284,23 @@ static const struct snd_soc_dapm_route audio_map[] = {
  */
 static int sunxi_audio_init(struct snd_soc_pcm_runtime *runtime)
 {
-	//int ret;
+	int ret;
 	struct snd_soc_codec *codec = runtime->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct mc_private *ctx = snd_soc_card_get_drvdata(runtime->card);
 	ctx->codec = runtime->codec;
+
+	ret = snd_soc_jack_new(ctx->codec, "sun50iw1 Audio Jack",
+			       SND_JACK_HEADSET | SND_JACK_HEADPHONE | SND_JACK_BTN_0 | SND_JACK_BTN_1 | SND_JACK_BTN_2,
+			       &ctx->jack);
+	if (ret) {
+		pr_err("jack creation failed\n");
+		return ret;
+	}
+	snd_jack_set_key(ctx->jack.jack, SND_JACK_BTN_0, KEY_MEDIA);
+	snd_jack_set_key(ctx->jack.jack, SND_JACK_BTN_1, KEY_VOLUMEUP);
+	snd_jack_set_key(ctx->jack.jack, SND_JACK_BTN_2, KEY_VOLUMEDOWN);
+
 	snd_soc_dapm_disable_pin(&codec->dapm,	"HPOUTR");
 	snd_soc_dapm_disable_pin(&codec->dapm,	"HPOUTL");
 	snd_soc_dapm_disable_pin(&codec->dapm,	"EAROUTP");
@@ -710,16 +722,6 @@ static int sun50iw1_machine_probe(struct platform_device *pdev)
 	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0x1<<JACK_IN_IRQ_EN), (0x1<<JACK_IN_IRQ_EN));
 	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0xf<<HMIC_N), (0xf<<HMIC_N));
 
-	ret = snd_soc_jack_new(ctx->codec, "sun50iw1 Audio Jack",
-			       SND_JACK_HEADSET | SND_JACK_HEADPHONE | SND_JACK_BTN_0 | SND_JACK_BTN_1 | SND_JACK_BTN_2,
-			       &ctx->jack);
-	if (ret) {
-		pr_err("jack creation failed\n");
-		return ret;
-	}
-	snd_jack_set_key(ctx->jack.jack, SND_JACK_BTN_0, KEY_MEDIA);
-	snd_jack_set_key(ctx->jack.jack, SND_JACK_BTN_1, KEY_VOLUMEUP);
-	snd_jack_set_key(ctx->jack.jack, SND_JACK_BTN_2, KEY_VOLUMEDOWN);
 	pr_debug("register jack interrupt.,jackirq:%d\n",ctx->jackirq);
 	ret = request_irq(ctx->jackirq, jack_interrupt, 0, "audio jack irq", ctx);
 
