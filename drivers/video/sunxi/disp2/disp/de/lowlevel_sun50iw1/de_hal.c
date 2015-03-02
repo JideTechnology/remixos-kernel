@@ -1,6 +1,7 @@
 #include "de_hal.h"
 
 static unsigned int g_device_fps[DEVICE_NUM] = {60};
+static bool g_de_blank[DEVICE_NUM] = {false};
 
 int de_update_device_fps(unsigned int sel, u32 fps)
 {
@@ -217,7 +218,8 @@ int de_al_lyr_apply(unsigned int screen_id, struct disp_layer_config_data *data,
 	for (i=0; i<chn; i++) {
 		if (chn_used[i]) {
 			u32 pipe_index = zoder[i];
-			pipe_used[pipe_index] = true;
+
+			pipe_used[pipe_index] = (g_de_blank[screen_id])?false:true;
 			pipe_sel[pipe_index] = i;
 		}
 	}
@@ -396,6 +398,8 @@ int de_al_mgr_apply(unsigned int screen_id, struct disp_manager_data *data)
 	struct disp_csc_config csc_cfg_temp;
 	int color = (data->config.back_color.alpha << 24) | (data->config.back_color.red << 16)
 	| (data->config.back_color.green << 8) | (data->config.back_color.blue << 0);
+
+	g_de_blank[screen_id] = data->config.blank;
 
 	if (data->flag & MANAGER_BACK_COLOR_DIRTY)
 		de_rtmx_set_background_color(screen_id, color);

@@ -180,7 +180,12 @@ s32 disp_tv_enable( struct disp_device* ptv)
 		DE_WRN("tv_enable is NULL\n");
 		return -1;
 	}
-	tv_clk_enable(ptv);
+	ret = tv_clk_enable(ptv);
+	if (0 != ret) {
+		DE_WRN("fail to enable tv's clock\n");
+		goto exit;
+	}
+
 	ptvp->tv_func.tv_enable(ptv->disp);
 	disp_al_tv_cfg(ptv->disp, ptvp->video_info);
 	disp_al_tv_enable(ptv->disp);
@@ -193,6 +198,8 @@ s32 disp_tv_enable( struct disp_device* ptv)
 	spin_lock_irqsave(&g_tv_data_lock, flags);
 	ptvp->enabled = 1;
 	spin_unlock_irqrestore(&g_tv_data_lock, flags);
+
+exit:
 	return 0;
 }
 

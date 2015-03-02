@@ -197,5 +197,6 @@ s32 drv_disp_vsync_event(u32 sel);
 void DRV_disp_int_process(u32 sel);
 s32 Display_set_fb_timming(u32 sel);
 unsigned int disp_boot_para_parse(void);
+int disp_get_parameter_for_cmdlind(char *cmdline, char *name, char *value);
 
 #endif

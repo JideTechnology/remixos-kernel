@@ -102,6 +102,7 @@ static s32 hdmi_clk_config(struct disp_device *hdmi)
 static s32 hdmi_clk_enable(struct disp_device *hdmi)
 {
 	struct disp_device_private_data *hdmip = disp_hdmi_get_priv(hdmi);
+	int ret = 0;
 
 	if (!hdmi || !hdmip) {
 	    DE_WRN("hdmi clk init null hdl!\n");
@@ -109,10 +110,13 @@ static s32 hdmi_clk_enable(struct disp_device *hdmi)
 	}
 
 	hdmi_clk_config(hdmi);
-	if (hdmip->clk)
-		clk_prepare_enable(hdmip->clk);
+	if (hdmip->clk) {
+		ret = clk_prepare_enable(hdmip->clk);
+		if (0 != ret)
+			DE_WRN("fail enable hdmi's clock!\n");
+	}
 
-	return 0;
+	return ret;
 }
 
 static s32 hdmi_clk_disable(struct disp_device *hdmi)
@@ -216,12 +220,18 @@ s32 disp_hdmi_enable(struct disp_device* hdmi)
 	unsigned long flags;
 	struct disp_device_private_data *hdmip = disp_hdmi_get_priv(hdmi);
 	struct disp_manager *mgr = NULL;
+	int ret;
 
 	if ((NULL == hdmi) || (NULL == hdmip)) {
 		DE_WRN("hdmi set func null  hdl!\n");
 		return DIS_FAIL;
 	}
 	DE_INF("%s, disp%d\n", __func__, hdmi->disp);
+
+	if (hdmip->enabled == 1) {
+		DE_WRN("hdmi%d is already enable\n", hdmi->disp);
+		return DIS_FAIL;
+	}
 
 	mgr = hdmi->manager;
 	if (!mgr) {
@@ -248,7 +258,9 @@ s32 disp_hdmi_enable(struct disp_device* hdmi)
 	disp_sys_register_irq(hdmip->irq_no,0,disp_hdmi_event_proc,(void*)hdmi,0,0);
 	disp_sys_enable_irq(hdmip->irq_no);
 
-	hdmi_clk_enable(hdmi);
+	ret = hdmi_clk_enable(hdmi);
+	if (0 != ret)
+		goto exit;
 	disp_al_hdmi_cfg(hdmi->disp, hdmip->video_info);
 	disp_al_hdmi_enable(hdmi->disp);
 
@@ -260,6 +272,8 @@ s32 disp_hdmi_enable(struct disp_device* hdmi)
 	spin_lock_irqsave(&hdmi_data_lock, flags);
 	hdmip->enabled = 1;
 	spin_unlock_irqrestore(&hdmi_data_lock, flags);
+
+exit:
 	mutex_unlock(&hdmi_mlock);
 
 	return 0;
@@ -326,7 +340,7 @@ static s32 disp_hdmi_disable(struct disp_device* hdmi)
 	}
 
 	if (hdmip->enabled == 0) {
-		DE_WRN("hdmi%d is already closed\n", hdmi->disp);
+		DE_WRN("hdmi%d is already disable\n", hdmi->disp);
 		return DIS_FAIL;
 	}
 

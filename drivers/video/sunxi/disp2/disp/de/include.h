@@ -195,7 +195,8 @@ typedef enum
 	MANAGER_SIZE_DIRTY       = 0x00000008,
 	MANAGER_COLOR_RANGE_DIRTY= 0x00000010,
 	MANAGER_COLOR_SPACE_DIRTY= 0x00000020,
-	MANAGER_ALL_DIRTY        = 0x0000003f,
+	MANAGER_BLANK_DIRTY      = 0x00000040,
+	MANAGER_ALL_DIRTY        = 0x0000007f,
 }disp_manager_dirty_flags;
 
 struct disp_layer_config_data
@@ -213,6 +214,7 @@ struct disp_manager_info {
 	u32 interlace;
 	bool enable;
 	u32 disp_device;//disp of device
+	bool blank;//true: disable all layer; false: enable layer according to layer_config.enable
 };
 
 struct disp_manager_data
@@ -746,6 +748,7 @@ struct disp_manager {
 	s32 (*sw_enable)(struct disp_manager *mgr);
 	s32 (*disable)(struct disp_manager *mgr);
 	s32 (*is_enabled)(struct disp_manager *mgr);
+	s32 (*blank)(struct disp_manager *mgr, bool blank);
 
 	/* init: clock init && reg init && register irq
 	 * exit: clock exit && unregister irq

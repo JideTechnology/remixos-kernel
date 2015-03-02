@@ -808,6 +808,7 @@ static s32 lcd_clk_config(struct disp_device* lcd)
 static s32 lcd_clk_enable(struct disp_device* lcd)
 {
 	struct disp_lcd_private_data *lcdp = disp_lcd_get_priv(lcd);
+	int ret;
 
 	if ((NULL == lcd) || (NULL == lcdp)) {
 		DE_WRN("NULL hdl!\n");
@@ -815,18 +816,39 @@ static s32 lcd_clk_enable(struct disp_device* lcd)
 	}
 	lcd_clk_config(lcd);
 
-	clk_prepare_enable(lcdp->clk);
-
-	if (LCD_IF_LVDS == lcdp->panel_info.lcd_if) {
-		clk_prepare_enable(lcdp->lvds_clk);
-	} else if (LCD_IF_DSI == lcdp->panel_info.lcd_if) {
-		clk_prepare_enable(lcdp->dsi_clk0);
-		clk_prepare_enable(lcdp->dsi_clk1);
-	} else if (LCD_IF_EDP == lcdp->panel_info.lcd_if) {
-		clk_prepare_enable(lcdp->edp_clk);
+	ret = clk_prepare_enable(lcdp->clk);
+	if (0 != ret) {
+		DE_WRN("fail enable lcd's clock!\n");
+		goto exit;
 	}
 
-	return	DIS_SUCCESS;
+	if (LCD_IF_LVDS == lcdp->panel_info.lcd_if) {
+		ret = clk_prepare_enable(lcdp->lvds_clk);
+		if (0 != ret) {
+			DE_WRN("fail enable lvds's clock!\n");
+			goto exit;
+		}
+	} else if (LCD_IF_DSI == lcdp->panel_info.lcd_if) {
+		ret = clk_prepare_enable(lcdp->dsi_clk0);
+		if (0 != ret) {
+			DE_WRN("fail enable dsi's clock0!\n");
+			goto exit;
+		}
+		ret = clk_prepare_enable(lcdp->dsi_clk1);
+		if (0 != ret) {
+			DE_WRN("fail enable dsi's clock1!\n");
+			goto exit;
+		}
+	} else if (LCD_IF_EDP == lcdp->panel_info.lcd_if) {
+		ret = clk_prepare_enable(lcdp->edp_clk);
+		if (0 != ret) {
+			DE_WRN("fail enable edp's clock!\n");
+			goto exit;
+		}
+	}
+
+exit:
+	return	ret;
 }
 
 static s32 lcd_clk_disable(struct disp_device* lcd)
@@ -1241,6 +1263,7 @@ static s32 disp_lcd_enable(struct disp_device* lcd)
 	int i;
 	struct disp_manager *mgr = NULL;
 	unsigned bl;
+	int ret;
 
 	if ((NULL == lcd) || (NULL == lcdp)) {
 		DE_WRN("NULL hdl!\n");
@@ -1277,7 +1300,10 @@ static s32 disp_lcd_enable(struct disp_device* lcd)
 		DE_WRN("lcd_panel_fun[%d].cfg_panel_info is NULL\n", lcd->disp);
 	lcdp->panel_extend_info.lcd_gamma_en = lcdp->panel_info.lcd_gamma_en;
 	disp_lcd_gpio_init(lcd);
-	lcd_clk_enable(lcd);
+	ret = lcd_clk_enable(lcd);
+	if (0 != ret)
+		return DIS_FAIL;
+
 	disp_al_lcd_cfg(lcd->disp, &lcdp->panel_info, &lcdp->panel_extend_info);
 	lcdp->open_flow.func_num = 0;
 	if (lcdp->lcd_panel_fun.cfg_open_flow)	{

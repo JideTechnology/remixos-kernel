@@ -381,10 +381,17 @@ static int hdmi_run_thread(void *parg)
 
 		mutex_lock(&mlock);
 		if (false == b_hdmi_suspend) {
+			int ret = 0;
+
 			/* normal state */
 			if (clk_enable_count == 0) {
-				hdmi_clk_enable();
-				clk_enable_count ++;
+				ret = hdmi_clk_enable();
+				if (0 == ret)
+					clk_enable_count ++;
+				else {
+					pr_warn("fail to enable hdmi's clock\n");
+					continue;
+				}
 			}
 			if ((hdmi_power_used) && (power_enable_count == 0)) {
 				hdmi_power_enable(hdmi_power);
@@ -397,6 +404,13 @@ static int hdmi_run_thread(void *parg)
 			b_hdmi_suspend_pre = b_hdmi_suspend;
 			mutex_unlock(&mlock);
 			hdmi_core_loop();
+
+			if (false == b_hdmi_suspend) {
+				if (hdmi_get_hdcp_enable()==1)
+					hdmi_delay_ms(100);
+				else
+					hdmi_delay_ms(200);
+			}
 		} else {
 			/* suspend state */
 			if (false == b_hdmi_suspend_pre) {
@@ -418,10 +432,6 @@ static int hdmi_run_thread(void *parg)
 			b_hdmi_suspend_pre = b_hdmi_suspend;
 			mutex_unlock(&mlock);
 		}
-		if (hdmi_get_hdcp_enable()==1)
-			hdmi_delay_ms(100); //200
-		else
-			hdmi_delay_ms(200);
 	}
 
 	return 0;
@@ -483,9 +493,14 @@ s32 hdmi_hpd_event(void)
 
 static s32 hdmi_suspend(void)
 {
+	hdmi_core_update_detect_time(0);
 	mutex_lock(&mlock);
-	if (hdmi_used && (0 == b_hdmi_suspend)) {
+	if (hdmi_used && (false == b_hdmi_suspend)) {
 		b_hdmi_suspend = true;
+		if (HDMI_task) {
+			kthread_stop(HDMI_task);
+			HDMI_task = NULL;
+		}
 		pr_info("[HDMI]hdmi suspend\n");
 	}
 	mutex_unlock(&mlock);
@@ -495,12 +510,19 @@ static s32 hdmi_suspend(void)
 
 static s32 hdmi_resume(void)
 {
+	int ret;
+
 	mutex_lock(&mlock);
-	if (hdmi_used && (1 == b_hdmi_suspend)) {
+	if (hdmi_used && (true == b_hdmi_suspend)) {
 		/* normal state */
 		if (clk_enable_count == 0) {
-			hdmi_clk_enable();
-			clk_enable_count ++;
+			ret = hdmi_clk_enable();
+			if (0 == ret)
+				clk_enable_count ++;
+			else {
+				pr_warn("fail to enable hdmi's clock\n");
+				goto exit;
+			}
 		}
 		if ((hdmi_power_used) && (power_enable_count == 0)) {
 			hdmi_power_enable(hdmi_power);
@@ -509,10 +531,23 @@ static s32 hdmi_resume(void)
 		/* first time after exit suspend state */
 		hdmi_core_exit_lp();
 
-		b_hdmi_suspend = false;
+		HDMI_task = kthread_create(hdmi_run_thread, (void*)0, "hdmi proc");
+		if (IS_ERR(HDMI_task)) {
+			s32 err = 0;
+			pr_warn("Unable to start kernel thread %s.\n\n", "hdmi proc");
+			err = PTR_ERR(HDMI_task);
+			HDMI_task = NULL;
+		} else
+			wake_up_process(HDMI_task);
+
 		pr_info("[HDMI]hdmi resume\n");
 	}
+
+exit:
 	mutex_unlock(&mlock);
+
+	hdmi_core_update_detect_time(200);//200ms
+	b_hdmi_suspend = false;
 
 	return  0;
 }

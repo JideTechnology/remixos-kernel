@@ -19,6 +19,7 @@ static s32 audio_config_internal(void);
 extern u32 is_exp;
 u32	hdmi_print = 0;
 u32 hdmi_hpd_mask = 0x00;//0x10: force unplug; 0x11: force plug; 0x1xx: unreport hpd state
+static u32 hdmi_detect_time = 200;//ms
 
 static s32 video_config(u32 vic);
 
@@ -115,9 +116,11 @@ static s32 main_Hpd_Check(void)
 				times++;
 		}
 		if ((cts_enable==1) && (hdcp_enable==1))
-			hdmi_delay_ms(20); //200
-		else
-			hdmi_delay_ms(200); //200
+			hdmi_delay_ms(20);
+		else {
+			if (0 != hdmi_detect_time)
+				hdmi_delay_ms(hdmi_detect_time);
+		}
 	}
 
 	if (times >= 3)
@@ -542,4 +545,11 @@ s32 hdmi_core_dvi_support(void)
 		return 1;
 	else
 		return 0;
+}
+
+s32 hdmi_core_update_detect_time(u32 time_val)
+{
+	hdmi_detect_time = time_val;
+
+	return 0;
 }

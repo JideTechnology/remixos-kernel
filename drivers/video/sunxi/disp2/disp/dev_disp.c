@@ -11,6 +11,7 @@
 */
 
 #include "dev_disp.h"
+#include <linux/pm_runtime.h>
 
 disp_drv_info g_disp_drv;
 
@@ -19,6 +20,7 @@ disp_drv_info g_disp_drv;
 static u32 suspend_output_type[2] = {0,0};
 static u32 suspend_status = 0;//0:normal; suspend_status&1 != 0:in early_suspend; suspend_status&2 != 0:in suspend;
 static u32 suspend_prestep = 3; //0:after early suspend; 1:after suspend; 2:after resume; 3 :after late resume
+static u32 power_status_init = 0;
 
 //static unsigned int gbuffer[4096];
 static struct info_mm  g_disp_mm[10];
@@ -260,13 +262,15 @@ static struct attribute_group disp_attribute_group = {
   .attrs = disp_attributes
 };
 
-static int disp_get_parameter_for_cmdlind(char *cmdline, char *name, char *value)
+int disp_get_parameter_for_cmdlind(char *cmdline, char *name, char *value)
 {
 	char *p = cmdline;
 	char *value_p = value;
+	int ret = 0;
 
 	if (!cmdline || !name) {
-		return -1;
+		ret = -1;
+		goto exit;
 	}
 	for (;;) {
 		if (*p == ' ') {
@@ -282,10 +286,14 @@ static int disp_get_parameter_for_cmdlind(char *cmdline, char *name, char *value
 			}
 		}
 		p++;
-		if (!*p)
+		if (!*p) {
+			ret = -1;
 			break;
+		}
 	}
-	return 0;
+
+exit:
+	return ret;
 }
 
 extern char *saved_command_line;
@@ -588,15 +596,18 @@ static void start_work(struct work_struct *work)
 				if ((output_type == DISP_OUTPUT_TYPE_LCD)) {
 					if (lcd_registered	&& bsp_disp_get_output_type(screen_id) != DISP_OUTPUT_TYPE_LCD) {
 						bsp_disp_device_switch(screen_id, output_type, output_mode);
+						suspend_output_type[screen_id] = output_type;
 					}
 				}
 				else if (output_type == DISP_OUTPUT_TYPE_HDMI) {
 					if (hdmi_registered	&& bsp_disp_get_output_type(screen_id) != DISP_OUTPUT_TYPE_HDMI) {
 						msleep(600);
 						bsp_disp_device_switch(screen_id, output_type, output_mode);
+						suspend_output_type[screen_id] = output_type;
 					}
 				} else {
 					bsp_disp_device_switch(screen_id, output_type, output_mode);
+					suspend_output_type[screen_id] = output_type;
 				}
 			}
 		}
@@ -605,6 +616,7 @@ static void start_work(struct work_struct *work)
 			return;
 		if (bsp_disp_get_output_type(g_disp_drv.para.boot_info.disp) != g_disp_drv.para.boot_info.type) {
 			bsp_disp_sync_with_hw(&g_disp_drv.para);
+			suspend_output_type[g_disp_drv.para.boot_info.disp] = g_disp_drv.para.boot_info.type;
 		}
 	}
 }
@@ -1068,6 +1080,14 @@ static int disp_probe(struct platform_device *pdev)
 	if (ret)
 		__wrn("sysfs_create_group fail!\n");
 
+	power_status_init = 1;
+#if defined(CONFIG_PM_RUNTIME)
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_get_noresume(&pdev->dev);
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 5000);
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+#endif
 	__inf("[DISP]disp_probe finish\n");
 
 	return ret;
@@ -1088,8 +1108,28 @@ static int disp_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-void backlight_early_suspend(struct early_suspend *h)
+static int disp_blank(bool blank)
+{
+	u32 screen_id = 0;
+	int num_screens;
+	struct disp_manager *mgr = NULL;
+
+	num_screens = bsp_disp_feat_get_num_screens();
+
+	for (screen_id=0; screen_id<num_screens; screen_id++) {
+		mgr = g_disp_drv.mgr[screen_id];
+		if (!mgr || !mgr->device)
+			continue;
+
+		if (mgr->blank)
+			mgr->blank(mgr, blank);
+	}
+
+	return 0;
+}
+
+#if defined(CONFIG_PM_RUNTIME)
+static int disp_runtime_suspend(struct device *dev)
 {
 	u32 screen_id = 0;
 	int num_screens;
@@ -1107,7 +1147,9 @@ void backlight_early_suspend(struct early_suspend *h)
 		if (mgr && mgr->device) {
 			struct disp_device *dispdev = mgr->device;
 
-			suspend_output_type[screen_id] = bsp_disp_get_output_type(screen_id);
+			if (suspend_output_type[screen_id] == DISP_OUTPUT_TYPE_LCD)
+				flush_work(&g_disp_drv.resume_work[screen_id]);
+
 			if (dispdev->is_enabled(dispdev))
 				dispdev->disable(dispdev);
 		}
@@ -1124,9 +1166,11 @@ void backlight_early_suspend(struct early_suspend *h)
 	suspend_prestep = 0;
 
 	pr_info("%s finish\n", __func__);
+
+	return 0;
 }
 
-void backlight_late_resume(struct early_suspend *h)
+static int disp_runtime_resume(struct device *dev)
 {
 	u32 screen_id = 0;
 	int num_screens;
@@ -1150,12 +1194,10 @@ void backlight_late_resume(struct early_suspend *h)
 			continue;
 
 		if (suspend_output_type[screen_id] == DISP_OUTPUT_TYPE_LCD) {
-			if (0 == suspend_prestep) {
-				/* early_suspend -->  late_resume */
+			flush_work(&g_disp_drv.resume_work[screen_id]);
+			if (!mgr->device->is_enabled(mgr->device)) {
 				mgr->device->enable(mgr->device);
 			} else {
-				/* resume -> late_resume */
-				flush_work(&g_disp_drv.resume_work[screen_id]);
 				mgr->device->pwm_enable(mgr->device);
 				mgr->device->backlight_enable(mgr->device);
 			}
@@ -1165,7 +1207,8 @@ void backlight_late_resume(struct early_suspend *h)
 
 					mgr->device->set_mode(mgr->device, mode);
 			}
-			mgr->device->enable(mgr->device);
+			if (!mgr->device->is_enabled(mgr->device))
+				mgr->device->enable(mgr->device);
 		}
 	}
 
@@ -1175,115 +1218,91 @@ void backlight_late_resume(struct early_suspend *h)
 	disp_resume_cb();
 
 	pr_info("%s finish\n", __func__);
+
+	return 0;
 }
 
-static struct early_suspend backlight_early_suspend_handler =
+static int disp_runtime_idle(struct device *dev)
 {
-  .level   = EARLY_SUSPEND_LEVEL_DISABLE_FB + 200,
-	.suspend = backlight_early_suspend,
-	.resume = backlight_late_resume,
-};
+	pr_info("%s\n", __func__);
+
+	if (g_disp_drv.dev) {
+		pm_runtime_mark_last_busy(g_disp_drv.dev);
+		pm_request_autosuspend(g_disp_drv.dev);
+	} else {
+		pr_warn("%s, display device is null\n", __func__);
+	}
+
+	/* return 0: for framework to request enter suspend.
+		return non-zero: do susupend for myself;
+	*/
+	return -1;
+}
 #endif
 
-static int disp_suspend(struct platform_device *pdev, pm_message_t state)
+static int disp_suspend(struct device *dev)
 {
 	u32 screen_id = 0;
 	int num_screens;
 	struct disp_manager *mgr = NULL;
-
-#if !defined(CONFIG_HAS_EARLYSUSPEND)
-
 	struct disp_device* dispdev_suspend = NULL;
 	struct list_head* disp_list= NULL;
 
 	pr_info("%s\n", __func__);
-	num_screens = bsp_disp_feat_get_num_screens();
 
-	disp_suspend_cb();
-	for (screen_id=0; screen_id<num_screens; screen_id++) {
-		suspend_output_type[screen_id] = bsp_disp_get_output_type(screen_id);
-		mgr = g_disp_drv.mgr[screen_id];
-		if (!mgr || !mgr->device)
-			continue;
-		if (suspend_output_type[screen_id] != DISP_OUTPUT_TYPE_NONE)
-			mgr->device->disable(mgr->device);
+	if (!g_disp_drv.dev) {
+		pr_warn("display device is null!\n");
+		return 0;
 	}
+#if defined(CONFIG_PM_RUNTIME)
+	if (!pm_runtime_status_suspended(g_disp_drv.dev))
+#endif
+	{
+		num_screens = bsp_disp_feat_get_num_screens();
 
-	/*suspend for all display device*/
+		disp_suspend_cb();
 
-	disp_list = disp_device_get_list_head();
-	list_for_each_entry(dispdev_suspend, disp_list, list) {
-		if (dispdev_suspend->suspend) {
-			dispdev_suspend->suspend(dispdev_suspend);
-		}
-	}
+		for (screen_id=0; screen_id<num_screens; screen_id++) {
+			mgr = g_disp_drv.mgr[screen_id];
+			if (!mgr || !mgr->device)
+				continue;
 
-#else
-	pr_info("%s\n", __func__);
-	num_screens = bsp_disp_feat_get_num_screens();
-
-	for (screen_id=0; screen_id<num_screens; screen_id++) {
-		mgr = g_disp_drv.mgr[screen_id];
-		if (!mgr || !mgr->device)
-			continue;
-		if (suspend_output_type[screen_id] == DISP_OUTPUT_TYPE_LCD) {
-			if (2 == suspend_prestep) {
-				/* resume -> suspend */
+			if (suspend_output_type[screen_id] == DISP_OUTPUT_TYPE_LCD)
 				flush_work(&g_disp_drv.resume_work[screen_id]);
-				mgr->device->disable(mgr->device);
+			if (suspend_output_type[screen_id] != DISP_OUTPUT_TYPE_NONE) {
+				if (mgr->device->is_enabled(mgr->device))
+					mgr->device->disable(mgr->device);
+			}
+		}
+
+		/*suspend for all display device*/
+		disp_list = disp_device_get_list_head();
+		list_for_each_entry(dispdev_suspend, disp_list, list) {
+			if (dispdev_suspend->suspend) {
+				dispdev_suspend->suspend(dispdev_suspend);
 			}
 		}
 	}
-#endif
+
 	//FIXME: hdmi suspend
 	suspend_status |= DISPLAY_DEEP_SLEEP;
 	suspend_prestep = 1;
-
+#if defined(CONFIG_PM_RUNTIME)
+	pm_runtime_disable(g_disp_drv.dev);
+	pm_runtime_set_suspended(g_disp_drv.dev);
+	pm_runtime_enable(g_disp_drv.dev);
+#endif
 	pr_info("%s finish\n", __func__);
 
 	return 0;
 }
 
-
-static int disp_resume(struct platform_device *pdev)
+static int disp_resume(struct device *dev)
 {
 	u32 screen_id = 0;
-	int num_screens;
+	int num_screens = bsp_disp_feat_get_num_screens();
 	struct disp_manager *mgr = NULL;
-
-#if !defined(CONFIG_HAS_EARLYSUSPEND)
-
-	struct disp_device* dispdev_resume = NULL;
-	struct list_head* disp_list= NULL;
-
-	pr_info("%s\n", __func__);
-	num_screens = bsp_disp_feat_get_num_screens();
-
-	disp_list = disp_device_get_list_head();
-	list_for_each_entry(dispdev_resume, disp_list, list) {
-		if (dispdev_resume->resume) {
-			dispdev_resume->resume(dispdev_resume);
-		}
-	}
-
-	for (screen_id=0; screen_id<num_screens; screen_id++) {
-		mgr = g_disp_drv.mgr[screen_id];
-		if (!mgr || !mgr->device)
-			continue;
-		if (suspend_output_type[screen_id] != DISP_OUTPUT_TYPE_NONE) {
-			if (mgr->device->set_mode && mgr->device->get_mode) {
-					u32 mode = mgr->device->get_mode(mgr->device);
-
-					mgr->device->set_mode(mgr->device, mode);
-			}
-
-			mgr->device->enable(mgr->device);
-		}
-	}
-	disp_resume_cb();
-#else
-	pr_info("%s\n", __func__);
-	num_screens = bsp_disp_feat_get_num_screens();
+#if defined(CONFIG_PM_RUNTIME)
 
 	for (screen_id=0; screen_id<num_screens; screen_id++) {
 		mgr = g_disp_drv.mgr[screen_id];
@@ -1294,15 +1313,60 @@ static int disp_resume(struct platform_device *pdev)
 			schedule_work(&g_disp_drv.resume_work[screen_id]);
 		}
 	}
+
+	if (g_disp_drv.dev) {
+		pm_runtime_disable(g_disp_drv.dev);
+		pm_runtime_set_active(g_disp_drv.dev);
+		pm_runtime_enable(g_disp_drv.dev);
+	} else {
+		pr_warn("%s, display device is null\n", __func__);
+	}
+#else
+	struct disp_device* dispdev = NULL;
+	struct list_head* disp_list= NULL;
+
+	disp_list = disp_device_get_list_head();
+	list_for_each_entry(dispdev, disp_list, list) {
+		if (dispdev->resume) {
+			dispdev->resume(dispdev);
+		}
+	}
+
+	for (screen_id=0; screen_id<num_screens; screen_id++) {
+		mgr = g_disp_drv.mgr[screen_id];
+		if (!mgr || !mgr->device)
+			continue;
+
+		if (suspend_output_type[screen_id] != DISP_OUTPUT_TYPE_NONE) {
+			if (mgr->device->set_mode && mgr->device->get_mode) {
+					u32 mode = mgr->device->get_mode(mgr->device);
+
+					mgr->device->set_mode(mgr->device, mode);
+			}
+			mgr->device->enable(mgr->device);
+		}
+	}
+	disp_resume_cb();
 #endif
 
 	suspend_status &= (~DISPLAY_DEEP_SLEEP);
 	suspend_prestep = 2;
 
-	pr_info("%s\n", __func__);
+	pr_info("%s finish\n", __func__);
 
 	return 0;
 }
+
+static const struct dev_pm_ops disp_runtime_pm_ops =
+{
+#ifdef CONFIG_PM_RUNTIME
+	.runtime_suspend = disp_runtime_suspend,
+	.runtime_resume  = disp_runtime_resume,
+	.runtime_idle    = disp_runtime_idle,
+#endif
+	.suspend  = disp_suspend,
+	.resume   = disp_resume,
+};
 
 static void disp_shutdown(struct platform_device *pdev)
 {
@@ -1428,12 +1492,37 @@ long disp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 	case DISP_BLANK:
 	{
+		/* only response main device' blank request */
+		if (0 != ubuffer[0])
+			break;
+
 		if (ubuffer[1]) {
-			if (dispdev && dispdev->disable)
-				ret = dispdev->disable(dispdev);
+#if defined(CONFIG_PM_RUNTIME)
+			if (g_disp_drv.dev)
+				pm_runtime_put(g_disp_drv.dev);
+			else
+				pr_warn("%s, display device is null\n", __func__);
+#endif
+			disp_blank(true);
 		} else {
-			if (dispdev && dispdev->enable)
-				ret = dispdev->enable(dispdev);
+			if (power_status_init) {
+				/* avoid first unblank, because device is ready when driver init */
+				power_status_init = 0;
+				break;
+			}
+
+			disp_blank(false);
+#if defined(CONFIG_PM_RUNTIME)
+			if (g_disp_drv.dev) {
+				/* recover the pm_runtime status */
+				pm_runtime_disable(g_disp_drv.dev);
+				pm_runtime_set_suspended(g_disp_drv.dev);
+				pm_runtime_enable(g_disp_drv.dev);
+				pm_runtime_get_sync(g_disp_drv.dev);
+			}
+			else
+				pr_warn("%s, display device is null\n", __func__);
+#endif
 		}
 		break;
 	}
@@ -1699,13 +1788,12 @@ static const struct of_device_id sunxi_disp_match[] = {
 static struct platform_driver disp_driver = {
 	.probe    = disp_probe,
 	.remove   = disp_remove,
-	.suspend  = disp_suspend,
-	.resume   = disp_resume,
 	.shutdown = disp_shutdown,
 	.driver   =
 	{
 		.name   = "disp",
 		.owner  = THIS_MODULE,
+		.pm	= &disp_runtime_pm_ops,
 		.of_match_table = sunxi_disp_match,
 	},
 };
@@ -1761,10 +1849,6 @@ static int __init disp_module_init(void)
 	if (ret == 0) {
 		ret = platform_driver_register(&disp_driver);
 	}
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	register_early_suspend(&backlight_early_suspend_handler);
-#endif
-
 #ifdef CONFIG_DISP2_SUNXI_DEBUG
 	dispdbg_init();
 #endif
@@ -1781,10 +1865,6 @@ static int __init disp_module_init(void)
 static void __exit disp_module_exit(void)
 {
 	__inf("disp_module_exit\n");
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	unregister_early_suspend(&backlight_early_suspend_handler);
-#endif
 
 #ifdef CONFIG_DISP2_SUNXI_DEBUG
 	dispdbg_exit();

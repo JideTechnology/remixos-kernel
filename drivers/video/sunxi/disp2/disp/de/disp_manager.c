@@ -487,6 +487,7 @@ static s32 disp_mgr_clk_exit(struct disp_manager *mgr)
 static s32 disp_mgr_clk_enable(struct disp_manager *mgr)
 {
 	struct disp_manager_private_data *mgrp = disp_mgr_get_priv(mgr);
+	int ret = 0;
 
 	if ((NULL == mgr) || (NULL == mgrp)) {
 		DE_WRN("NULL hdl!\n");
@@ -494,9 +495,12 @@ static s32 disp_mgr_clk_enable(struct disp_manager *mgr)
 	}
 
 	DE_INF("mgr %d clk enable\n", mgr->disp);
-	clk_prepare_enable(mgrp->clk);
+	ret = clk_prepare_enable(mgrp->clk);
 
-	return 0;
+	if (0 != ret)
+		DE_WRN("fail enable mgr's clock!\n");
+
+	return ret;
 }
 
 static s32 disp_mgr_clk_disable(struct disp_manager *mgr)
@@ -976,6 +980,7 @@ static s32 disp_mgr_enable(struct disp_manager *mgr)
 	struct disp_manager_private_data *mgrp = disp_mgr_get_priv(mgr);
 	unsigned int width = 0, height = 0;
 	unsigned int cs = 0, color_range = 0;
+	int ret;
 
 	if ((NULL == mgr) || (NULL == mgrp)) {
 		DE_WRN("NULL hdl!\n");
@@ -986,7 +991,10 @@ static s32 disp_mgr_enable(struct disp_manager *mgr)
 	//disp_sys_register_irq(mgrp->irq_no,0,disp_mgr_event_proc,(void*)mgr->disp,0,0);
 	//disp_sys_enable_irq(mgrp->irq_no);
 
-	disp_mgr_clk_enable(mgr);
+	ret = disp_mgr_clk_enable(mgr);
+	if (0 != ret)
+		return ret;
+
 	disp_al_manager_init(mgr->disp);
 
 	if (mgr->device) {
@@ -1125,6 +1133,29 @@ static s32 disp_mgr_dump(struct disp_manager *mgr, char *buf)
 	return 0;
 }
 
+static s32 disp_mgr_blank(struct disp_manager *mgr, bool blank)
+{
+	struct disp_manager_private_data *mgrp = disp_mgr_get_priv(mgr);
+	struct disp_layer* lyr = NULL;
+
+	if ((NULL == mgr) || (NULL == mgrp)) {
+		DE_WRN("NULL hdl!\n");
+		return -1;
+	}
+
+	mutex_lock(&mgr_mlock);
+	list_for_each_entry(lyr, &mgr->lyr_list, list) {
+		lyr->force_apply(lyr);
+	}
+	mgrp->cfg->config.blank = blank;
+	mgrp->cfg->flag |= MANAGER_BLANK_DIRTY;
+	mutex_unlock(&mgr_mlock);
+
+	mgr->apply(mgr);
+
+	return 0;
+}
+
 s32 disp_init_mgr(disp_bsp_init_para * para)
 {
 	u32 num_screens;
@@ -1185,6 +1216,7 @@ s32 disp_init_mgr(disp_bsp_init_para * para)
 		mgr->get_output_color_range = disp_mgr_get_output_color_range;
 		mgr->update_color_space = disp_mgr_update_color_space;
 		mgr->dump = disp_mgr_dump;
+		mgr->blank = disp_mgr_blank;
 
 		mgr->init = disp_mgr_init;
 		mgr->exit = disp_mgr_exit;
