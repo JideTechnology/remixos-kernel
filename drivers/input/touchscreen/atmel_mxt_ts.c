@@ -2620,6 +2620,8 @@ static bool mxt_fw_is_latest(struct mxt_data *data, struct mxt_info *info,
 		fw_info->build == info->build)
 		return true;
 	else {
+		if (info->variant_id == 0x13)
+			return true;
 		dev_info(&data->client->dev, "Update firmware\n");
 		return false;
 	}
