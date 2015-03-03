@@ -18,6 +18,7 @@
 #include <linux/clk.h>
 #include <linux/of_gpio.h>
 #include <linux/platform_device.h>
+#include <linux/regulator/consumer.h>
 #include <linux/irq.h>
 #include <linux/of_platform.h>
 #include <linux/of_irq.h>
@@ -62,7 +63,7 @@ static inline void ir_clr_intsta(u32 bitmap)
 #ifdef CONFIG_OF
 /* Translate OpenFirmware node properties into platform_data */
 static struct of_device_id sunxi_ir_recv_of_match[] = {
-	{ .compatible = "allwinner,ir-receiver", },
+	{ .compatible = "allwinner,s_cir", },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, sunxi_ir_recv_of_match);
@@ -302,6 +303,7 @@ static int sunxi_ir_startup(struct platform_device *pdev)
 {
 	struct device_node *np =NULL;
 	int ret = 0;
+	const char *name = NULL;
 	
 	ir_data = kzalloc(sizeof(*ir_data), GFP_KERNEL);
 	if (IS_ERR_OR_NULL(ir_data)) {
@@ -329,6 +331,16 @@ static int sunxi_ir_startup(struct platform_device *pdev)
 		||NULL==ir_data->mclk||IS_ERR(ir_data->mclk)) {
 		pr_err("%s:Failed to get clk.\n", __func__);
 		ret = -EBUSY;
+	}
+	if (of_property_read_string(np, "supply", &name)) {
+		pr_err("%s: cir have no power supply\n", __func__);
+		ir_data->suply = NULL;
+	}else{
+		ir_data->suply = regulator_get(NULL, name);
+		if(IS_ERR(ir_data->pclk)){
+			pr_err("%s: cir get supply err\n", __func__);
+			ir_data->suply = NULL;
+		}
 	}
 
 	return ret;
@@ -387,7 +399,8 @@ static int sunxi_ir_recv_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, sunxi_rcdev);
 	ir_data->rcdev = sunxi_rcdev;
-
+	if(ir_data->suply)
+		regulator_enable(ir_data->suply);
 	ir_setup();
 	
 	if (request_irq(ir_data->irq_num, sunxi_ir_recv_irq, IRQF_DISABLED, "RemoteIR_RX",
@@ -406,6 +419,10 @@ err_request_irq:
 	rc_unregister_device(sunxi_rcdev);
 	sunxi_rcdev = NULL;
 	ir_clk_uncfg();
+	if(ir_data->suply){
+		regulator_disable(ir_data->suply);
+		regulator_put(ir_data->suply);
+	}
 err_platfrom_device:
 	exit_rc_map_sunxi();
 err_register_rc_device:
@@ -421,7 +438,10 @@ static int sunxi_ir_recv_remove(struct platform_device *pdev)
 	free_irq(ir_data->irq_num, sunxi_rcdev);
 	ir_clk_uncfg();
 	platform_set_drvdata(pdev, NULL);
-	//input_free_platform_resource(&(ir_info.input_type));
+	if(ir_data->suply){
+		regulator_disable(ir_data->suply);
+		regulator_put(ir_data->suply);
+	}
 	rc_unregister_device(sunxi_rcdev);
 	exit_rc_map_sunxi();
 	if(ir_data)
