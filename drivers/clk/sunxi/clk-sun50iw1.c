@@ -587,6 +587,7 @@ static const char *cpurapbs_parents[] = {"cpurahbs"};
 static const char *cpurdev_parents[]  = {"losc", "hosc","",""};
 static const char *cpurpio_parents[]  = {"cpurapbs"};
 static const char *usbohci_parents[] = {"usbohci_16"};
+static const char *losc_parents[] = {"losc"};
 
 struct sunxi_clk_comgate com_gates[]={
 {"csi",      0,  0x3,    BUS_GATE_SHARE|RST_GATE_SHARE|MBUS_GATE_SHARE, 0},
@@ -668,6 +669,7 @@ SUNXI_CLK_PERIPH(cpurcpus, CPUS_CFG,  16,        2,  CPUS_CFG,   		0,          0
 SUNXI_CLK_PERIPH(cpurahbs, 0,          0,        0,   		0,          0,          0,          0,          0,          0,          0,				   0,  			0,   0,     	   0,            0,           0,              0,			   &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(cpurapbs, 0,          0,        0, CPUS_APB0,  		0,          2,          0,          0,          0,          0,				   0,  			0, 	 0,     	   0,            0,           0,              0,			   &clk_lock,NULL,             0); 
 SUNXI_CLK_PERIPH(cpurpio,  0,  		   0,        0,         0,   		0,          0,          0,          0,          0,          0,    CPUS_APB0_GATE,			0,   0,       	   0,            0,           0,              0,			   &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(losc_out, 0,          0,        0,         0,          0,          0,          0,          0,          0,          0,                 0, LOSC_OUT_GATE, 0,            0,            0,           0,              0,               &clk_lock,NULL,             0);
 
 struct periph_init_data sunxi_periphs_init[] = {
     {"cpu",      CLK_GET_RATE_NOCACHE,	cpu_parents,      ARRAY_SIZE(cpu_parents),      &sunxi_clk_periph_cpu},
@@ -743,6 +745,7 @@ struct periph_init_data sunxi_periphs_cpus_init[] = {
 	{"cpurahbs",		CLK_GET_RATE_NOCACHE|CLK_READONLY, 	cpurahbs_parents,		ARRAY_SIZE(cpurahbs_parents),		&sunxi_clk_periph_cpurahbs},
 	{"cpurapbs",		CLK_GET_RATE_NOCACHE|CLK_READONLY, 	cpurapbs_parents,		ARRAY_SIZE(cpurapbs_parents),		&sunxi_clk_periph_cpurapbs},
 	{"cpurpio",      		0,       						cpurpio_parents,   		ARRAY_SIZE(cpurpio_parents),  		&sunxi_clk_periph_cpurpio}, 
+	{"losc_out",    		0,       						    losc_parents,       ARRAY_SIZE(losc_parents),           &sunxi_clk_periph_losc_out},    
 };
 
 
@@ -900,6 +903,7 @@ void of_sunxi_clocks_init(struct device_node *node)
 {
 	sunxi_clk_base = of_iomap(node ,0);
 	sunxi_clk_cpus_base = of_iomap(node , 1); 
+	sunxi_clk_periph_losc_out.gate.bus = of_iomap(node , 2); 
 	/*do some initialize arguments here*/
 	sunxi_clk_factor_initlimits();
 	
@@ -1052,7 +1056,7 @@ void of_periph_cpus_clk_setup(struct device_node *node)
 		{			
 			/*register clk */
 			clk = sunxi_clk_register_periph( clk_name, periph->parent_names,
-						periph->num_parents, periph->flags, sunxi_clk_cpus_base, periph->periph);
+						periph->num_parents, periph->flags, 0 == strcmp(clk_name , "losc_out") ? 0 :sunxi_clk_cpus_base, periph->periph);
 			/*add to of */
 			if (!IS_ERR(clk))
 			{

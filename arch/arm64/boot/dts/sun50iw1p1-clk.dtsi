@@ -6,7 +6,8 @@ clocks {
 	#size-cells = <2>;
 	ranges;
 	reg = <0x0 0x01c20000 0x0 0x0320> ,  /*cpux space*/
-		  <0x0 0x01f01400 0x0 0x00B0> ; /*cpus space*/
+		  <0x0 0x01f01400 0x0 0x00B0> , /*cpus space*/
+		  <0x0 0x01f00060 0x0 0x4>; 
 /* register fixed rate clock*/
 		clk_losc: losc {
 			#clock-cells = <0>;
@@ -522,6 +523,10 @@ clocks {
 			compatible = "allwinner,sunxi-periph-cpus-clock";
 			clock-output-names = "cpurapbs";
 		};						
-
+		clk_losc_out: losc_out {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-cpus-clock";
+			clock-output-names = "losc_out";
+		};
 	};/*clocks end*/
 };
