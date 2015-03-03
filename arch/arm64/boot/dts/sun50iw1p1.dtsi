@@ -1184,6 +1184,51 @@
 			status = "okay";
 		};
 
+		sunxi_thermal_sensor:thermal_sensor{
+			compatible = "allwinner,thermal_sensor";
+			#thermal-sensor-cells = <1>;
+			reg = <0x0 0x01c25000 0x0 0x400>;
+			interrupts = <GIC_SPI 31 IRQ_TYPE_NONE>;
+			clocks = <&clk_hosc>,<&clk_ths>;
+			sensor_num = <3>;
+			int_temp= <120>;
+			status = "okay";
+		};
+
+		sunxi_cpufreq_cooling:cpufreq_cool{
+			compatible = "allwinner,cpufreq_cooling";
+			#cooling-cells = <2>;
+			status = "okay";
+			state_cnt = <5>;
+			cluster_num = <1>;
+			state0 = <1344000>;
+			state1 = <1008000>;
+			state2 = <816000>;
+			state3 = <744000>;
+			state4 = <744000>;
+		};
+
+		thermal-zones{
+			soc_thermal{
+
+				polling-delay-passive = <500>;
+				polling-delay = <500>;
+				thermal-sensors = <&sunxi_thermal_sensor 0>;
+
+				trips{
+					trip1:t1{
+						temperature = <120>;
+						type = "critical";
+						hysteresis = <0>;
+					};
+				};
+
+				cooling-maps{
+
+				};
+			};
+		};
+
 		sunxi_ir:cir{
 			compatible = "allwinner,ir-receiver";
 			reg = <0x0 0x01f02000 0x0 0x400>;

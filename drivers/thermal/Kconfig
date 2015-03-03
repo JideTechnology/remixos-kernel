@@ -192,4 +192,22 @@ config INTEL_POWERCLAMP
 	  enforce idle time which results in more package C-state residency. The
 	  user interface is exposed via generic thermal framework.
 
+config SUNXI_THERMAL
+	tristate "Temperature sensor on ALLWINNERTECH"
+	depends on ARCH_SUNXI
+	help
+	  If you say yes here you get support for (Thermal Management
+	  Unit) on ALLWINEER series of SoC.
+
+config SUNXI_CPU_COOLING
+	tristate "sunxi cpufreq cooling"
+	depends on ARCH_SUNXI
+	depends on THERMAL_OF
+	depends on CPU_FREQ
+	help
+	  Adds sunxi cpu budget cooling devices, and these cooling devices can be
+	  bound to thermal zone trip points. When a trip point reached, the
+	  bound cpufreq cooling device turns active to set CPU frequency low to
+	  cool down the CPU.
+
 endif
