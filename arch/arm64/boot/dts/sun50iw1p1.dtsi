@@ -57,7 +57,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53","arm,armv8";
 			reg = <0x0 0x0>;
-			enable-method = "sunxi";
+			enable-method = "psci";
 			cpufreq_tbl = < 480000
 					600000
 					720000
@@ -72,7 +72,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53","arm,armv8";
 			reg = <0x0 0x1>;
-			enable-method = "sunxi";
+			enable-method = "psci";
 			cpufreq_tbl = < 480000
 					600000
 					720000
@@ -87,7 +87,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53","arm,armv8";
 			reg = <0x0 0x2>;
-			enable-method = "sunxi";
+			enable-method = "psci";
 			cpufreq_tbl = < 480000
 					600000
 					720000
@@ -102,7 +102,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53","arm,armv8";
 			reg = <0x0 0x3>;
-			enable-method = "sunxi";
+			enable-method = "psci";
 			cpufreq_tbl = < 480000
 					600000
 					720000

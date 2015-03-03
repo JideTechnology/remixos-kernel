@@ -32,6 +32,10 @@
 #include <asm/suspend.h>
 #include <asm/system_misc.h>
 
+#ifdef CONFIG_CPU_OPS_SUNXI
+extern struct cpu_operations cpu_ops_sunxi;
+#endif
+
 #define PSCI_POWER_STATE_TYPE_STANDBY		0
 #define PSCI_POWER_STATE_TYPE_POWER_DOWN	1
 
@@ -446,7 +450,13 @@ static int __init cpu_psci_cpu_prepare(unsigned int cpu)
 
 static int cpu_psci_cpu_boot(unsigned int cpu)
 {
-	int err = psci_ops.cpu_on(cpu_logical_map(cpu), __pa(secondary_entry));
+	int err;
+
+#ifdef CONFIG_CPU_OPS_SUNXI
+	return cpu_ops_sunxi.cpu_boot(cpu);
+#endif
+
+	err = psci_ops.cpu_on(cpu_logical_map(cpu), __pa(secondary_entry));
 	if (err)
 		pr_err("failed to boot CPU%d (%d)\n", cpu, err);
 
@@ -456,9 +466,14 @@ static int cpu_psci_cpu_boot(unsigned int cpu)
 #ifdef CONFIG_HOTPLUG_CPU
 static int cpu_psci_cpu_disable(unsigned int cpu)
 {
+#ifdef CONFIG_CPU_OPS_SUNXI
+	return cpu_ops_sunxi.cpu_disable(cpu);
+#endif
+
 	/* Fail early if we don't have CPU_OFF support */
 	if (!psci_ops.cpu_off)
 		return -EOPNOTSUPP;
+
 	return 0;
 }
 
@@ -473,6 +488,11 @@ static void cpu_psci_cpu_die(unsigned int cpu)
 		.type = PSCI_POWER_STATE_TYPE_POWER_DOWN,
 	};
 
+#ifdef CONFIG_CPU_OPS_SUNXI
+	cpu_ops_sunxi.cpu_die(cpu);
+	return;
+#endif
+
 	ret = psci_ops.cpu_off(state);
 
 	pr_crit("unable to power off CPU%u (%d)\n", cpu, ret);
@@ -481,6 +501,10 @@ static void cpu_psci_cpu_die(unsigned int cpu)
 static int cpu_psci_cpu_kill(unsigned int cpu)
 {
 	int err, i;
+
+#ifdef CONFIG_CPU_OPS_SUNXI
+	return cpu_ops_sunxi.cpu_kill(cpu);
+#endif
 
 	if (!psci_ops.affinity_info)
 		return 1;

@@ -236,6 +236,12 @@ config SCHED_MC
 	  making when dealing with multi-core CPU chips at a cost of slightly
 	  increased overhead in some places. If unsure say N here.
 
+config CPU_OPS_SUNXI
+	bool "Use SUNXI cpu ops instead of psci"
+	depends on SMP && ARCH_SUN50I
+	help
+	  Use sunxi cpu ops for SMP. If use psci say N here.
+
 config SCHED_SMT
 	bool "SMT scheduler support"
 	depends on SMP
