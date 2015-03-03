@@ -17,6 +17,8 @@
 #include <asm/cacheflush.h>
 #include <asm/cpu_ops.h>
 #include <asm/smp_plat.h>
+#include <linux/reboot.h>
+#include <asm/system_misc.h>
 
 #ifdef CONFIG_SMP
 
@@ -27,6 +29,7 @@ static cpumask_t dead_cpus;
 #define SUN50I_PRCM_PBASE	(0x01F01400)
 #define SUN50I_CPUCFG_PBASE	(0x01700000)
 #define SUN50I_RCPUCFG_PBASE	(0x01F01C00)
+#define SUN50I_TIMER_PBASE      (0x01C20C00)
 
 #define SUNXI_CPU_PWR_CLAMP(cluster, cpu)         (0x140 + (cluster*4 + cpu)*0x04)
 #define SUNXI_CLUSTER_PWROFF_GATING(cluster)      (0x100 + (cluster)*0x04)
@@ -46,6 +49,7 @@ static cpumask_t dead_cpus;
 static void __iomem *sun50i_prcm_base;
 static void __iomem *sun50i_cpucfg_base;
 static void __iomem *sun50i_r_cpucfg_base;
+static void __iomem *sun50i_watchdog_base;
 
 static void sun50i_set_secondary_entry(unsigned long entry, unsigned int cpu)
 {
@@ -192,6 +196,17 @@ static void sunxi_cpu_iomap_init(void)
 	sun50i_prcm_base     = ioremap(SUN50I_PRCM_PBASE, SZ_4K);
 	sun50i_cpucfg_base   = ioremap(SUN50I_CPUCFG_PBASE, SZ_4K);
 	sun50i_r_cpucfg_base = ioremap(SUN50I_RCPUCFG_PBASE, SZ_4K);
+	sun50i_watchdog_base = ioremap(SUN50I_TIMER_PBASE, SZ_4K);
+}
+
+static void sunxi_sys_reset(char str, const char *cmd)
+{
+	writel(0x0, sun50i_watchdog_base + 0xA0);
+	writel(1, sun50i_watchdog_base + 0xB4);
+	writel((0x3 << 4), sun50i_watchdog_base + 0xB8);
+	writel(0x01, sun50i_watchdog_base + 0xB8);
+	while (1)
+		;
 }
 
 static int __init sunxi_cpu_init(struct device_node *dn, unsigned int cpu)
@@ -210,6 +225,8 @@ static int sunxi_cpu_boot(unsigned int cpu)
 		sunxi_cpu_iomap_init();
 		sunxi_iomap_init = 1;
 	}
+
+	arm_pm_restart = sunxi_sys_reset;
 
 	sun50i_set_secondary_entry(__pa(secondary_entry), cpu_logical_map(cpu));
 	sun50i_cpu_power_up(0, cpu_logical_map(cpu));
