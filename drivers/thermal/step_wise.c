@@ -74,7 +74,8 @@ static unsigned long get_target_state(struct thermal_instance *instance,
 				cur_state = -1;
 		} else {
 			cur_state -= 1;
-			if (cur_state > instance->upper)
+			/* qin fix in 2015.3 */
+			if ((cur_state != -1) && (cur_state > instance->upper))
 				cur_state = instance->upper;
 		}
 		break;
