@@ -1262,7 +1262,7 @@
 			};
 		};
 
-		sunxi_keyboard:keyboard{
+		keyboard0:keyboard{
 			compatible = "allwinner,keyboard_2000mv";
 			reg = <0x0 0x01c21800 0x0 0x400>;
 			interrupts = <GIC_SPI 30 IRQ_TYPE_NONE>;
