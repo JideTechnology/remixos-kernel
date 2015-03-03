@@ -61,31 +61,31 @@ int arisc_dvfs_cfg_vf_table(void)
 
 	if (of_property_read_u32(arisc_cfg.dvfs.np, "vf_table_count", &vf_table_count)) {
 		ARISC_LOG("%s: support only one vf_table\n", __func__);
-		sprintf(vf_table_main_key, "%s", "dvfs_table");
+		sprintf(vf_table_main_key, "%s", "allwinner,dvfs_table");
 	} else {
 		//vf_table_type = sunxi_get_soc_bin();
 		sprintf(vf_table_main_key, "%s%d", "allwinner,vf_table", vf_table_type);
 	}
 	ARISC_INF("%s: vf table type [%d=%s]\n", __func__, vf_table_type, vf_table_main_key);
 
-	arisc_cfg.dvfs.np = of_find_compatible_node(arisc_cfg.dvfs.np, NULL, vf_table_main_key);
+	arisc_cfg.dvfs.np = of_find_compatible_node(NULL, NULL, vf_table_main_key);
 	if (IS_ERR(arisc_cfg.dvfs.np)) {
 		ARISC_ERR("get [%s] device node error\n", vf_table_main_key);
 		return -EINVAL;
 	}
 
 	/* parse system config v-f table information */
-	if (of_property_read_u32(arisc_cfg.dvfs.np, "LV_count", &vf_table_size)) {
+	if (of_property_read_u32(arisc_cfg.dvfs.np, "lv_count", &vf_table_size)) {
 		ARISC_ERR("parse system config dvfs_table size fail\n");
 		return -EINVAL;
 	}
 	for (index = 0; index < vf_table_size; index++) {
-		sprintf(vf_table_sub_key, "LV%d_freq", index + 1);
+		sprintf(vf_table_sub_key, "lv%d_freq", index + 1);
 		if (of_property_read_u32(arisc_cfg.dvfs.np, vf_table_sub_key, &value) == 0) {
 			arisc_vf_table[index].freq = value;
 		}
 		ARISC_INF("%s: freq [%s-%d=%d]\n", __func__, vf_table_sub_key, index, value);
-		sprintf(vf_table_sub_key, "LV%d_volt", index + 1);
+		sprintf(vf_table_sub_key, "lv%d_volt", index + 1);
 		if (of_property_read_u32(arisc_cfg.dvfs.np, vf_table_sub_key, &value) == 0) {
 			arisc_vf_table[index].voltage = value;
 		}

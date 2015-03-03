@@ -1697,9 +1697,9 @@ static int sunxi_arisc_parse_cfg(struct platform_device *pdev)
 		arisc_cfg.scir.power_key_code, arisc_cfg.scir.addr_code);
 
 	/* config pmu config paras */
-	arisc_cfg.pmu.np = of_find_compatible_node(NULL, NULL, "allwinner,pmu1");
+	arisc_cfg.pmu.np = of_find_compatible_node(NULL, NULL, "allwinner,pmu0");
 	if (IS_ERR(arisc_cfg.pmu.np)) {
-		ARISC_ERR("get [allwinner,pmu1] device node error\n");
+		ARISC_ERR("get [allwinner,pmu0] device node error\n");
 		return -EINVAL;
 	}
 	if (of_property_read_u32(arisc_cfg.pmu.np, "pmu_bat_shutdown_ltf", &arisc_cfg.pmu.pmu_bat_shutdown_ltf)) {

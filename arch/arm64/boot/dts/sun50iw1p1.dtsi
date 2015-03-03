@@ -217,7 +217,7 @@
 		};
 	};
 
-	dram {
+	dram_para: dram {
 		compatible = "allwinner,dram";
 		clocks = <&clk_pll_ddr0>, <&clk_pll_ddr1>;
 		clock-names = "pll_ddr0", "pll_ddr1";
@@ -282,78 +282,27 @@
 			     <GIC_SPI 123 4>;
 	};
 
-	dvfs_table {
+	dvfs_table: dvfs_table {
 		compatible = "allwinner,dvfs_table";
-		vf_table_count = <3>;
-
-		vf_table0 {
-			compatible = "allwinner,vf_table0";
-			max_freq = <1200000000>;
-			min_freq = <480000000>;
-			LV_count = <8>;
-			LV1_freq = <1200000000>;
-			LV1_volt = <1300>;
-			LV2_freq = <1008000000>;
-			LV2_volt = <1200>;
-			LV3_freq = <816000000>;
-			LV3_volt = <1100>;
-			LV4_freq = <648000000>;
-			LV4_volt = <1040>;
-			LV5_freq = <0>;
-			LV5_volt = <1040>;
-			LV6_freq = <0>;
-			LV6_volt = <1040>;
-			LV7_freq = <0>;
-			LV7_volt = <1040>;
-			LV8_freq = <0>;
-			LV8_volt = <1040>;
-		};
-
-		vf_table1 {
-			compatible = "allwinner,vf_table1";
-			max_freq = <1200000000>;
-			min_freq = <480000000>;
-			LV_count = <8>;
-			LV1_freq = <1200000000>;
-			LV1_volt = <1300>;
-			LV2_freq = <1008000000>;
-			LV2_volt = <1200>;
-			LV3_freq = <816000000>;
-			LV3_volt = <1100>;
-			LV4_freq = <648000000>;
-			LV4_volt = <1040>;
-			LV5_freq = <0>;
-			LV5_volt = <1040>;
-			LV6_freq = <0>;
-			LV6_volt = <1040>;
-			LV7_freq = <0>;
-			LV7_volt = <1040>;
-			LV8_freq = <0>;
-			LV8_volt = <1040>;
-		};
-
-		vf_table2 {
-			compatible = "allwinner,vf_table2";
-			max_freq = <1200000000>;
-			min_freq = <480000000>;
-			LV_count = <8>;
-			LV1_freq = <1200000000>;
-			LV1_volt = <1300>;
-			LV2_freq = <1008000000>;
-			LV2_volt = <1200>;
-			LV3_freq = <816000000>;
-			LV3_volt = <1100>;
-			LV4_freq = <648000000>;
-			LV4_volt = <1040>;
-			LV5_freq = <0>;
-			LV5_volt = <1040>;
-			LV6_freq = <0>;
-			LV6_volt = <1040>;
-			LV7_freq = <0>;
-			LV7_volt = <1040>;
-			LV8_freq = <0>;
-			LV8_volt = <1040>;
-		};
+		max_freq = <1200000000>;
+		min_freq = <480000000>;
+		lv_count = <8>;
+		lv1_freq = <1200000000>;
+		lv1_volt = <1300>;
+		lv2_freq = <1008000000>;
+		lv2_volt = <1200>;
+		lv3_freq = <816000000>;
+		lv3_volt = <1100>;
+		lv4_freq = <648000000>;
+		lv4_volt = <1040>;
+		lv5_freq = <0>;
+		lv5_volt = <1040>;
+		lv6_freq = <0>;
+		lv6_volt = <1040>;
+		lv7_freq = <0>;
+		lv7_volt = <1040>;
+		lv8_freq = <0>;
+		lv8_volt = <1040>;
 	};
 
 	soc: soc@01c00000 {
