@@ -48,7 +48,7 @@ static int csi_probe(struct platform_device *pdev)
 	}
 	pdev->dev.platform_data = pdata;
 
-	pdev->id = of_alias_get_id(np, "csi");
+	pdev->id = of_alias_get_id(np, "csi_res");
 	if (pdev->id < 0) {
 		vfe_err("CSI failed to get alias id\n");
 		ret = -EINVAL;

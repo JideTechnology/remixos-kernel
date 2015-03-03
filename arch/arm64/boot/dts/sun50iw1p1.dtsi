@@ -36,8 +36,8 @@
 		spi1 = &spi1;
 		global_timer0  = &soc_timer0;
 		cci0 = &csi_cci0;
-		csi0 = &csi_0;
-		vfe0 = &vip0;
+		csi_res0 = &csi_res0;
+		vfe0 = &csi0;
 		mmc0 = &mmc0;
 		mmc2 = &mmc2;
 		nand0 =&nand0;
@@ -1025,47 +1025,78 @@
 			interrupts = <GIC_SPI 85 4>;/*SUNXI_IRQ_CSI0_CCI (SUNXI_GIC_START + 85) = 117*/
 			status = "okay";
 		};
-		csi_0:csi@0x01cb0000 {
+		csi_res0:csi_res@0x01cb0000 {
 			compatible = "allwinner,sunxi-csi";
 			reg = <0x0 0x01cb0000 0x0 0x1000>;/*0x01cb0000--0x01cb1000*/
 			status = "okay";
 		};
-		vip0:vip@0 {
-			device_type= "vip0";
+		csi0:vfe@0 {
+			device_type= "csi0";
 			compatible = "allwinner,sunxi-vfe";
 			interrupts = <GIC_SPI 84 4>;/*SUNXI_IRQ_CSI0 (SUNXI_GIC_START + 84 ) = 116*/
 			clocks 				= <&clk_csi_s>, <&clk_csi_m>,<&clk_csi_misc>,
 									<&clk_pll_periph0>,<&clk_hosc>,<&clk_pll_periph1>;
 			pinctrl-names 		= "default";
 			pinctrl-0 			= <&csi0_pins>;			
-			vip0_sensor_list	= <0>;
-			vip0_sensor_pos		= "rear";
-			vip0_csi_mck 		= <&pio PE 1 1 0 1 0>; /*PE1 .mul_sel = 1, .pull = 0, .drv_level = 1, .data = 0*/	
-			vip0_mname          = "ov5640";
-			vip0_twi_addr       = <0x78>;
-			vip0_isp_used       = <1>;
-			vip0_fmt            = <0>;
-			vip0_stby_mode      = <0>;
-			vip0_vflip          = <0>;
-			vip0_hflip          = <0>;
-			vip0_iovdd          = "iovdd-csi";
-			vip0_iovdd_vol      = <2800000>;
-			vip0_avdd           = "avdd-csi";
-			vip0_avdd_vol       = <2800000>;
-			vip0_dvdd           = "dvdd-csi-18";
-			vip0_dvdd_vol       = <1500000>;
-			vip0_afvdd          = "afvcc-csi";
-			vip0_afvdd_vol      = <2800000>;
-			/*vip0_power_en		= <&pio PB 4 1 0 1 0>;*/	/*PB4 .mul_sel = 1, .pull = 0, .drv_level = 1, .data = 0*/
-			vip0_reset 			= <&pio PE 14 1 0 1 0>; /*PE14 .mul_sel = 1, .pull = 0, .drv_level = 1, .data = 0*/
-			vip0_pwdn 			= <&pio PE 15 1 0 1 0>; /*PE15 .mul_sel = 1, .pull = 0, .drv_level = 1, .data = 0*/
-			/*vip0_flash_en		= <>;*/
-			/*vip0_flash_mode		= <>;*/
-			/*vip0_af_pwdn		= <>;*/
-			vip0_act_used       = <0>;
-			vip0_act_name       = "ad5820_act";
-			vip0_act_slave      = <0x18>;
+			csi0_sensor_list	= <0>;
+			csi0_mck 			= <&pio PE 1 1 0 1 0>; /*PE1 .mul_sel = 1, .pull = 0, .drv_level = 1, .data = 0*/
 			status = "okay";
+			csi0_dev0:dev@0{
+				csi0_dev0_mname         = "ov5640";
+				csi0_dev0_twi_addr      = <0x78>;
+				csi0_dev0_pos			= "rear";
+				csi0_dev0_isp_used      = <1>;
+				csi0_dev0_fmt           = <0>;
+				csi0_dev0_stby_mode     = <0>;
+				csi0_dev0_vflip         = <0>;
+				csi0_dev0_hflip         = <0>;
+				csi0_dev0_iovdd         = "iovdd-csi";
+				csi0_dev0_iovdd_vol     = <2800000>;
+				csi0_dev0_avdd          = "avdd-csi";
+				csi0_dev0_avdd_vol      = <2800000>;
+				csi0_dev0_dvdd          = "dvdd-csi-18";
+				csi0_dev0_dvdd_vol      = <1500000>;
+				csi0_dev0_afvdd         = "afvcc-csi";
+				csi0_dev0_afvdd_vol     = <2800000>;
+				csi0_dev0_power_en		= <>;
+				csi0_dev0_reset 		= <&pio PE 14 1 0 1 0>; /*PE14 .mul_sel = 1, .pull = 0, .drv_level = 1, .data = 0*/
+				csi0_dev0_pwdn 			= <&pio PE 15 1 0 1 0>; /*PE15 .mul_sel = 1, .pull = 0, .drv_level = 1, .data = 0*/
+				csi0_dev0_flash_en		= <>;
+				csi0_dev0_flash_mode	= <>;
+				csi0_dev0_af_pwdn		= <>;
+				csi0_dev0_act_used      = <0>;
+				csi0_dev0_act_name      = "ad5820_act";
+				csi0_dev0_act_slave		= <0x18>;
+				status	= "okay";
+			};
+			csi0_dev1:dev@1{
+				csi0_dev1_mname         = "";
+				csi0_dev1_twi_addr      = <0x78>;
+				csi0_dev1_pos			= "rear";
+				csi0_dev1_isp_used      = <1>;
+				csi0_dev1_fmt           = <0>;
+				csi0_dev1_stby_mode     = <0>;
+				csi0_dev1_vflip         = <0>;
+				csi0_dev1_hflip         = <0>;
+				csi0_dev1_iovdd         = "iovdd-csi";
+				csi0_dev1_iovdd_vol     = <2800000>;
+				csi0_dev1_avdd          = "avdd-csi";
+				csi0_dev1_avdd_vol      = <2800000>;
+				csi0_dev1_dvdd          = "dvdd-csi-18";
+				csi0_dev1_dvdd_vol      = <1500000>;
+				csi0_dev1_afvdd         = "afvcc-csi";
+				csi0_dev1_afvdd_vol     = <2800000>;
+				csi0_dev1_power_en		= <>;
+				csi0_dev1_reset 		= <>;
+				csi0_dev1_pwdn 			= <>;
+				csi0_dev1_flash_en		= <>;
+				csi0_dev1_flash_mode	= <>;
+				csi0_dev1_af_pwdn		= <>;
+				csi0_dev1_act_used      = <0>;
+				csi0_dev1_act_name      = "ad5820_act";
+				csi0_dev1_act_slave		= <0x18>;
+				status	= "disabled";
+			};
 		};
 		
 		vdevice: vdevice@0{

@@ -346,8 +346,8 @@
 
 			csi0_pins: csi0@0 {
 				allwinner,pins = "PE0","PE2","PE3","PE4","PE5","PE6","PE7","PE8","PE9","PE10","PE11","PE12","PE13";
-				allwinner,pname = "vip0_csi_pck","vip0_csi_hsync","vip0_csi_vsync","vip0_csi_d0","vip0_csi_d1","vip0_csi_d2",
-								"vip0_csi_d3","vip0_csi_d4","vip0_csi_d5","vip0_csi_d6","vip0_csi_d7","vip0_csi_sck","vip0_csi_sda";
+				allwinner,pname = "csi0_pck","csi0_hsync","csi0_vsync","csi0_d0","csi0_d1","csi0_d2",
+								"csi0_d3","csi0_d4","csi0_d5","csi0_d6","csi0_d7","csi0_sck","csi0_sda";
 				allwinner,function = "csi0";
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;

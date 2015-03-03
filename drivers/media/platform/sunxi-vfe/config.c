@@ -129,7 +129,7 @@ struct SensorParamAttribute
 	char *sub;
 	int len;
 	enum ini_item_type type;
-	void (*set_param)(struct sensor_config_init *, void *, int len);
+	void (*set_param)(struct sensor_config_init *, void *, int);
 };
 
 static struct SensorParamAttribute SensorParamCommon[] =
@@ -281,7 +281,7 @@ int parse_sensor_list_info(struct sensor_config_init *sensor_cfg_ini , char *pos
 	sprintf(sensor_list_cfg, "/system/etc/hawkview/sensor_list_cfg.ini");
 	if(strcmp(pos, "rear") && strcmp(pos, "REAR")  && strcmp(pos, "FRONT")  && strcmp(pos, "front") )
 	{
-		vfe_err("Camera position config ERR! POS = %s, please check the key <vip_dev(x)_pos> in sys_config!\n", pos);
+		vfe_err("Camera position config ERR! POS = %s, please check the key <csi(x)_sensor_pos> in sys_config!\n", pos);
 	}
 	vfe_print("Fetch sensor list form\"%s\"\n",sensor_list_cfg);
 	cfg_section_init(&cfg_section);
@@ -354,7 +354,6 @@ static int get_value_int(struct device_node *np, const char * name, u32 *value)
 		return -EINVAL;
 	}
 	vfe_dbg(0,"%s = %x\n", name,*value);
-	//printk("%s = %x\n", name,*value);
 	return 0;	
 }
 static int get_value_string(struct device_node *np, const char * name, char *string)
@@ -363,14 +362,12 @@ static int get_value_string(struct device_node *np, const char * name, char *str
 	const char * const_str;
 	ret = of_property_read_string(np, name, &const_str);
 	if(ret){
-		const char null_str[]="";
-		strcpy(string, null_str);
+		strcpy(string, "");
 		vfe_warn("fetch %s from device_tree failed\n",name);
 		return -EINVAL;
 	}
 	strcpy(string, const_str);
 	vfe_dbg(0,"%s = %s\n", name,string);
-	//printk("%s = %s\n", name,string);
 	return 0;	
 }
 
@@ -385,7 +382,6 @@ static int get_gpio_info(struct device_node *np, const char * name, struct vfe_g
 		return -EINVAL;
 	}
 	vfe_dbg(0,"%s: pin=%d  mul-sel=%d  drive=%d  pull=%d  data=%d gnum=%d\n",
-	//printk("%s: pin=%d  mul-sel=%d  drive=%d  pull=%d  data=%d gnum=%d\n",
 			name,
 			gc->gpio,
 			gc->mul_sel,
@@ -395,6 +391,68 @@ static int get_gpio_info(struct device_node *np, const char * name, struct vfe_g
 			gnum);
 	return 0;
 }
+
+static int get_mname(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_string(np,name,cc->ccm);}
+static int get_twi_addr(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_int(np,name,&cc->i2c_addr);}
+static int get_pos(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_string(np,name,cc->sensor_pos);}
+static int get_isp_used(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_int(np,name,&cc->is_isp_used);}
+static int get_fmt(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_int(np,name,&cc->is_bayer_raw);}
+static int get_standy(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_int(np,name,&cc->power.stby_mode);}
+static int get_vflip(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_int(np,name,&cc->vflip);}
+static int get_hflip(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_int(np,name,&cc->hflip);}
+static int get_iovdd(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_string(np,name,cc->iovdd_str);}
+static int get_iovdd_vol(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_int(np,name,&cc->power.iovdd_vol);}
+static int get_avdd(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_string(np,name,cc->avdd_str);}
+static int get_avdd_vol(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_int(np,name,&cc->power.avdd_vol);}
+static int get_dvdd(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_string(np,name,cc->dvdd_str);}
+static int get_dvdd_vol(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_int(np,name,&cc->power.dvdd_vol);}
+static int get_afvdd(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_string(np,name,cc->afvdd_str);}
+static int get_afvdd_vol(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_int(np,name,&cc->power.afvdd_vol);}
+static int get_power_en(struct device_node *np, const char *name, struct ccm_config *cc){return get_gpio_info(np,name,&cc->gpio[POWER_EN]);}
+static int get_reset(struct device_node *np, const char *name, struct ccm_config *cc){return get_gpio_info(np,name,&cc->gpio[RESET]);}
+static int get_pwdn(struct device_node *np, const char *name, struct ccm_config *cc){return get_gpio_info(np,name,&cc->gpio[PWDN]);}
+static int get_flash_en(struct device_node *np, const char *name, struct ccm_config *cc){return get_gpio_info(np,name,&cc->gpio[FLASH_EN]);}
+static int get_flash_mode(struct device_node *np, const char *name, struct ccm_config *cc){return get_gpio_info(np,name,&cc->gpio[FLASH_MODE]);}
+static int get_af_pwdn(struct device_node *np, const char *name, struct ccm_config *cc){return get_gpio_info(np,name,&cc->gpio[AF_PWDN]);}
+static int get_act_used(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_int(np,name,&cc->act_used);}
+static int get_act_name(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_string(np,name,cc->act_name);}
+static int get_act_slave(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_int(np,name,&cc->act_slave);}
+
+struct FetchFunArr
+{
+	char *sub;
+	int flag;
+	int (*fun)(struct device_node *, const char *, struct ccm_config *);
+};
+
+static struct FetchFunArr fetch_fun[] =
+{
+	{"mname"		, 0			,get_mname,			},
+	{"twi_addr"		, 0			,get_twi_addr,		},
+	{"pos" 			, 1			,get_pos,			},
+	{"isp_used"		, 1			,get_isp_used,		},
+	{"fmt"			, 1			,get_fmt,			},
+	{"stby_mode"	, 1			,get_standy,		},
+	{"vflip"		, 1			,get_vflip,			},
+	{"hflip"		, 1			,get_hflip,			},
+	{"iovdd"		, 1			,get_iovdd,			},
+	{"iovdd_vol"	, 1			,get_iovdd_vol		},
+	{"avdd"			, 1			,get_avdd,			},
+	{"avdd_vol"		, 1			,get_avdd_vol,		},
+	{"dvdd"			, 1			,get_dvdd,			},
+	{"dvdd_vol"		, 1			,get_dvdd_vol,		},
+	{"afvdd"		, 1			,get_afvdd,			},
+	{"afvdd_vol"	, 1			,get_afvdd_vol,		},
+	{"power_en"		, 1			,get_power_en,		},
+	{"reset"		, 1			,get_reset,			},
+	{"pwdn"			, 1			,get_pwdn,			},
+	{"flash_en"		, 1			,get_flash_en,		},
+	{"flash_mode"	, 1			,get_flash_mode,	},
+	{"af_pwdn"		, 1			,get_af_pwdn,		},
+	{"act_used"		, 1			,get_act_used,		},
+	{"act_name"		, 0			,get_act_name,		},
+	{"act_slave"	, 0			,get_act_slave,		},
+};
 
 int fetch_config(struct vfe_dev *dev)
 {
@@ -450,91 +508,46 @@ int fetch_config(struct vfe_dev *dev)
 		}
 	}
 #else
-	int i = 0,ret = 0;
-	struct device_node *np = dev->pdev->dev.of_node;
+	int i = 0, j = 0, NFUN = ARRAY_SIZE(fetch_fun);
+	struct device_node *parent = dev->pdev->dev.of_node;
+	struct device_node *np;
+	char property_name[32] = {0};
 
-//	struct device_node *parent = dev->pdev->dev.of_node;
-//	struct device_node *np;	
-//	for_each_available_child_of_node(parent, np) {		
-//		i++;
-//	}
-	dev->dev_qty = 1;
-	if(dev->vip_define_sensor_list == 0xff) {
-		get_value_int(np,"vip0_sensor_list", &dev->vip_define_sensor_list );
-	}
-	
-	dev->ccm_cfg[0]->sensor_cfg_ini = kmalloc(sizeof(struct sensor_config_init),GFP_KERNEL);
-    if(!dev->ccm_cfg[0]->sensor_cfg_ini) {
-    	vfe_err("Sensor cfg ini kmalloc failed!\n");
-    }
-	memset(dev->ccm_cfg[0]->sensor_cfg_ini, 0,sizeof(struct sensor_config_init));
-	
-    if(dev->vip_define_sensor_list == 1)
-    {
-	    ret = get_value_string(np, "vip0_sensor_pos", dev->ccm_cfg[0]->sensor_pos);
-	    if (ret) {
-	    	const char tmp_str[]="rear";
-	    	strcpy(dev->ccm_cfg[0]->sensor_pos, tmp_str);
-	    }
-	    parse_sensor_list_info(dev->ccm_cfg[0]->sensor_cfg_ini, dev->ccm_cfg[0]->sensor_pos);
-    }
-
-	if((dev->ccm_cfg[0]->i2c_addr == 0xff) && (strcmp(dev->ccm_cfg[0]->ccm,""))) //when insmod without parm
-	{
-		get_value_int(np,"vip0_twi_addr", &dev->ccm_cfg[0]->i2c_addr);
-		ret = get_value_string(np, "vip0_mname", dev->ccm_cfg[0]->ccm);
-	    if (ret) {
-	    	const char tmp_str[]="ov5650";
-	    	strcpy(dev->ccm_cfg[0]->sensor_pos, tmp_str);
-	    } else {
-			strcpy(dev->ccm_cfg[0]->isp_cfg_name,dev->ccm_cfg[0]->ccm);
+	for_each_available_child_of_node(parent, np) {
+		if((dev->ccm_cfg[i]->i2c_addr == 0xff) && (!strcmp(dev->ccm_cfg[0]->ccm,""))){ //when insmod without parm
+			fetch_fun[0].flag = 1;
+			fetch_fun[1].flag = 1;	
 		}
+		/* fetch actuator issue */
+		if((dev->ccm_cfg[i]->act_slave == 0xff) && (!strcmp(dev->ccm_cfg[i]->act_name,""))) {//when insmod without parm
+			fetch_fun[NFUN - 1].flag = 1;
+			fetch_fun[NFUN - 2].flag = 1;
+		}
+		for(j = 0; j < NFUN; j++) {
+			if( fetch_fun[j].flag){
+				sprintf(property_name, "csi%d_dev%d_%s", dev->id, i, fetch_fun[j].sub);
+				fetch_fun[j].fun(np, property_name, dev->ccm_cfg[i]);
+			}			
+		}
+		i++;
 	}
-
-	/* isp used mode */
-	get_value_int(np,"vip0_isp_used", &dev->ccm_cfg[0]->is_isp_used);
-    /* fmt */
-	get_value_int(np,"vip0_fmt", &dev->ccm_cfg[0]->is_bayer_raw);
-    /* standby mode */
-	get_value_int(np,"vip0_stby_mode", &dev->ccm_cfg[0]->power.stby_mode);
-    /* fetch flip issue */
-	get_value_int(np,"vip0_vflip", &dev->ccm_cfg[0]->vflip);
-	get_value_int(np,"vip0_hflip", &dev->ccm_cfg[0]->hflip);
-    /* fetch power issue*/
-	ret = get_value_string(np, "vip0_iovdd", dev->ccm_cfg[0]->iovdd_str);
-	if (!ret) {
-		get_value_int(np,"vip0_iovdd_vol", &dev->ccm_cfg[0]->power.iovdd_vol);
+	dev->dev_qty = i;
+	if(dev->vip_define_sensor_list == 0xff) {
+		sprintf(property_name, "csi%d_sensor_list", dev->id);		
+		get_value_int(parent, property_name, &dev->vip_define_sensor_list );
 	}
-	ret = get_value_string(np, "vip0_avdd", dev->ccm_cfg[0]->avdd_str);
-	if (!ret) {
-		get_value_int(np,"vip0_avdd_vol", &dev->ccm_cfg[0]->power.avdd_vol);
-	}
-	ret = get_value_string(np, "vip0_dvdd", dev->ccm_cfg[0]->dvdd_str);
-	if (!ret) {
-		get_value_int(np,"vip0_dvdd_vol", &dev->ccm_cfg[0]->power.dvdd_vol);
-	}
-	ret = get_value_string(np, "vip0_afvdd", dev->ccm_cfg[0]->afvdd_str);
-	if (!ret) {
-		get_value_int(np,"vip0_afvdd_vol", &dev->ccm_cfg[0]->power.afvdd_vol);
-	}
-	
-    /* fetch reset/power/standby/flash/af io issue */
-	get_gpio_info(np,"vip0_csi_mck", &dev->ccm_cfg[0]->gpio[MCLK_PIN]);
-	get_gpio_info(np,"vip0_reset", &dev->ccm_cfg[0]->gpio[RESET]);
-	get_gpio_info(np,"vip0_power_en", &dev->ccm_cfg[0]->gpio[POWER_EN]);
-	get_gpio_info(np,"vip0_pwdn", &dev->ccm_cfg[0]->gpio[PWDN]);
-	get_gpio_info(np,"vip0_af_pwdn", &dev->ccm_cfg[0]->gpio[AF_PWDN]);
-	get_gpio_info(np,"vip0_flash_en", &dev->ccm_cfg[0]->gpio[FLASH_EN]);
-	get_gpio_info(np,"vip0_flash_mode", &dev->ccm_cfg[0]->gpio[FLASH_MODE]);
-
-	/* fetch actuator issue */
-	get_value_int(np,"vip0_act_used", &dev->ccm_cfg[0]->act_used);
-	if (1 == dev->ccm_cfg[0]->act_used) {
-		if((dev->ccm_cfg[0]->act_slave == 0xff) && (strcmp(dev->ccm_cfg[0]->act_name,""))) {//when insmod without parm
-			ret = get_value_string(np, "vip0_act_name", dev->ccm_cfg[0]->act_name);
-			if (!ret) {
-				get_value_int(np,"vip0_act_slave", &dev->ccm_cfg[0]->act_slave);
-			}
+	for(i = 0; i < dev->dev_qty; i++ ){
+		sprintf(property_name, "csi%d_mck", dev->id);		
+		get_gpio_info(parent, property_name, &dev->ccm_cfg[i]->gpio[MCLK_PIN]);
+		dev->ccm_cfg[i]->sensor_cfg_ini = kzalloc(sizeof(struct sensor_config_init),GFP_KERNEL);
+		if(!dev->ccm_cfg[i]->sensor_cfg_ini) {
+			vfe_err("Sensor cfg ini kzalloc failed!\n");
+			return -ENOMEM;
+		}
+		if(dev->vip_define_sensor_list == 1){
+			if(!strcmp(dev->ccm_cfg[i]->sensor_pos,""))
+				strcpy(dev->ccm_cfg[i]->sensor_pos,"rear");
+			parse_sensor_list_info(dev->ccm_cfg[i]->sensor_cfg_ini, dev->ccm_cfg[i]->sensor_pos);
 		}
 	}
 #endif
