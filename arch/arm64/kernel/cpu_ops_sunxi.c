@@ -151,7 +151,7 @@ static void sun50i_cpu_power_up(unsigned int cluster, unsigned int cpu)
 
 	/* Assert DBGPWRDUP HIGH */
 	value = readl(sun50i_cpucfg_base + SUNXI_DBG_REG0);
-	value |= 0xf;
+	value |= (1<<cpu);
 	writel(value, sun50i_cpucfg_base + SUNXI_DBG_REG0);
 	udelay(10);
 
@@ -167,7 +167,7 @@ static void sun50i_cpu_power_down(unsigned int cluster, unsigned int cpu)
 
 	/* step7: Deassert DBGPWRDUP LOW */
 	value = readl(sun50i_cpucfg_base + SUNXI_DBG_REG0);
-	value &= (~0xf);
+	value &= (~(1<<cpu));
 	writel(value, sun50i_cpucfg_base + SUNXI_DBG_REG0);
 	udelay(10);
 
