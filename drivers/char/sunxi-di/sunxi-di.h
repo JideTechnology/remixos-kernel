@@ -19,10 +19,8 @@ typedef struct {
 	atomic_t     di_complete;
 	atomic_t     enable;
 	wait_queue_head_t wait;
-	void * in_flag;
-	void * out_flag;
-	void *  in_flag_phy;
-	void *  out_flag_phy;
+	void *in_flag_phy;
+	void *out_flag_phy;
 	size_t  flag_size;
 	u32  irq_number;
 #ifdef CONFIG_PM

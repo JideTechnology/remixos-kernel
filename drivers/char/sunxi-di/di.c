@@ -133,6 +133,8 @@ s32 di_set_para(__di_para_t *para, void* in_flag_add, void* out_flag_add, u32 fi
 	__di_buf_addr_t pre_addr;
 	unsigned long in_address = 0;
 	unsigned long out_address = 0;
+	unsigned long ch0_addr = 0;
+	unsigned long ch1_addr = 0;
 
 	if(para==NULL) {
 		//DE_WRN("input parameter can't be null!\n");
@@ -152,19 +154,25 @@ s32 di_set_para(__di_para_t *para, void* in_flag_add, void* out_flag_add, u32 fi
 	out_size.fb_width = para->output_fb.size.width;
 	out_size.fb_height = para->output_fb.size.height;
 
-	in_addr.ch0_addr = (u32 )virt_to_phys((void*)(para->input_fb.addr[0]));
-	in_addr.ch1_addr = (u32 )virt_to_phys((void*)(para->input_fb.addr[1]));
+	ch0_addr = (unsigned long)(para->input_fb.addr[0]);
+	ch1_addr = (unsigned long)(para->input_fb.addr[1]);
+	in_addr.ch0_addr = (u32)(ch0_addr);
+	in_addr.ch1_addr = (u32)(ch1_addr);
 
 	in_size.src_width = para->input_fb.size.width;
 	in_size.src_height = para->input_fb.size.height;
 	in_size.scal_width= para->source_regn.width;
 	in_size.scal_height= para->source_regn.height;
 
-	out_addr.ch0_addr = (u32 )virt_to_phys((void*)(para->output_fb.addr[0]));
-	out_addr.ch1_addr = (u32 )virt_to_phys((void*)(para->output_fb.addr[1]));
+	ch0_addr = (unsigned long)(para->output_fb.addr[0]);
+	ch1_addr = (unsigned long)(para->output_fb.addr[1]);
+	out_addr.ch0_addr = (u32)(ch0_addr);
+	out_addr.ch1_addr = (u32)(ch1_addr);
 
-	pre_addr.ch0_addr = (u32 )virt_to_phys((void*)(para->pre_fb.addr[0]));
-	pre_addr.ch1_addr = (u32 )virt_to_phys((void*)(para->pre_fb.addr[1]));
+	ch0_addr = (unsigned long)(para->pre_fb.addr[0]);
+	ch1_addr = (unsigned long)(para->pre_fb.addr[1]);
+	pre_addr.ch0_addr = (u32)(ch0_addr);
+	pre_addr.ch1_addr = (u32)(ch1_addr);
 
 	DI_Module_Enable();
 

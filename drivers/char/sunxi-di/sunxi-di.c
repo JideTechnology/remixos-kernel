@@ -40,7 +40,7 @@ static struct device *di_device = NULL;
 static struct clk *di_clk;
 static struct clk *di_clk_source;
 
-static u32 debug_mask = 0xff;
+static u32 debug_mask = 0x0;
 
 #ifdef DI_RESERVED_MEM
 #define MY_BYTE_ALIGN(x) ( ( (x + (4*1024-1)) >> 12) << 12)             /* alloc based on 4K byte */
@@ -160,8 +160,8 @@ static void di_timer_handle(unsigned long arg)
 	wake_up_interruptible(&di_data->wait);
 	flag_size = (FLAG_WIDTH*FLAG_HIGH)/4;
 	di_reset();
-	memset(di_data->in_flag, 0, flag_size);
-	memset(di_data->out_flag, 0, flag_size);
+	memset(di_data->mem_in_params.v_addr, 0, flag_size);
+	memset(di_data->mem_out_params.v_addr, 0, flag_size);
 	dprintk(DEBUG_INT, "di_timer_handle: timeout \n");
 }
 
@@ -455,6 +455,8 @@ static int sunxi_di_open(struct inode *inode, struct file *file)
 	if ( ret < 0 ) {
 		printk(KERN_ERR "%s: request in_flag mem failed\n", __func__);
 		return -1;
+	} else {
+		di_data->in_flag_phy = (void *)di_data->mem_in_params.p_addr;
 	}
 
 	di_data->mem_out_params.size = di_data->flag_size;
@@ -463,6 +465,8 @@ static int sunxi_di_open(struct inode *inode, struct file *file)
 		printk(KERN_ERR "%s: request out_flag mem failed\n", __func__);
 		di_mem_release(&(di_data->mem_in_params));
 		return -1;
+	} else {
+		di_data->out_flag_phy = (void *)di_data->mem_out_params.p_addr;
 	}
 
 	ret = di_clk_enable();
