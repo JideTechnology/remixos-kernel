@@ -187,7 +187,7 @@ static void sunxi_mmc_init_idma_des(struct sunxi_mmc_host *host,
 			pdes[i].buf_size = data->sg[i].length;
 
 		pdes[i].buf_addr_ptr1 = sg_dma_address(&data->sg[i]);
-		pdes[i].buf_addr_ptr2 = (u32)&pdes_pa[i + 1];
+		pdes[i].buf_addr_ptr2 = (u32)(u64)&pdes_pa[i + 1];
 	}
 
 	pdes[0].config |= SDXC_IDMAC_DES0_FD;
@@ -592,7 +592,6 @@ static void sunxi_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	u32 rval;
 	char* bus_mode[] = {"", "OD", "PP"};
 	char* pwr_mode[] = {"OFF", "UP", "ON"};
-	char* vdd[] = {"3.3V", "1.8V", "1.2V"};
 	char* timing[] = {"LEGACY(SDR12)", "MMC-HS(SDR20)", "SD-HS(SDR25)","UHS-SDR12","UHS-SDR25",
 			"UHS-SDR50","UHS-SDR104", "UHS-DDR50", "MMC-HS200","MMC-HS400"};
 	char* drv_type[] = {"B", "A", "C", "D"};
@@ -1039,10 +1038,91 @@ out:
 }
 
 
+/*we use our own mmc_regulator_get_supply because our platform regulator not support supply name,*/
+/*only support regulator ID,but linux mmc' own mmc_regulator_get_supply use supply name*/
+static int sunxi_mmc_regulator_get_supply(struct mmc_host *mmc)
+{
+	struct device *dev = mmc_dev(mmc);
+	int ret	= 0;
+	int i = 0;
+	struct device_node *np	= NULL;
+	struct property *prop = NULL;
+	char *pwr_prop_str[] = {"vmmc","vqmmc","vdmmc"};
+	const char *reg_str[sizeof(pwr_prop_str)/sizeof(pwr_prop_str[0])] = {NULL};
 
+	if (!mmc->parent || !mmc->parent->of_node){
+		dev_err(mmc_dev(mmc),"not dts found\n");
+		return -EINVAL;
+	}
 
+	np = mmc->parent->of_node;
+	for(i=0;i<sizeof(pwr_prop_str)/sizeof(pwr_prop_str[0]);i++){
+		prop = of_find_property(np, pwr_prop_str[i], NULL);
+		if (!prop){
+			dev_info(dev,"Can't get %s regulator string\n",pwr_prop_str[i]);
+			continue;
+		}
+		reg_str[i] = devm_kzalloc(&mmc->class_dev, prop->length,
+					   GFP_KERNEL);
+		if(!reg_str[i]){
+			dev_err(dev,"Can't get mem for %s regulator string \n",pwr_prop_str[i]);
+			return -EINVAL;
+		}
 
+		ret = of_property_read_string(np,pwr_prop_str[i],&reg_str[i]);
+		if(ret){
+			dev_err(dev,"read regulator prop %s failed\n",pwr_prop_str[i]);
+			return ret;
+		}
+		dev_info(dev,"regulator prop %s,str %s\n",pwr_prop_str[i],reg_str[i]);
+	}
 
+	/*if there is not regulator,we should make supply to ERR_PTR to make sure that other code know there is not regulator*/
+	/*Because our regulator driver does not support binding to device tree,so we can not binding it to our dev(for example regulator_get(dev, reg_str[0]) or devm_regulator_get(dev, reg_str[0]) )*/
+	//mmc->supply.vmmc = (reg_str[0]== NULL)?(ERR_PTR(-ENODEV)):devm_regulator_get(NULL, reg_str[0]);
+	//mmc->supply.vqmmc = (reg_str[1]== NULL)?(ERR_PTR(-ENODEV)):devm_regulator_get(NULL, reg_str[1]);
+	//mmc->supply.vdmmc = (reg_str[2]== NULL)?(ERR_PTR(-ENODEV)):devm_regulator_get(NULL, reg_str[2]);	
+	mmc->supply.vmmc = regulator_get(NULL, reg_str[0]);
+	mmc->supply.vqmmc = regulator_get(NULL, reg_str[1]);
+	mmc->supply.vdmmc = regulator_get(NULL, reg_str[2]);
+
+	if (IS_ERR(mmc->supply.vmmc)) {
+		dev_info(dev, "No vmmc regulator found\n");
+	} else {
+		ret = mmc_regulator_get_ocrmask(mmc->supply.vmmc);
+		if (ret > 0)
+			mmc->ocr_avail = ret;
+		else
+			dev_warn(dev, "Failed getting OCR mask: %d\n", ret);
+	}
+
+	if (IS_ERR(mmc->supply.vqmmc)) {
+		dev_info(dev, "No vqmmc regulator found\n");
+	}
+
+	if (IS_ERR(mmc->supply.vdmmc)) {
+		dev_info(dev, "No vdmmc regulator found\n");
+	}
+
+	return 0;
+}
+
+/*Because our regulator driver does not support binding to device tree,so we can not binding it to our dev(for example regulator_get(dev, reg_str[0]) or devm_regulator_get(dev, reg_str[0]) )*/
+/*so we must release it manully*/
+static void sunxi_mmc_regulator_release_supply(struct mmc_host *mmc)
+{
+	if (!IS_ERR(mmc->supply.vdmmc)) {
+		regulator_put(mmc->supply.vdmmc);
+	}
+
+	if (!IS_ERR(mmc->supply.vqmmc)) {
+		regulator_put(mmc->supply.vqmmc);
+	}
+
+	if (!IS_ERR(mmc->supply.vmmc)) {
+		regulator_put(mmc->supply.vmmc);
+	}
+}
 
 
 static const struct of_device_id sunxi_mmc_of_match[] = {
@@ -1119,14 +1199,12 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
  	}
 
 
-	ret = mmc_regulator_get_supply(host->mmc);
+	//ret = mmc_regulator_get_supply(host->mmc);
+	ret = sunxi_mmc_regulator_get_supply(host->mmc);
 	if (ret) {
-		if(ret == -EPROBE_DEFER){
-			dev_err(&pdev->dev, "Power supply is not ready,Check if there is regulator\n");
-		}else{
-			dev_err(&pdev->dev, "Could not get power supply,used default ocr\n");
-		}		
+		return ret;
 	}
+	/*Maybe in some platform,no regulator,so we set ocr_avail manully*/
 	if (!host->mmc->ocr_avail)
 			host->mmc->ocr_avail = MMC_VDD_28_29 | MMC_VDD_29_30 | MMC_VDD_30_31 \
 									| MMC_VDD_31_32| MMC_VDD_32_33 | MMC_VDD_33_34;
@@ -1145,7 +1223,7 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 	host->pinctrl = devm_pinctrl_get(&pdev->dev);
 	if (IS_ERR(host->pinctrl)) {
 		ret = PTR_ERR(host->pinctrl);
-		goto error_disable_vdmmc;
+		goto error_disable_regulator;
 	}
 
 	host->pins_default = pinctrl_lookup_state(host->pinctrl,
@@ -1153,7 +1231,7 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 	if (IS_ERR(host->pins_default)) {
 		dev_err(&pdev->dev, "could not get default pinstate\n");
 		ret = PTR_ERR(host->pins_default);
-		goto error_disable_vdmmc;
+		goto error_disable_regulator;
 	}
 
 	host->pins_sleep = pinctrl_lookup_state(host->pinctrl,
@@ -1161,9 +1239,8 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 	if (IS_ERR(host->pins_sleep)) {
 		dev_err(&pdev->dev, "could not get sleep pinstate\n");
 		ret = PTR_ERR(host->pins_sleep);
-		goto error_disable_vdmmc;
+		goto error_disable_regulator;
 	}
-
 
 	host->reg_base = devm_ioremap_resource(&pdev->dev,
 			      platform_get_resource(pdev, IORESOURCE_MEM, 0));
@@ -1251,7 +1328,7 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 	clk_disable_unprepare(host->clk_ahb);
 	ret = mmc_create_sys_fs(host,pdev);
 	if(ret)
-		goto error_disable_vdmmc;
+		goto error_disable_regulator;
 
 	return ret;
 
@@ -1267,9 +1344,11 @@ error_disable_clk_mmc:
 	clk_disable_unprepare(host->clk_mmc);
 error_disable_clk_ahb:
 	clk_disable_unprepare(host->clk_ahb);
-error_disable_vdmmc:
+error_disable_regulator:
 	if (!IS_ERR(host->mmc->supply.vdmmc))
 			regulator_disable(host->mmc->supply.vdmmc);
+	sunxi_mmc_regulator_release_supply(host->mmc);
+	
 	return ret;
 }
 
@@ -1358,6 +1437,8 @@ static int sunxi_mmc_remove(struct platform_device *pdev)
 
 	if (!IS_ERR(mmc->supply.vdmmc))
 			regulator_disable(mmc->supply.vdmmc);
+
+	sunxi_mmc_regulator_release_supply(mmc);
 
 	dma_free_coherent(&pdev->dev, PAGE_SIZE, host->sg_cpu, host->sg_dma);
 	mmc_free_host(mmc);
@@ -1479,7 +1560,7 @@ static int sunxi_mmc_resume(struct device *dev)
 			if (!IS_ERR(mmc->supply.vmmc)){
 				ret = mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, mmc->ios.vdd);
 				if(ret)
-					return;
+					return ret;
 			}
 			
 			if (!IS_ERR(mmc->supply.vqmmc)) {
