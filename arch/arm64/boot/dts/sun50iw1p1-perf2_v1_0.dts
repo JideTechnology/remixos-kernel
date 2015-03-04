@@ -12,26 +12,7 @@
 /{
 
 	soc@01c00000 {
-		uart0: uart@01c28000 {
-			status = "okay";
-		};
 
-		spi1: spi@01c69000 {
-			status = "disabled";
-
-			nor_flash@0 {
-				#address-cells = <1>;
-				#size-cells = <1>;
-				compatible = "st,m25p32";
-				spi-max-frequency = <33000000>;
-				reg = <0>;	/* Chip select 0 */
-
-				partition@0 {
-					label = "NorFlash part0";
-					reg = <0x00000000 0x00400000>;
-				};
-			};
-		};
 	};
 	
 	ion {
