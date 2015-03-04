@@ -244,8 +244,8 @@
 			mmc0_pins_b: mmc0@1 {
 				allwinner,pins = "PF0", "PF1", "PF2", "PF3","PF4","PF5";
 				allwinner,pname = "mmc0_d1","mmc0_d0","mmc0_clk","mmc0_cmd","mmc0_d3","mmc0_d2";
-				/*allwinner,function = "io_disabled";*/
-        allwinner,function = "sdc0";
+				allwinner,function = "io_disabled";
+        /*allwinner,function = "sdc0";*/
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -261,8 +261,8 @@
 			mmc1_pins_b: mmc1@1 {
 				allwinner,pins = "PG0", "PG1", "PG2", "PG3","PG4","PG5";
 				allwinner,pname = "mmc1_clk","mmc1_cmd","mmc1_d0","mmc1_d1","mmc1_d2","mmc1_d3";
-				/*allwinner,function = "io_disabled";*/
-        allwinner,function = "sdc1";
+				allwinner,function = "io_disabled";
+        /*allwinner,function = "sdc1";*/
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -278,7 +278,7 @@
 			mmc2_pins_b: mmc2@1 {
 			allwinner,pins = "PC1","PC5", "PC6", "PC8", "PC9","PC10","PC11","PC12","PC13","PC14","PC15","PC16";
 			allwinner,pname = "mmc2_ds","mmc2_clk", "mmc2_cmd", "mmc2_d0", "mmc2_d1","mmc2_d2","mmc2_d3","mmc2_d4","mmc2_d5","mmc2_d6","mmc2_d7","mmc2_emmc_rst";
-				allwinner,function = "sdc2";
+				allwinner,function = "io_disabled";
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
