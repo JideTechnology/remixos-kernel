@@ -267,7 +267,7 @@ static int sunxi_cpufreq_init(struct cpufreq_policy *policy)
 
 #ifdef CONFIG_SMP
 	policy->shared_type = CPUFREQ_SHARED_TYPE_ANY;
-	cpumask_copy(policy->cpus, topology_core_cpumask(policy->cpu));
+	cpumask_copy(policy->cpus, cpu_possible_mask);
 #endif
 
 	return 0;
