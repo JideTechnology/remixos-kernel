@@ -24,8 +24,8 @@ typedef struct {
 
 typedef struct {
 	ion_user_handle_t handle;
-	unsigned long phys_addr;
-	unsigned long size;
+	unsigned int phys_addr;
+	unsigned int size;
 }sunxi_phys_data;
 
 #define ION_IOC_SUNXI_FLUSH_RANGE           5
