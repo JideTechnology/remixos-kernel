@@ -789,8 +789,8 @@
 			device_type = "mmc2";
 			reg = <0x0 0x01C11000 0x0 0x1000>;
 			interrupts = <GIC_SPI 62 0x0104>;  /*  */
-			clocks = <&clk_hosc>,<&clk_pll_periph1x2>,<&clk_sdmmc2>;
-	    clock-names = "osc24m","pll_periph0","mmc";
+			clocks = <&clk_hosc>,<&clk_pll_periph1x2>,<&clk_sdmmc2_mod>,<&clk_sdmmc2_bus>,<&clk_sdmmc2_rst>;
+	    clock-names = "osc24m","pll_periph","mmc","ahb","rst";
       pinctrl-names = "default","sleep";
 			pinctrl-0 = <&mmc2_pins_a>;
 			pinctrl-1 = <&mmc2_pins_b>;
@@ -844,8 +844,8 @@
 			device_type = "mmc0";
 			reg = <0x0 0x01c0f000 0x0 0x1000>; /* only sdmmc0 */
 			interrupts = <GIC_SPI 60 0x0104>;  /*  */
-			clocks = <&clk_hosc>,<&clk_pll_periph0x2>,<&clk_sdmmc0>;
-			clock-names = "osc24m","pll_periph0","mmc";
+			clocks = <&clk_hosc>,<&clk_pll_periph0x2>,<&clk_sdmmc0_mod>,<&clk_sdmmc0_bus>,<&clk_sdmmc0_rst>;
+			clock-names = "osc24m","pll_periph","mmc","ahb","rst";
 			pinctrl-names = "default","sleep";
 			pinctrl-0 = <&mmc0_pins_a>;
 			pinctrl-1 = <&mmc0_pins_b>;
@@ -886,8 +886,8 @@
 			device_type = "mmc1";
 			reg = <0x0 0x1C10000 0x0 0x1000>;
 			interrupts = <GIC_SPI 61 0x0104>;  /*  */
-			clocks = <&clk_hosc>,<&clk_pll_periph1x2>,<&clk_sdmmc1>;
-			clock-names = "osc24m","pll_periph0","mmc";
+			clocks = <&clk_hosc>,<&clk_pll_periph1x2>,<&clk_sdmmc1_mod>,<&clk_sdmmc1_bus>,<&clk_sdmmc1_rst>;
+			clock-names = "osc24m","pll_periph","mmc","ahb","rst";
 			pinctrl-names = "default","sleep";
 			pinctrl-0 = <&mmc1_pins_a>;
 			pinctrl-1 = <&mmc1_pins_b>;
