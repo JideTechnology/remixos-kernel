@@ -291,14 +291,14 @@ static void sunxi_mmc_set_clk_dly(struct sunxi_mmc_host *host,int clk,int bus_wi
 	ret = of_property_read_u32_array(np,mmc_clk_dly[cmod].mod_str,\
 										in_clk_dly,ARRAY_SIZE(in_clk_dly));
 	if(ret){
-		dev_info(mmc_dev(host->mmc),"faild to get %s used default\n",mmc_clk_dly[cmod].mod_str);
+		dev_dbg(mmc_dev(host->mmc),"faild to get %s used default\n",mmc_clk_dly[cmod].mod_str);
 	}else{
 		mmc_clk_dly[cmod].cmd_drv_ph	= in_clk_dly[0];
 		mmc_clk_dly[cmod].dat_drv_ph	= in_clk_dly[1];
 		//mmc_clk_dly[cmod].sam_dly		= in_clk_dly[2];
 		//mmc_clk_dly[cmod].ds_dly		= in_clk_dly[3];
 		mmc_clk_dly[cmod].sam_ph		= in_clk_dly[4];
-		dev_info(mmc_dev(host->mmc),"Get %s clk dly ok\n",mmc_clk_dly[cmod].mod_str);
+		dev_dbg(mmc_dev(host->mmc),"Get %s clk dly ok\n",mmc_clk_dly[cmod].mod_str);
 
 	}
 
@@ -478,7 +478,7 @@ int sunxi_mmc_clk_set_rate_for_sdmmc1(struct sunxi_mmc_host *host,
 
 	rate = clk_round_rate(mclk, mod_clk);
 
-	dev_err(mmc_dev(host->mmc),"get round rate %d\n", rate);
+	dev_dbg(mmc_dev(host->mmc),"get round rate %d\n", rate);
 
 	clk_disable_unprepare(host->clk_mmc);
 
@@ -498,7 +498,7 @@ int sunxi_mmc_clk_set_rate_for_sdmmc1(struct sunxi_mmc_host *host,
 	src_clk = clk_get_rate(sclk);
 	clk_put(sclk);
 
-	dev_err(mmc_dev(host->mmc),"set round clock %d, soure clk is %d\n", rate, src_clk);
+	dev_dbg(mmc_dev(host->mmc),"set round clock %d, soure clk is %d\n", rate, src_clk);
 
 #ifdef MMC_FPGA
 	if(ios->timing == MMC_TIMING_UHS_DDR50){

@@ -462,7 +462,7 @@ static void sunxi_mmc_set_clk_dly(struct sunxi_mmc_host *host,int clk,int bus_wi
 	}
 
 	BUG_ON(frq_index/4 > 2);
-	dev_info(mmc_dev(host->mmc),"freq %d frq index %d,frq/4 %x\n",clk,frq_index,frq_index/4);
+	dev_dbg(mmc_dev(host->mmc),"freq %d frq index %d,frq/4 %x\n",clk,frq_index,frq_index/4);
 	raw_sm_str 	= mmc_clk_dly[speed_mod].raw_tm_sm_str[frq_index/4];
 	raw_sm 		= &mmc_clk_dly[speed_mod].raw_tm_sm[frq_index/4];
 	m_str  		= mmc_clk_dly[speed_mod].mod_str;
@@ -482,9 +482,9 @@ static void sunxi_mmc_set_clk_dly(struct sunxi_mmc_host *host,int clk,int bus_wi
 			}else{
 				sam_dly	= rval;
 			}
-			dev_info(mmc_dev(host->mmc),"Get speed mode %s clk dly %s ok\n",m_str,raw_sm_str);
+			dev_dbg(mmc_dev(host->mmc),"Get speed mode %s clk dly %s ok\n",m_str,raw_sm_str);
 		}else{
-			dev_info(mmc_dev(host->mmc),"%s use default value\n",m_str);
+			dev_dbg(mmc_dev(host->mmc),"%s use default value\n",m_str);
 		}
 
 	}
@@ -654,7 +654,7 @@ int sunxi_mmc_clk_set_rate_for_sdmmc2(struct sunxi_mmc_host *host,
 
 	rate = clk_round_rate(mclk, mod_clk);
 
-	dev_err(mmc_dev(host->mmc),"get round rate %d\n", rate);
+	dev_dbg(mmc_dev(host->mmc),"get round rate %d\n", rate);
 
 	clk_disable_unprepare(host->clk_mmc);
 
@@ -674,7 +674,7 @@ int sunxi_mmc_clk_set_rate_for_sdmmc2(struct sunxi_mmc_host *host,
 	src_clk = clk_get_rate(sclk);
 	clk_put(sclk);
 
-	dev_err(mmc_dev(host->mmc),"set round clock %d, soure clk is %d\n", rate, src_clk);
+	dev_dbg(mmc_dev(host->mmc),"set round clock %d, soure clk is %d\n", rate, src_clk);
 
 #ifdef MMC_FPGA
 	if((ios->bus_width == MMC_BUS_WIDTH_8)\
