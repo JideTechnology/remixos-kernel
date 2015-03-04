@@ -1401,8 +1401,8 @@ static int sunxi_mmc_suspend(struct device *dev)
 #ifndef USE_OLD_SYS_CLK_INTERFACE
 				clk_disable_unprepare(host->clk_ahb);
 #endif
-				rval = pinctrl_select_state(host->pinctrl, host->pins_sleep);
-				if (rval)
+				ret = pinctrl_select_state(host->pinctrl, host->pins_sleep);
+				if (ret)
 					dev_warn(mmc_dev(mmc), "could not set sleep pins\n");
 				if (!IS_ERR(mmc->supply.vqmmc))
 					regulator_disable(mmc->supply.vqmmc);
@@ -1429,36 +1429,38 @@ static int sunxi_mmc_resume(struct device *dev)
 			struct sunxi_mmc_host *host = mmc_priv(mmc);
 
 			if (!IS_ERR(mmc->supply.vmmc))
-				mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, ios->vdd);
+				mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, mmc->ios.vdd);
 			
 			if (!IS_ERR(mmc->supply.vqmmc)) {
-				rval = regulator_enable(mmc->supply.vqmmc);
-				if (rval < 0)
+				ret = regulator_enable(mmc->supply.vqmmc);
+				if (ret < 0){
 					dev_err(mmc_dev(mmc),
 						"failed to enable vqmmc regulator\n");
+                    return ret;
+                }
 			}
 			
-			rval = pinctrl_select_state(host->pinctrl, host->pins_default);
-			if (rval)
+			ret = pinctrl_select_state(host->pinctrl, host->pins_default);
+			if (ret)
 				dev_warn(mmc_dev(mmc), "could not set default pins\n");
 #ifndef USE_OLD_SYS_CLK_INTERFACE
-			rval = clk_prepare_enable(host->clk_ahb);
-			if (rval) {
-				dev_err(mmc_dev(mmc), "Enable ahb clk err %d\n", rval);
-				return;
+			ret = clk_prepare_enable(host->clk_ahb);
+			if (ret) {
+				dev_err(mmc_dev(mmc), "Enable ahb clk err %d\n", ret);
+				return ret;
 			}
 #endif
-			rval = clk_prepare_enable(host->clk_mmc);
-			if (rval) {
-				dev_err(mmc_dev(mmc), "Enable mmc clk err %d\n", rval);
-				return;
+			ret = clk_prepare_enable(host->clk_mmc);
+			if (ret) {
+				dev_err(mmc_dev(mmc), "Enable mmc clk err %d\n", ret);
+				return ret;
 			}
 #ifndef USE_OLD_SYS_CLK_INTERFACE
 			if (!IS_ERR(host->reset)) {
-				rval = reset_control_deassert(host->reset);
-				if (rval) {
-					dev_err(mmc_dev(mmc), "reset err %d\n", rval);
-					return;
+				ret = reset_control_deassert(host->reset);
+				if (ret) {
+					dev_err(mmc_dev(mmc), "reset err %d\n", ret);
+					return ret;
 				}
 			}			
 #endif
@@ -1491,8 +1493,8 @@ static int sunxi_mmc_resume(struct device *dev)
 
 
 static const struct dev_pm_ops sunxi_mmc_pm = {
-	.suspend	= sunxi_mci_suspend,
-	.resume		= sunxi_mci_resume,
+	.suspend	= sunxi_mmc_suspend,
+	.resume		= sunxi_mmc_resume,
 };
 #define sunxi_mmc_pm_ops &sunxi_mmc_pm
 
