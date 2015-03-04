@@ -40,9 +40,6 @@
 #include "ion_priv.h"
 #include "compat_ion.h"
 
-#include "../uapi/ion_sunxi.h"
-#include <asm/cacheflush.h>
-
 /**
  * struct ion_device - the metadata of the ion device node
  * @dev:		the actual misc device
@@ -1308,20 +1305,6 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case ION_IOC_SYNC:
 	{
 		ret = ion_sync_for_device(client, data.fd.fd);
-		break;
-	}
-	case ION_IOC_SUNXI_FLUSH_RANGE:
-	{
-		sunxi_cache_range data;
-
-		if(copy_from_user(&data, (void __user *)arg, sizeof(sunxi_cache_range)))
-			return -EFAULT;
-
-		__dma_flush_range( (void*)data.start , (void*)data.end );
-
-		if(copy_to_user((void __user *)arg, &data, sizeof(data)))
-			return -EFAULT;
-
 		break;
 	}
 	case ION_IOC_CUSTOM:
