@@ -459,8 +459,8 @@ int sunxi_mmc_clk_set_rate_for_sdmmc0(struct sunxi_mmc_host *host,
 		sclk_name = "osc24m";
 	} else {
 		//sclk = clk_get(np, 1);
-		sclk = clk_get(dev,"pll_periph0");
-		sclk_name = "pll_periph0";
+		sclk = clk_get(dev,"pll_periph");
+		sclk_name = "pll_periph";
 	}
 	if (IS_ERR(sclk)) {
 		dev_err(mmc_dev(host->mmc), "Error to get source clock %s\n",sclk_name );
@@ -480,13 +480,7 @@ int sunxi_mmc_clk_set_rate_for_sdmmc0(struct sunxi_mmc_host *host,
 
 	dev_err(mmc_dev(host->mmc),"get round rate %d\n", rate);
 
-#ifndef USE_OLD_SYS_CLK_INTERFACE
-	rval = clk_prepare_disable(host->mmc);
-	if (rval) {
-		dev_err(mmc_dev(mmc), "disable mmc clk err %d\n", rval);
-		return -1;
-	}
-#endif
+	clk_disable_unprepare(host->clk_mmc);
 
 	err = clk_set_rate(mclk, rate);
 	if (err) {
@@ -495,13 +489,11 @@ int sunxi_mmc_clk_set_rate_for_sdmmc0(struct sunxi_mmc_host *host,
 		return -1;
 	}
 
-#ifndef USE_OLD_SYS_CLK_INTERFACE
-	rval = clk_prepare_enable(host->mmc);
+	rval = clk_prepare_enable(host->clk_mmc);
 	if (rval) {
-		dev_err(mmc_dev(mmc), "Enable mmc clk err %d\n", rval);
+		dev_err(mmc_dev(host->mmc), "Enable mmc clk err %d\n", rval);
 		return -1;
 	}
-#endif
 
 	src_clk = clk_get_rate(sclk);
 	clk_put(sclk);

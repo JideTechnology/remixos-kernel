@@ -24,11 +24,10 @@
 #ifndef __SUNXI_MMC_H__
 #define __SUNXI_MMC_H__
 
-
 #if defined CONFIG_FPGA_V4_PLATFORM || defined CONFIG_FPGA_V7_PLATFORM
 #define MMC_FPGA
 #endif
-#define USE_OLD_SYS_CLK_INTERFACE
+//#define USE_OLD_SYS_CLK_INTERFACE
 
 
 /* register offset definitions */
@@ -235,6 +234,8 @@ struct sunxi_mmc_host {
 	/* clock management */
 	struct clk	*clk_ahb;
 	struct clk	*clk_mmc;
+	struct clk	*clk_rst;
+	
 	int (*sunxi_mmc_clk_set_rate)(struct sunxi_mmc_host *host, struct mmc_ios *ios);
 
 	/* irq */
