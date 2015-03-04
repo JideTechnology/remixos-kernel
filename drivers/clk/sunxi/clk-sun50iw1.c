@@ -609,9 +609,15 @@ SUNXI_CLK_PERIPH(apb2,    APB2_CFG,   24,        2,         APB2_CFG,   0,      
 SUNXI_CLK_PERIPH(ahb2,    AHB2_CFG,    0,        2,         0,   		0,          0,          0,          0,          0,          0,          0,         0,            0,            0,            0,           0,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(ths,     THS_CFG,    24,        2,         THS_CFG,    0,          0,          0,          2,          0,          THS_CFG,    BUS_RST3,  BUS_GATE2,    0,           31,            8,           8,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(nand,    NAND_CFG,   24,        2,         NAND_CFG,   0,          4,         16,          2,          0,          NAND_CFG,   BUS_RST0,  BUS_GATE0,    0,           31,           13,          13,              0,               &clk_lock,NULL,             0);
-SUNXI_CLK_PERIPH(sdmmc0,  SD0_CFG,    24,        2,         SD0_CFG,    0,          4,         16,          2,          0,          SD0_CFG,    BUS_RST0,  BUS_GATE0,    0,           31,            8,           8,              0,               &clk_lock,NULL,             0);
-SUNXI_CLK_PERIPH(sdmmc1,  SD1_CFG,    24,        2,         SD1_CFG,    0,          4,         16,          2,          0,          SD1_CFG,    BUS_RST0,  BUS_GATE0,    0,           31,            9,           9,              0,               &clk_lock,NULL,             0);
-SUNXI_CLK_PERIPH(sdmmc2,  SD2_CFG,    24,        2,         SD2_CFG,    0,          4,         16,          2,          0,          SD2_CFG,    BUS_RST0,  BUS_GATE0,    0,           31,           10,          10,              0,               &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(sdmmc0_mod,  SD0_CFG,24,        2,         SD0_CFG,    0,          4,         16,          2,          0,          SD0_CFG,    0,  		0,    		 0,           31,            0,           0,              0,               &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(sdmmc0_bus,  0,       0,        0,          0,    	    0,          0,          0,          0,          0,          0,    		0,  BUS_GATE0,    		 0,            0,            0,           8,              0,               &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(sdmmc0_rst,  0,       0,        0,          0,         0,          0,          0,          0,          0,          0,   BUS_RST0,  		0,    		 0,            0,            8,           0,              0,               &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(sdmmc1_mod, SD1_CFG, 24,        2,         SD1_CFG,    0,          4,         16,          2,          0,          SD1_CFG,    0,  		0,    		 0,           31,            0,           0,              0,               &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(sdmmc1_bus,  0,       0,        0,         0,    		0,          0,          0,          0,          0,          0,    		0,  BUS_GATE0,    		 0,            0,            0,           9,              0,               &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(sdmmc1_rst,  0,       0,        0,         0,    		0,          0,          0,          0,          0,          0,    BUS_RST0,   		0,    		 0,            0,            9,           0,              0,               &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(sdmmc2_mod, SD2_CFG, 24,        2,         SD2_CFG,    0,          4,         16,          2,          0,          SD2_CFG,    0,  		0,    		 0,           31,            0,           0,              0,               &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(sdmmc2_bus,  0,       0,        0,         0,    		0,          0,          0,          0,          0,          0,          0,  BUS_GATE0,    		 0,            0,            0,          10,              0,               &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(sdmmc2_rst,  0,       0,        0,         0,    		0,          0,          0,          0,          0,          0,    BUS_RST0,  		0,    		 0,            0,           10,           0,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(ts,      TS_CFG,     24,        4,         TS_CFG,     0,          4,         16,          2,          0,          TS_CFG,     BUS_RST0,  BUS_GATE0,    DRAM_GATE,   31,           18,          18,              3,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(ce,      CE_CFG,     24,        2,         CE_CFG,     0,          4,         16,          2,          0,          CE_CFG,   	BUS_RST0,  BUS_GATE0,    0,           31,            5,           5,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(spi0,    SPI0_CFG,   24,        2,         SPI0_CFG,   0,          4,         16,          2,          0,          SPI0_CFG,   BUS_RST0,  BUS_GATE0,    0,           31,           20,          20,              0,               &clk_lock,NULL,             0);
@@ -682,9 +688,15 @@ struct periph_init_data sunxi_periphs_init[] = {
     {"ahb2",     0,       				ahb2_parents,     ARRAY_SIZE(ahb2_parents),     &sunxi_clk_periph_ahb2},
     {"ths",      0,       				ths_parents,      ARRAY_SIZE(ths_parents),      &sunxi_clk_periph_ths},
     {"nand",     0,       				periph_parents,   ARRAY_SIZE(periph_parents),   &sunxi_clk_periph_nand},
-    {"sdmmc0",   0,       				periphx2_parents, ARRAY_SIZE(periphx2_parents), &sunxi_clk_periph_sdmmc0},
-    {"sdmmc1",   0,       				periphx2_parents, ARRAY_SIZE(periphx2_parents), &sunxi_clk_periph_sdmmc1},
-    {"sdmmc2",   0,       			    periphx2_parents, ARRAY_SIZE(periphx2_parents), &sunxi_clk_periph_sdmmc2},
+    {"sdmmc0_mod",   0,       			periphx2_parents, ARRAY_SIZE(periphx2_parents), &sunxi_clk_periph_sdmmc0_mod},
+    {"sdmmc0_bus",   0,       			periphx2_parents, ARRAY_SIZE(periphx2_parents), &sunxi_clk_periph_sdmmc0_bus},
+    {"sdmmc0_rst",   0,       			periphx2_parents, ARRAY_SIZE(periphx2_parents), &sunxi_clk_periph_sdmmc0_rst},
+    {"sdmmc1_mod",   0,       			periphx2_parents, ARRAY_SIZE(periphx2_parents), &sunxi_clk_periph_sdmmc1_mod},
+    {"sdmmc1_bus",   0,       			periphx2_parents, ARRAY_SIZE(periphx2_parents), &sunxi_clk_periph_sdmmc1_bus},
+    {"sdmmc1_rst",   0,       			periphx2_parents, ARRAY_SIZE(periphx2_parents), &sunxi_clk_periph_sdmmc1_rst},
+    {"sdmmc2_mod",   0,       			periphx2_parents, ARRAY_SIZE(periphx2_parents), &sunxi_clk_periph_sdmmc2_mod},
+    {"sdmmc2_bus",   0,       			periphx2_parents, ARRAY_SIZE(periphx2_parents), &sunxi_clk_periph_sdmmc2_bus},
+    {"sdmmc2_rst",   0,       			periphx2_parents, ARRAY_SIZE(periphx2_parents), &sunxi_clk_periph_sdmmc2_rst},
     {"ts",       0,       				ts_parents,   	  ARRAY_SIZE(ts_parents),   	&sunxi_clk_periph_ts},
     {"ce",   	 0,       			    periphx2_parents, ARRAY_SIZE(periphx2_parents), &sunxi_clk_periph_ce},
     {"spi0",     0,       				periph_parents,   ARRAY_SIZE(periph_parents),   &sunxi_clk_periph_spi0},

@@ -214,20 +214,51 @@ clocks {
 			compatible = "allwinner,sunxi-periph-clock";
 			clock-output-names = "nand";
 		};	
-		clk_sdmmc0: sdmmc0 {
+		clk_sdmmc0_mod: sdmmc0_mod {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
-			clock-output-names = "sdmmc0";
+			clock-output-names = "sdmmc0_mod";
 		};	
-		clk_sdmmc1: sdmmc1 {
+		clk_sdmmc0_bus: sdmmc0_bus {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
-			clock-output-names = "sdmmc1";
+			clock-output-names = "sdmmc0_bus";
 		};	
-		clk_sdmmc2: sdmmc2 {
+		clk_sdmmc0_rst: sdmmc0_rst {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
-			clock-output-names = "sdmmc2";
+			clock-output-names = "sdmmc0_rst";
+		};
+
+		clk_sdmmc1_mod: sdmmc1_mod {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-clock";
+			clock-output-names = "sdmmc1_mod";
+		};
+		clk_sdmmc1_bus: sdmmc1_bus {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-clock";
+			clock-output-names = "sdmmc1_bus";
+		};
+		clk_sdmmc1_rst: sdmmc1_rst {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-clock";
+			clock-output-names = "sdmmc1_rst";
+		};
+		clk_sdmmc2_mod: sdmmc2_mod {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-clock";
+			clock-output-names = "sdmmc2_mod";
+		};
+		clk_sdmmc2_bus: sdmmc2_bus {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-clock";
+			clock-output-names = "sdmmc2_bus";
+		};	
+		clk_sdmmc2_rst: sdmmc2_rst {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-clock";
+			clock-output-names = "sdmmc2_rst";
 		};		
 		clk_ts: ts {
 			#clock-cells = <0>;
