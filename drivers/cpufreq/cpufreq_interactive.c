@@ -19,6 +19,8 @@
 #include <linux/cpu.h>
 #include <linux/cpumask.h>
 #include <linux/cpufreq.h>
+#include <linux/freezer.h>
+#include <linux/input.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/rwsem.h>
@@ -114,6 +116,12 @@ struct cpufreq_interactive_tunables {
 #define DEFAULT_TIMER_SLACK (4 * DEFAULT_TIMER_RATE)
 	int timer_slack_val;
 	bool io_is_busy;
+
+#ifdef CONFIG_CPU_FREQ_INPUT_EVNT_NOTIFY
+	#define DEFAULT_INPUT_EVENT_FRFQ     (1008000)
+	int input_dev_monitor;
+	int input_event_freq;
+#endif
 };
 
 /* For cases where we have single governor instance for system */
@@ -453,12 +461,14 @@ static void cpufreq_interactive_timer(unsigned long data)
 	wake_up_process(speedchange_task);
 
 rearm_if_notmax:
+#ifndef CONFIG_ARM64
 	/*
 	 * Already set max speed and don't see a need to change that,
 	 * wait until next idle to re-evaluate, don't need timer.
 	 */
 	if (pcpu->target_freq == pcpu->policy->max)
 		goto exit;
+#endif
 
 rearm:
 	if (!timer_pending(&pcpu->cpu_timer))
@@ -531,6 +541,7 @@ static int cpufreq_interactive_speedchange_task(void *data)
 	unsigned long flags;
 	struct cpufreq_interactive_cpuinfo *pcpu;
 
+	set_freezable();
 	while (1) {
 		set_current_state(TASK_INTERRUPTIBLE);
 		spin_lock_irqsave(&speedchange_cpumask_lock, flags);
@@ -550,6 +561,9 @@ static int cpufreq_interactive_speedchange_task(void *data)
 		tmp_mask = speedchange_cpumask;
 		cpumask_clear(&speedchange_cpumask);
 		spin_unlock_irqrestore(&speedchange_cpumask_lock, flags);
+
+		if (freezing(current))
+			try_to_freeze();
 
 		for_each_cpu(cpu, &tmp_mask) {
 			unsigned int j;
@@ -980,6 +994,46 @@ static ssize_t store_io_is_busy(struct cpufreq_interactive_tunables *tunables,
 	return count;
 }
 
+#ifdef CONFIG_CPU_FREQ_INPUT_EVNT_NOTIFY
+static ssize_t show_input_dev_monitor(struct cpufreq_interactive_tunables *tunables,
+		char *buf)
+{
+	return sprintf(buf, "%u\n", tunables->input_dev_monitor);
+}
+
+static ssize_t store_input_dev_monitor(struct cpufreq_interactive_tunables *tunables,
+		const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+	tunables->input_dev_monitor = val? 1 : 0;
+	return count;
+}
+
+static ssize_t show_input_event_freq(struct cpufreq_interactive_tunables *tunables,
+		char *buf)
+{
+	return sprintf(buf, "%u\n", tunables->input_event_freq);
+}
+
+static ssize_t store_input_event_freq(struct cpufreq_interactive_tunables *tunables,
+		const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val;
+
+	ret = kstrtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+	tunables->input_event_freq = val;
+	return count;
+}
+#endif /* #ifdef CONFIG_CPU_FREQ_INPUT_EVNT_NOTIFY */
+
 /*
  * Create show/store routines
  * - sys: One governor instance for complete SYSTEM
@@ -1027,6 +1081,10 @@ show_store_gov_pol_sys(boost);
 store_gov_pol_sys(boostpulse);
 show_store_gov_pol_sys(boostpulse_duration);
 show_store_gov_pol_sys(io_is_busy);
+#ifdef CONFIG_CPU_FREQ_INPUT_EVNT_NOTIFY
+show_store_gov_pol_sys(input_dev_monitor);
+show_store_gov_pol_sys(input_event_freq);
+#endif
 
 #define gov_sys_attr_rw(_name)						\
 static struct global_attr _name##_gov_sys =				\
@@ -1050,6 +1108,10 @@ gov_sys_pol_attr_rw(timer_slack);
 gov_sys_pol_attr_rw(boost);
 gov_sys_pol_attr_rw(boostpulse_duration);
 gov_sys_pol_attr_rw(io_is_busy);
+#ifdef CONFIG_CPU_FREQ_INPUT_EVNT_NOTIFY
+gov_sys_pol_attr_rw(input_dev_monitor);
+gov_sys_pol_attr_rw(input_event_freq);
+#endif
 
 static struct global_attr boostpulse_gov_sys =
 	__ATTR(boostpulse, 0200, NULL, store_boostpulse_gov_sys);
@@ -1070,6 +1132,10 @@ static struct attribute *interactive_attributes_gov_sys[] = {
 	&boostpulse_gov_sys.attr,
 	&boostpulse_duration_gov_sys.attr,
 	&io_is_busy_gov_sys.attr,
+#ifdef CONFIG_CPU_FREQ_INPUT_EVNT_NOTIFY
+	&input_dev_monitor_gov_sys.attr,
+	&input_event_freq_gov_sys.attr,
+#endif
 	NULL,
 };
 
@@ -1091,6 +1157,10 @@ static struct attribute *interactive_attributes_gov_pol[] = {
 	&boostpulse_gov_pol.attr,
 	&boostpulse_duration_gov_pol.attr,
 	&io_is_busy_gov_pol.attr,
+#ifdef CONFIG_CPU_FREQ_INPUT_EVNT_NOTIFY
+	&input_dev_monitor_gov_pol.attr,
+	&input_event_freq_gov_pol.attr,
+#endif
 	NULL,
 };
 
@@ -1127,6 +1197,130 @@ static struct notifier_block cpufreq_interactive_idle_nb = {
 	.notifier_call = cpufreq_interactive_idle_notifier,
 };
 
+#ifdef CONFIG_CPU_FREQ_INPUT_EVNT_NOTIFY
+static int input_handler_register_count = 0;
+static cpumask_t interactive_cpumask;
+
+/*
+ * trigger cpu frequency to a high speed when input event coming.
+ * such as key, ir, touchpannel for ex. , but skip gsensor.
+ */
+static void cpufreq_interactive_input_event(struct input_handle *handle,
+				unsigned int type, unsigned int code, int value)
+{
+	int i;
+	int anyboost = 0;
+	unsigned long flags[2];
+	struct cpufreq_interactive_cpuinfo *pcpu;
+	struct cpufreq_interactive_tunables *tunables;
+
+	if (type == EV_SYN && code == SYN_REPORT) {
+		spin_lock_irqsave(&speedchange_cpumask_lock, flags[0]);
+
+		for_each_cpu(i, &interactive_cpumask) {
+			pcpu = &per_cpu(cpuinfo, i);
+			tunables = pcpu->policy->governor_data;
+
+			if(tunables->input_dev_monitor) {
+				spin_lock_irqsave(&pcpu->target_freq_lock, flags[1]);
+				if (pcpu->target_freq < tunables->input_event_freq) {
+					pcpu->target_freq = tunables->input_event_freq;
+					cpumask_set_cpu(i, &speedchange_cpumask);
+					anyboost = 1;
+				}
+
+				pcpu->floor_freq = tunables->input_event_freq;
+				pcpu->floor_validate_time = ktime_to_us(ktime_get());
+				spin_unlock_irqrestore(&pcpu->target_freq_lock, flags[1]);
+			}
+		}
+
+		spin_unlock_irqrestore(&speedchange_cpumask_lock, flags[0]);
+
+		if (anyboost) {
+			wake_up_process(speedchange_task);
+		}
+	}
+}
+
+static int cpufreq_interactive_input_connect(struct input_handler *handler,
+				struct input_dev *dev, const struct input_device_id *id)
+{
+	struct input_handle *handle;
+	int error;
+
+	handle = kzalloc(sizeof(struct input_handle), GFP_KERNEL);
+	if (!handle)
+		return -ENOMEM;
+
+	handle->dev = dev;
+	handle->handler = handler;
+	handle->name = "cpufreq_interactive";
+
+	error = input_register_handle(handle);
+	if (error)
+		goto err;
+
+	error = input_open_device(handle);
+	if (error)
+		goto err_open;
+
+	return 0;
+
+err_open:
+	input_unregister_handle(handle);
+err:
+	kfree(handle);
+	return error;
+}
+
+static void cpufreq_interactive_input_disconnect(struct input_handle *handle)
+{
+	input_close_device(handle);
+	input_unregister_handle(handle);
+	kfree(handle);
+}
+
+static const struct input_device_id cpufreq_interactive_ids[] = {
+	{
+		.flags = INPUT_DEVICE_ID_MATCH_EVBIT |
+			INPUT_DEVICE_ID_MATCH_ABSBIT,
+		.evbit = { BIT_MASK(EV_ABS) },
+		.absbit = { [BIT_WORD(ABS_MT_POSITION_X)] =
+				BIT_MASK(ABS_MT_POSITION_X) |
+				BIT_MASK(ABS_MT_POSITION_Y) },
+	}, /* multi-touch touchscreen */
+	{
+		.flags = INPUT_DEVICE_ID_MATCH_KEYBIT |
+			INPUT_DEVICE_ID_MATCH_ABSBIT,
+		.keybit = { [BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH) },
+		.absbit = { [BIT_WORD(ABS_X)] =
+				BIT_MASK(ABS_X) | BIT_MASK(ABS_Y) },
+	}, /* touchpad */
+	{
+		.flags = INPUT_DEVICE_ID_MATCH_EVBIT |
+			INPUT_DEVICE_ID_MATCH_BUS   |
+			INPUT_DEVICE_ID_MATCH_VENDOR |
+			INPUT_DEVICE_ID_MATCH_PRODUCT |
+			INPUT_DEVICE_ID_MATCH_VERSION,
+		.bustype = BUS_HOST,
+		.vendor = 0x0001,
+		.product = 0x0001,
+		.version = 0x0100,
+		.evbit = { BIT_MASK(EV_KEY) },
+	}, /* keyboard/ir */
+	{ },
+};
+
+static struct input_handler cpufreq_interactive_input_handler = {
+	.event          = cpufreq_interactive_input_event,
+	.connect        = cpufreq_interactive_input_connect,
+	.disconnect     = cpufreq_interactive_input_disconnect,
+	.name           = "cpufreq_interactive",
+	.id_table       = cpufreq_interactive_ids,
+};
+#endif  /* #ifdef CONFIG_CPU_FREQ_INPUT_EVNT_NOTIFY */
+
 static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 		unsigned int event)
 {
@@ -1161,6 +1355,7 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 		}
 
 		tunables->usage_count = 1;
+		tunables->io_is_busy = true;
 		tunables->above_hispeed_delay = default_above_hispeed_delay;
 		tunables->nabove_hispeed_delay =
 			ARRAY_SIZE(default_above_hispeed_delay);
@@ -1195,6 +1390,17 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 					CPUFREQ_TRANSITION_NOTIFIER);
 		}
 
+#ifdef CONFIG_CPU_FREQ_INPUT_EVNT_NOTIFY
+		if (!input_handler_register_count) {
+			cpumask_clear(&interactive_cpumask);
+			input_register_handler(&cpufreq_interactive_input_handler);
+		}
+
+		tunables->input_event_freq = DEFAULT_INPUT_EVENT_FRFQ;
+		tunables->input_dev_monitor = true;
+		input_handler_register_count++;
+#endif
+
 		break;
 
 	case CPUFREQ_GOV_POLICY_EXIT:
@@ -1210,6 +1416,15 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			kfree(tunables);
 			common_tunables = NULL;
 		}
+
+#ifdef CONFIG_CPU_FREQ_INPUT_EVNT_NOTIFY
+		if (input_handler_register_count > 0)
+			input_handler_register_count--;
+		if (!input_handler_register_count) {
+			cpumask_clear(&interactive_cpumask);
+			input_unregister_handler(&cpufreq_interactive_input_handler);
+		}
+#endif
 
 		policy->governor_data = NULL;
 		break;
@@ -1240,6 +1455,10 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			up_write(&pcpu->enable_sem);
 		}
 
+#ifdef CONFIG_CPU_FREQ_INPUT_EVNT_NOTIFY
+		cpumask_or(&interactive_cpumask, &interactive_cpumask, policy->cpus);
+#endif
+
 		mutex_unlock(&gov_lock);
 		break;
 
@@ -1253,6 +1472,10 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			del_timer_sync(&pcpu->cpu_slack_timer);
 			up_write(&pcpu->enable_sem);
 		}
+
+#ifdef CONFIG_CPU_FREQ_INPUT_EVNT_NOTIFY
+		cpumask_andnot(&interactive_cpumask, &interactive_cpumask, policy->cpus);
+#endif
 
 		mutex_unlock(&gov_lock);
 		break;

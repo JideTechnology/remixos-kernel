@@ -223,6 +223,15 @@ config GENERIC_CPUFREQ_CPU0
 
 	  If in doubt, say N.
 
+config CPU_FREQ_INPUT_EVNT_NOTIFY
+	bool "CPU frequency input event notify"
+	depends on INPUT && CPU_FREQ_GOV_INTERACTIVE
+	help
+	  This will allow input sub-system notify cpufreq that some user event has happend,
+	  need up cpu frequency to response it.
+
+	  If in doubt, say N.
+
 menu "x86 CPU frequency scaling drivers"
 depends on X86
 source "drivers/cpufreq/Kconfig.x86"
