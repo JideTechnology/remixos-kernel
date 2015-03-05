@@ -1959,7 +1959,6 @@ static int codec_suspend(struct snd_soc_codec *codec)
 	if (spk_gpio.cfg) {
 		audio_gpio_iodisable(spk_gpio.gpio);
 	}
-#if 0
 
 	if (sunxi_internal_codec->vol_supply.cpvdd){
 		regulator_disable(sunxi_internal_codec->vol_supply.cpvdd);
@@ -1968,17 +1967,17 @@ static int codec_suspend(struct snd_soc_codec *codec)
 	if (sunxi_internal_codec->vol_supply.avcc) {
 		regulator_disable(sunxi_internal_codec->vol_supply.avcc);
 	}
-#endif
+
 	pr_debug("[audio codec]:suspend end..\n");
 	return 0;
 }
 
 static int codec_resume(struct snd_soc_codec *codec)
 {
+	int ret ;
 	struct sunxi_codec *sunxi_internal_codec = snd_soc_codec_get_drvdata(codec);
 	pr_debug("[audio codec]:resume start\n");
-	#if 0
-	int ret ;
+
 	if (sunxi_internal_codec->vol_supply.cpvdd){
 		ret = regulator_enable(sunxi_internal_codec->vol_supply.cpvdd);
 		if (ret) {
@@ -1992,7 +1991,6 @@ static int codec_resume(struct snd_soc_codec *codec)
 			pr_err("[%s]: avcc:regulator_enable() failed!\n",__func__);
 		}
 	}
-	#endif
 
 	codec_init(sunxi_internal_codec);
 	if (spk_gpio.cfg) {
