@@ -38,7 +38,7 @@ typedef enum _line_status_ {
   contains a lowercased version of the input string.
  */
 /*--------------------------------------------------------------------------*/
-
+#if 0
 static void strlwc(char *s)
 {
 	int i;
@@ -50,7 +50,7 @@ static void strlwc(char *s)
 		i++;
 	}
 }
-
+#endif
 /*-------------------------------------------------------------------------*/
 /**
   @brief    Remove blanks at the beginning and the end of a string.
@@ -376,7 +376,7 @@ char *iniparser_getstring(dictionary *d, const char *key, char *def)
 		return def;
 
 	lc_key = aw_strdup(key);
-	strlwc(lc_key);
+	//strlwc(lc_key);
 	sval = dictionary_get(d, lc_key, def);
 	free(lc_key);
 	return sval;
@@ -529,7 +529,7 @@ int iniparser_set(dictionary *ini, const char *entry, const char *val)
 {
 	int result = 0;
 	char *lc_entry = aw_strdup(entry);
-	strlwc(lc_entry);
+	//strlwc(lc_entry);
 	result = dictionary_set(ini, lc_entry, val);
 	free(lc_entry);
 	return result;
@@ -548,7 +548,7 @@ int iniparser_set(dictionary *ini, const char *entry, const char *val)
 void iniparser_unset(dictionary *ini, const char *entry)
 {
 	char *lc_entry = aw_strdup(entry);
-	strlwc(lc_entry);
+	//strlwc(lc_entry);
 	dictionary_unset(ini, lc_entry);
 	free(lc_entry);
 }
@@ -612,7 +612,7 @@ static line_status iniparser_line(int line_size, const char *input_line,
 		/* Section name */
 		sscanf(line, "[%[^]]", key);
 		strstrip(key);
-		strlwc(key);
+		//strlwc(key);
 		sta = LINE_SECTION;
 		*section_out = key;
 
@@ -624,7 +624,7 @@ static line_status iniparser_line(int line_size, const char *input_line,
 
 		/* Usual key=value, with or without comments */
 		strstrip(key);
-		strlwc(key);
+		//strlwc(key);
 		strstrip(value);
 		/*
 		* sscanf cannot handle '' or "" as empty values
@@ -648,7 +648,7 @@ static line_status iniparser_line(int line_size, const char *input_line,
 		* key=#
 		*/
 		strstrip(key);
-		strlwc(key);
+		//strlwc(key);
 		value[0] = 0;
 		*key_out = key;
 		*value_out = value;
