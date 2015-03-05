@@ -18,6 +18,7 @@
 void sunxi_mmc_dumphex32(struct sunxi_mmc_host* host, char* name, char* base, int len);
 void sunxi_mmc_dump_des(struct sunxi_mmc_host* host, char* base, int len);
 
+
 int mmc_create_sys_fs(struct sunxi_mmc_host* host,struct platform_device *pdev);
 void mmc_remove_sys_fs(struct sunxi_mmc_host* host,struct platform_device *pdev);
 

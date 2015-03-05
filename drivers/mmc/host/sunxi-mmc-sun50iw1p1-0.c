@@ -421,7 +421,7 @@ static  void sunxi_mmc_2xmod_onoff(struct sunxi_mmc_host* host, u32 newmode_en)
 	}
 	mmc_writel(host, REG_SD_NTSR, rval);
 
-	dev_info(mmc_dev(host->mmc), "REG_SD_NTSR: 0x%08x ,val %x\n", mmc_readl(host, REG_SD_NTSR),rval);
+	dev_dbg(mmc_dev(host->mmc), "REG_SD_NTSR: 0x%08x ,val %x\n", mmc_readl(host, REG_SD_NTSR),rval);
 }
 
 
