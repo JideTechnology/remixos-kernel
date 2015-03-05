@@ -784,6 +784,23 @@ static int	sunxi_mmc_signal_voltage_switch(struct mmc_host *mmc, struct mmc_ios 
 #ifdef CONFIG_REGULATOR
 	int ret	=	0;
 	struct regulator *vqmmc = mmc->supply.vqmmc;
+	struct device_node *np = NULL;
+	bool disable_vol_switch = false;
+
+	if (!mmc->parent || !mmc->parent->of_node){
+		dev_err(mmc_dev(mmc), "no dts to parse signal switch fun,use default\n");
+		return 0;
+	}
+
+	np = mmc->parent->of_node;
+	disable_vol_switch = of_property_read_bool(np, "sunxi-disable-signal-voltage-switch");
+
+	/*For some emmc,io voltage will be fixed at 1.8v or other voltage,so we can not switch io voltage*/
+	/*Because mmc core will change the io voltage to 3.3v when power up,so will must disable voltage switch*/
+	if(disable_vol_switch){
+		dev_dbg(mmc_dev(mmc), "disable signal voltage-switch\n");
+		return 0;
+	}
 
 	switch (ios->signal_voltage) {
 	case MMC_SIGNAL_VOLTAGE_330:
