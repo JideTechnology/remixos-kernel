@@ -310,7 +310,6 @@ static void ths_sensor_init(void)
 {
 	thsprintk(DEBUG_INIT, "ths_sensor_init: ths setup start!!\n");
 
-	ths_clk_cfg();
 	ths_data->ops->init_reg(ths_data);
 
 	thsprintk(DEBUG_INIT, "ths_sensor_init: ths setup end!!\n");
@@ -322,7 +321,6 @@ static void ths_sensor_exit(void)
 	thsprintk(DEBUG_INIT, "ths_sensor_exit: ths exit start!!\n");
 
 	ths_data->ops->clear_reg(ths_data);
-	ths_clk_uncfg();
 
 	thsprintk(DEBUG_INIT, "ths_sensor_exit: ths exir end!!\n");
 	return;
@@ -451,6 +449,7 @@ static int sunxi_ths_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, ths_data);
+	ths_clk_cfg();
 	ths_sensor_init();
 	sunxi_ths_input_init(ths_data);
 	
@@ -495,6 +494,7 @@ static int sunxi_ths_remove(struct platform_device *pdev)
 	ths_disable();
 	free_irq(ths_data->irq_num, ths_data->tz);
 	ths_sensor_exit();
+	ths_clk_uncfg();
 	sunxi_ths_input_exit(ths_data);
 	kfree(ths_data);
 	return 0;
@@ -524,18 +524,23 @@ static int sunxi_ths_suspend(struct device *dev)
 	disable_irq_nosync(ths_data->irq_num);
 	ths_suspending = 1;
 	ths_sensor_exit();
+	if(NULL == ths_data->mclk || IS_ERR(ths_data->mclk)) {
+		thsprintk(DEBUG_SUSPEND,"ths_clk handle is invalid\n");
+	} else {
+		clk_disable_unprepare(ths_data->mclk);
+	}
 	return 0;
 }
 
 static int sunxi_ths_resume(struct device *dev)
 {
 	thsprintk(DEBUG_SUSPEND, "enter: sunxi_ths_resume. \n");
-
+	clk_prepare_enable(ths_data->mclk);
 	ths_sensor_init();
 	enable_irq(ths_data->irq_num);
 	ths_enable();
 
-	mutex_lock(&thermal_data->input_enable_mutex);
+	mutex_lock(&ths_data->input_enable_mutex);
 	if (atomic_read(&ths_data->input_enable)== 1) {
 		schedule_delayed_work(&ths_data->input_work,
 		msecs_to_jiffies(atomic_read(&ths_data->input_delay)));
