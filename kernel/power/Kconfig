@@ -25,7 +25,24 @@ config HAS_WAKELOCK
 config WAKELOCK
 	bool
 	default y
+config SCENELOCK
+	bool "Scene lock"
+	depends on PM
+	default y
+	select HAS_SCENELOCK
+	---help---
+	  Enable scenelocks. When user space request a scene state, the
+	  standby will enter scene standby.
 
+config USER_SCENELOCK
+	bool "Userspace scene locks"
+	depends on SCENELOCK
+	default y
+	---help---
+	  User-space scene lock api. Write "lockname" to /sys/power
+	  /scene_lock lock and if needed create a scene lock.
+	  Write "lockname" to /sys/power/scene_unlock to unlock a user scene
+	  lock.
 config HIBERNATE_CALLBACKS
 	bool
 

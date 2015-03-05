@@ -297,3 +297,28 @@ extern int pm_wake_lock(const char *buf);
 extern int pm_wake_unlock(const char *buf);
 
 #endif /* !CONFIG_PM_WAKELOCKS */
+#ifdef CONFIG_USER_SCENELOCK
+ssize_t scene_lock_show(struct kobject *kobj, struct kobj_attribute *attr,
+			char *buf);
+ssize_t scene_lock_store(struct kobject *kobj, struct kobj_attribute *attr,
+			const char *buf, size_t n);
+ssize_t scene_unlock_show(struct kobject *kobj, struct kobj_attribute *attr,
+			char *buf);
+ssize_t scene_unlock_store(struct kobject *kobj, struct kobj_attribute *attr,
+			const char *buf, size_t n);
+ssize_t scene_state_store(struct kobject *kobj, struct kobj_attribute *attr,
+	const char *buf, size_t n);
+ssize_t scene_state_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+ssize_t wakeup_src_store(struct kobject *kobj, struct kobj_attribute *attr,
+	const char *buf, size_t n);
+ssize_t wakeup_src_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+#if (defined CONFIG_AW_AXP)
+ssize_t sys_pwr_dm_mask_store(struct kobject *kobj, struct kobj_attribute *attr,
+	const char *buf, size_t n);
+ssize_t sys_pwr_dm_mask_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf);
+#endif
+#endif
+

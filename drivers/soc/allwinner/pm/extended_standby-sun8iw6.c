@@ -9,7 +9,6 @@
 #include <linux/module.h>
 #include <linux/power/aw_pm.h>
 #include <linux/power/scenelock.h>
-#include <mach/gpio.h>
 #include "pm.h"
 #include "../../../../kernel/power/power.h"
 

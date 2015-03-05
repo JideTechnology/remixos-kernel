@@ -44,7 +44,6 @@
 #include <linux/ctype.h>
 #include <linux/regulator/consumer.h>
 #include <linux/power/axp_depend.h>
-#include <linux/power/scenelock.h>
 #include "../../../../kernel/power/power.h"
 
 static struct kobject *aw_pm_kobj;
@@ -112,7 +111,7 @@ extern void clear_reg_context(void);
 extern void cpufreq_user_event_notify(void);
 #endif
 
-#if (defined(CONFIG_ARCH_SUN8IW8P1) || defined(CONFIG_ARCH_SUN8IW6P1)) && defined(CONFIG_AW_AXP)
+#if (defined(CONFIG_ARCH_SUN8IW8P1) || defined(CONFIG_ARCH_SUN8IW6P1) || defined(CONFIG_ARCH_SUN50IW1P1)) && defined(CONFIG_AW_AXP)
 static int config_sys_pwr(void);
 #endif
 
@@ -159,6 +158,19 @@ static __mem_tmr_reg_t saved_tmr_state;
 #ifdef	CONFIG_AW_AXP
 extern void axp_powerkey_set(int value);
 #endif
+
+static struct aw_pm_info standby_info = {
+    .standby_para = {
+	.event = CPU0_WAKEUP_MSGBOX,
+	.axp_event = CPUS_MEM_WAKEUP,
+	.timeout = 0,
+    },
+    .pmu_arg = {
+	.twi_port = 0,
+	.dev_addr = 10,
+    },
+};
+
 
 #define pm_printk(mask, format, args... )   do	{   \
     if(unlikely(debug_mask&mask)){		    \
@@ -441,7 +453,7 @@ static void exit_wakeup_src(unsigned int event)
 	return ;
 }
 
-#if (defined(CONFIG_ARCH_SUN8IW8P1) || defined(CONFIG_ARCH_SUN8IW6P1)) && defined(CONFIG_AW_AXP)
+#if (defined(CONFIG_ARCH_SUN8IW8P1) || defined(CONFIG_ARCH_SUN8IW6P1) || defined(CONFIG_ARCH_SUN50IW1P1)) && defined(CONFIG_AW_AXP)
 static unsigned int pwr_dm_mask_saved = 0;
 static int save_sys_pwr_state(const char *id)
 {
@@ -486,7 +498,7 @@ static int check_sys_pwr_dm_status(char *pwr_dm)
 
     ret = get_ldo_name(pwr_dm, ldo_name);
     if(ret < 0){
-	printk(KERN_ERR "%s call %s failed. ret = %d \n", pwr_dm, __func__, ret);
+	printk(KERN_ERR "	    %s: get %s failed. ret = %d \n", __func__, pwr_dm, ret);
 	return -1;
     }
     ret = get_enable_id_count(ldo_name);
@@ -611,9 +623,9 @@ static int aw_pm_valid(suspend_state_t state)
 		}
 	}
 
-#if defined(CONFIG_ARCH_SUN9IW1P1) || defined(CONFIG_ARCH_SUN8IW5P1) || defined(CONFIG_ARCH_SUN8IW6P1)
+#if defined(CONFIG_ARCH_SUN9IW1P1) || defined(CONFIG_ARCH_SUN8IW5P1) || defined(CONFIG_ARCH_SUN8IW6P1) || defined(CONFIG_ARCH_SUN50IW1P1)
 	if(NORMAL_STANDBY == standby_type){
-		printk("Notice: sun9i&sun8iw5 not need support normal standby, \
+		printk("Notice: sun9i&sun8iw5&sun50i not need support normal standby, \
 				change to super standby.\n");
 
 		standby_type = SUPER_STANDBY;
@@ -845,7 +857,7 @@ static int aw_early_suspend(void)
 #if 1
    asm("wfi");
 #else
-   busy_waiting();
+   //busy_waiting();
    cpu_suspend(3);
 #endif
     exit_wakeup_src(super_standby_para_info.event);
@@ -985,7 +997,7 @@ static int aw_pm_enter(suspend_state_t state)
     /* show device: cpux_io, cpus_io, ccu status */
     aw_pm_show_dev_status();
 
-#if (defined(CONFIG_ARCH_SUN8IW8P1) || defined(CONFIG_ARCH_SUN8IW6P1)) && defined(CONFIG_AW_AXP)
+#if (defined(CONFIG_ARCH_SUN8IW8P1) || defined(CONFIG_ARCH_SUN8IW6P1) || defined(CONFIG_ARCH_SUN50IW1P1)) && defined(CONFIG_AW_AXP)
     if(unlikely(debug_mask&PM_STANDBY_PRINT_PWR_STATUS)){
 	printk(KERN_INFO "power status as follow:");
 	axp_regulator_dump();	
@@ -1014,7 +1026,7 @@ static int aw_pm_enter(suspend_state_t state)
     aw_pm_show_dev_status();
 
 
-#if (defined(CONFIG_ARCH_SUN8IW8P1) || defined(CONFIG_ARCH_SUN8IW6P1)) && defined(CONFIG_AW_AXP)
+#if (defined(CONFIG_ARCH_SUN8IW8P1) || defined(CONFIG_ARCH_SUN8IW6P1) || defined(CONFIG_ARCH_SUN50IW1P1)) && defined(CONFIG_AW_AXP)
     resume_sys_pwr_state();
 #endif
 
@@ -1156,50 +1168,57 @@ static struct attribute_group attr_group = {
 	.attrs = g,
 };
 
-#if (defined(CONFIG_ARCH_SUN8IW8P1) || defined(CONFIG_ARCH_SUN8IW6P1)) && defined(CONFIG_AW_AXP)
+#if (defined(CONFIG_ARCH_SUN8IW8P1) || defined(CONFIG_ARCH_SUN8IW6P1) || defined(CONFIG_ARCH_SUN50IW1P1)) && defined(CONFIG_AW_AXP)
 static int config_pmux_para(unsigned num)
 {
-    script_item_u item;
 #define PM_NAME_LEN (25)
     char name[PM_NAME_LEN] = "\0";
-    int pmux_enable = 0;
+    int enable = 0;
     int pmux_id = 0;
+    int pmux_twi_id = 0;
+    int pmux_twi_addr = 0;
+    struct device_node *np;
     
-    sprintf(name, "pmu%d_para", num);
+    sprintf(name, "pmu%d", num);
     printk("pmu name: %s .\n", name);
 
-    //get customer customized dynamic_standby config
-    if(SCIRPT_ITEM_VALUE_TYPE_INT != script_get_item(name, "pmu_used", &item)){
-	pr_err("%s: script_parser_fetch err. \n", __func__);
-	pmux_enable = 0;
-    }else{
-	pmux_enable = item.val;
-    }
-    printk(KERN_INFO "pmu%d_enable = 0x%x. \n", num, pmux_enable);
-    
-    if(1 == pmux_enable){
-	if(SCIRPT_ITEM_VALUE_TYPE_INT != script_get_item(name, "pmu_id", &item)){
-	    pr_err("%s: script_parser_fetch err. \n", __func__);
-	    pmux_id = 0;
-	}else{
-	    pmux_id = item.val;
+    //get pmu config
+    np = of_find_node_by_type(NULL, name);
+    if(NULL == np){
+	printk(KERN_ERR "Warning: can not find np for %s. \n", name);
+    } else{
+	if (!of_device_is_available(np)) {
+	    enable = 0;
+	} else{
+	    enable = 1;
 	}
-	printk(KERN_INFO "pmux_id = 0x%x. \n", pmux_id);
-	extended_standby_set_pmu_id(num, pmux_id);
+	printk(KERN_INFO "%s_enable = 0x%x. \n", name, enable);
 
-	if(SCIRPT_ITEM_VALUE_TYPE_INT != script_get_item(name, "pmu_twi_id", &item)){
-	    pr_err("%s: script_parser_fetch err. \n", __func__);
-	    standby_info.pmu_arg.twi_port = 0;
-	}else{
-	    standby_info.pmu_arg.twi_port = item.val;
+	if(1 == enable){
+	    if(of_property_read_u32(np, "pmu_id", &pmux_id)){
+		pr_err("Warning: %s fetch pmu_id err. \n", __func__);
+		pmux_id = 0;
+	    }
+	    printk(KERN_INFO "pmux_id = 0x%x. \n", pmux_id);
+	    extended_standby_set_pmu_id(num, pmux_id);
+
+	    if(of_property_read_u32(np, "pmu_twi_id", &pmux_twi_id)){
+		pr_err("Warning: %s fetch pmu_twi_id err. \n", __func__);
+		standby_info.pmu_arg.twi_port = 0;
+	    }else{
+		standby_info.pmu_arg.twi_port = pmux_twi_id;
+	    }
+	    printk(KERN_INFO "pmux_twi_id = 0x%x. \n", standby_info.pmu_arg.twi_port);
+
+	    if(of_property_read_u32(np, "pmu_twi_addr", &pmux_twi_addr)){
+		pr_err("Warning: %s: fetch pmu_twi_addr err. \n", __func__);
+		standby_info.pmu_arg.dev_addr = 0x34;
+	    }else{
+		standby_info.pmu_arg.dev_addr = pmux_twi_addr;
+	    }
+	    printk(KERN_INFO "pmux_twi_addr = 0x%x. \n", standby_info.pmu_arg.dev_addr);
 	}
 
-	if(SCIRPT_ITEM_VALUE_TYPE_INT != script_get_item(name, "pmu_twi_addr", &item)){
-	    pr_err("%s: script_parser_fetch err. \n", __func__);
-	    standby_info.pmu_arg.dev_addr = 0x34;
-	}else{
-	    standby_info.pmu_arg.dev_addr = item.val;
-	}
     }
     
     return 0;
@@ -1207,100 +1226,105 @@ static int config_pmux_para(unsigned num)
 
 static int config_pmu_para(void)
 {
+    config_pmux_para(0);
     config_pmux_para(1);
-    config_pmux_para(2);
     return 0;
 }
 
-static int init_dynamic_standby_volt(void)
-{
-	script_item_u item;
-	int ret = 0;
-	if(SCIRPT_ITEM_VALUE_TYPE_INT != script_get_item("dynamic_standby_para", "vdd_cpua_vol", &item)){
-		pr_err("%s: vdd_cpua_vol script_parser_fetch err. \n", __func__);
-	}else{
-		ret = scene_set_volt(SCENE_DYNAMIC_STANDBY, VDD_CPUA_BIT, item.val);
-		if (ret < 0)
-			printk(KERN_ERR "%s: set vdd_cpua volt failed\n", __func__);
-	}
-	if(SCIRPT_ITEM_VALUE_TYPE_INT != script_get_item("dynamic_standby_para", "vdd_sys_vol", &item)){
-		pr_err("%s: vdd_sys_vol script_parser_fetch err. \n", __func__);
-	}else{
-		ret = scene_set_volt(SCENE_DYNAMIC_STANDBY, VDD_SYS_BIT, item.val);
-		if (ret < 0)
-			printk(KERN_ERR "%s: set vdd_sys volt failed\n", __func__);
-	}
-	return 0;
-}
+
 
 static int config_dynamic_standby(void)
 {
-    script_item_u item;
     aw_power_scene_e type = SCENE_DYNAMIC_STANDBY;
     scene_extended_standby_t *local_standby;
     int enable = 0;
     int dram_selfresh_flag = 1;
+    unsigned int vdd_cpua_vol = 0;
+    unsigned int vdd_sys_vol = 0;
+    struct device_node *np;
+    char *name = "dynamic_standby_para";
     int i = 0;
+    int ret = 0;
 
     //get customer customized dynamic_standby config
-    if(SCIRPT_ITEM_VALUE_TYPE_INT != script_get_item("dynamic_standby_para", "enable", &item)){
-	pr_err("%s: script_parser_fetch err. \n", __func__);
-	enable = 0;
+    np = of_find_node_by_type(NULL, name);
+    if(NULL == np){
+	printk(KERN_ERR "Warning: can not find np for %s. \n", name);
     }else{
-	enable = item.val;
-    }
-    printk(KERN_INFO "dynamic_standby enalbe = 0x%x. \n", enable);
-    if(1 == enable){
-	for (i = 0; i < extended_standby_cnt; i++) {
-	    if (type == extended_standby[i].scene_type) {
-		//config dram_selfresh flag;
-		local_standby = &(extended_standby[i]);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != script_get_item("dynamic_standby_para", "dram_selfresh_flag", &item)){
-		    pr_err("%s: script_parser_fetch err. \n", __func__);
-		    dram_selfresh_flag = 1;
-		}else{
-		    dram_selfresh_flag = item.val;
-		}
-		printk(KERN_INFO "dynamic_standby dram selfresh flag = 0x%x. \n", dram_selfresh_flag);
-		if(0 == dram_selfresh_flag){
-		    local_standby->soc_pwr_dep.soc_dram_state.selfresh_flag     = dram_selfresh_flag;
-		    local_standby->soc_pwr_dep.soc_pwr_dm_state.state |= BITMAP(VDD_SYS_BIT);
-		    local_standby->soc_pwr_dep.cpux_clk_state.osc_en         |= 0xf;	// mean all osc is on.
-		    //mean pll5 is shutdowned & open by dram driver. 
-		    //hsic can't closed.  
-		    //periph is needed.
-		    local_standby->soc_pwr_dep.cpux_clk_state.init_pll_dis   |= (BITMAP(PM_PLL_HSIC) | BITMAP(PM_PLL_PERIPH) | BITMAP(PM_PLL_DRAM));
+	if (!of_device_is_available(np)) {
+	    enable = 0;
+	} else{
+	    enable = 1;
+	}
+	printk(KERN_INFO "Warning: %s_enable = 0x%x. \n", name, enable);
+
+	if(1 == enable){
+	    for (i = 0; i < extended_standby_cnt; i++) {
+		if (type == extended_standby[i].scene_type) {
+		    //config dram_selfresh flag;
+		    local_standby = &(extended_standby[i]);
+		    if(of_property_read_u32(np, "dram_selfresh_flag", &dram_selfresh_flag)){
+			printk(KERN_ERR "%s: fetch dram_selfresh_flag err. \n", __func__);
+			dram_selfresh_flag = 1;
+		    }
+		    printk(KERN_INFO "dynamic_standby dram selfresh flag = 0x%x. \n", dram_selfresh_flag);
+		    if(0 == dram_selfresh_flag){
+			local_standby->soc_pwr_dep.soc_dram_state.selfresh_flag     = dram_selfresh_flag;
+			local_standby->soc_pwr_dep.soc_pwr_dm_state.state |= BITMAP(VDD_SYS_BIT);
+			local_standby->soc_pwr_dep.cpux_clk_state.osc_en         |= 0xf;	// mean all osc is on.
+			//mean pll5 is shutdowned & open by dram driver. 
+			//hsic can't closed.  
+			//periph is needed.
+			local_standby->soc_pwr_dep.cpux_clk_state.init_pll_dis   |= (BITMAP(PM_PLL_HSIC) | BITMAP(PM_PLL_PERIPH) | BITMAP(PM_PLL_DRAM));
+		    }
+
+		    //config other flag?
 		}
 
-		//config other flag?
+		//config other extended_standby?
 	    }
 
-	    //config other extended_standby?
+
+	    if(of_property_read_u32(np, "vdd_cpua_vol", &vdd_cpua_vol)){
+	    }else{
+		printk(KERN_INFO "vdd_cpua_vol = 0x%x. \n", vdd_cpua_vol);
+		ret = scene_set_volt(SCENE_DYNAMIC_STANDBY, VDD_CPUA_BIT, vdd_cpua_vol);
+		if (ret < 0)
+		    printk(KERN_ERR "%s: set vdd_cpua volt failed\n", __func__);
+
+	    }	
+
+	    if(of_property_read_u32(np, "vdd_sys_vol", &vdd_sys_vol)){
+	    }else{
+		printk(KERN_INFO "vdd_sys_vol = 0x%x. \n", vdd_sys_vol);
+		ret = scene_set_volt(SCENE_DYNAMIC_STANDBY, VDD_SYS_BIT, vdd_sys_vol);
+		if (ret < 0)
+		    printk(KERN_ERR "%s: set vdd_sys volt failed\n", __func__);
+	    }
+	    
+	    printk(KERN_INFO "enable dynamic_standby by customer.\n");
+	    scene_lock_store(NULL, NULL, "dynamic_standby", 0);
+
 	}
-
-	init_dynamic_standby_volt();
-
-	printk(KERN_INFO "enable dynamic_standby by customer.\n");
-	scene_lock_store(NULL, NULL, "dynamic_standby", 0);
     }
 
+    
     return 0;
 }
 
-static int config_sys_pwr_dm(char *pwr_dm)
+static int config_sys_pwr_dm(struct device_node *np, char *pwr_dm)
 {
-    script_item_u item;
-    if(SCIRPT_ITEM_VALUE_TYPE_INT != script_get_item("sys_pwr_dm_para", pwr_dm , &item)){
-	//pr_info("%s: script_parser_fetch err. not change. \n", __func__);
+    int dm_enable = 0;
+
+    if(of_property_read_u32(np, pwr_dm, &dm_enable)){
     }else{
-	printk("%s: value: %d. \n", pwr_dm, item.val);
-	if(0 == item.val) {
+	printk("%s: dm_enalbe: %d. \n", pwr_dm, dm_enable);
+	if(0 == dm_enable) {
 	    del_sys_pwr_dm(pwr_dm);	
 	    save_sys_pwr_state(pwr_dm);
 	}else{
 	    add_sys_pwr_dm(pwr_dm);	
 	}
-
     }
 
     return 0;
@@ -1309,22 +1333,29 @@ static int config_sys_pwr_dm(char *pwr_dm)
 static int config_sys_pwr(void)
 {
     unsigned int sys_mask = 0;
+    struct device_node *np;
+    char *name = "sys_pwr_dm_para";
     
-    config_sys_pwr_dm("vdd-cpua");
-    config_sys_pwr_dm("vdd-cpub");
-    config_sys_pwr_dm("vcc-dram");
-    config_sys_pwr_dm("vdd-gpu");
-    config_sys_pwr_dm("vdd-sys");
-    config_sys_pwr_dm("vdd-vpu");
-    config_sys_pwr_dm("vdd-cpus");
-    config_sys_pwr_dm("vdd-drampll");
-    config_sys_pwr_dm("vcc-adc");
-    config_sys_pwr_dm("vcc-pl");
-    config_sys_pwr_dm("vcc-pm");
-    config_sys_pwr_dm("vcc-io");
-    config_sys_pwr_dm("vcc-cpvdd");
-    config_sys_pwr_dm("vcc-ldoin");
-    config_sys_pwr_dm("vcc-pll");
+    np = of_find_node_by_type(NULL, name);
+    if(NULL == np){
+	printk(KERN_INFO "info: can not find np for %s. \n", name);
+    }else{
+	config_sys_pwr_dm(np, "vdd-cpua");
+	config_sys_pwr_dm(np, "vdd-cpub");
+	config_sys_pwr_dm(np, "vcc-dram");
+	config_sys_pwr_dm(np, "vdd-gpu");
+	config_sys_pwr_dm(np, "vdd-sys");
+	config_sys_pwr_dm(np, "vdd-vpu");
+	config_sys_pwr_dm(np, "vdd-cpus");
+	config_sys_pwr_dm(np, "vdd-drampll");
+	config_sys_pwr_dm(np, "vcc-adc");
+	config_sys_pwr_dm(np, "vcc-pl");
+	config_sys_pwr_dm(np, "vcc-pm");
+	config_sys_pwr_dm(np, "vcc-io");
+	config_sys_pwr_dm(np, "vcc-cpvdd");
+	config_sys_pwr_dm(np, "vcc-ldoin");
+	config_sys_pwr_dm(np, "vcc-pll");
+    }
 
     sys_mask = get_sys_pwr_dm_mask();
     printk(KERN_INFO "after customized: sys_mask config = 0x%x. \n", sys_mask);
@@ -1349,32 +1380,11 @@ static int config_sys_pwr(void)
 */
 static int __init aw_pm_init(void)
 {
-#if 0
-	script_item_u item;
-	script_item_u   *list = NULL;
-	int wakeup_src_cnt = 0;
-	unsigned gpio = 0;
-	int i = 0;
-#endif
 	int ret = 0;
 	u32 value[3] = {0, 0, 0};	
 
 	PM_DBG("aw_pm_init!\n");
 #if 0
-	//get standby_mode.
-	if(SCIRPT_ITEM_VALUE_TYPE_INT != script_get_item("pm_para", "standby_mode", &item)){
-		pr_err("%s: script_parser_fetch err. \n", __func__);
-		standby_mode = 0;
-		//standby_mode = 1;
-		pr_err("notice: standby_mode = %d.\n", standby_mode);
-	}else{
-		standby_mode = item.val;
-		pr_info("standby_mode = %d. \n", standby_mode);
-		if(1 != standby_mode){
-			pr_err("%s: not support super standby. \n",  __func__);
-		}
-	}
-
 	//get wakeup_src_cnt
 	wakeup_src_cnt = script_get_pio_list("wakeup_src_para",&list);
 	pr_info("wakeup src cnt is : %d. \n", wakeup_src_cnt);
@@ -1395,7 +1405,7 @@ static int __init aw_pm_init(void)
 	/*for auto test reason.*/
 	//*(volatile __u32 *)(STANDBY_STATUS_REG  + 0x08) = BOOT_UPGRAGE_FLAG;
 
-#if (defined(CONFIG_ARCH_SUN8IW8P1) || defined(CONFIG_ARCH_SUN8IW6P1)) && defined(CONFIG_AW_AXP)
+#if (defined(CONFIG_ARCH_SUN8IW8P1) || defined(CONFIG_ARCH_SUN8IW6P1) || defined(CONFIG_ARCH_SUN50IW1P1)) && defined(CONFIG_AW_AXP)
 	config_pmu_para();
 	/*init sys_pwr_dm*/
 	init_sys_pwr_dm();

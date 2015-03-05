@@ -14,7 +14,7 @@ int pm_get_dev_info(char *name, int index, u32 **base, u32 *len)
 	    //printk(KERN_INFO "np name = %s. \n", np->full_name);
 	    of_property_read_u32_array(np, "reg", reg, ARRAY_SIZE(reg));
 	    *base = (u32 *)((phys_addr_t)reg[1 + index*4]);
-	    //printk(KERN_INFO "physical base = 0x%p . \n", *base);
+	    printk(KERN_INFO "%s physical base = 0x%p . \n", name, *base);
 	    *len = reg[3 + index*4];
 	    *base = of_iomap(np, index);
 	    //printk(KERN_INFO "virtual base = 0x%p. \n", *base);

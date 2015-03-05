@@ -82,7 +82,7 @@
 #define WAKEUP_GPIO_AXP(num)        (1 << (num + 24))
 #define WAKEUP_GPIO_GROUP(group)    (1 << (group - 'A'))
 
-#if defined(CONFIG_ARCH_SUN8IW6P1) || defined(CONFIG_ARCH_SUN8IW8P1)
+#if defined(CONFIG_ARCH_SUN8IW6P1) || defined(CONFIG_ARCH_SUN8IW8P1) || defined(CONFIG_ARCH_SUN50IW1P1)
 #define IO_NUM (2)
 #elif defined(CONFIG_ARCH_SUN9IW1P1)
 #define PLL_NUM (12)
@@ -101,7 +101,7 @@ typedef struct pll_para{
 	int divi; /* input_div */
 	int divo; /* output_div */
 }pll_para_t;
-#elif defined(CONFIG_ARCH_SUN8IW6P1) || defined(CONFIG_ARCH_SUN8IW8P1)
+#elif defined(CONFIG_ARCH_SUN8IW6P1) || defined(CONFIG_ARCH_SUN8IW8P1) || defined(CONFIG_ARCH_SUN50IW1P1)
 typedef struct pll_para{
 	unsigned int factor1;
 	unsigned int factor2;
@@ -125,7 +125,6 @@ typedef struct bus_para{
 	unsigned int m;
 }bus_para_t;
 
-#if defined(CONFIG_ARCH_SUN8IW6P1) || defined(CONFIG_ARCH_SUN8IW8P1)
 //for bitmap macro definition
 #define PM_PLL_C0      (0)
 #define PM_PLL_C1      (1)
@@ -211,12 +210,12 @@ typedef struct pwr_dm_state{
     unsigned short volt[VCC_MAX_INDEX]; //unsigned short is 16bit width.  
 }pwr_dm_state_t;
 
-typedef struct dram_para{
+typedef struct pm_dram_para{
     unsigned int selfresh_flag; //selfresh_flag must be compatible with vdd_sys pwr state.
     unsigned int crc_en;
     unsigned int crc_start;
     unsigned int crc_len;
-}dram_para_t;
+}pm_dram_para_t;
 
 typedef struct cpus_clk_para{
     unsigned int cpus_id;
@@ -348,7 +347,7 @@ typedef struct soc_pwr_dep{
     unsigned long id;
     
     pwr_dm_state_t soc_pwr_dm_state;
-    dram_para_t soc_dram_state; 
+    pm_dram_para_t soc_dram_state; 
     soc_io_para_t soc_io_state;
     cpux_clk_para_t cpux_clk_state;
 
@@ -370,69 +369,11 @@ typedef struct extended_standby{
                                 // for compatible reason, different soc, each bit have different meaning.
 
     pwr_dm_state_t soc_pwr_dm_state;
-    dram_para_t soc_dram_state; 
+    pm_dram_para_t soc_dram_state; 
     soc_io_para_t soc_io_state;
     cpux_clk_para_t cpux_clk_state;
 }extended_standby_t;
 
-#else
-
-typedef struct extended_standby{
-	/*
-	 * id of extended standby
-	 */
-	unsigned long id;
-	/*
-	 * clk tree para description as follow:
-	 * vdd_dll : exdev : avcc : vcc_wifi : vcc_dram: vdd_sys : vdd_cpux : vdd_gpu : vcc_io : vdd_cpus
-	 */
-	int pwr_dm_en;	//bitx = 1, mean power on when sys is in standby state. otherwise, vice verse.
-
-	/*
-	 * Hosc: losc: ldo: ldo1
-	 */
-	int osc_en;
-
-	/*
-	 * pll_10: pll_9: pll_mipi: pll_8: pll_7: pll_6: pll_5: pll_4: pll_3: pll_2: pll_1
-	 */
-	int init_pll_dis;
-
-	/*
-	 * pll_10: pll_9: pll_mipi: pll_8: pll_7: pll_6: pll_5: pll_4: pll_3: pll_2: pll_1
-	 */
-	int exit_pll_en;
-
-	/*
-	 * set corresponding bit if it's pll factors need to be set some value.
-	 * pll_10: pll_9: pll_mipi: pll_8: pll_7: pll_6: pll_5: pll_4: pll_3: pll_2: pll_1
-	 */
-	int pll_change;
-
-	/*
-	 * fill in the enabled pll freq factor sequently. unit is khz pll6: 0x90041811
-	 * factor n/m/k/p already do the pretreatment of the minus one
-	 */
-	pll_para_t pll_factor[PLL_NUM];
-
-	/*
-	 * bus_en: cpu:axi:atb/apb:ahb1:apb1:apb2,
-	 * normally, only clk src need be cared.
-	 * so, at a31, only cpu:ahb1:apb2 need be cared.
-	 * pll1->cpu -> axi
-	 *	     -> atb/apb
-	 * ahb1 -> apb1
-	 * apb2
-	 */
-	int bus_change;
-
-	/*
-	 * bus_src: ahb1, apb2 src;
-	 * option:  pllx:axi:hosc:losc
-	 */
-	bus_para_t bus_factor[BUS_NUM];
-}extended_standby_t;
-#endif
 
 #define CPUS_ENABLE_POWER_EXP   (1<<31)
 #define CPUS_WAKEUP_POWER_STA   (1<<1 )

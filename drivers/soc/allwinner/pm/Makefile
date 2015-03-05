@@ -26,7 +26,7 @@ pm_tmp-y :=	mem_mapping.o               \
 		aw_pm.o			    \
 		aw_pwr_dm.o                 
 
-ifneq ($(strip $(CONFIG_ARCH_SUN8IW6) $(CONFIG_ARCH_SUN8IW8)),)
+ifneq ($(strip $(CONFIG_ARCH_SUN8IW6) $(CONFIG_ARCH_SUN8IW8) $(CONFIG_ARCH_SUN50IW1P1)),)
 pm_tmp-y +=	extended_standby-sun8iw6.o
 else
 pm_tmp-y +=	extended_standby.o
