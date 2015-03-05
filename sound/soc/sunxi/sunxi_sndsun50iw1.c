@@ -28,6 +28,8 @@
 #include "sunxi_sun50iw1codec.h"
 #include <linux/delay.h>
 
+#include "sunxi_rw_func.h"
+
 
 struct mc_private {
 	struct delayed_work hs_insert_work;
@@ -535,6 +537,24 @@ static int sun50iw1_suspend(struct snd_soc_card *card)
 	struct mc_private *ctx = snd_soc_card_get_drvdata(card);
 	disable_irq(ctx->jackirq);
 	pr_debug("[codec-machine]  suspend.\n");
+
+	#if 0
+	pr_debug("0x0008:%x\n",audiodebug_reg_read(0x01c20000+0x0008));
+	pr_debug("0x0068:%x\n",audiodebug_reg_read(0x01c20000+0x0068));
+	pr_debug("0x00b0:%x\n",audiodebug_reg_read(0x01c20000+0x00B0));
+	pr_debug("0x00b4:%x\n",audiodebug_reg_read(0x01c20000+0x00b4));
+	pr_debug("0x00b8:%x\n",audiodebug_reg_read(0x01c20000+0x00b8));
+	pr_debug("0x00c0:%x\n",audiodebug_reg_read(0x01c20000+0x00c0));
+	pr_debug("0x0224:%x\n",audiodebug_reg_read(0x01c20000+0x0224));
+	pr_debug("0x0284:%x\n",audiodebug_reg_read(0x01c20000+0x0284));
+	pr_debug("0x02d0:%x\n",audiodebug_reg_read(0x01c20000+0x02d0));
+
+
+	pr_debug("0x24:%x\n",audiodebug_reg_read(0x01c20800+0x24));
+	pr_debug("0xdc:%x\n",audiodebug_reg_read(0x01c20800+0xdc));
+	pr_debug("0xfc:%x\n",audiodebug_reg_read(0x01c20800+0xfc));
+	#endif
+
 	return 0;
 }
 

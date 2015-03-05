@@ -768,6 +768,28 @@ static int __init sunxi_spdif_dev_probe(struct platform_device *pdev)
 	sunxi_spdif->capture_dma_param.dst_maxburst = 8;
 
 	sunxi_spdif->pinctrl = NULL;
+	if (!sunxi_spdif->pinctrl) {
+		sunxi_spdif->pinctrl = devm_pinctrl_get(&pdev->dev);
+		if (IS_ERR_OR_NULL(sunxi_spdif->pinctrl)) {
+			pr_warn("[spdif]request pinctrl handle for audio failed\n");
+			return -EINVAL;
+		}
+	}
+	if (!sunxi_spdif->pinstate){
+		sunxi_spdif->pinstate = pinctrl_lookup_state(sunxi_spdif->pinctrl, PINCTRL_STATE_DEFAULT);
+		if (IS_ERR_OR_NULL(sunxi_spdif->pinstate)) {
+			pr_warn("[spdif]lookup pin default state failed\n");
+			return -EINVAL;
+		}
+	}
+
+	if (!sunxi_spdif->pinstate_sleep){
+		sunxi_spdif->pinstate_sleep = pinctrl_lookup_state(sunxi_spdif->pinctrl, PINCTRL_STATE_SLEEP);
+		if (IS_ERR_OR_NULL(sunxi_spdif->pinstate_sleep)) {
+			pr_warn("[spdif]lookup pin sleep state failed\n");
+			return -EINVAL;
+		}
+	}
 
 	ret = snd_soc_register_component(&pdev->dev, &sunxi_spdif_component,
 				   &sunxi_spdif->dai, 1);

@@ -112,3 +112,17 @@ u32 codec_wr_control(void __iomem *  reg, u32 mask, u32 shift, u32 val)
 }
 EXPORT_SYMBOL_GPL(codec_wr_control);
 
+
+u32 audiodebug_reg_read(u32 reg)
+{
+	u32 reg_val = -1;
+	void __iomem  *temp_address = ioremap(reg, 5);
+	if (NULL ==temp_address) {
+		pr_err("could not remap register memory\n");
+		return -ENOMEM;
+	} else
+		reg_val = readl(temp_address);
+	iounmap(temp_address);
+	return reg_val;
+}
+EXPORT_SYMBOL_GPL(audiodebug_reg_read);

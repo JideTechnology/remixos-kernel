@@ -266,6 +266,28 @@ static int __init sunxi_daudio_platform_probe(struct platform_device *pdev)
 	sunxi_daudio->capture_dma_param.dst_maxburst = 8;
 	sunxi_daudio->pinctrl = NULL ;
 
+	if (!sunxi_daudio->pinctrl) {
+		sunxi_daudio->pinctrl = devm_pinctrl_get(&pdev->dev);
+		if (IS_ERR_OR_NULL(sunxi_daudio->pinctrl)) {
+			pr_warn("[daudio]request pinctrl handle for audio failed\n");
+			return -EINVAL;
+		}
+	}
+	if (!sunxi_daudio->pinstate){
+		sunxi_daudio->pinstate = pinctrl_lookup_state(sunxi_daudio->pinctrl, PINCTRL_STATE_DEFAULT);
+		if (IS_ERR_OR_NULL(sunxi_daudio->pinstate)) {
+			pr_warn("[daudio]lookup pin default state failed\n");
+			return -EINVAL;
+		}
+	}
+	if (!sunxi_daudio->pinstate_sleep){
+		sunxi_daudio->pinstate_sleep = pinctrl_lookup_state(sunxi_daudio->pinctrl, PINCTRL_STATE_SLEEP);
+		if (IS_ERR_OR_NULL(sunxi_daudio->pinstate_sleep)) {
+			pr_warn("[daudio]lookup pin default state failed\n");
+			return -EINVAL;
+		}
+	}
+
 	ret = of_property_read_u32(node, "daudio_master",&temp_val);
 	if (ret < 0) {
 		pr_err("[audio-daudio]daudio_master configurations missing or invalid.\n");
