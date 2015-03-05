@@ -332,6 +332,10 @@ static int sunxi_ir_startup(struct platform_device *pdev)
 		pr_err("%s:Failed to get clk.\n", __func__);
 		ret = -EBUSY;
 	}
+	if (of_property_read_u32(np, "ir_addr_code", &ir_data->ir_addr)) {
+		pr_err("%s: get cir addr failed", __func__);
+		ret =  -EBUSY;
+	}
 	if (of_property_read_string(np, "supply", &name)) {
 		pr_err("%s: cir have no power supply\n", __func__);
 		ir_data->suply = NULL;
@@ -383,7 +387,7 @@ static int sunxi_ir_recv_probe(struct platform_device *pdev)
 	sunxi_rcdev->allowed_protos = (u64)RC_BIT_NEC;
 	sunxi_rcdev->map_name = RC_MAP_SUNXI;
 
-	init_rc_map_sunxi();
+	init_rc_map_sunxi(ir_data->ir_addr);
 	rc = rc_register_device(sunxi_rcdev);
 	if (rc < 0) {
 		dev_err(&pdev->dev, "failed to register rc device\n");
@@ -400,7 +404,7 @@ static int sunxi_ir_recv_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, sunxi_rcdev);
 	ir_data->rcdev = sunxi_rcdev;
 	if(ir_data->suply)
-		regulator_enable(ir_data->suply);
+		rc = regulator_enable(ir_data->suply);
 	ir_setup();
 	
 	if (request_irq(ir_data->irq_num, sunxi_ir_recv_irq, IRQF_DISABLED, "RemoteIR_RX",

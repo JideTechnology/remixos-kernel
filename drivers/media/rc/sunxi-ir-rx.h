@@ -96,9 +96,10 @@ struct sunxi_ir_data{
 	struct rc_dev *rcdev;
 	struct regulator *suply;
 	int irq_num;
+	u32 ir_addr;
 };
 
-int init_rc_map_sunxi(void);
+int init_rc_map_sunxi(u32 addr);
 void exit_rc_map_sunxi(void);
 
 #endif /* SUNXI_IR_RX_H */
