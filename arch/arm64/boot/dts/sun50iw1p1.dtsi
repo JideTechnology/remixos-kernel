@@ -925,7 +925,7 @@
 
 		soc_disp: disp@01000000 {
 			compatible = "allwinner,sun50i-disp";
-			reg = <0x0 0x01000000 0x0 0x00200000>,/*de*/
+			reg = <0x0 0x01000000 0x0 0x00300000>,/*de*/
 				<0x0 0x01c0c000 0x0 0x17fc>;/*lcd*/
 			interrupts = <GIC_SPI 86 0x0104>, <GIC_SPI 87 0x0104>;
 			clocks = <&clk_de>,<&clk_tcon0>,
