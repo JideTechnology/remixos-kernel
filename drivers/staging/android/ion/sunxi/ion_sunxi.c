@@ -61,21 +61,8 @@ long sunxi_ion_ioctl(struct ion_client *client, unsigned int cmd, unsigned long 
 			return -EFAULT;
 		break;
 	}
-	case ION_IOC_SUNXI_FLUSH_RANGE:
-	{
-		sunxi_cache_range data;
-
-		if(copy_from_user(&data, (void __user *)arg, sizeof(sunxi_cache_range)))
-			return -EFAULT;
-		
-		__dma_flush_range( (void*)data.start , (void*)data.end );
-		
-		if(copy_to_user((void __user *)arg, &data, sizeof(data)))
-			return -EFAULT;
-
-		break;
-	}
 	default:
+               pr_err("%s(%d) err: cmd not support!\n", __func__, __LINE__);
 		return -ENOTTY;
 	}
 	
