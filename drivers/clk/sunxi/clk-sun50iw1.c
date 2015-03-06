@@ -655,7 +655,8 @@ SUNXI_CLK_PERIPH(usbotg,   0,          0,        0,         0,          0,      
 SUNXI_CLK_PERIPH(gmac,     0,          0,        0,         0,          0,          0,          0,          0,          0,          0,          BUS_RST0,  BUS_GATE0,    0,            0,           17,          17,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(sdram,	  DRAM_CFG,   20,        2,         DRAM_CFG,   0,          2,          0,          0,          0,          DRAM_CFG,   BUS_RST0,  BUS_GATE0,    0,           31,           14,          14,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(dma,      0,    	   0,        0,         0,   		0,          0,          0,          0,          0,          0,          BUS_RST0,  BUS_GATE0,    0,            0,            6,           6,              0,               &clk_lock,NULL,             0);
-SUNXI_CLK_PERIPH(spinlock, 0,          0,        0,         0,          0,          0,           0,         0,          0,          0,          BUS_RST1,  BUS_GATE1,    0,            0,           22,          22,              0,               &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(hwspinlock_rst, 0,    0,        0,         0,          0,          0,           0,         0,          0,          0,          BUS_RST1,   	   0,    0,            0,           22,           0,              0,               &clk_lock,NULL,             0);
+SUNXI_CLK_PERIPH(hwspinlock_bus, 0,    0,        0,         0,          0,          0,           0,         0,          0,          0,                 0,  BUS_GATE1,    0,            0,            0,          22,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(msgbox,   0,          0,        0,         0,          0,          0,           0,         0,          0,          0,          BUS_RST1,  BUS_GATE1,    0,            0,           21,          21,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(lvds,    0,           0,        0,         0,          0,          0,          0,          0,          0,          0,          BUS_RST2,  0,            0,            0,            0,           0,              0,               &clk_lock,NULL,             0);
 SUNXI_CLK_PERIPH(uart0,   0,           0,        0,         0,          0,          0,          0,          0,          0,          0,          BUS_RST4,   BUS_GATE3,   0,            0,           16,          16,              0,               &clk_lock,NULL,             0);
@@ -734,7 +735,8 @@ struct periph_init_data sunxi_periphs_init[] = {
     {"gmac",     0,       				ahb2mod_parents,  ARRAY_SIZE(ahb2mod_parents),  &sunxi_clk_periph_gmac},	
     {"sdram",    0,       				sdram_parents,    ARRAY_SIZE(sdram_parents),  	&sunxi_clk_periph_sdram},
     {"dma",      0,       				ahb1mod_parents,  ARRAY_SIZE(ahb1mod_parents),  &sunxi_clk_periph_dma},
-    {"spinlock", 0,       				ahb2mod_parents,  ARRAY_SIZE(ahb2mod_parents),  &sunxi_clk_periph_spinlock},
+    {"hwspinlock_rst", 0,       		ahb2mod_parents,  ARRAY_SIZE(ahb2mod_parents),  &sunxi_clk_periph_hwspinlock_rst},
+    {"hwspinlock_bus", 0,       		ahb2mod_parents,  ARRAY_SIZE(ahb2mod_parents),  &sunxi_clk_periph_hwspinlock_bus},
     {"msgbox",   0,       				ahb2mod_parents,  ARRAY_SIZE(ahb2mod_parents),  &sunxi_clk_periph_msgbox},
     {"lvds",     0,        			    lvds_parents,     ARRAY_SIZE(lvds_parents),     &sunxi_clk_periph_lvds},
     {"uart0",    0,       				apb2mod_parents,  ARRAY_SIZE(apb2mod_parents),  &sunxi_clk_periph_uart0},

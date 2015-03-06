@@ -369,8 +369,8 @@
 
 		hwspinlock: hwspinlock@1c18000 {
 			compatible = "allwinner,hwspinlock";
-			clocks = <&clk_spinlock>;
-			clock-names = "clk_spinlock";
+			clocks = <&clk_hwspinlock_rst>, <&clk_hwspinlock_bus>;
+			clock-names = "clk_hwspinlock_rst" , "clk_hwspinlock_bus";
 			reg = <0x0 0x01c18000 0x0 0x1000>;
 			status = "okay";
 		};

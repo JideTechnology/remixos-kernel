@@ -452,10 +452,15 @@ clocks {
 			compatible = "allwinner,sunxi-periph-clock";
 			clock-output-names = "dma";
 		};	
-		clk_spinlock: spinlock {
+		clk_hwspinlock_rst: hwspinlock_rst {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
-			clock-output-names = "spinlock";
+			clock-output-names = "hwspinlock_rst";
+		};
+		clk_hwspinlock_bus: hwspinlock_bus {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-clock";
+			clock-output-names = "hwspinlock_bus";
 		};	
 		clk_msgbox: msgbox {
 			#clock-cells = <0>;

@@ -1578,9 +1578,14 @@ static int sunxi_arisc_parse_cfg(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	arisc_cfg.hwspinlock.clk[0] = of_clk_get_by_name(arisc_cfg.hwspinlock.np, "clk_spinlock");
+	arisc_cfg.hwspinlock.clk[0] = of_clk_get_by_name(arisc_cfg.hwspinlock.np, "clk_hwspinlock_bus");
 	if(!arisc_cfg.hwspinlock.clk[0] || IS_ERR(arisc_cfg.hwspinlock.clk[0])){
-		ARISC_ERR("try to get clk_spinlock failed!\n");
+		ARISC_ERR("try to get clk_hwspinlock_bus failed!\n");
+		return -EINVAL;
+	}
+	arisc_cfg.hwspinlock.clk[1] = of_clk_get_by_name(arisc_cfg.hwspinlock.np, "clk_hwspinlock_rst");
+	if(!arisc_cfg.hwspinlock.clk[1] || IS_ERR(arisc_cfg.hwspinlock.clk[1])){
+		ARISC_ERR("try to get clk_hwspinlock_rst failed!\n");
 		return -EINVAL;
 	}
 
