@@ -10,7 +10,6 @@
 /memreserve/ 0x40020000 0x00004000; /* arisc dram code space range: [0x40020000~0x40024000], size = 16K */
 /memreserve/ 0x40024000 0x00001000; /* arisc para cfg range       : [0x40024000~0x40025000], size = 4K  */
 /memreserve/ 0x40025000 0x00000800; /* super standby range        : [0x40025000~0x40025800], size = 2K  */
-/memreserve/ 0x78800000 0x07800000; /* ion carvout heap revserve  : [0x78800000~0x80000000], size = 120M  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/gpio/gpio.h>
@@ -200,12 +199,6 @@
 		system_contig{
 			type = <1>;
 			name = "system_contig";
-		};
-		carvout{
-			type = <2>;
-			name = "carvout";
-			base = <0x78800000>;
-			size = <0x07800000>;
 		};
 		cma{
 			type = <4>;
