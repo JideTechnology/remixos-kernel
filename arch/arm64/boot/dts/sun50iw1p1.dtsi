@@ -1031,8 +1031,9 @@
 			interrupts = <GIC_SPI 84 4>;/*SUNXI_IRQ_CSI0 (SUNXI_GIC_START + 84 ) = 116*/
 			clocks 				= <&clk_csi_s>, <&clk_csi_m>,<&clk_csi_misc>,
 									<&clk_pll_periph0>,<&clk_hosc>,<&clk_pll_periph1>;
-			pinctrl-names 		= "default";
-			pinctrl-0 			= <&csi0_pins>;			
+			pinctrl-names 		= "default","sleep";
+			pinctrl-0 			= <&csi0_pins_a>;
+			pinctrl-1 			= <&csi0_pins_b>;
 			csi0_sensor_list	= <0>;
 			csi0_mck 			= <&pio PE 1 1 0 1 0>; /*PE1 .mul_sel = 1, .pull = 0, .drv_level = 1, .data = 0*/
 			status = "okay";

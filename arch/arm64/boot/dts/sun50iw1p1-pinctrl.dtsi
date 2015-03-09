@@ -344,11 +344,20 @@
 				allwinner,pull = <0>;
 			};
 
-			csi0_pins: csi0@0 {
+			csi0_pins_a: csi0@0 {
 				allwinner,pins = "PE0","PE2","PE3","PE4","PE5","PE6","PE7","PE8","PE9","PE10","PE11","PE12","PE13";
 				allwinner,pname = "csi0_pck","csi0_hsync","csi0_vsync","csi0_d0","csi0_d1","csi0_d2",
 								"csi0_d3","csi0_d4","csi0_d5","csi0_d6","csi0_d7","csi0_sck","csi0_sda";
 				allwinner,function = "csi0";
+				allwinner,drive = <1>;
+				allwinner,pull = <0>;
+				allwinner,data = <0>;
+			};
+			csi0_pins_b: csi0_sleep@0 {
+				allwinner,pins = "PE0","PE2","PE3","PE4","PE5","PE6","PE7","PE8","PE9","PE10","PE11","PE12","PE13";
+				allwinner,pname = "csi0_pck","csi0_hsync","csi0_vsync","csi0_d0","csi0_d1","csi0_d2",
+								"csi0_d3","csi0_d4","csi0_d5","csi0_d6","csi0_d7","csi0_sck","csi0_sda";
+				allwinner,function = "io_disabled";
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 				allwinner,data = <0>;

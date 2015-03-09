@@ -3862,7 +3862,7 @@ static int vfe_request_pin(struct vfe_dev *dev, int enable)
 	}
 	else
 	{
-		dev->pctrl = devm_pinctrl_get_select(&dev->pdev->dev, "suspend");
+		dev->pctrl = devm_pinctrl_get_select(&dev->pdev->dev, "sleep");
 		if (IS_ERR_OR_NULL(dev->pctrl)) {
 			vfe_err("vip%d disable pinctrl device [%s] failed!\n", dev->id, dev_name(&dev->pdev->dev));
 			return -EINVAL;
@@ -4061,12 +4061,6 @@ static int vfe_set_sensor_power_off(struct vfe_dev *dev)
 }
 
 static void resume_work_handle(struct work_struct *work);
-static void __exit vfe_exit(void);
-
-#ifdef CONFIG_ES
-static void vfe_early_suspend(struct early_suspend *h);
-static void vfe_late_resume(struct early_suspend *h);
-#endif
 
 static const char *vfe_regulator_name[] = 
 {
@@ -4695,6 +4689,16 @@ static int vfe_init_controls(struct v4l2_ctrl_handler *hdl)
 	return ret;
 }
 
+#ifdef CONFIG_PM_RUNTIME	
+static void vfe_runtime_init(struct device *dev)
+{
+	pm_runtime_set_active(dev);
+	pm_runtime_get_noresume(dev);
+	pm_runtime_set_autosuspend_delay(dev, 5000);
+	pm_runtime_use_autosuspend(dev);
+	pm_runtime_enable(dev);
+}
+#endif
 static void probe_work_handle(struct work_struct *work)
 {
 	struct vfe_dev *dev= container_of(work, struct vfe_dev, probe_work.work);
@@ -4764,8 +4768,6 @@ static void probe_work_handle(struct work_struct *work)
 		}
 #endif
 
-		//dev->dev_sensor[input_num].addr = (unsigned short)(dev->ccm_cfg[input_num]->i2c_addr>>1);
-		//strcpy(dev->dev_sensor[input_num].type,dev->ccm_cfg[input_num]->ccm);
 		vfe_print("vfe sensor detect start! input_num = %d\n",input_num);
 		dev->input = input_num;
 		if(vfe_sensor_register_check(dev,&dev->v4l2_dev,dev->ccm_cfg[input_num],&dev->dev_sensor[input_num],input_num) == NULL)
@@ -4795,21 +4797,17 @@ static void probe_work_handle(struct work_struct *work)
 snesor_register_end:
 		vfe_dbg(0,"dev->ccm_cfg[%d] = %p\n",input_num,dev->ccm_cfg[input_num]);
 		vfe_dbg(0,"dev->ccm_cfg[%d]->sd = %p\n",input_num,dev->ccm_cfg[input_num]->sd);
-		//    vfe_dbg(0,"dev->ccm_cfg[%d]->ccm_info = %p\n",input_num,&dev->ccm_cfg[input_num]->ccm_info);
-		//    vfe_dbg(0,"dev->ccm_cfg[%d]->ccm_info.mclk = %ld\n",input_num,dev->ccm_cfg[input_num]->ccm_info.mclk);
 		vfe_dbg(0,"dev->ccm_cfg[%d]->power.iovdd = %p\n",input_num,dev->ccm_cfg[input_num]->power.iovdd);
 		vfe_dbg(0,"dev->ccm_cfg[%d]->power.avdd = %p\n",input_num,dev->ccm_cfg[input_num]->power.avdd);
 		vfe_dbg(0,"dev->ccm_cfg[%d]->power.dvdd = %p\n",input_num,dev->ccm_cfg[input_num]->power.dvdd);
 		vfe_dbg(0,"dev->ccm_cfg[%d]->power.afvdd = %p\n",input_num,dev->ccm_cfg[input_num]->power.afvdd);
-		//    dev->ccm_cfg[input_num]->ccm_info.mclk = MCLK_OUT_RATE;
-		//    dev->ccm_cfg[input_num]->ccm_info.stby_mode = dev->ccm_cfg[input_num]->ccm_info.stby_mode;
 	}	
 	dev->input = -1;
 	/*video device register */
-	ret = -ENOMEM;
 	vfd = video_device_alloc();
 	if (!vfd) 
 	{
+		ret = -ENOMEM;
 		goto probe_hdl_unreg_dev;
 	}
 	*vfd = vfe_template[dev->id];
@@ -4838,13 +4836,8 @@ snesor_register_end:
 	//vfe_print("videobuf_queue_dma_contig_init @ probe handle!\n");
 	ret = sysfs_create_group(&dev->pdev->dev.kobj, &vfe_attribute_group);
 	//vfe_print("sysfs_create_group @ probe handle!\n");
-
-#ifdef CONFIG_ES
-	dev->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 1;
-	dev->early_suspend.suspend = vfe_early_suspend;
-	dev->early_suspend.resume = vfe_late_resume;
-	register_early_suspend(&dev->early_suspend);
-	vfe_print("register_early_suspend @ probe handle!\n");
+#ifdef CONFIG_PM_RUNTIME	
+	vfe_runtime_init(&dev->pdev->dev);
 #endif
 
 #ifdef USE_SPECIFIC_CCI
@@ -5010,24 +5003,18 @@ static int vfe_release(void)
 {
 	struct vfe_dev *dev;
 	struct list_head *list;
-	//  unsigned int input_num;
-	//  int ret;
 	vfe_dbg(0,"vfe_release\n");
 	while (!list_empty(&devlist)) 
 	{
 		list = devlist.next;
 		list_del(list);
 		dev = list_entry(list, struct vfe_dev, devlist);
-#ifdef CONFIG_ES
-		unregister_early_suspend(&dev->early_suspend);
-#endif
 		kfree(dev);
 	}
 	vfe_print("vfe_release ok!\n");
 	return 0;
 }
 
-//static int __devexit vfe_remove(struct platform_device *pdev)
 static int vfe_remove(struct platform_device *pdev)
 {
 	struct vfe_dev *dev;
@@ -5122,7 +5109,6 @@ static void resume_work_handle(struct work_struct *work)
 	vfe_request_pin(dev, 1);
 	vfe_gpio_config(dev, 1);
 	if(!IS_ERR_OR_NULL(dev->power) && dev->power->stby_mode == NORM_STBY) {
-
 #ifdef USE_SPECIFIC_CCI
 		vfe_clk_open(dev);
 #endif
@@ -5160,13 +5146,62 @@ resume_end:
 	mutex_unlock(&dev->standby_lock);
 }
 
-#ifdef CONFIG_ES
-static int vfe_suspend(struct platform_device *pdev, pm_message_t state)
+#ifdef CONFIG_PM_RUNTIME
+static int vfe_runtime_suspend(struct device *d)
 {
-	struct vfe_dev *dev=(struct vfe_dev *)dev_get_drvdata(&pdev->dev);
+	struct vfe_dev *dev = (struct vfe_dev *)dev_get_drvdata(d);
+	vfe_print("vfe_runtime_suspend\n");
+	mutex_lock(&dev->standby_lock);
+	if(down_timeout(&dev->standby_seq_sema, 2*HZ))
+	{
+		vfe_err("Enter vfe_runtime_suspend, Get standby sema Error!\n");
+	}
+	if(vfe_is_opened(dev)) {
+		vfe_print("Enter vfe_runtime_suspend, but vfe is opened, power off vfe in suspend later!");
+		dev->runtime_suspend_flag = 0;
+		goto suspend_end;
+	}
+	vfe_print("vfe power off in vfe_runtime_suspend\n");
+	vfe_suspend_helper(dev);
+	dev->runtime_suspend_flag = 1;
+suspend_end:  
+	mutex_unlock(&dev->standby_lock);
+	return 0;
+}
+
+static int vfe_runtime_resume(struct device *d)
+{
+	struct vfe_dev *dev = (struct vfe_dev *)dev_get_drvdata(d);
+	vfe_print("vfe_runtime_resume\n");
+	if(1 == dev->runtime_suspend_flag)
+	{
+		vfe_print("vfe power on in vfe_runtime_resume\n");
+		schedule_work(&dev->resume_work);
+	}
+	dev->runtime_suspend_flag = 0;
+	return 0;
+}
+
+static int vfe_runtime_idle(struct device *d)
+{
+	if(d) {
+		pm_runtime_mark_last_busy(d);
+		pm_request_autosuspend(d);
+	} else {
+		vfe_err("%s, vfe device is null\n", __func__);
+	}
+	/* return 0: for framework to request enter suspend.
+	 *  return non-zero: do susupend for myself;
+	 */
+	return 0;
+}
+#endif
+static int vfe_suspend(struct device *d)
+{
+	struct vfe_dev *dev = (struct vfe_dev *)dev_get_drvdata(d);
 	mutex_lock(&dev->standby_lock);
 	vfe_print("vfe suspend\n");
-	if(0 == dev->early_suspend_valid_flag)
+	if(0 == dev->runtime_suspend_flag)
 	{
 		if(down_timeout(&dev->standby_seq_sema, 4*HZ))
 		{
@@ -5183,11 +5218,11 @@ suspend_end:
 	mutex_unlock(&dev->standby_lock);
 	return 0;
 }
-static int vfe_resume(struct platform_device *pdev)
+static int vfe_resume(struct device *d)
 {
-	struct vfe_dev *dev=(struct vfe_dev *)dev_get_drvdata(&(pdev)->dev);
+	struct vfe_dev *dev = (struct vfe_dev *)dev_get_drvdata(d);
 	vfe_print("vfe resume\n");
-	if(0 == dev->early_suspend_valid_flag)
+	if(0 == dev->runtime_suspend_flag)
 	{
 		vfe_print("vfe power on in resume\n");
 		schedule_work(&dev->resume_work);
@@ -5195,68 +5230,9 @@ static int vfe_resume(struct platform_device *pdev)
 	return 0;
 }
 
-static void vfe_early_suspend(struct early_suspend *h)
-{
-	struct vfe_dev *dev = container_of(h, struct vfe_dev, early_suspend);
-	vfe_print("vfe early suspend\n");
-	mutex_lock(&dev->standby_lock);
-	if(down_timeout(&dev->standby_seq_sema, 2*HZ))
-	{
-		vfe_err("Enter early suspend, Get standby sema Error!\n");
-	}
-	if(vfe_is_opened(dev)) {
-		vfe_print("Enter early suspend, but vfe is opened, power off vfe in suspend later!");
-		dev->early_suspend_valid_flag = 0;
-		goto suspend_end;
-	}
-	vfe_print("vfe power off in early suspend\n");
-	vfe_suspend_helper(dev);
-	dev->early_suspend_valid_flag = 1;
-suspend_end:  
-	mutex_unlock(&dev->standby_lock);
-}
-static void vfe_late_resume(struct early_suspend *h)
-{
-	struct vfe_dev *dev = container_of(h, struct vfe_dev, early_suspend);
-	vfe_print("vfe late resume\n");
-	if(1 == dev->early_suspend_valid_flag)
-	{
-		vfe_print("vfe power on in late resume\n");
-		schedule_work(&dev->resume_work);
-	}
-}
-#else
-static int vfe_suspend(struct platform_device *pdev, pm_message_t state)
-{
-	struct vfe_dev *dev=(struct vfe_dev *)dev_get_drvdata(&pdev->dev);
-	vfe_print("vfe suspend\n");
-	mutex_lock(&dev->standby_lock);
-
-	if(down_timeout(&dev->standby_seq_sema, 4*HZ))
-	{
-		vfe_err("Get standby sema Error!\n");
-	}
-	if(vfe_is_opened(dev)) {
-		vfe_err("FIXME: dev %s, err happened when calling %s.", dev_name(&dev->pdev->dev), __func__);
-		goto suspend_end;
-	}
-	vfe_print("vfe power off in suspend\n");
-	vfe_suspend_helper(dev);
-suspend_end:  
-	mutex_unlock(&dev->standby_lock);
-	return 0;
-}
-static int vfe_resume(struct platform_device *pdev)
-{
-	struct vfe_dev *dev=(struct vfe_dev *)dev_get_drvdata(&(pdev)->dev);
-	vfe_print("vfe resume\n");
-	schedule_work(&dev->resume_work);
-	return 0;
-}
-#endif
 static void vfe_shutdown(struct platform_device *pdev)
 {
-#if defined (CONFIG_ES) || defined(CONFIG_SUSPEND)
+#if defined (CONFIG_PM_RUNTIME) || defined(CONFIG_SUSPEND)
 	vfe_print("Defined suspend!\n");
 #else
 	struct vfe_dev *dev=(struct vfe_dev *)dev_get_drvdata(&pdev->dev);
@@ -5275,6 +5251,16 @@ static void vfe_shutdown(struct platform_device *pdev)
 	vfe_print("Vfe Shutdown!\n");
 }
 
+static const struct dev_pm_ops vfe_runtime_pm_ops =
+{
+#ifdef CONFIG_PM_RUNTIME
+	.runtime_suspend	= vfe_runtime_suspend,
+	.runtime_resume 	= vfe_runtime_resume,
+	.runtime_idle		= vfe_runtime_idle,
+#endif
+	.suspend    	= vfe_suspend,
+	.resume     	= vfe_resume,
+};
 
 static const struct of_device_id sunxi_vfe_match[] = {
 	{ .compatible = "allwinner,sunxi-vfe", },
@@ -5284,14 +5270,13 @@ static const struct of_device_id sunxi_vfe_match[] = {
 static struct platform_driver vfe_driver = {
 	.probe    = vfe_probe,
 	.remove   = vfe_remove,
-	.suspend  = vfe_suspend,
-	.resume   = vfe_resume,
 	.shutdown = vfe_shutdown,
 	//.id_table = vfe_driver_ids,
 	.driver = {
 		.name   = VFE_MODULE_NAME,
 		.owner  = THIS_MODULE,
         .of_match_table = sunxi_vfe_match,		
+        .pm     = &vfe_runtime_pm_ops,
 	}
 };
 static int __init vfe_init(void)

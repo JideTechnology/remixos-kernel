@@ -5,25 +5,18 @@
 #ifndef __VFE__H__
 #define __VFE__H__
 
-
 #include <linux/types.h>
 #include <linux/interrupt.h>
 #include <media/sunxi_camera.h>
 #include <linux/i2c.h>
 #include <linux/workqueue.h>
-//#include <linux/gpio.h>
+#include <linux/pm_runtime.h>
 
 #include <media/videobuf-core.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-mediabus.h>
 #include <media/v4l2-ctrls.h>
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-#define CONFIG_ES
-#endif
-#ifdef CONFIG_ES
-#include <linux/earlysuspend.h>
-#endif
 #include "platform_cfg.h"
 #include "flash_light/flash.h"
 
@@ -233,10 +226,7 @@ struct vfe_dev {
 	struct mutex			standby_lock;
 	//up when suspend,down when resume. ensure open is being called after resume has been done
 	struct semaphore        standby_seq_sema; 
-#if defined(CONFIG_ES)
-	struct early_suspend 	early_suspend;
-#endif
-	int 					early_suspend_valid_flag;
+	int 					runtime_suspend_flag;
 	int 					vfe_standby_poweroff_flag;
 	/* work queue */
 	struct work_struct 		resume_work;
