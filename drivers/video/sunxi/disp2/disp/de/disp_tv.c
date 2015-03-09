@@ -283,6 +283,11 @@ s32 disp_tv_disable(struct disp_device* ptv)
 		DE_WRN("tv_func.tv_disable is NULL\n");
 		return -1;
 	}
+
+	spin_lock_irqsave(&g_tv_data_lock, flags);
+	ptvp->enabled = 0;
+	spin_unlock_irqrestore(&g_tv_data_lock, flags);
+
 	disp_tv_set_hpd(ptv, 0);
 	ptvp->tv_func.tv_disable(ptv->disp);
 	disp_al_tv_disable(ptv->disp);
@@ -290,9 +295,6 @@ s32 disp_tv_disable(struct disp_device* ptv)
 		mgr->disable(mgr);
 	tv_clk_disable(ptv);
 	ptvp->video_info = NULL;
-	spin_lock_irqsave(&g_tv_data_lock, flags);
-	ptvp->enabled = 0;
-	spin_unlock_irqrestore(&g_tv_data_lock, flags);
 
 	disp_sys_disable_irq(ptvp->irq_no);
 	disp_sys_unregister_irq(ptvp->irq_no, disp_tv_event_proc,(void*)ptv);

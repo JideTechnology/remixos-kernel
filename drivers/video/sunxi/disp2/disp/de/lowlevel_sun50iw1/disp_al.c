@@ -158,10 +158,10 @@ int disp_al_smbl_get_status(unsigned int disp)
 }
 
 static struct lcd_clk_info clk_tbl[] = {
-	{LCD_IF_HV,     6, 1, 1},
-	{LCD_IF_CPU,   12, 1, 1},
-	{LCD_IF_LVDS,   7, 1, 1},
-	{LCD_IF_DSI,    4, 1, 4},
+	{LCD_IF_HV,     6, 1, 1, 0},
+	{LCD_IF_CPU,   12, 1, 1, 0},
+	{LCD_IF_LVDS,   7, 1, 1, 0},
+	{LCD_IF_DSI,    4, 1, 4, 148500000},
 };
 /* lcd */
 /* lcd_dclk_freq * div -> lcd_clk_freq * div2 -> pll_freq */
@@ -171,6 +171,7 @@ int disp_al_lcd_get_clk_info(u32 screen_id, struct lcd_clk_info *info, disp_pane
 	int tcon_div = 6;//tcon inner div
 	int lcd_div = 1;//lcd clk div
 	int dsi_div = 4;//dsi clk div
+	int dsi_rate = 0;
 	int i;
 	int find = 0;
 
@@ -184,9 +185,32 @@ int disp_al_lcd_get_clk_info(u32 screen_id, struct lcd_clk_info *info, disp_pane
 			tcon_div = clk_tbl[i].tcon_div;
 			lcd_div = clk_tbl[i].lcd_div;
 			dsi_div = clk_tbl[i].dsi_div;
+			dsi_rate = clk_tbl[i].dsi_rate;
 			find = 1;
 			break;
 		}
+	}
+
+	if(panel->lcd_if == LCD_IF_DSI) {
+		u32 lane = panel->lcd_dsi_lane;
+		u32 bitwidth = 0;
+
+		switch(panel->lcd_dsi_format) {
+			case LCD_DSI_FORMAT_RGB888:
+			bitwidth = 24;
+			break;
+			case LCD_DSI_FORMAT_RGB666:
+			bitwidth = 24;
+			break;
+			case LCD_DSI_FORMAT_RGB565:
+			bitwidth = 16;
+			break;
+			case LCD_DSI_FORMAT_RGB666P:
+			bitwidth = 18;
+			break;
+		}
+
+		dsi_div = bitwidth/lane;
 	}
 
 	if (0 == find)
@@ -195,6 +219,7 @@ int disp_al_lcd_get_clk_info(u32 screen_id, struct lcd_clk_info *info, disp_pane
 	info->tcon_div = tcon_div;
 	info->lcd_div = lcd_div;
 	info->dsi_div = dsi_div;
+	info->dsi_rate = dsi_rate;
 
 	return 0;
 }
@@ -266,7 +291,16 @@ int disp_al_lcd_disable(u32 screen_id, disp_panel_para * panel)
 int disp_al_lcd_query_irq(u32 screen_id, __lcd_irq_id_t irq_id, disp_panel_para * panel)
 {
 	int ret = 0;
-	ret = tcon_irq_query(screen_id, irq_id);
+
+#if defined(SUPPORT_DSI) && defined(DSI_VERSION_40)
+	if (LCD_IF_DSI == panel->lcd_if) {
+		__dsi_irq_id_t dsi_irq = (LCD_IRQ_TCON0_VBLK == irq_id)?DSI_IRQ_VIDEO_VBLK:DSI_IRQ_VIDEO_LINE;
+
+		return dsi_irq_query(screen_id, dsi_irq);
+	}
+	else
+#endif
+		return tcon_irq_query(screen_id, irq_id);
 
 	return ret;
 }
@@ -274,6 +308,15 @@ int disp_al_lcd_query_irq(u32 screen_id, __lcd_irq_id_t irq_id, disp_panel_para 
 int disp_al_lcd_enable_irq(u32 screen_id, __lcd_irq_id_t irq_id, disp_panel_para * panel)
 {
 	int ret = 0;
+
+#if defined(SUPPORT_DSI) && defined(DSI_VERSION_40)
+	if (LCD_IF_DSI == panel->lcd_if) {
+		__dsi_irq_id_t dsi_irq = (LCD_IRQ_TCON0_VBLK == irq_id)?DSI_IRQ_VIDEO_VBLK:DSI_IRQ_VIDEO_LINE;
+
+		ret = dsi_irq_enable(screen_id, dsi_irq);
+	}
+	else
+#endif
 	ret = tcon_irq_enable(screen_id, irq_id);
 
 	return ret;
@@ -282,6 +325,15 @@ int disp_al_lcd_enable_irq(u32 screen_id, __lcd_irq_id_t irq_id, disp_panel_para
 int disp_al_lcd_disable_irq(u32 screen_id, __lcd_irq_id_t irq_id, disp_panel_para * panel)
 {
 	int ret = 0;
+
+#if defined(SUPPORT_DSI) && defined(DSI_VERSION_40)
+	if (LCD_IF_DSI == panel->lcd_if) {
+		__dsi_irq_id_t dsi_irq = (LCD_IRQ_TCON0_VBLK == irq_id)?DSI_IRQ_VIDEO_VBLK:DSI_IRQ_VIDEO_LINE;
+
+		ret = dsi_irq_disable(screen_id, dsi_irq);
+	}
+	else
+#endif
 	ret = tcon_irq_disable(screen_id, irq_id);
 
 	return ret;
@@ -327,12 +379,21 @@ int disp_al_lcd_io_cfg(u32 screen_id, u32 enable, disp_panel_para * panel)
 
 int disp_al_lcd_get_cur_line(u32 screen_id, disp_panel_para * panel)
 {
+#if defined(SUPPORT_DSI) && defined(DSI_VERSION_40)
+	if (LCD_IF_DSI == panel->lcd_if)
+		return dsi_get_cur_line(screen_id);
+	else
+#endif
 	return tcon_get_cur_line(screen_id, 0);
 }
 
 int disp_al_lcd_get_start_delay(u32 screen_id, disp_panel_para * panel)
 {
-
+#if defined(SUPPORT_DSI) && defined(DSI_VERSION_40)
+	if (LCD_IF_DSI == panel->lcd_if)
+		return dsi_get_start_delay(screen_id);
+	else
+#endif
 	return tcon_get_start_delay(screen_id, 0);
 }
 
@@ -545,8 +606,9 @@ int disp_init_al(disp_bsp_init_para * para)
 	for (i=0; i<DEVICE_NUM; i++) {
 		tcon_set_reg_base(i, para->reg_base[DISP_MOD_LCD0]);//calc lcd1 base
 		de_smbl_init(i, para->reg_base[DISP_MOD_DE]);
-		dsi_set_reg_base(i, para->reg_base[DISP_MOD_DSI0]);
 	}
+	dsi_set_reg_base(0, para->reg_base[DISP_MOD_DSI0]);
+
 	if (1 == para->boot_info.sync) {
 		u32 disp = para->boot_info.disp;
 		u32 chn,layer_id;

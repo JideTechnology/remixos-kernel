@@ -494,6 +494,7 @@ static s32 disp_vdevice_tcon_disable(struct disp_device* vdevice)
 		DE_WRN("%s%d is already closed\n", vdevice->name, vdevice->disp);
 		return DIS_FAIL;
 	}
+	vdevicep->enabled = 0;
 
 	disp_al_vdevice_disable(vdevice->disp);
 	vdevice_clk_disable(vdevice);
@@ -501,7 +502,6 @@ static s32 disp_vdevice_tcon_disable(struct disp_device* vdevice)
 	if (mgr->disable)
 		mgr->disable(mgr);
 
-	vdevicep->enabled = 0;
 	disp_sys_disable_irq(vdevicep->irq_no);
 	disp_sys_unregister_irq(vdevicep->irq_no, disp_vdevice_event_proc,(void*)vdevice);
 

@@ -6,6 +6,9 @@ static volatile __de_lcd_dev_t *lcd_dev[2];
 extern s32 disp_delay_us(u32 us);
 extern s32 disp_delay_ms(u32 ms);
 
+extern __u32  dsi_pixel_bits[4];
+extern __u32  tcon_div;
+
 s32 hmdi_src_sel(u32 sel)
 {
 	lcd_dev[0]->tcon_mul_ctl.bits.hdmi_src = sel;
@@ -283,7 +286,6 @@ s32 tcon0_open(u32 sel, disp_panel_para * panel)
 {
 	lcd_dev[sel]->tcon_gint0.bits.tcon_irq_flag = 0;
 	if ((panel->lcd_if == LCD_IF_HV) || (panel->lcd_if == LCD_IF_LVDS)
-        || (panel->lcd_if == LCD_IF_DSI && panel->lcd_dsi_if != LCD_DSI_IF_COMMAND_MODE)
         || (panel->lcd_if == LCD_IF_EXT_DSI) )
 	{
 		lcd_dev[sel]->tcon0_dclk.bits.tcon0_dclk_en = 0xf;
@@ -296,6 +298,11 @@ s32 tcon0_open(u32 sel, disp_panel_para * panel)
 		lcd_dev[sel]->tcon0_ctl.bits.tcon0_en = 1;
 		tcon_irq_enable(sel,LCD_IRQ_TCON0_CNTR);
 	//	tcon_irq_enable(sel,LCD_IRQ_TCON0_TRIF);
+	}
+	else if (panel->lcd_if==LCD_IF_DSI)
+	{
+		lcd_dev[sel]->tcon0_dclk.bits.tcon0_dclk_en = 0xf;
+		lcd_dev[sel]->tcon0_ctl.bits.tcon0_en = 1;
 	}
 	return 0;
 }
@@ -403,8 +410,12 @@ static s32 tcon0_cfg_mode_tri(u32 sel, disp_panel_para * panel)
 		lcd_dev[sel]->tcon0_cpu_tri0.bits.block_space = panel->lcd_ht - panel->lcd_x - 1;
 		lcd_dev[sel]->tcon0_cpu_tri2.bits.trans_start_set = panel->lcd_x-1;
 	}
-
-	if (panel->lcd_fresh_mode == 1)
+	else if ((panel->lcd_if==LCD_IF_DSI) && (panel->lcd_dsi_if==LCD_DSI_IF_VIDEO_MODE || panel->lcd_dsi_if==LCD_DSI_IF_BURST_MODE))
+	{
+		lcd_dev[sel]->tcon0_cpu_tri0.bits.block_space = panel->lcd_ht*dsi_pixel_bits[panel->lcd_dsi_format]/(tcon_div*panel->lcd_dsi_lane)	-panel->lcd_x-40;
+		lcd_dev[sel]->tcon0_cpu_tri2.bits.trans_start_set = 10;
+	}
+	if(panel->lcd_fresh_mode == 1)
 	{
 	    u32 lcd_te;
 
@@ -445,8 +456,7 @@ static s32 tcon0_cfg_mode_tri(u32 sel, disp_panel_para * panel)
 
 s32 tcon0_cfg(u32 sel, disp_panel_para * panel)
 {
-    if ((panel->lcd_if == LCD_IF_HV) || (panel->lcd_if == LCD_IF_EXT_DSI)
-    || (panel->lcd_if == LCD_IF_DSI && panel->lcd_dsi_if != LCD_DSI_IF_COMMAND_MODE))
+    if ((panel->lcd_if == LCD_IF_HV) || (panel->lcd_if == LCD_IF_EXT_DSI))
 	{
 		lcd_dev[sel]->tcon0_ctl.bits.tcon0_if = 0;
 		lcd_dev[sel]->tcon0_hv_ctl.bits.hv_mode = panel->lcd_hv_if;
@@ -484,37 +494,13 @@ s32 tcon0_cfg(u32 sel, disp_panel_para * panel)
         tcon0_cfg_mode_tri(sel,panel);
         lcd_dev[sel]->tcon0_cpu_tri4.bits.en 	= 0;
 	}
-	else if (panel->lcd_if == LCD_IF_DSI && panel->lcd_dsi_if == LCD_DSI_IF_COMMAND_MODE)
+	else if (panel->lcd_if == LCD_IF_DSI)
 	{
-		u32 mode = panel->lcd_dsi_format;
 		lcd_dev[sel]->tcon0_ctl.bits.tcon0_if = 1;
-		switch(mode)
-		{
-		case 0:
-			lcd_dev[sel]->tcon0_cpu_ctl.bits.cpu_mode = 1<<1;
-			break;
-		case 1:
-			lcd_dev[sel]->tcon0_cpu_ctl.bits.cpu_mode = 1<<1;
-			break;
-		case 2:
-			lcd_dev[sel]->tcon0_cpu_ctl.bits.cpu_mode = 1<<1;
-			break;
-		case 3:
-			lcd_dev[sel]->tcon0_cpu_ctl.bits.cpu_mode = 4<<1;
-			break;
-		default:
-			lcd_dev[sel]->tcon0_cpu_ctl.bits.cpu_mode = 1<<1;
-			break;
-		}
 		lcd_dev[sel]->tcon0_cpu_ctl.bits.cpu_mode = 0x1;
 		lcd_dev[sel]->tcon_ecfifo_ctl.bits.ecc_fifo_setting = (1<<3);
-		panel->lcd_fresh_mode = panel->lcd_dsi_if;
+		panel->lcd_fresh_mode = (panel->lcd_dsi_if == LCD_DSI_IF_COMMAND_MODE)? 1:0;
 		tcon0_cfg_mode_tri(sel,panel);
-		lcd_dev[sel]->tcon0_cpu_tri4.bits.data	= 0x460;
-		lcd_dev[sel]->tcon0_cpu_tri4.bits.a1	= 0;
-		lcd_dev[sel]->tcon0_cpu_tri5.bits.data	= 0x4e0;
-		lcd_dev[sel]->tcon0_cpu_tri5.bits.a1  	= 0;
-		lcd_dev[sel]->tcon0_cpu_tri4.bits.en 	= 1;
 	}
 
 	tcon0_frm(sel,panel->lcd_frm);

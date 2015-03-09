@@ -919,8 +919,10 @@
 		soc_disp: disp@01000000 {
 			compatible = "allwinner,sun50i-disp";
 			reg = <0x0 0x01000000 0x0 0x00300000>,/*de*/
-				<0x0 0x01c0c000 0x0 0x17fc>;/*lcd*/
-			interrupts = <GIC_SPI 86 0x0104>, <GIC_SPI 87 0x0104>;
+				<0x0 0x01c0c000 0x0 0x17fc>,/*lcd*/
+				<0x0 0x01ca0000 0x0 0x10fc>;/*dsi*/
+			interrupts = <GIC_SPI 86 0x0104>, <GIC_SPI 87 0x0104>,
+				<GIC_SPI 89 0x0104>;/* for dsi */
 			clocks = <&clk_de>,<&clk_tcon0>,
 				<&clk_lvds>,<&clk_mipidsi>,<&clk_tcon1>;
 			disp_init_enable = <1>;
@@ -941,7 +943,6 @@
 
 		soc_lcd0: lcd0@01c0c000 {
 			compatible = "allwinner,sunxi-lcd0";
-			interrupts = <GIC_SPI 86 0x0104>;
 			lcd_driver_name = "default_lcd";
 			lcd_used = <1>;
 			lcd_if = <3>;

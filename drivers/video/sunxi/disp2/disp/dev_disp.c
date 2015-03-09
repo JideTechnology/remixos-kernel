@@ -1037,12 +1037,23 @@ static int disp_probe(struct platform_device *pdev)
 		goto err_iomap2;
 	}
 
+	g_disp_drv.reg_base[DISP_MOD_DSI0] = (uintptr_t __force)of_iomap(pdev->dev.of_node, 2);
+	if (!g_disp_drv.reg_base[DISP_MOD_DSI0]) {
+		dev_err(&pdev->dev, "unable to map dsi registers\n");
+		ret = -EINVAL;
+		goto err_iomap2;
+	}
+
 	/* parse and map irq */
 	for (i=0; i<DEVICE_NUM; i++) {
 		g_disp_drv.irq_no[DISP_MOD_LCD0 + i] = irq_of_parse_and_map(pdev->dev.of_node, i);
 		if (!g_disp_drv.irq_no[DISP_MOD_LCD0 + i]) {
 			dev_err(&pdev->dev, "irq_of_parse_and_map irq %d fail for lcd%d\n", i, i);
 		}
+	}
+	g_disp_drv.irq_no[DISP_MOD_DSI0] = irq_of_parse_and_map(pdev->dev.of_node, i);
+	if (!g_disp_drv.irq_no[DISP_MOD_DSI0]) {
+		dev_err(&pdev->dev, "irq_of_parse_and_map irq %d fail for dsi\n", i);
 	}
 
 	/* get clk */

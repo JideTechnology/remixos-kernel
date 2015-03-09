@@ -347,6 +347,10 @@ static s32 disp_hdmi_disable(struct disp_device* hdmi)
 	if (hdmip->hdmi_func.disable == NULL)
 	    return -1;
 
+	spin_lock_irqsave(&hdmi_data_lock, flags);
+	hdmip->enabled = 0;
+	spin_unlock_irqrestore(&hdmi_data_lock, flags);
+
 	mutex_lock(&hdmi_mlock);
 	hdmip->hdmi_func.disable();
 
@@ -356,9 +360,6 @@ static s32 disp_hdmi_disable(struct disp_device* hdmi)
 	if (mgr->disable)
 		mgr->disable(mgr);
 
-	spin_lock_irqsave(&hdmi_data_lock, flags);
-	hdmip->enabled = 0;
-	spin_unlock_irqrestore(&hdmi_data_lock, flags);
 	disp_sys_disable_irq(hdmip->irq_no);
 	disp_sys_unregister_irq(hdmip->irq_no, disp_hdmi_event_proc,(void*)hdmi);
 	mutex_unlock(&hdmi_mlock);

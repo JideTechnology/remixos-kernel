@@ -629,7 +629,6 @@ static s32 disp_mgr_set_output_color_range(struct disp_manager *mgr, u32 color_r
 		return -1;
 	}
 
-	printk("%s, disp%d, color_range=%d\n", __func__, mgr->disp, color_range);
 	spin_lock_irqsave(&mgr_data_lock, flags);
 	mgrp->cfg->config.color_range = color_range;
 	mgrp->cfg->flag |= MANAGER_COLOR_RANGE_DIRTY;
@@ -649,8 +648,6 @@ static s32 disp_mgr_get_output_color_range(struct disp_manager *mgr)
 		DE_WRN("NULL hdl!\n");
 		return 0;
 	}
-
-	printk("%s, disp%d, color_range=%d\n", __func__, mgr->disp, mgrp->cfg->config.color_range);
 
 	return mgrp->cfg->config.color_range;
 }

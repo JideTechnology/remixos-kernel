@@ -920,7 +920,6 @@ s32 bsp_disp_tv_register(struct disp_tv_func * func)
 	}
 
 	if (0 != registered_cnt && !ret) {
-		printk("tv registered!!\n");
 		gdisp.tv_registered = 1;
 		if (gdisp.init_para.start_process) {
 			gdisp.init_para.start_process();

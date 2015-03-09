@@ -18,6 +18,7 @@ struct lcd_clk_info {
 	int tcon_div;
 	int lcd_div;
 	int dsi_div;
+	int dsi_rate;
 };
 
 int disp_al_manager_init(unsigned int disp);
