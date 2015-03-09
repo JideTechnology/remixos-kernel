@@ -6,12 +6,16 @@ extern __lcd_panel_t default_panel;
 extern __lcd_panel_t lt070me05000_panel;
 extern __lcd_panel_t wtq05027d01_panel;
 extern __lcd_panel_t t27p06_panel;
+extern __lcd_panel_t dx0960be40a1_panel;
+extern __lcd_panel_t tft720x1280_panel;
 
 __lcd_panel_t* panel_array[] = {
 	&default_panel,
 	&lt070me05000_panel,
 	&wtq05027d01_panel,
 	&t27p06_panel,
+	&dx0960be40a1_panel,
+	&tft720x1280_panel,
 	/* add new panel below */
 
 	NULL,
