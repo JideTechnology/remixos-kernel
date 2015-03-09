@@ -355,7 +355,7 @@ static int main_test (int sel, int mode)
 
 int main(int argc,char *argv[])
 {
-	int i;
+	int i,test_cnt = 1;
 	int sel = 0;
 	int width = 640;
 	int height = 480;
@@ -397,7 +397,18 @@ int main(int argc,char *argv[])
 		height = atoi(argv[4]);
         sprintf(path_name,"%s",argv[5]);
         mode = atoi(argv[6]);
-	}else{
+	}
+	else if( argc == 8 ) {
+		sel = atoi(argv[1]);
+		sprintf(dev_name,"/dev/video%d",sel);
+		sel = atoi(argv[2]);
+		width = atoi(argv[3]);
+		height = atoi(argv[4]);
+        sprintf(path_name,"%s",argv[5]);
+        mode = atoi(argv[6]);
+		test_cnt = atoi(argv[7]);
+	}
+	else{
 		printf("please select the video device: 0-video0 1-video1 ......\n"); 	//select the video device
 		scanf("%d", &sel);
 		sprintf(dev_name,"/dev/video%d",sel);
@@ -411,8 +422,11 @@ int main(int argc,char *argv[])
         printf("please input the frame saving path......\n");		//input the frame saving path
 		scanf("%15s", path_name);
 
-        printf("please input the test mode: 1~4......\n");		//input the frame saving path
+        printf("please input the test mode: 1~4......\n");		//input the test mode
 		scanf("%d", &mode);
+
+		printf("please input the test_cnt: >=1......\n");		//input the test count
+		scanf("%d", &test_cnt);
 	}
 	
 	input_size.width = width;
@@ -425,17 +439,12 @@ int main(int argc,char *argv[])
 	buf_size[1] = ALIGN_16B(subch_size.width)*subch_size.height*3/2;
 	buf_size[2] = ALIGN_16B(subch_size.height)*subch_size.width*3/2;
 
-//	for (i = 0; i < mode; i ++)
-//	{
-//		if (0 == main_test(sel, i))
-//			printf("*************************mode %d test done \n", i) ;
-//		else
-//			printf("*************************mode %d test failed \n", i) ;			
-//	}
-	if (0 == main_test(sel, mode - 1))
-		printf("*************************mode %d test done \n", mode) ;
-	else
-		printf("*************************mode %d test failed \n", mode) ;
-
+	for(i = 0; i < test_cnt; i++)
+	{
+		if (0 == main_test(sel, mode - 1))
+			printf("*************************mode %d test done at the %d time!!\n", mode, i);
+		else
+			printf("*************************mode %d test failed at the %d time!!\n", mode, i);
+	}
 	return 0;
 }

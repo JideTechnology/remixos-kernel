@@ -1,10 +1,17 @@
-obj-$(CONFIG_CSI_VFE) += vfe_os.o
-obj-$(CONFIG_CSI_VFE) += vfe_subdev.o
+#obj-$(CONFIG_CSI_VFE) += vfe_os.o
+#obj-$(CONFIG_CSI_VFE) += vfe_subdev.o
 obj-$(CONFIG_CSI_VFE) += device/
 obj-$(CONFIG_CSI_VFE) += actuator/
-obj-$(CONFIG_CSI_VFE) += csi_cci/
+#obj-$(CONFIG_CSI_VFE) += csi_cci/
 #obj-$(CONFIG_CSI_VFE) += flash_light/
 #obj-$(CONFIG_CSI_VFE) += camera_detector/
+obj-$(CONFIG_CSI_VFE) += vfe_io.o
+vfe_io-y					:= csi_cci/csi_cci_reg.o 
+vfe_io-y					+= csi_cci/bsp_cci.o 
+vfe_io-y					+= csi_cci/cci_helper.o 
+vfe_io-y					+= csi_cci/cci_platform_drv.o
+vfe_io-y					+= vfe_subdev.o
+vfe_io-y					+= vfe_os.o
 
 obj-$(CONFIG_CSI_VFE) += vfe_v4l2.o
 vfe_v4l2-y					:= csi/sunxi_csi.o
