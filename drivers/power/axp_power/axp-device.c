@@ -35,7 +35,7 @@ static s32 axp_device_probe(struct platform_device *pdev)
 		axp_config->pmu_twi_id = 0;
 
 	if (of_property_read_u32(node, "pmu_twi_addr", &axp_config->pmu_twi_addr))
-		axp_config->pmu_twi_addr = 34;
+		axp_config->pmu_twi_addr = 0x34;
 
 	if (of_property_read_u32(node, "pmu_irq_id", &axp_config->pmu_irq_id))
 		axp_config->pmu_irq_id = 0;

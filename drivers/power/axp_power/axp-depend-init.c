@@ -26,7 +26,7 @@ static u32 debug_mask = 0;
  * x		x	    N		x	    N		x	    N		x
  * bit8-bit15
  * bit7		bit6	    bit5	bit4	    bit3	bit2	    bit1	bit0
- * none		vcc_pll	    vcc_ldoin	vcc_cpvdd   vcc_io	vcc_pm	    vcc_pl	vdd_adc
+ * vcc-lpddr	vcc_pll	    vcc_ldoin	vcc_cpvdd   vcc_io	vcc_pm	    vcc_pl	vdd_adc
  *  +
  *              *           *
  * 		x	    x		x	    x		N	    x		x
@@ -42,13 +42,14 @@ const bitmap_name_mapping_t pwr_dm_bitmap_name_mapping[] = {
     {VDD_VPU_BIT    ,    "vdd-vpu"          },
     {VDD_CPUS_BIT   ,    "vdd-cpus"         },
     {VDD_DRAMPLL_BIT,    "vdd-drampll"      },
-    {VCC_ADC_BIT    ,    "vcc-adc"       },
+    {VCC_ADC_BIT    ,    "vcc-adc"          },
     {VCC_PL_BIT     ,    "vcc-pl"           },
     {VCC_PM_BIT     ,    "vcc-pm"           },
     {VCC_IO_BIT     ,    "vcc-io"           },
-    {VCC_CPVDD_BIT ,     "vcc-cpvdd"     },
-    {VCC_LDOIN_BIT  ,    "vcc-ldoin"  },
-    {VCC_PLL_BIT    ,    "vcc-pll"       },
+    {VCC_CPVDD_BIT ,     "vcc-cpvdd"        },
+    {VCC_LDOIN_BIT  ,    "vcc-ldoin"        },
+    {VCC_PLL_BIT    ,    "vcc-pll"          },
+    {VCC_LPDDR_BIT  ,    "vcc-lpddr"        },
 };
 s32 pwr_dm_bitmap_name_mapping_cnt = sizeof(pwr_dm_bitmap_name_mapping)/sizeof(pwr_dm_bitmap_name_mapping[0]);
 

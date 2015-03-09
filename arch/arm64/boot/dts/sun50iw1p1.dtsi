@@ -1179,7 +1179,7 @@
 			regulator13     = "axp81x_dldo2 none vcc-deviceio vcc-gmac-25";
 			regulator14     = "axp81x_dldo3 none avdd-csi";
 			regulator15     = "axp81x_dldo4 none vcc-wifi";
-			regulator16     = "axp81x_eldo1 none vdd-lpddr-18 vcc-cpvdd";
+			regulator16     = "axp81x_eldo1 none vcc-lpddr vcc-cpvdd";
 			regulator17     = "axp81x_eldo2 none";
 			regulator18     = "axp81x_eldo3 none dvdd-csi-18";
 			regulator19     = "axp81x_fldo1 none vcc-hsic-12";
