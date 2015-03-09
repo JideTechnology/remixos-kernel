@@ -711,16 +711,18 @@ TRACE_EVENT(i915_scheduler_queue,
 
 	    TP_STRUCT__entry(
 			     __field(u32, ring)
+			     __field(u32, uniq)
 			     __field(u32, seqno)
 			     ),
 
 	    TP_fast_assign(
-			   __entry->ring      = ring->id;
-			   __entry->seqno     = node ? node->params.request->seqno : 0;
+			   __entry->ring  = ring->id;
+			   __entry->uniq  = node ? node->params.request->uniq  : 0;
+			   __entry->seqno = node ? node->params.request->seqno : 0;
 			   ),
 
-	    TP_printk("ring=%d, seqno=%d",
-		      __entry->ring, __entry->seqno)
+	    TP_printk("ring=%d, uniq=%d, seqno=%d",
+		      __entry->ring, __entry->uniq, __entry->seqno)
 );
 
 TRACE_EVENT(i915_scheduler_fly,
@@ -730,16 +732,18 @@ TRACE_EVENT(i915_scheduler_fly,
 
 	    TP_STRUCT__entry(
 			     __field(u32, ring)
+			     __field(u32, uniq)
 			     __field(u32, seqno)
 			     ),
 
 	    TP_fast_assign(
-			   __entry->ring      = ring->id;
-			   __entry->seqno     = node ? node->params.request->seqno : 0;
+			   __entry->ring  = ring->id;
+			   __entry->uniq  = node ? node->params.request->uniq  : 0;
+			   __entry->seqno = node ? node->params.request->seqno : 0;
 			   ),
 
-	    TP_printk("ring=%d, seqno=%d",
-		      __entry->ring, __entry->seqno)
+	    TP_printk("ring=%d, uniq=%d, seqno=%d",
+		      __entry->ring, __entry->uniq, __entry->seqno)
 );
 
 TRACE_EVENT(i915_scheduler_unfly,
@@ -749,16 +753,18 @@ TRACE_EVENT(i915_scheduler_unfly,
 
 	    TP_STRUCT__entry(
 			     __field(u32, ring)
+			     __field(u32, uniq)
 			     __field(u32, seqno)
 			     ),
 
 	    TP_fast_assign(
-			   __entry->ring      = ring->id;
-			   __entry->seqno     = node ? node->params.request->seqno : 0;
+			   __entry->ring  = ring->id;
+			   __entry->uniq  = node ? node->params.request->uniq  : 0;
+			   __entry->seqno = node ? node->params.request->seqno : 0;
 			   ),
 
-	    TP_printk("ring=%d, seqno=%d",
-		      __entry->ring, __entry->seqno)
+	    TP_printk("ring=%d, uniq=%d, seqno=%d",
+		      __entry->ring, __entry->uniq, __entry->seqno)
 );
 
 TRACE_EVENT(i915_scheduler_landing,
@@ -768,18 +774,20 @@ TRACE_EVENT(i915_scheduler_landing,
 
 	    TP_STRUCT__entry(
 			     __field(u32, ring)
+			     __field(u32, uniq)
 			     __field(u32, seqno)
 			     __field(u32, status)
 			     ),
 
 	    TP_fast_assign(
 			   __entry->ring   = ring->id;
+			   __entry->uniq   = node ? node->params.request->uniq  : 0;
 			   __entry->seqno  = seqno;
 			   __entry->status = node ? node->status : ~0U;
 			   ),
 
-	    TP_printk("ring=%d, seqno=%d, status=%d",
-		      __entry->ring, __entry->seqno, __entry->status)
+	    TP_printk("ring=%d, uniq=%d, seqno=%d, status=%d",
+		      __entry->ring, __entry->uniq, __entry->seqno, __entry->status)
 );
 
 TRACE_EVENT(i915_scheduler_remove,
@@ -810,16 +818,18 @@ TRACE_EVENT(i915_scheduler_destroy,
 
 	    TP_STRUCT__entry(
 			     __field(u32, ring)
+			     __field(u32, uniq)
 			     __field(u32, seqno)
 			     ),
 
 	    TP_fast_assign(
-			   __entry->ring      = ring->id;
-			   __entry->seqno     = node ? node->params.request->seqno : 0;
+			   __entry->ring  = ring->id;
+			   __entry->uniq  = node ? node->params.request->uniq  : 0;
+			   __entry->seqno = node ? node->params.request->seqno : 0;
 			   ),
 
-	    TP_printk("ring=%d, seqno=%d",
-		      __entry->ring, __entry->seqno)
+	    TP_printk("ring=%d, uniq=%d, seqno=%d",
+		      __entry->ring, __entry->uniq, __entry->seqno)
 );
 
 TRACE_EVENT(i915_scheduler_pop_from_queue,
@@ -829,16 +839,18 @@ TRACE_EVENT(i915_scheduler_pop_from_queue,
 
 	    TP_STRUCT__entry(
 			     __field(u32, ring)
+			     __field(u32, uniq)
 			     __field(u32, seqno)
 			     ),
 
 	    TP_fast_assign(
-			   __entry->ring   = ring->id;
-			   __entry->seqno  = node ? node->params.request->seqno : 0;
+			   __entry->ring  = ring->id;
+			   __entry->uniq  = node ? node->params.request->uniq  : 0;
+			   __entry->seqno = node ? node->params.request->seqno : 0;
 			   ),
 
-	    TP_printk("ring=%d, seqno=%d",
-		      __entry->ring, __entry->seqno)
+	    TP_printk("ring=%d, uniq=%d, seqno=%d",
+		      __entry->ring, __entry->uniq, __entry->seqno)
 );
 
 TRACE_EVENT(i915_scheduler_node_state_change,
@@ -848,18 +860,20 @@ TRACE_EVENT(i915_scheduler_node_state_change,
 
 	    TP_STRUCT__entry(
 			     __field(u32, ring)
+			     __field(u32, uniq)
 			     __field(u32, seqno)
 			     __field(u32, status)
 			     ),
 
 	    TP_fast_assign(
 			   __entry->ring   = ring->id;
+			   __entry->uniq   = node ? node->params.request->uniq  : 0;
 			   __entry->seqno  = node->params.request->seqno;
 			   __entry->status = node->status;
 			   ),
 
-	    TP_printk("ring=%d, seqno=%d, status=%d",
-		      __entry->ring, __entry->seqno, __entry->status)
+	    TP_printk("ring=%d, uniq=%d, seqno=%d, status=%d",
+		      __entry->ring, __entry->uniq, __entry->seqno, __entry->status)
 );
 
 TRACE_EVENT(i915_scheduler_irq,
