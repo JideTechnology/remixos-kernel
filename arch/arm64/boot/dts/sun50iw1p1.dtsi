@@ -37,8 +37,8 @@
 		cci0 = &csi_cci0;
 		csi_res0 = &csi_res0;
 		vfe0 = &csi0;
-		mmc0 = &mmc0;
-		mmc2 = &mmc2;
+		mmc0 = &sdc0;
+		mmc2 = &sdc2;
 		nand0 =&nand0;
 	};
 
@@ -777,16 +777,16 @@
 			status = "disabled";
 		};
 
-		mmc2: sdmmc@01C11000 {
+		sdc2: sdmmc@01C11000 {
 			compatible = "allwinner,sun50i-sdmmc2";
-			device_type = "mmc2";
+			device_type = "sdc2";
 			reg = <0x0 0x01C11000 0x0 0x1000>;
 			interrupts = <GIC_SPI 62 0x0104>;  /*  */
 			clocks = <&clk_hosc>,<&clk_pll_periph1x2>,<&clk_sdmmc2_mod>,<&clk_sdmmc2_bus>,<&clk_sdmmc2_rst>;
 	    clock-names = "osc24m","pll_periph","mmc","ahb","rst";
       pinctrl-names = "default","sleep";
-			pinctrl-0 = <&mmc2_pins_a>;
-			pinctrl-1 = <&mmc2_pins_b>;
+			pinctrl-0 = <&sdc2_pins_a>;
+			pinctrl-1 = <&sdc2_pins_b>;
   		bus-width = <8>;
       /*mmc-ddr-1_8v;*/
      /*mmc-hs200-1_8v;*/
@@ -832,16 +832,16 @@
 
        };
 
-		mmc0: sdmmc@01c0f000 {
+		sdc0: sdmmc@01c0f000 {
 			compatible = "allwinner,sun50i-sdmmc0";
-			device_type = "mmc0";
+			device_type = "sdc0";
 			reg = <0x0 0x01c0f000 0x0 0x1000>; /* only sdmmc0 */
 			interrupts = <GIC_SPI 60 0x0104>;  /*  */
 			clocks = <&clk_hosc>,<&clk_pll_periph0x2>,<&clk_sdmmc0_mod>,<&clk_sdmmc0_bus>,<&clk_sdmmc0_rst>;
 			clock-names = "osc24m","pll_periph","mmc","ahb","rst";
 			pinctrl-names = "default","sleep";
-			pinctrl-0 = <&mmc0_pins_a>;
-			pinctrl-1 = <&mmc0_pins_b>;
+			pinctrl-0 = <&sdc0_pins_a>;
+			pinctrl-1 = <&sdc0_pins_b>;
 			max-frequency = <50000000>;
 			bus-width = <4>;
 			broken-cd;
@@ -874,18 +874,18 @@
 		};
 
 
-		mmc1: sdmmc@1C10000 {
+		sdc1: sdmmc@1C10000 {
 			compatible = "allwinner,sun50i-sdmmc1";
-			device_type = "mmc1";
+			device_type = "sdc1";
 			reg = <0x0 0x1C10000 0x0 0x1000>;
 			interrupts = <GIC_SPI 61 0x0104>;  /*  */
 			clocks = <&clk_hosc>,<&clk_pll_periph1x2>,<&clk_sdmmc1_mod>,<&clk_sdmmc1_bus>,<&clk_sdmmc1_rst>;
 			clock-names = "osc24m","pll_periph","mmc","ahb","rst";
 			pinctrl-names = "default","sleep";
-			pinctrl-0 = <&mmc1_pins_a>;
-			pinctrl-1 = <&mmc1_pins_b>;
-			/*max-frequency = <50000000>;*/
-			/*bus-width = <4>;*/
+			pinctrl-0 = <&sdc1_pins_a>;
+			pinctrl-1 = <&sdc1_pins_b>;
+			max-frequency = <50000000>;
+			bus-width = <4>;
 			/*broken-cd;*/
 			/*cd-inverted*/
 			/*cd-gpios = <&pio PF 6 0 1 2 0>;*/
