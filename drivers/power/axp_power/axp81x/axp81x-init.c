@@ -234,22 +234,22 @@ s32 axp81x_usb_ac_current_limit(struct axp_charger *charger, aw_charge_type port
 		}
 	}else if (CHARGE_AC == port_type) {
 		if (current_limit < 2000) {
-			tmp = 0x01;   /* 1500mA */
+			tmp = 0x00;   /* 1500mA */
 			axp_update(axp_charger->master, AXP81X_CHARGE_AC, tmp,0x07);
 		} else if (current_limit < 2500) {
-			tmp = 0x02;   /* 2000mA */
+			tmp = 0x01;   /* 2000mA */
 			axp_update(axp_charger->master, AXP81X_CHARGE_AC, tmp,0x07);
 		} else if (current_limit < 3000) {
-			tmp = 0x03;   /* 2500mA */
+			tmp = 0x02;   /* 2500mA */
 			axp_update(axp_charger->master, AXP81X_CHARGE_AC, tmp,0x07);
 		} else if (current_limit < 3500) {
-			tmp = 0x04;   /* 3000mA */
+			tmp = 0x03;   /* 3000mA */
 			axp_update(axp_charger->master, AXP81X_CHARGE_AC, tmp,0x07);
 		} else if (current_limit < 4000) {
-			tmp = 0x05;   /* 3500mA */
+			tmp = 0x04;   /* 3500mA */
 			axp_update(axp_charger->master, AXP81X_CHARGE_AC, tmp,0x07);
 		} else {
-			tmp = 0x06;   /* 4000mA */
+			tmp = 0x05;   /* 4000mA */
 			axp_update(axp_charger->master, AXP81X_CHARGE_AC, tmp,0x07);
 		}
 	} else
