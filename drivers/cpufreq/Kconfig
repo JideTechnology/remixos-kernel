@@ -188,6 +188,17 @@ config CPU_FREQ_GOV_INTERACTIVE
 
 	  If in doubt, say N.
 
+config CPU_AUTOHOTPLUG
+	tristate "CPU autohotplug support"
+	  depends on SCHED_HMP || SCHED_SMP_DCMP || SMP
+	  depends on HOTPLUG_CPU && !BL_SWITCHER
+	  default n
+
+config CPU_AUTOHOTPLUG_ROOMAGE
+	  tristate "CPU autohotplug support roomage limit"
+	  depends on CPU_AUTOHOTPLUG
+	  default y
+
 config CPU_FREQ_GOV_CONSERVATIVE
 	tristate "'conservative' cpufreq governor"
 	depends on CPU_FREQ
