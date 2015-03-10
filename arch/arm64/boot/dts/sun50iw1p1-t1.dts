@@ -12,6 +12,51 @@
 /{
 
 	soc@01c00000 {
+		soc_lcd0: lcd0@01c0c000 {
+			compatible = "allwinner,sunxi-lcd0";
+			lcd_driver_name = "dx0960be40a1";
+			lcd_used = <1>;
+			lcd_if = <4>;
+			lcd_x = <800>;
+			lcd_y = <1280>;
+			lcd_width = <150>;
+			lcd_height = <94>;
+			lcd_dclk_freq = <103>;
+			lcd_pwm_used = <1>;
+			lcd_pwm_ch = <0>;
+			lcd_pwm_freq = <50000>;
+			lcd_pwm_pol = <1>;
+			lcd_pwm_max_limit = <255>;
+			lcd_hbp = <60>;
+			lcd_ht = <1300>;
+			lcd_hspw = <20>;
+			lcd_vbp = <21>;
+			lcd_vt = <1332>;
+			lcd_vspw = <10>;
+			lcd_lvds_if = <0>;
+			lcd_lvds_colordepth = <0>;
+			lcd_lvds_mode = <0>;
+			lcd_frm = <0>;
+			lcd_hv_clk_phase = <0>;
+			lcd_hv_sync_polarity = <0>;
+			lcd_dsi_if = <0>;
+			lcd_dsi_lane = <4>;
+			lcd_dsi_format = <0>;
+			lcd_dsi_te = <0>;
+			lcd_gamma_en = <0>;
+			lcd_bright_curve_en = <0>;
+			lcd_cmap_en = <0>;
+
+			lcd_power = "vcc-mipi";
+			lcd_bl_en = <&pio PD 23 1 0 0 1>;
+			lcd_bl_en_power = "none";/* power for lcd_bl_en pin */
+			lcd_fix_power = "vcc-dsi-33";/* power for lcd controler */
+
+
+			lcd_backlight = <50>;
+
+			status = "okay";
+		};
 
 	};
 	

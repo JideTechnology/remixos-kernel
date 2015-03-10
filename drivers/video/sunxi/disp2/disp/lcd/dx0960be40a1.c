@@ -120,12 +120,12 @@ static void LCD_bl_close(u32 sel)
 
 static void LCD_panel_init(u32 sel)
 {
-	sunxi_lcd_delay_ms(20);
-	sunxi_lcd_dsi_dcs_write_0para(sel,DSI_DCS_EXIT_SLEEP_MODE);
-	sunxi_lcd_delay_ms(150);
-	sunxi_lcd_dsi_dcs_write_0para(sel,DSI_DCS_SET_DISPLAY_ON);
-	sunxi_lcd_delay_ms(50);
 	sunxi_lcd_dsi_clk_enable(sel);
+	sunxi_lcd_delay_ms(50);
+	sunxi_lcd_dsi_dcs_write_0para(sel,0x11);
+	sunxi_lcd_delay_ms(50);
+	sunxi_lcd_dsi_dcs_write_0para(sel,0x29);
+	sunxi_lcd_delay_ms(50);
 
 	return;
 }
