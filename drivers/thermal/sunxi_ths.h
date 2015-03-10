@@ -43,6 +43,7 @@ struct sunxi_ths_data {
 	struct clk *mclk;
 	struct clk *pclk;
 	int irq_num;
+	int int_temp;
 	int sensor_cnt;
 	enum ths_mode mode;
 	struct sunxi_ths_sensor_ops *ops;

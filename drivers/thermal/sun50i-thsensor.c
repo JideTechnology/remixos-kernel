@@ -52,7 +52,7 @@ static int sun50_th_init_reg(struct sunxi_ths_data *ths_data)
 	writel(THS_CLEAR_INT_STA, ths_data->base_addr + THS_INT_STA_REG);
 	writel(THS_FILT_CTRL_VALUE, ths_data->base_addr + THS_FILT_CTRL_REG);
 
-	reg_value = sun50_th_temp_to_reg(120);
+	reg_value = sun50_th_temp_to_reg(ths_data->int_temp);
 	reg_value = (reg_value<<16);
 
 	writel(reg_value, ths_data->base_addr + THS_INT_SHUT_TH_REG0);

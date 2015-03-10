@@ -355,6 +355,10 @@ static int sunxi_ths_startup(struct platform_device *pdev)
 		pr_err("%s: get sensor_num failed\n", __func__);
 		ret =  -EBUSY;
 	}
+	if (of_property_read_u32(np, "int_temp", &ths_data->int_temp)) {
+		pr_err("%s: get int temp failed\n", __func__);
+		ths_data->int_temp = 120;
+	}
 	ths_data->pclk = of_clk_get(np, 0);
 	ths_data->mclk = of_clk_get(np, 1);
 	if (NULL==ths_data->pclk||IS_ERR(ths_data->pclk)
