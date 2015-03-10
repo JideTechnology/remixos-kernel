@@ -606,6 +606,7 @@ static void goodix_resume_events (struct work_struct *work)
 			dprintk(DEBUG_SUSPEND,"%s power on failed\n", f3x_ts_name);
 	}
 	ret = input_set_int_enable(&(config_info.input_type), 1);
+	ts_init->is_suspended = false;
 	if (ret < 0)
 		dprintk(DEBUG_SUSPEND,"%s irq enable failed\n", f3x_ts_name);
 }
@@ -618,7 +619,7 @@ static int goodix_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 
 	dprintk(DEBUG_SUSPEND,"CONFIG_PM:enter earlysuspend: goodix_ts_suspend. \n");
 
-	if (ts->is_suspended == true) {
+	if (ts->is_suspended == false) {
 		flush_workqueue(goodix_resume_wq);
 		ret = input_set_int_enable(&(config_info.input_type), 0);
 		if (ret < 0)
@@ -630,6 +631,7 @@ static int goodix_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 			if (ret < 0)
 				dprintk(DEBUG_SUSPEND,"%s power off failed\n", f3x_ts_name);
 		}
+		ts->is_suspended = true;
 	}
 	return 0 ;
 }
@@ -638,10 +640,10 @@ static int goodix_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 static int goodix_ts_resume(struct i2c_client *client)
 {
 	struct goodix_ts_data *ts = i2c_get_clientdata(client);
-
-	dprintk(DEBUG_SUSPEND,"CONFIG_PM:enter laterresume: goodix_ts_resume. \n");
-	ts->is_suspended = true;
-	queue_work(goodix_resume_wq, &goodix_resume_work);
+	if (ts->is_suspended == true) {
+		dprintk(DEBUG_SUSPEND,"CONFIG_PM:enter laterresume: goodix_ts_resume. \n");
+		queue_work(goodix_resume_wq, &goodix_resume_work);
+	}
 	return 0;
 }
 
