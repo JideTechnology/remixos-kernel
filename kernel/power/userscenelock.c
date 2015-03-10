@@ -287,7 +287,7 @@ ssize_t sys_pwr_dm_mask_show(struct kobject *kobj, struct kobj_attribute *attr,
 	char *buf)
 {
 	char *s = buf;
-	char *end = buf + PAGE_SIZE;
+	char *end = (char *)((ptrdiff_t)buf + (ptrdiff_t)PAGE_SIZE);
 	__u32 dm = 0;
 
 	dm = get_sys_pwr_dm_mask();
@@ -305,11 +305,17 @@ ssize_t sys_pwr_dm_mask_show(struct kobject *kobj, struct kobj_attribute *attr,
 ssize_t sys_pwr_dm_mask_store(struct kobject *kobj, struct kobj_attribute *attr,
 	const char *buf, size_t n)
 {
+	int i = 0;
 	__u32 dm = 0;
 	__u32 enable = 0;
 
 	sscanf(buf, "%x %x \n", (__u32 *)&dm, (__u32 *)&enable);
-	set_sys_pwr_dm_mask(get_sys_pwr_dm_mask(), enable);
+	
+	for(i = 0; i < sizeof(dm)*8; i++){
+	    if(dm & 0x1<<i){
+		set_sys_pwr_dm_mask(i, enable);
+	    }
+	}
 
 	return n;
 }

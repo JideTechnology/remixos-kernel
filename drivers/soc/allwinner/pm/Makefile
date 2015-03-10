@@ -20,6 +20,7 @@ pm_tmp-y :=	mem_mapping.o               \
 		mem_tmr.o                   \
 		mem_tmstmp.o                \
 		pm_debug.o                  \
+		pm_debug_io.o               \
 		pm_debug_secure.o           \
 		mem_hwspinlock.o            \
 		pm.o                        \
@@ -28,6 +29,7 @@ pm_tmp-y :=	mem_mapping.o               \
 
 ifneq ($(strip $(CONFIG_ARCH_SUN8IW6) $(CONFIG_ARCH_SUN8IW8) $(CONFIG_ARCH_SUN50IW1P1)),)
 pm_tmp-y +=	extended_standby-sun8iw6.o
+pm_tmp-y +=	pm_debug_sun8i50i.o
 else
 pm_tmp-y +=	extended_standby.o
 endif

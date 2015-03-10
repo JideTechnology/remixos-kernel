@@ -433,7 +433,7 @@ static ssize_t extended_standby_dram_crc_paras_store(struct device *dev,
  *
  *	@num:	pmu serial number;
  */
-int extended_standby_dram_crc_paras_show(struct device *dev, 
+ssize_t extended_standby_dram_crc_paras_show(struct device *dev, 
 	struct device_attribute *attr, char *buf)
 {
     char *s = buf;
@@ -663,8 +663,8 @@ int extended_standby_show_state(void)
 		
 		for (i=0; i<IO_NUM; i++){
 		    if((unsigned int *)0 != extended_standby_manager.pextended_standby->soc_io_state.io_state[i].paddr){
-			printk(KERN_INFO "    count %4d io config: addr 0x%8x, value_mask 0x%8x, value 0x%8x. \n", i,			   \
-				(unsigned int)extended_standby_manager.pextended_standby->soc_io_state.io_state[i].paddr,		    \
+			printk(KERN_INFO "    count %4d io config: addr 0x%p, value_mask 0x%8x, value 0x%8x. \n", i,			   \
+				(void *)extended_standby_manager.pextended_standby->soc_io_state.io_state[i].paddr,		    \
 				extended_standby_manager.pextended_standby->soc_io_state.io_state[i].value_mask,		    \
 				extended_standby_manager.pextended_standby->soc_io_state.io_state[i].value);
 		    }

@@ -575,6 +575,15 @@ static ssize_t pm_freeze_timeout_store(struct kobject *kobj,
 }
 
 power_attr(pm_freeze_timeout);
+#ifdef CONFIG_USER_SCENELOCK
+power_attr(scene_lock);
+power_attr(scene_unlock);
+power_attr(scene_state);
+power_attr(wakeup_src);
+#if (defined CONFIG_AW_AXP)
+power_attr(sys_pwr_dm_mask);
+#endif
+#endif
 
 #endif	/* CONFIG_FREEZER*/
 
@@ -599,6 +608,15 @@ static struct attribute * g[] = {
 #endif
 #ifdef CONFIG_PM_SLEEP_DEBUG
 	&pm_print_times_attr.attr,
+#endif
+#ifdef CONFIG_USER_SCENELOCK
+	&scene_lock_attr.attr,
+	&scene_unlock_attr.attr,
+	&scene_state_attr.attr,
+	&wakeup_src_attr.attr,
+#if (defined CONFIG_AW_AXP)
+	&sys_pwr_dm_mask_attr.attr,
+#endif
 #endif
 #endif
 #ifdef CONFIG_FREEZER

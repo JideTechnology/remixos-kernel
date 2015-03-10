@@ -533,6 +533,7 @@ static int check_pwr_status(void)
     check_sys_pwr_dm_status("vdd-vpu");
     check_sys_pwr_dm_status("vdd-cpus");
     check_sys_pwr_dm_status("vdd-drampll");
+    check_sys_pwr_dm_status("vcc-lpddr");
     check_sys_pwr_dm_status("vcc-adc");
     check_sys_pwr_dm_status("vcc-pl");
     check_sys_pwr_dm_status("vcc-pm");
@@ -555,13 +556,14 @@ static int init_sys_pwr_dm(void)
     add_sys_pwr_dm("vdd-sys");
     //add_sys_pwr_dm("vdd-vpu");
     add_sys_pwr_dm("vdd-cpus");
-    add_sys_pwr_dm("vdd-drampll");
-    add_sys_pwr_dm("vcc-adc");
+    //add_sys_pwr_dm("vdd-drampll");
+    add_sys_pwr_dm("vcc-lpddr");
+    //add_sys_pwr_dm("vcc-adc");
     add_sys_pwr_dm("vcc-pl");
     //add_sys_pwr_dm("vcc-pm");
     add_sys_pwr_dm("vcc-io");
     //add_sys_pwr_dm("vcc-cpvdd");
-    add_sys_pwr_dm("vcc-ldoin");
+    //add_sys_pwr_dm("vcc-ldoin");
     add_sys_pwr_dm("vcc-pll");
     
     sys_mask = get_sys_pwr_dm_mask();
@@ -1348,6 +1350,7 @@ static int config_sys_pwr(void)
 	config_sys_pwr_dm(np, "vdd-vpu");
 	config_sys_pwr_dm(np, "vdd-cpus");
 	config_sys_pwr_dm(np, "vdd-drampll");
+	config_sys_pwr_dm(np, "vcc-lpddr");
 	config_sys_pwr_dm(np, "vcc-adc");
 	config_sys_pwr_dm(np, "vcc-pl");
 	config_sys_pwr_dm(np, "vcc-pm");
@@ -1384,20 +1387,6 @@ static int __init aw_pm_init(void)
 	u32 value[3] = {0, 0, 0};	
 
 	PM_DBG("aw_pm_init!\n");
-#if 0
-	//get wakeup_src_cnt
-	wakeup_src_cnt = script_get_pio_list("wakeup_src_para",&list);
-	pr_info("wakeup src cnt is : %d. \n", wakeup_src_cnt);
-
-	//script_dump_mainkey("wakeup_src_para");
-	if(0 != wakeup_src_cnt){
-		while(wakeup_src_cnt--){
-			gpio = (list + (i++) )->gpio.gpio;
-			extended_standby_enable_wakeup_src(CPUS_GPIO_SRC, gpio);
-		}
-	}
-
-#endif
 
 	/*init debug state*/
 	pm_secure_mem_status_init("rtc"); 
