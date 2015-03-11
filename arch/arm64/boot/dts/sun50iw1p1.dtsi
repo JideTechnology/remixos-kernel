@@ -73,15 +73,6 @@
 			compatible = "arm,cortex-a53","arm,armv8";
 			reg = <0x0 0x1>;
 			enable-method = "psci";
-			cpufreq_tbl = < 480000
-					600000
-					720000
-					816000
-					1008000
-					1152000
-					1200000
-					1344000>;
-			clock-latency = <2000000>;
 			clock-frequency = <1008000000>;
 		};
 		cpu@2 {
@@ -89,15 +80,6 @@
 			compatible = "arm,cortex-a53","arm,armv8";
 			reg = <0x0 0x2>;
 			enable-method = "psci";
-			cpufreq_tbl = < 480000
-					600000
-					720000
-					816000
-					1008000
-					1152000
-					1200000
-					1344000>;
-			clock-latency = <2000000>;
 			clock-frequency = <1008000000>;
 		};
 		cpu@3 {
@@ -105,15 +87,6 @@
 			compatible = "arm,cortex-a53","arm,armv8";
 			reg = <0x0 0x3>;
 			enable-method = "psci";
-			cpufreq_tbl = < 480000
-					600000
-					720000
-					816000
-					1008000
-					1152000
-					1200000
-					1344000>;
-			clock-latency = <2000000>;
 			clock-frequency = <1008000000>;
 			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0 &SYS_SLEEP_0>;
 		};
