@@ -1452,6 +1452,6 @@ module_param_named(suspend_freq, suspend_freq, int, S_IRUGO | S_IWUSR);
 module_param_named(suspend_delay_ms, suspend_delay_ms, int, S_IRUGO | S_IWUSR);
 module_param_named(standby_mode, standby_mode, int, S_IRUGO | S_IWUSR);
 module_param_named(time_to_wakeup, time_to_wakeup, ulong, S_IRUGO | S_IWUSR);
-module_init(aw_pm_init);
+subsys_initcall_sync(aw_pm_init);
 module_exit(aw_pm_exit);
 
