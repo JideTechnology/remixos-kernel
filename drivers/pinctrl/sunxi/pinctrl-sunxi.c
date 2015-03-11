@@ -289,6 +289,7 @@ static int sunxi_pconf_get(struct pinctrl_dev *pctldev,
 	u16                  func;
 	u16                  pull;
 
+	pin = pin - pctl->desc->pin_base;
 	spin_lock_irqsave(&pctl->lock, flags);
 	switch (pinconf_to_config_param(*config)) {
 	case SUNXI_PINCFG_TYPE_DRV:
@@ -336,7 +337,7 @@ static int sunxi_pconf_set(struct pinctrl_dev *pctldev,
 	u16		data;
 	u16		func;
 	u16		pull;
-
+	pin = pin - pctl->desc->pin_base;
 	spin_lock_irqsave(&pctl->lock, flags);
 	switch (pinconf_to_config_param(config)) {
 	case SUNXI_PINCFG_TYPE_DRV:
