@@ -5,7 +5,7 @@
  * modify base on juno.dts
  */
 
-/memreserve/ 0x40000000 0x00010000; /* sun50iw1p1.dtb range       : [0x40000000~0x40010000], size = 64K */
+/memreserve/ 0x44000000 0x00200000; /* sun50iw1p1.dtb range       : [0x44000000~0x44200000], size = 2M */
 /memreserve/ 0x40010000 0x00010000; /* sys_config.fex range       : [0x40010000~0x40020000], size = 64K */
 /memreserve/ 0x40020000 0x00004000; /* arisc dram code space range: [0x40020000~0x40024000], size = 16K */
 /memreserve/ 0x40024000 0x00001000; /* arisc para cfg range       : [0x40024000~0x40025000], size = 4K  */
