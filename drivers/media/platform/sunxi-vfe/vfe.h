@@ -224,10 +224,6 @@ struct vfe_dev {
   
 	/* suspend */
 	struct mutex			standby_lock;
-	//up when suspend,down when resume. ensure open is being called after resume has been done
-	struct semaphore        standby_seq_sema; 
-	int 					runtime_suspend_flag;
-	int 					vfe_standby_poweroff_flag;
 	/* work queue */
 	struct work_struct 		resume_work;
 	struct delayed_work 	probe_work;

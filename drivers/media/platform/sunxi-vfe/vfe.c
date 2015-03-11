@@ -2668,14 +2668,7 @@ static int internal_s_input(struct vfe_dev *dev, unsigned int i)
 		{
 			v4l2_subdev_call(dev->sd_act,core,ioctl,ACT_SOFT_PWDN,0);
 		}
-		if(dev->power->stby_mode == NORM_STBY)
-		{
-			ret = v4l2_subdev_call(dev->sd,core, s_power, CSI_SUBDEV_STBY_ON);
-		}
-		else //POWER_OFF
-		{
-			ret = vfe_set_sensor_power_off(dev);
-		}
+		ret = vfe_set_sensor_power_off(dev);
 		if(ret < 0)
 			goto altend;
 	}
@@ -2727,19 +2720,11 @@ static int internal_s_input(struct vfe_dev *dev, unsigned int i)
 		io_set_flash_ctrl(dev->sd, SW_CTRL_FLASH_OFF, dev->fl_dev_info);
 	}
 #endif
-	//vfe_mclk_out_set(dev,dev->ccm_info->mclk);
 	/* Initial target device */
-	if(dev->power->stby_mode == NORM_STBY) 
-	{
-		ret = v4l2_subdev_call(dev->sd,core, s_power, CSI_SUBDEV_STBY_OFF);
-	}
-	else //POWER_OFF
-	{
-		ret = vfe_set_sensor_power_on(dev);
+	ret = vfe_set_sensor_power_on(dev);
 #ifdef USE_SPECIFIC_CCI
-		csi_cci_init_helper(dev->vip_sel);
+	csi_cci_init_helper(dev->vip_sel);
 #endif
-	}
 	if (ret!=0) {
 		vfe_err("sensor standby off error when selecting target device!\n");
 		goto altend;
@@ -2819,7 +2804,6 @@ static int vidioc_s_input(struct file *file, void *priv, unsigned int i)
   
 	vfe_dbg(0,"%s ,input_num = %d\n",__func__,i);
 	ret = internal_s_input(dev , i);
-	//up(&dev->standby_seq_sema);
 	return ret;
 }
 
@@ -3183,7 +3167,7 @@ static int  __isp_auto_focus_win(struct vfe_dev *dev, struct v4l2_win_setting *a
 	}
 	return 0;
 }
-static int  __isp_auto_exp_win(struct vfe_dev *dev, struct v4l2_win_setting *ae_win)
+static int __isp_auto_exp_win(struct vfe_dev *dev, struct v4l2_win_setting *ae_win)
 {
 	int i;
 	struct ccm_config *ccm_curr = &dev->ccm_cfg_content[dev->input];
@@ -3361,17 +3345,13 @@ static int vfe_open(struct file *file)
 		ret = -EBUSY;
 		goto open_end;
 	}
-	if(down_trylock(&dev->standby_seq_sema)){
-		vfe_err("device not ready\n");
-		return -EAGAIN;
-	}
-	vfe_clk_open(dev);
+	pm_runtime_get_sync(&dev->pdev->dev);//call pm_runtime resume
 #ifdef USE_SPECIFIC_CCI
 	csi_cci_init_helper(dev->vip_sel);
 #endif
 	if(dev->ccm_cfg[0]->is_isp_used || dev->ccm_cfg[1]->is_isp_used) {
 		//must be after ahb and core clock enable
-        	ret = v4l2_subdev_call(dev->isp_sd,core, init, 0);
+        ret = v4l2_subdev_call(dev->isp_sd,core, init, 0);
 		if(ret < 0)
 		{
 			vfe_err("ISP init error at %s\n",__func__);
@@ -3391,9 +3371,8 @@ static int vfe_open(struct file *file)
 	dev->first_flag = 0;
 	vfe_start_opened(dev);
 	vfe_init_isp_log(dev);
-	open_end:
+open_end:
 	if (ret != 0){
-		//up(&dev->standby_seq_sema);
 		vfe_print("vfe_open busy\n");
 	}
 	else
@@ -3417,17 +3396,9 @@ static int vfe_close(struct file *file)
 		{
 			v4l2_subdev_call(dev->sd_act,core,ioctl,ACT_SOFT_PWDN,0);
 		}
-		if(dev->power->stby_mode == NORM_STBY) {
-			ret=v4l2_subdev_call(dev->sd,core, s_power, CSI_SUBDEV_STBY_ON);
-			if (ret!=0) {
-				vfe_err("sensor standby on error at device when csi close!\n");
-			}
-		} else {//POWER_OFF
-			//close the device power
-			ret = vfe_set_sensor_power_off(dev);
-			if (ret!=0) {
-				vfe_err("sensor power off error at device number when csi close!\n");
-			}
+		ret = vfe_set_sensor_power_off(dev);
+		if (ret!=0) {
+			vfe_err("sensor power off error at device number when csi close!\n");
 		}
 		dev->vfe_s_input_flag = 0;
 	}
@@ -3447,8 +3418,6 @@ static int vfe_close(struct file *file)
 		bsp_mipi_csi_dphy_exit(dev->mipi_sel);
 	}
 	bsp_isp_exit();
-	vfe_clk_close(dev);
-	flush_work(&dev->resume_work);
 	flush_delayed_work(&dev->probe_work);
 
 	if(dev->ccm_cfg[0]->is_isp_used || dev->ccm_cfg[1]->is_isp_used) {
@@ -3458,15 +3427,18 @@ static int vfe_close(struct file *file)
 		//resource
 		isp_resource_release(dev);
 	}
-	mutex_destroy(&dev->isp_3a_result_mutex);
+	if(dev->is_bayer_raw) 
+		mutex_destroy(&dev->isp_3a_result_mutex);
 	//software
 	videobuf_stop(&dev->vb_vidq);
 	videobuf_mmap_free(&dev->vb_vidq);
 	vfe_stop_opened(dev);
 	dev->ctrl_para.prev_exp_line = 0;
 	dev->ctrl_para.prev_ana_gain = 1;
+	
+	pm_runtime_put_sync(&dev->pdev->dev);//call pm_runtime suspend
+	
 	vfe_print("vfe_close end\n");
-	up(&dev->standby_seq_sema);
 	vfe_exit_isp_log(dev);
 	return 0;
 }
@@ -3843,12 +3815,10 @@ static struct video_device vfe_template[] =
     },
 };
 
-static int vfe_request_pin(struct vfe_dev *dev, int enable)
+static int vfe_pin_config(struct vfe_dev *dev, int enable)
 {
 	int ret = 0;
 #ifdef VFE_GPIO  
-	//to cheat the pinctrl
-	dev_set_name(&dev->pdev->dev,"csi%d",dev->id);
 	if(!IS_ERR_OR_NULL(dev->pctrl))
 	{
 		devm_pinctrl_put(dev->pctrl);
@@ -3868,8 +3838,6 @@ static int vfe_request_pin(struct vfe_dev *dev, int enable)
 			return -EINVAL;
 		}
 	}
-	//to uncheat the pinctrl
-	dev_set_name(&dev->pdev->dev,"sunxi_vfe.%d",dev->id);
 	usleep_range(5000, 6000);
 #endif
 
@@ -3933,21 +3901,15 @@ static int vfe_request_gpio(struct vfe_dev *dev)
 static int vfe_gpio_config(struct vfe_dev *dev, int bon)
 {
 #ifdef VFE_GPIO
-	unsigned int i;
+	unsigned int i,j;
 	struct vfe_gpio_cfg gpio_item;
-	if(1 == bon)
+	for(i = 0; i < dev->dev_qty; i++)
 	{
-		for (i = 0; i < MAX_GPIO_NUM; i ++)
+		for (j = 0; j < MAX_GPIO_NUM; j ++)
 		{
-			os_gpio_set(&dev->gpio[i],1);
-		}
-	}
-	else
-	{
-		for (i = 0; i < MAX_GPIO_NUM; i ++)
-		{
-			memcpy(&gpio_item, &(dev->gpio[i]), sizeof(struct vfe_gpio_cfg));
-			gpio_item.mul_sel = GPIO_DISABLE;
+			memcpy(&gpio_item, &dev->ccm_cfg[i]->gpio[j], sizeof(struct vfe_gpio_cfg));
+			if (0 == bon)
+				gpio_item.mul_sel = GPIO_DISABLE;
 			os_gpio_set(&gpio_item,1);
 		}
 	}
@@ -3997,7 +3959,7 @@ static int vfe_resource_request(struct platform_device *pdev ,struct vfe_dev *de
 	vfe_dbg(0,"get pin resource\n");
 	/* pin resource */
 	/* request gpio */  
-	vfe_request_pin(dev, 1);
+	vfe_pin_config(dev, 1);
 	vfe_request_gpio(dev);
 	return 0;
 }
@@ -4060,8 +4022,6 @@ static int vfe_set_sensor_power_off(struct vfe_dev *dev)
 	return ret;
 }
 
-static void resume_work_handle(struct work_struct *work);
-
 static const char *vfe_regulator_name[] = 
 {
 	VFE_ISP_REGULATOR,
@@ -4089,26 +4049,26 @@ static int vfe_get_regulator(struct vfe_dev *dev)
 }
 static int vfe_enable_regulator_all(struct vfe_dev *dev)
 {
-	unsigned int i;
+	unsigned int i, ret = -1;
 	for (i = 0; i < ARRAY_SIZE(vfe_regulator_name); ++i) {
 		if(dev->vfe_system_power[i] != NULL)
 		{
-			regulator_enable(dev->vfe_system_power[i]);
+			ret = regulator_enable(dev->vfe_system_power[i]);
 		}
 	}
 	usleep_range(5000,6000);
-	return 0;
+	return ret;
 }
 static int vfe_disable_regulator_all(struct vfe_dev *dev)
 {
-	unsigned int i;
+	unsigned int i, ret = -1;
 	for (i = 0; i < ARRAY_SIZE(vfe_regulator_name); ++i) {
 		if(dev->vfe_system_power[i] != NULL)
 		{
-			regulator_disable(dev->vfe_system_power[i]);
+			ret = regulator_disable(dev->vfe_system_power[i]);
 		}
 	}
-	return 0;
+	return ret;
 }
 static int vfe_put_regulator(struct vfe_dev *dev)
 {
@@ -4200,24 +4160,8 @@ static int vfe_sensor_check(struct vfe_dev *dev)
 #ifdef USE_SPECIFIC_CCI
 	csi_cci_init_helper(dev->vip_sel);
 #endif
-	ret = v4l2_subdev_call(sd,core, init, 0);
-	if(dev->power->stby_mode == NORM_STBY){
-		if(ret < 0)
-		{
-			vfe_set_sensor_power_off(dev);
-			ret = -1;
-		}
-		else
-		{
-			v4l2_subdev_call(sd,core, s_power, CSI_SUBDEV_STBY_ON);
-			ret = 0;
-		}
-	}
-	else// if(dev->power->stby_mode == POWER_OFF)
-	{
-		ret = (ret< 0)?-1:0;
-		vfe_set_sensor_power_off(dev);
-	}
+	ret = (v4l2_subdev_call(sd,core, init, 0)< 0)?-1:0;
+	vfe_set_sensor_power_off(dev);
 	if(vfe_i2c_dbg == 1)
 	{
 		vfe_print("NOTE: Sensor i2c dbg, it's always power on and register success!..................\n");
@@ -4689,23 +4633,12 @@ static int vfe_init_controls(struct v4l2_ctrl_handler *hdl)
 	return ret;
 }
 
-#ifdef CONFIG_PM_RUNTIME	
-static void vfe_runtime_init(struct device *dev)
-{
-	pm_runtime_set_active(dev);
-	pm_runtime_get_noresume(dev);
-	pm_runtime_set_autosuspend_delay(dev, 5000);
-	pm_runtime_use_autosuspend(dev);
-	pm_runtime_enable(dev);
-}
-#endif
 static void probe_work_handle(struct work_struct *work)
 {
 	struct vfe_dev *dev= container_of(work, struct vfe_dev, probe_work.work);
 	int ret = 0;
 	int input_num;
 	struct video_device *vfd;
-	char vfe_name[16] = {0};
     
 	mutex_lock(&probe_hdl_lock);
 	vfe_print("probe_work_handle start!\n");
@@ -4732,6 +4665,10 @@ static void probe_work_handle(struct work_struct *work)
 	sunxi_isp_register_subdev(&dev->v4l2_dev, dev->isp_sd);
 	/*Register Sensor subdev*/
 	dev->is_same_module = 0;
+	
+	pm_runtime_enable(&dev->pdev->dev);
+	pm_runtime_get_sync(&dev->pdev->dev);
+	
 	for(input_num=0; input_num<dev->dev_qty; input_num++)
 	{ 
 		vfe_print("v4l2 subdev register input_num = %d\n",input_num);
@@ -4812,8 +4749,6 @@ snesor_register_end:
 	}
 	*vfd = vfe_template[dev->id];
 	vfd->v4l2_dev = &dev->v4l2_dev;
-	sprintf(vfe_name,"vfe-%d",dev->id);
-	dev_set_name(&vfd->dev, vfe_name);
 	ret = video_register_device(vfd, VFL_TYPE_GRABBER, dev->id);
 	if (ret < 0)
 	{
@@ -4836,13 +4771,8 @@ snesor_register_end:
 	//vfe_print("videobuf_queue_dma_contig_init @ probe handle!\n");
 	ret = sysfs_create_group(&dev->pdev->dev.kobj, &vfe_attribute_group);
 	//vfe_print("sysfs_create_group @ probe handle!\n");
-#ifdef CONFIG_PM_RUNTIME	
-	vfe_runtime_init(&dev->pdev->dev);
-#endif
 
-#ifdef USE_SPECIFIC_CCI
-	vfe_clk_close(dev);
-#endif
+	pm_runtime_put_sync(&dev->pdev->dev);
 
 	vfe_print("probe_work_handle end!\n");
 	mutex_unlock(&probe_hdl_lock);
@@ -4912,13 +4842,8 @@ static int vfe_probe(struct platform_device *pdev)
 	dev->vfe_s_input_flag = 0;
 	vfe_print("pdev->id = %d\n",pdev->id);
 	vfe_print("dev->vip_sel = %d\n",pdata->vip_sel);
-
-	//to cheat the pinctrl
-	dev_set_name(&dev->pdev->dev,"csi%d",dev->id);
-
 	spin_lock_init(&dev->slock);
-
-	vfe_dbg(0,"fetch sys_config1\n");
+	vfe_dbg(0,"fetch sys_config\n");
 	/* fetch sys_config! */
 	for(input_num=0; input_num < MAX_INPUT_NUM; input_num++)
 	{
@@ -4947,15 +4872,9 @@ static int vfe_probe(struct platform_device *pdev)
 			dev->ccm_cfg[0]->act_used=0;
 	}
 	vfe_get_regulator(dev);
-	vfe_enable_regulator_all(dev);
 	ret = vfe_resource_request(pdev,dev);
 	if(ret < 0)
 		goto freepdata;
-#ifdef USE_SPECIFIC_CCI
-	vfe_clk_open(dev);
-#endif
-	//to uncheat the pinctrl
-	dev_set_name(&dev->pdev->dev,"sunxi_vfe.%d",dev->id);
 	/*initial parameter */
 	strcpy(dev->ch[0].fmt.name,"channel 0 format");
 	strcpy(dev->ch[1].fmt.name,"channel 1 format");
@@ -4976,13 +4895,10 @@ static int vfe_probe(struct platform_device *pdev)
 	//=======================================
 	/* init video dma queues */
 	INIT_LIST_HEAD(&dev->vidq.active);
-	//init_waitqueue_head(&dev->vidq.wq);
-	INIT_WORK(&dev->resume_work, resume_work_handle);
 	INIT_DELAYED_WORK(&dev->probe_work, probe_work_handle);
 	mutex_init(&dev->standby_lock);
 	mutex_init(&dev->stream_lock);
 	mutex_init(&dev->opened_lock);
-	sema_init(&dev->standby_seq_sema,1);
 	schedule_delayed_work(&dev->probe_work,msecs_to_jiffies(1));
 	/* initial state */
 	dev->capture_mode = V4L2_MODE_PREVIEW;
@@ -5026,16 +4942,14 @@ static int vfe_remove(struct platform_device *pdev)
 	mutex_destroy(&dev->stream_lock);
 	mutex_destroy(&dev->standby_lock);
 	mutex_destroy(&dev->opened_lock);
+	sysfs_remove_group(&dev->pdev->dev.kobj, &vfe_attribute_group);
 #ifdef USE_SPECIFIC_CCI
-	//disable csi cci:
 	csi_cci_bus_unmatch_helper(dev->vip_sel);
-	//csi_cci_exit_helper(dev->vip_sel);
 #endif
-	vfe_disable_regulator_all(dev);
 	vfe_put_regulator(dev);
+	pm_runtime_disable(&dev->pdev->dev);
 	for(input_num=0; input_num<dev->dev_qty; input_num++)
 	{
-
 #ifdef _REGULATOR_CHANGE_
 #else
 		vfe_device_regulator_put(dev->ccm_cfg[input_num]);
@@ -5056,115 +4970,13 @@ static int vfe_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int vfe_suspend_helper(struct vfe_dev *dev)
-{
-	int ret = 0;
-	unsigned int input_num;
-	vfe_print("vfe_suspend_helper\n");
-	if(!IS_ERR_OR_NULL(dev->power) && dev->power->stby_mode == NORM_STBY) {
-		vfe_print("Set camera to standy off and power off !\n");
-#ifdef USE_SPECIFIC_CCI
-		vfe_clk_open(dev);
-		csi_cci_init_helper(dev->vip_sel);
-#endif
-		//close all the device power  
-		for (input_num=0; input_num<dev->dev_qty; input_num++) {
-			/* update target device info and select it */
-			update_ccm_info(dev, dev->ccm_cfg[input_num]);
-			ret = v4l2_subdev_call(dev->sd,core, s_power, CSI_SUBDEV_STBY_OFF);
-			if (ret!=0) {
-				vfe_err("sensor standby off error at device number %d when vfe_suspend!\n",input_num);
-			} else {
-				vfe_dbg(0,"sensor standby off ok at device number %d when vfe_suspend!\n",input_num);
-			}
-			ret = vfe_set_sensor_power_off(dev);
-			if (ret!=0) {
-				vfe_err("sensor power off error at device number %d when vfe_suspend!\n",input_num);
-			} else {
-				vfe_dbg(0,"sensor power off ok at device number %d when vfe_suspend!\n",input_num);
-			}
-		}
-#ifdef USE_SPECIFIC_CCI
-		csi_cci_exit_helper(dev->vip_sel);
-		vfe_clk_close(dev);
-#endif
-	}//POWER_OFF do nothing
-	dev->vfe_standby_poweroff_flag = 1;
-	vfe_request_pin(dev, 0);
-	vfe_gpio_config(dev, 0);
-	vfe_disable_regulator_all(dev);
-	vfe_print("vfe_suspend done!\n");
-	return ret;
-}
-static void resume_work_handle(struct work_struct *work)
-{
-	struct vfe_dev *dev= container_of(work, struct vfe_dev, resume_work);
-	int ret = 0;
-	unsigned int input_num;
-	mutex_lock(&dev->standby_lock);
-	vfe_print("resume_work_handle, vip_sel = %d!\n",dev->vip_sel);
-	vfe_enable_regulator_all(dev);
-	if(0 == dev->vfe_standby_poweroff_flag)
-		goto resume_end;
-	vfe_request_pin(dev, 1);
-	vfe_gpio_config(dev, 1);
-	if(!IS_ERR_OR_NULL(dev->power) && dev->power->stby_mode == NORM_STBY) {
-#ifdef USE_SPECIFIC_CCI
-		vfe_clk_open(dev);
-#endif
-		//open all the device power
-		for (input_num=0; input_num<dev->dev_qty; input_num++) {
-			/* update target device info and select it */
-			update_ccm_info(dev, dev->ccm_cfg[input_num]);
-			ret = vfe_set_sensor_power_on(dev);
-			if (ret!=0) {
-				vfe_err("sensor power on error at device number %d when vfe_resume!\n",input_num);
-			}	else {
-				vfe_dbg(0,"sensor power on ok at device number %d when vfe_resume!\n",input_num);
-			}
-#ifdef USE_SPECIFIC_CCI
-			csi_cci_init_helper(dev->vip_sel);
-#endif
-			ret = v4l2_subdev_call(dev->sd,core, s_power, CSI_SUBDEV_STBY_ON);
-			if (ret!=0) {
-				vfe_err("sensor standby on error at device number %d when vfe_resume!\n",input_num);
-			}	else {
-				vfe_dbg(0,"sensor standby on ok at device number %d when vfe_resume!\n",input_num);
-			}
-#ifdef USE_SPECIFIC_CCI
-			csi_cci_exit_helper(dev->vip_sel);
-#endif
-		}
-#ifdef USE_SPECIFIC_CCI
-			vfe_clk_close(dev);
-#endif
-	}//POWER_OFF do nothing
-resume_end:
-	dev->vfe_standby_poweroff_flag = 0;
-	up(&dev->standby_seq_sema);
-	vfe_print("vfe resume work end!\n");
-	mutex_unlock(&dev->standby_lock);
-}
-
-#ifdef CONFIG_PM_RUNTIME
 static int vfe_runtime_suspend(struct device *d)
 {
 	struct vfe_dev *dev = (struct vfe_dev *)dev_get_drvdata(d);
 	vfe_print("vfe_runtime_suspend\n");
 	mutex_lock(&dev->standby_lock);
-	if(down_timeout(&dev->standby_seq_sema, 2*HZ))
-	{
-		vfe_err("Enter vfe_runtime_suspend, Get standby sema Error!\n");
-	}
-	if(vfe_is_opened(dev)) {
-		vfe_print("Enter vfe_runtime_suspend, but vfe is opened, power off vfe in suspend later!");
-		dev->runtime_suspend_flag = 0;
-		goto suspend_end;
-	}
-	vfe_print("vfe power off in vfe_runtime_suspend\n");
-	vfe_suspend_helper(dev);
-	dev->runtime_suspend_flag = 1;
-suspend_end:  
+	vfe_clk_close(dev); 
+	vfe_disable_regulator_all(dev);
 	mutex_unlock(&dev->standby_lock);
 	return 0;
 }
@@ -5173,12 +4985,10 @@ static int vfe_runtime_resume(struct device *d)
 {
 	struct vfe_dev *dev = (struct vfe_dev *)dev_get_drvdata(d);
 	vfe_print("vfe_runtime_resume\n");
-	if(1 == dev->runtime_suspend_flag)
-	{
-		vfe_print("vfe power on in vfe_runtime_resume\n");
-		schedule_work(&dev->resume_work);
-	}
-	dev->runtime_suspend_flag = 0;
+	mutex_lock(&dev->standby_lock);
+	vfe_enable_regulator_all(dev);
+	vfe_clk_open(dev);
+	mutex_unlock(&dev->standby_lock);
 	return 0;
 }
 
@@ -5190,30 +5000,19 @@ static int vfe_runtime_idle(struct device *d)
 	} else {
 		vfe_err("%s, vfe device is null\n", __func__);
 	}
-	/* return 0: for framework to request enter suspend.
-	 *  return non-zero: do susupend for myself;
-	 */
 	return 0;
 }
-#endif
 static int vfe_suspend(struct device *d)
 {
 	struct vfe_dev *dev = (struct vfe_dev *)dev_get_drvdata(d);
 	mutex_lock(&dev->standby_lock);
 	vfe_print("vfe suspend\n");
-	if(0 == dev->runtime_suspend_flag)
-	{
-		if(down_timeout(&dev->standby_seq_sema, 4*HZ))
-		{
-			vfe_err("Get standby sema Error!\n");
-		}
-		if(vfe_is_opened(dev)) {
-			vfe_err("FIXME: dev %s, err happened when calling %s.", dev_name(&dev->pdev->dev), __func__);
-			goto suspend_end;
-		}
-		vfe_print("vfe power off in suspend\n");
-		vfe_suspend_helper(dev);
+	if(vfe_is_opened(dev)) {
+		vfe_err("FIXME: dev %s, err happened when calling %s.", dev_name(&dev->pdev->dev), __func__);
+		goto suspend_end;
 	}
+	vfe_pin_config(dev, 0);
+	vfe_gpio_config(dev, 0);
 suspend_end:  
 	mutex_unlock(&dev->standby_lock);
 	return 0;
@@ -5222,11 +5021,8 @@ static int vfe_resume(struct device *d)
 {
 	struct vfe_dev *dev = (struct vfe_dev *)dev_get_drvdata(d);
 	vfe_print("vfe resume\n");
-	if(0 == dev->runtime_suspend_flag)
-	{
-		vfe_print("vfe power on in resume\n");
-		schedule_work(&dev->resume_work);
-	}
+	vfe_pin_config(dev, 1);
+	vfe_gpio_config(dev, 1);	
 	return 0;
 }
 
@@ -5253,11 +5049,9 @@ static void vfe_shutdown(struct platform_device *pdev)
 
 static const struct dev_pm_ops vfe_runtime_pm_ops =
 {
-#ifdef CONFIG_PM_RUNTIME
 	.runtime_suspend	= vfe_runtime_suspend,
 	.runtime_resume 	= vfe_runtime_resume,
 	.runtime_idle		= vfe_runtime_idle,
-#endif
 	.suspend    	= vfe_suspend,
 	.resume     	= vfe_resume,
 };
@@ -5271,7 +5065,6 @@ static struct platform_driver vfe_driver = {
 	.probe    = vfe_probe,
 	.remove   = vfe_remove,
 	.shutdown = vfe_shutdown,
-	//.id_table = vfe_driver_ids,
 	.driver = {
 		.name   = VFE_MODULE_NAME,
 		.owner  = THIS_MODULE,
