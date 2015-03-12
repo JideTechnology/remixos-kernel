@@ -1104,7 +1104,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "allwinner,sunxi-scr";
-			reg = <0x0 0x01c2c400 0x0 0x77c>;
+			reg = <0x0 0x01c2c400 0x0 0x100>;
 			interrupts = <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_scr>, <&clk_apb2>;
 			clock-frequency = <24000000>;

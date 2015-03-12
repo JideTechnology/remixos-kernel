@@ -75,6 +75,7 @@ typedef struct {
 	void __iomem * reg_base;
 	struct clk *scr_clk;
 	struct clk *scr_clk_source;
+	struct platform_device *scr_device;
 	uint32_t clk_freq;
 	uint32_t irq_no;
 	volatile uint32_t irq_accsta;

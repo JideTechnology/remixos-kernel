@@ -40,8 +40,8 @@ static struct class *scr_dev_class;
 static struct workqueue_struct *scr_wq = NULL;
 static struct work_struct  scr_work;
 static struct device *scr_device = NULL;
-static struct pinctrl *scr_pinctrl;
 static char scr_dev_name[] = "sim0";
+static struct pinctrl *scr_pinctrl = NULL;
 static cardPara card_para = {0};
 static DEFINE_SPINLOCK(rx_lock);
 u32 scr_debug_mask = 0x0;
@@ -307,23 +307,39 @@ static irqreturn_t scr_irq_service(int irqno, void *dev_id)
 
 static int scr_request_gpio(void)
 {
-	if (NULL != scr_device)
-		scr_device->init_name = &scr_dev_name[0];
+	int ret = 0;
+	struct pinctrl_state *pctrl_state = NULL;
 
-	scr_pinctrl = devm_pinctrl_get_select_default(scr_device);
+	if (NULL != scr.scr_device)
+		scr.scr_device->dev.init_name = &scr_dev_name[0];
+
+	scr_pinctrl = devm_pinctrl_get(&(scr.scr_device->dev));
 	if (IS_ERR_OR_NULL(scr_pinctrl)) {
 		printk(KERN_ERR "%s: request pinctrl handle for device failed\n",
 		__func__);
 		return -EINVAL;
 	}
 
-	return 0;
+	pctrl_state = pinctrl_lookup_state(scr_pinctrl, PINCTRL_STATE_DEFAULT);
+	if (IS_ERR(pctrl_state)) {
+		printk(KERN_ERR "%s:pinctrl_lookup_state failed! return %p \n", __func__,
+			pctrl_state);
+		return -1;
+	}
+
+	ret = pinctrl_select_state(scr_pinctrl, pctrl_state);
+	if (ret < 0)
+		printk(KERN_ERR "%s:pinctrl_select_state failed! return %d \n", __func__,
+		ret);
+
+	return ret;
 }
 
 static void scr_release_gpio(void)
 {
 	if (!IS_ERR_OR_NULL(scr_pinctrl))
 		devm_pinctrl_put(scr_pinctrl);
+	scr_pinctrl = NULL;
 }
 
 static unsigned long scr_clk_cfg(void)
@@ -676,6 +692,7 @@ static int sunxi_scr_probe(struct platform_device *pdev)
 
 	dprintk(DEBUG_INIT, "%s: enter!!\n", __func__);
 
+	scr.scr_device = pdev;
 	if (!of_device_is_available(node)) {
 		printk("%s: smartcard status disable!!\n", __func__);
 		return -EPERM;
