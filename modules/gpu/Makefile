@@ -29,9 +29,22 @@ ifeq ($(GPU_TYPE),)
 #####################################
 #For mali400 Platform
 #####################################
+ifdef CONFIG_ARCH_SUN8IW3P1
+GPU_TYPE = mali400
+endif
+
+ifdef CONFIG_ARCH_SUN8IW5P1
+GPU_TYPE = mali400
+endif
+
+ifdef CONFIG_ARCH_SUN8IW7P1
+GPU_TYPE = mali400
+endif
+
 ifdef CONFIG_ARCH_SUN50IW1P1
 GPU_TYPE = mali400
 endif
+
 endif
 
 ##############################################################
@@ -52,11 +65,14 @@ endif
 all: build install
 
 build:
-	$(MAKE) -j -C $(GPU_BUILD_DIR) BUILD=$(BUILD_TYPE) KDIR=$(KERNEL_DIR) ARCH=$(ARCH) USING_UMP=0
+	$(MAKE) -j -C $(GPU_BUILD_DIR) BUILD=$(BUILD_TYPE) KDIR=$(KERNEL_DIR) ARCH=$(ARCH) USING_UMP=0 CROSS_COMPILE=$(CROSS_COMPILE)
 
 install:
-	if [ -n $(LICHEE_MOD_DIR) ]; then \
+	if [ $(LICHEE_MOD_DIR) ]; then \
 		cp -u $(GPU_KO_NAME) $(LICHEE_MOD_DIR); \
+	fi
+	if [ -z $(LICHEE_MOD_DIR) ]; then \
+		cp -u $(GPU_KO_NAME) $(GPU_TARGET_OUT_DIR)/module; \
 	fi
 
 clean:
