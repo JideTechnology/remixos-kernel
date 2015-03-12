@@ -138,6 +138,9 @@ static struct miscdevice mali_miscdevice = { 0, };
 static int mali_miscdevice_register(struct platform_device *pdev);
 static void mali_miscdevice_unregister(void);
 
+extern bool enable_gpu_clk(void);
+extern void disable_gpu_clk(void);
+
 static int mali_open(struct inode *inode, struct file *filp);
 static int mali_release(struct inode *inode, struct file *filp);
 #ifdef HAVE_UNLOCKED_IOCTL
@@ -170,6 +173,10 @@ extern int mali_platform_device_unregister(void);
 
 extern int mali_platform_device_init(struct platform_device *device);
 extern int mali_platform_device_deinit(struct platform_device *device);
+
+#ifndef CONFIG_MALI_DT
+extern int aw_mali_platform_device_register(void);
+#endif
 
 /* Linux power management operations provided by the Mali device driver */
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 29))
@@ -378,14 +385,12 @@ int mali_module_init(void)
 #endif
 
 	/* Initialize module wide settings */
-#ifdef MALI_FAKE_PLATFORM_DEVICE
 #ifndef CONFIG_MALI_DT
 	MALI_DEBUG_PRINT(2, ("mali_module_init() registering device\n"));
-	err = mali_platform_device_register();
+	err = aw_mali_platform_device_register();
 	if (0 != err) {
 		return err;
 	}
-#endif
 #endif
 
 	MALI_DEBUG_PRINT(2, ("mali_module_init() registering driver\n"));
@@ -558,11 +563,14 @@ static int mali_driver_suspend_scheduler(struct device *dev)
 				      0,
 				      0,
 				      0, 0, 0);
+	disable_gpu_clk();
+
 	return 0;
 }
 
 static int mali_driver_resume_scheduler(struct device *dev)
 {
+	enable_gpu_clk();
 	/* Tracing the frequency and voltage after mali is resumed */
 #if defined(CONFIG_MALI400_PROFILING) && defined(CONFIG_MALI_DVFS)
 	/* Just call mali_get_current_gpu_clk_item() once,to record current clk info.*/
@@ -592,6 +600,7 @@ static int mali_driver_runtime_suspend(struct device *dev)
 					      0,
 					      0,
 					      0, 0, 0);
+		disable_gpu_clk();
 
 		return 0;
 	} else {
@@ -601,6 +610,7 @@ static int mali_driver_runtime_suspend(struct device *dev)
 
 static int mali_driver_runtime_resume(struct device *dev)
 {
+	enable_gpu_clk();
 	/* Tracing the frequency and voltage after mali is resumed */
 #if defined(CONFIG_MALI400_PROFILING) && defined(CONFIG_MALI_DVFS)
 	/* Just call mali_get_current_gpu_clk_item() once,to record current clk info.*/

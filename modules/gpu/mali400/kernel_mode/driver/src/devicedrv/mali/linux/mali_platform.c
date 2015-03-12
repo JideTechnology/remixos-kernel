@@ -1,196 +1,552 @@
-#include <linux/mali/mali_utgard.h>
-#include <linux/platform_device.h>
-#include <linux/clk.h>
-#include <linux/clk-private.h>
-#include <linux/sys_config.h>
-#include <linux/of_device.h>
-#include <linux/of_irq.h>
-#include <linux/of.h>
-#include <linux/dma-mapping.h>
-#include <linux/of_address.h>
+/*
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * Copyright (C) 2015 Allwinner Technology Co., Ltd.
+ *
+ * Author: Xiangyun Yu <yuxyun@allwinnertech.com>
+ */
 
-static struct clk *mali_clk = NULL;
-static struct clk *gpu_pll  = NULL;
+#include <linux/aw/platform.h>
 
 extern unsigned long totalram_pages;
 
-static struct mali_gpu_device_data mali_gpu_data;
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0))
+extern int ths_read_data(int value);
+#else
+extern int sunxi_get_sensor_temp(u32 sensor_num, long *temperature);
+#endif
+
+static void mali_change_freq(struct work_struct *work);
+static void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data);
+
+static struct work_struct wq_work;
+
+static struct mali_gpu_device_data mali_gpu_data =
+{
+	.control_interval     = 250,
+    .utilization_callback = mali_gpu_utilization_callback,
+};
+
+#ifndef CONFIG_MALI_DT
+static struct platform_device mali_gpu_device =
+{
+    .name = MALI_GPU_NAME_UTGARD,
+    .id = 0,
+};
+#endif
 
 /*
 ***************************************************************
  @Function   :get_gpu_clk
-
  @Description:Get gpu related clocks
-
- @Input      :None
-
- @Return     :Zero or error code
 ***************************************************************
 */
-static int get_gpu_clk(void)
+static bool get_gpu_clk(void)
 {
+	int i;
+#ifdef CONFIG_MALI_DT
 	struct device_node * np_gpu = NULL;
-
 	np_gpu = of_find_compatible_node(NULL, NULL, "arm,mali-400");
+#endif /* CONFIG_MALI_DT */
+	for(i = 0; i < sizeof(clk_data)/sizeof(clk_data[0]); i++)
+	{
+#ifdef CONFIG_MALI_DT
+		clk_data[i].clk_handle = of_clk_get(np_gpu, i);
+#else
+		clk_data[i].clk_handle = clk_get(NULL, clk_data[i].clk_id);
+#endif /* CONFIG_MALI_DT */
+		if(!clk_data[i].clk_handle || IS_ERR(clk_data[i].clk_handle))
+		{
+			MALI_PRINT_ERROR(("Failed to get gpu %s clock!\n", clk_data[i].clk_name));
+			return 0;
+		}
+	}
 
-	gpu_pll = of_clk_get(np_gpu, 0);
-	printk(KERN_ERR "gpu_pll_name = %s\n", gpu_pll->name);
+	return 1;
+}
 
-	mali_clk = of_clk_get(np_gpu, 1);
-	printk(KERN_ERR "mali_clk_name = %s\n", mali_clk->name);
+/*
+***************************************************************
+ @Function   :get_current_freq
+ @Description:Get current frequency of gpu
+***************************************************************
+*/
+static int get_current_freq(void)
+{
+	return clk_get_rate(clk_data[0].clk_handle)/(1000*1000);
+}
+ 
+/*
+***************************************************************
+ @Function   :set_clk_freq
+ @Description:Set clock's frequency
+***************************************************************
+*/
+static bool set_clk_freq(int freq /* MHz */)
+{	
+	int i;
 
-	return 0;
+	if(freq <= vf_table[private_data.dvfs_data.max_level].max_freq)
+	{
+		for(i = 0; i < sizeof(clk_data)/sizeof(clk_data[0]); i++)
+		{
+			if(clk_set_rate(clk_data[i].clk_handle, freq*1000*1000))
+			{
+				MALI_PRINT_ERROR(("Failed to set the frequency of gpu %s clock: Current frequency is %ld MHz, the frequency to be is %d MHz", clk_data[i].clk_name, clk_get_rate(clk_data[i].clk_handle)/(1000*1000), freq));
+				return 0;
+			}
+		}
+	}
+
+	return 1;
 }
 
 /*
 ***************************************************************
  @Function   :set_gpu_freq
-
- @Description:Set the frequency of gpu related clocks
-
- @Input	     :Frequency value
-
- @Return     :Zero or error code
+ @Description:Set the frequency of gpu
 ***************************************************************
 */
-static int set_gpu_freq(int freq ) /* MHz */
+static void set_gpu_freq(int freq /* MHz */)
 {
-	if(clk_set_rate(gpu_pll, freq*1000*1000))
-    {
-        printk(KERN_ERR "Failed to set gpu pll clock!\n");
-		return -1;
-    }
-
-	if(clk_set_rate(mali_clk, freq*1000*1000))
+	if(freq > vf_table[private_data.dvfs_data.max_level].max_freq)
 	{
-		printk(KERN_ERR "Failed to set mali clock!\n");
-		return -1;
+		MALI_PRINT_ERROR(("Failed to set the frequency of gpu: The frequency to be is %d MHz, it is beyond the permitted frequency boundary %d MHz", freq, vf_table[private_data.dvfs_data.max_level].max_freq));
+		return;
 	}
 
-	return 0;
+	mutex_lock(&private_data.dvfs_data.dvfs_lock);
+	mali_dev_pause();
+	set_clk_freq(freq);
+	mali_dev_resume();
+	mutex_unlock(&private_data.dvfs_data.dvfs_lock);
 }
 
 /*
 ***************************************************************
  @Function   :enable_gpu_clk
-
- @Description:Enable gpu related clocks
-
- @Input	     :None
-
- @Return     :None
+ @Description:Enable gpu related clock gatings
 ***************************************************************
 */
-void enable_gpu_clk(void)
+bool enable_gpu_clk(void)
 {
-	if(mali_clk->enable_count == 0)
+	if(!private_data.clk_status)
 	{
-		if(clk_prepare_enable(gpu_pll))
+		int i;
+		for(i=0; i<sizeof(clk_data)/sizeof(clk_data[0]); i++)
 		{
-			printk(KERN_ERR "Failed to enable gpu pll!\n");
+			if(clk_prepare_enable(clk_data[i].clk_handle))
+			{
+				MALI_PRINT_ERROR(("Failed to enable %s clock!\n", clk_data[i].clk_name));
+				return 0;
+			}
 		}
-
-		if(clk_prepare_enable(mali_clk))
-		{
-			printk(KERN_ERR "Failed to enable mali clock!\n");
-		}
+		private_data.clk_status = 1;
 	}
+
+	return 1;
 }
 
 /*
 ***************************************************************
  @Function   :disable_gpu_clk
-
- @Description:Disable gpu related clocks
-
- @Input	     :None
-
- @Return     :None
+ @Description:Disable gpu related clock gatings
 ***************************************************************
 */
 void disable_gpu_clk(void)
 {
-	if(mali_clk->enable_count == 1)
+	if(private_data.clk_status)
 	{
-		clk_disable_unprepare(mali_clk);
-		clk_disable_unprepare(gpu_pll);
+		int i;
+		for(i=sizeof(clk_data)/sizeof(clk_data[0])-1; i>=0; i--)
+		{
+			clk_disable_unprepare(clk_data[i].clk_handle);
+		}
+
+		private_data.clk_status = 0;
 	}
 }
 
+#ifdef CONFIG_MALI_DT
+/*
+***************************************************************
+ @Function   :mali_platform_device_deinit
+ @Description:Remove the resource gpu used, called when mali 
+			  driver is removed
+***************************************************************
+*/
 int mali_platform_device_deinit(struct platform_device *device)
 {
 	disable_gpu_clk();
 
 	return 0;
 }
+#endif /* CONFIG_MALI_DT */
+
+/*
+***************************************************************
+ @Function   :dvfs_manual_show
+ @Description:Show the gpu frequency for manual
+***************************************************************
+*/
+static ssize_t dvfs_manual_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    return sprintf(buf, "%d MHz\n", get_current_freq());
+}
+
+/*
+***************************************************************
+ @Function   :dvfs_manual_store
+ @Description:Change gpu frequency for manual
+***************************************************************
+*/
+static ssize_t dvfs_manual_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    int err;
+	unsigned long freq;	
+
+	err = strict_strtoul(buf, 10, &freq);
+	if (err)
+	{
+		MALI_PRINT_ERROR(("Invalid parameter!"));
+		goto err_out;
+	}
+
+	set_gpu_freq(freq);
+
+err_out:
+	return count;
+}
+
+/*
+***************************************************************
+ @Function   :dvfs_manual_show
+ @Description:Show the gpu frequency for android
+***************************************************************
+*/
+static ssize_t dvfs_android_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    return dvfs_manual_show(dev, attr, buf);
+}
+
+/*
+***************************************************************
+ @Function   :dvfs_android_store
+ @Description:Change gpu frequency for android
+***************************************************************
+*/
+static ssize_t dvfs_android_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    if(private_data.dvfs_data.dvfs_status)
+	{
+		return dvfs_manual_store(dev, attr, buf, count);
+	}
+
+	return count;
+}
+
+/*
+***************************************************************
+ @Function   :status_dvfs_show
+ @Description:Show the dvfs status
+***************************************************************
+*/
+static ssize_t status_dvfs_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    return sprintf(buf, "%d\n", private_data.dvfs_data.dvfs_status);
+}
+
+/*
+***************************************************************
+ @Function   :status_dvfs_store
+ @Description:Change the dvfs status
+***************************************************************
+*/
+static ssize_t status_dvfs_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    int err;
+	unsigned long status;
+	err = strict_strtoul(buf, 10, &status);
+	if (err)
+	{
+		MALI_PRINT_ERROR(("Invalid parameter!"));
+		goto out;
+	}
+
+	private_data.dvfs_data.dvfs_status = status;
+
+out:
+	return count;
+}
+
+/*
+***************************************************************
+ @Function   :status_tempctrl_show
+ @Description:Show the temperature control status
+***************************************************************
+*/
+static ssize_t status_tempctrl_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    return sprintf(buf, "%d\n", private_data.temp_ctrl_status);
+}
+
+/*
+***************************************************************
+ @Function   :status_tempctrl_store
+ @Description:Change the temperature control status
+***************************************************************
+*/
+static ssize_t status_tempctrl_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    int err;
+	unsigned long status;
+	err = strict_strtoul(buf, 10, &status);
+	if (err)
+	{
+		MALI_PRINT_ERROR(("Invalid parameter!"));
+		goto out;
+	}
+
+	private_data.temp_ctrl_status = status;
+
+out:
+	return count;
+}
+
+static DEVICE_ATTR(manual, S_IRUGO|S_IWUGO, dvfs_manual_show, dvfs_manual_store);
+static DEVICE_ATTR(android, S_IRUGO|S_IWUGO, dvfs_android_show, dvfs_android_store);
+static DEVICE_ATTR(dvfs_status, S_IRUGO|S_IWUGO, status_dvfs_show, status_dvfs_store);
+static DEVICE_ATTR(tempctrl_status, S_IRUGO|S_IWUGO, status_tempctrl_show, status_tempctrl_store);
+
+static struct attribute *gpu_attributes[] =
+{
+    &dev_attr_manual.attr,
+	&dev_attr_android.attr,
+	&dev_attr_dvfs_status.attr,
+	&dev_attr_tempctrl_status.attr,
+	
+    NULL,
+};
+
+struct attribute_group gpu_attribute_group = 
+{
+	.name = "dvfs",
+	.attrs = gpu_attributes,
+};
 
 /*
 ***************************************************************
  @Function   :mali_platform_init
-
- @Description:Init the power and clocks of gpu
-
- @Input	     :None
-
- @Return     :Zero or error code
+ @Description:Init the clocks of gpu
 ***************************************************************
 */
 static int mali_platform_init(struct platform_device *mali_pdev)
 {
-	printk(KERN_ERR "OK to init Mali gpu in get_gpu_clk and mali_platform_init!\n");
-	if(get_gpu_clk())
+	bool err = 0;
+
+	private_data.dvfs_data.max_level = sizeof(vf_table)/sizeof(vf_table[0]) - 1;
+
+	err = get_gpu_clk();
+	err &= set_clk_freq(vf_table[private_data.dvfs_data.max_level].max_freq);	
+	err &= enable_gpu_clk();
+
+	if(!err)
 	{
-		printk(KERN_ERR "Failed to init Mali gpu in get_gpu_clk and mali_platform_init!\n");
 		goto err_out;
 	}
-	printk(KERN_ERR "OK to init Mali gpu in get_gpu_clk and mali_platform_init!\n");
 
-	if(set_gpu_freq(456))
-	{
-		printk(KERN_ERR "Failed to init Mali gpu in set_gpu_freq and mali_platform_init!\n");
-		goto err_out;
-	}
-	printk(KERN_ERR "OK to init Mali gpu in set_gpu_freq and mali_platform_init!\n");
-
-	enable_gpu_clk();
-
-	printk(KERN_ERR "Init Mali gpu successfully\n");
+	MALI_PRINT(("Init Mali gpu clocks successfully\n"));
     return 0;
 
 err_out:
-	printk(KERN_ERR "Failed to init Mali gpu!\n");
+	MALI_PRINT_ERROR(("Failed to init Mali gpu clocks!\n"));
 	return -1;
 }
 
-static u64 sunxi_dma_mask = DMA_BIT_MASK(32);
+/*
+***************************************************************
+ @Function   :mali_platform_device_init/
+              aw_mali_platform_device_register
+ @Description:Init the essential data of gpu
+***************************************************************
+*/
+#ifdef CONFIG_MALI_DT
 int mali_platform_device_init(struct platform_device *mali_pdev)
+#else
+int aw_mali_platform_device_register(void)
+#endif
 {
 	int err=0;
+	struct platform_device *pdev;
 
-	mali_pdev->dev.dma_mask = &sunxi_dma_mask;
-	mali_pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
-	
+#ifdef CONFIG_MALI_DT
+	pdev = mali_pdev;
+#else
+	pdev = &mali_gpu_device;
+#endif
+
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+	pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
+
 	mali_gpu_data.shared_mem_size = totalram_pages * PAGE_SIZE; /* B */
 
-	err |= platform_device_add_data(mali_pdev, &mali_gpu_data, sizeof(mali_gpu_data));
+	err = platform_device_add_data(pdev, &mali_gpu_data, sizeof(mali_gpu_data));
 
-	if(0 == err){
-		err = mali_platform_init(mali_pdev);
+	if(0 == err)
+	{
+		err = mali_platform_init(pdev);
 
-		if(0 != err){
-			printk(KERN_ERR "Failed to mali_platform_init in mali_platform_device_init!\n");
+		if(0 != err)
+		{
 			return -1;
 		}
 
 #if defined(CONFIG_PM_RUNTIME)
-		pm_runtime_set_autosuspend_delay(&(mali_pdev.dev), 1000);
-		pm_runtime_use_autosuspend(&(mali_pdev.dev));
-		pm_runtime_enable(&(mali_pdev.dev));
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37))
+		pm_runtime_set_autosuspend_delay(&(pdev->dev), 1000);
+		pm_runtime_use_autosuspend(&(pdev->dev));
+#endif
+		pm_runtime_enable(&(pdev->dev));
 #endif /* CONFIG_PM_RUNTIME */
 
-	} else{
-		printk(KERN_ERR "Failed to platform_device_add_data in mali_platform_device_init!\n");
+		mutex_init(&private_data.dvfs_data.dvfs_lock);
+
+		INIT_WORK(&wq_work, mali_change_freq);
+
+		sysfs_create_group(&pdev->dev.kobj, &gpu_attribute_group);
 	}
 
     return err;
+}
+
+/*
+***************************************************************
+ @Function   :mali_change_freq
+ @Description:Change gpu frequency
+***************************************************************
+*/
+static void mali_change_freq(struct work_struct *work)
+{
+	int cur_freq = get_current_freq();
+	int high_level = private_data.dvfs_data.max_level, low_level = 0, temp_level, level_num;
+
+	if(cur_freq > vf_table[private_data.dvfs_data.max_level].max_freq)
+	{
+		set_gpu_freq(vf_table[private_data.dvfs_data.max_level].max_freq);
+		cur_freq = get_current_freq();
+	}
+
+	if(private_data.dvfs_data.dvfs_status && private_data.dvfs_data.dvfs_flag)
+	{
+		if(private_data.dvfs_data.dvfs_flag < 0 && cur_freq <= vf_table[0].max_freq)
+		{
+			return;
+		}
+		else if(private_data.dvfs_data.dvfs_flag > 0 && cur_freq == vf_table[private_data.dvfs_data.max_level].max_freq)
+		{
+			return;
+		}
+
+		/* Find the nearest level */
+		while(high_level-low_level != 1)
+		{
+			level_num = high_level - low_level + 1;
+			temp_level = low_level + level_num/2;
+			
+			if(cur_freq > vf_table[temp_level].max_freq)
+			{
+				low_level = temp_level;
+			}
+			else
+			{
+				high_level = temp_level;
+			}
+		}
+
+		if(private_data.dvfs_data.dvfs_flag > 0 && cur_freq == vf_table[high_level].max_freq)
+		{
+			if(high_level < private_data.dvfs_data.max_level)
+			{
+				high_level += 1;
+			}
+		}
+		else if(private_data.dvfs_data.dvfs_flag < 0 && cur_freq == vf_table[low_level].max_freq)
+		{
+			if(high_level < private_data.dvfs_data.max_level)
+			{
+				high_level += 1;
+			}
+		}
+
+		set_gpu_freq(vf_table[private_data.dvfs_data.dvfs_flag < 0 ? low_level : high_level].max_freq);
+
+		private_data.dvfs_data.dvfs_flag = 0;
+	}
+}
+
+/*
+***************************************************************
+ @Function   :mali_gpu_utilization_callback
+ @Description:Determine whether to change the gpu frequency
+***************************************************************
+*/
+static void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data)
+{
+	int utilization = 0;
+	int i = 0;
+
+	if(private_data.temp_ctrl_status)
+	{
+		long temperature = 0;
+	#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0))
+		temperature = ths_read_data(private_data.sensor_num);
+	#else
+		if(sunxi_get_sensor_temp(private_data.sensor_num, &temperature))
+		{
+			MALI_PRINT_ERROR(("Failed to get the temperature information from sensor %d!\n", private_data.sensor_num));
+		}
+	#endif
+
+		/* Change the private_data.dvfs_data.max_level according to the sensor temperature */
+		for(i = sizeof(tl_table)/sizeof(tl_table[0]) -1; i >= 0; i--)
+		{
+			if(temperature >= tl_table[i].temp)
+			{
+				private_data.dvfs_data.max_level = tl_table[i].level;
+				goto out;
+			}
+		}
+	}
+
+	if(private_data.dvfs_data.dvfs_status)
+	{
+		utilization = data->utilization_gpu;
+		/* Determine the frequency change */
+		if(utilization > 250)
+		{
+			private_data.dvfs_data.dvfs_flag = 1;
+		}
+		else if(utilization < 50)
+		{
+			private_data.dvfs_data.dvfs_flag = -1;
+		}
+		else
+		{
+			return;
+		}
+	}
+	else
+	{
+		return;
+	}
+
+out:
+	schedule_work(&wq_work);
 }
