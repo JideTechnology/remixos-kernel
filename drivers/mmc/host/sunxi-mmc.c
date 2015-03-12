@@ -793,7 +793,7 @@ static int	sunxi_mmc_signal_voltage_switch(struct mmc_host *mmc, struct mmc_ios 
 	}
 
 	np = mmc->parent->of_node;
-	disable_vol_switch = of_property_read_bool(np, "sunxi-disable-signal-voltage-switch");
+	disable_vol_switch = of_property_read_bool(np, "sunxi-dis-signal-vol-sw");
 
 	/*For some emmc,io voltage will be fixed at 1.8v or other voltage,so we can not switch io voltage*/
 	/*Because mmc core will change the io voltage to 3.3v when power up,so will must disable voltage switch*/
@@ -1638,10 +1638,11 @@ static int sunxi_mmc_resume(struct device *dev)
 		//enable card detect pin power
 		if (!IS_ERR(mmc->supply.vdmmc)) {
 			ret = regulator_enable(mmc->supply.vdmmc);
-			if (ret < 0)
+			if (ret < 0){
 				dev_err(mmc_dev(mmc),
 					"failed to enable vdmmc regulator\n");
-			return ret;
+				return ret;
+			}
 		}
 		ret = mmc_resume_host(mmc);
 	}
