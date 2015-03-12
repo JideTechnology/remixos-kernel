@@ -377,6 +377,13 @@
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;// only RB&CE should be pulled up
 			};
+			
+			nand0_pins_c: nand0@2 {
+				allwinner,pins ="PC0", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10", "PC11", "PC12", "PC13", "PC14", "PC15", "PC16", "PC17", "PC18";
+				allwinner,function = "io_disabled";
+				allwinner,drive = <1>;
+				allwinner,pull = <0>;
+			};
 
 			lcd_pins_a: disp@0 {
 				allwinner,pins = "PD12", "PD13", "PD14", "PD15", "PD16", "PD17", "PD18", "PD19", "PD20", "PD21";

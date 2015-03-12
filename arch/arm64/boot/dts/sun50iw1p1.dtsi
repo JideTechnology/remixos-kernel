@@ -1147,8 +1147,11 @@
 			reg = <0x0 0x01c03000 0x0 0x1000>; /* nand0 */
 			interrupts = <GIC_SPI 70 0x04>;
 			clocks = <&clk_pll_periph0>,<&clk_nand>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&nand0_pins_a>, <&nand0_pins_b>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&nand0_pins_a &nand0_pins_b>;
+			pinctrl-1 = <&nand0_pins_c>;
+			nand0_regulator1 = "vcc-nand";
+			nand0_regulator2 = "none";			
 			nand0_cache_level = <0x55aaaa55>;
 			nand0_flush_cache_num = <0x55aaaa55>;
 			nand0_capacity_level = <0x55aaaa55>;
