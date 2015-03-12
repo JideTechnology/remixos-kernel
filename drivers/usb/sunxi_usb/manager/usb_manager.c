@@ -115,13 +115,19 @@ static __s32 usb_script_parse(struct device_node *np, struct usb_cfg *cfg)
 #ifdef CONFIG_OF
 	struct device_node *usbc_np = NULL;
 	int ret = -1;
+	const char  *used_status;
 
 	usbc_np = of_find_node_by_type(NULL, SET_USB0);
 
 	/* usbc enable */
-	ret = of_property_read_u32(usbc_np, KEY_USB_ENABLE, &cfg->port.enable);
+	ret = of_property_read_string(usbc_np, "status", &used_status);
 	if (ret) {
-		 DMSG_INFO("get usb_used is fail, %d\n", -ret);
+		DMSG_INFO("get usb_used is fail, %d\n", -ret);
+		cfg->port.enable = 0;
+	}else if (!strcmp(used_status, "okay")) {
+		cfg->port.enable = 1;
+	}else {
+		cfg->port.enable = 0;
 	}
 
 	/* usbc port type */

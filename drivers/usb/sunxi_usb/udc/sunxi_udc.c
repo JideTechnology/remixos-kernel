@@ -2918,11 +2918,17 @@ int sunxi_udc_is_enable(struct platform_device *pdev)
 	int ret = 0;
 	int is_enable = 0;
 
-	usbc_np = of_find_node_by_type(NULL, SET_USB0);
+	const char  *used_status;
 
-	ret = of_property_read_u32(usbc_np, "usbc0_used", &is_enable);
+	usbc_np = of_find_node_by_type(NULL, SET_USB0);
+	ret = of_property_read_string(usbc_np, "status", &used_status);
 	if (ret) {
 		 DMSG_PANIC("get sunxi_udc_is_enable is fail, %d\n", -ret);
+		 is_enable = 0;
+	}else if (!strcmp(used_status, "okay")) {
+		 is_enable = 1;
+	}else {
+		 is_enable = 0;
 	}
 
 	return is_enable;
@@ -3046,14 +3052,20 @@ static int sunxi_udc_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
-static int sunxi_udc_suspend(struct platform_device *pdev, pm_message_t message)
+static int sunxi_udc_suspend(struct device *dev)
 {
-	struct sunxi_udc *udc = platform_get_drvdata(pdev);
+	struct sunxi_udc *udc = the_controller;
 
 	DMSG_INFO_UDC("sunxi_udc_suspend start\n");
 	device_insmod_delay = 0;
 
 	atomic_set(&thread_suspend_flag, 1);
+
+	if(udc == NULL){
+		DMSG_INFO_UDC("udc is NULL, need not enter to suspend\n");
+		return 0;
+	}
+
 	if (!is_peripheral_active()) {
 		DMSG_INFO_UDC("udc is disable, need not enter to suspend\n");
 		return 0;
@@ -3084,14 +3096,20 @@ static int sunxi_udc_suspend(struct platform_device *pdev, pm_message_t message)
 	return 0;
 }
 
-static int sunxi_udc_resume(struct platform_device *pdev)
+static int sunxi_udc_resume(struct device *dev)
 {
-	struct sunxi_udc *udc = platform_get_drvdata(pdev);
+	struct sunxi_udc *udc = the_controller;
 
 	DMSG_INFO_UDC("sunxi_udc_resume start\n");
 	device_insmod_delay = 0;
 
 	atomic_set(&thread_suspend_flag, 0);
+
+	if(udc == NULL){
+		DMSG_INFO_UDC("udc is NULL, need not enter to suspend\n");
+		return 0;
+	}
+
 	if (!is_peripheral_active()) {
 		DMSG_INFO_UDC("udc is disable, need not enter to resume\n");
 		return 0;
@@ -3115,7 +3133,7 @@ static int sunxi_udc_resume(struct platform_device *pdev)
 }
 static const struct dev_pm_ops sunxi_udc_pm_ops = {
 	.suspend = sunxi_udc_suspend,
-	.resume = sunxi_udc_suspend,
+	.resume = sunxi_udc_resume,
 };
 
 #define UDC_PM_OPS        (&sunxi_udc_pm_ops)

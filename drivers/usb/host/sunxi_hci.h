@@ -211,6 +211,7 @@ struct sunxi_hci_hcd{
 	enum of_gpio_flags gpio_flags;
 
 	const char  *regulator_io;
+	const char  *used_status;
 	int   regulator_value;
 	struct regulator* regulator_io_hdle;
 	u32 drv_vbus_gpio_valid;

@@ -274,8 +274,6 @@ static int sunxi_rmmod_ohci(struct platform_device *pdev)
 
 	sunxi_ohci->hcd = NULL;
 
-	platform_set_drvdata(pdev, NULL);
-
 	return 0;
 }
 
@@ -348,7 +346,6 @@ static int sunxi_ohci_hcd_suspend(struct device *dev)
 	struct sunxi_hci_hcd *sunxi_ohci  = NULL;
 	struct usb_hcd *hcd	= NULL;
 	struct ohci_hcd	*ohci	= NULL;
-	unsigned long flags	= 0;
 	int val = 0;
 
 	if(dev == NULL){
@@ -369,7 +366,7 @@ static int sunxi_ohci_hcd_suspend(struct device *dev)
 	}
 
 	if(sunxi_ohci->probe == 0){
-		DMSG_PANIC("ERR: sunxi_ohci is disable, can not suspend\n");
+		DMSG_PANIC("[%s]: is disable, can not suspend\n", sunxi_ohci->hci_name);
 		return 0;
 	}
 
@@ -403,14 +400,7 @@ static int sunxi_ohci_hcd_suspend(struct device *dev)
 		 * This is still racy as hcd->state is manipulated outside of
 		 * any locks =P But that will be a different fix.
 		 */
-		spin_lock_irqsave(&ohci->lock, flags);
-
-		ohci_writel(ohci, OHCI_INTR_MIE, &ohci->regs->intrdisable);
-		(void)ohci_readl(ohci, &ohci->regs->intrdisable);
-
-		clear_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
-
-		spin_unlock_irqrestore(&ohci->lock, flags);
+		ohci_suspend(hcd, device_may_wakeup(dev));
 
 		sunxi_stop_ohci(sunxi_ohci);
 	}
@@ -441,7 +431,7 @@ static int sunxi_ohci_hcd_resume(struct device *dev)
 	}
 
 	if(sunxi_ohci->probe == 0){
-		DMSG_PANIC("ERR: sunxi_ohci is disable, can not resume\n");
+		DMSG_PANIC("[%s]: is disable, can not resume\n", sunxi_ohci->hci_name);
 		return 0;
 	}
 
@@ -460,7 +450,7 @@ static int sunxi_ohci_hcd_resume(struct device *dev)
 		sunxi_start_ohci(sunxi_ohci);
 
 		set_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
-		ohci_finish_controller_resume(hcd);
+		ohci_resume(hcd, false);
 	}
 
 	return 0;

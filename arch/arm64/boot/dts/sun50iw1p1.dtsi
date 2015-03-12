@@ -521,10 +521,9 @@
 			status = "disabled";
 		};
 
-		usbc0@0 {
+		usbc0:usbc0@0 {
 			device_type         = "usbc0";
 			compatible          = "allwinner,sun50i-otg-manager";
-			usbc0_used          = <1>;
 			usb_port_type       = <2>;
 			usb_detect_type     = <1>;
 			usb_id_gpio         = <&pio PH 9 0 1 1 1>;
@@ -532,7 +531,6 @@
 			usb_drv_vbus_gpio   = <&axp_pio PP 3 1 1 1 1>;
 			usb_host_init_state = <0>;
 			usb_regulator_io    = "nocare";
-			usb_regulator_vol   = <0>;
 			usb_wakeup_suspend  = <0>;
 			usb_luns            = <3>;
 			usb_serial_unique   = <0>;
@@ -571,13 +569,11 @@
 			status              = "okay";
 		};
 
-		usbc1@0 {
+		usbc1:usbc1@0 {
 			device_type         = "usbc1";
-			usbc1_used          = <1>;
 			usb_drv_vbus_gpio   = <&pio PB 6 1 1 1 1>;
 			usb_host_init_state = <1>;
 			usb_regulator_io    = "nocare";
-			usb_regulator_vol   = <0>;
 			usb_wakeup_suspend  = <0>;
 			status              = "okay";
 		};

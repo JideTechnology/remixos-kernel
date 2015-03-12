@@ -473,7 +473,6 @@ int sunxi_rmmod_ehci(struct platform_device *pdev)
 
 	sunxi_ehci->hcd = NULL;
 
-	platform_set_drvdata(pdev, NULL);
 	return 0;
 }
 
@@ -550,7 +549,6 @@ static int sunxi_ehci_hcd_suspend(struct device *dev)
 	struct sunxi_hci_hcd *sunxi_ehci = NULL;
 	struct usb_hcd *hcd = NULL;
 	struct ehci_hcd *ehci = NULL;
-	unsigned long flags = 0;
 	int val = 0;
 
 	if(dev == NULL){
@@ -571,7 +569,7 @@ static int sunxi_ehci_hcd_suspend(struct device *dev)
 	}
 
 	if(sunxi_ehci->probe == 0){
-		DMSG_PANIC("ERR: sunxi_ehci is disable, can not suspend\n");
+		DMSG_PANIC("[%s]: is disable, can not suspend\n", sunxi_ehci->hci_name);
 		return 0;
 	}
 
@@ -591,15 +589,7 @@ static int sunxi_ehci_hcd_suspend(struct device *dev)
 	}else{
 		DMSG_INFO("[%s]: sunxi_ehci_hcd_suspend\n", sunxi_ehci->hci_name);
 
-		spin_lock_irqsave(&ehci->lock, flags);
-		ehci_prepare_ports_for_controller_suspend(ehci, device_may_wakeup(dev));
-		ehci_writel(ehci, 0, &ehci->regs->intr_enable);
-		(void)ehci_readl(ehci, &ehci->regs->intr_enable);
-
-		clear_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
-
-		spin_unlock_irqrestore(&ehci->lock, flags);
-
+		ehci_suspend(hcd, device_may_wakeup(dev));
 		sunxi_stop_ehci(sunxi_ehci);
 	}
 
@@ -630,7 +620,7 @@ static int sunxi_ehci_hcd_resume(struct device *dev)
 	}
 
 	if(sunxi_ehci->probe == 0){
-		DMSG_PANIC("ERR: sunxi_ehci is disable, can not resume\n");
+		DMSG_PANIC("[%s]: is disable, can not resume\n", sunxi_ehci->hci_name);
 		return 0;
 	}
 
@@ -652,49 +642,7 @@ static int sunxi_ehci_hcd_resume(struct device *dev)
 #endif
 		sunxi_start_ehci(sunxi_ehci);
 
-		/* Mark hardware accessible again as we are out of D3 state by now */
-		set_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
-
-		if (ehci_readl(ehci, &ehci->regs->configured_flag) == FLAG_CF) {
-			int	mask = INTR_MASK;
-
-			ehci_prepare_ports_for_controller_resume(ehci);
-
-			if (!hcd->self.root_hub->do_remote_wakeup){
-				mask &= ~STS_PCD;
-			}
-
-			ehci_writel(ehci, mask, &ehci->regs->intr_enable);
-			ehci_readl(ehci, &ehci->regs->intr_enable);
-
-			return 0;
-		}
-
-		DMSG_INFO("[%s]: lost power, restarting\n", sunxi_ehci->hci_name);
-
-		usb_root_hub_lost_power(hcd->self.root_hub);
-
-		/* Else reset, to cope with power loss or flush-to-storage
-		 * style "resume" having let BIOS kick in during reboot.
-		 */
-		(void) ehci_halt(ehci);
-		(void) ehci_reset(ehci);
-
-		/* emptying the schedule aborts any urbs */
-		spin_lock_irq(&ehci->lock);
-		if (ehci->reclaim)
-			end_unlink_async(ehci);
-		ehci_work(ehci);
-		spin_unlock_irq(&ehci->lock);
-
-		ehci_writel(ehci, ehci->command, &ehci->regs->command);
-		ehci_writel(ehci, FLAG_CF, &ehci->regs->configured_flag);
-		ehci_readl(ehci, &ehci->regs->command);	/* unblock posted writes */
-
-		/* here we "know" root ports should always stay powered */
-		ehci_port_power(ehci, 1);
-
-		hcd->state = HC_STATE_SUSPENDED;
+		ehci_resume(hcd, false);
 	}
 
 	return 0;

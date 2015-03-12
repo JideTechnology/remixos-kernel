@@ -72,11 +72,7 @@ static s32 request_usb_regulator_io(struct sunxi_hci_hcd *sunxi_hci)
 			return 0;
 		}
 
-		if(regulator_set_voltage(sunxi_hci->regulator_io_hdle , sunxi_hci->regulator_value, sunxi_hci->regulator_value) < 0 ){
-			DMSG_PANIC("ERR: regulator_set_voltage: %s fail\n",sunxi_hci->hci_name);
-			regulator_put(sunxi_hci->regulator_io_hdle);
-			return 0;
-		}
+
 	}
 
 	return 0;
@@ -447,19 +443,22 @@ static int get_usb_cfg(struct platform_device *pdev, struct sunxi_hci_hcd *sunxi
 #ifdef CONFIG_OF
 	struct device_node *usbc_np = NULL;
 	char np_name[10];
-	char used_name[16];
 	int ret = -1;
 
 	sprintf(np_name, "usbc%d", sunxi_get_hci_num(pdev));
-	sprintf(used_name, "usbc%d_used", sunxi_get_hci_num(pdev));
-	printk("get_usb_cfg %s, %s, used_name\n", np_name, used_name);
 
 	usbc_np = of_find_node_by_type(NULL, np_name);
 
 	/* usbc enable */
-	ret = of_property_read_u32(usbc_np, used_name, &sunxi_hci->used);
+	ret = of_property_read_string(usbc_np, "status", &sunxi_hci->used_status);
 	if (ret) {
 		 DMSG_PRINT("get %s used is fail, %d\n", sunxi_hci->hci_name, -ret);
+		 sunxi_hci->used = 0;
+	}else if (!strcmp(sunxi_hci->used_status, "okay")) {
+
+		 sunxi_hci->used = 1;
+	}else {
+		 sunxi_hci->used = 0;
 	}
 
 	/* usbc init_state */
@@ -580,8 +579,6 @@ int sunxi_get_hci_num(struct platform_device *pdev)
 		 DMSG_PANIC("get hci_ctrl_num is fail, %d\n", -ret);
 	}
 
-	DMSG_INFO("get hci_num:%d\n", hci_num);
-
 	return hci_num;
 }
 
@@ -591,7 +588,6 @@ static int sunxi_get_hci_name(struct platform_device *pdev, struct sunxi_hci_hcd
 
 	sprintf(sunxi_hci->hci_name, "%s", np->name);
 
-	DMSG_INFO("hci_name:%s\n", sunxi_hci->hci_name);
 	return 0;
 }
 
