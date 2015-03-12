@@ -67,6 +67,7 @@
 					1344000>;
 			clock-latency = <2000000>;
 			clock-frequency = <1008000000>;
+			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0 &SYS_SLEEP_0>;
 		};
 		cpu@1 {
 			device_type = "cpu";
@@ -74,6 +75,7 @@
 			reg = <0x0 0x1>;
 			enable-method = "psci";
 			clock-frequency = <1008000000>;
+			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0 &SYS_SLEEP_0>;
 		};
 		cpu@2 {
 			device_type = "cpu";
@@ -81,6 +83,7 @@
 			reg = <0x0 0x2>;
 			enable-method = "psci";
 			clock-frequency = <1008000000>;
+			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0 &SYS_SLEEP_0>;
 		};
 		cpu@3 {
 			device_type = "cpu";
@@ -111,7 +114,7 @@
 
 			SYS_SLEEP_0: sys-sleep-0 {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x0000000>;
+				arm,psci-suspend-param = <0x2010000>;
 				entry-latency-us = <1000>;
 				exit-latency-us = <2000>;
 				min-residency-us = <4500>;
@@ -120,7 +123,7 @@
 	};
 
 	psci {
-	    compatible		=  "arm,psci-0.2", "arm,psci";
+	    compatible		=  "arm,psci-0.2";
 	    method		=  "smc";
 	    psci_version	=  <0xc4000000>;
 	    cpu_suspend		=  <0xc4000001>;
@@ -1114,6 +1117,7 @@
 		};
 		pmu0:pmu0@0{
 			compatible = "allwinner,pmu0";
+			device_type = "pmu0";
 			pmu_batdeten               = <1>;
 			pmu_init_chgend_rate       = <20>;
 			pmu_init_chg_enabled       = <1>;
