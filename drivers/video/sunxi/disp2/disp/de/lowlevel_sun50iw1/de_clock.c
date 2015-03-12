@@ -6,7 +6,7 @@ static de_clk_para de_clk_tbl[] =
 {
 	/*              mod_id    div    bus     reset     dram      gate      div    */
 	DE_TOP_CFG(DE_CLK_CORE0,   1,  0x04, 0, 0x08, 0, 0x00, 32, 0x00, 0, 0x0c,  0, 4)
-	DE_TOP_CFG(DE_CLK_CORE1,   1,  0x04, 1, 0x08, 2, 0x00, 32, 0x00, 1, 0x0c,  4, 4)/* hw limit:core1 & wb share 1 reset bit*/
+	DE_TOP_CFG(DE_CLK_CORE1,   1,  0x04, 1, 0x08, 1, 0x00, 32, 0x00, 1, 0x0c,  4, 4)
 	DE_TOP_CFG(DE_CLK_WB,      1,  0x04, 2, 0x08, 2, 0x00, 32, 0x00, 2, 0x0c,  8, 4)
 };
 
