@@ -196,12 +196,12 @@ static ssize_t disp_enhance_mode_store(struct device *dev,
 			num_screens = bsp_disp_feat_get_num_screens();
 
 			if (g_disp < num_screens)
-			mgr = g_disp_drv.mgr[g_disp];
+				mgr = g_disp_drv.mgr[g_disp];
 
 			if (mgr) {
 				enhance = mgr->enhance;
 				if (enhance && enhance->set_mode)
-				enhance->set_mode(enhance, g_enhance_mode);
+					enhance->set_mode(enhance, g_enhance_mode);
 			}
 		}
 	}

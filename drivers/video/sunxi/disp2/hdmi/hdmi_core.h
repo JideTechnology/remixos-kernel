@@ -70,7 +70,7 @@ extern s32 hdmi_core_set_video_mode(u32 vic);
 extern u32 hdmi_core_get_video_mode(void);
 extern s32 hdmi_core_mode_support(u32 mode);
 extern s32 hdmi_core_dvi_support(void);
-extern s32 hdmi_core_audio_config(struct audio_para *audio_param);
+extern s32 hdmi_core_audio_config(hdmi_audio_t *audio_param);
 extern s32 hdmi_core_set_video_enable(bool enable);
 extern bool hdmi_core_get_video_enable(void);
 extern s32 hdmi_core_set_audio_enable(bool enable);

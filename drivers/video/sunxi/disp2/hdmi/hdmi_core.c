@@ -380,16 +380,16 @@ static s32 audio_config_internal(void)
 	return 0;
 }
 
-s32 hdmi_core_audio_config(struct audio_para *audio_param)
+s32 hdmi_core_audio_config(hdmi_audio_t *audio_param)
 {
 	int ret = 0;
 	mutex_lock(&hdmi_lock);
 	__inf("hdmi_core_audio_config\n");
 
-	glb_audio_para.type = audio_param->type;
+	glb_audio_para.type = audio_param->data_raw;
 	glb_audio_para.sample_rate = audio_param->sample_rate;
 	glb_audio_para.sample_bit = audio_param->sample_bit;
-	glb_audio_para.ch_num = audio_param->ch_num;
+	glb_audio_para.ch_num = audio_param->channel_num;
 	glb_audio_para.ca = audio_param->ca;
 
 	mutex_unlock(&hdmi_lock);

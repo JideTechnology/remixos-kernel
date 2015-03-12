@@ -80,22 +80,22 @@ static unsigned int n_table[21] =
 
 static void hdmi_write(uintptr_t addr, unsigned char data)
 {
-	writeb(data, (void volatile*)(hdmi_base_addr + addr));
+	writeb(data, (void __iomem *)(hdmi_base_addr + addr));
 }
 
 static void hdmi_writel(uintptr_t addr, unsigned int data)
 {
-	writel(data, (void volatile*)(hdmi_base_addr + addr));
+	writel(data, (void __iomem *)(hdmi_base_addr + addr));
 }
 
 static unsigned char hdmi_read(uintptr_t  addr)
 {
-	return readb((void volatile*)(hdmi_base_addr + addr));
+	return readb((void __iomem *)(hdmi_base_addr + addr));
 }
 
 static unsigned int hdmi_readl(uintptr_t addr)
 {
-	return readl((void volatile*)(hdmi_base_addr + addr));
+	return readl((void __iomem *)(hdmi_base_addr + addr));
 }
 
 static hdmi_udelay __hdmi_udelay = NULL;
@@ -472,7 +472,7 @@ int bsp_hdmi_audio(struct audio_para *audio)
 		}
 	}
 	hdmi_write(0xE04B, 0x00 | \
-		(audio->sample_bit == 16) ? 0x02 : ((audio->sample_bit == 24) ? 0xb : 0x0));
+		((audio->sample_bit == 16) ? 0x02 : ((audio->sample_bit == 24) ? 0xb : 0x0)));
 
 	hdmi_write(0x0251, audio->sample_bit);
 

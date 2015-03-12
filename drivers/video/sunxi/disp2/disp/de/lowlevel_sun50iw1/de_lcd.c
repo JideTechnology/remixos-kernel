@@ -358,13 +358,16 @@ static s32 tcon0_cfg_mode_auto(u32 sel, disp_panel_para * panel)
 
 static s32 tcon0_cfg_mode_tri(u32 sel, disp_panel_para * panel)
 {
+	u32 start_delay = 0;
+
 	lcd_dev[sel]->tcon0_basic0.bits.x = panel->lcd_x-1;
 	lcd_dev[sel]->tcon0_basic0.bits.y = panel->lcd_y-1;
 	lcd_dev[sel]->tcon0_cpu_tri0.bits.block_size = panel->lcd_x-1;
 	lcd_dev[sel]->tcon0_cpu_tri1.bits.block_num = panel->lcd_y-1;
 	lcd_dev[sel]->tcon0_cpu_tri2.bits.trans_start_mode = 0;
 	lcd_dev[sel]->tcon0_cpu_tri2.bits.sync_mode = 0;
-	lcd_dev[sel]->tcon0_cpu_tri2.bits.start_delay = 3;
+	start_delay = (panel->lcd_vt -	panel->lcd_y -10-1) * panel->lcd_ht * 149 / panel->lcd_dclk_freq / 8;
+	lcd_dev[sel]->tcon0_cpu_tri2.bits.start_delay = start_delay;
 	/*
 	if (panel->lcd_if==LCD_IF_DSI && panel->lcd_dsi_if==LCD_DSI_IF_VIDEO_MODE)
 	{

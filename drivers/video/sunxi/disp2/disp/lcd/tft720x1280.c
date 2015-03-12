@@ -17,7 +17,7 @@ static void LCD_panel_exit(u32 sel);
 #define dsi_dcs_write_5para sunxi_lcd_dsi_dcs_write_5para
 #define delayms sunxi_lcd_delay_ms
 
-void tft7201280_init(__u32 sel,__u32 mode,__u32 lane,__u32 format)
+static void tft7201280_init(__u32 sel,__u32 mode,__u32 lane,__u32 format)
 {
 	__u8 const mipi_dcs_pixel_format [2][4]	= {{0x70,0x60,0x60,0x50},{0x07,0x06,0x05,0x07}};
 

@@ -22,7 +22,9 @@ static struct clk *hdmi_ddc_clk = NULL;
 static u32 power_enable_count = 0;
 static u32 clk_enable_count = 0;
 static struct mutex mlock;
+#if defined(CONFIG_SND_SUNXI_SOC_HDMIAUDIO)
 static bool audio_enable = false;
+#endif
 static bool b_hdmi_suspend;
 static bool b_hdmi_suspend_pre;
 
@@ -272,7 +274,7 @@ static u32 hdmi_get_vic(u32 mode)
 	return hdmi_mode;
 }
 
-static s32 hdmi_set_display_mode(enum disp_tv_mode mode)
+static s32 hdmi_set_display_mode(u32 mode)
 {
 	u32 hdmi_mode;
 	u32 i;
@@ -282,7 +284,7 @@ static s32 hdmi_set_display_mode(enum disp_tv_mode mode)
 
 	for (i=0; i<sizeof(hdmi_mode_tbl)/sizeof(struct disp_hdmi_mode); i++)
 	{
-		if (hdmi_mode_tbl[i].mode == mode) {
+		if (hdmi_mode_tbl[i].mode == (enum disp_tv_mode)mode) {
 			hdmi_mode = hdmi_mode_tbl[i].hdmi_mode;
 			find = true;
 			break;
@@ -316,7 +318,7 @@ static s32 hdmi_set_audio_para(hdmi_audio_t * audio_para)
 }
 #endif
 
-static s32 hdmi_mode_support(enum disp_tv_mode mode)
+static s32 hdmi_mode_support(u32 mode)
 {
 	u32 hdmi_mode;
 	u32 i;
@@ -324,7 +326,7 @@ static s32 hdmi_mode_support(enum disp_tv_mode mode)
 
 	for (i=0; i<sizeof(hdmi_mode_tbl)/sizeof(struct disp_hdmi_mode); i++)
 	{
-		if (hdmi_mode_tbl[i].mode == mode) {
+		if (hdmi_mode_tbl[i].mode == (enum disp_tv_mode)mode) {
 			hdmi_mode = hdmi_mode_tbl[i].hdmi_mode;
 			find = true;
 			break;
@@ -381,26 +383,7 @@ static int hdmi_run_thread(void *parg)
 
 		mutex_lock(&mlock);
 		if (false == b_hdmi_suspend) {
-			int ret = 0;
-
 			/* normal state */
-			if (clk_enable_count == 0) {
-				ret = hdmi_clk_enable();
-				if (0 == ret)
-					clk_enable_count ++;
-				else {
-					pr_warn("fail to enable hdmi's clock\n");
-					continue;
-				}
-			}
-			if ((hdmi_power_used) && (power_enable_count == 0)) {
-				hdmi_power_enable(hdmi_power);
-				power_enable_count ++;
-			}
-			if (io_enable_count == 0) {
-				hdmi_io_config(1);
-				io_enable_count ++;
-			}
 			b_hdmi_suspend_pre = b_hdmi_suspend;
 			mutex_unlock(&mlock);
 			hdmi_core_loop();
@@ -415,19 +398,7 @@ static int hdmi_run_thread(void *parg)
 			/* suspend state */
 			if (false == b_hdmi_suspend_pre) {
 				/* first time after enter suspend state */
-				hdmi_core_enter_lp();
-			}
-			if ((false == audio_enable) && (clk_enable_count != 0)) {
-				hdmi_clk_disable();
-				clk_enable_count --;
-			}
-			if (io_enable_count != 0) {
-				hdmi_io_config(0);
-				io_enable_count --;
-			}
-			if ((hdmi_power_used) && (power_enable_count != 0)) {
-				hdmi_power_disable(hdmi_power);
-				power_enable_count --;
+				//hdmi_core_enter_lp();
 			}
 			b_hdmi_suspend_pre = b_hdmi_suspend;
 			mutex_unlock(&mlock);
@@ -501,6 +472,19 @@ static s32 hdmi_suspend(void)
 			kthread_stop(HDMI_task);
 			HDMI_task = NULL;
 		}
+		hdmi_core_enter_lp();
+		if (0 != clk_enable_count) {
+			hdmi_clk_disable();
+			clk_enable_count --;
+		}
+		if (0 != io_enable_count) {
+			hdmi_io_config(0);
+			io_enable_count --;
+		}
+		if ((hdmi_power_used) && (0 != power_enable_count)) {
+			hdmi_power_disable(hdmi_power);
+			power_enable_count --;
+		}
 		pr_info("[HDMI]hdmi suspend\n");
 	}
 	mutex_unlock(&mlock);
@@ -527,6 +511,10 @@ static s32 hdmi_resume(void)
 		if ((hdmi_power_used) && (power_enable_count == 0)) {
 			hdmi_power_enable(hdmi_power);
 			power_enable_count ++;
+		}
+		if (io_enable_count == 0) {
+			hdmi_io_config(1);
+			io_enable_count ++;
 		}
 		/* first time after exit suspend state */
 		hdmi_core_exit_lp();
@@ -616,15 +604,26 @@ s32 hdmi_init(struct platform_device *pdev)
 	hdmi_parse_io_config();
 	mutex_init(&mlock);
 
+	if ((hdmi_power_used) && (power_enable_count == 0)) {
+		hdmi_power_enable(hdmi_power);
+		power_enable_count ++;
+	}
+	if (io_enable_count == 0) {
+		hdmi_io_config(1);
+		io_enable_count ++;
+	}
 	mutex_lock(&mlock);
-	ret = hdmi_clk_enable();
-	clk_enable_count ++;
+	if (clk_enable_count == 0) {
+		ret = hdmi_clk_enable();
+		clk_enable_count ++;
+	}
 	mutex_unlock(&mlock);
 	if (0 != ret) {
 		clk_enable_count --;
 		dev_err(&pdev->dev, "fail to enable hdmi clk\n");
 		goto err_clk_enable;
 	}
+
 	INIT_WORK(&ghdmi.hpd_work, hdmi_report_hpd_work);
 #if defined(CONFIG_SWITCH) || defined(CONFIG_ANDROID_SWITCH)
 	switch_dev_register(&hdmi_switch_dev);

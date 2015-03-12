@@ -189,4 +189,7 @@ s32 dsi_dphy_cfg_0data(u32 sel,u32 code);
 s32 dsi_dphy_cfg_1data(u32 sel,u32 code,u32 data);
 s32 dsi_dphy_cfg_2data(u32 sel,u32 code,u32 data0,u32 data1);
 
+extern u32  dsi_pixel_bits[4];
+extern u32  dsi_lane_den[4];
+extern u32  tcon_div;
 #endif

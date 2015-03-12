@@ -275,6 +275,7 @@ int de_rtmx_set_premul(unsigned int sel, unsigned char pno, unsigned int pre_mul
 int de_rtmx_set_background_color(unsigned int sel, unsigned int color);
 int de_rtmx_set_blend_size(unsigned int sel, unsigned int w, unsigned int h);
 int de_rtmx_set_blend_mode(unsigned int sel, unsigned int bldno, unsigned char mode);
+int de_rtmx_set_blend_color(unsigned int sel, unsigned int bldno, unsigned int color);
 int de_rtmx_set_outitl(unsigned int sel, unsigned char interlace_en);
 int de_rtmx_set_colorkey(unsigned int sel, unsigned char ck_no, unsigned char ck_mode, unsigned char ck_red_match,
 						 unsigned char ck_green_match, unsigned char ck_blue_match, unsigned int ck_max, unsigned int ck_min);
