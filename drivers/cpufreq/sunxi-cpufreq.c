@@ -308,44 +308,39 @@ static unsigned int __get_valid_freq(unsigned int target_freq)
 }
 
 /*
- * init cpu max/min frequency from sysconfig;
+ * init cpu max/min frequency from dt;
  * return: 0 - init cpu max/min successed, !0 - init cpu max/min failed;
  */
-static int __init_freq_syscfg(char *tbl_name)
+static int __init_freq_dt(void)
 {
+	struct device_node *np;
 	int ret = 0;
-	script_item_u max, min, ext, boot;
-	script_item_value_type_e type;
 
-	type = script_get_item(tbl_name, "max_freq", &max);
-	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-		CPUFREQ_ERR("get cpu max freq from sysconfig failed\n");
+	np = of_find_node_by_path("/dvfs_table");
+	if (!np) {
+		CPUFREQ_ERR("No dvfs table node found\n");
+		return -ENODEV;
+	}
+
+	if (of_property_read_u32(np, "max_freq", &sunxi_cpufreq.max_freq)) {
+		CPUFREQ_ERR("get cpu max freq from dt failed\n");
 		ret = -1;
 		goto fail;
 	}
-	sunxi_cpufreq.max_freq = max.val;
 
-	type = script_get_item(tbl_name, "min_freq", &min);
-	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-		CPUFREQ_ERR("get cpu min freq from sysconfig failed\n");
+	if (of_property_read_u32(np, "min_freq", &sunxi_cpufreq.min_freq)) {
+		CPUFREQ_ERR("get cpu min freq from df failed\n");
 		ret = -1;
 		goto fail;
 	}
-	sunxi_cpufreq.min_freq = min.val;
 
-	type = script_get_item(tbl_name, "extremity_freq", &ext);
-	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-		ext.val = sunxi_cpufreq.max_freq;
-	}
-	sunxi_cpufreq.ext_freq = ext.val;
+	if (of_property_read_u32(np, "extremity_freq", &sunxi_cpufreq.ext_freq))
+		sunxi_cpufreq.ext_freq = sunxi_cpufreq.max_freq;
 
-	type = script_get_item(tbl_name, "boot_freq", &boot);
-	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-		boot.val = sunxi_cpufreq.max_freq;
-	} else {
+	if (of_property_read_u32(np, "boot_freq", &sunxi_cpufreq.boot_freq))
+		sunxi_cpufreq.boot_freq = sunxi_cpufreq.max_freq;
+	else
 		sunxi_boot_lock = 1;
-	}
-	sunxi_cpufreq.boot_freq = boot.val;
 
 	if (sunxi_cpufreq.max_freq > SUNXI_CPUFREQ_MAX
 				|| sunxi_cpufreq.max_freq < SUNXI_CPUFREQ_MIN) {
@@ -477,8 +472,11 @@ static int __init sunxi_cpufreq_initcall(void)
 		goto out_err_vdd_cpu;
 	}
 
-	/* init cpu frequency from sysconfig */
-	__init_freq_syscfg("dvfs_table");
+	/* init cpu frequency from dt */
+	ret = __init_freq_dt();
+	if (ret == -ENODEV)
+		goto out_err_dt;
+
 	pr_debug("[cpufreq] max: %uMHz, min: %uMHz, ext: %uMHz, boot: %uMHz\n",
 				sunxi_cpufreq.max_freq / 1000, sunxi_cpufreq.min_freq / 1000,
 				sunxi_cpufreq.ext_freq / 1000, sunxi_cpufreq.boot_freq / 1000);
@@ -495,6 +493,7 @@ static int __init sunxi_cpufreq_initcall(void)
 
 out_err_register:
 	mutex_destroy(&sunxi_cpufreq.lock);
+out_err_dt:
 	regulator_put(sunxi_cpufreq.vdd_cpu);
 out_err_vdd_cpu:
 	clk_put(sunxi_cpufreq.clk_cpu);
