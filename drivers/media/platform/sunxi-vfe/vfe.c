@@ -472,18 +472,7 @@ static enum v4l2_mbus_pixelcode try_rgb888_bus[] = {
 };
 
 #define N_TRY_RGB888 ARRAY_SIZE(try_rgb888_bus)
-/*
-static int V4L2_AF_STATUS_TBL[] = 
-{
-	V4L2_AUTO_FOCUS_STATUS_IDLE,  //AUTO_FOCUS_STATUS_IDLE
-	V4L2_AUTO_FOCUS_STATUS_BUSY,  //AUTO_FOCUS_STATUS_BUSY
-	V4L2_AUTO_FOCUS_STATUS_REACHED,  //AUTO_FOCUS_STATUS_REACHED
-	V4L2_AUTO_FOCUS_STATUS_REACHED,  //AUTO_FOCUS_STATUS_APPROCH
-	V4L2_AUTO_FOCUS_STATUS_BUSY,  //AUTO_FOCUS_STATUS_REFOCUS
-	V4L2_AUTO_FOCUS_STATUS_REACHED,  //AUTO_FOCUS_STATUS_FINDED
-	V4L2_AUTO_FOCUS_STATUS_FAILED,  //AUTO_FOCUS_STATUS_FAILED
-};
-*/
+
 static int isp_resource_request(struct vfe_dev *dev)
 {
 	unsigned int isp_used_flag = 0,i;
@@ -3180,26 +3169,26 @@ static int __isp_auto_exp_win(struct vfe_dev *dev, struct v4l2_win_setting *ae_w
 		struct v4l2_win_coordinate *win_coor = &ae_win->coor[0];
 		for(i = 0; i < ae_win->win_num; i++)
 		{
-		if(ccm_curr->vflip == 1)
-		{
-			dev->ctrl_para.ae_coor[i].y1 = - win_coor[0].y1;
-			dev->ctrl_para.ae_coor[i].y2 = - win_coor[0].y2;
-		}
-		else
-		{
-			dev->ctrl_para.ae_coor[i].y1 = win_coor[i].y1;
-			dev->ctrl_para.ae_coor[i].y2 = win_coor[i].y2;
-		}
-		if(ccm_curr->hflip == 1)
-		{
-			dev->ctrl_para.ae_coor[i].x1 = - win_coor[0].x1;
-			dev->ctrl_para.ae_coor[i].x2 = - win_coor[0].x2;
-		}
-		else
-		{
-			dev->ctrl_para.ae_coor[i].x1 = win_coor[0].x1;
-			dev->ctrl_para.ae_coor[i].x2 = win_coor[0].x2;
-		}
+			if(ccm_curr->vflip == 1)
+			{
+				dev->ctrl_para.ae_coor[i].y1 = - win_coor[0].y1;
+				dev->ctrl_para.ae_coor[i].y2 = - win_coor[0].y2;
+			}
+			else
+			{
+				dev->ctrl_para.ae_coor[i].y1 = win_coor[i].y1;
+				dev->ctrl_para.ae_coor[i].y2 = win_coor[i].y2;
+			}
+			if(ccm_curr->hflip == 1)
+			{
+				dev->ctrl_para.ae_coor[i].x1 = - win_coor[0].x1;
+				dev->ctrl_para.ae_coor[i].x2 = - win_coor[0].x2;
+			}
+			else
+			{
+				dev->ctrl_para.ae_coor[i].x1 = win_coor[0].x1;
+				dev->ctrl_para.ae_coor[i].x2 = win_coor[0].x2;
+			}
 		//printk("V4L2_CID_AUTO_EXPOSURE_WIN_NUM, [%d, %d, %d, %d]\n", win_coor[i].x1, win_coor[i].y1, win_coor[i].x2, win_coor[i].y2);
 		}
 		//TODO
@@ -3334,6 +3323,8 @@ void vfe_clk_close(struct vfe_dev *dev)
 	}
 	vfe_opened_num--;
 }
+static void vfe_suspend_trip(struct vfe_dev *dev);
+static void vfe_resume_trip(struct vfe_dev *dev);
 static int vfe_open(struct file *file)
 {
 	struct vfe_dev *dev = video_drvdata(file);
@@ -3345,7 +3336,7 @@ static int vfe_open(struct file *file)
 		ret = -EBUSY;
 		goto open_end;
 	}
-	pm_runtime_get_sync(&dev->pdev->dev);//call pm_runtime resume
+	vfe_resume_trip(dev);
 #ifdef USE_SPECIFIC_CCI
 	csi_cci_init_helper(dev->vip_sel);
 #endif
@@ -3435,9 +3426,7 @@ static int vfe_close(struct file *file)
 	vfe_stop_opened(dev);
 	dev->ctrl_para.prev_exp_line = 0;
 	dev->ctrl_para.prev_ana_gain = 1;
-	
-	pm_runtime_put_sync(&dev->pdev->dev);//call pm_runtime suspend
-	
+	vfe_suspend_trip(dev);	
 	vfe_print("vfe_close end\n");
 	vfe_exit_isp_log(dev);
 	return 0;
@@ -3551,7 +3540,6 @@ static int vfe_s_ctrl(struct v4l2_ctrl *ctrl)
 	vfe_dbg(0,"s_ctrl: %s, set value: 0x%x\n",ctrl->name,ctrl->val);
 	if(dev->is_isp_used && dev->is_bayer_raw) {
 		switch (ctrl->id) {
-		//V4L2_CID_BASE
 		case V4L2_CID_BRIGHTNESS:
 			bsp_isp_s_brightness(dev->isp_gen_set_pt, ctrl->val);
 			break;
@@ -3611,7 +3599,6 @@ static int vfe_s_ctrl(struct v4l2_ctrl *ctrl)
 		case V4L2_CID_ILLUMINATORS_2: 
 			bsp_isp_s_illuminators_2(dev->isp_gen_set_pt, ctrl->val);
 			break;
-		//V4L2_CID_CAMERA_CLASS_BASE
 		case V4L2_CID_EXPOSURE_AUTO:
 			bsp_isp_s_exposure_auto(dev->isp_gen_set_pt, vfe_v4l2_isp(VFE_AE_MODE,ctrl->val, V4L2_TO_ISP));
 			dev->ctrl_para.exp_auto_mode = ctrl->val;
@@ -3702,7 +3689,6 @@ static int vfe_s_ctrl(struct v4l2_ctrl *ctrl)
 		case V4L2_CID_AUTO_FOCUS_RANGE:
 			bsp_isp_s_auto_focus_range(dev->isp_gen_set_pt, vfe_v4l2_isp(VFE_AF_RANGE,ctrl->val, V4L2_TO_ISP));
 			break;
-		//V4L2_CID_FLASH_CLASS_BASE
 		case V4L2_CID_FLASH_LED_MODE:
 			bsp_isp_s_flash_mode(dev->isp_gen_set_pt, vfe_v4l2_isp(VFE_FLASH_MODE,ctrl->val, V4L2_TO_ISP));
 			if(ctrl->val == V4L2_FLASH_LED_MODE_TORCH)
@@ -3714,7 +3700,6 @@ static int vfe_s_ctrl(struct v4l2_ctrl *ctrl)
 				io_set_flash_ctrl(dev->sd, SW_CTRL_FLASH_OFF, dev->fl_dev_info);
 			}
 			break;
-		//V4L2_CID_PRIVATE_BASE
 		case V4L2_CID_AUTO_FOCUS_INIT:
 			return 0;
 		case V4L2_CID_AUTO_FOCUS_RELEASE:
@@ -3817,39 +3802,30 @@ static struct video_device vfe_template[] =
 
 static int vfe_pin_config(struct vfe_dev *dev, int enable)
 {
-	int ret = 0;
+	char pinctrl_names[10] = "";
 #ifdef VFE_GPIO  
 	if(!IS_ERR_OR_NULL(dev->pctrl))
 	{
 		devm_pinctrl_put(dev->pctrl);
 	}
 	if(1 == enable){
-		dev->pctrl = devm_pinctrl_get_select(&dev->pdev->dev, "default");
-		if (IS_ERR_OR_NULL(dev->pctrl)) {
-			vfe_err("vip%d request pinctrl handle for device [%s] failed!\n", dev->id, dev_name(&dev->pdev->dev));
-			return -EINVAL;
-		}
+		strcpy(pinctrl_names,"default");
+	}else{
+		strcpy(pinctrl_names,"sleep");
 	}
-	else
-	{
-		dev->pctrl = devm_pinctrl_get_select(&dev->pdev->dev, "sleep");
-		if (IS_ERR_OR_NULL(dev->pctrl)) {
-			vfe_err("vip%d disable pinctrl device [%s] failed!\n", dev->id, dev_name(&dev->pdev->dev));
-			return -EINVAL;
-		}
+	dev->pctrl = devm_pinctrl_get_select(&dev->pdev->dev, pinctrl_names);
+	if (IS_ERR_OR_NULL(dev->pctrl)) {
+		vfe_err("vip%d request pinctrl handle for device [%s] failed!\n", dev->id, dev_name(&dev->pdev->dev));
+		return -EINVAL;
 	}
 	usleep_range(5000, 6000);
-#endif
-
-#ifdef FPGA_PIN
+#else
 	void __iomem *gpio_base,*clk_base;
 	vfe_print("directly write pin config @ FPGA\n");
-	
 	clk_base = ioremap(0x01c20000, 0x200);
 	if (!clk_base) {
-		ret = -EIO;
 		printk("clk_base directly write pin config EIO\n");
-		return ret;
+		return -EIO;
 	}
 	writel(0xffffffff,(clk_base+0x64));
 	writel(0xffffffff,(clk_base+0x2c4));
@@ -3859,20 +3835,20 @@ static int vfe_pin_config(struct vfe_dev *dev, int enable)
 	
 	gpio_base = ioremap(GPIO_REGS_VBASE, 0x120);
 	if (!gpio_base) {
-		ret = -EIO;
 		printk("gpio_base directly write pin config EIO\n");
-		return ret;
+		return -EIO;
 	}
-	//pin for FPGA
-//	writel(0x33333333,(gpio_base+0x90));
-//	writel(0x33333333,(gpio_base+0x94));
-//	writel(0x03333333,(gpio_base+0x98));
-	//Direct write for pin of IC 
+#ifdef FPGA_PIN	//Direct write for pin of FPGA
+	writel(0x33333333,(gpio_base+0x90));
+	writel(0x33333333,(gpio_base+0x94));
+	writel(0x03333333,(gpio_base+0x98));
+#else //Direct write for pin of IC 	
 	writel(0x22222222,(gpio_base+0x90));
 	writel(0x22222222,(gpio_base+0x94));
 	writel(0x11111111,(gpio_base+0x98));
 #endif
-	return ret;
+#endif
+	return 0;
 }
 static int vfe_pin_release(struct vfe_dev *dev)
 {
@@ -3891,7 +3867,7 @@ static int vfe_request_gpio(struct vfe_dev *dev)
 		for (j = 0; j < MAX_GPIO_NUM; j ++)
 		{
 			os_gpio_request(&dev->ccm_cfg[i]->gpio[j],1);
-			os_gpio_set(&dev->ccm_cfg[i]->gpio[j],1);
+			//os_gpio_set(&dev->ccm_cfg[i]->gpio[j],1);
 		}
 	}
 #endif
@@ -3957,9 +3933,7 @@ static int vfe_resource_request(struct platform_device *pdev ,struct vfe_dev *de
 		return -ENXIO;
 	}
 	vfe_dbg(0,"get pin resource\n");
-	/* pin resource */
 	/* request gpio */  
-	vfe_pin_config(dev, 1);
 	vfe_request_gpio(dev);
 	return 0;
 }
@@ -4082,17 +4056,6 @@ static int vfe_put_regulator(struct vfe_dev *dev)
 	return 0;
 }
 
-/*
-static void vfe_enable_regulator(struct vfe_dev *dev, enum vfe_regulator regulator)
-{
-	regulator_enable(dev->vfe_system_power[regulator]);
-	usleep_range(5000,6000);
-}
-static void vfe_disable_regulator(struct vfe_dev *dev, enum vfe_regulator regulator)
-{
-	regulator_disable(dev->vfe_system_power[regulator]);
-}
-*/
 static int vfe_device_regulator_get(struct ccm_config  *ccm_cfg)
 {
 #ifdef VFE_PMU
@@ -4229,9 +4192,7 @@ static int vfe_actuator_subdev_register( struct vfe_dev *dev, struct ccm_config 
 	//printk("ccm_cfg->act_ctrl=%x\n",(unsigned int )ccm_cfg->act_ctrl);
 	return 0;
 }
-
 #else // NOT defind USE_SPECIFIC_CCI
-
 static int vfe_sensor_subdev_register_check(struct vfe_dev *dev,struct v4l2_device *v4l2_dev,
 							struct ccm_config  *ccm_cfg, struct i2c_board_info *sensor_i2c_board)
 {	
@@ -4552,11 +4513,9 @@ static const struct v4l2_ctrl_config custom_ctrls[] =
 		.flags = V4L2_CTRL_FLAG_VOLATILE,
 	},
 };
-
 static const s64 iso_qmenu[] = {
 	50, 100, 200, 400, 800,
 };
-
 static const s64 exp_bias_qmenu[] = {
 	-4, -3, -2, -1, 0, 1, 2, 3, 4,
 };
@@ -4665,10 +4624,10 @@ static void probe_work_handle(struct work_struct *work)
 	sunxi_isp_register_subdev(&dev->v4l2_dev, dev->isp_sd);
 	/*Register Sensor subdev*/
 	dev->is_same_module = 0;
-	
+#ifdef CONFIG_PM_RUNTIME
 	pm_runtime_enable(&dev->pdev->dev);
-	pm_runtime_get_sync(&dev->pdev->dev);
-	
+#endif
+	vfe_resume_trip(dev);	
 	for(input_num=0; input_num<dev->dev_qty; input_num++)
 	{ 
 		vfe_print("v4l2 subdev register input_num = %d\n",input_num);
@@ -4704,7 +4663,6 @@ static void probe_work_handle(struct work_struct *work)
 			goto snesor_register_end;
 		}
 #endif
-
 		vfe_print("vfe sensor detect start! input_num = %d\n",input_num);
 		dev->input = input_num;
 		if(vfe_sensor_register_check(dev,&dev->v4l2_dev,dev->ccm_cfg[input_num],&dev->dev_sensor[input_num],input_num) == NULL)
@@ -4767,13 +4725,12 @@ snesor_register_end:
 				V4L2_BUF_TYPE_VIDEO_CAPTURE,
 				V4L2_FIELD_NONE,//default format, can be changed by s_fmt
 				sizeof(struct vfe_buffer), dev,NULL);
-
 	//vfe_print("videobuf_queue_dma_contig_init @ probe handle!\n");
+	
 	ret = sysfs_create_group(&dev->pdev->dev.kobj, &vfe_attribute_group);
 	//vfe_print("sysfs_create_group @ probe handle!\n");
 
-	pm_runtime_put_sync(&dev->pdev->dev);
-
+	vfe_suspend_trip(dev);
 	vfe_print("probe_work_handle end!\n");
 	mutex_unlock(&probe_hdl_lock);
 	return ;
@@ -4796,7 +4753,6 @@ probe_hdl_free_dev:
 	mutex_unlock(&probe_hdl_lock);
 	return ;
 }
-
 
 static int vfe_probe(struct platform_device *pdev)
 {
@@ -4896,16 +4852,13 @@ static int vfe_probe(struct platform_device *pdev)
 	/* init video dma queues */
 	INIT_LIST_HEAD(&dev->vidq.active);
 	INIT_DELAYED_WORK(&dev->probe_work, probe_work_handle);
-	mutex_init(&dev->standby_lock);
 	mutex_init(&dev->stream_lock);
 	mutex_init(&dev->opened_lock);
 	schedule_delayed_work(&dev->probe_work,msecs_to_jiffies(1));
 	/* initial state */
 	dev->capture_mode = V4L2_MODE_PREVIEW;
-
 	//=======================================
 	return 0;
-
 freepdata:
 	kfree(pdata);
 freedev:
@@ -4940,14 +4893,15 @@ static int vfe_remove(struct platform_device *pdev)
 	sunxi_isp_unregister_subdev(dev->isp_sd);
 	sunxi_isp_put_subdev(&dev->isp_sd, dev->id);
 	mutex_destroy(&dev->stream_lock);
-	mutex_destroy(&dev->standby_lock);
 	mutex_destroy(&dev->opened_lock);
 	sysfs_remove_group(&dev->pdev->dev.kobj, &vfe_attribute_group);
 #ifdef USE_SPECIFIC_CCI
 	csi_cci_bus_unmatch_helper(dev->vip_sel);
 #endif
 	vfe_put_regulator(dev);
+#ifdef CONFIG_PM_RUNTIME
 	pm_runtime_disable(&dev->pdev->dev);
+#endif
 	for(input_num=0; input_num<dev->dev_qty; input_num++)
 	{
 #ifdef _REGULATOR_CHANGE_
@@ -4970,28 +4924,51 @@ static int vfe_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void vfe_suspend_helper(struct vfe_dev *dev)
+{
+	vfe_clk_close(dev); 
+	vfe_disable_regulator_all(dev);
+	vfe_pin_config(dev, 0);
+	vfe_gpio_config(dev, 0);
+}
+static void vfe_resume_helper(struct vfe_dev *dev)
+{
+	vfe_pin_config(dev, 1);
+	vfe_gpio_config(dev, 1);
+	vfe_enable_regulator_all(dev);
+	vfe_clk_open(dev);
+}
+static void vfe_suspend_trip(struct vfe_dev *dev)
+{
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_put_sync(&dev->pdev->dev);//call pm_runtime suspend
+#else
+	vfe_suspend_helper(dev);
+#endif
+}
+static void vfe_resume_trip(struct vfe_dev *dev)
+{
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_get_sync(&dev->pdev->dev);//call pm_runtime resume
+#else
+	vfe_resume_helper(dev);
+#endif
+}
+#ifdef CONFIG_PM_RUNTIME
 static int vfe_runtime_suspend(struct device *d)
 {
 	struct vfe_dev *dev = (struct vfe_dev *)dev_get_drvdata(d);
 	vfe_print("vfe_runtime_suspend\n");
-	mutex_lock(&dev->standby_lock);
-	vfe_clk_close(dev); 
-	vfe_disable_regulator_all(dev);
-	mutex_unlock(&dev->standby_lock);
+	vfe_suspend_helper(dev);
 	return 0;
 }
-
 static int vfe_runtime_resume(struct device *d)
 {
 	struct vfe_dev *dev = (struct vfe_dev *)dev_get_drvdata(d);
 	vfe_print("vfe_runtime_resume\n");
-	mutex_lock(&dev->standby_lock);
-	vfe_enable_regulator_all(dev);
-	vfe_clk_open(dev);
-	mutex_unlock(&dev->standby_lock);
+	vfe_resume_helper(dev);
 	return 0;
 }
-
 static int vfe_runtime_idle(struct device *d)
 {
 	if(d) {
@@ -5002,27 +4979,20 @@ static int vfe_runtime_idle(struct device *d)
 	}
 	return 0;
 }
+#endif
 static int vfe_suspend(struct device *d)
 {
 	struct vfe_dev *dev = (struct vfe_dev *)dev_get_drvdata(d);
-	mutex_lock(&dev->standby_lock);
 	vfe_print("vfe suspend\n");
 	if(vfe_is_opened(dev)) {
 		vfe_err("FIXME: dev %s, err happened when calling %s.", dev_name(&dev->pdev->dev), __func__);
-		goto suspend_end;
+		return -1;
 	}
-	vfe_pin_config(dev, 0);
-	vfe_gpio_config(dev, 0);
-suspend_end:  
-	mutex_unlock(&dev->standby_lock);
 	return 0;
 }
 static int vfe_resume(struct device *d)
 {
-	struct vfe_dev *dev = (struct vfe_dev *)dev_get_drvdata(d);
 	vfe_print("vfe resume\n");
-	vfe_pin_config(dev, 1);
-	vfe_gpio_config(dev, 1);	
 	return 0;
 }
 
@@ -5049,9 +5019,11 @@ static void vfe_shutdown(struct platform_device *pdev)
 
 static const struct dev_pm_ops vfe_runtime_pm_ops =
 {
+#ifdef CONFIG_PM_RUNTIME	
 	.runtime_suspend	= vfe_runtime_suspend,
 	.runtime_resume 	= vfe_runtime_resume,
 	.runtime_idle		= vfe_runtime_idle,
+#endif
 	.suspend    	= vfe_suspend,
 	.resume     	= vfe_resume,
 };
@@ -5108,5 +5080,3 @@ module_exit(vfe_exit);
 MODULE_AUTHOR("raymonxiu");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Video front end driver for sunxi");
-
-

@@ -28,11 +28,6 @@
 #include "vfe_subdev.h"
 #include "vfe_os.h"
 
-struct vfe_device_info {
-	unsigned long mclk;       /* the mclk frequency for sensor module in HZ unit*/
-	unsigned int  stby_mode;      
-};
-
 struct vfe_fmt {
 	unsigned char               name[32];
 	enum v4l2_mbus_pixelcode    bus_pix_code;
@@ -221,11 +216,6 @@ struct vfe_dev {
 	int            			id;
 	spinlock_t              slock;
 	struct mutex            stream_lock;
-  
-	/* suspend */
-	struct mutex			standby_lock;
-	/* work queue */
-	struct work_struct 		resume_work;
 	struct delayed_work 	probe_work;
 	/* various device info */
 	struct video_device     *vfd;
@@ -274,7 +264,6 @@ struct vfe_dev {
 	unsigned int            isp_sel;
 	struct ccm_config       ccm_cfg_content[MAX_INPUT_NUM];
 	struct ccm_config       *ccm_cfg[MAX_INPUT_NUM];
-	//  struct vfe_device_info  *ccm_info;        /* current config */
 	struct i2c_board_info   dev_sensor[MAX_INPUT_NUM];
 	struct i2c_board_info   dev_act[MAX_INPUT_NUM];
 	unsigned int   	   		device_valid_flag[MAX_INPUT_NUM];
