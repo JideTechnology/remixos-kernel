@@ -124,6 +124,10 @@ static int nand_suspend(struct platform_device *plat_dev, pm_message_t state)
     }
 
     nand_dbg_err("[NAND] nand_suspend ok \n");
+#else
+	nand_dbg_err("[NAND] nand_suspend\n");
+    NandHwSuperStandby();
+	nand_dbg_err("[NAND] nand_suspend ok \n");
 #endif    
 	return 0;
 }
@@ -148,6 +152,10 @@ static int nand_resume(struct platform_device *plat_dev)
     }
 
     nand_dbg_err("[NAND] nand_resume ok \n");  
+#else
+	nand_dbg_err("[NAND] nand_resume\n");
+    NandHwSuperResume();
+	nand_dbg_err("[NAND] nand_resume ok \n");
 #endif     
     return 0;
 }

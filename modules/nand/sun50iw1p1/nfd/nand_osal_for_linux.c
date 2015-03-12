@@ -62,6 +62,8 @@ struct clk *pll6;
 struct clk *nand0_clk;
 struct clk *ahb_nand0;
 struct regulator *regu1 = NULL;
+struct regulator *regu2 = NULL;
+
 
 
 int seq=0;
@@ -300,8 +302,15 @@ __s32 NAND_PIORequest(__u32 nand_index)
 	//script_item_u  *pin_list;
 	//int 		   pin_count;
 	//int 		   pin_index;
+	struct pinctrl *pinctrl = NULL;
 
 	PRINT_LEVEL = NAND_Print_level();
+
+	pinctrl = pinctrl_get_select(ndfc_dev, "default");  
+	if(!pinctrl || IS_ERR(pinctrl)){
+    	printk("NAND_PIORequest: set nand0 pin error!\n");
+    	return -1;
+    }
 #if 0
 	/* get pin sys_config info */
 	if(nand_index == 0)
@@ -386,6 +395,14 @@ void NAND_PIORelease(__u32 nand_index)
 		printk("NAND_PIORelease, nand_index error: 0x%x\n", nand_index);
 	}
 #endif
+	struct pinctrl *pinctrl = NULL;
+
+	pinctrl = pinctrl_get_select(ndfc_dev, "sleep");  
+	if(!pinctrl || IS_ERR(pinctrl)){
+    	printk("NAND_PIORelease: set nand0 pin error!\n");
+    	//return -1;
+    }
+	//return 0;
 }
 
 void NAND_Memset(void* pAddr, unsigned char value, unsigned int len)
@@ -986,34 +1003,74 @@ int NAND_GetVoltage(void)
 
 
 	int ret=0;
+	const char *sti_vcc_nand = NULL;
+	const char *sti_vcc_io = NULL;
 #if 1
 	
-	if(regu1==NULL)
+	ret = of_property_read_string(ndfc_dev->of_node, "nand0_regulator1", &sti_vcc_nand);
+	printk("nand0_regulator1 %s \n",sti_vcc_nand);
+	if (ret) 
 	{
-		regu1 = regulator_get(NULL,"vcc-nand"); 
-		if(IS_ERR(regu1 )) {
-			 printk("nand:some error happen, fail to get regulator vcc-nand!");
-			return -1;
-		}
+		printk("Failed to get vcc_nand\n");
+	}
 
-		//set output voltage to 3.0V
-		//ret = regulator_set_voltage(regu1,3000000,3000000);
-		//if(IS_ERR(regu1 )) {
-		//	 printk("nand:some error happen, fail to set regulator voltage axp22_dcdc1!");
-		//	return -1;
-		//}
-
+	regu1 = regulator_get(NULL,sti_vcc_nand); 
+	if(IS_ERR(regu1 )) {
+		 printk("nand:fail to get regulator vcc-nand!\n");
+		//return -1;
+	}
+	else
+	{
 		//enable regulator
 		ret = regulator_enable(regu1);
 		if(IS_ERR(regu1 )) {
-			 printk("nand:some error happen, fail to enable regulator vcc-nand!");
+			 printk("nand:some error happen, fail to enable regulator vcc-nand!\n");
 			return -1;
 		}
 		NAND_Print_DBG("nand:get voltage vcc-nand ok:%p\n",regu1);
 	}
-	else
-		printk("nand:has already get voltage\n");
+	//set output voltage to 3.0V
+	//ret = regulator_set_voltage(regu1,3000000,3000000);
+	//if(IS_ERR(regu1 )) {
+	//	 printk("nand:some error happen, fail to set regulator voltage axp22_dcdc1!");
+	//	return -1;
+	//}
+
 #endif
+
+#if 1
+		
+	ret = of_property_read_string(ndfc_dev->of_node, "nand0_regulator2", &sti_vcc_io);
+	printk("nand0_regulator2 %s \n",sti_vcc_io);
+	if (ret) 
+	{
+		printk("Failed to get vcc_io\n");
+	}
+	
+	regu2 = regulator_get(NULL,sti_vcc_io); 
+	if(IS_ERR(regu2 )) {
+		 printk("nand:fail to get regulator vcc-io!\n");
+		//return -1;
+	}
+	else
+	{
+		//enable regulator
+		ret = regulator_enable(regu2);
+		if(IS_ERR(regu2 )) {
+			 printk("nand:some error happen, fail to enable regulator vcc-io!\n");
+			return -1;
+		}
+		NAND_Print_DBG("nand:get voltage vcc-io ok:%p\n",regu2);
+	}
+	//set output voltage to 3.0V
+	//ret = regulator_set_voltage(regu1,3000000,3000000);
+	//if(IS_ERR(regu1 )) {
+	//	 printk("nand:some error happen, fail to set regulator voltage axp22_dcdc1!");
+	//	return -1;
+	//}
+
+#endif
+	printk("nand:has already get voltage\n");
 
 	return ret;
 
@@ -1025,29 +1082,40 @@ int NAND_ReleaseVoltage(void)
 	int ret = 0;
 
 #if 1	
-
-
-	if(regu1!=NULL)
+	
+	if(!IS_ERR(regu1 ))
 	{
 		printk("nand release voltage vcc-nand\n");
-
 		ret = regulator_disable(regu1);
 		if(ret)
 			printk("nand:regulator disable fail ret is %x \n",ret);
 		if(IS_ERR(regu1 )) {
 			 printk("nand:some error happen, fail to disable regulator vcc-nand!");
-			return -1;
+			//return -1;
 		}
 		//put regulator when module exit
 		regulator_put(regu1);
 
 		regu1 = NULL;
 	}
-	else
-	{
-		printk("nand had already release voltage vcc-nand\n");
-	}
 
+	if(!IS_ERR(regu2 ))
+	{
+		printk("nand release voltage vcc-io\n");
+		ret = regulator_disable(regu2);
+		if(ret)
+			printk("nand:regulator disable fail ret is %x \n",ret);
+		if(IS_ERR(regu2 )) {
+			 printk("nand:some error happen, fail to disable regulator vcc-io!");
+			//return -1;
+		}
+		//put regulator when module exit
+		regulator_put(regu2);
+
+		regu2 = NULL;
+	}
+	
+	printk("nand had already release voltage \n");
 
 #endif
 	return ret;
@@ -1090,19 +1158,20 @@ __u32 NAND_Print_level(void)
 	ret = of_property_read_u32(ndfc_dev->of_node, "nand0_print_level", &print_level);
 	if (ret) 
 	{
-		NAND_Print_DBG("Failed to get print_level\n");
+		NAND_Print("Failed to get print_level\n");
 		print_level = 0xffffffff;
 	}
 	else
 	{
 		if(print_level == 0x55aaaa55)
 		{
-			NAND_Print_DBG("print_level is no used\n");
+			NAND_Print("print_level is no used\n");
 			print_level = 0xffffffff;
 		}
 		else
-			NAND_Print_DBG("nand : get print_level %x \n",print_level); 
+			NAND_Print("nand : get print_level %x \n",print_level); 
 	}
+
 	return print_level;
 }
 
