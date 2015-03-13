@@ -271,7 +271,6 @@ static struct platform_driver nuc900_rtc_driver = {
 	.remove		= __exit_p(nuc900_rtc_remove),
 	.driver		= {
 		.name	= "nuc900-rtc",
-		.owner	= THIS_MODULE,
 	},
 };
 

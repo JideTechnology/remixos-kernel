@@ -209,7 +209,6 @@ static int __exit efi_rtc_remove(struct platform_device *dev)
 static struct platform_driver efi_rtc_driver = {
 	.driver = {
 		.name = "rtc-efi",
-		.owner = THIS_MODULE,
 	},
 	.remove = __exit_p(efi_rtc_remove),
 };

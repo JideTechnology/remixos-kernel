@@ -195,7 +195,6 @@ static int ls1x_rtc_remove(struct platform_device *pdev)
 static struct platform_driver  ls1x_rtc_driver = {
 	.driver		= {
 		.name	= "ls1x-rtc",
-		.owner	= THIS_MODULE,
 	},
 	.remove		= ls1x_rtc_remove,
 	.probe		= ls1x_rtc_probe,

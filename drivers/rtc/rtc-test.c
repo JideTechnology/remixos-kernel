@@ -132,7 +132,6 @@ static struct platform_driver test_driver = {
 	.remove = test_remove,
 	.driver = {
 		.name = "rtc-test",
-		.owner = THIS_MODULE,
 	},
 };
 

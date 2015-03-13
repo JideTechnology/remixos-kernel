@@ -397,7 +397,6 @@ static struct platform_driver da9055_rtc_driver = {
 	.remove = da9055_rtc_remove,
 	.driver = {
 		.name   = "da9055-rtc",
-		.owner  = THIS_MODULE,
 		.pm = &da9055_rtc_pm_ops,
 	},
 };

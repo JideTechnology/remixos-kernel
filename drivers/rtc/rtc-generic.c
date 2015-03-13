@@ -56,7 +56,6 @@ static int __exit generic_rtc_remove(struct platform_device *dev)
 static struct platform_driver generic_rtc_driver = {
 	.driver = {
 		.name = "rtc-generic",
-		.owner = THIS_MODULE,
 	},
 	.remove = __exit_p(generic_rtc_remove),
 };

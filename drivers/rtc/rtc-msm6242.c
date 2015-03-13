@@ -237,7 +237,6 @@ static int __exit msm6242_rtc_remove(struct platform_device *pdev)
 static struct platform_driver msm6242_rtc_driver = {
 	.driver	= {
 		.name	= "rtc-msm6242",
-		.owner	= THIS_MODULE,
 	},
 	.remove	= __exit_p(msm6242_rtc_remove),
 };

@@ -126,7 +126,6 @@ static int au1xtoy_rtc_remove(struct platform_device *pdev)
 static struct platform_driver au1xrtc_driver = {
 	.driver		= {
 		.name	= "rtc-au1xxx",
-		.owner	= THIS_MODULE,
 	},
 	.remove		= au1xtoy_rtc_remove,
 };

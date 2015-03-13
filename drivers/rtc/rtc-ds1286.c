@@ -361,7 +361,6 @@ static int ds1286_remove(struct platform_device *pdev)
 static struct platform_driver ds1286_platform_driver = {
 	.driver		= {
 		.name	= "rtc-ds1286",
-		.owner	= THIS_MODULE,
 	},
 	.probe		= ds1286_probe,
 	.remove		= ds1286_remove,

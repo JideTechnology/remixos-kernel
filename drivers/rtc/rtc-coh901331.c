@@ -277,7 +277,6 @@ static void coh901331_shutdown(struct platform_device *pdev)
 static struct platform_driver coh901331_driver = {
 	.driver = {
 		.name = "rtc-coh901331",
-		.owner = THIS_MODULE,
 		.pm = &coh901331_pm_ops,
 	},
 	.remove = __exit_p(coh901331_remove),

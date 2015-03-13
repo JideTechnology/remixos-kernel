@@ -79,7 +79,6 @@ static int __exit ps3_rtc_remove(struct platform_device *dev)
 static struct platform_driver ps3_rtc_driver = {
 	.driver = {
 		.name = "rtc-ps3",
-		.owner = THIS_MODULE,
 	},
 	.remove = __exit_p(ps3_rtc_remove),
 };

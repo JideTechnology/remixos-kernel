@@ -199,7 +199,6 @@ MODULE_ALIAS("platform:rtc-bq4802");
 static struct platform_driver bq4802_driver = {
 	.driver		= {
 		.name	= "rtc-bq4802",
-		.owner	= THIS_MODULE,
 	},
 	.probe		= bq4802_probe,
 	.remove		= bq4802_remove,

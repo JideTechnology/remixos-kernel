@@ -401,7 +401,6 @@ static struct platform_driver rtc_platform_driver = {
 	.remove		= rtc_remove,
 	.driver		= {
 		.name	= rtc_name,
-		.owner	= THIS_MODULE,
 	},
 };
 

@@ -527,7 +527,6 @@ static struct platform_driver pm8xxx_rtc_driver = {
 	.remove		= pm8xxx_rtc_remove,
 	.driver	= {
 		.name	= PM8XXX_RTC_DEV_NAME,
-		.owner	= THIS_MODULE,
 		.pm	= &pm8xxx_rtc_pm_ops,
 	},
 };

@@ -498,7 +498,6 @@ static struct platform_driver at91_rtc_driver = {
 	.remove		= __exit_p(at91_rtc_remove),
 	.driver		= {
 		.name	= "at91_rtc",
-		.owner	= THIS_MODULE,
 		.pm	= &at91_rtc_pm_ops,
 		.of_match_table = of_match_ptr(at91_rtc_dt_ids),
 	},

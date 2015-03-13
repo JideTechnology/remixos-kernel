@@ -244,7 +244,6 @@ static int __exit ds1302_rtc_remove(struct platform_device *pdev)
 static struct platform_driver ds1302_platform_driver = {
 	.driver		= {
 		.name	= DRV_NAME,
-		.owner	= THIS_MODULE,
 	},
 	.remove		= __exit_p(ds1302_rtc_remove),
 };

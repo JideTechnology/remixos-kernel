@@ -680,7 +680,6 @@ static struct platform_driver s3c_rtc_driver = {
 	.id_table	= s3c_rtc_driver_ids,
 	.driver		= {
 		.name	= "s3c-rtc",
-		.owner	= THIS_MODULE,
 		.pm	= &s3c_rtc_pm_ops,
 		.of_match_table	= of_match_ptr(s3c_rtc_dt_match),
 	},

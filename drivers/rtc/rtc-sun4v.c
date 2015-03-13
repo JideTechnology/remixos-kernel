@@ -100,7 +100,6 @@ static int __exit sun4v_rtc_remove(struct platform_device *pdev)
 static struct platform_driver sun4v_rtc_driver = {
 	.driver		= {
 		.name	= "rtc-sun4v",
-		.owner	= THIS_MODULE,
 	},
 	.remove		= __exit_p(sun4v_rtc_remove),
 };

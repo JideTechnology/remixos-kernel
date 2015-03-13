@@ -232,7 +232,6 @@ static struct platform_driver ds1742_rtc_driver = {
 	.remove		= ds1742_rtc_remove,
 	.driver		= {
 		.name	= "rtc-ds1742",
-		.owner	= THIS_MODULE,
 	},
 };
 
