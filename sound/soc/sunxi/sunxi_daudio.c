@@ -3,6 +3,7 @@
  * (C) Copyright 2010-2016
  * Reuuimlla Technology Co., Ltd. <www.reuuimllatech.com>
  * huangxin <huangxin@Reuuimllatech.com>
+ * Liu shaohua <liushaohua@allwinnertech.com>
  *
  * some simple description for this code
  *
@@ -240,7 +241,7 @@ static int __init sunxi_daudio_platform_probe(struct platform_device *pdev)
 		pr_err("[audio-daudio]Can't map i2s registers\n");
 	} else {
 		sunxi_daudio->regs = sunxi_daudio_membase;
-//		pr_debug("%s,line:%d,res.start:%llu,sunxi_daudio_membase:%x\n",__func__,__LINE__,res.start,sunxi_daudio_membase);
+		//printk("%s,line:%d,res.start:%llu,sunxi_daudio_membase:%x\n",__func__,__LINE__,res.start,sunxi_daudio_membase);
 	}
 	sunxi_daudio->tdm_pllclk = of_clk_get(node, 0);
 	sunxi_daudio->tdm_moduleclk= of_clk_get(node, 1);
@@ -252,18 +253,37 @@ static int __init sunxi_daudio_platform_probe(struct platform_device *pdev)
 			ret = PTR_ERR(sunxi_daudio->tdm_moduleclk);
 		goto err1;
 	} else {
+		if (clk_set_parent(sunxi_daudio->tdm_moduleclk, sunxi_daudio->tdm_pllclk)) {
+			pr_err("try to set parent of sunxi_daudio->tdm_moduleclk to sunxi_daudio->tdm_pllclk failed! line = %d\n",__LINE__);
+		}
 		clk_prepare_enable(sunxi_daudio->tdm_pllclk);
 		clk_prepare_enable(sunxi_daudio->tdm_moduleclk);
 	}
+	ret = of_property_read_u32(node, "tdm_num",&temp_val);
+	if (ret < 0) {
+		pr_err("[audio-daudio]tdm_num configurations missing or invalid.\n");
+		ret = -EINVAL;
+		goto err1;
+	} else {
+		sunxi_daudio->tdm_num = temp_val;
+	}
+
 	sunxi_daudio->play_dma_param.dma_addr = res.start + SUNXI_DAUDIOTXFIFO;
-	sunxi_daudio->play_dma_param.dma_drq_type_num = DRQDST_DAUDIO_0_TX;
-	sunxi_daudio->play_dma_param.dst_maxburst = 8;
-	sunxi_daudio->play_dma_param.src_maxburst = 8;
+	if (0 == sunxi_daudio->tdm_num)
+		sunxi_daudio->play_dma_param.dma_drq_type_num = DRQDST_DAUDIO_0_TX;
+	else if (1 == sunxi_daudio->tdm_num)
+		sunxi_daudio->play_dma_param.dma_drq_type_num = DRQDST_DAUDIO_1_TX;
+	sunxi_daudio->play_dma_param.dst_maxburst = 4;
+	sunxi_daudio->play_dma_param.src_maxburst = 4;
 
 	sunxi_daudio->capture_dma_param.dma_addr = res.start + SUNXI_DAUDIORXFIFO;
-	sunxi_daudio->capture_dma_param.dma_drq_type_num = DRQSRC_DAUDIO_0_RX;
-	sunxi_daudio->capture_dma_param.src_maxburst = 8;
-	sunxi_daudio->capture_dma_param.dst_maxburst = 8;
+	if (0 == sunxi_daudio->tdm_num)
+		sunxi_daudio->capture_dma_param.dma_drq_type_num = DRQSRC_DAUDIO_0_RX;
+	else
+		sunxi_daudio->capture_dma_param.dma_drq_type_num = DRQSRC_DAUDIO_1_RX;
+
+	sunxi_daudio->capture_dma_param.src_maxburst = 4;
+	sunxi_daudio->capture_dma_param.dst_maxburst = 4;
 	sunxi_daudio->pinctrl = NULL ;
 
 	if (!sunxi_daudio->pinctrl) {
@@ -432,7 +452,7 @@ static struct platform_driver sunxi_daudio_driver = {
 module_platform_driver(sunxi_daudio_driver);
 module_param_named(daudio_loop_en, daudio_loop_en, bool, S_IRUGO | S_IWUSR);
 /* Module information */
-MODULE_AUTHOR("huangxin");
+MODULE_AUTHOR("huangxin,liushaohua");
 MODULE_DESCRIPTION("sunxi DAUDIO SoC Interface");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:" DRV_NAME);

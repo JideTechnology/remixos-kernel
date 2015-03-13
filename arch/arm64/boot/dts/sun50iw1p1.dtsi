@@ -659,6 +659,7 @@
 			signal_inversion =  <0x01>;
 			frametype =  <0x0>;
 			tdm_config =  <0x01>;
+			tdm_num = <0x0>;
 			status = "okay";
 		};
 		daudio0_machine:daudio0mach{
@@ -684,6 +685,7 @@
 			signal_inversion =  <0x01>;
 			frametype =  <0x0>;
 			tdm_config =  <0x01>;
+			tdm_num = <0x1>;
 			status = "okay";
 		};
 		daudio1_machine:daudio1mach{

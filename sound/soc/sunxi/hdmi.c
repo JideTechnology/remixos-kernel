@@ -22,11 +22,12 @@
 #include <sound/initval.h>
 #include <linux/io.h>
 #include "sunxi_tdm_utils.h"
+#include <video/drv_hdmi.h>
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
 static bool  hdmiaudio_reset_en = false;
-//#define hdmi_hw
+#define hdmi_hw
 #ifdef hdmi_hw
 static __audio_hdmi_func 	g_hdmi_func;
 static hdmi_audio_t 		hdmi_para;
@@ -174,7 +175,7 @@ static int sndhdmi_perpare(struct snd_pcm_substream *substream,
 	*	set the data_raw param, need set the hdmi audio raw param
 	*/
 	if (!g_hdmi_func.hdmi_set_audio_para) {
-		printk(KERN_WARNING "hdmi video isn't insmod, hdmi interface is null\n");
+		pr_warn("hdmi video isn't insmod, hdmi interface is null\n");
 		return 0;
 	}
 	if (hdmiaudio_reset_en) {

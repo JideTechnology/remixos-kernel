@@ -3,6 +3,7 @@
  * (C) Copyright 2014-2016
  * Reuuimlla Technology Co., Ltd. <www.reuuimllatech.com>
  * huangxin <huangxin@Reuuimllatech.com>
+ * Liu shaohua <liushaohua@allwinnertech.com>
  *
  * some simple description for this code
  *
@@ -254,6 +255,9 @@ static int __init sunxi_hdmi_dev_probe(struct platform_device *pdev)
 			ret = PTR_ERR(sunxi_tdmhdmi->tdm_moduleclk);
 		goto err1;
 	} else {
+		if (clk_set_parent(sunxi_tdmhdmi->tdm_moduleclk, sunxi_tdmhdmi->tdm_pllclk)) {
+			pr_err("try to set parent of sunxi_tdmhdmi->tdm_moduleclk to sunxi_tdmhdmi->tdm_pllclk failed! line = %d\n",__LINE__);
+		}
 		clk_prepare_enable(sunxi_tdmhdmi->tdm_pllclk);
 		clk_prepare_enable(sunxi_tdmhdmi->tdm_moduleclk);
 	}
@@ -319,7 +323,7 @@ static struct platform_driver sunxi_hdmi_driver = {
 };
 module_platform_driver(sunxi_hdmi_driver);
 /* Module information */
-MODULE_AUTHOR("huangxin");
+MODULE_AUTHOR("huangxin , liushaohua");
 MODULE_DESCRIPTION("sunxi DAUDIO SoC Interface");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:sunxi-hdmi");

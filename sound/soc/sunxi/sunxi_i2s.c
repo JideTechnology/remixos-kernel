@@ -3,6 +3,7 @@
  * (C) Copyright 2014-2016
  * Reuuimlla Technology Co., Ltd. <www.reuuimllatech.com>
  * huangxin <huangxin@Reuuimllatech.com>
+ * Liu shaohua <liushaohua@allwinnertech.com>
  *
  * some simple description for this code
  *
@@ -506,6 +507,9 @@ static int __init sunxi_internal_i2s_platform_probe(struct platform_device *pdev
 			ret = PTR_ERR(sunxi_i2s->moduleclk);
 		goto err1;
 	} else {
+		if (clk_set_parent(sunxi_i2s->moduleclk, sunxi_i2s->pllclk)) {
+			pr_err("try to set parent of sunxi_spdif->moduleclk to sunxi_spdif->pllclk failed! line = %d\n",__LINE__);
+		}
 		clk_prepare_enable(sunxi_i2s->pllclk);
 		clk_prepare_enable(sunxi_i2s->moduleclk);
 	}

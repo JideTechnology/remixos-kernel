@@ -26,9 +26,9 @@ obj-$(CONFIG_SND_SOC_DAUDIO0_MACHINE) += sunxi-snddaudio0.o
 obj-$(CONFIG_SND_SOC_DAUDIO1_MACHINE) += sunxi-snddaudio1.o
 
 #hdmi
-obj-$(CONFIG_SND_SOC_HDMIAUDIO_PLATFORM) += sunxi_tdmhdmi.o
-obj-$(CONFIG_SND_SOC_HDMIAUDIO_MACHINE_CODEC) += hdmi.o
-obj-$(CONFIG_SND_SOC_HDMIAUDIO_MACHINE_CODEC) += sunxi-sndhdmi.o
+obj-$(CONFIG_SND_SUNXI_SOC_HDMIAUDIO) += sunxi_tdmhdmi.o
+obj-$(CONFIG_SND_SUNXI_SOC_HDMIAUDIO) += hdmi.o
+obj-$(CONFIG_SND_SUNXI_SOC_HDMIAUDIO) += sunxi-sndhdmi.o
 
 #spdif
 obj-$(CONFIG_SND_SUNXI_SOC_SPDIF) += sunxi_spdif.o

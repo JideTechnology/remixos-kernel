@@ -3,7 +3,7 @@
  * (C) Copyright 2014-2016
  * Reuuimlla Technology Co., Ltd. <www.reuuimllatech.com>
  * huangxin <huangxin@Reuuimllatech.com>
- *
+ * Liu shaohua <liushaohua@allwinnertech.com>
  * some simple description for this code
  *
  * This program is free software; you can redistribute it and/or
@@ -34,6 +34,10 @@ static dma_addr_t hdmiraw_dma_addr = 0;
 static dma_addr_t hdmipcm_dma_addr = 0;
 static unsigned char *hdmiraw_dma_area;	/* DMA area */
 static unsigned int channel_status[192];
+
+
+static u64 sunxi_pcm_mask = DMA_BIT_MASK(32);
+
 
 typedef struct headbpcuv{
 	unsigned other:3;
@@ -239,9 +243,19 @@ static int sunxi_pcm_hdmi_hw_params(struct snd_pcm_substream *substream,
 		slave_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 		slave_config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 		strcpy(substream->pcm->card->id, "sndhdmiraw");
-		hdmiraw_dma_area = dma_alloc_coherent(NULL, (2*params_buffer_bytes(params)), &hdmiraw_dma_addr, GFP_KERNEL);
+		if (!dev->dma_mask)
+			dev->dma_mask = &sunxi_pcm_mask;
+		if (!dev->coherent_dma_mask)
+			dev->coherent_dma_mask = 0xffffffff;
+
+		hdmiraw_dma_area = dma_alloc_coherent(dev, (2*params_buffer_bytes(params)), &hdmiraw_dma_addr, GFP_KERNEL);
+		if (hdmiraw_dma_area == NULL) {
+			pr_err("hdmi:raw:get mem failed...\n");
+			return -ENOMEM;
+		}
 		hdmipcm_dma_addr = substream->dma_buffer.addr;
-		substream->dma_buffer.addr = hdmiraw_dma_addr;
+		substream->dma_buffer.addr = (dma_addr_t)hdmiraw_dma_addr;
+//		pr_debug("hdmiraw_dma_area:%llx,hdmiraw_dma_addr:%x,hdmipcm_dma_addr:%x\n",hdmiraw_dma_area,hdmiraw_dma_addr,hdmipcm_dma_addr);
 	} else {
 		strcpy(substream->pcm->card->id, "sndhdmi");
 	}
@@ -257,10 +271,13 @@ static int sunxi_pcm_hdmi_hw_params(struct snd_pcm_substream *substream,
 
 static int sunxi_pcm_hdmi_hw_free(struct snd_pcm_substream *substream)
 {
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct device *dev = rtd->platform->dev;
 	if (snd_pcm_lib_buffer_bytes(substream)&& (raw_flag > 1)) {
-		dma_free_coherent(NULL, (2*snd_pcm_lib_buffer_bytes(substream)),
+		dma_free_coherent(dev, (2*snd_pcm_lib_buffer_bytes(substream)),
 					      hdmiraw_dma_area, hdmiraw_dma_addr);
 		substream->dma_buffer.addr = hdmipcm_dma_addr;
+		hdmiraw_dma_area = NULL;
 	}
 	snd_pcm_set_runtime_buffer(substream, NULL);
 
@@ -441,7 +458,6 @@ static void sunxi_pcm_free_dma_buffers(struct snd_pcm *pcm)
 	}
 }
 
-static u64 sunxi_pcm_mask = DMA_BIT_MASK(32);
 
 static int sunxi_pcm_new(struct snd_soc_pcm_runtime *rtd)
 {
@@ -497,7 +513,7 @@ void asoc_dma_platform_unregister(struct device *dev)
 }
 EXPORT_SYMBOL_GPL(asoc_dma_platform_unregister);
 
-MODULE_AUTHOR("huangxin");
+MODULE_AUTHOR("huangxin, liushaohua");
 MODULE_DESCRIPTION("sunxi ASoC DMA Driver");
 MODULE_LICENSE("GPL");
 

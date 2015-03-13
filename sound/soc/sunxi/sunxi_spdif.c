@@ -753,6 +753,9 @@ static int __init sunxi_spdif_dev_probe(struct platform_device *pdev)
 			ret = PTR_ERR(sunxi_spdif->moduleclk);
 		goto err1;
 	} else {
+		if (clk_set_parent(sunxi_spdif->moduleclk, sunxi_spdif->pllclk)) {
+			pr_err("try to set parent of sunxi_spdif->moduleclk to sunxi_spdif->pllclk failed! line = %d\n",__LINE__);
+		}
 		clk_prepare_enable(sunxi_spdif->pllclk);
 		clk_prepare_enable(sunxi_spdif->moduleclk);
 	}

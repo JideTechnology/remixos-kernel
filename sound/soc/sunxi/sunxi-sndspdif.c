@@ -28,7 +28,7 @@
 
 static int spdif_format = 1;
 
-
+#define CONFIG_AW_ASIC_EVB_PLATFORM
 static int sunxi_sndspdif_startup(struct snd_pcm_substream *substream)
 {
 	return 0;

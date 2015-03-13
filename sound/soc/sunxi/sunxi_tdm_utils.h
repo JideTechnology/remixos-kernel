@@ -175,6 +175,7 @@ struct sunxi_tdm_info {
 	u32 signal_inversion;
 	u32 samp_res;
 	u32 others;	/*other use*/
+	u32 tdm_num;
 	bool tdm_config;	/*1:i2s 0:pcm*/
 	bool frametype;	/*pcm format: 0-short frame,1-long frame*/
 

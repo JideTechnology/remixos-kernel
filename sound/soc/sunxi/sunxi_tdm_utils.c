@@ -3,6 +3,7 @@
  * (C) Copyright 2014-2016
  * Reuuimlla Technology Co., Ltd. <www.reuuimllatech.com>
  * huangxin <huangxin@Reuuimllatech.com>
+ * Liu shaohua <liushaohua@allwinnertech.com>
  *
  * some simple description for this code
  *
@@ -72,7 +73,7 @@ int txctrl_tdm(int on,int hub_en,struct sunxi_tdm_info *sunxi_tdm)
 		writel(reg_val, tdm->regs + SUNXI_DAUDIOFCTL);
 	}
 
-#ifdef CONFIG_SUNXI_AUDIO_DEBUG
+#if 0
 	for(reg_val = 0; reg_val < 0x5c; reg_val=reg_val+4)
 		pr_debug("%s,line:%d,0x%x:%x\n",__func__,__LINE__,reg_val,readl(tdm->regs + reg_val));
 #endif
@@ -109,7 +110,7 @@ int  rxctrl_tdm(int on,struct sunxi_tdm_info *sunxi_tdm)
 		reg_val &= ~SUNXI_DAUDIOCTL_RXEN;
 		writel(reg_val, tdm->regs + SUNXI_DAUDIOCTL);
 	}
-#ifdef CONFIG_SUNXI_AUDIO_DEBUG
+#if 0
 	for(reg_val = 0; reg_val < 0x58; reg_val=reg_val+4)
 		pr_debug("%s,line:%d,0x%x:%x\n",__func__,__LINE__,reg_val,readl(tdm->regs + reg_val));
 #endif

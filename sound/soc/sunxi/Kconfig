@@ -63,18 +63,18 @@ config SND_SOC_DAUDIO1_MACHINE
 	help
  	  Say Y or M if you want to add the daudio1 MACHEINE interface.
 
-config SND_SOC_HDMIAUDIO_PLATFORM
+config SND_SUNXI_SOC_HDMIAUDIO
 	tristate "ASoC support for hdmiaudio platform."
 	select SND_SOC_SUNXI_TDM
 	help
  	  Say Y or M if you want to add the hdmi platform interface.
 
 
-config SND_SOC_HDMIAUDIO_MACHINE_CODEC
-	tristate "ASoC support for hdmi machine and hdmi codec"
-	select SND_SOC_SUNXI_TDM
-	help
- 	  Say Y or M if you want to add the hdmi MACHEINE interface and codec interface.
+#config SND_SOC_HDMIAUDIO_MACHINE_CODEC
+#	tristate "ASoC support for hdmi machine and hdmi codec"
+#	select SND_SOC_SUNXI_TDM
+#	help
+ #	  Say Y or M if you want to add the hdmi MACHEINE interface and codec interface.
 
 config SND_SUNXI_SOC_SPDIF
 	tristate "ASoC support for spdif soundcard"
@@ -83,7 +83,7 @@ config SND_SUNXI_SOC_SPDIF
 
 config SND_SUNXI_SOC_SUPPORT_AUDIO_RAW
 	bool "Support Audio Raw Data"
-	depends on (SND_SOC_HDMIAUDIO_MACHINE_CODEC || SND_SUNXI_SOC_SPDIF) && (ARCH_SUN8IW6 || ARCH_SUN8IW7 ||ARCH_SUN9IW1 || ARCH_SUN50I)
+	depends on (SND_SUNXI_SOC_HDMIAUDIO || SND_SUNXI_SOC_SPDIF) && (ARCH_SUN8IW6 || ARCH_SUN8IW7 ||ARCH_SUN9IW1 || ARCH_SUN50I)
 	default n
 	help
 	  Say Y support Audio raw date. It's suitable for Homlet product.

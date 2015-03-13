@@ -1930,7 +1930,7 @@ static int codec_suspend(struct snd_soc_codec *codec)
 {
 	int ret = 0;
 	struct sunxi_codec *sunxi_internal_codec = snd_soc_codec_get_drvdata(codec);
-	pr_debug("[audio codec]:suspend start.%s\n",__func__);
+	pr_debug("[audio codec]:suspend start.\n");
 
 
 	if (sunxi_internal_codec->aif_config.aif3config) {
