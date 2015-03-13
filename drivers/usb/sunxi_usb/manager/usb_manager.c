@@ -234,10 +234,30 @@ static __s32 usb_script_parse(struct device_node *np, struct usb_cfg *cfg)
 	return 0;
 }
 
-static int usb_host_init_status(char *usbc)
+int usb_otg_id_status(void)
 {
-	return 1;
+	struct usb_cfg *cfg = NULL;
+	int id_status = -1;
+
+	cfg = &g_usb_cfg;
+	if(cfg == NULL){
+		return -1;
+	}
+
+	if(cfg->port.port_type == USB_PORT_TYPE_DEVICE){
+		return 1;
+	}
+
+	if(cfg->port.port_type == USB_PORT_TYPE_OTG) {
+		if(cfg->port.id.valid){
+			id_status = __gpio_get_value(cfg->port.id.gpio_set.gpio.gpio);
+			printk("%s, %d, id_status: %d\n", __func__, __LINE__, id_status);
+		}
+	}
+
+	return id_status;
 }
+EXPORT_SYMBOL(usb_otg_id_status);
 
 static int sunxi_otg_manager_probe(struct platform_device *pdev)
 {
@@ -277,9 +297,9 @@ static int sunxi_otg_manager_probe(struct platform_device *pdev)
 	}
 
 	if (g_usb_cfg.port.port_type == USB_PORT_TYPE_HOST) {
-		if(usb_host_init_status(SET_USB0)){
-			set_usb_role_ex(USB_ROLE_HOST);
-		}
+
+		set_usb_role_ex(USB_ROLE_HOST);
+
 		thread_host_run_flag = 1;
 		host_th = kthread_create(usb_host_scan_thread, NULL, "usb_host_chose");
 		if (IS_ERR(host_th)) {

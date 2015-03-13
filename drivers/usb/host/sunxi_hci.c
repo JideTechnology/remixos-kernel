@@ -49,6 +49,10 @@ static u64 sunxi_hci_dmamask = DMA_BIT_MASK(32);
 static char* usbc_name[2] 			= {"usbc0", "usbc1"};
 #endif
 
+#ifdef	CONFIG_USB_SUNXI_USB_MANAGER
+int usb_otg_id_status(void);
+#endif
+
 static struct sunxi_hci_hcd sunxi_ohci0;
 static struct sunxi_hci_hcd sunxi_ohci1;
 static struct sunxi_hci_hcd sunxi_ehci0;
@@ -338,6 +342,15 @@ static void __sunxi_set_vbus(struct sunxi_hci_hcd *sunxi_hci, int is_on)
 			}
 		}
 	}
+
+//no care of usb0 vbus when otg connect pc setup system without battery  and to return
+#ifdef	CONFIG_USB_SUNXI_USB_MANAGER
+	if(sunxi_hci->usbc_no == HCI0_USBC_NO){
+		if(usb_otg_id_status() == 1){
+			return;
+		}
+	}
+#endif
 
 	if(sunxi_hci->drv_vbus_gpio_valid){
 		__gpio_set_value(sunxi_hci->drv_vbus_gpio_set.gpio.gpio, is_on);

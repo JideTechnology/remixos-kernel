@@ -62,6 +62,8 @@ static ssize_t host_chose(struct device * dev,struct device_attribute * attr,cha
 	//stop usb scan
 	thread_run_flag = 0;
 
+	g_usb_cfg.port.port_type = USB_PORT_TYPE_HOST;
+
 	hw_rmmod_usb_host();
 	hw_rmmod_usb_device();
 	usb_msg_center(&g_usb_cfg);
