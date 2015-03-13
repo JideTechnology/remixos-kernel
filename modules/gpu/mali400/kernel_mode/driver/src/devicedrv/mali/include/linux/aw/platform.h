@@ -72,7 +72,7 @@ struct aw_dvfs_data
 {
 	u8   max_level;
 	bool dvfs_status;
-	bool dvfs_flag;
+	int dvfs_flag;
 	struct mutex dvfs_lock;
 };
 

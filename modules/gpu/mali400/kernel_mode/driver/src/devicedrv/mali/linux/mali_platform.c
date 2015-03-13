@@ -124,7 +124,10 @@ static void set_gpu_freq(int freq /* MHz */)
 
 	mutex_lock(&private_data.dvfs_data.dvfs_lock);
 	mali_dev_pause();
-	set_clk_freq(freq);
+	if(set_clk_freq(freq))
+	{
+		MALI_PRINT(("Set gpu frequency to %d MHz", freq));
+	}
 	mali_dev_resume();
 	mutex_unlock(&private_data.dvfs_data.dvfs_lock);
 }
@@ -436,22 +439,22 @@ static void mali_change_freq(struct work_struct *work)
 {
 	int cur_freq = get_current_freq();
 	int high_level = private_data.dvfs_data.max_level, low_level = 0, temp_level, level_num;
-
+	
 	if(cur_freq > vf_table[private_data.dvfs_data.max_level].max_freq)
 	{
 		set_gpu_freq(vf_table[private_data.dvfs_data.max_level].max_freq);
 		cur_freq = get_current_freq();
 	}
-
+	
 	if(private_data.dvfs_data.dvfs_status && private_data.dvfs_data.dvfs_flag)
 	{
 		if(private_data.dvfs_data.dvfs_flag < 0 && cur_freq <= vf_table[0].max_freq)
 		{
-			return;
+			goto out;
 		}
 		else if(private_data.dvfs_data.dvfs_flag > 0 && cur_freq == vf_table[private_data.dvfs_data.max_level].max_freq)
 		{
-			return;
+			goto out;
 		}
 
 		/* Find the nearest level */
@@ -459,7 +462,7 @@ static void mali_change_freq(struct work_struct *work)
 		{
 			level_num = high_level - low_level + 1;
 			temp_level = low_level + level_num/2;
-			
+
 			if(cur_freq > vf_table[temp_level].max_freq)
 			{
 				low_level = temp_level;
@@ -487,6 +490,7 @@ static void mali_change_freq(struct work_struct *work)
 
 		set_gpu_freq(vf_table[private_data.dvfs_data.dvfs_flag < 0 ? low_level : high_level].max_freq);
 
+out:
 		private_data.dvfs_data.dvfs_flag = 0;
 	}
 }
@@ -528,8 +532,9 @@ static void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data
 	if(private_data.dvfs_data.dvfs_status)
 	{
 		utilization = data->utilization_gpu;
+
 		/* Determine the frequency change */
-		if(utilization > 250)
+		if(utilization > 160)
 		{
 			private_data.dvfs_data.dvfs_flag = 1;
 		}
