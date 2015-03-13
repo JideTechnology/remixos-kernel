@@ -99,7 +99,7 @@ static bool set_clk_freq(int freq /* MHz */)
 		{
 			if(clk_set_rate(clk_data[i].clk_handle, freq*1000*1000))
 			{
-				MALI_PRINT_ERROR(("Failed to set the frequency of gpu %s clock: Current frequency is %ld MHz, the frequency to be is %d MHz", clk_data[i].clk_name, clk_get_rate(clk_data[i].clk_handle)/(1000*1000), freq));
+				MALI_PRINT_ERROR(("Failed to set the frequency of gpu %s clock: Current frequency is %ld MHz, the frequency to be is %d MHz\n", clk_data[i].clk_name, clk_get_rate(clk_data[i].clk_handle)/(1000*1000), freq));
 				return 0;
 			}
 		}
@@ -118,7 +118,7 @@ static void set_gpu_freq(int freq /* MHz */)
 {
 	if(freq > vf_table[private_data.dvfs_data.max_level].max_freq)
 	{
-		MALI_PRINT_ERROR(("Failed to set the frequency of gpu: The frequency to be is %d MHz, it is beyond the permitted frequency boundary %d MHz", freq, vf_table[private_data.dvfs_data.max_level].max_freq));
+		MALI_PRINT_ERROR(("Failed to set the frequency of gpu: The frequency to be is %d MHz, it is beyond the permitted frequency boundary %d MHz\n", freq, vf_table[private_data.dvfs_data.max_level].max_freq));
 		return;
 	}
 
@@ -126,7 +126,7 @@ static void set_gpu_freq(int freq /* MHz */)
 	mali_dev_pause();
 	if(set_clk_freq(freq))
 	{
-		MALI_PRINT(("Set gpu frequency to %d MHz", freq));
+		MALI_PRINT(("Set gpu frequency to %d MHz\n", freq));
 	}
 	mali_dev_resume();
 	mutex_unlock(&private_data.dvfs_data.dvfs_lock);
@@ -218,7 +218,7 @@ static ssize_t dvfs_manual_store(struct device *dev, struct device_attribute *at
 	err = strict_strtoul(buf, 10, &freq);
 	if (err)
 	{
-		MALI_PRINT_ERROR(("Invalid parameter!"));
+		MALI_PRINT_ERROR(("Invalid parameter!\n"));
 		goto err_out;
 	}
 
@@ -279,7 +279,7 @@ static ssize_t status_dvfs_store(struct device *dev, struct device_attribute *at
 	err = strict_strtoul(buf, 10, &status);
 	if (err)
 	{
-		MALI_PRINT_ERROR(("Invalid parameter!"));
+		MALI_PRINT_ERROR(("Invalid parameter!\n"));
 		goto out;
 	}
 
@@ -313,7 +313,7 @@ static ssize_t status_tempctrl_store(struct device *dev, struct device_attribute
 	err = strict_strtoul(buf, 10, &status);
 	if (err)
 	{
-		MALI_PRINT_ERROR(("Invalid parameter!"));
+		MALI_PRINT_ERROR(("Invalid parameter!\n"));
 		goto out;
 	}
 
@@ -423,7 +423,11 @@ int aw_mali_platform_device_register(void)
 
 		INIT_WORK(&wq_work, mali_change_freq);
 
-		sysfs_create_group(&pdev->dev.kobj, &gpu_attribute_group);
+		err = sysfs_create_group(&pdev->dev.kobj, &gpu_attribute_group);
+		if (err)
+		{
+			kobject_put(&pdev->dev.kobj);
+		}
 	}
 
     return err;
