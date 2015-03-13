@@ -1,5 +1,5 @@
 /*
- * An RTC driver for Allwinner A10/A20
+ * An RTC driver for Allwinner A10/A20/A64
  *
  * Copyright (c) 2013, Carlo Caione <carlo.caione@gmail.com>
  *
@@ -30,13 +30,34 @@
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/rtc.h>
 #include <linux/types.h>
 
 #define SUNXI_LOSC_CTRL				0x0000
 #define SUNXI_LOSC_CTRL_RTC_HMS_ACC		BIT(8)
 #define SUNXI_LOSC_CTRL_RTC_YMD_ACC		BIT(7)
+#define REG_LOSCCTRL_MAGIC			0x16aa0000
+#define REG_CLK32K_AUTO_SWT_EN			BIT(14)
+#define RTC_SOURCE_EXTERNAL			0x00000001
+#define EXT_LOSC_GSM				0x00000008
 
+#if CONFIG_ARCH_SUN50IW1P1
+#define SUNXI_RTC_YMD				0x0010
+
+#define SUNXI_RTC_HMS				0x0014
+
+#define SUNXI_ALRM_DHMS				0x0040
+
+#define SUNXI_ALRM_EN				0x0044
+#define SUNXI_ALRM_EN_CNT_EN			BIT(8)
+
+#define SUNXI_ALRM_IRQ_EN			0x0048
+#define SUNXI_ALRM_IRQ_EN_CNT_IRQ_EN		BIT(0)
+
+#define SUNXI_ALRM_IRQ_STA			0x004c
+#define SUNXI_ALRM_IRQ_STA_CNT_IRQ_PEND		BIT(0)
+#else
 #define SUNXI_RTC_YMD				0x0004
 
 #define SUNXI_RTC_HMS				0x0008
@@ -51,13 +72,13 @@
 
 #define SUNXI_ALRM_IRQ_STA			0x001c
 #define SUNXI_ALRM_IRQ_STA_CNT_IRQ_PEND		BIT(0)
+#endif
 
 #define SUNXI_MASK_DH				0x0000001f
 #define SUNXI_MASK_SM				0x0000003f
 #define SUNXI_MASK_M				0x0000000f
 #define SUNXI_MASK_LY				0x00000001
 #define SUNXI_MASK_D				0x00000ffe
-#define SUNXI_MASK_M				0x0000000f
 
 #define SUNXI_GET(x, mask, shift)		(((x) & ((mask) << (shift))) \
 							>> (shift))
@@ -430,6 +451,7 @@ static const struct rtc_class_ops sunxi_rtc_ops = {
 static const struct of_device_id sunxi_rtc_dt_ids[] = {
 	{ .compatible = "allwinner,sun4i-a10-rtc", .data = &data_year_param[0] },
 	{ .compatible = "allwinner,sun7i-a20-rtc", .data = &data_year_param[1] },
+	{ .compatible = "allwinner,sun50i-a64-rtc", .data = &data_year_param[0] },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, sunxi_rtc_dt_ids);
@@ -440,6 +462,13 @@ static int sunxi_rtc_probe(struct platform_device *pdev)
 	struct resource *res;
 	const struct of_device_id *of_id;
 	int ret;
+	unsigned int tmp_data;
+
+	of_id = of_match_device(sunxi_rtc_dt_ids, &pdev->dev);
+	if (!of_id) {
+		dev_err(&pdev->dev, "Unable to setup RTC data\n");
+		return -ENODEV;
+	}
 
 	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip)
@@ -453,23 +482,10 @@ static int sunxi_rtc_probe(struct platform_device *pdev)
 	if (IS_ERR(chip->base))
 		return PTR_ERR(chip->base);
 
-	chip->irq = platform_get_irq(pdev, 0);
-	if (chip->irq < 0) {
-		dev_err(&pdev->dev, "No IRQ resource\n");
-		return chip->irq;
-	}
-	ret = devm_request_irq(&pdev->dev, chip->irq, sunxi_rtc_alarmirq,
-			0, dev_name(&pdev->dev), chip);
-	if (ret) {
-		dev_err(&pdev->dev, "Could not request IRQ\n");
-		return ret;
-	}
+	/* Enable the clock/module so that we can access the registers */
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
 
-	of_id = of_match_device(sunxi_rtc_dt_ids, &pdev->dev);
-	if (!of_id) {
-		dev_err(&pdev->dev, "Unable to setup RTC data\n");
-		return -ENODEV;
-	}
 	chip->data_year = (struct sunxi_rtc_data_year *) of_id->data;
 
 	/* clear the alarm count value */
@@ -484,17 +500,42 @@ static int sunxi_rtc_probe(struct platform_device *pdev)
 	/* clear alarm week/cnt irq pending */
 	writel(SUNXI_ALRM_IRQ_STA_CNT_IRQ_PEND, chip->base +
 			SUNXI_ALRM_IRQ_STA);
+	/*
+	 * Step1: select RTC clock source
+	 */
+	tmp_data = readl(chip->base + SUNXI_LOSC_CTRL);
+	tmp_data &= (~REG_CLK32K_AUTO_SWT_EN);
+	tmp_data |= (RTC_SOURCE_EXTERNAL | REG_LOSCCTRL_MAGIC);
+	tmp_data |= (EXT_LOSC_GSM);
+	writel(tmp_data, chip->base + SUNXI_LOSC_CTRL);
 
 	chip->rtc = rtc_device_register("rtc-sunxi", &pdev->dev,
-			&sunxi_rtc_ops, THIS_MODULE);
+	                                &sunxi_rtc_ops, THIS_MODULE);
 	if (IS_ERR(chip->rtc)) {
 		dev_err(&pdev->dev, "unable to register device\n");
-		return PTR_ERR(chip->rtc);
+		goto fail;
+	}
+
+	chip->irq = platform_get_irq(pdev, 0);
+	if (chip->irq < 0) {
+		dev_err(&pdev->dev, "No IRQ resource\n");
+		goto fail;
+	}
+	ret = devm_request_irq(&pdev->dev, chip->irq, sunxi_rtc_alarmirq,
+	                       0, dev_name(&pdev->dev), chip);
+	if (ret) {
+		dev_err(&pdev->dev, "Could not request IRQ\n");
+		goto fail;
 	}
 
 	dev_info(&pdev->dev, "RTC enabled\n");
 
 	return 0;
+
+fail:
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
+	return -EIO;
 }
 
 static int sunxi_rtc_remove(struct platform_device *pdev)
@@ -502,6 +543,10 @@ static int sunxi_rtc_remove(struct platform_device *pdev)
 	struct sunxi_rtc_dev *chip = platform_get_drvdata(pdev);
 
 	rtc_device_unregister(chip->rtc);
+
+	/* Disable the clock/module */
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 
 	return 0;
 }
@@ -511,6 +556,7 @@ static struct platform_driver sunxi_rtc_driver = {
 	.remove		= sunxi_rtc_remove,
 	.driver		= {
 		.name		= "sunxi-rtc",
+		.owner		= THIS_MODULE,
 		.of_match_table = sunxi_rtc_dt_ids,
 	},
 };
@@ -519,4 +565,4 @@ module_platform_driver(sunxi_rtc_driver);
 
 MODULE_DESCRIPTION("sunxi RTC driver");
 MODULE_AUTHOR("Carlo Caione <carlo.caione@gmail.com>");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL V2");

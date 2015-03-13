@@ -323,14 +323,6 @@
 			space1 = <0x40025000 0x00000000 0x00000800>; /* super standby para space        */
 		};
 
-		rtc@1f00000 {
-			compatible = "allwinner,rtc";
-			device_type = "rtc";
-			reg = <0x0 0x1f00000 0x0 0x218>;
-			gpr_offset = <0x100>;
-			gpr_len	   = <4>;
-		};
-
 		msgbox: msgbox@1c17000 {
 			compatible = "allwinner,msgbox";
 			clocks = <&clk_msgbox>;
@@ -393,6 +385,13 @@
 			interrupts = <GIC_SPI 18 IRQ_TYPE_EDGE_RISING>;
 			clock-frequency = <24000000>;
 			timer-prescale = <16>;
+		};
+
+		rtc: rtc@01f00000 {
+			compatible = "allwinner,sun50i-a64-rtc";
+			device_type = "rtc";
+			reg = <0x0 0x1f00000 0x0 0x218>;
+			interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		ve@01c0e000 {
