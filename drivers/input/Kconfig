@@ -193,6 +193,13 @@ config INPUT_KEYCOMBO
 	  To compile this driver as a module, choose M here: the
 	  module will be called keycombo.
 
+config  INPUT_SW_DEVICE
+       tristate  "i2c device detect support"
+       depends on INPUT && I2C
+       default m
+       help
+        Sensors and CTPS of i2c bus to use the equipment inspection
+        If you say yes here you get support for Sensors and CTPS Detection.
 comment "Input Device Drivers"
 
 source "drivers/input/keyboard/Kconfig"
@@ -207,6 +214,7 @@ source "drivers/input/touchscreen/Kconfig"
 
 source "drivers/input/misc/Kconfig"
 
+source "drivers/input/sensor/Kconfig"
 endif
 
 menu "Hardware I/O ports"

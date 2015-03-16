@@ -15,45 +15,15 @@
 #include <linux/init.h>
 #include <asm/io.h>
 #include <asm/uaccess.h>
-#include <linux/gpio.h>
+#include <linux/sys_config.h>
 #include <linux/clk.h>
 #include <linux/gpio.h>
 #include <linux/init-input.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/of.h>
 #include <linux/of_gpio.h>
-#include <linux/of_platform.h>
-#include <linux/of_irq.h>
-#include <linux/of_address.h>
+#include <linux/platform_device.h>
 
-static const char * const input_types[] = {
-	[CTP_TYPE]	= "ctp",
-	[GSENSOR_TYPE]	= "gsensor",
-	[GYR_TYPE]	= "gyrsensor",
-	[COMPASS_TYPE]	= "lssensor",
-	[LS_TYPE]	= "compass",
-	[MOTOR_TYPE]	= "motor",
-};
-
-static int get_sensor_node(enum input_sensor_type *type, struct device_node** np)
-{
-	struct device_node *hub = NULL;
-	struct device_node *child = NULL;
-
-	hub = of_find_node_by_name(NULL, SUNXI_INPUT_HUB);
-	if (!hub) {
-		pr_err("unable to find input hub!\n");
-		return -1;
-	}
-
-	child = of_get_child_by_name(hub, input_types[*type]);
-	if (!child) {
-		pr_err("unable to find %s node !\n",input_types[*type]);
-		return -1;
-	}
-	*np = child;
-
-	return 0;
-}
 
 /*********************************CTP*******************************************/
 
@@ -66,77 +36,97 @@ static int get_sensor_node(enum input_sensor_type *type, struct device_node** np
 static int ctp_fetch_sysconfig_para(enum input_sensor_type *ctp_type)
 {
 	int ret = -1;
-	u32 gpio;
-	struct device_node *np = NULL;
 	struct ctp_config_info *data = container_of(ctp_type,
 					struct ctp_config_info, input_type);
 
-	pr_info("=====%s=====. \n", __func__);
+	struct device_node *np = NULL;
 
-	if(get_sensor_node(ctp_type, &np))
-		return -EPERM;
+	np = of_find_node_by_name(NULL,"ctp");
+	if (!np) {
+		 pr_err("ERROR! get ctp_para failed, func:%s, line:%d\n",__FUNCTION__, __LINE__);
+		 goto devicetree_get_item_err;
+	}
+
 	if (!of_device_is_available(np)) {
-		pr_err("%s: sunxi ctp disable\n", __func__);
-		goto script_get_item_err;
+	     pr_err("%s: ctp is not used\n", __func__);
+	     goto devicetree_get_item_err;
 	}else
-		data->ctp_used = 1;
+	     data->ctp_used = 1;
 
-	if (of_property_read_u32(np, "twi_id", &data->twi_id)){
-		pr_err("%s: get ctp_twi_id failed", __func__);
-		goto script_get_item_err;
+	ret = of_property_read_u32(np, "ctp_twi_id", &data->twi_id);
+	if (ret) {
+		 pr_err("get twi_id is fail, %d\n", ret);
+		 goto devicetree_get_item_err;
 	}
 
-	if (of_property_read_u32(np, "screen_max_x", &data->screen_max_x)) {
-		pr_err("%s: get screen_max_x failed\n", __func__);
-		goto script_get_item_err;
+	ret = of_property_read_string(np,  "ctp_name", &data->name);
+	if (ret) {
+		 pr_err("get ctp_name is fail, %d\n", ret);
 	}
 
-	if (of_property_read_u32(np, "screen_max_y", &data->screen_max_y)) {
-		pr_err("%s: get screen_max_y failed\n", __func__);
-		goto script_get_item_err;
+	ret = of_property_read_string(np,  "ctp_power_ldo", &data->ctp_power);
+	if (ret) {
+		 pr_err("get ctp_power is fail, %d\n", ret);	
 	}
 
-	if (of_property_read_u32(np, "revert_x_flag", &data->revert_x_flag)) {
-		pr_err("%s: get revert_x_flag failed\n", __func__);
-		goto script_get_item_err;
+	ret = of_property_read_u32(np, "ctp_power_ldo_vol", &data->ctp_power_vol);
+	if (ret) {
+		 pr_err("get ctp_power_ldo_vol is fail, %d\n", ret);
 	}
 
-	if (of_property_read_u32(np, "revert_y_flag", &data->revert_y_flag)) {
-		pr_err("%s: get revert_y_flag failed\n", __func__);
-		goto script_get_item_err;
+	data->ctp_power_io.gpio = of_get_named_gpio_flags(np, "ctp_power_io", 0, (enum of_gpio_flags *)(&(data->ctp_power_io)));
+	if (!gpio_is_valid(data->ctp_power_io.gpio))
+		pr_err("%s: ctp_power_io is invalid. \n",__func__ );
+
+	data->wakeup_gpio.gpio = of_get_named_gpio_flags(np, "ctp_wakeup", 0, (enum of_gpio_flags *)(&(data->wakeup_gpio)));
+	if (!gpio_is_valid(data->wakeup_gpio.gpio))
+			pr_err("%s: wakeup_gpio is invalid. \n",__func__ );
+
+	ret = of_property_read_u32(np, "ctp_screen_max_x", &data->screen_max_x);
+	if (ret) {
+		 pr_err("get ctp_screen_max_x is fail, %d\n", ret);
 	}
 
-	if (of_property_read_u32(np, "exchange_x_y_flag", &data->exchange_x_y_flag)) {
-		pr_err("%s: get exchange_x_y_flag failed\n", __func__);
-		goto script_get_item_err;
+	
+	ret = of_property_read_u32(np, "ctp_screen_max_y", &data->screen_max_y);
+	if (ret) {
+		 pr_err("get screen_max_y is fail, %d\n", ret);
 	}
 
-	gpio = of_get_named_gpio_flags(np, "int_port", 0,
-			(enum of_gpio_flags *)&data->irq_gpio);
-	if (!gpio_is_valid(gpio)){
-		pr_err("%s: get int_port failed\n", __func__);
-		goto script_get_item_err;
+	ret = of_property_read_u32(np, "ctp_revert_x_flag", &data->revert_x_flag);
+	if (ret) {
+		 pr_err("get revert_x_flag is fail, %d\n", ret);
 	}
 
-	gpio = of_get_named_gpio_flags(np, "wakeup_port", 0,
-			(enum of_gpio_flags *)&data->wakeup_gpio);
-	if (!gpio_is_valid(gpio)){
-		pr_err("%s: get wakeup_port failed\n", __func__);
-		goto script_get_item_err;
+	ret = of_property_read_u32(np, "ctp_revert_y_flag", &data->revert_y_flag);
+	if (ret) {
+		 pr_err("get revert_y_flag is fail, %d\n", ret);
 	}
 
-	if (of_property_read_u32(np, "power_ldo_vol", &data->ctp_power_vol)) {
-		pr_err("%s: get power_ldo_vol failed\n", __func__);
-		goto script_get_item_err;
-	}
-	data->ctp_power = "vcc-ctp";
 
-	data->int_number = data->irq_gpio.gpio;
-	pr_err("ctp_irq gpio number is %d\n", data->int_number);
+	ret = of_property_read_u32(np, "ctp_exchange_x_y_flag", &data->exchange_x_y_flag);
+	if (ret) {
+		 pr_err("get ctp_exchange_x_y_flag is fail, %d\n", ret);
+	}
+
+	data->irq_gpio.gpio = of_get_named_gpio_flags(np, "ctp_int_port", 0, (enum of_gpio_flags *)(&(data->irq_gpio)));
+	if (!gpio_is_valid(data->irq_gpio.gpio))
+			pr_err("%s: irq_gpio is invalid. \n",__func__ );
+	else
+		data->int_number = data->irq_gpio.gpio;
+
+        
+#ifdef TOUCH_KEY_LIGHT_SUPPORT 
+
+	data->key_light_gpio.gpio = of_get_named_gpio(np, "ctp_light", 0);	
+	if (!gpio_is_valid(data->key_light_gpio.gpio))
+			pr_err("%s: key_light_gpio is invalid. \n",__func__ );
+#endif	
+
 
 	return 0;
 
-script_get_item_err:
+devicetree_get_item_err:
 	pr_notice("=========script_get_item_err============\n");
 	return ret;
 }
@@ -151,6 +141,9 @@ static void ctp_free_platform_resource(enum input_sensor_type *ctp_type)
 					struct ctp_config_info, input_type);
 	gpio_free(data->wakeup_gpio.gpio);
 
+#ifdef TOUCH_KEY_LIGHT_SUPPORT
+	gpio_free(data->key_light_gpio.gpio);
+#endif	
 	if(data->ctp_power_ldo) {
 		regulator_put(data->ctp_power_ldo);
 		data->ctp_power_ldo= NULL;
@@ -195,9 +188,24 @@ static int ctp_init_platform_resource(enum input_sensor_type *ctp_type)
 		return ret;
 	}
 	if (0 != gpio_direction_output(data->wakeup_gpio.gpio, 1)) {
-		pr_err("wakeup gpio set err!\n");
+		pr_err("wakeup gpio set err!");
 		return ret;
 	}
+		
+#ifdef TOUCH_KEY_LIGHT_SUPPORT 
+	if(0 != gpio_request(data->key_light_gpio.gpio, NULL)) {
+		pr_err("key_light gpio_request is failed\n");
+		return ret;
+	}
+
+	if (0 != gpio_direction_output(data->key_light_gpio.gpio, 1)) {
+		pr_err("key_light gpio set err!");
+		return ret;
+	}
+#endif
+
+        
+
 
 	ret = 0;
 	return ret;
@@ -234,27 +242,38 @@ static int gsensor_init_platform_resource(enum input_sensor_type *gsensor_type)
 static int gsensor_fetch_sysconfig_para(enum input_sensor_type *gsensor_type)
 {
 	int ret = -1;
-	struct device_node *np = NULL;
 	struct sensor_config_info *data = container_of(gsensor_type,
 					struct sensor_config_info, input_type);
-	pr_info("=====%s=====. \n", __func__);
 
-	if(get_sensor_node(gsensor_type, &np))
-		return -EPERM;
-	if (!of_device_is_available(np)) {
-		pr_err("%s: sunxi gsensor disable\n", __func__);
-		goto script_get_err;
-	}else
-		data->sensor_used = 1;
-
-	if (of_property_read_u32(np, "twi_id", &data->twi_id)) {
-		pr_err("%s: get twi_id failed\n", __func__);
-		goto script_get_err;
+    struct device_node *np = NULL;
+    np = of_find_node_by_name(NULL,"gsensor");
+	if (!np) {
+		 pr_err("ERROR! get gsensor_para failed, func:%s, line:%d\n",__FUNCTION__, __LINE__);
+		 goto devicetree_get_item_err;
 	}
+	
+	if (!of_device_is_available(np)) {
+	    pr_err("%s: gsensor is not used\n", __func__);
+	    goto devicetree_get_item_err;
+	}else
+	    data->sensor_used = 1;
 
-	return 0;
-script_get_err:
-	pr_notice("=========script_get_err============\n");
+    if(1 == data->sensor_used){
+	    ret = of_property_read_u32(np, "gsensor_twi_id", &data->twi_id);
+	    if (ret) {
+		    pr_err("get gsensor_twi_id is fail, %d\n", ret);
+		    goto devicetree_get_item_err;
+	    }
+    }else{
+       pr_err("%s gsensor_unused \n",__func__);
+    }
+
+    return ret;	
+
+
+devicetree_get_item_err:
+	pr_notice("=========gsensor script_get_err============\n");
+	ret = -1;
 	return ret;
 
 }
@@ -291,28 +310,37 @@ static int gyr_init_platform_resource(enum input_sensor_type *gyr_type)
 static int gyr_fetch_sysconfig_para(enum input_sensor_type *gyr_type)
 {
 	int ret = -1;
-	struct device_node *np = NULL;
 	struct sensor_config_info *data = container_of(gyr_type,
 					struct sensor_config_info, input_type);
 
-	pr_info("=====%s=====. \n", __func__);
-
-	if(get_sensor_node(gyr_type, &np))
-		return -EPERM;
-	if (!of_device_is_available(np)) {
-		pr_err("%s: sunxi gyr sensor disable\n", __func__);
-		goto script_get_err;
-	}else
-		data->sensor_used = 1;
-
-	if (of_property_read_u32(np, "twi_id", &data->twi_id)) {
-		pr_err("%s: get twi_id failed\n", __func__);
-		goto script_get_err;
+   struct device_node *np = NULL;
+    np = of_find_node_by_name(NULL,"gy");
+	if (!np) {
+		 pr_err("ERROR! get gy_para failed, func:%s, line:%d\n",__FUNCTION__, __LINE__);
+		 goto devicetree_get_item_err;
 	}
 
-	return 0;
-script_get_err:
+	if (!of_device_is_available(np)) {
+	    pr_err("%s: gy is not used\n", __func__);
+	    goto devicetree_get_item_err;
+	}else
+	    data->sensor_used = 1;
+	
+    if(1 == data->sensor_used){
+	    ret = of_property_read_u32(np, "gy_twi_id", &data->twi_id);
+	    if (ret) {
+		    pr_err("get gy_twi_id is fail, %d\n", ret);
+		    goto devicetree_get_item_err;
+	    }
+    }else{
+       pr_err("%s gy_unused \n",__func__);
+    }
+
+	return ret;
+
+devicetree_get_item_err:
 	pr_notice("=========script_get_err============\n");
+	ret = -1;
 	return ret;
 }
 
@@ -349,27 +377,37 @@ static int e_compass_init_platform_resource(enum input_sensor_type *e_compass_ty
 static int e_compass_fetch_sysconfig_para(enum input_sensor_type *e_compass_type)
 {
 	int ret = -1;
-	struct device_node *np = NULL;
 	struct sensor_config_info *data = container_of(e_compass_type,
 					struct sensor_config_info, input_type);
-	pr_info("=====%s=====. \n", __func__);
 
-	if(get_sensor_node(e_compass_type, &np))
-		return -EPERM;
+    struct device_node *np = NULL;
+    np = of_find_node_by_name(NULL,"compass");
+	if (!np) {
+		 pr_err("ERROR! get compass_para failed, func:%s, line:%d\n",__FUNCTION__, __LINE__);
+		 goto devicetree_get_item_err;
+	}
+		
 	if (!of_device_is_available(np)) {
-		pr_err("%s: sunxi e compass disable\n", __func__);
-		goto script_get_err;
+		pr_err("%s: compass is not used\n", __func__);
+		goto devicetree_get_item_err;
 	}else
 		data->sensor_used = 1;
 
-	if (of_property_read_u32(np, "twi_id", &data->twi_id)) {
-		pr_err("%s: get twi_id failed\n", __func__);
-		goto script_get_err;
-	}
+    if(1 == data->sensor_used){
+	    ret = of_property_read_u32(np, "compass_twi_id", &data->twi_id);
+	    if (ret) {
+		    pr_err("get compass_twi_id is fail, %d\n", ret);
+		    goto devicetree_get_item_err;
+	    }
+    }else{
+       pr_err("%s gsensor_unused \n",__func__);
+    }
 
-	return 0;
-script_get_err:
+	return ret;
+
+devicetree_get_item_err:
 	pr_notice("=========script_get_err============\n");
+	ret = -1;
 	return ret;
 
 }
@@ -436,32 +474,557 @@ static int ls_init_platform_resource(enum input_sensor_type *ls_type)
 static int ls_fetch_sysconfig_para(enum input_sensor_type *ls_type)
 {
 	int ret = -1;
-	struct device_node *np;
 	struct sensor_config_info *data = container_of(ls_type,
 					struct sensor_config_info, input_type);
 
-	if(get_sensor_node(ls_type, &np))
-		return -EPERM;
-	if (!of_device_is_available(np)) {
-		pr_err("%s: sunxi ls sensor disable\n", __func__);
-		goto script_get_err;
+    struct device_node *np = NULL;
+    np = of_find_node_by_name(NULL,"ls");
+    if (!np) {
+		pr_err("ERROR! get ls_para failed, func:%s, line:%d\n",__FUNCTION__, __LINE__);
+		goto devicetree_get_item_err;
+    }
+
+    if (!of_device_is_available(np)) {
+	    pr_err("%s: ls is not used\n", __func__);
+	    goto devicetree_get_item_err;
 	}else
-		data->sensor_used = 1;
+	    data->sensor_used = 1;
+	
+    if(1 == data->sensor_used){
+	   ret = of_property_read_u32(np, "ls_twi_id", &data->twi_id);
+	   if (ret) {
+		   pr_err("get compass_twi_id is fail, %d\n", ret);
+		   goto devicetree_get_item_err;
+	   }
+	   
+	   data->irq_gpio.gpio = of_get_named_gpio(np, "ls_int", 0);	
+	   if (!gpio_is_valid(data->irq_gpio.gpio))
+			pr_err("%s: irq_gpio is invalid. \n",__func__ );
+	   else
+		    data->int_number = data->irq_gpio.gpio;
+		
+    }else{
+	  pr_err("%s gsensor_unused \n",__func__);
+    }
 
-	pr_info("=====%s=====. \n", __func__);
+	return ret;
 
-	if (of_property_read_u32(np, "twi_id", &data->twi_id)) {
-		pr_err("%s: get twi_id failed\n", __func__);
-		goto script_get_err;
-	}
-
-	return 0;
-script_get_err:
+devicetree_get_item_err:
 	pr_notice("=========script_get_err============\n");
+	ret = -1;
 	return ret;
 
 }
 /**************************** LIGHT SENSOR END *********************************/
+
+
+/********************************** IR *****************************************/
+
+/**
+ * gyr_free_platform_resource - free ir related resource
+ * return value:
+ */
+static void ir_free_platform_resource(enum input_sensor_type *ir_type)
+{
+	struct ir_config_info *data = container_of(ir_type,
+					struct ir_config_info, input_type);
+	if (!IS_ERR_OR_NULL(data->pinctrl))
+		devm_pinctrl_put(data->pinctrl);
+}
+
+/**
+ * gyr_init_platform_resource - initialize platform related resource
+ * return value: 0 : success
+ *               -EIO :  i/o err.
+ *
+ */
+static int ir_init_platform_resource(enum input_sensor_type *ir_type)
+{
+	struct ir_config_info *data = container_of(ir_type,
+					struct ir_config_info, input_type);
+
+	data->pinctrl = devm_pinctrl_get_select_default(data->dev);
+	if (IS_ERR_OR_NULL(data->pinctrl)) {
+		pr_warn("request pinctrl handle for device [%s] failed\n",
+		dev_name(data->dev));
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+/**
+ * gyr_fetch_sysconfig_para - get config info from sysconfig.fex file.
+ * return value:  
+ *                    = 0; success;
+ *                    < 0; err
+ */
+static int ir_fetch_sysconfig_para(enum input_sensor_type *ir_type)
+{
+	int ret = -1;
+	struct ir_config_info *data = container_of(ir_type,
+					struct ir_config_info, input_type);
+		
+    struct device_node *np = NULL;
+    np = of_find_node_by_name(NULL,"s_cir0");
+	if (!np) {
+		 pr_err("ERROR! get s_cri0_para failed, func:%s, line:%d\n",__FUNCTION__, __LINE__);
+		 goto devicetree_get_item_err;
+	}
+	
+	if (!of_device_is_available(np)) {
+	    pr_err("%s: s_cir0 is not used\n", __func__);
+	    goto devicetree_get_item_err;
+	}else
+	    data->ir_used = 1;
+
+	
+    if(1 == data->ir_used){
+
+	   data->ir_gpio.gpio = of_get_named_gpio_flags(np, "ir_rx", 0,(enum of_gpio_flags *)(&(data->ir_gpio)));	
+	   if (!gpio_is_valid(data->ir_gpio.gpio))
+			pr_err("%s: ir_rx is invalid. \n",__func__ );
+
+		
+	   ret = of_property_read_u32(np, "ir_power_key_code", &data->power_key);
+	   if (ret) {
+		    pr_err("get ir_power_key_code is fail, %d\n", ret);
+		    goto devicetree_get_item_err;
+	    }
+    }else{
+       pr_err("%s gsensor_unused \n",__func__);
+	   goto devicetree_get_item_err;
+    }
+
+	return ret;
+
+devicetree_get_item_err:
+	pr_notice("=========script_get_err============\n");
+	ret = -1;
+	return ret;
+}
+
+/********************************** IR END *************************************/
+
+/*********************************** THS ***************************************/
+
+/**
+ * ths_free_platform_resource - free ths related resource
+ * return value:
+ */
+static void ths_free_platform_resource(enum input_sensor_type *ths_type)
+{
+}
+
+/**
+ * ths_init_platform_resource - initialize platform related resource
+ * return value: 0 : success
+ *               -EIO :  i/o err.
+ *
+ */
+static int ths_init_platform_resource(enum input_sensor_type *ths_type)
+{
+	return 0;
+}
+
+/**
+ * ths_fetch_sysconfig_para - get config info from sysconfig.fex file.
+ * return value:  
+ *                    = 0; success;
+ *                    < 0; err
+ */
+static int ths_fetch_sysconfig_para(enum input_sensor_type *ths_type)
+{
+	int ret = -1;
+	script_item_u	val;
+	script_item_value_type_e  type;
+	struct ths_config_info *data = container_of(ths_type,
+					struct ths_config_info, input_type);
+		
+	type = script_get_item("ths_para", "ths_used", &val);
+ 
+	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
+		pr_err("%s: type err  device_used = %d. \n", __func__, val.val);
+		goto script_get_err;
+	}
+	data->ths_used = val.val;
+
+	type = script_get_item("ths_para", "ths_trend", &val);
+
+	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
+		pr_err("%s: type err  device_used = %d. \n", __func__, val.val);
+	} else
+		data->ths_trend = val.val;
+
+	if (1 == data->ths_used) {
+		type = script_get_item("ths_para", "ths_trip1_count", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err(KERN_INFO"%s: type err ths_trip1_count = %d. \n", __func__, val.val);
+		} else
+			data->trip1_count = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_0", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip1_0 = %d. \n", __func__, val.val);
+		} else
+			data->trip1_0 = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_1", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_tri1p_1 = %d. \n", __func__, val.val);
+		} else
+			data->trip1_1 = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_2", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip1_2 = %d. \n", __func__, val.val);
+		} else
+			data->trip1_2 = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_3", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip1_3 = %d. \n", __func__, val.val);
+		} else
+			data->trip1_3 = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_4", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip1_4 = %d. \n", __func__, val.val);
+		} else
+			data->trip1_4 = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_5", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip1_5 = %d. \n", __func__, val.val);
+		} else
+			data->trip1_5 = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_6", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip1_6 = %d. \n", __func__, val.val);
+		} else
+			data->trip1_6 = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_7", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip1_7 = %d. \n", __func__, val.val);
+		} else
+			data->trip1_7 = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_0_min", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip1_0_min = %d. \n", __func__, val.val);
+		} else
+			data->trip1_0_min = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_0_max", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip1_0_max = %d. \n", __func__, val.val);
+		} else
+			data->trip1_0_max = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_1_min", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip1_1_min = %d. \n", __func__, val.val);
+		} else
+			data->trip1_1_min = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_1_max", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip1_1_max = %d. \n", __func__, val.val);
+		} else
+			data->trip1_1_max = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_2_min", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip1_2_min = %d. \n", __func__, val.val);
+		} else
+			data->trip1_2_min = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_2_max", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip1_2_max = %d. \n", __func__, val.val);
+		} else
+			data->trip1_2_max = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_3_min", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip1_3_min = %d. \n", __func__, val.val);
+		} else
+			data->trip1_3_min = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_3_max", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip1_3_max = %d. \n", __func__, val.val);
+		} else
+			data->trip1_3_max = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_4_min", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip1_4_min = %d. \n", __func__, val.val);
+		} else
+			data->trip1_4_min = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_4_max", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip1_4_max = %d. \n", __func__, val.val);
+		} else
+			data->trip1_4_max = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_5_min", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip1_5_min = %d. \n", __func__, val.val);
+		} else
+			data->trip1_5_min = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_5_max", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip1_5_max = %d. \n", __func__, val.val);
+		} else
+			data->trip1_5_max = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_6_min", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip1_6_min = %d. \n", __func__, val.val);
+		} else
+			data->trip1_6_min = val.val;
+
+		type = script_get_item("ths_para", "ths_trip1_6_max", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip1_6_max = %d. \n", __func__, val.val);
+		} else
+			data->trip1_6_max = val.val;
+
+		type = script_get_item("ths_para", "ths_trip2_count", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip2_count = %d. \n", __func__, val.val);
+		} else
+			data->trip2_count = val.val;
+
+		type = script_get_item("ths_para", "ths_trip2_0", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err ths_trip2_0 = %d. \n", __func__, val.val);
+		} else
+			data->trip2_0 = val.val;
+
+		ret = 0;
+	} else {
+		pr_err("%s: ths_unused. \n",  __func__);
+		ret = -1;
+	}
+
+	return ret;
+
+script_get_err:
+	pr_notice("=========script_get_err============\n");
+	return ret;
+}
+
+/********************************* THS END ************************************/
+
+/*********************************** BAT ***************************************/
+
+/**
+ * ths_free_platform_resource - free ths related resource
+ * return value:
+ */
+static void bat_free_platform_resource(enum input_sensor_type *ths_type)
+{
+}
+
+/**
+ * ths_init_platform_resource - initialize platform related resource
+ * return value: 0 : success
+ *               -EIO :  i/o err.
+ *
+ */
+static int bat_init_platform_resource(enum input_sensor_type *ths_type)
+{
+	return 0;
+}
+
+/**
+ * ths_fetch_sysconfig_para - get config info from sysconfig.fex file.
+ * return value:
+ *                    = 0; success;
+ *                    < 0; err
+ */
+static int bat_fetch_sysconfig_para(enum input_sensor_type *ths_type)
+{
+	int ret = -1;
+	script_item_u	val;
+	script_item_value_type_e  type;
+	struct ths_config_info *data = container_of(ths_type,
+					struct ths_config_info, input_type);
+
+	type = script_get_item("bat_ths_para", "bat_ths_used", &val);
+
+	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
+		pr_err("%s: type err  device_used = %d. \n", __func__, val.val);
+		goto script_get_err;
+	}
+	data->ths_used = val.val;
+
+	type = script_get_item("bat_ths_para", "bat_ths_trend", &val);
+
+	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
+		pr_err("%s: type err  device_used = %d. \n", __func__, val.val);
+	} else
+		data->ths_trend = val.val;
+
+	if (1 == data->ths_used) {
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_count", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_count = %d. \n", __func__, val.val);
+		} else
+			data->trip1_count = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_0", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_0 = %d. \n", __func__, val.val);
+		} else
+			data->trip1_0 = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_1", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_tri1p_1 = %d. \n", __func__, val.val);
+		} else
+			data->trip1_1 = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_2", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_2 = %d. \n", __func__, val.val);
+		} else
+			data->trip1_2 = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_3", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_3 = %d. \n", __func__, val.val);
+		} else
+			data->trip1_3 = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_4", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_4 = %d. \n", __func__, val.val);
+		} else
+			data->trip1_4 = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_5", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_5 = %d. \n", __func__, val.val);
+		} else
+			data->trip1_5 = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_6", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_6 = %d. \n", __func__, val.val);
+		} else
+			data->trip1_6 = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_7", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_7 = %d. \n", __func__, val.val);
+		} else
+			data->trip1_7 = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_0_min", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_0_min = %d. \n", __func__, val.val);
+		} else
+			data->trip1_0_min = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_0_max", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_0_max = %d. \n", __func__, val.val);
+		} else
+			data->trip1_0_max = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_1_min", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_1_min = %d. \n", __func__, val.val);
+		} else
+			data->trip1_1_min = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_1_max", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_1_max = %d. \n", __func__, val.val);
+		} else
+			data->trip1_1_max = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_2_min", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_2_min = %d. \n", __func__, val.val);
+		} else
+			data->trip1_2_min = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_2_max", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_2_max = %d. \n", __func__, val.val);
+		} else
+			data->trip1_2_max = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_3_min", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_3_min = %d. \n", __func__, val.val);
+		} else
+			data->trip1_3_min = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_3_max", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_3_max = %d. \n", __func__, val.val);
+		} else
+			data->trip1_3_max = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_4_min", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_4_min = %d. \n", __func__, val.val);
+		} else
+			data->trip1_4_min = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_4_max", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_4_max = %d. \n", __func__, val.val);
+		} else
+			data->trip1_4_max = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_5_min", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_5_min = %d. \n", __func__, val.val);
+		} else
+			data->trip1_5_min = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_5_max", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_5_max = %d. \n", __func__, val.val);
+		} else
+			data->trip1_5_max = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_6_min", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_6_min = %d. \n", __func__, val.val);
+		} else
+			data->trip1_6_min = val.val;
+
+		type = script_get_item("bat_ths_para", "bat_ths_trip1_6_max", &val);
+		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
+			pr_err("%s: type err bat_ths_trip1_6_max = %d. \n", __func__, val.val);
+		} else
+			data->trip1_6_max = val.val;
+
+		ret = 0;
+	} else {
+		pr_err("%s: bat_unused. \n",  __func__);
+		ret = -1;
+	}
+
+	return ret;
+
+script_get_err:
+	pr_notice("=========script_get_err============\n");
+	return ret;
+}
+
+/********************************* BAT END ************************************/
 
 /********************************** MOTOR *************************************/
 
@@ -511,31 +1074,43 @@ exit:
  */
 static int motor_fetch_sysconfig_para(enum input_sensor_type *motor_type)
 {
-	u32 gpio;
-	struct device_node *np;
+	script_item_u	val;
+	script_item_value_type_e  type;
 	struct motor_config_info *data = container_of(motor_type,
 					struct motor_config_info, input_type);
-	pr_info("=====%s=====. \n", __func__);
 
-	if(get_sensor_node(motor_type, &np))
-		return -EPERM;
-	if (!of_device_is_available(np)) {
-		pr_err("%s: sunxi ls sensor disable\n", __func__);
+	type = script_get_item("motor_para", "motor_used", &val);
+	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
+		pr_err("%s script_parser_fetch \"motor_para\" motor_used = %d\n",
+				__FUNCTION__, val.val);
 		goto script_get_err;
-	}else
-		data->motor_used = 1;
+	}
+	data->motor_used = val.val;
 
-	if (of_property_read_u32(np, "ldo_voltage", &data->ldo_voltage)) {
-		pr_err("%s: get ldo_voltage failed\n", __func__);
+	if(!data->motor_used) {
+		pr_err("%s motor is not used in config\n", __FUNCTION__);
 		goto script_get_err;
 	}
 
-	gpio = of_get_named_gpio_flags(np, "shake", 0,
-			(enum of_gpio_flags *)&data->motor_gpio);
-	if (!gpio_is_valid(gpio)){
-		pr_err("no motor_shake, ignore it!\n");
-		data->ldo = "vcc-vibrator";
+	type = script_get_item("motor_para", "motor_shake", &val);
+	if(SCIRPT_ITEM_VALUE_TYPE_PIO != type) {
+		pr_err("no motor_shake, ignore it!");
+	} else {
+		data->motor_gpio = val.gpio;
+		data->vibe_off = val.gpio.data;
 	}
+
+	type = script_get_item("motor_para", "motor_ldo", &val);
+	if (SCIRPT_ITEM_VALUE_TYPE_STR != type)
+		pr_err("no ldo for moto, ignore it\n");
+	else
+		data->ldo = val.str;
+
+	type = script_get_item("motor_para", "motor_ldo_voltage", &val);
+	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
+		pr_err("no ldo moto voltage config, ignore it\n");
+	} else
+		data->ldo_voltage = val.val;
 
 	return 0;
 script_get_err:
@@ -552,7 +1127,10 @@ static int (* const fetch_sysconfig_para[])(enum input_sensor_type *input_type) 
 	gyr_fetch_sysconfig_para,
 	e_compass_fetch_sysconfig_para,
 	ls_fetch_sysconfig_para,
-	motor_fetch_sysconfig_para
+	ir_fetch_sysconfig_para,
+	ths_fetch_sysconfig_para,
+	motor_fetch_sysconfig_para,
+	bat_fetch_sysconfig_para
 };
 
 static int (*init_platform_resource[])(enum input_sensor_type *input_type) = {
@@ -561,7 +1139,10 @@ static int (*init_platform_resource[])(enum input_sensor_type *input_type) = {
 	gyr_init_platform_resource,
 	e_compass_init_platform_resource,
 	ls_init_platform_resource,
-	motor_init_platform_resource
+	ir_init_platform_resource,
+	ths_init_platform_resource,
+	motor_init_platform_resource,
+	bat_init_platform_resource
 };
 
 static void (*free_platform_resource[])(enum input_sensor_type *input_type) = {
@@ -570,7 +1151,10 @@ static void (*free_platform_resource[])(enum input_sensor_type *input_type) = {
 	gyr_free_platform_resource,
 	e_compass_free_platform_resource,
 	ls_free_platform_resource,
-	motor_free_platform_resource
+	ir_free_platform_resource,
+	ths_free_platform_resource,
+	motor_free_platform_resource,
+	bat_free_platform_resource
 };
 
 int input_set_power_enable(enum input_sensor_type *input_type, u32 enable)
@@ -589,6 +1173,8 @@ int input_set_power_enable(enum input_sensor_type *input_type, u32 enable)
 		case GSENSOR_TYPE:
 			break;
 		case LS_TYPE:
+			break;
+		case IR_TYPE:
 			break;
 		default:
 			break;
@@ -641,6 +1227,8 @@ int input_set_int_enable(enum input_sensor_type *input_type, u32 enable)
 					struct sensor_config_info, input_type);
 		irq_number = gpio_to_irq(((struct sensor_config_info *)data)->int_number);
 		break;
+	case IR_TYPE:
+		break;
 	default:
 		break;
 	}
@@ -688,6 +1276,8 @@ int input_free_int(enum input_sensor_type *input_type, void *para)
 
 		dev = ((struct sensor_config_info *)data)->dev;
 		break;
+	case IR_TYPE:
+		break;
 	default:
 		break;
 	}
@@ -726,7 +1316,7 @@ int input_request_int(enum input_sensor_type *input_type, irq_handler_t handle,
 		irq_number = gpio_to_irq(((struct ctp_config_info *)data)->int_number);
 		if (IS_ERR_VALUE(irq_number)) {
 			pr_warn("map gpio [%d] to virq failed, errno = %d\n",
-				GPIOA(3), irq_number);
+		         	GPIOA(3), irq_number);
 			return -EINVAL;
 		}
 
@@ -740,11 +1330,13 @@ int input_request_int(enum input_sensor_type *input_type, irq_handler_t handle,
 		irq_number = gpio_to_irq(((struct sensor_config_info *)data)->int_number);
 		if (IS_ERR_VALUE(irq_number)) {
 			pr_warn("map gpio [%d] to virq failed, errno = %d\n",
-				GPIOA(3), irq_number);
+		         	GPIOA(3), irq_number);
 			return -EINVAL;
 		}
 
 		dev = ((struct sensor_config_info *)data)->dev;
+		break;
+	case IR_TYPE:
 		break;
 	default:
 		break;
@@ -811,4 +1403,3 @@ int input_fetch_sysconfig_para(enum input_sensor_type *input_type)
 	return ret;
 }
 EXPORT_SYMBOL(input_fetch_sysconfig_para);
-

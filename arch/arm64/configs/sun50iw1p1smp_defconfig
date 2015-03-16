@@ -533,6 +533,7 @@ CONFIG_OF_RESERVED_MEM=y
 # CONFIG_ENCLOSURE_SERVICES is not set
 # CONFIG_UID_STAT is not set
 # CONFIG_SRAM is not set
+# CONFIG_SUNXI_VIBRATOR is not set
 # CONFIG_C2PORT is not set
 
 #
@@ -778,6 +779,8 @@ CONFIG_INPUT_UINPUT=y
 # CONFIG_INPUT_GPIO_ROTARY_ENCODER is not set
 # CONFIG_INPUT_ADXL34X is not set
 # CONFIG_INPUT_CMA3000 is not set
+# CONFIG_INPUT_SENSOR is not set
+# CONFIG_SENSORS_BMA250 is not set
 
 #
 # Hardware I/O ports
@@ -970,7 +973,6 @@ CONFIG_HWMON=y
 #
 # Native drivers
 #
-# CONFIG_SENSORS_BMA250 is not set
 # CONFIG_SENSORS_F71805F is not set
 # CONFIG_SENSORS_F71882FG is not set
 # CONFIG_SENSORS_GPIO_FAN is not set

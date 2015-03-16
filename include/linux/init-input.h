@@ -7,29 +7,37 @@
  */
 #ifndef _INIT_INPUT_H
 #define _INIT_INPUT_H
-#include <linux/gpio.h>
 #include <linux/sys_config.h>
+//#include <mach/system.h>
+
+//#include <mach/hardware.h>
+//we dont have this *.h in linux3.10, so define here directly
+#define IO_ADDRESS(x)            (void __iomem *)(((x) & 0x0fffffff) + (((x) >> 4) & 0x0f000000) + 0xf0000000)
+
+//this *.h already include in linux/sys_config.h
+//#include <mach/sys_config.h>
+
 #include <linux/interrupt.h>
 #include <linux/regulator/consumer.h>
-
-#define SUNXI_INPUTS_NAME "sunxi-inputs"
-#define SUNXI_INPUT_HUB "sunxi-inputs"
 
 typedef u32 (*gpio_int_handle)(void *para);
 
 enum input_sensor_type{
-	CTP_TYPE = 0,
+	CTP_TYPE,
 	GSENSOR_TYPE,
 	GYR_TYPE,
 	COMPASS_TYPE,
 	LS_TYPE,
-	MOTOR_TYPE
+	IR_TYPE,
+	THS_TYPE,
+	MOTOR_TYPE,
+	BAT_TYPE
 };
 
 struct sensor_config_info{
 	enum input_sensor_type input_type;
 	int sensor_used;
-	u32 twi_id;
+	__u32 twi_id;
 	u32 int_number;
 	struct gpio_config irq_gpio;
 	char* ldo;
@@ -37,19 +45,28 @@ struct sensor_config_info{
 	struct pinctrl *pinctrl;
 };
 
+struct ir_config_info{
+	enum input_sensor_type input_type;
+	int ir_used;
+	int power_key;
+	struct gpio_config ir_gpio;
+	struct device *dev;
+	struct pinctrl *pinctrl;
+};
+
 struct ctp_config_info{
 	enum input_sensor_type input_type;
-	u32 ctp_used;
-	u32 twi_id;
-	char * name;
-	u32 screen_max_x;
-	u32 screen_max_y;
-	u32 revert_x_flag;
-	u32 revert_y_flag;
-	u32 exchange_x_y_flag;
+	int ctp_used;
+	__u32 twi_id;
+	const char * name;
+	int screen_max_x;
+	int screen_max_y;
+	int revert_x_flag;
+	int revert_y_flag;
+	int exchange_x_y_flag;
 	u32 int_number;
 	unsigned char device_detect;
-	char *ctp_power;
+	const char *ctp_power;
 	u32 ctp_power_vol;
 	struct gpio_config ctp_power_io;
 	struct regulator *ctp_power_ldo;
@@ -62,10 +79,41 @@ struct ctp_config_info{
 	struct pinctrl *pinctrl;
 };
 
+struct ths_config_info{
+	enum input_sensor_type input_type;
+	int ths_used;
+	int ths_trend;
+	int trip1_count;
+	int trip1_0;
+	int trip1_1;
+	int trip1_2;
+	int trip1_3;
+	int trip1_4;
+	int trip1_5;
+	int trip1_6;
+	int trip1_7;
+	int trip1_0_min;
+	int trip1_0_max;
+	int trip1_1_min;
+	int trip1_1_max;
+	int trip1_2_min;
+	int trip1_2_max;
+	int trip1_3_min;
+	int trip1_3_max;
+	int trip1_4_min;
+	int trip1_4_max;
+	int trip1_5_min;
+	int trip1_5_max;
+	int trip1_6_min;
+	int trip1_6_max;
+	int trip2_count;
+	int trip2_0;
+};
+
 struct motor_config_info{
 	enum input_sensor_type input_type;
-	u32 motor_used;
-	u32 vibe_off;
+	int motor_used;
+	int vibe_off;
 	u32 ldo_voltage;
 	char* ldo;
 	struct gpio_config motor_gpio;
