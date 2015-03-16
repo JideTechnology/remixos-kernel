@@ -268,6 +268,12 @@ int sst_send_byte_stream_mrfld(void *sbytes)
 		bytes->block, bytes->task_id,
 		bytes->pipe_id, bytes->len);
 
+	if (bytes->len > sst_drv_ctx->mailbox_size - sizeof(*bytes)) {
+		pr_err("%s:bytes size exceeds mailbox size len(%u), mail:(%u)",
+			__func__, bytes->len, sst_drv_ctx->mailbox_size);
+		return -EINVAL;
+	}
+
 	/* need some err check as this is user data, perhpas move this to the
 	 * platform driver and pass the struct
 	 */
