@@ -358,4 +358,33 @@ struct sst_probe_value {
 	.private_value = (unsigned long)&(struct sst_probe_value) \
 	{ .val = 0, .p_enum = &xenum } }
 
+/* Aware data */
+struct sst_aware_data {
+	u16 module_id;
+	u16 cmd_id;
+	u8 instance_id;
+	u8 pipe_id;
+	u8 task_id;
+} __packed;
+
+/* size of the control = size of params + size of length field */
+#define SST_AWARE_CTL_VALUE(xcount, xpipe, xmod, xtask, xcmd, xinst)	\
+	(struct soc_bytes_ext) {.max = xcount,				\
+		.pvt_data = (char *) &(struct sst_aware_data)		\
+		{.module_id = xmod, .pipe_id = xpipe,			\
+		.task_id = xtask, .cmd_id = xcmd,			\
+		.instance_id = xinst,					\
+		}							\
+	}
+
+#define SST_AWARE_KCONTROL(xname, xcount, xmod, xpipe,			\
+			  xtask, xcmd, xinst, xget, xput)		\
+{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,				\
+	.name =  xname, .index = SOC_CONTROL_IO_BYTES_EXT,		\
+	.info = snd_soc_info_bytes_ext, .get = xget, .put = xput,	\
+	.private_value = (unsigned long)&				\
+			SST_AWARE_CTL_VALUE(xcount, xpipe,		\
+					   xmod, xtask, xcmd, xinst),	\
+}
+
 #endif

@@ -33,14 +33,14 @@
 #include "controls_v2_dpcm.h"
 #include "sst_widgets.h"
 
-static inline void sst_fill_byte_control(char *param,
+static inline void sst_fill_byte_control(char *param, u16 type,
 					 u8 ipc_msg, u8 block,
 					 u8 task_id, u8 pipe_id,
 					 u16 len, void *cmd_data)
 {
 
 	struct snd_sst_bytes_v2 *byte_data = (struct snd_sst_bytes_v2 *)param;
-	byte_data->type = SST_CMD_BYTES_SET;
+	byte_data->type = type;
 	byte_data->ipc_msg = ipc_msg;
 	byte_data->block = block;
 	byte_data->task_id = task_id;
@@ -214,8 +214,9 @@ static int sst_fill_and_send_cmd_unlocked(struct sst_data *sst,
 				 u8 ipc_msg, u8 block, u8 task_id, u8 pipe_id,
 				 void *cmd_data, u16 len)
 {
-	sst_fill_byte_control(sst->byte_stream, ipc_msg, block, task_id, pipe_id,
-			      len, cmd_data);
+	sst_fill_byte_control(sst->byte_stream, SST_CMD_BYTES_SET, ipc_msg,
+				block, task_id, pipe_id, len, cmd_data);
+
 	return sst_dsp->ops->set_generic_params(SST_SET_BYTE_STREAM,
 						sst->byte_stream);
 }
@@ -234,6 +235,42 @@ static int sst_fill_and_send_cmd(struct sst_data *sst,
 	mutex_lock(&sst->lock);
 	ret = sst_fill_and_send_cmd_unlocked(sst, ipc_msg, block, task_id, pipe_id,
 					     cmd_data, len);
+	mutex_unlock(&sst->lock);
+
+	return ret;
+}
+
+/**
+ * sst_get_aware_results - generate & send IPC message to get the aware
+			results.
+ * @dstn:	pointer to fill the results
+ * @ipc_msg:	type of IPC (CMD, SET_PARAMS, GET_PARAMS)
+ * @cmd_data:	the IPC payload
+ */
+static int sst_get_aware_results(struct sst_data *sst,
+				void *dstn, u8 ipc_msg, u8 block,
+				u8 task_id, u8 pipe_id,
+				void *cmd_data, u16 len)
+{
+	int ret;
+	struct snd_sst_bytes_v2 *bytes;
+	struct sst_cmd_set_aware *aware;
+
+	mutex_lock(&sst->lock);
+
+	sst_fill_byte_control(sst->byte_stream, SST_CMD_BYTES_GET, ipc_msg,
+				block, task_id, pipe_id, len, cmd_data);
+
+	ret = sst_dsp->ops->set_generic_params(SST_SET_BYTE_STREAM,
+						sst->byte_stream);
+
+	/* Copy only the payload to the destn */
+	bytes = (struct snd_sst_bytes_v2 *)sst->byte_stream;
+	aware = (struct sst_cmd_set_aware *)bytes->bytes;
+
+	if (bytes->ipc_msg == SST_IPC_IA_GET_PARAMS)
+		memcpy(dstn, (void *)&aware->results, aware->header.length);
+
 	mutex_unlock(&sst->lock);
 
 	return ret;
@@ -432,6 +469,45 @@ int sst_vtsv_event_get(struct snd_kcontrol *kcontrol,
 	memset(sst->vtsv_result.data, 0x0, VTSV_MAX_TOTAL_RESULT_ARRAY_SIZE);
 	mutex_unlock(&sst->lock);
 	return 0;
+}
+
+int sst_get_aware_data(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+	struct soc_bytes_ext *sb = (void *) kcontrol->private_value;
+	struct sst_aware_data *aware = (struct sst_aware_data *)sb->pvt_data;
+	struct sst_cmd_set_aware aware_cmd;
+	int ret;
+
+	if (aware == NULL) {
+		pr_err("Aware pvt data is NULL\n");
+		return -EINVAL;
+	}
+
+	pr_debug("%s: mod %#x pipe %#x commd %#x task %#x inst %#x\n",
+			__func__, aware->module_id, aware->pipe_id,
+			aware->cmd_id, aware->task_id, aware->instance_id);
+
+	memset(&aware_cmd, 0, sizeof(aware_cmd));
+	SST_FILL_DEFAULT_DESTINATION(aware_cmd.header.dst);
+
+	aware_cmd.header.command_id = aware->cmd_id;
+	aware_cmd.header.length = sizeof(struct aware_classifier_result);
+	SST_FILL_DESTINATION(2, aware_cmd.header.dst,
+				(aware->pipe_id << 8) | aware->instance_id,
+				aware->module_id);
+
+	ret = sst_get_aware_results(sst, (void *)ucontrol->value.bytes.data,
+				SST_IPC_IA_GET_PARAMS, SST_FLAG_BLOCKED,
+				aware->task_id, aware->pipe_id, &aware_cmd,
+				sizeof(aware_cmd));
+
+	print_hex_dump_bytes("bytes aware: ", DUMP_PREFIX_OFFSET,
+				ucontrol->value.bytes.data,
+				aware_cmd.header.length);
+	return ret;
 }
 
 static int sst_mux_get(struct snd_kcontrol *kcontrol,
@@ -1753,6 +1829,16 @@ static const struct snd_kcontrol_new sst_vtsv_read[] = {
 		 sst_vtsv_event_get, NULL),
 };
 
+/* length == 4 == struct aware_classifier_result */
+static const struct snd_kcontrol_new sst_aware_read[] = {
+	SST_AWARE_KCONTROL("aware event", 4,
+			SST_MODULE_ID_CONTEXT_ALGO_AWARE,
+			SST_DFW_PATH_INDEX_AWARE_OUT >> 8,
+			SST_TASK_AWARE,
+			AWARE_ENV_CLASS_RESULTS, 0,
+			sst_get_aware_data, NULL),
+};
+
 static const char * const sst_bt_fm_texts[] = {
 	"fm", "bt",
 };
@@ -2803,6 +2889,8 @@ int sst_dsp_init_v2_dpcm_dfw(struct snd_soc_platform *platform)
 			ARRAY_SIZE(sst_vad_enroll));
 	snd_soc_add_platform_controls(platform, sst_vtsv_read,
 			ARRAY_SIZE(sst_vtsv_read));
+	snd_soc_add_platform_controls(platform, sst_aware_read,
+			ARRAY_SIZE(sst_aware_read));
 
 	/* initialize the names of the probe points */
 	for (i = 0; i < ARRAY_SIZE(sst_probes); i++)

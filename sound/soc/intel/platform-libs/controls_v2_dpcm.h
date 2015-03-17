@@ -478,6 +478,16 @@ struct sst_cmd_sba_hw_set_ssp {
 	u16 start_delay:8;	/* Start delay in terms of clock ticks */
 } __packed;
 
+struct aware_classifier_result {
+	s16 classid;  /* Classifier result */
+	s16 dBval;   /* dB value of audio data */
+} __packed;
+
+struct sst_cmd_set_aware {
+	struct sst_dsp_header header;
+	struct aware_classifier_result results;
+} __packed;
+
 #define SST_MAX_TDM_SLOTS 8
 
 struct sst_param_sba_ssp_slot_map {
