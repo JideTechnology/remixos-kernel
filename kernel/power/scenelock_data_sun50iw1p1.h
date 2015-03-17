@@ -13,8 +13,7 @@ scene_extended_standby_t extended_standby[] = {
 		//note: vcc_pm is marked on, just for cross-platform reason.
 		//at a83: with the sys_mask's help, we know we do not need care about vcc_pm state.
 		.soc_pwr_dep.soc_pwr_dm_state.state	   = BITMAP(VCC_DRAM_BIT) | BITMAP(VDD_CPUS_BIT) |\
-							     BITMAP(VDD_DRAMPLL_BIT) | BITMAP(VCC_PL_BIT) | \
-							     BITMAP(VCC_PM_BIT)  | BITMAP(VCC_LDOIN_BIT), 
+							     BITMAP(VCC_LPDDR_BIT) | BITMAP(VCC_PL_BIT),
 		.soc_pwr_dep.soc_pwr_dm_state.volt[0]      = 0x0,	//mean: donot need care about the voltage.
 		.soc_pwr_dep.cpux_clk_state.osc_en         = 0x0,	// mean all osc is off.
 		.soc_pwr_dep.cpux_clk_state.init_pll_dis   = BITMAP(PM_PLL_DRAM), //mean pll5 is shutdowned & open by dram driver.
@@ -38,24 +37,88 @@ scene_extended_standby_t extended_standby[] = {
 		.scene_type	= SCENE_USB_STANDBY,
 		.name		= "usb_standby",
 		.soc_pwr_dep.id  		= USB_STANDBY_FLAG,
-		//mean dram, cpus,dram_pll,vcc_pl, vcc_ldoin, vdd_sys is on.
-		//note: vcc_pm is marked on, just for cross-platform reason.
-		//at a83: with the sys_mask's help, we know we do not need care about vcc_pm state.
+		//note: vcc_io for phy;	
 		.soc_pwr_dep.soc_pwr_dm_state.state	   = BITMAP(VCC_DRAM_BIT) | BITMAP(VDD_CPUS_BIT) |\
-							     BITMAP(VDD_DRAMPLL_BIT) | BITMAP(VCC_PL_BIT) | \
-							     BITMAP(VCC_PM_BIT)  | BITMAP(VCC_LDOIN_BIT) |\
-							     BITMAP(VDD_SYS_BIT),
+							     BITMAP(VCC_LPDDR_BIT) | BITMAP(VCC_PL_BIT) | \
+							     BITMAP(VDD_SYS_BIT) | BITMAP(VCC_IO_BIT),
 		.soc_pwr_dep.soc_pwr_dm_state.volt[0]      = 0x0,	//mean: donot need care about the voltage.
 		.soc_pwr_dep.cpux_clk_state.osc_en         = BITMAP(OSC_LOSC_BIT) | BITMAP(OSC_HOSC_BIT) | BITMAP(OSC_LDO1_BIT) | BITMAP(OSC_LDO0_BIT),	// mean all osc is off. +losc, +hosc
 		.soc_pwr_dep.cpux_clk_state.init_pll_dis   = BITMAP(PM_PLL_DRAM) | BITMAP(PM_PLL_PERIPH), //mean pll5 is shutdowned & open by dram driver.
 													    //hsic pll can be disabled, cpus can change cci400 clk from hsic_pll.
 		.soc_pwr_dep.cpux_clk_state.exit_pll_en    = 0x0,
 		.soc_pwr_dep.cpux_clk_state.pll_change     = BITMAP(PM_PLL_PERIPH),
-		.soc_pwr_dep.cpux_clk_state.pll_factor[PM_PLL_PERIPH] = { ////PLL_PERIPH freq = 24*12/2/2= 72M
-		    .factor1 = 12, //N=12
-		    .factor2 = 1, //Div1 = 1 + 1 = 2
-		    .factor3 = 1, //Div2 = 1 + 1 = 2
+		.soc_pwr_dep.cpux_clk_state.pll_factor[PM_PLL_PERIPH] = { ////PLL_PERIPH freq = 24*1*1/2= 12M
+		    .factor1 = 0, //N=1
+		    .factor2 = 0, //Div1 = 0 + 1 = 1
+		    .factor3 = 0, //Div2 = 0 + 1 = 1, only used in plltest debug;
 		},
+		.soc_pwr_dep.cpux_clk_state.bus_change     = BITMAP(BUS_AHB1) | BITMAP(BUS_AHB2),
+		.soc_pwr_dep.cpux_clk_state.bus_factor[BUS_AHB1]     = {
+		    .src = CLK_SRC_LOSC,				//need make sure losc is on.
+		    .pre_div = 0,
+		    .div_ratio = 0,
+		},
+		.soc_pwr_dep.cpux_clk_state.bus_factor[BUS_AHB2]     = {
+		    .src = CLK_SRC_AHB1,				//need make sure AHB1 is on.
+		    .pre_div = 0,
+		    .div_ratio = 0,
+		},
+		.soc_pwr_dep.soc_dram_state.selfresh_flag     = 0x1,
+		.soc_pwr_dep.soc_io_state.hold_flag     = 0x0,
+		//for pf port: set the io to disable state.;
+		.soc_pwr_dep.soc_io_state.io_state[0]     = {(unsigned int *)0x01c208b4, 0x00f0f0ff, 0x00707077},
+		.soc_pwr_dep.soc_io_state.io_state[1]     = {(unsigned int *)0x01c208b4, 0x000f0f00, 0x00070700},
+	},
+	{
+		.scene_type	= SCENE_USB_OHCI_STANDBY,
+		.name		= "usb_ohci_standby",
+		.soc_pwr_dep.id  		= USB_OHCI_STANDBY_FLAG,
+		//note: vcc_io for phy;	
+		.soc_pwr_dep.soc_pwr_dm_state.state	   = BITMAP(VCC_DRAM_BIT) | BITMAP(VDD_CPUS_BIT) |\
+							     BITMAP(VCC_LPDDR_BIT) | BITMAP(VCC_PL_BIT) | \
+							     BITMAP(VDD_SYS_BIT) | BITMAP(VCC_IO_BIT),
+		.soc_pwr_dep.soc_pwr_dm_state.volt[0]      = 0x0,	//mean: donot need care about the voltage.
+		.soc_pwr_dep.cpux_clk_state.osc_en         = BITMAP(OSC_LOSC_BIT) | BITMAP(OSC_HOSC_BIT) | BITMAP(OSC_LDO1_BIT) | BITMAP(OSC_LDO0_BIT),	// mean all osc is off. +losc, +hosc
+		.soc_pwr_dep.cpux_clk_state.init_pll_dis   = BITMAP(PM_PLL_DRAM) | BITMAP(PM_PLL_PERIPH), //mean pll5 is shutdowned & open by dram driver.
+													    //hsic pll can be disabled, cpus can change cci400 clk from hsic_pll.
+		.soc_pwr_dep.cpux_clk_state.exit_pll_en    = 0x0,
+		.soc_pwr_dep.cpux_clk_state.pll_change     = BITMAP(PM_PLL_PERIPH),
+		.soc_pwr_dep.cpux_clk_state.pll_factor[PM_PLL_PERIPH] = { ////PLL_PERIPH freq = 24*1*1/2= 12M
+		    .factor1 = 0, //N=1
+		    .factor2 = 0, //Div1 = 0 + 1 = 1
+		    .factor3 = 0, //Div2 = 0 + 1 = 1, only used in plltest debug;
+		},
+		.soc_pwr_dep.cpux_clk_state.bus_change     = BITMAP(BUS_AHB1) | BITMAP(BUS_AHB2),
+		.soc_pwr_dep.cpux_clk_state.bus_factor[BUS_AHB1]     = {
+		    .src = CLK_SRC_LOSC,				//need make sure losc is on.
+		    .pre_div = 0,
+		    .div_ratio = 0,
+		},
+		.soc_pwr_dep.cpux_clk_state.bus_factor[BUS_AHB2]     = {
+		    .src = CLK_SRC_AHB1,				//need make sure AHB1 is on.
+		    .pre_div = 0,
+		    .div_ratio = 0,
+		},
+		.soc_pwr_dep.soc_dram_state.selfresh_flag     = 0x1,
+		.soc_pwr_dep.soc_io_state.hold_flag     = 0x0,
+		//for pf port: set the io to disable state.;
+		.soc_pwr_dep.soc_io_state.io_state[0]     = {(unsigned int *)0x01c208b4, 0x00f0f0ff, 0x00707077},
+		.soc_pwr_dep.soc_io_state.io_state[1]     = {(unsigned int *)0x01c208b4, 0x000f0f00, 0x00070700},
+	},
+	{
+		.scene_type	= SCENE_USB_EHCI_STANDBY,
+		.name		= "usb_ehci_standby",	    //for 3G wakeup
+		.soc_pwr_dep.id  		= USB_EHCI_STANDBY_FLAG,
+		//note: vcc_io for phy;	
+		.soc_pwr_dep.soc_pwr_dm_state.state	   = BITMAP(VCC_DRAM_BIT) | BITMAP(VDD_CPUS_BIT) |\
+							     BITMAP(VCC_LPDDR_BIT) | BITMAP(VCC_PL_BIT) | \
+							     BITMAP(VDD_SYS_BIT) | BITMAP(VCC_IO_BIT),
+		.soc_pwr_dep.soc_pwr_dm_state.volt[0]      = 0x0,	//mean: donot need care about the voltage.
+		.soc_pwr_dep.cpux_clk_state.osc_en         = BITMAP(OSC_LOSC_BIT),	// mean all osc is off. +losc, +hosc
+		.soc_pwr_dep.cpux_clk_state.init_pll_dis   = BITMAP(PM_PLL_DRAM), //mean pll5 is shutdowned & open by dram driver.
+													    //hsic pll can be disabled, cpus can change cci400 clk from hsic_pll.
+		.soc_pwr_dep.cpux_clk_state.exit_pll_en    = 0x0,
+		.soc_pwr_dep.cpux_clk_state.pll_change     = 0x0,
 		.soc_pwr_dep.cpux_clk_state.bus_change     = BITMAP(BUS_AHB1) | BITMAP(BUS_AHB2),
 		.soc_pwr_dep.cpux_clk_state.bus_factor[BUS_AHB1]     = {
 		    .src = CLK_SRC_LOSC,				//need make sure losc is on.
@@ -114,8 +177,8 @@ scene_extended_standby_t extended_standby[] = {
 		//note: vcc_pm is marked on, just for cross-platform reason.
 		//at a83: with the sys_mask's help, we know we do not need care about vcc_pm state.
 		.soc_pwr_dep.soc_pwr_dm_state.state	   = BITMAP(VCC_DRAM_BIT) | BITMAP(VDD_CPUS_BIT) |\
-							     BITMAP(VDD_DRAMPLL_BIT) | BITMAP(VCC_PL_BIT) | \
-							     BITMAP(VCC_PM_BIT) | BITMAP(VCC_IO_BIT) | BITMAP(VCC_LDOIN_BIT), 
+							     BITMAP(VCC_LPDDR_BIT) | BITMAP(VCC_PL_BIT) |\
+							     BITMAP(VDD_SYS_BIT) | BITMAP(VCC_IO_BIT), 
 		//mean care about cpua, dram, sys, cpus, dram_pll, vdd_adc, vcc_pl, vcc_io, vcc_cpvdd, vcc_ldoin, vcc_pll 
 		.soc_pwr_dep.soc_pwr_dm_state.volt[0]      = 0x0,	//mean: donot need care about the voltage.
 		.soc_pwr_dep.cpux_clk_state.osc_en         = 0x0,	// mean all osc is off.
@@ -154,8 +217,8 @@ scene_extended_standby_t extended_standby[] = {
 		//note: vcc_pm is marked on, just for cross-platform reason.
 		//at a83: with the sys_mask's help, we know we do not need care about vcc_pm state.
 		.soc_pwr_dep.soc_pwr_dm_state.state	   = BITMAP(VCC_DRAM_BIT) | BITMAP(VDD_CPUS_BIT) |\
-							     BITMAP(VDD_SYS_BIT) | BITMAP(VDD_DRAMPLL_BIT) | BITMAP(VCC_PL_BIT) | \
-							     BITMAP(VCC_PM_BIT) | BITMAP(VCC_IO_BIT) | BITMAP(VCC_LDOIN_BIT), 
+							     BITMAP(VCC_LPDDR_BIT) | BITMAP(VCC_PL_BIT) |\
+							     BITMAP(VDD_SYS_BIT) | BITMAP(VCC_IO_BIT), 
 		//mean care about cpua, dram, sys, cpus, dram_pll, vdd_adc, vcc_pl, vcc_io, vcc_cpvdd, vcc_ldoin, vcc_pll 
 		.soc_pwr_dep.soc_pwr_dm_state.volt[0]      = 0x0,	//mean: donot need care about the voltage.
 		.soc_pwr_dep.cpux_clk_state.osc_en         = BITMAP(OSC_LOSC_BIT),	// mean all osc is off. +losc
@@ -190,7 +253,7 @@ scene_extended_standby_t extended_standby[] = {
 		//at a83: with the sys_mask's help, we know we do not need care about vcc_pm state.
 		.soc_pwr_dep.soc_pwr_dm_state.state	   = BITMAP(VCC_DRAM_BIT) | BITMAP(VDD_CPUS_BIT) |\
 							     BITMAP(VCC_PL_BIT) | \
-							     BITMAP(VCC_PM_BIT) | BITMAP(VCC_IO_BIT) ,
+							     BITMAP(VCC_IO_BIT) ,
 		    
 		    0x0644, //-vcc_io; -dram, ldoin/ adc/ cpvdd   
 		//mean care about cpua, dram, sys, cpus, dram_pll, vdd_adc, vcc_pl, vcc_io, vcc_cpvdd, vcc_ldoin, vcc_pll 
@@ -214,8 +277,7 @@ scene_extended_standby_t extended_standby[] = {
 		//note: vcc_pm is marked on, just for cross-platform reason.
 		//at a83: with the sys_mask's help, we know we do not need care about vcc_pm state.
 		.soc_pwr_dep.soc_pwr_dm_state.state	   = BITMAP(VCC_DRAM_BIT) | BITMAP(VDD_CPUS_BIT) |\
-							     BITMAP(VCC_PL_BIT) | \
-							     BITMAP(VCC_PM_BIT), 
+							     BITMAP(VCC_PL_BIT), 
 		//mean care about cpua, dram, sys, cpus, dram_pll, vdd_adc, vcc_pl, vcc_io, vcc_cpvdd, vcc_ldoin, vcc_pll 
 		.soc_pwr_dep.soc_pwr_dm_state.volt[0]      = 0x0,	//mean: donot need care about the voltage.
 		.soc_pwr_dep.cpux_clk_state.osc_en         = 0x0,	// mean all osc is off.
@@ -240,8 +302,7 @@ scene_extended_standby_t extended_standby[] = {
 		//note: vcc_pm is marked on, just for cross-platform reason.
 		//at a83: with the sys_mask's help, we know we do not need care about vcc_pm state.
 		.soc_pwr_dep.soc_pwr_dm_state.state	   = BITMAP(VCC_DRAM_BIT) | BITMAP(VDD_CPUS_BIT) |\
-							     BITMAP(VDD_DRAMPLL_BIT) | BITMAP(VCC_PL_BIT) | \
-							     BITMAP(VCC_PM_BIT)  | BITMAP(VCC_LDOIN_BIT), 
+							     BITMAP(VCC_LPDDR_BIT) | BITMAP(VCC_PL_BIT),
 		//mean care about cpua, dram, sys, cpus, dram_pll, vdd_adc, vcc_pl, vcc_io, vcc_cpvdd, vcc_ldoin, vcc_pll 
 		.soc_pwr_dep.soc_pwr_dm_state.volt[0]      = 0x0,	//mean: donot need care about the voltage.
 		.soc_pwr_dep.cpux_clk_state.osc_en         = 0x0,	// mean all osc is off.

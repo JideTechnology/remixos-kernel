@@ -27,6 +27,8 @@ typedef enum AW_POWER_SCENE
 	SCENE_MISC_STANDBY,
 	SCENE_MISC1_STANDBY,
 	SCENE_DYNAMIC_STANDBY,
+	SCENE_USB_OHCI_STANDBY,
+	SCENE_USB_EHCI_STANDBY,
 	SCENE_MAX
 } aw_power_scene_e;
 
@@ -42,7 +44,9 @@ typedef enum POWER_SCENE_FLAGS
 	BOOT_FAST_STANDBY_FLAG         = (1<<0x7),
 	MISC1_STANDBY_FLAG             = (1<<0x8),
 	GPIO_HOLD_STANDBY_FLAG         = (1<<0x9),
-	DYNAMIC_STANDBY_FLAG           = (1<<0xa)
+	DYNAMIC_STANDBY_FLAG           = (1<<0xa),
+	USB_OHCI_STANDBY_FLAG          = (1<<0xb),
+	USB_EHCI_STANDBY_FLAG          = (1<<0xc)
 } power_scene_flags;
 
 struct scene_lock {
