@@ -31,7 +31,7 @@
 
 struct ion_device;
 static struct ion_device *ion_device;
-
+int ion_handle_put(struct ion_handle *handle);
 long sunxi_ion_ioctl(struct ion_client *client, unsigned int cmd, unsigned long arg)
 {
 	long ret = 0;
@@ -52,6 +52,7 @@ long sunxi_ion_ioctl(struct ion_client *client, unsigned int cmd, unsigned long 
 		}
 			
 		ret = ion_phys(client, handle, (ion_phys_addr_t *)&data.phys_addr, (size_t *)&data.size);
+		ion_handle_put(handle);
 		if(ret)
 		{
 			return -EINVAL;
