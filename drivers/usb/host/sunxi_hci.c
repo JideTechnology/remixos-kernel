@@ -346,8 +346,10 @@ static void __sunxi_set_vbus(struct sunxi_hci_hcd *sunxi_hci, int is_on)
 //no care of usb0 vbus when otg connect pc setup system without battery  and to return
 #ifdef	CONFIG_USB_SUNXI_USB_MANAGER
 	if(sunxi_hci->usbc_no == HCI0_USBC_NO){
-		if(usb_otg_id_status() == 1){
-			return;
+		if(is_on){
+			if(usb_otg_id_status() == 1){
+				return;
+			}
 		}
 	}
 #endif
