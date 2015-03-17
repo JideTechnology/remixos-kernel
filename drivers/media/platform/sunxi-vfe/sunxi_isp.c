@@ -28,6 +28,7 @@
 #include "vfe.h"
 
 #define ISP_MODULE_NAME "sunxi_isp"
+#define ISP_HEIGHT_16B_ALIGN 1
 struct isp_dev *isp_gbl;
 
 static int __isp_set_input_fmt_internal(enum bus_pixeltype type)
@@ -158,33 +159,67 @@ static int __isp_cal_ch_size(enum pixel_fmt fmt, struct isp_size *size,
 		case PIX_FMT_YVU420P_8:
 			isp_size_info->line_stride_y = ALIGN_16B(size->width);
 			isp_size_info->line_stride_c = ALIGN_16B(isp_size_info->line_stride_y>>1);
-			isp_size_info->buf_height_y = size->height;
+			if(ISP_HEIGHT_16B_ALIGN) {
+				isp_size_info->buf_height_y = ALIGN_16B(size->height);
+			}else{
+				isp_size_info->buf_height_y = size->height;
+			}
+			
 			isp_size_info->buf_height_cb = isp_size_info->buf_height_y >>1;
 			isp_size_info->buf_height_cr = isp_size_info->buf_height_y  >>1;
+
+			isp_size_info->valid_height_y = size->height;
+			isp_size_info->valid_height_cb = isp_size_info->valid_height_y >>1;
+			isp_size_info->valid_height_cr = isp_size_info->valid_height_y  >>1;
 			break;
 		case PIX_FMT_YUV422P_8:
 		case PIX_FMT_YVU422P_8:
 			isp_size_info->line_stride_y = ALIGN_16B(size->width);
 			isp_size_info->line_stride_c = ALIGN_16B(isp_size_info->line_stride_y>>1);
-			isp_size_info->buf_height_y =size->height;
+			if(ISP_HEIGHT_16B_ALIGN) {
+				isp_size_info->buf_height_y = ALIGN_16B(size->height);
+			}else{
+				isp_size_info->buf_height_y = size->height;
+			}
 			isp_size_info->buf_height_cb = isp_size_info->buf_height_y;
 			isp_size_info->buf_height_cr = isp_size_info->buf_height_y;
+			
+			isp_size_info->valid_height_y = size->height;
+			isp_size_info->valid_height_cb = isp_size_info->valid_height_y;
+			isp_size_info->valid_height_cr = isp_size_info->valid_height_y;
 			break;
 		case PIX_FMT_YUV420SP_8:
 		case PIX_FMT_YVU420SP_8:
 			isp_size_info->line_stride_y = ALIGN_16B(size->width);
 			isp_size_info->line_stride_c = isp_size_info->line_stride_y;
-			isp_size_info->buf_height_y = size->height;
+			if(ISP_HEIGHT_16B_ALIGN) {
+				isp_size_info->buf_height_y = ALIGN_16B(size->height);
+			}else{
+				isp_size_info->buf_height_y = size->height;
+			}
+			
 			isp_size_info->buf_height_cb = isp_size_info->buf_height_y>>1;
 			isp_size_info->buf_height_cr = 0;
+
+			isp_size_info->valid_height_y = size->height;
+			isp_size_info->valid_height_cb = isp_size_info->valid_height_y>>1;
+			isp_size_info->valid_height_cr = 0;
 			break;
 		case PIX_FMT_YUV422SP_8:
 		case PIX_FMT_YVU422SP_8:
 			isp_size_info->line_stride_y = ALIGN_16B(size->width);
 			isp_size_info->line_stride_c = isp_size_info->line_stride_y;
-			isp_size_info->buf_height_y = size->height;
+			if(ISP_HEIGHT_16B_ALIGN) {
+				isp_size_info->buf_height_y = ALIGN_16B(size->height);
+			}else{
+				isp_size_info->buf_height_y = size->height;
+			}
 			isp_size_info->buf_height_cb = isp_size_info->buf_height_y;
 			isp_size_info->buf_height_cr = 0;
+
+			isp_size_info->valid_height_y = size->height;
+			isp_size_info->valid_height_cb = isp_size_info->valid_height_y;
+			isp_size_info->valid_height_cr = 0;
 			break;
 		default:
 			break;
@@ -204,11 +239,11 @@ static int __isp_cal_ch_addr(enum enable_flag flip, unsigned int buf_base_addr,
 	if (flip == ENABLE)
 	{
 		isp_size_info->yuv_addr.y_addr = isp_size_info->yuv_addr.y_addr +
-				isp_size_info->line_stride_y * isp_size_info->buf_height_y - isp_size_info->line_stride_y;
+				isp_size_info->line_stride_y * isp_size_info->valid_height_y - isp_size_info->line_stride_y;
 		isp_size_info->yuv_addr.u_addr = isp_size_info->yuv_addr.u_addr +
-				isp_size_info->line_stride_c * isp_size_info->buf_height_cb - isp_size_info->line_stride_c;
+				isp_size_info->line_stride_c * isp_size_info->valid_height_cb - isp_size_info->line_stride_c;
 		isp_size_info->yuv_addr.v_addr = isp_size_info->yuv_addr.v_addr +
-				isp_size_info->line_stride_c * isp_size_info->buf_height_cr - isp_size_info->line_stride_c;
+				isp_size_info->line_stride_c * isp_size_info->valid_height_cr - isp_size_info->line_stride_c;
 	}
 	return 0;
 }

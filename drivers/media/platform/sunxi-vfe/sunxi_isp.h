@@ -35,6 +35,9 @@ struct isp_yuv_size_addr_info
 	unsigned int buf_height_cb;
 	unsigned int buf_height_cr;
 
+	unsigned int valid_height_y;
+	unsigned int valid_height_cb;
+	unsigned int valid_height_cr;
 	struct isp_yuv_channel_addr yuv_addr;
 };
 

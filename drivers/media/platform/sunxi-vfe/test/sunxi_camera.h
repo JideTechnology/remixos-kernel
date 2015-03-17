@@ -134,6 +134,10 @@ struct isp_exif_attribute {
 	__s32 reserved[16];
 };
 
+struct rot_channel_cfg {
+	__u32 sel_ch;
+	__u32 rotation;
+};
 #define VIDIOC_ISP_AE_STAT_REQ \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 1, struct isp_stat_buf)
 #define VIDIOC_ISP_HIST_STAT_REQ \
@@ -150,6 +154,12 @@ struct isp_exif_attribute {
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 7, struct v4l2_win_setting)
 #define VIDIOC_HDR_CTRL \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 8, struct isp_hdr_ctrl)
+
+#define VIDIOC_SET_SUBCHANNEL \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 9, struct v4l2_pix_format)
+#define VIDIOC_SET_ROTCHANNEL \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 10, struct rot_channel_cfg)
+
 
 #endif /*_SUNXI_CAMERA_H_*/
 

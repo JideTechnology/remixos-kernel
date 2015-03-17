@@ -1983,17 +1983,13 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
   struct videobuf_queue *q = &dev->vb_vidq;
   struct v4l2_mbus_framefmt ccm_fmt;
   struct v4l2_mbus_config mbus_cfg;
-  enum v4l2_mbus_pixelcode *bus_pix_code;
-  enum pixel_fmt isp_fmt[ISP_MAX_CH_NUM];
-  struct isp_size isp_size[ISP_MAX_CH_NUM];
-  
-  struct sensor_win_size win_cfg;
   struct isp_size_settings size_settings;
-  struct isp_size ob_black_size,ob_valid_size;   
-  struct coor ob_start;
+  enum v4l2_mbus_pixelcode *bus_pix_code;
+  struct sensor_win_size win_cfg;
+  struct isp_fmt_cfg *isp_fmt_cfg = &dev->ccm_cfg[dev->input]->isp_fmt;
   
   unsigned char ch_num;
-  unsigned int i,scale_ratio;
+  unsigned int i;
   int ret;
   
   vfe_dbg(0,"vidioc_s_fmt_vid_cap\n");  
@@ -2004,6 +2000,7 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
   }
 
   mutex_lock(&q->vb_lock);
+  memset(isp_fmt_cfg, 0, sizeof(struct isp_fmt_cfg));
 
   bus_pix_code = try_fmt_internal(dev,f);
   if(!bus_pix_code) {
@@ -2191,139 +2188,45 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
   }
   
   if(dev->is_isp_used) {
-    isp_fmt[MAIN_CH] = pix_fmt_v4l2_to_common(f->fmt.pix.pixelformat);
-    isp_size[MAIN_CH].width = ccm_fmt.width;
-    isp_size[MAIN_CH].height = ccm_fmt.height;
-	//todo for rotation 
-	if(f->fmt.pix.rot_angle != 0)
-    {
-        isp_fmt[ROT_CH] = pix_fmt_v4l2_to_common(f->fmt.pix.pixelformat);            
-	}
-    else
-    {
-		isp_fmt[ROT_CH] = PIX_FMT_NONE;
-	}
+    isp_fmt_cfg->isp_fmt[MAIN_CH] = pix_fmt_v4l2_to_common(f->fmt.pix.pixelformat);
+    isp_fmt_cfg->isp_size[MAIN_CH].width = ccm_fmt.width;
+    isp_fmt_cfg->isp_size[MAIN_CH].height = ccm_fmt.height;
+    isp_fmt_cfg->isp_fmt[SUB_CH] = PIX_FMT_NONE;
+    isp_fmt_cfg->isp_fmt[ROT_CH] = PIX_FMT_NONE;
     
-    if (f->fmt.pix.subchannel) 
-	{ 
-	  if(f->fmt.pix.subchannel->rot_angle != 0)
-        isp_fmt[ROT_CH] = pix_fmt_v4l2_to_common(f->fmt.pix.subchannel->pixelformat);
-	}
+    vfe_dbg(0,"*bus_pix_code = %d, isp_fmt = %p\n",*bus_pix_code,isp_fmt_cfg->isp_fmt);
+    isp_fmt_cfg->bus_code = *bus_pix_code;
+    sunxi_isp_set_fmt(find_bus_type(*bus_pix_code),&isp_fmt_cfg->isp_fmt[0]);
     
-    if(f->fmt.pix.subchannel) 
-    {
-      isp_fmt[SUB_CH] = pix_fmt_v4l2_to_common(f->fmt.pix.subchannel->pixelformat);
-      isp_size[SUB_CH].width = f->fmt.pix.subchannel->width;
-      isp_size[SUB_CH].height = f->fmt.pix.subchannel->height;
-      dev->thumb_width  = f->fmt.pix.subchannel->width;
-      dev->thumb_height = f->fmt.pix.subchannel->height;
-      if(f->fmt.pix.subchannel->height > f->fmt.pix.height || f->fmt.pix.subchannel->width > f->fmt.pix.width)
-      {
-      		vfe_err("subchannel size > main channel size!!!");
-      }
-    } else {
-    
-      isp_fmt[SUB_CH] = PIX_FMT_NONE;
-      isp_size[SUB_CH].width = 0;
-      isp_size[SUB_CH].height = 0;
-      scale_ratio = 0;
-    }
-    
-    vfe_dbg(0,"*bus_pix_code = %d, isp_fmt = %p\n",*bus_pix_code,isp_fmt);
-    
-    if((f->fmt.pix.rot_angle == 0 && f->fmt.pix.subchannel == NULL)||
-        (f->fmt.pix.rot_angle == 0 && f->fmt.pix.subchannel != NULL && f->fmt.pix.subchannel->rot_angle == 0))
-    {
-      isp_fmt[ROT_CH] = PIX_FMT_NONE;
-    }
-    
-    sunxi_isp_set_fmt(find_bus_type(*bus_pix_code),isp_fmt);
-    
-    //only has one rotation ch, priority: main ch > sub ch
-    //from main ch first
-    if(f->fmt.pix.rot_angle == 0) {
-    	bsp_isp_set_rot(MAIN_CH,ANGLE_0);        
-        isp_size[ROT_CH].width = ccm_fmt.width;
-        isp_size[ROT_CH].height = ccm_fmt.height;
-    } else if(f->fmt.pix.rot_angle == 90) {
-    	bsp_isp_set_rot(MAIN_CH,ANGLE_90);        
-        isp_size[ROT_CH].height = ccm_fmt.width;
-        isp_size[ROT_CH].width = ccm_fmt.height;
-    } else if(f->fmt.pix.rot_angle == 180) {
-    	bsp_isp_set_rot(MAIN_CH,ANGLE_180);        
-        isp_size[ROT_CH].width = ccm_fmt.width;
-        isp_size[ROT_CH].height = ccm_fmt.height; 
-    } else if(f->fmt.pix.rot_angle == 270) {
-    	bsp_isp_set_rot(MAIN_CH,ANGLE_270);
-        isp_size[ROT_CH].height = ccm_fmt.width;
-        isp_size[ROT_CH].width = ccm_fmt.height;
-    } else {
-    	bsp_isp_set_rot(MAIN_CH,ANGLE_0);
-    }
-    //from sub ch second
-    
-    if(f->fmt.pix.subchannel){
-    	if(f->fmt.pix.subchannel->rot_angle == 0) {
-	    	bsp_isp_set_rot(SUB_CH,ANGLE_0);
-            
-            isp_size[ROT_CH].width = f->fmt.pix.subchannel->width;
-            isp_size[ROT_CH].height = f->fmt.pix.subchannel->height;  
-	    } else if(f->fmt.pix.subchannel->rot_angle == 90) {
-            isp_size[ROT_CH].height = f->fmt.pix.subchannel->width;
-            isp_size[ROT_CH].width = f->fmt.pix.subchannel->height;  
-	    	bsp_isp_set_rot(SUB_CH,ANGLE_90);
-	    } else if(f->fmt.pix.subchannel->rot_angle == 180) {
-            isp_size[ROT_CH].width = f->fmt.pix.subchannel->width;
-            isp_size[ROT_CH].height = f->fmt.pix.subchannel->height;  
-	    	bsp_isp_set_rot(SUB_CH,ANGLE_180);
-	    } else if(f->fmt.pix.subchannel->rot_angle == 270) {
-            isp_size[ROT_CH].height = f->fmt.pix.subchannel->width;
-            isp_size[ROT_CH].width = f->fmt.pix.subchannel->height;  
-	    	bsp_isp_set_rot(SUB_CH,ANGLE_270);
-	    } else {
-	    	bsp_isp_set_rot(SUB_CH,ANGLE_0);
-	    }
-    }
 	if(0 == win_cfg.width || 0 == win_cfg.height)
 	{
-		win_cfg.width = isp_size[MAIN_CH].width;
-		win_cfg.height = isp_size[MAIN_CH].height;
+		win_cfg.width = isp_fmt_cfg->isp_size[MAIN_CH].width;
+		win_cfg.height = isp_fmt_cfg->isp_size[MAIN_CH].height;
 	}
 	if(0 == win_cfg.width_input || 0 == win_cfg.height_input)
 	{
 		win_cfg.width_input = win_cfg.width;
 		win_cfg.height_input = win_cfg.height;
 	}
+	isp_fmt_cfg->win_cfg = win_cfg;
 	vfe_print("width_input = %d, height_input = %d, width = %d, height = %d\n", win_cfg.width_input,win_cfg.height_input,  win_cfg.width,  win_cfg.height );
-	ob_black_size.width= win_cfg.width_input + 2*win_cfg.hoffset; //OK
-	ob_black_size.height= win_cfg.height_input + 2*win_cfg.voffset;//OK
-	ob_valid_size.width = win_cfg.width_input;
-	ob_valid_size.height = win_cfg.height_input;
-	ob_start.hor =  win_cfg.hoffset;  //OK
-	ob_start.ver =  win_cfg.voffset;  //OK
-	if((f->fmt.pix.rot_angle == 0 && f->fmt.pix.subchannel == NULL)||
-				(f->fmt.pix.rot_angle == 0 && f->fmt.pix.subchannel != NULL && f->fmt.pix.subchannel->rot_angle == 0))
-	{
-		isp_size[ROT_CH].height = 0;
-		isp_size[ROT_CH].width = 0;
-		isp_fmt[ROT_CH] = PIX_FMT_NONE;
-	}
-	
-	if(f->fmt.pix.subchannel != NULL)	{
-		dev->isp_gen_set_pt->double_ch_flag = 1;
-	} else {
-		dev->isp_gen_set_pt->double_ch_flag = 0;
-	}
+	isp_fmt_cfg->ob_black_size.width= win_cfg.width_input + 2*win_cfg.hoffset; //OK
+	isp_fmt_cfg->ob_black_size.height= win_cfg.height_input + 2*win_cfg.voffset;//OK
+	isp_fmt_cfg->ob_valid_size.width = win_cfg.width_input;
+	isp_fmt_cfg->ob_valid_size.height = win_cfg.height_input;
+	isp_fmt_cfg->ob_start.hor =  win_cfg.hoffset;  //OK
+	isp_fmt_cfg->ob_start.ver =  win_cfg.voffset;  //OK
+	dev->isp_gen_set_pt->double_ch_flag = 0;
   
 	//dev->buf_byte_size = bsp_isp_set_size(isp_fmt,&ob_black_size, &ob_valid_size, &isp_size[MAIN_CH],&isp_size[ROT_CH],&ob_start,&isp_size[SUB_CH]);
-	size_settings.full_size = isp_size[MAIN_CH];
-	size_settings.scale_size = isp_size[SUB_CH];
-	size_settings.ob_black_size = ob_black_size;
-	size_settings.ob_start = ob_start;
-	size_settings.ob_valid_size = ob_valid_size;
-	size_settings.ob_rot_size = isp_size[ROT_CH];
+	size_settings.full_size = isp_fmt_cfg->isp_size[MAIN_CH];
+	size_settings.scale_size = isp_fmt_cfg->isp_size[SUB_CH];
+	size_settings.ob_black_size = isp_fmt_cfg->ob_black_size;
+	size_settings.ob_start = isp_fmt_cfg->ob_start;
+	size_settings.ob_valid_size = isp_fmt_cfg->ob_valid_size;
+	size_settings.ob_rot_size = isp_fmt_cfg->isp_size[ROT_CH];
 
-	dev->buf_byte_size = sunxi_isp_set_size(isp_fmt,&size_settings);
+	dev->buf_byte_size = sunxi_isp_set_size(&isp_fmt_cfg->isp_fmt[0],&size_settings);
     
     vfe_print("dev->buf_byte_size = %d, double_ch_flag = %d\n",dev->buf_byte_size, dev->isp_gen_set_pt->double_ch_flag);
   } else {
@@ -3241,6 +3144,91 @@ int vidioc_hdr_ctrl(struct file *file, struct v4l2_fh *fh, struct isp_hdr_ctrl *
 	return -EINVAL;
 }
 
+int vidioc_set_subchannel(struct file *file, struct v4l2_fh *fh, struct v4l2_pix_format *sub)
+{
+	int ret=0;
+	struct isp_size_settings size_settings;
+	struct vfe_dev *dev = video_drvdata(file);
+	struct isp_fmt_cfg *isp_fmt_cfg = &dev->ccm_cfg[dev->input]->isp_fmt;
+	isp_fmt_cfg->isp_fmt[SUB_CH] = pix_fmt_v4l2_to_common(sub->pixelformat);
+	isp_fmt_cfg->isp_size[SUB_CH].width = sub->width;
+	isp_fmt_cfg->isp_size[SUB_CH].height = sub->height;
+	dev->thumb_width  = sub->width;
+	dev->thumb_height = sub->height;
+	if(isp_fmt_cfg->isp_size[SUB_CH].height > isp_fmt_cfg->isp_size[MAIN_CH].height || isp_fmt_cfg->isp_size[SUB_CH].width > isp_fmt_cfg->isp_size[MAIN_CH].width)
+	{
+		vfe_err("subchannel size > main channel size!!!");
+		return -1;
+	}
+	dev->isp_gen_set_pt->double_ch_flag = 1;
+
+	size_settings.full_size = isp_fmt_cfg->isp_size[MAIN_CH];
+	size_settings.scale_size = isp_fmt_cfg->isp_size[SUB_CH];
+	size_settings.ob_black_size = isp_fmt_cfg->ob_black_size;
+	size_settings.ob_start = isp_fmt_cfg->ob_start;
+	size_settings.ob_valid_size = isp_fmt_cfg->ob_valid_size;
+	size_settings.ob_rot_size = isp_fmt_cfg->isp_size[ROT_CH];
+	sunxi_isp_set_fmt(isp_fmt_cfg->bus_code, &isp_fmt_cfg->isp_fmt[0]);
+	dev->buf_byte_size = sunxi_isp_set_size(&isp_fmt_cfg->isp_fmt[0],&size_settings);
+	vfe_print("dev->buf_byte_size = %d, double_ch_flag = %d\n",dev->buf_byte_size, dev->isp_gen_set_pt->double_ch_flag);
+	return ret;
+}
+
+int vidioc_set_rotchannel(struct file *file, struct v4l2_fh *fh, struct rot_channel_cfg *rot)
+{
+	int ret=0;
+	struct isp_size_settings size_settings;
+	struct vfe_dev *dev = video_drvdata(file);
+	struct isp_fmt_cfg *isp_fmt_cfg = &dev->ccm_cfg[dev->input]->isp_fmt;
+	isp_fmt_cfg->isp_fmt[ROT_CH] = isp_fmt_cfg->isp_fmt[rot->sel_ch];
+	isp_fmt_cfg->rot_angle = rot->rotation;
+	isp_fmt_cfg->rot_ch = rot->sel_ch;
+	if(isp_fmt_cfg->rot_angle == 90 || isp_fmt_cfg->rot_angle ==270)
+	{
+		isp_fmt_cfg->isp_size[ROT_CH].width = isp_fmt_cfg->isp_size[rot->sel_ch].height;
+		isp_fmt_cfg->isp_size[ROT_CH].height = isp_fmt_cfg->isp_size[rot->sel_ch].width;
+	}else{
+		isp_fmt_cfg->isp_size[ROT_CH].width = isp_fmt_cfg->isp_size[rot->sel_ch].width;
+		isp_fmt_cfg->isp_size[ROT_CH].height = isp_fmt_cfg->isp_size[rot->sel_ch].height;
+	}
+	if(isp_fmt_cfg->rot_ch == MAIN_CH)
+	{
+		if(isp_fmt_cfg->rot_angle == 0) {
+			bsp_isp_set_rot(MAIN_CH,ANGLE_0);        
+		} else if(isp_fmt_cfg->rot_angle == 90) {
+			bsp_isp_set_rot(MAIN_CH,ANGLE_90);        
+		} else if(isp_fmt_cfg->rot_angle == 180) {
+			bsp_isp_set_rot(MAIN_CH,ANGLE_180);        
+		} else if(isp_fmt_cfg->rot_angle == 270) {
+			bsp_isp_set_rot(MAIN_CH,ANGLE_270);
+		} else {
+			bsp_isp_set_rot(MAIN_CH,ANGLE_0);
+		}
+	}else if(isp_fmt_cfg->rot_ch == SUB_CH){
+		if(isp_fmt_cfg->rot_angle == 0) {
+			bsp_isp_set_rot(SUB_CH,ANGLE_0); 
+		} else if(isp_fmt_cfg->rot_angle == 90) {
+			bsp_isp_set_rot(SUB_CH,ANGLE_90); 
+		} else if(isp_fmt_cfg->rot_angle == 180) {
+			bsp_isp_set_rot(SUB_CH,ANGLE_180); 
+		} else if(isp_fmt_cfg->rot_angle == 270) {
+			bsp_isp_set_rot(SUB_CH,ANGLE_270);
+		} else {
+			bsp_isp_set_rot(SUB_CH,ANGLE_0);
+		}
+	}else{
+		vfe_err("vidioc_set_rotchannel rot_ch = %d is error!!!", isp_fmt_cfg->rot_ch);
+	}
+	size_settings.full_size = isp_fmt_cfg->isp_size[MAIN_CH];
+	size_settings.scale_size = isp_fmt_cfg->isp_size[SUB_CH];
+	size_settings.ob_black_size = isp_fmt_cfg->ob_black_size;
+	size_settings.ob_start = isp_fmt_cfg->ob_start;
+	size_settings.ob_valid_size = isp_fmt_cfg->ob_valid_size;
+	size_settings.ob_rot_size = isp_fmt_cfg->isp_size[ROT_CH];
+	sunxi_isp_set_fmt(isp_fmt_cfg->bus_code, &isp_fmt_cfg->isp_fmt[0]);
+	dev->buf_byte_size = sunxi_isp_set_size(&isp_fmt_cfg->isp_fmt[0],&size_settings);
+	return ret;
+}
 static long vfe_param_handler(struct file *file, void *priv,
 		bool valid_prio, unsigned int cmd, void *param)
 {
@@ -3272,6 +3260,12 @@ static long vfe_param_handler(struct file *file, void *priv,
 			break;
 		case VIDIOC_HDR_CTRL:
 			ret = vidioc_hdr_ctrl(file, fh, (struct isp_hdr_ctrl*)param);
+			break;
+		case VIDIOC_SET_SUBCHANNEL:
+			ret = vidioc_set_subchannel(file, fh, (struct v4l2_pix_format*)param);
+			break;
+		case VIDIOC_SET_ROTCHANNEL:
+			ret = vidioc_set_rotchannel(file, fh, (struct rot_channel_cfg*)param);
 			break;
 		default:
 		ret = -ENOTTY;
@@ -3740,6 +3734,11 @@ static int vfe_s_ctrl(struct v4l2_ctrl *ctrl)
 	return ret;
 }
 
+static long vfe_compat_ioctl32(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	return vfe_param_handler(file, NULL, NULL, cmd, (void *)arg);
+}
+
 /* ------------------------------------------------------------------
 	File operations for the device
    ------------------------------------------------------------------*/
@@ -3757,6 +3756,9 @@ static const struct v4l2_file_operations vfe_fops = {
 	.poll           = vfe_poll,
 	.ioctl          = video_ioctl2,
 	//.unlocked_ioctl = 
+#ifdef CONFIG_COMPAT
+	.compat_ioctl32 = vfe_compat_ioctl32,
+#endif
 	.mmap           = vfe_mmap,
 };
 

@@ -27,19 +27,11 @@
 #define CLEAR(x) memset (&(x), 0, sizeof (x))
 #define ALIGN_4K(x) (((x) + (4095)) & ~(4095))
 #define ALIGN_16B(x) (((x) + (15)) & ~(15))
-#define ALIGN_nB(n,x) (((x) + (n-1)) & ~(n-1))	//n Byte ALIGN 
-/*
-**function: calculate the next member address
-**	start: the address of the previous member
-**	type: the type of the member which will be calculated
-*/
-#define NEXT_MEMBER_ADDR(start, type) (type*)ALIGN_nB(sizeof(type),((long)(start) + sizeof(*start)))
 
 struct size{
 	int width;
 	int height;
 };
-
 struct buffer {
     void * start;
     size_t length;
@@ -78,7 +70,7 @@ static int read_frame (int mode)
 	assert (buf.index < n_buffers);
 
 	if (count == read_num/2)
-    	{
+    {
 		printf("file length = %d\n",buffers[buf.index].length);
 		printf("file start = %x\n",buffers[buf.index].start); 
 
@@ -222,15 +214,9 @@ static int camera_init(int sel, int mode)
 
 static int camera_fmt_set(int subch, int angle)
 {
-	union {
-		struct v4l2_pix_format pix;
-		__u8	raw_data[200];	//Reserved space for pix
-	}subch_fmt_t;
 	struct v4l2_format fmt;
-	struct v4l2_pix_format *subch_fmt = &subch_fmt_t.pix;
-	__u32 *sub_rot_angle_pt = NEXT_MEMBER_ADDR(&subch_fmt->priv, __u32);	//&subch_fmt.rot_angle
-	__u32 * rot_angle_pt = NEXT_MEMBER_ADDR(&fmt.fmt.pix.priv, __u32);		//&fmt.fmt.pix.rot_angle
-	struct v4l2_pix_format **subch_pt = NEXT_MEMBER_ADDR(rot_angle_pt, struct v4l2_pix_format *);//&fmt.fmt.pix.subchannel
+	struct v4l2_pix_format subch_fmt;
+	struct rot_channel_cfg rot;
 
 	//VIDIOC_S_FMT
 	CLEAR (fmt);
@@ -239,24 +225,33 @@ static int camera_fmt_set(int subch, int angle)
 	fmt.fmt.pix.height      	= input_size.height; 	//480;
 	fmt.fmt.pix.pixelformat 	= V4L2_PIX_FMT_YUV420;		//V4L2_PIX_FMT_YUV422P;//V4L2_PIX_FMT_NV12;//V4L2_PIX_FMT_YUYV;
 	fmt.fmt.pix.field       	= V4L2_FIELD_NONE;			//V4L2_FIELD_INTERLACED;//V4L2_FIELD_NONE;
-	*rot_angle_pt				= 0;					//fmt.fmt.pix.rot_angle	    = 0;
-
-	if (0 == subch)
-		*subch_pt = NULL;								//fmt.fmt.pix.subchannel	= NULL;
-	else
-	{
-		*subch_pt				= subch_fmt;			//fmt.fmt.pix.subchannel	= &subch_fmt;
-		subch_fmt->width 		= subch_size.width;
-		subch_fmt->height		= subch_size.height;
-		subch_fmt->pixelformat	= V4L2_PIX_FMT_YUV420; 		//V4L2_PIX_FMT_YUV422P;//V4L2_PIX_FMT_NV12;//V4L2_PIX_FMT_YUYV;
-		subch_fmt->field 		= V4L2_FIELD_NONE;			//V4L2_FIELD_INTERLACED;//V4L2_FIELD_NONE;
-		*sub_rot_angle_pt		= angle;				//subch_fmt.rot_angle 	= angle;
-	}
 
 	if (-1 == ioctl (fd, VIDIOC_S_FMT, &fmt))
 	{
 		printf("VIDIOC_S_FMT error!\n");
 		return -1;
+	}
+
+	if (subch != 0)
+	{
+		subch_fmt.width 		= subch_size.width;
+		subch_fmt.height		= subch_size.height;
+		subch_fmt.pixelformat	= V4L2_PIX_FMT_YUV420; 		//V4L2_PIX_FMT_YUV422P;//V4L2_PIX_FMT_NV12;//V4L2_PIX_FMT_YUYV;
+		subch_fmt.field 		= V4L2_FIELD_NONE;			//V4L2_FIELD_INTERLACED;//V4L2_FIELD_NONE;
+
+		rot.sel_ch				= 1;
+		rot.rotation			= angle;
+		
+		if (-1 == ioctl (fd, VIDIOC_SET_SUBCHANNEL, &subch_fmt))
+		{
+			printf("VIDIOC_SET_SUBCHANNEL error!\n");
+			return -1;
+		}		
+		if (-1 == ioctl (fd, VIDIOC_SET_ROTCHANNEL, &rot))
+		{
+			printf("VIDIOC_SET_ROTCHANNEL error!\n");
+			return -1;
+		}
 	}
 
 	//Test VIDIOC_G_FMT	
@@ -441,7 +436,7 @@ int main(int argc,char *argv[])
 
 	for(i = 0; i < test_cnt; i++)
 	{
-		if (0 == main_test(sel, mode - 1))
+		if (0 == main_test(sel, mode))
 			printf("*************************mode %d test done at the %d time!!\n", mode, i);
 		else
 			printf("*************************mode %d test failed at the %d time!!\n", mode, i);
