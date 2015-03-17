@@ -851,11 +851,33 @@ static int ov2685_get_intg_factor(struct i2c_client *client,
 	return 0;
 }
 
+ static int ov2685_s_sharpness(struct v4l2_subdev *sd, int *value)
+ {
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	unsigned char values[] = {0x04, 0x0c, 0x10, 0x18, 0x20, 0x30, 0x3f};
+	int ret = 0;
+
+	if (*value > 3 || *value < -3)
+		return -EINVAL;
+
+	ret = ov2685_write_reg(client, OV2685_8BIT,
+		OV2685_REG_CIP_CTRL_0A, values[*value + 3]);
+
+	if (ret)
+		dev_err(&client->dev, "setting edge enhancement fails.\n");
+
+	return ret;
+}
+
 static long ov2685_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
 	switch (cmd) {
 	case ATOMISP_IOC_S_EXPOSURE:
 		return ov2685_s_exposure(sd, arg);
+
+	case ATOMISP_IOC_S_SENSOR_EE_CONFIG:
+		return ov2685_s_sharpness(sd, arg);
+
 	default:
 		return -EINVAL;
 	}
