@@ -856,10 +856,9 @@ static int aw_early_suspend(void)
 		sizeof(*(extended_standby_manager_id->pextended_standby)));
     //dmac_flush_range((void *)phys_to_virt(DRAM_MEM_PARA_INFO_PA), (void *)(phys_to_virt(DRAM_EXTENDED_STANDBY_INFO_PA) + DRAM_EXTENDED_STANDBY_INFO_SIZE));
    init_wakeup_src(super_standby_para_info.event);
-#if 1
+#if CONFIG_CPU_OPS_SUNXI
    asm("wfi");
 #else
-   //busy_waiting();
    cpu_suspend(3);
 #endif
     exit_wakeup_src(super_standby_para_info.event);
