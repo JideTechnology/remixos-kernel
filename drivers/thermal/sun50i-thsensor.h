@@ -5,8 +5,8 @@
 
 /* temperature = ( MINUPA - reg * MULPA) / DIVPA */
 #define MULPA			(1000)
-#define DIVPA			(9122)
-#define MINUPA			(2215000)
+#define DIVPA			(8560)
+#define MINUPA			(2170000)
 
 #define THS_CTRL0_REG		(0x00)
 #define THS_CTRL1_REG		(0x04)
