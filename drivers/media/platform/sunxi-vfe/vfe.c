@@ -3733,12 +3733,89 @@ static int vfe_s_ctrl(struct v4l2_ctrl *ctrl)
 	}
 	return ret;
 }
+#ifdef CONFIG_COMPAT
+struct isp_stat_buf32 {
+	compat_caddr_t buf;
+	__u32 buf_size;
+};
+static int get_isp_stat_buf32(struct isp_stat_buf *kp, struct isp_stat_buf32 __user *up)
+{
+	u32 tmp;
+	if (!access_ok(VERIFY_READ, up, sizeof(struct isp_stat_buf32)) ||
+		get_user(kp->buf_size, &up->buf_size) ||
+		get_user(tmp, &up->buf))
+			return -EFAULT;
+	kp->buf = compat_ptr(tmp);
+	return 0;
+}
+static int put_isp_stat_buf32(struct isp_stat_buf *kp, struct isp_stat_buf32 __user *up)
+{
+	u32 tmp = (u32)((unsigned long)kp->buf);
+	if (!access_ok(VERIFY_WRITE, up, sizeof(struct isp_stat_buf32)) ||
+		put_user(kp->buf_size, &up->buf_size) ||
+		put_user(tmp, &up->buf))
+			return -EFAULT;
+	return 0;
+}
+
+#define VIDIOC_ISP_AE_STAT_REQ32 	_IOWR('V', BASE_VIDIOC_PRIVATE + 1, struct isp_stat_buf32)
+#define VIDIOC_ISP_HIST_STAT_REQ32 	_IOWR('V', BASE_VIDIOC_PRIVATE + 2, struct isp_stat_buf32)
+#define VIDIOC_ISP_AF_STAT_REQ32 	_IOWR('V', BASE_VIDIOC_PRIVATE + 3, struct isp_stat_buf32)
+#define VIDIOC_ISP_GAMMA_REQ32 	_IOWR('V', BASE_VIDIOC_PRIVATE + 5, struct isp_stat_buf32)
+
+static long vfe_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	long ret = -ENOIOCTLCMD;
+	if (file->f_op->unlocked_ioctl)
+		ret = file->f_op->unlocked_ioctl(file, cmd, arg);
+	return ret;
+}
 
 static long vfe_compat_ioctl32(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	return vfe_param_handler(file, NULL, NULL, cmd, (void *)arg);
+	union {
+		struct isp_stat_buf isb;
+	} karg;
+	void __user *up = compat_ptr(arg);
+	int compatible_arg = 1;
+	long err = 0;	
+	switch (cmd) {
+	case VIDIOC_ISP_AE_STAT_REQ32: cmd = VIDIOC_ISP_AE_STAT_REQ; break;
+	case VIDIOC_ISP_HIST_STAT_REQ32: cmd = VIDIOC_ISP_HIST_STAT_REQ; break;
+	case VIDIOC_ISP_AF_STAT_REQ32: cmd = VIDIOC_ISP_AF_STAT_REQ; break;
+	case VIDIOC_ISP_GAMMA_REQ32: cmd = VIDIOC_ISP_GAMMA_REQ; break;
+	}	
+	switch (cmd) {
+	case VIDIOC_ISP_AE_STAT_REQ:
+	case VIDIOC_ISP_HIST_STAT_REQ:
+	case VIDIOC_ISP_AF_STAT_REQ:
+	case VIDIOC_ISP_GAMMA_REQ:
+		err = get_isp_stat_buf32(&karg.isb, up);
+		compatible_arg = 0;
+		break;
+	}	
+	if (err)
+		return err;
+	if (compatible_arg)
+		err = video_ioctl2(file, cmd, (unsigned long)up);
+	else {
+		mm_segment_t old_fs = get_fs();
+		set_fs(KERNEL_DS);
+		err = vfe_ioctl(file, cmd, (unsigned long)&karg);
+		set_fs(old_fs);
+	}	
+	switch (cmd) {
+	case VIDIOC_ISP_AE_STAT_REQ:
+	case VIDIOC_ISP_HIST_STAT_REQ:
+	case VIDIOC_ISP_AF_STAT_REQ:
+	case VIDIOC_ISP_GAMMA_REQ:
+		if (put_isp_stat_buf32(&karg.isb, up))
+			err = -EFAULT;
+		break;
+	}
+	return err;
 }
-
+#endif
 /* ------------------------------------------------------------------
 	File operations for the device
    ------------------------------------------------------------------*/
