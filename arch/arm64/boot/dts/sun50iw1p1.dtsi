@@ -40,6 +40,10 @@
 		mmc0 = &sdc0;
 		mmc2 = &sdc2;
 		nand0 =&nand0;
+		disp = &soc_disp;
+		lcd0 = &soc_lcd0;
+		hdmi = &soc_hdmi;
+		pwm = &soc_pwm;
 	};
 
 	chosen {
