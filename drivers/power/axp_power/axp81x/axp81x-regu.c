@@ -427,11 +427,8 @@ struct axp_funcdev_info *axp81x_regu_init(void)
 {
 	s32 ret = 0;
 
-#ifdef CONFIG_OF
 	ret = axp_regu_device_tree_parse("pmu0_regu", (struct axp_reg_init *)(&axp_regl_init_data));
-#else
-	ret = axp_regu_fetch_sysconfig_para("pmu0_regu", (struct axp_reg_init *)(&axp_regl_init_data));
-#endif
+
 	if (0 != ret)
 		return NULL;
 

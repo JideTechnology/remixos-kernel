@@ -138,6 +138,7 @@ struct axp_config_info{
 	u32	pmu_IRQ_wakeup;
 	u32	pmu_hot_shutdown;
 	u32	pmu_inshort;
+	int	power_start;
 
 	u32	pmu_bat_temp_enable;
 	u32	pmu_bat_charge_ltf;

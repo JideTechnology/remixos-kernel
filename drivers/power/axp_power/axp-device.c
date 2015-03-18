@@ -271,6 +271,9 @@ static s32 axp_device_probe(struct platform_device *pdev)
 	if (of_property_read_u32(node, "pmu_inshort", &axp_config->pmu_inshort))
 		axp_config->pmu_inshort = 0;
 
+	if (of_property_read_u32(node, "power_start", &axp_config->power_start))
+		axp_config->power_start = 0;
+
 	if (of_property_read_u32(node, "pmu_bat_temp_enable", &axp_config->pmu_bat_temp_enable))
 		axp_config->pmu_bat_temp_enable = 0;
 

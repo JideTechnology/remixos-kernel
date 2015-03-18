@@ -45,20 +45,22 @@ void axp81x_power_off(void)
 
 	mdelay(20);
 
-	/* when system is in charging, reboot system*/
-	axp_read(axp->dev, AXP81X_STATUS, &val);
-	if(val & 0xF0){
-		axp_read(axp->dev, AXP81X_MODE_CHGSTATUS, &val);
-		if(val & 0x20) {
-			printk("[axp] set flag!\n");
-			/* AXP81X_BUFFERC is 0x0d, system is in out_factory_mode*/
-			axp_read(axp->dev, AXP81X_BUFFERC, &val);
-			if (0x0d != val)
-				axp_write(axp->dev, AXP81X_BUFFERC, 0x0f);
-			mdelay(20);
-			printk("[axp] reboot!\n");
-			machine_restart(NULL);
-			printk("[axp] warning!!! arch can't ,reboot, maybe some error happend!\n");
+	if(axp81x_config.power_start != 1) {
+		/* when system is in charging, reboot system*/
+		axp_read(axp->dev, AXP81X_STATUS, &val);
+		if(val & 0xF0){
+			axp_read(axp->dev, AXP81X_MODE_CHGSTATUS, &val);
+			if(val & 0x20) {
+				printk("[axp] set flag!\n");
+				/* AXP81X_BUFFERC is 0x0d, system is in out_factory_mode*/
+				axp_read(axp->dev, AXP81X_BUFFERC, &val);
+				if (0x0d != val)
+					axp_write(axp->dev, AXP81X_BUFFERC, 0x0f);
+				mdelay(20);
+				printk("[axp] reboot!\n");
+				machine_restart(NULL);
+				printk("[axp] warning!!! arch can't ,reboot, maybe some error happend!\n");
+			}
 		}
 	}
 

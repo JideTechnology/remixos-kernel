@@ -208,11 +208,8 @@ static s32 __init axp81x_board_init(void)
 	s32 ret = 0;
 	struct axp_funcdev_info *axp_regu_info = NULL;
 
-#ifdef CONFIG_OF
 	ret = axp_device_tree_parse("pmu0", &axp81x_config);
-#else
-	ret = axp_fetch_sysconfig_para("pmu0", &axp81x_config);
-#endif
+
 	if (ret) {
 		printk("%s parse sysconfig or device tree err\n", __func__);
 		return -1;
