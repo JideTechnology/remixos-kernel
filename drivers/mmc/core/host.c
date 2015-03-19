@@ -444,7 +444,7 @@ void mmc_of_parse(struct mmc_host *host)
 	if (of_find_property(np, "enable-sdio-wakeup", &len))
 		host->pm_caps |= MMC_PM_WAKE_SDIO_IRQ;
 	if (of_find_property(np, "ignore-pm-notify", &len))
-		host->pm_caps |= MMC_PM_IGNORE_PM_NOTIFY;	
+		host->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;	
 	if (of_find_property(np, "mmc-ddr-1_8v", &len))
 		host->caps |= MMC_CAP_1_8V_DDR;
 	if (of_find_property(np, "mmc-ddr-1_2v", &len))
