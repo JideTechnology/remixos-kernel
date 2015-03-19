@@ -191,7 +191,7 @@
 		};
 	};
 
-	dram_para: dram {
+	dram: dram {
 		compatible = "allwinner,dram";
 		clocks = <&clk_pll_ddr0>, <&clk_pll_ddr1>;
 		clock-names = "pll_ddr0", "pll_ddr1";
@@ -284,7 +284,7 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
-
+		device_type = "soc";
 		dma0:dma-controller@01c02000 {
 			compatible = "allwinner,sun50i-dma";
 			reg = <0x0 0x01c02000 0x0 0x1000>;
@@ -1074,8 +1074,7 @@
 			};
 		};
 		
-		vdevice: vdevice@0{
-			device_type = "vdevice";
+		Vdevice: vdevice@0{
 			compatible = "allwinner,sun50i-vdevice";
 			pinctrl-names = "default";
 			pinctrl-0 = <&vdevice_pins_a>;

@@ -429,6 +429,7 @@
 			gpio-controller;
 			#size-cells = <0>;
 			#gpio-cells = <6>;
+			device_type = "axp_pio";
 		};
 	};
 };
