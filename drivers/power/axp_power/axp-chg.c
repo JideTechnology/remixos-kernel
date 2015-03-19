@@ -165,6 +165,13 @@ static void axp_usb(struct work_struct *work)
 			} else {
 				axp_charger->chg_usb_ac_current_set(axp_charger, CHARGE_AC, 2500);
 			}
+			if (1 == axp_charger->usb_adapter_valid) {
+				if((axp_config->pmu_ac_cur)){
+					axp_charger->chg_usb_ac_current_set(axp_charger, CHARGE_USB_20, axp_config->pmu_ac_cur);
+				} else {
+					axp_charger->chg_usb_ac_current_set(axp_charger, CHARGE_USB_20, 2500);
+				}
+			}
 		}
 
 		if(!vbus_curr_limit_debug){ //usb current not limit
