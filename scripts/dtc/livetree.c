@@ -488,6 +488,30 @@ struct node *get_node_by_label(struct node *tree, const char *label)
 	return NULL;
 }
 
+struct node *get_node_by_type(struct node *tree, const char *device_type)
+{
+	struct node *child, *node;
+	struct property *prop;
+
+	assert(device_type && (strlen(device_type) > 0));
+
+	for_each_property(tree, prop){
+		if(strcmp(prop->name, "device_type")){
+			continue;
+		}
+		if (!strncmp(prop->val.val, device_type, prop->val.len)){
+			return tree;
+		}
+	}
+	for_each_child(tree, child) {
+		node = get_node_by_type(child, device_type);
+		if (node)
+			return node;
+	}
+
+	return NULL;
+
+}
 struct node *get_node_by_phandle(struct node *tree, cell_t phandle)
 {
 	struct node *child, *node;

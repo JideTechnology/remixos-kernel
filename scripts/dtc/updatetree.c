@@ -96,7 +96,7 @@ void sunxi_dt_update_gpio_group(struct boot_info *bi,
 	} else {
 		pinctrl_name = "axp_pio";
 	}
-	pinctrl_node = get_node_by_label(bi->dt, pinctrl_name);
+	pinctrl_node = sunxi_get_node(bi->dt, pinctrl_name);
 
 	string = malloc(7 * sizeof(unsigned int));
 	/*set gpio control */
@@ -204,7 +204,7 @@ cell_t sunxi_dt_add_new_node_to_pinctrl(struct node *pinctrl_node,
 {
 	cell_t  phandle;
 	int  i, value_32, len, str_len;
-	char *label, *node_name;
+	char *label, node_name[32];
 	struct  data d;
 	struct  node *child, *temp_node;
 	struct  property *prop;
@@ -219,7 +219,7 @@ cell_t sunxi_dt_add_new_node_to_pinctrl(struct node *pinctrl_node,
 	for (i = 0;i < 8; i++) {
 		label[str_len-2] = (char)(i+'a');
 		label[str_len-1] = '\0';
-		temp_node = get_node_by_label(bi->dt, label);
+		temp_node = sunxi_get_node(bi->dt, label);
 		if (temp_node) {
 			continue;
 		} else {
@@ -230,7 +230,6 @@ cell_t sunxi_dt_add_new_node_to_pinctrl(struct node *pinctrl_node,
 
 	/*set node name*/
 	str_len = strlen(dev_name)+2;
-	node_name = malloc(str_len);
 	strcpy(node_name, dev_name);
 	strcat(node_name, "@");
 	for (i = 0; i < 8; i++) {
@@ -246,7 +245,6 @@ cell_t sunxi_dt_add_new_node_to_pinctrl(struct node *pinctrl_node,
 
 	/* set node name and phandle*/
 	child->name = xstrdup(node_name);
-	free(node_name);
 
 	/* set fullpath */
 	child->fullpath = join_path(pinctrl_node->fullpath, child->name);
@@ -391,9 +389,9 @@ void create_pinconf_node(const char *section_name,
 	value[3] = entry->data[3] < 0 ? 0 : entry->data[3];
 
 	if (entry->port * 32 < PL_BASE) {
-		pinctrl = get_node_by_label(bi->dt, "pio");
+		pinctrl = sunxi_get_node(bi->dt, "pio");
 	} else if (entry->port * 32 >= PL_BASE && entry->port < AXP_BASE) {
-		pinctrl = get_node_by_label(bi->dt, "r_pio");
+		pinctrl = sunxi_get_node(bi->dt, "r_pio");
 	}
 	phandle = sunxi_dt_add_new_node_to_pinctrl(pinctrl, section_name, ep->name, gpio_name, value, bi);
 	if (phandle) {
@@ -573,28 +571,71 @@ void sunxi_dt_update_propval_gpio(const char *section_name,
 	}
 
 }
+struct node *sunxi_get_node(struct node *tree, const char *string)
+{
+	struct node *nd;
+	nd = get_node_by_label(tree, string);
+	if(!nd){
+		nd = get_node_by_type(tree, string);
+	}
+	return nd;
+}
+int sunxi_build_new_node(struct boot_info *bi, char pnode_name[], char node_name[])
+{
+	char *label;
+	struct  node *child, *parent;
+	parent = sunxi_get_node(bi->dt, pnode_name);
+	child = build_node(NULL, NULL);
+	if (!child) {
+		printf("build node faile[%s]\n", node_name);
+	}
+	label = xstrdup(node_name);
+	add_label(&child->labels, label);
+	child->name = xstrdup(node_name);
+	child->fullpath = join_path(parent->fullpath, child->name);
+	add_child(parent, child);
+	return 0;
+}
+int process_mainkey(char *mainkey, char parent_name[], char child_name[], int *state)
+{
+	char *delim1="/";
+	char *delim2="_suspend";
+	char *buf = strstr(mainkey, delim1);
+	char *temp_buf;
+	if( buf != NULL ){
+		sscanf(mainkey, "%[^/]/%[^@]", parent_name, child_name);
+	}else{
+		strcpy(parent_name, "soc");
+		strcpy(child_name, mainkey);
+	}
+	temp_buf = strstr(child_name, delim2);
+	if(temp_buf != NULL){
+		memset(temp_buf,0,strlen(temp_buf));
+		*state = 1;
+	}else{
+		*state = 0;
+	}
 
+	return 0;
+}
 int dt_update_source(const char *fexname, FILE *f, struct boot_info *bi)
 {
 
 	int ret = 0;
-	int slen = 0;
-	int sleep_state = 0;
-	char *p_key = NULL;
-	char *c_key = NULL;
-	char *equals = NULL;
-	struct node *node;
+	int sleep_state = false;
+	char p_key[32] = {0};
+	char c_key[32] = {0};
+
+	struct node *sub_node, *parent_node;
 	struct list_entry *sec_list, *o;
 	struct script_section *section;
 	struct script_entry *ep;
 
+
 	ret = script_parse(fexname);
 	if (ret) {
-		printf(PRINTF_RED 				\
-			"[%s][%d]Parse Sys_config Failed.\n" 	\
-			PRINTF_NONE, 				\
-			__func__, __LINE__);
-		return -1;
+		printf("parser sys_config.fex file failed.\n");
+		exit(1);
 	}
 
 	for_each_section_in_list(script->sections, sec_list){
@@ -603,88 +644,41 @@ int dt_update_source(const char *fexname, FILE *f, struct boot_info *bi)
 	       /*
 		* here mainly deal with section name like parent_key/child_key
 		*/
-		equals = strchr(section->name, '/');
-		if (equals) {
-			slen = (strlen(section->name) + section->name) - equals + 1;
-			p_key = malloc(slen);
-			memset(p_key, 0, slen);
-			c_key = malloc(equals - section->name + 1);
-			memset(c_key, 0, equals - section->name + 1);
-			if (sscanf(section->name, "%[^/]/%[^@]", p_key, c_key) == 2) {
-				node = get_node_by_label(bi->dt, p_key);
-				if(!node){
-					printf(PRINTF_RED 				\
-						"[%s]Should defind behind[%s] or" 	\
-						"Parent_key[%s]May Not Conver To Dts."	\
-						PRINTF_NONE, 				\
-						section->name, p_key, p_key);
-					return -1;
-				}
-			} else {
-				printf(PRINTF_RED
-					"[%s]section name defined error.\n"
-					PRINTF_NONE,
-					section->name);
-				return -1;
-			}
-		} else {
-			c_key = malloc(strlen(section->name) + 1);
-			memset(c_key, 0, strlen(section->name) + 1);
-			memcpy(c_key, section->name, strlen(section->name));
-		}
+	        process_mainkey(section->name, p_key, c_key, &sleep_state);
+		printf("p=%s c=%s state=%d\n", p_key, c_key, sleep_state);
 
-		/*deal with section name like xxx_suspend.*/
-		if (strstr(c_key, "_suspend")) {
-			sleep_state = 1;
-			c_key = strsep(&c_key, "_");
+		parent_node = sunxi_get_node(bi->dt, p_key);
+		if(!parent_node){
+			printf("[SCRIPT_TO_DTS]Can not get parent node.\n");
+			exit(1);
 		}
-		node = get_node_by_label(bi->dt, c_key);
-		if (!node) {
-			{
-				char *label;
-				struct  node *child, *parent;
-				parent = get_node_by_label(bi->dt, "soc");
-				child = build_node(NULL, NULL);
-				if (!child) {
-					printf("build node faile[%s]\n", c_key);
-				}
-				label = xstrdup(c_key);
-				add_label(&child->labels, label);
-				child->name = xstrdup(c_key);
-				child->fullpath = join_path(parent->fullpath, child->name);
-				add_child(parent, child);
-				node = get_node_by_label(bi->dt, c_key);
-			}
-
+		sub_node = sunxi_get_node(bi->dt, c_key);
+		if(!sub_node){
+			sunxi_build_new_node(bi, p_key, c_key);
+			sub_node = sunxi_get_node(bi->dt, c_key);
 		}
-		sunxi_dt_init_pinconf_prop(section, bi, node, sleep_state);
+		sunxi_dt_init_pinconf_prop(section, bi, sub_node, sleep_state);
 		for_each_entry_in_section(section->entries, o){
 			ep = container_of(o, struct script_entry,  entries);
 			switch (ep->type) {
 			case 1:
 			case 2:
-				sunxi_dt_update_propval_cells(c_key, ep, node);
+				sunxi_dt_update_propval_cells(c_key, ep, sub_node);
 				break;
 			case 3:
-				sunxi_dt_update_propval_string(c_key, ep, node);
+				sunxi_dt_update_propval_string(c_key, ep, sub_node);
 				break;
 			case 5:
-				sunxi_dt_update_propval_gpio(c_key, ep, node, bi, sleep_state);
+				sunxi_dt_update_propval_gpio(c_key, ep, sub_node, bi, sleep_state);
 				break;
 			case 6:
 				/*empty property */
-				sunxi_dt_update_propval_empty(c_key, ep, node);
+				sunxi_dt_update_propval_empty(c_key, ep, sub_node);
 				break;
 			default:
 				printf("input type error.\n");
 				break;
 			}
-		}
-		if (equals) {
-			free(p_key);
-			free(c_key);
-		} else {
-			free(c_key);
 		}
 	}
 	return 0;

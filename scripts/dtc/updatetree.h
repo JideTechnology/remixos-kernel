@@ -33,6 +33,11 @@ int sunxi_get_propval(struct node *node, const char *name);
 int sunxi_gpio_to_name(int port, int port_num, char *name);
 int dt_update_source(const char *fexname, FILE *f, struct boot_info *bi);
 
+int process_mainkey(char *mainkey, char parent_name[], char child_name[], int *state);
+int sunxi_build_new_node(struct boot_info *bi, char pnode_name[], char node_name[]);
+struct node *sunxi_get_node(struct node *tree, const char *string);
+
+
 cell_t sunxi_dt_add_new_node_to_pinctrl(struct node *pinctrl_node,
 					const char *dev_name,
 					const char *pname,
