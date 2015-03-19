@@ -630,7 +630,11 @@ int dt_update_source(const char *fexname, FILE *f, struct boot_info *bi)
 	struct list_entry *sec_list, *o;
 	struct script_section *section;
 	struct script_entry *ep;
+	struct property *device_type_prop;
 
+	/*for build new device type property.*/
+	struct data d;
+	struct property *new_prop;
 
 	ret = script_parse(fexname);
 	if (ret) {
@@ -652,11 +656,20 @@ int dt_update_source(const char *fexname, FILE *f, struct boot_info *bi)
 			printf("[SCRIPT_TO_DTS]Can not get parent node.\n");
 			exit(1);
 		}
+
 		sub_node = sunxi_get_node(bi->dt, c_key);
 		if(!sub_node){
 			sunxi_build_new_node(bi, p_key, c_key);
 			sub_node = sunxi_get_node(bi->dt, c_key);
 		}
+
+		device_type_prop = get_property(sub_node, "device_type");
+		if(!device_type_prop){
+			d = data_copy_mem(c_key, strlen(c_key)+1);
+			new_prop = build_property("device_type", d);
+			add_property(sub_node, new_prop);
+		}
+
 		sunxi_dt_init_pinconf_prop(section, bi, sub_node, sleep_state);
 		for_each_entry_in_section(section->entries, o){
 			ep = container_of(o, struct script_entry,  entries);
