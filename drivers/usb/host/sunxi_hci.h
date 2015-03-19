@@ -147,7 +147,11 @@
 #define  KEY_USB_REGULATOR_IO			"usb_regulator_io"
 #define  KEY_USB_REGULATOR_IO_VOL		"usb_regulator_vol"
 #define  KEY_USB_HOST_INIT_STATE    		"usb_host_init_state"
-#define  KEY_USB_WAKEUP_SUSPEND		        "usb_wakeup_suspend"
+#define  KEY_USB_WAKEUP_SUSPEND                 "usb_wakeup_suspend"
+#define  KEY_USB_HSIC_USBED                     "usb_hsic_used"
+#define  KEY_USB_HSIC_CTRL                      "usb_hsic_ctrl"
+#define  KEY_USB_HSIC_RDY_GPIO                  "usb_hsic_rdy_gpio"
+
 
 #if defined (CONFIG_FPGA_V4_PLATFORM) || defined (CONFIG_FPGA_V7_PLATFORM)
 #define SUNXI_USB_FPGA
@@ -205,9 +209,14 @@ struct sunxi_hci_hcd{
 	struct clk	*ahb;                   /* ahb clock handle */
 	struct clk	*mod_usb;               /* mod_usb otg clock handle */
 	struct clk	*mod_usbphy;            /* PHY0 clock handle */
+	struct clk	*hsic_usbphy;            /* hsic clock handle */
+	struct clk	*pll_hsic;               /* pll_hsic clock handle */
+	struct clk	*clk_usbhsic12m;               /* pll_hsic clock handle */
+
 	__u32 clk_is_open;                      /* is usb clock open */
 
 	script_item_u drv_vbus_gpio_set;
+	script_item_u hsic_rdy_gpio_set;
 	enum of_gpio_flags gpio_flags;
 
 	const char  *regulator_io;
@@ -215,6 +224,7 @@ struct sunxi_hci_hcd{
 	int   regulator_value;
 	struct regulator* regulator_io_hdle;
 	u32 drv_vbus_gpio_valid;
+	u32 hsic_rdy_gpio_valid;
 	u32 usb_restrict_valid;
 	__u8 power_flag;                        /* flag. power on or not */
 
@@ -222,6 +232,9 @@ struct sunxi_hci_hcd{
 	__u8 probe;                             /* hc initialize */
 	int host_init_state;                   /* usb hc initialize state, 0: not work, 1: work */
 	int wakeup_suspend;                       /* flag. not suspend */
+	int hsic_flag;                         /* flag. hsic usbed */
+	int hsic_ctrl_flag;                    /* flag. hsic ctrl */
+	int hsic_enable_flag;                  /* flag. hsic enable */
 
 	int (* open_clock)(struct sunxi_hci_hcd *sunxi_hci, u32 ohci);
 	int (* close_clock)(struct sunxi_hci_hcd *sunxi_hci, u32 ohci);
@@ -248,6 +261,8 @@ static inline void fpga_config_use_hci(struct sunxi_hci_hcd *sunxi_hci)
 int init_sunxi_hci(struct platform_device *pdev, int usbc_type);
 int exit_sunxi_hci(struct sunxi_hci_hcd *sunxi_hci);
 int sunxi_get_hci_num(struct platform_device *pdev);
+void sunxi_set_host_hisc_rdy(struct sunxi_hci_hcd *sunxi_hci, int is_on);
+void sunxi_set_host_vbus(struct sunxi_hci_hcd *sunxi_hci, int is_on);
 
 #endif   //__SUNXI_HCI_SUNXI_H__
 

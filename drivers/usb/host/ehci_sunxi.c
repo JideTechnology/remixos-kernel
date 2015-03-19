@@ -47,6 +47,7 @@ static const char ehci_name[] = SUNXI_EHCI_NAME;
 
 static struct sunxi_hci_hcd *g_sunxi_ehci[4];
 static u32 ehci_first_probe[4] = {1, 1, 1, 1};
+static u32 ehci_enable[4] = {1, 1, 1, 1};
 
 extern int usb_disabled(void);
 int sunxi_usb_disable_ehci(__u32 usbc_no);
@@ -251,6 +252,75 @@ static ssize_t ehci_ed_test(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 static DEVICE_ATTR(ed_test, 0644, show_ed_test, ehci_ed_test);
+
+static ssize_t ehci_enable_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct sunxi_hci_hcd *sunxi_ehci = NULL;
+
+	if(dev == NULL){
+		DMSG_PANIC("ERR: Argment is invalid\n");
+		return 0;
+	}
+
+	sunxi_ehci = dev->platform_data;
+	if(sunxi_ehci == NULL){
+		DMSG_PANIC("ERR: sw_ehci is null\n");
+		return 0;
+	}
+
+	return sprintf(buf, "ehci:%d, probe:%u\n", sunxi_ehci->usbc_no, sunxi_ehci->probe);
+}
+
+static ssize_t ehci_enable_store(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct sunxi_hci_hcd *sunxi_ehci = NULL;
+	int value = 0;
+
+	if(dev == NULL){
+		DMSG_PANIC("ERR: Argment is invalid\n");
+		return 0;
+	}
+
+	sunxi_ehci = dev->platform_data;
+	if(sunxi_ehci == NULL){
+		DMSG_PANIC("ERR: sw_ehci is null\n");
+		return 0;
+	}
+
+	sunxi_ehci->host_init_state = 0;
+	ehci_first_probe[sunxi_ehci->usbc_no] = 0;
+
+	sscanf(buf, "%d", &value);
+	if(value == 1){
+		ehci_enable[sunxi_ehci->usbc_no] = 0;
+		sunxi_ehci->hsic_enable_flag = 1;
+		sunxi_usb_enable_ehci(sunxi_ehci->usbc_no);
+
+		if(sunxi_ehci->usbc_no == HCI0_USBC_NO){
+			sunxi_set_host_vbus(sunxi_ehci, 1);
+		}
+
+		if(sunxi_ehci->hsic_ctrl_flag){
+			sunxi_set_host_hisc_rdy(sunxi_ehci, 1);
+		}
+	}else if(value == 0){
+		if(sunxi_ehci->hsic_ctrl_flag){
+			sunxi_set_host_hisc_rdy(sunxi_ehci, 0);
+		}
+
+		ehci_enable[sunxi_ehci->usbc_no] = 1;
+		sunxi_usb_disable_ehci(sunxi_ehci->usbc_no);
+		sunxi_ehci->hsic_enable_flag = 0;
+		ehci_enable[sunxi_ehci->usbc_no] = 0;
+	}else{
+		DMSG_INFO("unkown value (%d)\n", value);
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(ehci_enable, 0664, ehci_enable_show, ehci_enable_store);
 
 static void sunxi_hcd_board_set_vbus(struct sunxi_hci_hcd *sunxi_ehci, int is_on)
 {
@@ -479,9 +549,10 @@ int sunxi_rmmod_ehci(struct platform_device *pdev)
 static int sunxi_ehci_hcd_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+	struct sunxi_hci_hcd *sunxi_ehci = NULL;
 
 	if(pdev == NULL){
-		DMSG_PANIC("ERR: Argment is invaild\n");
+		DMSG_PANIC("ERR: %s, Argment is invalid\n", __func__);
 		return -1;
 	}
 
@@ -499,11 +570,40 @@ static int sunxi_ehci_hcd_probe(struct platform_device *pdev)
 
 	sunxi_insmod_ehci(pdev);
 
+	sunxi_ehci = pdev->dev.platform_data;
+	if(sunxi_ehci == NULL){
+		DMSG_PANIC("ERR: %s, sunxi_ehci is null\n", __func__);
+		return -1;
+	}
+
+	if(ehci_enable[sunxi_ehci->usbc_no]){
+		device_create_file(&pdev->dev, &dev_attr_ehci_enable);
+		ehci_enable[sunxi_ehci->usbc_no] = 0;
+	}
+
 	return 0;
 }
 
 static int sunxi_ehci_hcd_remove(struct platform_device *pdev)
 {
+	struct sunxi_hci_hcd *sunxi_ehci = NULL;
+
+	if(pdev == NULL){
+		DMSG_PANIC("ERR: %s, Argment is invalid\n", __func__);
+		return -1;
+	}
+
+	sunxi_ehci = pdev->dev.platform_data;
+	if(sunxi_ehci == NULL){
+		DMSG_PANIC("ERR: %s, sunxi_ehci is null\n", __func__);
+		return -1;
+	}
+
+	if(ehci_enable[sunxi_ehci->usbc_no] == 0){
+		device_remove_file(&pdev->dev, &dev_attr_ehci_enable);
+		ehci_enable[sunxi_ehci->usbc_no] = 1;
+	}
+
 	return sunxi_rmmod_ehci(pdev);
 }
 
@@ -512,18 +612,18 @@ static void sunxi_ehci_hcd_shutdown(struct platform_device* pdev)
 	struct sunxi_hci_hcd *sunxi_ehci = NULL;
 
 	if(pdev == NULL){
-		DMSG_PANIC("ERR: Argment is invalid\n");
+		DMSG_PANIC("ERR: %s, Argment is invalid\n", __func__);
 		return;
 	}
 
 	sunxi_ehci = pdev->dev.platform_data;
 	if(sunxi_ehci == NULL){
-		DMSG_PANIC("ERR: sunxi_ehci is null\n");
+		DMSG_PANIC("ERR: %s, is null\n", __func__);
 		return;
 	}
 
 	if(sunxi_ehci->probe == 0){
-		DMSG_PANIC("ERR: sunxi_ehci is disable, need not shutdown\n");
+		DMSG_PANIC("ERR: %s, %s is disable, need not shutdown\n",  __func__, sunxi_ehci->hci_name);
 		return;
 	}
 
@@ -552,7 +652,7 @@ static int sunxi_ehci_hcd_suspend(struct device *dev)
 	int val = 0;
 
 	if(dev == NULL){
-		DMSG_PANIC("ERR: Argment is invalid\n");
+		DMSG_PANIC("ERR: %s, Argment is invalid\n", __func__);
 		return 0;
 	}
 

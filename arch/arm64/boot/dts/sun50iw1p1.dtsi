@@ -575,6 +575,10 @@
 			usb_host_init_state = <1>;
 			usb_regulator_io    = "nocare";
 			usb_wakeup_suspend  = <0>;
+			/* HISC device */
+			usb_hsic_used       = <0>;
+			usb_hsic_ctrl       = <0>;
+			usb_hsic_rdy_gpio;
 			status              = "okay";
 		};
 
@@ -582,7 +586,7 @@
 			compatible          = "allwinner,sun50i-ehci1";
 			reg                 = <0x0 0x01c1b000 0x0 0xFFF>;/*hci1 base*/
 			interrupts          = <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>;
-			clocks              = <&clk_usbphy1>, <&clk_usbehci1>;
+			clocks              = <&clk_usbphy1>, <&clk_usbehci1>, <&clk_usbhsic>, <&clk_usbhsic12m>, <&clk_pll_hsic>;
 			hci_ctrl_no         = <1>;
 			status              = "okay";
 		};

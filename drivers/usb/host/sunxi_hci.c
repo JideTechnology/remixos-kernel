@@ -197,9 +197,42 @@ static int open_clock(struct sunxi_hci_hcd *sunxi_hci, u32 ohci)
 		}
 		udelay(10);
 
-		if(clk_prepare_enable(sunxi_hci->mod_usbphy)){
-			DMSG_PANIC("ERR:try to prepare_enable %s_usbphy failed!\n", sunxi_hci->hci_name);
+		if(sunxi_hci->hsic_flag)
+		{
+			if(sunxi_hci->hsic_ctrl_flag){
+				if(sunxi_hci->hsic_enable_flag){
+
+					if(clk_prepare_enable(sunxi_hci->pll_hsic)){
+						DMSG_PANIC("ERR:try to prepare_enable %s pll_hsic failed!\n", sunxi_hci->hci_name);
+					}
+
+					if(clk_prepare_enable(sunxi_hci->clk_usbhsic12m)){
+						DMSG_PANIC("ERR:try to prepare_enable %s clk_usbhsic12m failed!\n", sunxi_hci->hci_name);
+					}
+
+					if(clk_prepare_enable(sunxi_hci->hsic_usbphy)){
+						DMSG_PANIC("ERR:try to prepare_enable %s_hsic_usbphy failed!\n", sunxi_hci->hci_name);
+					}
+				}
+			}else{
+				if(clk_prepare_enable(sunxi_hci->pll_hsic)){
+					DMSG_PANIC("ERR:try to prepare_enable %s pll_hsic failed!\n", sunxi_hci->hci_name);
+				}
+
+				if(clk_prepare_enable(sunxi_hci->clk_usbhsic12m)){
+					DMSG_PANIC("ERR:try to prepare_enable %s clk_usbhsic12m failed!\n", sunxi_hci->hci_name);
+				}
+
+				if(clk_prepare_enable(sunxi_hci->hsic_usbphy)){
+					DMSG_PANIC("ERR:try to prepare_enable %s_hsic_usbphy failed!\n", sunxi_hci->hci_name);
+				}
+			}
+		}else{
+			if(clk_prepare_enable(sunxi_hci->mod_usbphy)){
+				DMSG_PANIC("ERR:try to prepare_enable %s_usbphy failed!\n", sunxi_hci->hci_name);
+			}
 		}
+
 		udelay(10);
 
 	}else{
@@ -219,7 +252,24 @@ static int close_clock(struct sunxi_hci_hcd *sunxi_hci, u32 ohci)
 
 	if(sunxi_hci->ahb && sunxi_hci->mod_usbphy && sunxi_hci->clk_is_open){
 		sunxi_hci->clk_is_open = 0;
-		clk_disable_unprepare(sunxi_hci->mod_usbphy);
+
+		if(sunxi_hci->hsic_flag){
+			if(sunxi_hci->hsic_ctrl_flag){
+				if(sunxi_hci->hsic_enable_flag){
+					clk_disable_unprepare(sunxi_hci->clk_usbhsic12m);
+					clk_disable_unprepare(sunxi_hci->hsic_usbphy);
+					clk_disable_unprepare(sunxi_hci->pll_hsic);
+				}
+			}else{
+				clk_disable_unprepare(sunxi_hci->clk_usbhsic12m);
+				clk_disable_unprepare(sunxi_hci->hsic_usbphy);
+				clk_disable_unprepare(sunxi_hci->pll_hsic);
+			}
+		}else{
+
+			clk_disable_unprepare(sunxi_hci->mod_usbphy);
+		}
+
 		clk_disable_unprepare(sunxi_hci->ahb);
 		udelay(10);
 	}else{
@@ -229,6 +279,25 @@ static int close_clock(struct sunxi_hci_hcd *sunxi_hci, u32 ohci)
 				sunxi_hci->mod_usb);
 	}
 	return 0;
+}
+
+static int usb_get_hsic_phy_ctrl(int value, int enable)
+{
+	if(enable){
+		value |= (0x07<<8);
+		value |= (0x01<<1);
+		value |= (0x01<<0);
+		value |= (0x01<<16);
+		value |= (0x01<<20);
+	}else{
+		value &= ~(0x07<<8);
+		value &= ~(0x01<<1);
+		value &= ~(0x01<<0);
+		value &= ~(0x01<<16);
+		value &= ~(0x01<<20);
+	}
+
+	return value;
 }
 
 static void usb_passby(struct sunxi_hci_hcd *sunxi_hci, u32 enable)
@@ -244,19 +313,27 @@ static void usb_passby(struct sunxi_hci_hcd *sunxi_hci, u32 enable)
 	if(sunxi_hci->usbc_no == HCI0_USBC_NO){
 		reg_value = USBC_Readl(sunxi_hci->usb_vbase + SUNXI_USB_PMU_IRQ_ENABLE);
 		if(enable && usb1_enable_passly_cnt == 0){
-			reg_value |= (1 << 10);		/* AHB Master interface INCR8 enable */
-			reg_value |= (1 << 9);		/* AHB Master interface burst type INCR4 enable */
-			reg_value |= (1 << 8);		/* AHB Master interface INCRX align enable */
+			if(sunxi_hci->hsic_flag){
+				reg_value = usb_get_hsic_phy_ctrl(reg_value, enable);
+			}else{
+				reg_value |= (1 << 10);		/* AHB Master interface INCR8 enable */
+				reg_value |= (1 << 9);		/* AHB Master interface burst type INCR4 enable */
+				reg_value |= (1 << 8);		/* AHB Master interface INCRX align enable */
 #ifdef SUNXI_USB_FPGA
-			reg_value |= (0 << 0);		/* enable ULPI, disable UTMI */
+				reg_value |= (0 << 0);		/* enable ULPI, disable UTMI */
 #else
-			reg_value |= (1 << 0);		/* enable UTMI, disable ULPI */
+				reg_value |= (1 << 0);		/* enable UTMI, disable ULPI */
 #endif
+			}
 		}else if(!enable && usb1_enable_passly_cnt == 1){
-			reg_value &= ~(1 << 10);	/* AHB Master interface INCR8 disable */
-			reg_value &= ~(1 << 9);		/* AHB Master interface burst type INCR4 disable */
-			reg_value &= ~(1 << 8);		/* AHB Master interface INCRX align disable */
-			reg_value &= ~(1 << 0);		/* ULPI bypass disable */
+			if(sunxi_hci->hsic_flag){
+				reg_value = usb_get_hsic_phy_ctrl(reg_value, enable);
+			}else{
+				reg_value &= ~(1 << 10);	/* AHB Master interface INCR8 disable */
+				reg_value &= ~(1 << 9);		/* AHB Master interface burst type INCR4 disable */
+				reg_value &= ~(1 << 8);		/* AHB Master interface INCRX align disable */
+				reg_value &= ~(1 << 0);		/* ULPI bypass disable */
+			}
 		}
 		USBC_Writel(reg_value, (sunxi_hci->usb_vbase + SUNXI_USB_PMU_IRQ_ENABLE));
 
@@ -268,15 +345,23 @@ static void usb_passby(struct sunxi_hci_hcd *sunxi_hci, u32 enable)
 	}else if(sunxi_hci->usbc_no == HCI1_USBC_NO){
 		reg_value = USBC_Readl(sunxi_hci->usb_vbase + SUNXI_USB_PMU_IRQ_ENABLE);
 		if(enable && usb2_enable_passly_cnt == 0){
-			reg_value |= (1 << 10);		/* AHB Master interface INCR8 enable */
-			reg_value |= (1 << 9);		/* AHB Master interface burst type INCR4 enable */
-			reg_value |= (1 << 8);		/* AHB Master interface INCRX align enable */
-			reg_value |= (1 << 0);		/* ULPI bypass enable */
+			if(sunxi_hci->hsic_flag){
+				reg_value = usb_get_hsic_phy_ctrl(reg_value, enable);
+			}else{
+				reg_value |= (1 << 10);		/* AHB Master interface INCR8 enable */
+				reg_value |= (1 << 9);		/* AHB Master interface burst type INCR4 enable */
+				reg_value |= (1 << 8);		/* AHB Master interface INCRX align enable */
+				reg_value |= (1 << 0);		/* ULPI bypass enable */
+			}
 		}else if(!enable && usb2_enable_passly_cnt == 1){
-			reg_value &= ~(1 << 10);	/* AHB Master interface INCR8 disable */
-			reg_value &= ~(1 << 9);		/* AHB Master interface burst type INCR4 disable */
-			reg_value &= ~(1 << 8);		/* AHB Master interface INCRX align disable */
-			reg_value &= ~(1 << 0);		/* ULPI bypass disable */
+			if(sunxi_hci->hsic_flag){
+				reg_value = usb_get_hsic_phy_ctrl(reg_value, enable);
+			}else{
+				reg_value &= ~(1 << 10);	/* AHB Master interface INCR8 disable */
+				reg_value &= ~(1 << 9);		/* AHB Master interface burst type INCR4 disable */
+				reg_value &= ~(1 << 8);		/* AHB Master interface INCRX align disable */
+				reg_value &= ~(1 << 0);		/* ULPI bypass disable */
+			}
 		}
 		USBC_Writel(reg_value, (sunxi_hci->usb_vbase + SUNXI_USB_PMU_IRQ_ENABLE));
 
@@ -309,6 +394,18 @@ static int alloc_pin(struct sunxi_hci_hcd *sunxi_hci)
 		}
 	}
 
+	if(sunxi_hci->hsic_flag){
+		if(sunxi_hci->hsic_rdy_gpio_valid){
+			ret = gpio_request(sunxi_hci->hsic_rdy_gpio_set.gpio.gpio, NULL);
+			if(ret != 0){
+				DMSG_PANIC("request %s gpio:%d\n", sunxi_hci->hci_name, sunxi_hci->hsic_rdy_gpio_set.gpio.gpio);
+				sunxi_hci->hsic_rdy_gpio_valid = 0;
+			}else{
+				gpio_direction_output(sunxi_hci->hsic_rdy_gpio_set.gpio.gpio, 0);
+			}
+		}
+	}
+
 	return 0;
 }
 
@@ -320,7 +417,29 @@ static void free_pin(struct sunxi_hci_hcd *sunxi_hci)
 		sunxi_hci->drv_vbus_gpio_valid = 0;
 	}
 
+	if(sunxi_hci->hsic_flag){
+		if(sunxi_hci->hsic_rdy_gpio_valid){
+			gpio_free(sunxi_hci->hsic_rdy_gpio_set.gpio.gpio);
+			sunxi_hci->hsic_rdy_gpio_valid = 0;
+		}
+	}
+
 	return;
+}
+
+void sunxi_set_host_hisc_rdy(struct sunxi_hci_hcd *sunxi_hci, int is_on)
+{
+	if (sunxi_hci->hsic_rdy_gpio_valid) {
+		/* set config, output */
+		gpio_direction_output(sunxi_hci->hsic_rdy_gpio_set.gpio.gpio, is_on);
+	}
+}
+
+void sunxi_set_host_vbus(struct sunxi_hci_hcd *sunxi_hci, int is_on)
+{
+	if(sunxi_hci->drv_vbus_gpio_valid){
+		__gpio_set_value(sunxi_hci->drv_vbus_gpio_set.gpio.gpio, is_on);
+	}
 }
 
 static void __sunxi_set_vbus(struct sunxi_hci_hcd *sunxi_hci, int is_on)
@@ -450,6 +569,27 @@ static int sunxi_get_hci_clock(struct platform_device *pdev, struct sunxi_hci_hc
 		DMSG_PANIC("ERR: %s get usb mod_usbphy failed.\n", sunxi_hci->hci_name);
 		return -EINVAL;
 	}
+
+	if(sunxi_hci->hsic_flag){
+		sunxi_hci->hsic_usbphy = of_clk_get(np, 2);
+		if (IS_ERR(sunxi_hci->hsic_usbphy)) {
+			sunxi_hci->hsic_usbphy = NULL;
+			DMSG_PANIC("ERR: %s get usb hsic_usbphy failed.\n", sunxi_hci->hci_name);
+		}
+
+		sunxi_hci->clk_usbhsic12m = of_clk_get(np, 3);
+		if (IS_ERR(sunxi_hci->clk_usbhsic12m)) {
+			sunxi_hci->clk_usbhsic12m = NULL;
+			DMSG_PANIC("ERR: %s get usb clk_usbhsic12m failed.\n", sunxi_hci->hci_name);
+		}
+
+		sunxi_hci->pll_hsic = of_clk_get(np, 4);
+		if (IS_ERR(sunxi_hci->pll_hsic)) {
+			sunxi_hci->pll_hsic = NULL;
+			DMSG_PANIC("ERR: %s get usb pll_hsic failed.\n", sunxi_hci->hci_name);
+		}
+	}
+
 	return 0;
 }
 
@@ -480,6 +620,35 @@ static int get_usb_cfg(struct platform_device *pdev, struct sunxi_hci_hcd *sunxi
 	ret = of_property_read_u32(usbc_np, KEY_USB_HOST_INIT_STATE, &sunxi_hci->host_init_state);
 	if (ret) {
 		 DMSG_PRINT("get %s init_state is fail, %d\n", sunxi_hci->hci_name, -ret);
+	}
+
+	ret = of_property_read_u32(usbc_np, KEY_USB_HSIC_USBED, &sunxi_hci->hsic_flag);
+	if (ret) {
+		 DMSG_PRINT("get %s usb_hsic_used is fail, %d\n", sunxi_hci->hci_name, -ret);
+		 sunxi_hci->hsic_flag = 0;
+	}
+
+	if(sunxi_hci->hsic_flag){
+			ret = of_property_read_u32(usbc_np, KEY_USB_HSIC_CTRL, &sunxi_hci->hsic_ctrl_flag);
+			if (ret) {
+				DMSG_PRINT("get %s usb_hsic_ctrl is fail, %d\n", sunxi_hci->hci_name, -ret);
+				sunxi_hci->hsic_ctrl_flag = 0;
+			}
+			if(sunxi_hci->hsic_ctrl_flag){
+				sunxi_hci->hsic_rdy_gpio_set.gpio.gpio = of_get_named_gpio_flags(usbc_np, KEY_USB_HSIC_RDY_GPIO, 0, &sunxi_hci->gpio_flags);
+				if(gpio_is_valid(sunxi_hci->hsic_rdy_gpio_set.gpio.gpio)){
+					sunxi_hci->hsic_rdy_gpio_valid = 1;
+				}else{
+					sunxi_hci->hsic_rdy_gpio_valid = 0;
+					DMSG_PRINT("get %s drv_vbus_gpio is fail\n", sunxi_hci->hci_name);
+				}
+			}else{
+				sunxi_hci->hsic_rdy_gpio_valid = 0;
+			}
+
+	}else{
+		sunxi_hci->hsic_ctrl_flag = 0;
+		sunxi_hci->hsic_rdy_gpio_valid = 0;
 	}
 
 	/* usbc wakeup_suspend */
