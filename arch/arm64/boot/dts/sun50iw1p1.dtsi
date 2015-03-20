@@ -278,7 +278,8 @@
 		lv8_freq = <0>;
 		lv8_volt = <1040>;
 	};
-
+	uboot: uboot {
+	};
 	soc: soc@01c00000 {
 		compatible = "simple-bus";
 		#address-cells = <2>;
