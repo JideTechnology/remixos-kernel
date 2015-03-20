@@ -887,6 +887,7 @@ struct soc_bytes_ext {
 	struct list_head list;
 	struct snd_kcontrol *dcontrol;
 	int index;
+	int tlv_index;
 
 	/* used for TLV byte control */
 	int (*get)(struct snd_kcontrol *kcontrol,

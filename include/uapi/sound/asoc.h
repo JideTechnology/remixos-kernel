@@ -101,9 +101,10 @@
 	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READWRITE | \
 	SNDRV_CTL_ELEM_ACCESS_TLV_CALLBACK, \
 	.tlv.c = (snd_soc_bytes_tlv_callback), \
-	.info = snd_soc_info_bytes_ext, \
+	.info = snd_soc_info_bytes_ext, .index = SOC_CONTROL_IO_BYTES_TLV, \
 	.private_value = (unsigned long)&(struct soc_bytes_ext) \
-	{.max = xcount, .get = xhandler_get, .put = xhandler_put, } }
+	{.max = xcount, .get = xhandler_get, .put = xhandler_put, \
+	 .tlv_index = SOC_CONTROL_TLV,	} }
 #define SOC_DOUBLE(xname, reg, shift_left, shift_right, max, invert) \
 {	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = (xname),\
 	.info = snd_soc_info_volsw, .get = snd_soc_get_volsw, \
@@ -320,9 +321,16 @@
 	(SOC_CONTROL_ID_PUT(p) | SOC_CONTROL_ID_GET(g) |\
 	SOC_CONTROL_ID_INFO(i))
 
+#define SOC_CONTROL_ID_TLV_PUT(p)	((p & 0xff) << 8)
+#define SOC_CONTROL_ID_TLV_GET(g)	((g & 0xff) << 0)
+#define SOC_CONTROL_ID_TLV(g, p)	\
+	(SOC_CONTROL_ID_TLV_PUT(p) | SOC_CONTROL_ID_TLV_GET(g))
+
 #define SOC_CONTROL_GET_ID_PUT(id)	((id & 0xff0000) >> 16)
 #define SOC_CONTROL_GET_ID_GET(id)	((id & 0x00ff00) >> 8)
 #define SOC_CONTROL_GET_ID_INFO(id)	((id & 0x0000ff) >> 0)
+#define SOC_CONTROL_GET_ID_TLV_PUT(id)  ((id & 0xff00) >> 8)
+#define SOC_CONTROL_GET_ID_TLV_GET(id)  ((id & 0x00ff) >> 0)
 
 /* individual kcontrol info types - can be mixed with other types */
 #define SOC_CONTROL_TYPE_EXT		0	/* driver defined */
@@ -337,8 +345,11 @@
 #define SOC_CONTROL_TYPE_RANGE		10
 #define SOC_CONTROL_TYPE_STROBE		11
 #define SOC_CONTROL_TYPE_BYTES_EXT	12
+#define SOC_CONTROL_TYPE_BYTES_TLV	13
 
 #define SOC_CONTROL_TYPE_VOLSW_EXT      14
+/* To index get and put of TLV */
+#define SOC_CONTROL_TYPE_TLV                 0
 
 /* compound control IDs */
 #define SOC_CONTROL_IO_VOLSW \
@@ -389,10 +400,18 @@
 	SOC_CONTROL_ID(SOC_CONTROL_TYPE_EXT, \
 		SOC_CONTROL_TYPE_EXT, \
 		SOC_CONTROL_TYPE_BYTES_EXT)
+#define SOC_CONTROL_IO_BYTES_TLV \
+	SOC_CONTROL_ID(SOC_CONTROL_TYPE_EXT, \
+		SOC_CONTROL_TYPE_EXT, \
+		SOC_CONTROL_TYPE_BYTES_TLV)
 #define SOC_CONTROL_IO_VOLSW_EXT \
 	SOC_CONTROL_ID(SOC_CONTROL_TYPE_EXT, \
 		SOC_CONTROL_TYPE_EXT, \
 		SOC_CONTROL_TYPE_VOLSW)
+
+#define SOC_CONTROL_TLV \
+	SOC_CONTROL_ID_TLV(SOC_CONTROL_TYPE_TLV, \
+			SOC_CONTROL_TYPE_TLV)
 /* widget has no PM register bit */
 #define SND_SOC_NOPM	-1
 
@@ -866,7 +885,8 @@ struct snd_soc_fw_enum_control {
 struct snd_soc_fw_bytes_ext {
 	struct snd_soc_fw_control_hdr hdr;
 	__s32 max;
-	__le32 reserved[12]; /* Reserved for future use */
+	__le32 tlv_index;
+	__le32 reserved[11]; /* Reserved for future use */
 	__le32 pvt_data_len;
 	char pvt_data[0];
 } __attribute__((packed));
