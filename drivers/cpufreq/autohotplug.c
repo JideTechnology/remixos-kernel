@@ -468,14 +468,19 @@ static void autohotplug_roomage_update(void)
 	}
 }
 
-int autohotplug_roomage_limit(unsigned int c0min, unsigned int c1min,
-							unsigned int c0max, unsigned int c1max)
+int autohotplug_roomage_limit(unsigned int cluster_id, unsigned int min,
+									unsigned int max)
 {
 	mutex_lock(&hotplug_enable_mutex);
-	cluster0_min_online = c0min;
-	cluster1_min_online = c1min;
-	cluster0_max_online = c0max;
-	cluster1_max_online = c1max;
+
+	if (cluster_id == 0) {
+		cluster0_min_online = min;
+		cluster0_max_online = max;
+	} else if (cluster_id == 1) {
+		cluster1_min_online = min;
+		cluster1_max_online = max;
+	}
+
 	mutex_unlock(&hotplug_enable_mutex);
 
 	return 0;
