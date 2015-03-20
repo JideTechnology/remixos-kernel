@@ -67,6 +67,10 @@ struct soc_fw {
 	const struct snd_soc_fw_dai_ops *dai_ops;
 	int dai_ops_count;
 
+	/* TLV operations */
+	const struct snd_soc_fw_tlv_ops *tlv_ops;
+	int tlv_ops_count;
+
 	/* optional fw loading callbacks to component drivers */
 	union {
 		struct snd_soc_fw_codec_ops *codec_ops;
@@ -95,6 +99,8 @@ static const struct snd_soc_fw_kcontrol_ops io_ops[] = {
 	{SOC_CONTROL_IO_BOOL_EXT, NULL,
 		NULL, snd_ctl_boolean_mono_info},
 	{SOC_CONTROL_IO_BYTES_EXT, NULL,
+		NULL, snd_soc_info_bytes_ext},
+	{SOC_CONTROL_IO_BYTES_TLV, NULL,
 		NULL, snd_soc_info_bytes_ext},
 	{SOC_CONTROL_IO_RANGE, snd_soc_get_volsw_range,
 		snd_soc_put_volsw_range, snd_soc_info_volsw_range},
@@ -336,25 +342,59 @@ static int soc_fw_add_kcontrol(struct soc_fw *sfw, struct snd_kcontrol_new *k,
 
 /* bind a kcontrol to it's IO handlers */
 static int soc_fw_kcontrol_bind_io(u32 io_type, struct snd_kcontrol_new *k,
-	const struct snd_soc_fw_kcontrol_ops *ops, int num_ops)
+	const struct snd_soc_fw_kcontrol_ops *ops, int num_ops, bool tlv)
 {
 	int i;
 
+	if (!tlv) {
+		for (i = 0; i < num_ops; i++) {
+			if (SOC_CONTROL_GET_ID_PUT(ops[i].id) ==
+				SOC_CONTROL_GET_ID_PUT(io_type) && ops[i].put)
+				k->put = ops[i].put;
+			if (SOC_CONTROL_GET_ID_GET(ops[i].id) ==
+				SOC_CONTROL_GET_ID_GET(io_type) && ops[i].get)
+				k->get = ops[i].get;
+			if (SOC_CONTROL_GET_ID_INFO(ops[i].id) ==
+				SOC_CONTROL_GET_ID_INFO(io_type) && ops[i].info)
+				k->info = ops[i].info;
+		}
+		/* let the caller know if we need to bind external kcontrols */
+		if (!k->put || !k->get || !k->info)
+			return 1;
+	} else {
+		for (i = 0; i < num_ops; i++) {
+			if (SOC_CONTROL_GET_ID_INFO(ops[i].id) ==
+				SOC_CONTROL_GET_ID_INFO(io_type) && ops[i].info)
+				k->info = ops[i].info;
+		}
+		/* let the caller know if we need to bind external kcontrols */
+		if (!k->info)
+			return 1;
+	}
+
+	return 0;
+}
+
+/* bind a kcontrol to it's TLV handlers */
+static int soc_fw_kcontrol_bind_tlv(u32 tlv_type, struct soc_bytes_ext *be,
+	const struct snd_soc_fw_tlv_ops *ops, int num_ops)
+{
+	int i;
+
+	pr_debug("%s: num _ops %d type 0x%x\n",	__func__, num_ops, tlv_type);
+
 	for (i = 0; i < num_ops; i++) {
 
-		if (SOC_CONTROL_GET_ID_PUT(ops[i].id) ==
-			SOC_CONTROL_GET_ID_PUT(io_type) && ops[i].put)
-			k->put = ops[i].put;
-		if (SOC_CONTROL_GET_ID_GET(ops[i].id) ==
-			SOC_CONTROL_GET_ID_GET(io_type) && ops[i].get)
-			k->get = ops[i].get;
-		if (SOC_CONTROL_GET_ID_INFO(ops[i].id) ==
-			SOC_CONTROL_GET_ID_INFO(io_type) && ops[i].info)
-			k->info = ops[i].info;
+		if (SOC_CONTROL_GET_ID_TLV_PUT(ops[i].id) ==
+			SOC_CONTROL_GET_ID_TLV_PUT(tlv_type) && ops[i].put)
+			be->put = ops[i].put;
+		if (SOC_CONTROL_GET_ID_TLV_GET(ops[i].id) ==
+			SOC_CONTROL_GET_ID_TLV_GET(tlv_type) && ops[i].get)
+			be->get = ops[i].get;
 	}
 
 	/* let the caller know if we need to bind external kcontrols */
-	if (!k->put || !k->get || !k->info)
+	if (!be->put || !be->get)
 		return 1;
 
 	return 0;
@@ -506,12 +546,11 @@ static int soc_fw_dbytes_create(struct soc_fw *sfw, unsigned int count,
 
 		/* map standard io handlers and check for external handlers */
 		ext = soc_fw_kcontrol_bind_io(be->hdr.index, &kc, io_ops,
-			ARRAY_SIZE(io_ops));
-
+			ARRAY_SIZE(io_ops), 0);
 		if (ext) {
 			/* none exist, so now try and map ext handlers */
 			ext = soc_fw_kcontrol_bind_io(be->hdr.index, &kc,
-				sfw->io_ops, sfw->io_ops_count);
+				sfw->io_ops, sfw->io_ops_count, 0);
 			if (ext) {
 				dev_err(sfw->dev,
 					"ASoC: no complete mixer IO handler for %s type (g,p,i) %d:%d:%d\n",
@@ -539,6 +578,113 @@ static int soc_fw_dbytes_create(struct soc_fw *sfw, unsigned int count,
 			kfree(sbe);
 			continue;
 		}
+
+		/* This needs to  be change to a widget which would not work
+		 * unless we made changes to snd_soc_code, snd_soc_platform as
+		 * that has only enumns and mixer everywhere that list is used*/
+		soc_fw_list_add_bytes(sfw, sbe);
+	}
+	return 0;
+
+}
+static int soc_fw_dbytes_tlv_create(struct soc_fw *sfw, unsigned int count,
+	size_t size)
+{
+	struct snd_soc_fw_bytes_ext *be;
+	struct soc_bytes_ext  *sbe;
+	struct snd_kcontrol_new kc;
+	int i, err, ext;
+
+	if (soc_fw_check_control_count(sfw,
+		sizeof(struct snd_soc_fw_bytes_ext), count, size)) {
+		dev_err(sfw->dev, "Asoc: Invalid count %d for tlv control\n",
+				count);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < count; i++) {
+		be = (struct snd_soc_fw_bytes_ext *)sfw->pos;
+
+		/* validate kcontrol */
+		if (strnlen(be->hdr.name, SND_SOC_FW_TEXT_SIZE) ==
+			SND_SOC_FW_TEXT_SIZE)
+			return -EINVAL;
+
+		sbe = kzalloc(sizeof(*sbe) + be->pvt_data_len, GFP_KERNEL);
+		if (!sbe)
+			return -ENOMEM;
+
+		sfw->pos += (sizeof(struct snd_soc_fw_bytes_ext) + be->pvt_data_len);
+
+		dev_dbg(sfw->dev,
+			"ASoC: adding kcontrol %s with access 0x%x\n",
+			be->hdr.name, be->hdr.access);
+
+		memset(&kc, 0, sizeof(kc));
+		kc.name = be->hdr.name;
+		kc.private_value = (long)sbe;
+		kc.iface = SNDRV_CTL_ELEM_IFACE_MIXER;
+		kc.access = be->hdr.access;
+		kc.tlv.c = snd_soc_bytes_tlv_callback;
+		sbe->max = be->max;
+
+		if (be->pvt_data_len)
+			soc_fw_init_pvt_data(sfw, be->tlv_index, (unsigned long)sbe, (unsigned long)be);
+
+		INIT_LIST_HEAD(&sbe->list);
+
+
+		/* none exist, so now try and map ext handlers */
+		ext = soc_fw_kcontrol_bind_tlv(be->tlv_index, sbe,
+				sfw->tlv_ops, sfw->tlv_ops_count);
+		if (ext) {
+			dev_err(sfw->dev,
+				"ASoC:%s no complete TLV handler for %s type (g,p) %d:%d\n",
+				__func__,
+				be->hdr.name,
+				SOC_CONTROL_GET_ID_GET(be->tlv_index),
+				SOC_CONTROL_GET_ID_PUT(be->tlv_index));
+			kfree(sbe);
+			continue;
+		}
+
+		/* map standard io handlers and check for external handlers */
+		ext = soc_fw_kcontrol_bind_io(be->hdr.index, &kc, io_ops,
+				ARRAY_SIZE(io_ops), 1);
+		if (ext) {
+			/* none exist, so now try and map ext handlers */
+			ext = soc_fw_kcontrol_bind_io(be->hdr.index, &kc,
+					sfw->io_ops, sfw->io_ops_count, 1);
+			if (ext) {
+				dev_err(sfw->dev,
+					"ASoC:%s no complete IO handler for %s type (g,p,i) %d:%d:%d\n",
+					__func__,
+					be->hdr.name,
+					SOC_CONTROL_GET_ID_GET(be->hdr.index),
+					SOC_CONTROL_GET_ID_PUT(be->hdr.index),
+					SOC_CONTROL_GET_ID_INFO(be->hdr.index));
+				kfree(sbe);
+				continue;
+			}
+
+			err = soc_fw_init_kcontrol(sfw, &kc);
+			if (err < 0) {
+				dev_err(sfw->dev, "ASoC: tlv: failed to init %s\n",
+						be->hdr.name);
+				kfree(sbe);
+				continue;
+			}
+		}
+
+		/* register control here */
+		err = soc_fw_add_kcontrol(sfw, &kc, &sbe->dcontrol);
+		if (err < 0) {
+			dev_err(sfw->dev, "ASoC: tlv: failed to add %s\n",
+					be->hdr.name);
+			kfree(sbe);
+			continue;
+		}
+
 		/* This needs to  be change to a widget which would not work
 		 * unless we made changes to snd_soc_code, snd_soc_platform as
 		 * that has only enumns and mixer everywhere that list is used*/
@@ -602,11 +748,11 @@ static int soc_fw_dmixer_create(struct soc_fw *sfw, unsigned int count,
 
 		/* map standard io handlers and check for external handlers */
 		ext = soc_fw_kcontrol_bind_io(mc->hdr.index, &kc, io_ops,
-			ARRAY_SIZE(io_ops));
+			ARRAY_SIZE(io_ops), 0);
 		if (ext) {
 			/* none exist, so now try and map ext handlers */
 			ext = soc_fw_kcontrol_bind_io(mc->hdr.index, &kc,
-				sfw->io_ops, sfw->io_ops_count);
+				sfw->io_ops, sfw->io_ops_count, 0);
 			if (ext) {
 				dev_err(sfw->dev,
 					"ASoC: no complete mixer IO handler for %s type (g,p,i) %d:%d:%d\n",
@@ -760,11 +906,11 @@ static int soc_fw_denum_create(struct soc_fw *sfw, unsigned int count,
 
 		/* map standard io handlers and check for external handlers */
 		ext = soc_fw_kcontrol_bind_io(ec->hdr.index, &kc, io_ops,
-			ARRAY_SIZE(io_ops));
+			ARRAY_SIZE(io_ops), 0);
 		if (ext) {
 			/* none exist, so now try and map ext handlers */
 			ext = soc_fw_kcontrol_bind_io(ec->hdr.index, &kc,
-				sfw->io_ops, sfw->io_ops_count);
+				sfw->io_ops, sfw->io_ops_count, 0);
 			if (ext) {
 				dev_err(sfw->dev, "ASoC: no complete enum IO handler for %s type (g,p,i) %d:%d:%d\n",
 					ec->hdr.name,
@@ -841,6 +987,9 @@ static int soc_fw_kcontrol_load(struct soc_fw *sfw, struct snd_soc_fw_hdr *hdr)
 			break;
 		case SOC_CONTROL_TYPE_BYTES_EXT:
 			soc_fw_dbytes_create(sfw, 1, hdr->size);
+			break;
+		case SOC_CONTROL_TYPE_BYTES_TLV:
+			soc_fw_dbytes_tlv_create(sfw, 1, hdr->size);
 			break;
 		default:
 			dev_err(sfw->dev, "ASoC: invalid control type %d:%d:%d count %d\n",
@@ -962,11 +1111,11 @@ static struct snd_kcontrol_new *soc_fw_dapm_widget_dmixer_create(struct soc_fw *
 
 		/* map standard io handlers and check for external handlers */
 		ext = soc_fw_kcontrol_bind_io(mc->hdr.index, &kc[i], io_ops,
-			ARRAY_SIZE(io_ops));
+			ARRAY_SIZE(io_ops), 0);
 		if (ext) {
 			/* none exist, so now try and map ext handlers */
 			ext = soc_fw_kcontrol_bind_io(mc->hdr.index, &kc[i],
-				sfw->io_ops, sfw->io_ops_count);
+				sfw->io_ops, sfw->io_ops_count, 0);
 			if (ext) {
 				dev_err(sfw->dev,
 					"ASoC: no complete widget mixer IO handler for %s type (g,p,i) %d:%d:%d\n",
@@ -1058,11 +1207,11 @@ static struct snd_kcontrol_new *soc_fw_dapm_widget_denum_create(struct soc_fw *s
 
 	/* map standard io handlers and check for external handlers */
 	ext = soc_fw_kcontrol_bind_io(ec->hdr.index, kc, io_ops,
-		ARRAY_SIZE(io_ops));
+		ARRAY_SIZE(io_ops), 0);
 	if (ext) {
 		/* none exist, so now try and map ext handlers */
 		ext = soc_fw_kcontrol_bind_io(ec->hdr.index, kc,
-			sfw->io_ops, sfw->io_ops_count);
+			sfw->io_ops, sfw->io_ops_count, 0);
 		if (ext) {
 			dev_err(sfw->dev,
 				"ASoC: no complete widget enum IO handler for %s type (g,p,i) %d:%d:%d\n",
@@ -1095,6 +1244,107 @@ err_se:
 	return NULL;
 }
 
+static struct snd_kcontrol_new *soc_fw_dapm_widget_dbytes_tlv_create(struct soc_fw *sfw,
+		int count)
+{
+	struct snd_soc_fw_bytes_ext *be;
+	struct soc_bytes_ext  *sbe;
+	struct snd_kcontrol_new *kc;
+	int i, err, ext;
+
+	kc = kzalloc(sizeof(*kc) * count, GFP_KERNEL);
+	if (!kc)
+		return NULL;
+
+	for (i = 0; i < count; i++) {
+		be = (struct snd_soc_fw_bytes_ext *)sfw->pos;
+
+		/* validate kcontrol */
+		if (strnlen(be->hdr.name, SND_SOC_FW_TEXT_SIZE) ==
+			SND_SOC_FW_TEXT_SIZE)
+			goto err;
+
+		sbe = kzalloc(sizeof(*sbe) + be->pvt_data_len, GFP_KERNEL);
+		if (!sbe)
+			goto err;
+
+		sfw->pos += (sizeof(struct snd_soc_fw_bytes_ext) + be->pvt_data_len);
+
+		dev_dbg(sfw->dev,
+			"ASoC: tlv: adding bytes kctrl %s with access 0x%x\n",
+			be->hdr.name, be->hdr.access);
+
+		memset(kc, 0, sizeof(*kc));
+
+		kc[i].name = be->hdr.name;
+		kc[i].private_value = (long)sbe;
+		kc[i].iface = SNDRV_CTL_ELEM_IFACE_MIXER;
+		kc[i].access = be->hdr.access;
+		kc[i].tlv.c = snd_soc_bytes_tlv_callback;
+		sbe->max = be->max;
+
+		dev_dbg(sfw->dev, "ASoC: %s: name %s\n", __func__, kc[i].name);
+		dev_dbg(sfw->dev, "ASoC: iface %d\n", kc[i].iface);
+		dev_dbg(sfw->dev, "ASoC: access %d\n", kc[i].access);
+		dev_dbg(sfw->dev, "ASoC: pvt len %d\n", be->pvt_data_len);
+
+		if (be->pvt_data_len)
+			soc_fw_init_pvt_data(sfw, be->tlv_index, (unsigned long)sbe, (unsigned long)be);
+
+		INIT_LIST_HEAD(&sbe->list);
+
+
+		/* none exist, so now try and map ext handlers */
+		ext = soc_fw_kcontrol_bind_tlv(be->tlv_index, sbe,
+				sfw->tlv_ops, sfw->tlv_ops_count);
+
+		if (ext) {
+			dev_err(sfw->dev,
+				"ASoC: %s no complete TLV handler for %s type (g,p) %d:%d\n",
+				__func__,
+				be->hdr.name,
+				SOC_CONTROL_GET_ID_GET(be->tlv_index),
+				SOC_CONTROL_GET_ID_PUT(be->tlv_index));
+			kfree(sbe);
+			continue;
+		}
+		/* map standard io handlers and check for external handlers */
+		ext = soc_fw_kcontrol_bind_io(be->hdr.index, &kc[i], io_ops,
+				ARRAY_SIZE(io_ops), 1);
+		if (ext) {
+			/* none exist, so now try and map ext handlers */
+			ext = soc_fw_kcontrol_bind_io(be->hdr.index, &kc[i],
+					sfw->io_ops, sfw->io_ops_count, 1);
+			if (ext) {
+				dev_err(sfw->dev,
+					"ASoC: %s no complete IO handler for %s type (g,p,i) %d:%d:%d\n",
+					__func__,
+					be->hdr.name,
+					SOC_CONTROL_GET_ID_GET(be->hdr.index),
+					SOC_CONTROL_GET_ID_PUT(be->hdr.index),
+					SOC_CONTROL_GET_ID_INFO(be->hdr.index));
+				kfree(sbe);
+				continue;
+			}
+			err = soc_fw_init_kcontrol(sfw, &kc[i]);
+			if (err < 0) {
+				dev_err(sfw->dev, "ASoC: tlv_create: failed to init %s\n",
+						be->hdr.name);
+				kfree(sbe);
+				continue;
+			}
+		}
+	}
+	return kc;
+
+err:
+	for (--i; i >= 0; i--)
+		kfree((void *)kc[i].private_value);
+
+	kfree(kc);
+
+	return NULL;
+}
 static int soc_fw_dapm_widget_create(struct soc_fw *sfw,
 	struct snd_soc_fw_dapm_widget *w)
 {
@@ -1169,6 +1419,15 @@ static int soc_fw_dapm_widget_create(struct soc_fw *sfw,
 		widget.kcontrol_enum = 1;
 		widget.kcontrol_news = soc_fw_dapm_widget_denum_create(sfw);
 		if (!widget.kcontrol_news) {
+			ret = -ENOMEM;
+			goto hdr_err;
+		}
+		break;
+	case SOC_CONTROL_TYPE_BYTES_TLV:
+		widget.num_kcontrols = w->num_kcontrols;
+		widget.kcontrol_news = soc_fw_dapm_widget_dbytes_tlv_create(sfw, widget.num_kcontrols);
+		if (!widget.kcontrol_news) {
+			dev_err(sfw->dev, " ASoC: Bytes_TLV: no control\n");
 			ret = -ENOMEM;
 			goto hdr_err;
 		}
@@ -1550,6 +1809,8 @@ int snd_soc_fw_load_platform(struct snd_soc_platform *platform,
 	sfw.io_ops_count = ops->io_ops_count;
 	sfw.dai_ops = ops->dai_ops;
 	sfw.dai_ops_count = ops->dai_ops_count;
+	sfw.tlv_ops = ops->tlv_ops;
+	sfw.tlv_ops_count = ops->tlv_ops_count;
 
 	return soc_fw_load(&sfw);
 }
