@@ -31,6 +31,13 @@ struct snd_soc_fw_kcontrol_ops {
 		struct snd_ctl_elem_info *uinfo);
 };
 
+struct snd_soc_fw_tlv_ops {
+	u32 id;
+	int (*get)(struct snd_kcontrol *kcontrol,
+			unsigned int __user *bytes, unsigned int size);
+	int (*put)(struct snd_kcontrol *kcontrol,
+			const unsigned int __user *bytes, unsigned int size);
+};
 /*
  * Dai operations - used to map dai ops structure to firmware based dais.
  */
@@ -104,6 +111,9 @@ struct snd_soc_fw_platform_ops {
 	/* dai operations */
 	const struct snd_soc_fw_dai_ops *dai_ops;
 	int dai_ops_count;
+
+	const struct snd_soc_fw_tlv_ops *tlv_ops;
+	int tlv_ops_count;
 };
 
 struct snd_soc_fw_card_ops {
