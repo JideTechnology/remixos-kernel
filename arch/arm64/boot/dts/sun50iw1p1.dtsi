@@ -1189,32 +1189,62 @@
 			compatible = "allwinner,cpufreq_cooling";
 			#cooling-cells = <2>;
 			status = "okay";
-			state_cnt = <5>;
+			state_cnt = <6>;
 			cluster_num = <1>;
-			state0 = <1344000>;
-			state1 = <1008000>;
-			state2 = <816000>;
-			state3 = <744000>;
-			state4 = <744000>;
+			state0 = <1152000 4>;
+			state1 = <1008000 4>;
+			state2 = <816000 4>;
+			state3 = <648000 4>;
+			state4 = <648000 2>;
+			state5 = <648000 1>;
 		};
 
 		thermal-zones{
 			soc_thermal{
 
 				polling-delay-passive = <500>;
-				polling-delay = <500>;
+				polling-delay = <2000>;
 				thermal-sensors = <&sunxi_thermal_sensor 0>;
 
 				trips{
+					trip0:t0{
+						temperature = <70>;
+						type = "passive";
+						hysteresis = <0>;
+					};
 					trip1:t1{
-						temperature = <120>;
+						temperature = <80>;
+						type = "passive";
+						hysteresis = <0>;
+					};
+					trip2:t2{
+						temperature = <90>;
+						type = "passive";
+						hysteresis = <0>;
+					};
+					trip3:t3{
+						temperature = <105>;
 						type = "critical";
 						hysteresis = <0>;
 					};
 				};
 
 				cooling-maps{
-
+					bind0{
+						contribution = <0>;
+						trip = <&trip0>;
+						cooling-device = <&sunxi_cpufreq_cooling 1 1>;
+					};
+					bind1{
+						contribution = <0>;
+						trip = <&trip1>;
+						cooling-device = <&sunxi_cpufreq_cooling 2 3>;
+					};
+					bind2{
+						contribution = <0>;
+						trip = <&trip2>;
+						cooling-device = <&sunxi_cpufreq_cooling 4 5>;
+					};
 				};
 			};
 		};
