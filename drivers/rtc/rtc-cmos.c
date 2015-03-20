@@ -43,6 +43,9 @@
 /* this is for "generic access to PC-style RTC" using CMOS_READ/CMOS_WRITE */
 #include <asm-generic/rtc.h>
 
+#define X86_INTEL_FAMILY_CHT	6
+#define X86_INTEL_MODEL_CHT		0x4c
+
 struct cmos_rtc {
 	struct rtc_device	*rtc;
 	struct device		*dev;
@@ -644,6 +647,7 @@ static int INITSECTION
 cmos_do_probe(struct device *dev, struct resource *ports, int rtc_irq)
 {
 	struct cmos_rtc_board_info	*info = dev_get_platdata(dev);
+	struct cpuinfo_x86 *c = &cpu_data(0);
 	int				retval = 0;
 	unsigned char			rtc_control;
 	unsigned			address_space;
@@ -748,8 +752,12 @@ cmos_do_probe(struct device *dev, struct resource *ports, int rtc_irq)
 	 */
 	if (is_valid_irq(rtc_irq) && !(rtc_control & RTC_24H)) {
 		dev_warn(dev, "only 24-hr supported\n");
-		retval = -ENXIO;
-		goto cleanup1;
+		if (!((c->x86 == X86_INTEL_FAMILY_CHT) &&
+			(c->x86_model == X86_INTEL_MODEL_CHT))) {
+			/* other than Cherryview */
+			retval = -ENXIO;
+			goto cleanup1;
+		}
 	}
 
 	if (is_valid_irq(rtc_irq)) {
