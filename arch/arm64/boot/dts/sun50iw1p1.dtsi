@@ -1186,7 +1186,7 @@
 		};
 
 		sunxi_cpufreq_cooling:cpufreq_cool{
-			compatible = "allwinner,cpufreq_cooling";
+			compatible = "allwinner,budget_cooling";
 			#cooling-cells = <2>;
 			status = "okay";
 			state_cnt = <6>;

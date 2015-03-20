@@ -199,8 +199,8 @@ config SUNXI_THERMAL
 	  If you say yes here you get support for (Thermal Management
 	  Unit) on ALLWINEER series of SoC.
 
-config SUNXI_CPU_COOLING
-	tristate "sunxi cpufreq cooling"
+config SUNXI_BUDGET_COOLING
+	tristate "sunxi budget cooling"
 	depends on ARCH_SUNXI
 	depends on THERMAL_OF
 	depends on CPU_FREQ
@@ -209,5 +209,13 @@ config SUNXI_CPU_COOLING
 	  bound to thermal zone trip points. When a trip point reached, the
 	  bound cpufreq cooling device turns active to set CPU frequency low to
 	  cool down the CPU.
+
+config BUDGET_HOTPLUG_CPU
+	bool "sunxi budget cooling use autoplug limit"
+	depends on ARCH_SUNXI
+	depends on THERMAL_OF
+	depends on SUNXI_BUDGET_COOLING
+	help
+	  sunxi budget cooling use autoplug limit
 
 endif
