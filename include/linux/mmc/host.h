@@ -328,6 +328,7 @@ struct mmc_host {
 
 	int			rescan_disable;	/* disable card detection */
 	int			rescan_entered;	/* used with nonremovable devices */
+	int         rescan_pre_state;
 
 	struct mmc_card		*card;		/* device attached to this host */
 

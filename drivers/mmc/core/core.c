@@ -1699,7 +1699,9 @@ void mmc_detect_change(struct mmc_host *host, unsigned long delay)
 #endif
 	host->detect_change = 1;
 
-	wake_lock(&host->detect_wake_lock);
+	//wake_lock(&host->detect_wake_lock);
+	if(!(host->caps&MMC_CAP_NEEDS_POLL))
+		wake_lock(&host->detect_wake_lock);
 	mmc_schedule_delayed_work(&host->detect, delay);
 }
 
@@ -2426,6 +2428,7 @@ void mmc_rescan(struct work_struct *work)
 		container_of(work, struct mmc_host, detect.work);
 	int i;
 	bool extend_wakelock = false;
+	bool present         = false;
 
 	if (host->rescan_disable)
 		return;
@@ -2438,6 +2441,19 @@ void mmc_rescan(struct work_struct *work)
 	host->rescan_entered = 1;
 
 	mmc_bus_get(host);
+
+
+	if((host->caps&MMC_CAP_NEEDS_POLL)){
+		 if((host->ops->get_cd)\
+			&&(host->rescan_pre_state^host->ops->get_cd(host))){
+				wake_lock(&host->detect_wake_lock);
+			}else{
+				mmc_bus_put(host);
+				mmc_schedule_delayed_work(&host->detect, HZ);
+				return;
+			}
+	}
+		
 
 	/*
 	 * if there is a _removable_ card registered, check whether it is
@@ -2452,8 +2468,10 @@ void mmc_rescan(struct work_struct *work)
 	/* If the card was removed the bus will be marked
 	 * as dead - extend the wakelock so userspace
 	 * can respond */
-	if (host->bus_dead)
+	if (host->bus_dead){
 		extend_wakelock = 1;
+		present = false;
+	}
 
 	/*
 	 * Let mmc_bus_put() free the bus/bus_ops if we've found that
@@ -2465,6 +2483,7 @@ void mmc_rescan(struct work_struct *work)
 	/* if there still is a card present, stop here */
 	if (host->bus_ops != NULL) {
 		mmc_bus_put(host);
+		present = true;
 		goto out;
 	}
 
@@ -2478,6 +2497,7 @@ void mmc_rescan(struct work_struct *work)
 		mmc_claim_host(host);
 		mmc_power_off(host);
 		mmc_release_host(host);
+		present = false;
 		goto out;
 	}
 
@@ -2485,6 +2505,7 @@ void mmc_rescan(struct work_struct *work)
 	for (i = 0; i < ARRAY_SIZE(freqs); i++) {
 		if (!mmc_rescan_try_freq(host, max(freqs[i], host->f_min))) {
 			extend_wakelock = true;
+			present = true;
 			break;
 		}
 		if (freqs[i] <= host->f_min)
@@ -2498,7 +2519,8 @@ void mmc_rescan(struct work_struct *work)
 	else
 		wake_unlock(&host->detect_wake_lock);
 	if (host->caps & MMC_CAP_NEEDS_POLL) {
-		wake_lock(&host->detect_wake_lock);
+		host->rescan_pre_state = present;
+		//wake_lock(&host->detect_wake_lock);
 		mmc_schedule_delayed_work(&host->detect, HZ);
 	}
 }
@@ -2524,8 +2546,10 @@ void mmc_stop_host(struct mmc_host *host)
 #endif
 
 	host->rescan_disable = 1;
-	if (cancel_delayed_work_sync(&host->detect))
-		wake_unlock(&host->detect_wake_lock);
+	if (cancel_delayed_work_sync(&host->detect)){
+		if(!(host->caps&MMC_CAP_NEEDS_POLL))
+			wake_unlock(&host->detect_wake_lock);
+	}
 	mmc_flush_scheduled_work();
 
 	/* clear pm flags now and let card drivers set them as needed */
@@ -2723,8 +2747,10 @@ int mmc_suspend_host(struct mmc_host *host)
 	if (mmc_bus_needs_resume(host))
 		return 0;
 
-	if (cancel_delayed_work(&host->detect))
-		wake_unlock(&host->detect_wake_lock);
+	if (cancel_delayed_work(&host->detect)){
+		if(!(host->caps&MMC_CAP_NEEDS_POLL))
+			wake_unlock(&host->detect_wake_lock);
+	}
 	mmc_flush_scheduled_work();
 
 	mmc_bus_get(host);
@@ -2847,8 +2873,10 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 		}
 		host->rescan_disable = 1;
 		spin_unlock_irqrestore(&host->lock, flags);
-		if (cancel_delayed_work_sync(&host->detect))
-			wake_unlock(&host->detect_wake_lock);
+		if (cancel_delayed_work_sync(&host->detect)){
+			if(!(host->caps&MMC_CAP_NEEDS_POLL))
+				wake_unlock(&host->detect_wake_lock);
+		}
 
 		if (!host->bus_ops || host->bus_ops->suspend)
 			break;
