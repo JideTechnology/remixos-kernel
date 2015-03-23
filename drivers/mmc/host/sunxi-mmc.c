@@ -743,7 +743,8 @@ static void sunxi_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	dev_dbg(mmc_dev(host->mmc), "REG_GCTRL: 0x%08x \n", mmc_readl(host, REG_GCTRL));
 
 	/* set up clock */
-	if (ios->clock && ios->power_mode&& host->sunxi_mmc_clk_set_rate) {
+	//if (ios->clock && ios->power_mode&& host->sunxi_mmc_clk_set_rate) {
+	if (ios->power_mode&& host->sunxi_mmc_clk_set_rate) {
 		host->ferror = host->sunxi_mmc_clk_set_rate(host, ios);
 		/* Android code had a usleep_range(50000, 55000); here */
 	}
