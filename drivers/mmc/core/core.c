@@ -2397,6 +2397,29 @@ int mmc_detect_card_removed(struct mmc_host *host)
 }
 EXPORT_SYMBOL(mmc_detect_card_removed);
 
+
+static int sunxi_mmc_debdetect(struct mmc_host *host)
+{
+	u32 present = 0;
+	int i = 0;
+	int gpio_val = 0;
+	pr_debug("***%s %s %d***\n",mmc_hostname(host),__FUNCTION__,__LINE__);
+
+	for (i=0; i<5; i++) {
+		gpio_val += host->ops->get_cd(host);
+		msleep(1);
+	}
+
+    if (gpio_val==5) {
+        present = 1;
+    } else if (gpio_val==0){
+        present = 0;
+    }
+
+	pr_debug("***%s %s %d***\n",mmc_hostname(host),__FUNCTION__,__LINE__);
+	return present;
+}
+
 void mmc_rescan(struct work_struct *work)
 {
 	struct mmc_host *host =
