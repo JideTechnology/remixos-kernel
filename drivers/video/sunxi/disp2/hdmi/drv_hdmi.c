@@ -544,7 +544,7 @@ exit:
 extern void audio_set_hdmi_func(__audio_hdmi_func * hdmi_func);
 #endif
 extern s32 disp_set_hdmi_func(struct disp_device_func * func);
-extern unsigned int disp_boot_para_parse(void);
+extern unsigned int disp_boot_para_parse(const char *name);
 
 s32 hdmi_init(struct platform_device *pdev)
 {
@@ -565,7 +565,7 @@ s32 hdmi_init(struct platform_device *pdev)
 	hdmi_used = 1;
 
 	/*  parse boot para */
-	value = disp_boot_para_parse();
+	value = disp_boot_para_parse("boot_disp");
 	output_type0 = (value >> 8) & 0xff;
 	output_mode0 = (value) & 0xff;
 

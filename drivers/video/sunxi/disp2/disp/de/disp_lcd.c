@@ -1238,19 +1238,20 @@ static s32 disp_lcd_event_proc(void *parg)
 
 	if (NULL == lcd)
 		return DISP_IRQ_RETURN;
-	mgr = lcd->manager;
-	if (NULL == mgr)
-		return DISP_IRQ_RETURN;
+
 	disp = lcd->disp;
 	lcdp = disp_lcd_get_priv(lcd);
 
-	if ((NULL == lcd) || (NULL == lcdp)) {
+	if (NULL == lcdp)
 		return DISP_IRQ_RETURN;
-	}
 
 	if (disp_al_lcd_query_irq(disp, LCD_IRQ_TCON0_VBLK, &lcdp->panel_info)) {
 		int cur_line = disp_al_lcd_get_cur_line(disp, &lcdp->panel_info);
 		int start_delay = disp_al_lcd_get_start_delay(disp, &lcdp->panel_info);
+
+		mgr = lcd->manager;
+		if (NULL == mgr)
+			return DISP_IRQ_RETURN;
 
 		if (cur_line <= (start_delay-4)) {
 			sync_event_proc(mgr->disp, false);
@@ -1818,7 +1819,6 @@ static s32 disp_lcd_init(struct disp_device* lcd)
 			duty_ns = (backlight_bright * period_ns) / 256;
 			//DE_DBG("[PWM]backlight_bright=%d,period_ns=%d,duty_ns=%d\n",(u32)backlight_bright,(u32)period_ns, (u32)duty_ns);
 			disp_sys_pwm_set_polarity(lcdp->pwm_info.dev, lcdp->pwm_info.polarity);
-			disp_sys_pwm_config(lcdp->pwm_info.dev, duty_ns, period_ns);
 			lcdp->pwm_info.duty_ns = duty_ns;
 			lcdp->pwm_info.period_ns = period_ns;
 		}

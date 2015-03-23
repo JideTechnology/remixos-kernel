@@ -282,7 +282,6 @@ int de_smbl_init(unsigned int sel, uintptr_t reg_base)
 	unsigned int lcdgamma;
 	int  value = 1;
 	char primary_key[20];
-	char sub_key[20];
 	int  ret;
 
 	base = reg_base + (sel+1)*0x00100000 + SMBL_OFST;
@@ -366,8 +365,8 @@ int de_smbl_init(unsigned int sel, uintptr_t reg_base)
 			PWRSAVE_PROC_THRES = value;
 		}
 	}
-	sprintf(sub_key, "lcd%d_backlight", sel);
-	ret = disp_sys_script_get_item("disp_init", sub_key, &value, 1);
+	sprintf(primary_key, "lcd%d", sel);
+	ret = disp_sys_script_get_item(primary_key, "lcd_backlight", &value, 1);
 	if (1 == ret)
 		g_smbl_status[sel]->backlight = value;
 

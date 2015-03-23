@@ -262,53 +262,17 @@ static struct attribute_group disp_attribute_group = {
   .attrs = disp_attributes
 };
 
-int disp_get_parameter_for_cmdlind(char *cmdline, char *name, char *value)
+unsigned int disp_boot_para_parse(const char *name)
 {
-	char *p = cmdline;
-	char *value_p = value;
-	int ret = 0;
+	unsigned int value = 0;
 
-	if (!cmdline || !name) {
-		ret = -1;
-		goto exit;
-	}
-	for (;;) {
-		if (*p == ' ') {
-			if (!strncmp(++p, name, strlen(name))) {
-				while (*p != '=' && *p)
-					p++;
-				p++;
-				while (*p != ' ' && *p) {
-					*value_p++ = *p++;
-				}
-				*value_p = 0;
-				break;
-			}
-		}
-		p++;
-		if (!*p) {
-			ret = -1;
-			break;
-		}
-	}
+	if (of_property_read_u32(g_disp_drv.dev->of_node, name, &value) < 0)
+		__wrn("of_property_read disp.%s fail\n", name);
 
-exit:
-	return ret;
-}
-
-extern char *saved_command_line;
-unsigned int disp_boot_para_parse(void)
-{
-	unsigned int value;
-	char val[16];
-
-	memset(val, 0, sizeof(char) * 16);
-	disp_get_parameter_for_cmdlind(saved_command_line, "disp_para", val);
-	pr_info("cmdline,disp=%s\n", val);
-	value = simple_strtoul(val, NULL, 16);
-
+	pr_info("[DISP] %s:0x%x\n", name, value);
 	return value;
 }
+
 EXPORT_SYMBOL(disp_boot_para_parse);
 
 static s32 parser_disp_init_para(const struct device_node *np, disp_init_para * init_para)
@@ -840,7 +804,7 @@ static s32 disp_init(struct platform_device *pdev)
 	para->vsync_event            = drv_disp_vsync_event;
 	para->start_process          = start_process;
 
-	value = disp_boot_para_parse();
+	value = disp_boot_para_parse("boot_disp");
 	output_type = (value >> 8) & 0xff;
 	output_mode = (value) & 0xff;
 	if (output_type != (int)DISP_OUTPUT_TYPE_NONE) {
@@ -857,6 +821,12 @@ static s32 disp_init(struct platform_device *pdev)
 			para->boot_info.type = output_type;
 			para->boot_info.mode = output_mode;
 		}
+	}
+
+	if (1 == para->boot_info.sync) {
+		g_disp_drv.disp_init.disp_mode = para->boot_info.disp;
+		g_disp_drv.disp_init.output_type[para->boot_info.disp] = output_type;
+		g_disp_drv.disp_init.output_mode[para->boot_info.disp] = output_mode;
 	}
 
 	bsp_disp_init(para);

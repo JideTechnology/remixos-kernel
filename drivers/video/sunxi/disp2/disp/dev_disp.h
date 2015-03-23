@@ -136,8 +136,27 @@ typedef struct bmp_header {
 	u32	colors_used;
 	u32	colors_important;
 	/* ColorTable */
-
 } __attribute__ ((packed)) bmp_header_t;
+
+typedef struct bmp_pad_head {
+	char data[2]; //pading 2 byte
+	char signature[2];
+	u32	file_size;
+	u32	reserved;
+	u32	data_offset;
+	/* InfoHeader */
+	u32	size;
+	u32	width;
+	u32	height;
+	u16	planes;
+	u16	bit_count;
+	u32	compression;
+	u32	image_size;
+	u32	x_pixels_per_m;
+	u32	y_pixels_per_m;
+	u32	colors_used;
+	u32	colors_important;
+}__attribute__ ((packed)) bmp_pad_header_t;
 
 typedef struct bmp_image {
 	bmp_header_t header;
@@ -196,7 +215,7 @@ s32 fb_draw_gray_pictures(char* base, u32 width, u32 height, struct fb_var_scree
 s32 drv_disp_vsync_event(u32 sel);
 void DRV_disp_int_process(u32 sel);
 s32 Display_set_fb_timming(u32 sel);
-unsigned int disp_boot_para_parse(void);
+unsigned int disp_boot_para_parse(const char *name);
 int disp_get_parameter_for_cmdlind(char *cmdline, char *name, char *value);
 
 #endif
