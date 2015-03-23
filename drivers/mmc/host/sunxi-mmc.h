@@ -24,6 +24,13 @@
 #ifndef __SUNXI_MMC_H__
 #define __SUNXI_MMC_H__
 
+
+#define DRIVER_NAME "sunxi-mmc"
+#define DRIVER_RIVISION "v0.1 2015-3-20 16:56"
+#define DRIVER_VERSION "SD/MMC/SDIO Host Controller Driver(" DRIVER_RIVISION ")" \
+			" Compiled in " __DATE__ " at " __TIME__""
+
+
 #if defined CONFIG_FPGA_V4_PLATFORM || defined CONFIG_FPGA_V7_PLATFORM
 #define MMC_FPGA
 #endif

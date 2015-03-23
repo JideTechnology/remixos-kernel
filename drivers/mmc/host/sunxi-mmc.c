@@ -1376,6 +1376,8 @@ static int sunxi_mmc_probe(struct platform_device *pdev)
 	struct mmc_host *mmc;
 	int ret;
 
+	dev_info(&pdev->dev,"%s\n",DRIVER_VERSION);
+
 	mmc = mmc_alloc_host(sizeof(struct sunxi_mmc_host), &pdev->dev);
 	if (!mmc) {
 		dev_err(&pdev->dev, "mmc alloc host failed\n");
