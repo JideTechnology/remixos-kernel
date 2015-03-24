@@ -17,8 +17,8 @@ enum {
     HWC_SYNC_INIT = -1,
     HWC_DISP0 = 0,
     HWC_DISP1 = 1,
-    HWC_DISP0_WB = 2,
-    HWC_OTHER = 3,
+    HWC_OTHER0 = 2,
+    HWC_OTHER1 = 3,
     CNOUTDISPSYNC = 4,
 };
 
@@ -71,7 +71,7 @@ struct composer_private_data {
     u32                     primary_disp;
 	bool                    b_no_output;
     bool                    wb_status;
-    struct mutex	        runtime_lock;
+    struct mutex	        sync_lock;
     struct display_sync     *display_sync[CNOUTDISPSYNC];//0 is de0 ,1 is de1 , 2 is writeback,3 is FB
     struct disp_layer_config       *tmp_hw_lyr;
     disp_drv_info           *psg_disp_drv;
@@ -142,12 +142,6 @@ static void imp_finish_cb(bool force_all)
             }
             sw_sync_timeline_inc(composer_priv.display_sync[i]->timeline, 1);
             composer_frame_checkin(1);
-        }
-        if(composer_priv.display_sync[i] != NULL && !composer_priv.display_sync[i]->active)
-        {
-            sync_timeline_destroy(&composer_priv.display_sync[i]->timeline->obj);
-            kfree(composer_priv.display_sync[i]);
-            composer_priv.display_sync[i] = NULL;
         }
         if(composer_priv.cur_write_cnt[composer_priv.primary_disp] == composer_priv.cur_disp_cnt[composer_priv.primary_disp])
         {
@@ -239,7 +233,7 @@ static bool hwc_fence_get(void *user_fence)
         {
             if(composer_priv.display_sync[i] == NULL)
             {
-                ret = sprintf(buf, "Sunxi_%d",i);
+                ret = sprintf(buf, "sunxi_%d",i);
                 composer_priv.display_sync[i]= kzalloc(sizeof(struct display_sync),GFP_KERNEL);
                 if(composer_priv.display_sync[i] == NULL)
                 {
@@ -259,7 +253,7 @@ static bool hwc_fence_get(void *user_fence)
                 composer_priv.display_sync[i]->active = 1;
             }
             composer_priv.display_sync[i]->timeline_count++;
-            ret = sprintf(buf, "Sunxi_%d_%d",i,composer_priv.display_sync[i]->timeline_count);
+            ret = sprintf(buf, "sunxi_%d_%d",i,composer_priv.display_sync[i]->timeline_count);
             fd[i] = get_unused_fd();
             if (fd[i] < 0)
             {
@@ -282,7 +276,15 @@ static bool hwc_fence_get(void *user_fence)
         }else{
             if(composer_priv.display_sync[i] != NULL)
             {
-                composer_priv.display_sync[i]->active = 0;
+                mutex_lock(&composer_priv.sync_lock);
+                while(composer_priv.display_sync[i]->timeline->value != composer_priv.display_sync[i]->timeline_count)
+                {
+                    sw_sync_timeline_inc(composer_priv.display_sync[i]->timeline, 1);
+                }
+                sync_timeline_destroy(&composer_priv.display_sync[i]->timeline->obj);
+                kfree(composer_priv.display_sync[i]);
+                composer_priv.display_sync[i] = NULL;
+                mutex_unlock(&composer_priv.sync_lock);
             }
         }
     }
@@ -313,31 +315,34 @@ static int hwc_commit(void * user_display)
     }
     for(i = 0; i < CNOUTDISPSYNC; i++)
     {
-            if(disp_data.releasefencefd[i] >= 0)
+        if(disp_data.releasefencefd[i] >= 0)
+        {
+            sync[i] = hwc_get_sync(i,disp_data.releasefencefd[i]);
+            if(disp_data.force_flip)
             {
-                sync[i] = hwc_get_sync(i,disp_data.releasefencefd[i]);
-                if(disp_data.force_flip)
+                printk(KERN_ERR"hwc force flip disp[%d]:%d \n",i,sync[i]);
+                if(composer_priv.display_sync[i] != NULL
+                    && composer_priv.display_sync[i]->active
+                    && composer_priv.display_sync[i]->timeline != NULL)
                 {
-                    printk(KERN_ERR"hwc force flip disp[%d]:%d \n",i,sync[i]);
-                    if(composer_priv.display_sync[i] != NULL
-                        && composer_priv.display_sync[i]->active
-                        && composer_priv.display_sync[i]->timeline != NULL)
-                    {
-                        composer_priv.cur_write_cnt[i] = sync[i];
-                    }
+                    composer_priv.cur_write_cnt[i] = sync[i];
                 }
             }
+        }
     }
     if(disp_data.force_flip)
     {
         schedule_work(&composer_priv.post2_cb_work);
 		goto commit_ok;
     }else{
-	    wait_event_interruptible_timeout(composer_priv.commit_wq,
-						       hwc_pridisp_sync(),
-						       msecs_to_jiffies(16));
-        /*for vsync shadow protected*/
-        usleep_range(10,100);
+        if(disp_data.releasefencefd[composer_priv.primary_disp] >= 0 && !hwc_pridisp_sync())
+        {
+	        wait_event_interruptible_timeout(composer_priv.commit_wq,
+			    			       hwc_pridisp_sync(),
+					    	       msecs_to_jiffies(16));
+            /*for vsync shadow protected*/
+            //usleep_range(100,200);
+        }
     }
     if(disp_data.data != NULL)
     {
@@ -363,9 +368,7 @@ static int hwc_commit(void * user_display)
 commit_ok:
     if(composer_priv.b_no_output)
     {
-        mutex_lock(&composer_priv.runtime_lock);
-	    imp_finish_cb(1);
-	    mutex_unlock(&composer_priv.runtime_lock);
+        schedule_work(&composer_priv.post2_cb_work);
     }
 	return ret;
 }
@@ -407,7 +410,10 @@ static int hwc_ioctl(unsigned int cmd, unsigned long arg)
             break;
             case HWC_IOCTL_SETPRIDIP:
                 get_user(ret,(int *)(hwc_ctl.arg));
-                composer_priv.primary_disp = ret;
+                if(ret < DISP_NUMS_SCREEN)
+                {
+                    composer_priv.primary_disp = ret;
+                }
             break;
             default:
                 printk(KERN_ERR"hwc give a err iotcl.\n");
@@ -418,11 +424,19 @@ static int hwc_ioctl(unsigned int cmd, unsigned long arg)
 
 static void disp_composer_proc(u32 sel)
 {
+    disp_drv_info       *psg_disp_drv = composer_priv.psg_disp_drv;
+    struct disp_manager *disp_mgr = NULL;
+    struct disp_capture *wb_back = NULL;
+    struct write_back   *wb_status = NULL;
     if(sel<2)
     {
-        if(sel == 0)
+        if(sel == 0 && composer_priv.wb_status == 1)
         {
-            composer_priv.cur_disp_cnt[HWC_DISP0_WB]= composer_priv.cur_write_cnt[HWC_DISP0_WB];
+            disp_mgr = psg_disp_drv->mgr[sel];
+            wb_back = disp_mgr->cptr;
+            wb_status = &composer_priv.check_wb[composer_priv.cur_disp_cnt[sel]%WB_CHECK_SIZE];
+            wb_status->sync = composer_priv.cur_disp_cnt[sel];
+            wb_status->success = !wb_back->query(wb_back);
         }
         composer_priv.last_diplay_cnt[sel]= composer_priv.cur_disp_cnt[sel];
         composer_priv.cur_disp_cnt[sel] = composer_priv.cur_write_cnt[sel];
@@ -433,17 +447,15 @@ static void disp_composer_proc(u32 sel)
 
 static void post2_cb(struct work_struct *work)
 {
-	mutex_lock(&composer_priv.runtime_lock);
+	mutex_lock(&composer_priv.sync_lock);
     imp_finish_cb(composer_priv.b_no_output);
-	mutex_unlock(&composer_priv.runtime_lock);
+	mutex_unlock(&composer_priv.sync_lock);
 }
 
 static int hwc_suspend(void)
 {
 	composer_priv.b_no_output = 1;
-	mutex_lock(&composer_priv.runtime_lock);
-	imp_finish_cb(1);
-	mutex_unlock(&composer_priv.runtime_lock);
+	schedule_work(&composer_priv.post2_cb_work);
 	printk("%s\n", __func__);
 	return 0;
 }
@@ -459,8 +471,7 @@ s32 composer_init(disp_drv_info *psg_disp_drv)
 {
 	memset(&composer_priv, 0x0, sizeof(struct composer_private_data));
 	INIT_WORK(&composer_priv.post2_cb_work, post2_cb);
-	mutex_init(&composer_priv.runtime_lock);
-
+    mutex_init(&composer_priv.sync_lock);
     init_waitqueue_head(&composer_priv.commit_wq);
 
 	disp_register_ioctl_func(DISP_HWC_COMMIT, hwc_ioctl);
