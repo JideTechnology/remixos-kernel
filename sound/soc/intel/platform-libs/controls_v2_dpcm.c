@@ -152,7 +152,8 @@ int sst_byte_control_get(struct snd_kcontrol *kcontrol,
 	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
 
 	pr_debug("in %s\n", __func__);
-	memcpy(ucontrol->value.bytes.data, sst->byte_stream, SST_MAX_BIN_BYTES);
+	memcpy(ucontrol->value.bytes.data, sst->byte_stream,
+			SST_MAX_BYTES_CTRL_SIZE);
 	print_hex_dump_bytes(__func__, DUMP_PREFIX_OFFSET,
 			     (const void *)sst->byte_stream, 32);
 	return 0;
@@ -162,7 +163,7 @@ static int sst_check_binary_input(char *stream)
 {
 	struct snd_sst_bytes_v2 *bytes = (struct snd_sst_bytes_v2 *)stream;
 
-	if (bytes->len == 0 || bytes->len > 1000) {
+	if (bytes->len == 0 || bytes->len > SST_MAX_BYTES_CTRL_SIZE) {
 		pr_err("length out of bounds %d\n", bytes->len);
 		return -EINVAL;
 	}
@@ -192,7 +193,9 @@ int sst_byte_control_set(struct snd_kcontrol *kcontrol,
 
 	pr_debug("in %s\n", __func__);
 	mutex_lock(&sst->lock);
-	memcpy(sst->byte_stream, ucontrol->value.bytes.data, SST_MAX_BIN_BYTES);
+	memcpy(sst->byte_stream, ucontrol->value.bytes.data,
+			SST_MAX_BYTES_CTRL_SIZE);
+
 	if (0 != sst_check_binary_input(sst->byte_stream)) {
 		mutex_unlock(&sst->lock);
 		return -EINVAL;
