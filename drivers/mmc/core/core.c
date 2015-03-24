@@ -2445,7 +2445,7 @@ void mmc_rescan(struct work_struct *work)
 
 	if((host->caps&MMC_CAP_NEEDS_POLL)){
 		 if((host->ops->get_cd)\
-			&&(host->rescan_pre_state^host->ops->get_cd(host))){
+			&&(host->rescan_pre_state^sunxi_mmc_debdetect(host))){
 				wake_lock(&host->detect_wake_lock);
 			}else{
 				mmc_bus_put(host);
