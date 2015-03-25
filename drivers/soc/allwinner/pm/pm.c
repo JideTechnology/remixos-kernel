@@ -1388,7 +1388,7 @@ static int __init aw_pm_init(void)
 	PM_DBG("aw_pm_init!\n");
 
 	/*init debug state*/
-	pm_secure_mem_status_init("rtc"); 
+	pm_secure_mem_status_init("sun50i-rtc");
 	
 	/*for auto test reason.*/
 	//*(volatile __u32 *)(STANDBY_STATUS_REG  + 0x08) = BOOT_UPGRAGE_FLAG;

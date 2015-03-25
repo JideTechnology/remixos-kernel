@@ -396,10 +396,12 @@
 		};
 
 		rtc: rtc@01f00000 {
-			compatible = "allwinner,sun50i-a64-rtc";
+			compatible = "allwinner,sun50i-rtc";
 			device_type = "rtc";
 			reg = <0x0 0x1f00000 0x0 0x218>;
 			interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
+			gpr_offset = <0x100>;
+			gpr_len	   = <4>;
 		};
 
 		ve@01c0e000 {
