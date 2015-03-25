@@ -117,13 +117,11 @@ static void sun50i_cpu_power_up(unsigned int cluster, unsigned int cpu)
 	value  = readl(sun50i_cpucfg_base + SUNXI_CPU_RST_CTRL(cluster));
 	value &= (~(1<<cpu));
 	writel(value, sun50i_cpucfg_base + SUNXI_CPU_RST_CTRL(cluster));
-	udelay(10);
 
 	/* Assert cpu power-on reset */
 	value  = readl(sun50i_r_cpucfg_base + SUNXI_CLUSTER_PWRON_RESET(cluster));
 	value &= (~(1<<cpu));
 	writel(value, sun50i_r_cpucfg_base + SUNXI_CLUSTER_PWRON_RESET(cluster));
-	udelay(10);
 
 	/* set AA32nAA64 to AA64 */
 	sun50i_set_AA32nAA64(cluster, cpu, 1);
@@ -135,25 +133,23 @@ static void sun50i_cpu_power_up(unsigned int cluster, unsigned int cpu)
 	value = readl(sun50i_prcm_base + SUNXI_CLUSTER_PWROFF_GATING(cluster));
 	value &= (~(0x1<<cpu));
 	writel(value, sun50i_prcm_base + SUNXI_CLUSTER_PWROFF_GATING(cluster));
-	udelay(20);
+	dsb(sy);
+	udelay(1);
 
 	/* Deassert cpu power-on reset */
 	value  = readl(sun50i_r_cpucfg_base + SUNXI_CLUSTER_PWRON_RESET(cluster));
 	value |= ((1<<cpu));
 	writel(value, sun50i_r_cpucfg_base + SUNXI_CLUSTER_PWRON_RESET(cluster));
-	udelay(10);
 
 	/* Deassert core reset */
 	value  = readl(sun50i_cpucfg_base + SUNXI_CPU_RST_CTRL(cluster));
 	value |= (1<<cpu);
 	writel(value, sun50i_cpucfg_base + SUNXI_CPU_RST_CTRL(cluster));
-	udelay(10);
 
 	/* Assert DBGPWRDUP HIGH */
 	value = readl(sun50i_cpucfg_base + SUNXI_DBG_REG0);
 	value |= (1<<cpu);
 	writel(value, sun50i_cpucfg_base + SUNXI_DBG_REG0);
-	udelay(10);
 
 	pr_debug("sun50i power-up cluster-%d cpu-%d ok\n", cluster, cpu);
 }
@@ -169,21 +165,25 @@ static void sun50i_cpu_power_down(unsigned int cluster, unsigned int cpu)
 	value = readl(sun50i_cpucfg_base + SUNXI_DBG_REG0);
 	value &= (~(1<<cpu));
 	writel(value, sun50i_cpucfg_base + SUNXI_DBG_REG0);
-	udelay(10);
 
 	/* step8: Activate the core output clamps */
 	value = readl(sun50i_prcm_base + SUNXI_CLUSTER_PWROFF_GATING(cluster));
 	value |= (1 << cpu);
 	writel(value, sun50i_prcm_base + SUNXI_CLUSTER_PWROFF_GATING(cluster));
-	udelay(20);
+	dsb(sy);
+	udelay(1);
 
 	/* step9: Assert nCPUPORESET LOW */
 	value  = readl(sun50i_cpucfg_base + SUNXI_CPU_RST_CTRL(cluster));
 	value &= (~(1<<cpu));
 	writel(value, sun50i_cpucfg_base + SUNXI_CPU_RST_CTRL(cluster));
-	udelay(10);
 
-	/* step10: Remove power from th e PDCPU power domain */
+	/* step10: Assert cpu power-on reset */
+	value  = readl(sun50i_r_cpucfg_base + SUNXI_CLUSTER_PWRON_RESET(cluster));
+	value &= (~(1<<cpu));
+	writel(value, sun50i_r_cpucfg_base + SUNXI_CLUSTER_PWRON_RESET(cluster));
+
+	/* step11: Remove power from th e PDCPU power domain */
 	sun50i_power_switch_set(cluster, cpu, 0);
 
 	pr_debug("sun50i power-down cluster-%d cpu-%d ok.\n", cluster, cpu);
