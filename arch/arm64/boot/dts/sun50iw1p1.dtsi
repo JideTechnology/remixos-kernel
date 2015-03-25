@@ -239,6 +239,12 @@
 		interrupts = <GIC_PPI 9 0xf04>; /* GIC Maintenence IRQ */
 	};
 
+	chipid: sunxi-chipid@1c14200 {
+		compatible = "sunxi,sun50i-chipid";
+		device_type = "chipid";
+		reg = <0x0 0x01c14200 0 0x0400>; /* chipid */
+	};
+
 	timer {
 		compatible = "arm,armv8-timer";
 		interrupts = <GIC_PPI 13 0xff01>, /* Secure Phys IRQ */

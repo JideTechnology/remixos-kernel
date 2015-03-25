@@ -117,11 +117,6 @@ static int sunxi_chipid_probe(struct platform_device *pdev)
 	if (IS_ERR(sun50i_sid_base))
 		return PTR_ERR(sun50i_sid_base);
 
-	if (!sun50i_sid_base) {
-		dev_err(dev, "unable to map chipid registers\n");
-		return -ENOMEM;
-	}
-
 	sunxi_soc_chipid[0] = readl(sun50i_sid_base + 0x200);
 	sunxi_soc_chipid[1] = readl(sun50i_sid_base + 0x200 + 0x4);
 	sunxi_soc_chipid[2] = readl(sun50i_sid_base + 0x200 + 0x8);
