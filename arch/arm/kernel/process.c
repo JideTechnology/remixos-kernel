@@ -40,6 +40,7 @@
 #include <asm/thread_notify.h>
 #include <asm/stacktrace.h>
 #include <asm/mach/time.h>
+#include <asm/vdso.h>
 
 #ifdef CONFIG_CC_STACKPROTECTOR
 #include <linux/stackprotector.h>
@@ -695,5 +696,64 @@ int in_gate_area_no_mm(unsigned long addr)
 const char *arch_vma_name(struct vm_area_struct *vma)
 {
 	return (vma == &gate_vma) ? "[vectors]" : NULL;
+}
+
+/* If possible, provide a placement hint at a random offset from the
+ * stack for the sigpage and vdso pages.
+ */
+static unsigned long sigpage_addr(const struct mm_struct *mm,
+				  unsigned int npages)
+{
+	unsigned long offset;
+	unsigned long first;
+	unsigned long last;
+	unsigned long addr;
+	unsigned int slots;
+
+	first = PAGE_ALIGN(mm->start_stack);
+
+	last = TASK_SIZE - (npages << PAGE_SHIFT);
+
+	/* No room after stack? */
+	if (first > last)
+		return 0;
+
+	/* Just enough room? */
+	if (first == last)
+		return first;
+
+	slots = ((last - first) >> PAGE_SHIFT) + 1;
+
+	offset = get_random_int() % slots;
+
+	addr = first + (offset << PAGE_SHIFT);
+
+	return addr;
+}
+
+int arch_setup_additional_pages(struct linux_binprm *bprm, int uses_interp)
+{
+	struct mm_struct *mm = current->mm;
+	unsigned long npages = vdso_total_pages;
+	unsigned long addr, hint;
+	int ret = 0;
+
+	down_write(&mm->mmap_sem);
+	hint = sigpage_addr(mm, npages);
+	addr = get_unmapped_area(NULL, hint, npages << PAGE_SHIFT, 0, 0);
+	if (IS_ERR_VALUE(addr)) {
+		ret = addr;
+		goto up_fail;
+	}
+
+	/* Unlike the sigpage, failure to install the vdso is unlikely
+	 * to be fatal to the process, so no error check needed
+	 * here.
+	 */
+	arm_install_vdso(mm, addr);
+
+ up_fail:
+	up_write(&mm->mmap_sem);
+	return ret;
 }
 #endif
