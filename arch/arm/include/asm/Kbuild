@@ -2,7 +2,6 @@ include include/asm-generic/Kbuild.asm
 
 header-y += hwcap.h
 
-generic-y += auxvec.h
 generic-y += bitsperlong.h
 generic-y += cputime.h
 generic-y += emergency-restart.h
