@@ -436,13 +436,13 @@ static int ss_rng_start(ss_aes_ctx_t *ctx, u8 *rdata, unsigned int dlen)
 	SS_DBG("After CE, TSR: 0x%08x, ERR: 0x%08x\n", ss_reg_rd(CE_REG_TSR), ss_reg_rd(CE_REG_ERR));
 	SS_DBG("After CE, dst data: \n");
 
-	memcpy(rdata, buf, dlen);
-
 	dma_unmap_single(&ss_dev->pdev->dev, virt_to_phys(task), sizeof(ce_task_desc_t), DMA_MEM_TO_DEV);
 	dma_unmap_single(&ss_dev->pdev->dev, virt_to_phys(buf), rng_len, DMA_DEV_TO_MEM);
 #ifndef SS_TRNG_ENABLE
 	dma_unmap_single(&ss_dev->pdev->dev, virt_to_phys(ctx->key), ctx->key_size, DMA_MEM_TO_DEV);
 #endif
+
+	memcpy(rdata, buf, dlen);
 
 	ss_irq_disable(flow);
 	ret = dlen;
