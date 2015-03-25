@@ -363,18 +363,18 @@ static void ss_rsa_preprocess(ss_aes_ctx_t *ctx, ss_aes_req_ctx_t *req_ctx, int 
 }
 #endif
 
-static int ss_rng_start(ss_aes_ctx_t *ctx, u8 *rdata, unsigned int dlen)
+static int ss_rng_start(ss_aes_ctx_t *ctx, u8 *rdata, u32 dlen, u32 trng)
 {
 	int ret = 0;
 	int flow = ctx->comm.flow;
-#ifdef SS_TRNG_ENABLE
-	int rng_len = DIV_ROUND_UP(dlen, 32)*32; /* align with 32 Bytes */
-#else
-	int rng_len = DIV_ROUND_UP(dlen, 20)*20; /* align with 20 Bytes */
-#endif
+	int rng_len = 0;
 	char *buf = NULL;
 	ce_task_desc_t *task = &ss_dev->flows[flow].task;
 
+	if (trng)
+		rng_len = DIV_ROUND_UP(dlen, 32)*32; /* align with 32 Bytes */
+	else
+		rng_len = DIV_ROUND_UP(dlen, 20)*20; /* align with 20 Bytes */
 	if (rng_len > SS_RNG_MAX_LEN) {
 		SS_ERR("The RNG length is too large: %d\n", rng_len);
 		rng_len = SS_RNG_MAX_LEN;
@@ -393,20 +393,18 @@ static int ss_rng_start(ss_aes_ctx_t *ctx, u8 *rdata, unsigned int dlen)
 	ss_pending_clear(flow);
 	ss_irq_enable(flow);
 
-#ifdef SS_TRNG_ENABLE
-	if (ctx->comm.flags & SS_FLAG_TRNG)
+	if (trng)
 		ss_method_set(SS_DIR_ENCRYPT, SS_METHOD_TRNG, task);
 	else
-#endif
 		ss_method_set(SS_DIR_ENCRYPT, SS_METHOD_PRNG, task);
 
 	SS_DBG("ctx->key addr, vir = 0x%p, phy = 0x%llx\n", ctx->key, virt_to_phys(ctx->key));
 
-#ifndef SS_TRNG_ENABLE
-	/* Must set the seed addr in PRNG. */
-	ss_key_set(ctx->key, ctx->key_size, task);
-	dma_map_single(&ss_dev->pdev->dev, ctx->key, ctx->key_size, DMA_MEM_TO_DEV);
-#endif
+	if (trng == 0) {
+		/* Must set the seed addr in PRNG. */
+		ss_key_set(ctx->key, ctx->key_size, task);
+		dma_map_single(&ss_dev->pdev->dev, ctx->key, ctx->key_size, DMA_MEM_TO_DEV);
+	}
 	SS_DBG("buf addr, vir = 0x%p, phy = 0x%llx\n", buf, virt_to_phys(buf));
 
 	/* Prepare the dst scatterlist */
@@ -438,9 +436,8 @@ static int ss_rng_start(ss_aes_ctx_t *ctx, u8 *rdata, unsigned int dlen)
 
 	dma_unmap_single(&ss_dev->pdev->dev, virt_to_phys(task), sizeof(ce_task_desc_t), DMA_MEM_TO_DEV);
 	dma_unmap_single(&ss_dev->pdev->dev, virt_to_phys(buf), rng_len, DMA_DEV_TO_MEM);
-#ifndef SS_TRNG_ENABLE
-	dma_unmap_single(&ss_dev->pdev->dev, virt_to_phys(ctx->key), ctx->key_size, DMA_MEM_TO_DEV);
-#endif
+	if (trng == 0)
+		dma_unmap_single(&ss_dev->pdev->dev, virt_to_phys(ctx->key), ctx->key_size, DMA_MEM_TO_DEV);
 
 	memcpy(rdata, buf, dlen);
 
@@ -450,39 +447,43 @@ static int ss_rng_start(ss_aes_ctx_t *ctx, u8 *rdata, unsigned int dlen)
 	return ret;
 }
 
-int ss_rng_get_random(struct crypto_rng *tfm, u8 *rdata, unsigned int dlen)
+int ss_rng_get_random(struct crypto_rng *tfm, u8 *rdata, u32 dlen, u32 trng)
 {
 	int ret = 0;
 	u8 *data = rdata;
 	u32 len = dlen;
 	ss_aes_ctx_t *ctx = crypto_rng_ctx(tfm);
 
-	SS_DBG("flow = %d, data = %p, len = %d \n", ctx->comm.flow, data, len);
+	SS_DBG("flow = %d, data = %p, len = %d, trng = %d \n", ctx->comm.flow, data, len, trng);
 	if (ss_dev->suspend) {
 		SS_ERR("SS has already suspend. \n");
 		return -EAGAIN;
 	}
 
 #ifdef SS_TRNG_POSTPROCESS_ENABLE
-	len = DIV_ROUND_UP(dlen, SHA256_DIGEST_SIZE) * SHA256_BLOCK_SIZE;
-	data = kzalloc(len, GFP_KERNEL);
-	if (data == NULL) {
-		SS_ERR("Failed to malloc(%d)\n", len);
-		return -ENOMEM;
+	if (trng) {
+		len = DIV_ROUND_UP(dlen, SHA256_DIGEST_SIZE) * SHA256_BLOCK_SIZE;
+		data = kzalloc(len, GFP_KERNEL);
+		if (data == NULL) {
+			SS_ERR("Failed to malloc(%d)\n", len);
+			return -ENOMEM;
+		}
+		SS_DBG("In fact, flow = %d, data = %p, len = %d \n", ctx->comm.flow, data, len);
 	}
-	SS_DBG("In fact, flow = %d, data = %p, len = %d \n", ctx->comm.flow, data, len);
 #endif
 
 	ss_dev_lock();
-	ret = ss_rng_start(ctx, data, len);
+	ret = ss_rng_start(ctx, data, len, trng);
 	ss_dev_unlock();
 
 	SS_DBG("Get %d byte random. \n", ret);
 
 #ifdef SS_TRNG_POSTPROCESS_ENABLE
-	ss_trng_postprocess(rdata, dlen, data, len);
-	ret = dlen;
-	kfree(data);
+	if (trng) {
+		ss_trng_postprocess(rdata, dlen, data, len);
+		ret = dlen;
+		kfree(data);
+	}
 #endif
 
 	return ret;

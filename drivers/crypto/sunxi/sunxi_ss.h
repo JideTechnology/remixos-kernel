@@ -69,7 +69,6 @@
 #define SS_RSA_ENABLE			1
 #endif
 
-#define SS_PRNG_ENABLE			1
 #define SS_PRNG_SEED_LEN		(192/8) /* 192 bits */
 #define SS_RNG_MAX_LEN			SZ_8K
 

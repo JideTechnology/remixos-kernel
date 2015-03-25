@@ -74,13 +74,15 @@ int ss_aes_crypt(struct ablkcipher_request *req, int dir, int method, int mode)
 	return ss_aes_one_req(ss_dev, req);
 }
 
-#ifdef SS_TRNG_ENABLE
-int ss_trng_get_random(struct crypto_rng *tfm, u8 *rdata, unsigned int dlen)
+int ss_prng_get_random(struct crypto_rng *tfm, u8 *rdata, u32 dlen)
 {
-	ss_aes_ctx_t *ctx = crypto_rng_ctx(tfm);
+	return ss_rng_get_random(tfm, rdata, dlen, 0);
+}
 
-	ctx->comm.flags |= SS_FLAG_TRNG;
-	return ss_rng_get_random(tfm, rdata, dlen);
+#ifdef SS_TRNG_ENABLE
+int ss_trng_get_random(struct crypto_rng *tfm, u8 *rdata, u32 dlen)
+{
+	return ss_rng_get_random(tfm, rdata, dlen, 1);
 }
 #endif
 

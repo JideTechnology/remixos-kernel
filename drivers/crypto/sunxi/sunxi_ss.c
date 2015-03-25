@@ -414,10 +414,9 @@ static int ss_sha256_init(struct ahash_request *req)
 }
 #define DECLARE_SS_RSA_ALG(type, bitwidth)	DECLARE_SS_ASYM_ALG(type, bitwidth, (bitwidth/8), (bitwidth/8))
 
-#define ss_prng_get_random		ss_rng_get_random
 #define DECLARE_SS_RNG_ALG(ltype) \
 { \
-	.cra_name = "prng", \
+	.cra_name = #ltype, \
 	.cra_driver_name = "ss-"#ltype, \
 	.cra_flags = CRYPTO_ALG_TYPE_RNG, \
 	.cra_type = &crypto_rng_type, \
@@ -451,11 +450,12 @@ static struct crypto_alg sunxi_ss_algs[] =
 #ifdef SS_RSA2048_ENABLE
 	DECLARE_SS_RSA_ALG(rsa, 2048),
 #endif
+
 #ifdef SS_TRNG_ENABLE
 	DECLARE_SS_RNG_ALG(trng),
-#else
-	DECLARE_SS_RNG_ALG(prng),
 #endif
+	DECLARE_SS_RNG_ALG(prng),
+
 #ifdef SS_HMAC_SHA1_ENABLE
 	{
 		.cra_name		 = "hmac-sha1",
