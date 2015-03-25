@@ -283,13 +283,15 @@ static int ss_aes_start(ss_aes_ctx_t *ctx, ss_aes_req_ctx_t *req_ctx, int len)
 	SS_DBG("Before CE, COMM: 0x%08x, SYM: 0x%08x, ASYM: 0x%08x\n", task->comm_ctl, task->sym_ctl, task->asym_ctl);
 	ss_ctrl_start(task);
 
+	ss_wait_idle();
+	ss_dev_unlock();
+
 	ret = wait_for_completion_timeout(&ss_dev->flows[flow].done, msecs_to_jiffies(SS_WAIT_TIME));
 	if (ret == 0) {
 		SS_ERR("Timed out\n");
 		ss_reset();
 		ret = -ETIMEDOUT;
 	}
-	ss_irq_disable(flow);
 
 	dma_unmap_single(&ss_dev->pdev->dev, virt_to_phys(task), sizeof(ce_task_desc_t), DMA_MEM_TO_DEV);
 
@@ -315,6 +317,8 @@ static int ss_aes_start(ss_aes_ctx_t *ctx, ss_aes_req_ctx_t *req_ctx, int len)
 	dma_unmap_single(&ss_dev->pdev->dev, virt_to_phys(ctx->key), ctx->key_size, DMA_MEM_TO_DEV);
 
 	SS_DBG("After CE, TSR: 0x%08x, ERR: 0x%08x\n", ss_reg_rd(CE_REG_TSR), ss_reg_rd(CE_REG_ERR));
+	ss_dev_lock();
+	ss_irq_disable(flow);
 	if (ss_flow_err(flow)) {
 		SS_ERR("CE return error: %d \n", ss_flow_err(flow));
 		return -EINVAL;
@@ -425,6 +429,9 @@ static int ss_rng_start(ss_aes_ctx_t *ctx, u8 *rdata, u32 dlen, u32 trng)
 	SS_DBG("Before CE, COMM_CTL: 0x%08x, ICR: 0x%08x\n", task->comm_ctl, ss_reg_rd(CE_REG_ICR));
 	ss_ctrl_start(task);
 
+	ss_wait_idle();
+	ss_dev_unlock();
+
 	ret = wait_for_completion_timeout(&ss_dev->flows[flow].done, msecs_to_jiffies(SS_WAIT_TIME));
 	if (ret == 0) {
 		SS_ERR("Timed out\n");
@@ -441,6 +448,7 @@ static int ss_rng_start(ss_aes_ctx_t *ctx, u8 *rdata, u32 dlen, u32 trng)
 
 	memcpy(rdata, buf, dlen);
 
+	ss_dev_lock();
 	ss_irq_disable(flow);
 	ret = dlen;
 
@@ -545,13 +553,15 @@ int ss_hash_start(ss_hash_ctx_t *ctx, ss_aes_req_ctx_t *req_ctx, int len)
 	SS_DBG("Before CE, COMM_CTL: 0x%08x, ICR: 0x%08x\n", task->comm_ctl, ss_reg_rd(CE_REG_ICR));
 	ss_ctrl_start(task);
 
+	ss_wait_idle();
+	ss_dev_unlock();
+
 	ret = wait_for_completion_timeout(&ss_dev->flows[flow].done, msecs_to_jiffies(SS_WAIT_TIME));
 	if (ret == 0) {
 		SS_ERR("Timed out\n");
 		ss_reset();
 		ret = -ETIMEDOUT;
 	}
-	ss_irq_disable(flow);
 	
 	dma_unmap_single(&ss_dev->pdev->dev, virt_to_phys(task), sizeof(ce_task_desc_t), DMA_MEM_TO_DEV);
 	dma_unmap_single(&ss_dev->pdev->dev, virt_to_phys(digest), SHA512_DIGEST_SIZE, DMA_DEV_TO_MEM);
@@ -561,6 +571,9 @@ int ss_hash_start(ss_hash_ctx_t *ctx, ss_aes_req_ctx_t *req_ctx, int len)
 	SS_DBG("After CE, TSR: 0x%08x, ERR: 0x%08x\n", ss_reg_rd(CE_REG_TSR), ss_reg_rd(CE_REG_ERR));
 	SS_DBG("After CE, dst data: \n");
 	ss_print_hex(digest, SHA512_DIGEST_SIZE, digest);
+
+	ss_dev_lock();
+	ss_irq_disable(flow);
 
 	if (ss_flow_err(flow)) {
 		SS_ERR("CE return error: %d \n", ss_flow_err(flow));
