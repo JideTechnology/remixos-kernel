@@ -55,12 +55,12 @@
 #define SUNXI_SPI_FAIL -1
 
 enum spi_mode_type {
-    SINGLE_HALF_DUPLEX_RX,		//single mode, half duplex read
-    SINGLE_HALF_DUPLEX_TX,		//single mode, half duplex write
-    SINGLE_FULL_DUPLEX_RX_TX,	//single mode, full duplex read and write
+	SINGLE_HALF_DUPLEX_RX,		//single mode, half duplex read
+	SINGLE_HALF_DUPLEX_TX,		//single mode, half duplex write
+	SINGLE_FULL_DUPLEX_RX_TX,	//single mode, full duplex read and write
 	DUAL_HALF_DUPLEX_RX,		//dual mode, half duplex read
 	DUAL_HALF_DUPLEX_TX,		//dual mode, half duplex write
-    MODE_TYPE_NULL,
+	MODE_TYPE_NULL,
 };
 
 #ifdef CONFIG_DMA_ENGINE
@@ -705,10 +705,8 @@ static int sunxi_spi_config_dma_tx(struct sunxi_spi *sspi, struct spi_transfer *
  */
 static int sunxi_spi_config_dma(struct sunxi_spi *sspi, enum spi_dma_dir dma_dir, struct spi_transfer *t)
 {
-	if (dma_dir == SPI_DMA_RDEV)
-	{
+	if (dma_dir == SPI_DMA_RDEV) {
 		return sunxi_spi_config_dma_rx(sspi, t);
-	return 0;
 	}
 	else
 		return sunxi_spi_config_dma_tx(sspi, t);
@@ -757,8 +755,7 @@ static int sunxi_spi_check_cs(int cs_id, struct sunxi_spi *sspi)
 {
 	int ret = SUNXI_SPI_FAIL;
 
-	switch(cs_id)
-	{
+	switch(cs_id) {
 	case 0:
 		ret = (sspi->cs_bitmap & SPI_CHIP_SELECT_CS0) ? SUNXI_SPI_OK : SUNXI_SPI_FAIL;
 		break;
@@ -903,8 +900,7 @@ static int sunxi_spi_xfer(struct spi_device *spi, struct spi_transfer *t)
 			}
 		}
 		spin_unlock_irqrestore(&sspi->lock, flags);
-	}
-	else {
+	} else {
 		/* dual spi mode */
 		if(dual_mode_cfg->dual_mode == 1){
 			SPI_DBG("in dual SPI mode\n");
@@ -1482,10 +1478,9 @@ static int sunxi_spi_hw_init(struct sunxi_spi *sspi, struct sunxi_spi_platform_d
 	spi_enable_bus(base_addr);
 	/* 2. set the default chip select */
 	if(SUNXI_SPI_OK == sunxi_spi_check_cs(0, sspi)) {
-	    spi_set_cs(0, base_addr);
-	}
-	else{
-        	spi_set_cs(1, base_addr);
+		spi_set_cs(0, base_addr);
+	} else {
+		spi_set_cs(1, base_addr);
 	}
 	/*
 	 * 3. master: set spi module clock;
