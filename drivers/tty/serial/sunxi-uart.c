@@ -612,7 +612,6 @@ static void sw_uart_flush_buffer(struct uart_port *port)
 	struct sw_uart_port *sw_uport = UART_TO_SPORT(port);
 
 	SERIAL_DBG("flush buffer...\n");
-	sw_uport->fcr = serial_in(port, SUNXI_UART_FCR);
 	serial_out(port, sw_uport->fcr|SUNXI_UART_FCR_TXFIFO_RST, SUNXI_UART_FCR);
 }
 
