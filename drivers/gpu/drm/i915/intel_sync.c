@@ -124,6 +124,29 @@ static void i915_sync_pt_free(struct sync_pt *sync_pt)
 {
 }
 
+void i915_sync_pt_timeline_value_str(struct sync_timeline *timeline, char *str, int size)
+{
+	struct i915_sync_timeline *obj = container_of(timeline, struct i915_sync_timeline, obj);
+
+	snprintf(str, size, "%d [%d]", obj->pvt.value, obj->pvt.ring->get_seqno(obj->pvt.ring, true));
+}
+
+void i915_sync_pt_pt_value_str(struct sync_pt *sync_pt, char *str, int size)
+{
+	struct i915_sync_pt *pt = container_of(sync_pt,
+					       struct i915_sync_pt, pt);
+	struct i915_sync_timeline *timeline =
+		(struct i915_sync_timeline *)sync_pt->parent;
+	struct drm_i915_gem_request *req;
+
+	req = i915_gem_request_find_by_sync_value(timeline->pvt.ring, pt->pvt.value);
+
+	if (req)
+		snprintf(str, size, "%d [%d:%d]", pt->pvt.value, req->uniq, req->seqno);
+	else
+		snprintf(str, size, "%d [-]", pt->pvt.value);
+}
+
 struct sync_timeline_ops i915_sync_timeline_ops = {
 	.driver_name = "i915_sync",
 	.dup = i915_sync_pt_dup,
@@ -131,6 +154,8 @@ struct sync_timeline_ops i915_sync_timeline_ops = {
 	.compare = i915_sync_pt_compare,
 	.fill_driver_data = i915_sync_fill_driver_data,
 	.free_pt = i915_sync_pt_free,
+	.timeline_value_str = i915_sync_pt_timeline_value_str,
+	.pt_value_str = i915_sync_pt_pt_value_str,
 };
 
 int i915_sync_timeline_create(struct drm_device *dev,
@@ -160,6 +185,8 @@ int i915_sync_timeline_create(struct drm_device *dev,
 	 * that is reserved for invalid sync points.
 	 */
 	local->pvt.value = 0;
+	local->pvt.ctx = ctx;
+	local->pvt.ring = ring;
 
 	*timeline = local;
 

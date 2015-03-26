@@ -3080,6 +3080,27 @@ struct drm_i915_gem_request *i915_gem_request_find_by_seqno(struct intel_engine_
 	return req;
 }
 
+struct drm_i915_gem_request *i915_gem_request_find_by_sync_value(struct intel_engine_cs *ring,
+								 uint32_t sync_value)
+{
+	struct drm_i915_gem_request *req = NULL;
+	unsigned long flags;
+
+	spin_lock_irqsave(&ring->reqlist_lock, flags);
+
+	list_for_each_entry(req, &ring->request_list, list) {
+		if (req->sync_value == sync_value)
+			break;
+	}
+
+	if (&req->list == &ring->request_list)
+		req = NULL;
+
+	spin_unlock_irqrestore(&ring->reqlist_lock, flags);
+
+	return req;
+}
+
 /**
  * This function clears the request list as sequence numbers are passed.
  */

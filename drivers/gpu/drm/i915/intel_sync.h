@@ -48,6 +48,9 @@ struct i915_sync_timeline {
 		u32         cycle;
 		uint32_t    killed_at;
 		uint32_t    next;
+
+		struct intel_context *ctx;
+		struct intel_engine_cs *ring;
 	} pvt;
 };
 

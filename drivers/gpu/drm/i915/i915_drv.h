@@ -2241,6 +2241,8 @@ static inline bool i915_gem_request_completed(struct drm_i915_gem_request *req)
 /* For use by TDR type facilities */
 struct drm_i915_gem_request *i915_gem_request_find_by_seqno(struct intel_engine_cs *ring,
 							    uint32_t seqno);
+struct drm_i915_gem_request *i915_gem_request_find_by_sync_value(struct intel_engine_cs *ring,
+								 uint32_t sync_value);
 
 struct drm_i915_file_private {
 	struct drm_i915_private *dev_priv;
