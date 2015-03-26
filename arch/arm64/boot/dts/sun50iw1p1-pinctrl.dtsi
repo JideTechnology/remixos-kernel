@@ -20,6 +20,7 @@
 			s_uart0_pins_a: s_uart0@0 {
 				allwinner,pins = "PL2", "PL3";
 				allwinner,function = "s_uart0";
+				allwinner,muxsel = <2>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -27,6 +28,7 @@
 			s_rsb0_pins_a: s_rsb0@0 {
 				allwinner,pins = "PL0", "PL1";
 				allwinner,function = "s_rsb0";
+				allwinner,muxsel = <2>;
 				allwinner,drive = <2>;
 				allwinner,pull = <1>;
 			};
@@ -34,6 +36,7 @@
 			s_jtag0_pins_a: s_jtag0@0 {
 				allwinner,pins = "PL4", "PL5", "PL6", "PL7";
 				allwinner,function = "s_jtag0";
+				allwinner,muxsel = <2>;
 				allwinner,drive = <2>;
 				allwinner,pull = <1>;
 			};
@@ -41,6 +44,7 @@
 			s_cir0_pins_a: s_cir0@0 {
 				allwinner,pins = "PL11";
 				allwinner,function = "s_cir0";
+				allwinner,muxsel = <2>;
 				allwinner,drive = <2>;
 				allwinner,pull = <1>;
 			};
@@ -63,6 +67,7 @@
 			vdevice_pins_a: vdevice@0 {
 				allwinner,pins = "PB0", "PB1";
 				allwinner,function = "vdevice";
+				allwinner,muxsel = <3>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -71,6 +76,7 @@
 				allwinner,pins = "PB8", "PB9";
 				allwinner,pname = "uart0_tx", "uart0_rx";
 				allwinner,function = "uart0";
+				allwinner,muxsel = <4>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -78,6 +84,7 @@
 			uart0_pins_b: uart0@1 {
 				allwinner,pins = "PB8", "PB9";
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -86,6 +93,7 @@
 				allwinner,pins = "PG6", "PG7", "PG8", "PG9";
 				allwinner,pname = "uart1_tx", "uart1_rx", "uart1_rts", "uart1_cts";
 				allwinner,function = "uart1";
+				allwinner,muxsel = <2>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -93,6 +101,7 @@
 			uart1_pins_b: uart1@1 {
 				allwinner,pins = "PG6", "PG7", "PG8", "PG9";
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -101,6 +110,7 @@
 				allwinner,pins = "PB0", "PB1", "PB2", "PB3";
 				allwinner,pname = "uart2_tx", "uart2_rx", "uart2_rts", "uart2_cts";
 				allwinner,function = "uart2";
+				allwinner,muxsel = <2>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -108,6 +118,7 @@
 			uart2_pins_b: uart2@1 {
 				allwinner,pins = "PB0", "PB1", "PB2", "PB3";
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -116,6 +127,7 @@
 				allwinner,pins = "PH4", "PH5", "PH6", "PH7";
 				allwinner,pname = "uart3_tx", "uart3_rx", "uart3_rts", "uart3_cts";
 				allwinner,function = "uart3";
+				allwinner,muxsel = <2>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -123,6 +135,7 @@
 			uart3_pins_b: uart3@1 {
 				allwinner,pins = "PH4", "PH5", "PH6", "PH7";
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -131,6 +144,7 @@
 				allwinner,pins = "PD2", "PD3", "PD4", "PD5";
 				allwinner,pname = "uart4_tx", "uart4_rx", "uart4_rts", "uart4_cts";
 				allwinner,function = "uart4";
+				allwinner,muxsel = <3>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -138,6 +152,7 @@
 			uart4_pins_b: uart4@1 {
 				allwinner,pins = "PD2", "PD3", "PD4", "PD5";
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -146,6 +161,7 @@
 				allwinner,pins = "PH0", "PH1";
 				allwinner,pname = "twi0_scl", "twi0_sda";
 				allwinner,function = "twi0";
+				allwinner,muxsel = <2>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
@@ -153,6 +169,7 @@
 			twi0_pins_b: twi0@1 {
 				allwinner,pins = "PH0", "PH1";
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
@@ -161,6 +178,7 @@
 				allwinner,pins = "PH2", "PH3";
 				allwinner,pname = "twi1_scl", "twi1_sda";
 				allwinner,function = "twi1";
+				allwinner,muxsel = <2>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
@@ -168,6 +186,7 @@
 			twi1_pins_b: twi1@1 {
 				allwinner,pins = "PH2", "PH3";
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
@@ -176,6 +195,7 @@
 				allwinner,pins = "PE14", "PE15";
 				allwinner,pname = "twi2_scl", "twi2_sda";
 				allwinner,function = "twi2";
+				allwinner,muxsel = <3>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
@@ -183,6 +203,7 @@
 			twi2_pins_b: twi2@1 {
 				allwinner,pins = "PE14", "PE15";
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
@@ -191,6 +212,7 @@
 				allwinner,pins = "PC2", "PC0", "PC1";
 				allwinner,pname = "spi0_sclk", "spi0_mosi", "spi0_miso";
 				allwinner,function = "spi0";
+				allwinner,muxsel = <4>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
@@ -199,6 +221,7 @@
 				allwinner,pins = "PC3";
 				allwinner,pname = "spi0_cs0";
 				allwinner,function = "spi0";
+				allwinner,muxsel = <4>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>; 	// only CS should be pulled up
 			};
@@ -206,6 +229,7 @@
 			spi0_pins_c: spi0@2 {
 				allwinner,pins = "PC3", "PC2", "PC0", "PC1";
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
@@ -214,6 +238,7 @@
 				allwinner,pins = "PD1", "PD2", "PD3";
 				allwinner,pname = "spi1_sclk", "spi1_mosi", "spi1_miso";
 				allwinner,function = "spi1";
+				allwinner,muxsel = <4>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
@@ -222,6 +247,7 @@
 				allwinner,pins = "PD0";
 				allwinner,pname = "spi1_cs0";
 				allwinner,function = "spi1";
+				allwinner,muxsel = <4>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>; 	// only CS should be pulled up
 			};
@@ -229,6 +255,7 @@
 			spi1_pins_c: spi1@2 {
 				allwinner,pins = "PD0", "PD1", "PD2", "PD3";
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
@@ -236,6 +263,7 @@
 			sdc0_pins_a: sdc0@0 {
 				allwinner,pins = "PF0", "PF1", "PF2", "PF3","PF4","PF5";
 				allwinner,function = "sdc0";
+				allwinner,muxsel = <2>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -243,6 +271,7 @@
 			sdc0_pins_b: sdc0@1 {
 				allwinner,pins = "PF0", "PF1", "PF2", "PF3","PF4","PF5";
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -250,6 +279,7 @@
 			sdc1_pins_a: sdc1@0 {
 				allwinner,pins = "PG0", "PG1", "PG2", "PG3","PG4","PG5";
 				allwinner,function = "sdc1";
+				allwinner,muxsel = <2>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -257,6 +287,7 @@
 			sdc1_pins_b: sdc1@1 {
 				allwinner,pins = "PG0", "PG1", "PG2", "PG3","PG4","PG5";
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -264,6 +295,7 @@
 			sdc2_pins_a: sdc2@0 {
 				allwinner,pins = "PC1","PC5", "PC6", "PC8", "PC9","PC10","PC11","PC12","PC13","PC14","PC15","PC16";
 				allwinner,function = "sdc2";
+				allwinner,muxsel = <3>;
 				allwinner,drive = <2>;
 				allwinner,pull = <1>;
 			};
@@ -271,6 +303,7 @@
 			sdc2_pins_b: sdc2@1 {
 			allwinner,pins = "PC1","PC5", "PC6", "PC8", "PC9","PC10","PC11","PC12","PC13","PC14","PC15","PC16";
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -278,60 +311,70 @@
 			daudio0_pins_a: daudio0@0 {
 				allwinner,pins = "PB6", "PB3", "PB4", "PB5", "PB7";
 				allwinner,function = "pcm0";
+				allwinner,muxsel = <3>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
 			daudio0_pins_b: daudio0_sleep@0 {
 				allwinner,pins = "PB6", "PB3", "PB4", "PB5", "PB7";
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
 			daudio1_pins_a: daudio1@0 {
 				allwinner,pins = "PG10", "PG11", "PG12", "PG13";
 				allwinner,function = "pcm1";
+				allwinner,muxsel = <3>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
 			daudio1_pins_b: daudio1_sleep@0 {
 				allwinner,pins = "PG10", "PG11", "PG12", "PG13";
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
 			aif2_pins_a: aif2@0 {
 				allwinner,pins = "PB6", "PB4", "PB5", "PB7";
 				allwinner,function = "aif2";
+				allwinner,muxsel = <2>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
 			aif3_pins_a: aif3@0 {
 				allwinner,pins = "PG10", "PG11", "PG12", "PG13";
 				allwinner,function = "aif3";
+				allwinner,muxsel = <2>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
 			aif2_pins_b: aif2_sleep@0 {
 				allwinner,pins = "PB6", "PB4", "PB5", "PB7";
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
 			aif3_pins_b: aif3_sleep@0 {
 				allwinner,pins = "PG10", "PG11", "PG12", "PG13";
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
 			spdif_pins_a: spdif@0 {
 				allwinner,pins = "PH8";/*ph8-spec*/
 				allwinner,function = "spdif0";
+				allwinner,muxsel = <2>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
 			spdif_pins_b: spdif_sleep@0 {
 				allwinner,pins = "PH8";/*ph8-spec*/
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
@@ -341,6 +384,7 @@
 				allwinner,pname = "csi0_pck","csi0_hsync","csi0_vsync","csi0_d0","csi0_d1","csi0_d2",
 								"csi0_d3","csi0_d4","csi0_d5","csi0_d6","csi0_d7","csi0_sck","csi0_sda";
 				allwinner,function = "csi0";
+				allwinner,muxsel = <2>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 				allwinner,data = <0>;
@@ -350,6 +394,7 @@
 				allwinner,pname = "csi0_pck","csi0_hsync","csi0_vsync","csi0_d0","csi0_d1","csi0_d2",
 								"csi0_d3","csi0_d4","csi0_d5","csi0_d6","csi0_d7","csi0_sck","csi0_sda";
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 				allwinner,data = <0>;
@@ -358,6 +403,7 @@
 			scr_pins_a: smartcard@0 {
 				allwinner,pins = "PB1", "PB4", "PB5", "PB6","PB7";
 				allwinner,function = "sim0";
+				allwinner,muxsel = <5>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -366,6 +412,7 @@
 				allwinner,pins ="PC0", "PC1", "PC2", "PC5", "PC8", "PC9", "PC10", "PC11", "PC12", "PC13","PC14", "PC15","PC16";
 				allwinner,pname= "nand0_we", "nand0_ale", "nand0_cle", "nand0_nre", "nand0_d0", "nand0_d1", "nand0_d2", "nand0_d3", "nand0_d4", "nand0_d5", "nand0_d6", "nand0_d7", "nand0_ndqs";
 				allwinner,function = "nand0";
+				allwinner,muxsel = <2>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
@@ -374,6 +421,7 @@
 				allwinner,pins ="PC3", "PC4", "PC6", "PC7", "PC17","PC18";
 				allwinner,pname= "nand0_ce1", "nand0_ce0", "nand0_rb0", "nand0_rb1", "nand0_ce2", "nand0_ce3";
 				allwinner,function = "nand0";
+				allwinner,muxsel = <2>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;// only RB&CE should be pulled up
 			};
@@ -381,6 +429,7 @@
 			nand0_pins_c: nand0@2 {
 				allwinner,pins ="PC0", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10", "PC11", "PC12", "PC13", "PC14", "PC15", "PC16", "PC17", "PC18";
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
@@ -388,6 +437,7 @@
 			lcd_pins_a: disp@0 {
 				allwinner,pins = "PD12", "PD13", "PD14", "PD15", "PD16", "PD17", "PD18", "PD19", "PD20", "PD21";
 				allwinner,function = "lvds0";
+				allwinner,muxsel = <3>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -395,6 +445,7 @@
 			lcd_pins_b: disp@1 {
 				allwinner,pins = "PD12", "PD13", "PD14", "PD15", "PD16", "PD17", "PD18", "PD19", "PD20", "PD21";
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -402,6 +453,7 @@
 			pwm_pins_a: pwm@0 {
 				allwinner,pins = "PD22";
 				allwinner,function = "pwm0";
+				allwinner,muxsel = <2>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -409,6 +461,7 @@
 			pwm_pins_b: pwm@1 {
 				allwinner,pins = "PD22";
 				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
 			};
@@ -419,6 +472,7 @@
 						"PD16", "PD17", "PD18", "PD19",
 						"PD20", "PD21", "PD22", "PD23";
 				allwinner,function = "gmac0";
+				allwinner,muxsel = <4>;
 				allwinner,drive = <3>;
 				allwinner,pull = <0>;
 			};

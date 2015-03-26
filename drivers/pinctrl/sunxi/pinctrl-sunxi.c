@@ -70,6 +70,32 @@ sunxi_pinctrl_find_function_by_name(struct sunxi_pinctrl *pctl,
 }
 
 static struct sunxi_desc_function *
+sunxi_pinctrl_desc_find_function_by_mulval(struct sunxi_pinctrl *pctl,
+					 const char *pin_name,
+					 const u32 mul_sel)
+{
+	int i;
+
+	for (i = 0; i < pctl->desc->npins; i++) {
+		const struct sunxi_desc_pin *pin = pctl->desc->pins + i;
+
+		if (!strcmp(pin->pin.name, pin_name)) {
+			struct sunxi_desc_function *func = pin->functions;
+
+			while (func->name) {
+				if (func->muxval == mul_sel)
+					return func;
+
+				func++;
+			}
+		}
+	}
+
+	return NULL;
+}
+
+
+static struct sunxi_desc_function *
 sunxi_pinctrl_desc_find_function_by_name(struct sunxi_pinctrl *pctl,
 					 const char *pin_name,
 					 const char *func_name)
@@ -155,15 +181,15 @@ static int sunxi_pctrl_dt_node_to_map(struct pinctrl_dev *pctldev,
 	struct sunxi_pinctrl *pctl = pinctrl_dev_get_drvdata(pctldev);
 	unsigned long *pinconfig;
 	struct property *prop;
-	const char *function;
+	struct sunxi_desc_function *func;
 	const char *group;
 	int ret, nmaps, i = 0;
-	u32 val;
+	u32 val, muxsel;
 
 	*map = NULL;
 	*num_maps = 0;
 
-	ret = of_property_read_string(node, "allwinner,function", &function);
+	ret = of_property_read_u32(node, "allwinner,muxsel", &muxsel);
 	if (ret) {
 		dev_err(pctl->dev,
 			"missing allwinner,function property in node %s\n",
@@ -192,18 +218,18 @@ static int sunxi_pctrl_dt_node_to_map(struct pinctrl_dev *pctldev,
 			dev_err(pctl->dev, "unknown pin %s", group);
 			continue;
 		}
-
-		if (!sunxi_pinctrl_desc_find_function_by_name(pctl,
+		func = sunxi_pinctrl_desc_find_function_by_mulval(pctl,
 							      grp->name,
-							      function)) {
-			dev_err(pctl->dev, "unsupported function %s on pin %s",
-				function, group);
+							      muxsel);
+		if (!func) {
+			dev_err(pctl->dev, "can not get function on pin %s",
+				group);
 			continue;
 		}
 
 		(*map)[i].type = PIN_MAP_TYPE_MUX_GROUP;
 		(*map)[i].data.mux.group = group;
-		(*map)[i].data.mux.function = function;
+		(*map)[i].data.mux.function = func->name;
 
 		i++;
 
