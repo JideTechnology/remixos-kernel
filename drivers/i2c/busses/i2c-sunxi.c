@@ -98,7 +98,7 @@ struct sunxi_i2c {
 static inline void twi_clear_irq_flag(void __iomem *base_addr)
 {
 	unsigned int reg_val = readl(base_addr + TWI_CTL_REG);
-    /* start and stop bit should be 0 */
+	/* start and stop bit should be 0 */
 	reg_val |= TWI_CTL_INTFLG;
 	reg_val &= ~(TWI_CTL_STA | TWI_CTL_STP);
 	writel(reg_val ,base_addr + TWI_CTL_REG);
@@ -279,8 +279,7 @@ static void twi_set_clock(unsigned int clk_in, unsigned int sclk_req, void __iom
 			sclk_real = src_clk/(clk_m + 1)/_2_pow_clk_n;  /* src_clk/((m+1)*2^n) */
 			if (sclk_real <= sclk_req) {
 				goto set_clk;
-			}
-			else {
+			} else {
 				clk_m++;
 			}
 		}
@@ -405,14 +404,14 @@ static int twi_stop(void __iomem *base_addr, int bus_num)
 	timeout = 0xff;
 	while((TWI_STAT_IDLE != readl(base_addr + TWI_STAT_REG))&&(--timeout));
 	if (timeout == 0) {
-		I2C_ERR("[i2c%d] i2c state isn't idle(0xf8)\n", bus_num);
+		I2C_ERR("[i2c%d] i2c state(0x%08x) isn't idle(0xf8)\n", bus_num, readl(base_addr + TWI_STAT_REG));
 		return SUNXI_I2C_TFAIL;
 	}
 
 	timeout = 0xff;
 	while((TWI_LCR_IDLE_STATUS != readl(base_addr + TWI_LCR_REG))&&(--timeout));
 	if (timeout == 0) {
-		I2C_ERR("[i2c%d] i2c lcr isn't idle(0x3a)\n", bus_num);
+		I2C_ERR("[i2c%d] i2c lcr(0x%08x) isn't idle(0x3a)\n", bus_num, readl(base_addr + TWI_LCR_REG));
 		return SUNXI_I2C_TFAIL;
 	}
 
@@ -422,85 +421,83 @@ static int twi_stop(void __iomem *base_addr, int bus_num)
 /* get SDA state */
 static unsigned int twi_get_sda(void __iomem *base_addr)
 {
-    unsigned int status = 0;
-    status = TWI_LCR_SDA_STATE_MASK & readl(base_addr + TWI_LCR_REG);
-    status >>= 4;
-    return  (status&0x1);
+	unsigned int status = 0;
+	status = TWI_LCR_SDA_STATE_MASK & readl(base_addr + TWI_LCR_REG);
+	status >>= 4;
+	return (status&0x1);
 }
 
 /* set SCL level(high/low), only when SCL enable */
 static void twi_set_scl(void __iomem *base_addr, unsigned int hi_lo)
 {
-    unsigned int reg_val = readl(base_addr + TWI_LCR_REG);
-    reg_val &= ~TWI_LCR_SCL_CTL;
-    hi_lo   &= 0x01;
-    reg_val |= (hi_lo<<3);
-    writel(reg_val, base_addr + TWI_LCR_REG);
+	unsigned int reg_val = readl(base_addr + TWI_LCR_REG);
+	reg_val &= ~TWI_LCR_SCL_CTL;
+	hi_lo   &= 0x01;
+	reg_val |= (hi_lo<<3);
+	writel(reg_val, base_addr + TWI_LCR_REG);
 }
 
 /* enable SDA or SCL */
 static void twi_enable_lcr(void __iomem *base_addr, unsigned int sda_scl)
 {
-    unsigned int reg_val = readl(base_addr + TWI_LCR_REG);
-    sda_scl &= 0x01;
-    if (sda_scl)
-        reg_val |= TWI_LCR_SCL_EN;/* enable scl line control */
-    else
-        reg_val |= TWI_LCR_SDA_EN;/* enable sda line control */
+	unsigned int reg_val = readl(base_addr + TWI_LCR_REG);
+	sda_scl &= 0x01;
+	if (sda_scl)
+		reg_val |= TWI_LCR_SCL_EN;/* enable scl line control */
+	else
+		reg_val |= TWI_LCR_SDA_EN;/* enable sda line control */
 
-    writel(reg_val, base_addr + TWI_LCR_REG);
+	writel(reg_val, base_addr + TWI_LCR_REG);
 }
 
 /* disable SDA or SCL */
 static void twi_disable_lcr(void __iomem *base_addr, unsigned int sda_scl)
 {
-    unsigned int reg_val = readl(base_addr + TWI_LCR_REG);
-    sda_scl &= 0x01;
-    if (sda_scl)
-        reg_val &= ~TWI_LCR_SCL_EN;/* disable scl line control */
-    else
-        reg_val &= ~TWI_LCR_SDA_EN;/* disable sda line control */
+	unsigned int reg_val = readl(base_addr + TWI_LCR_REG);
+	sda_scl &= 0x01;
+	if (sda_scl)
+		reg_val &= ~TWI_LCR_SCL_EN;/* disable scl line control */
+	else
+		reg_val &= ~TWI_LCR_SDA_EN;/* disable sda line control */
 
-    writel(reg_val, base_addr + TWI_LCR_REG);
+	writel(reg_val, base_addr + TWI_LCR_REG);
 }
 
 /* send 9 clock to release sda */
 static int twi_send_clk_9pulse(void __iomem *base_addr, int bus_num)
 {
-    int twi_scl = 1;
-    int low = 0;
-    int high = 1;
-    int cycle = 0;
+	int twi_scl = 1;
+	int low = 0;
+	int high = 1;
+	int cycle = 0;
 
-    /* enable scl control */
-    twi_enable_lcr(base_addr, twi_scl);
+	/* enable scl control */
+	twi_enable_lcr(base_addr, twi_scl);
 
-    while (cycle < 9)
-    {
-        if (twi_get_sda(base_addr)
-            && twi_get_sda(base_addr)
-            && twi_get_sda(base_addr)) {
-            break;
-        }
-        /* twi_scl -> low */
-        twi_set_scl(base_addr, low);
-        udelay(1000);
+	while (cycle < 9){
+		if (twi_get_sda(base_addr)
+		    && twi_get_sda(base_addr)
+		    && twi_get_sda(base_addr)) {
+			break;
+		}
+		/* twi_scl -> low */
+		twi_set_scl(base_addr, low);
+		udelay(1000);
 
-        /* twi_scl -> high */
-        twi_set_scl(base_addr, high);
-        udelay(1000);
-        cycle++;
-    }
+		/* twi_scl -> high */
+		twi_set_scl(base_addr, high);
+		udelay(1000);
+		cycle++;
+	}
 
-    if (twi_get_sda(base_addr)) {
-        twi_disable_lcr(base_addr, twi_scl);
-        return SUNXI_I2C_OK;
-    }
-    else {
-        I2C_ERR("[i2c%d] SDA is still Stuck Low, failed. \n", bus_num);
-        twi_disable_lcr(base_addr, twi_scl);
-        return SUNXI_I2C_FAIL;
-    }
+	if (twi_get_sda(base_addr)) {
+		twi_disable_lcr(base_addr, twi_scl);
+		return SUNXI_I2C_OK;
+	} else {
+		I2C_ERR("[i2c%d] SDA is still Stuck Low, failed. \n", bus_num);
+		twi_disable_lcr(base_addr, twi_scl);
+		return SUNXI_I2C_FAIL;
+	}
 }
 
 static int twi_regulator_request(struct sunxi_i2c_platform_data *pdata)
@@ -582,8 +579,7 @@ static void sunxi_i2c_addr_byte(struct sunxi_i2c *i2c)
 		tmp = 0x78 | ( ( (i2c->msg[i2c->msg_idx].addr)>>8 ) & 0x03);
 		addr = tmp << 1;//1111_0xx0
 		/* how about the second part of ten bits addr? Answer: deal at twi_core_process() */
-	}
-	else {
+	} else {
 		/* 7-1bits addr, xxxx_xxx0 */
 		addr = (i2c->msg[i2c->msg_idx].addr & 0x7f) << 1;
 	}
@@ -640,11 +636,11 @@ static int sunxi_i2c_core_process(struct sunxi_i2c *i2c)
 	}
 #endif
 
-    if (i2c->msg == NULL) {
-        I2C_ERR("[i2c%d] i2c message is NULL, err_code = 0xfe\n", i2c->bus_num);
-        err_code = 0xfe;
-        goto msg_null;
-    }
+	if (i2c->msg == NULL) {
+		I2C_ERR("[i2c%d] i2c message is NULL, err_code = 0xfe\n", i2c->bus_num);
+		err_code = 0xfe;
+		goto msg_null;
+	}
 
 	switch (state) {
 	case 0xf8: /* On reset or stop the bus is idle, use only at poll method */
@@ -680,15 +676,13 @@ static int sunxi_i2c_core_process(struct sunxi_i2c *i2c)
 		if (i2c->msg_idx == i2c->msg_num) {
 			err_code = SUNXI_I2C_OK;/* Success,wakeup */
 			goto ok_out;
-		}
-		else if (i2c->msg_idx < i2c->msg_num) {/* for restart pattern */
+		} else if (i2c->msg_idx < i2c->msg_num) {/* for restart pattern */
 			ret = twi_restart(base_addr, i2c->bus_num);/* read spec, two msgs */
 			if (ret == SUNXI_I2C_FAIL) {
 				err_code = SUNXI_I2C_SFAIL;
 				goto err_out;/* START can't sendout */
 			}
-		}
-		else {
+		} else {
 			err_code = SUNXI_I2C_FAIL;
 			goto err_out;
 		}
@@ -706,8 +700,7 @@ static int sunxi_i2c_core_process(struct sunxi_i2c *i2c)
 			/* send register addr complete,then enable the A_ACK and get ready for receiving data */
 			twi_enable_ack(base_addr);
 			twi_clear_irq_flag(base_addr);/* jump to case 0x50 */
-		}
-		else if (i2c->msg[i2c->msg_idx].len == 1) {
+		} else if (i2c->msg[i2c->msg_idx].len == 1) {
 			twi_clear_irq_flag(base_addr);/* jump to case 0x58 */
 		}
 		break;
@@ -738,8 +731,7 @@ static int sunxi_i2c_core_process(struct sunxi_i2c *i2c)
 			if (i2c->msg_idx == i2c->msg_num) {
 				err_code = SUNXI_I2C_OK; // succeed,wakeup the thread
 				goto ok_out;
-			}
-			else if (i2c->msg_idx < i2c->msg_num) {
+			} else if (i2c->msg_idx < i2c->msg_num) {
 				/* repeat start */
 				ret = twi_restart(base_addr, i2c->bus_num);
 				if(ret == SUNXI_I2C_FAIL) {/* START fail */
@@ -748,8 +740,7 @@ static int sunxi_i2c_core_process(struct sunxi_i2c *i2c)
 				}
 				break;
 			}
-		}
-		else {
+		} else {
 			err_code = 0x58;
 			goto err_out;
 		}
@@ -814,8 +805,7 @@ static int sunxi_i2c_xfer_complete(struct sunxi_i2c *i2c, int code)
 		I2C_ERR("[i2c%d] Maybe Logic Error, debug it!\n", i2c->bus_num);
 		i2c->msg_idx = code;
 		ret = SUNXI_I2C_FAIL;
-	}
-	else if (code != SUNXI_I2C_OK) {
+	} else if (code != SUNXI_I2C_OK) {
 		i2c->msg_idx = code;
 		ret = SUNXI_I2C_FAIL;
 	}
@@ -867,13 +857,12 @@ static int sunxi_i2c_do_xfer(struct sunxi_i2c *i2c, struct i2c_msg *msgs, int nu
 	       TWI_STAT_BUS_ERR != twi_query_irq_status(i2c->base_addr) &&
 	       TWI_STAT_ARBLOST_SLAR_ACK != twi_query_irq_status(i2c->base_addr)) {
 		I2C_DBG("[i2c%d] bus is busy, status = %x\n", i2c->bus_num, twi_query_irq_status(i2c->base_addr));
-        if (SUNXI_I2C_OK == twi_send_clk_9pulse(i2c->base_addr, i2c->bus_num)) {
-            break;
-        }
-        else {
-            ret = SUNXI_I2C_RETRY;
-            goto out;
-        }
+		if (SUNXI_I2C_OK == twi_send_clk_9pulse(i2c->base_addr, i2c->bus_num)) {
+			break;
+		} else {
+			ret = SUNXI_I2C_RETRY;
+			goto out;
+		}
 	}
 
 	/* may conflict with xfer_complete */
@@ -883,18 +872,10 @@ static int sunxi_i2c_do_xfer(struct sunxi_i2c *i2c, struct i2c_msg *msgs, int nu
 	i2c->msg_ptr = 0;
 	i2c->msg_idx = 0;
 	i2c->status  = I2C_XFER_START;
-    twi_enable_irq(i2c->base_addr);  /* enable irq */
+	twi_enable_irq(i2c->base_addr);  /* enable irq */
 	twi_disable_ack(i2c->base_addr); /* disabe ACK */
 	twi_set_efr(i2c->base_addr, 0);  /* set the special function register,default:0. */
 	spin_unlock_irqrestore(&i2c->lock, flags);
-
-//	for(i =0 ; i < num; i++){
-//		for(j = 0; j < msgs->len; j++){
-//			I2C_DBG("baddr = 0x%x \n",msgs->addr);
-//			I2C_DBG("data = 0x%x \n", msgs->buf[j]);
-//		}
-//		I2C_DBG("\n\n");
-//	}
 
 	/* START signal, needn't clear int flag */
 	ret = twi_start(i2c->base_addr, i2c->bus_num);
@@ -917,8 +898,7 @@ static int sunxi_i2c_do_xfer(struct sunxi_i2c *i2c, struct i2c_msg *msgs, int nu
 		i2c->msg = NULL;
 		spin_unlock_irqrestore(&i2c->lock, flags);
 		ret = -ETIME;
-	}
-	else if (ret != num) {
+	} else if (ret != num) {
 		I2C_ERR("[i2c%d] incomplete xfer (status: 0x%x, dev addr: 0x%x)\n", i2c->bus_num, ret, msgs->addr);
 		ret = -ECOMM;
 	}
