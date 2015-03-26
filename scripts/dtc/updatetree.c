@@ -266,6 +266,12 @@ cell_t sunxi_dt_add_new_node_to_pinctrl(struct node *pinctrl_node,
 	prop = build_property("allwinner,pname", d);
 	add_property(child, prop);
 
+	value_32 = cpu_to_fdt32(gpio_value[0]);
+	len = sizeof(unsigned int);
+	d = data_copy_mem((char *)&value_32, len);
+	prop = build_property("allwinner,muxsel", d);
+	add_property(child, prop);
+
 	value_32 = cpu_to_fdt32(gpio_value[1]);
 	len = sizeof(unsigned int);
 	d = data_copy_mem((char *)&value_32, len);
@@ -295,7 +301,7 @@ int insert_pinconf_node(const char *section_name,
 {
 	char gpio_name[32], *string;
 	cell_t *cp, *info;
-	int pull = 0, data = 0, drive = 0;
+	int muxsel = 0, pull = 0, data = 0, drive = 0;
 	int i, ret, len, gpio_value[4], phandle, phandle_count;
 
 	struct node *pin_node;
@@ -319,6 +325,12 @@ int insert_pinconf_node(const char *section_name,
 		if (pin_node) {
 
 			/* if find a pinctrl node, check config*/
+			prop_temp = get_property(pin_node, "allwinner,muxsel");
+			if (prop_temp) {
+				info = (cell_t *)prop_temp->val.val;
+				muxsel = fdt32_to_cpu(*info++);
+			}
+			
 			prop_temp = get_property(pin_node, "allwinner,pull");
 			if (prop_temp) {
 				info = (cell_t *)prop_temp->val.val;
@@ -334,7 +346,8 @@ int insert_pinconf_node(const char *section_name,
 				info = (cell_t *)prop_temp->val.val;
 				data = fdt32_to_cpu(*info++);
 			}
-			if (gpio_value[1] == pull && gpio_value[2] == drive && gpio_value[3] == data) {
+			if (gpio_value[0] == muxsel && gpio_value[1] == pull &&
+				gpio_value[2] == drive && gpio_value[3] == data) {
 				prop_temp = get_property(pin_node, "allwinner,pins");
 				if (prop_temp) {
 					len = prop_temp->val.len + strlen(gpio_name) + 1;
