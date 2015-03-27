@@ -951,7 +951,7 @@ int i915_scheduler_dump_locked(struct intel_engine_cs *ring, const char *msg)
 					deps++;
 
 			DRM_DEBUG_DRIVER("<%s>   %c:%02d> index = %d, uniq = %d, seqno"
-					 " = %d/%s, deps = %d / %d, %s [pri = "
+					 " = %d/%s, deps = %d / %d, fence = %p/%d, %s [pri = "
 					 "%4d]\n", ring->name,
 					 i915_scheduler_queue_status_chr(node->status),
 					 count,
@@ -960,6 +960,8 @@ int i915_scheduler_dump_locked(struct intel_engine_cs *ring, const char *msg)
 					 node->params.request->seqno,
 					 node->params.ring->name,
 					 deps, node->num_deps,
+					 node->params.fence_wait,
+					 node->params.fence_wait ? node->params.fence_wait->status : 0,
 					 i915_qe_state_str(node),
 					 node->priority);
 
