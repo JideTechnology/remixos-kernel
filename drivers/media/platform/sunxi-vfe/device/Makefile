@@ -8,6 +8,7 @@ obj-m			+= gt2005.o
 obj-m			+= gc0307.o
 obj-m			+= gc0308.o
 obj-m			+= gc0328.o
+obj-m			+= gc0328c.o
 obj-m			+= gc0329.o
 obj-m			+= gc0311.o
 obj-m			+= hi253.o
