@@ -26,7 +26,6 @@
 static spinlock_t syn_channel_lock;
 static spinlock_t asyn_channel_lock;
 static spinlock_t int_lock;
-static unsigned long int_flag = 0;
 static void __iomem *vbase;
 
 /**
@@ -310,6 +309,8 @@ int arisc_hwmsgbox_clear_receiver_pending(int queue, int user)
  */
 irqreturn_t arisc_hwmsgbox_int_handler(int irq, void *dev)
 {
+	unsigned long hwmsg_flg;
+
 #ifdef CONFIG_FPGA_V4_PLATFORM /* S4 820 */
 /*
  * rtimer0-1, rwdog, mbox share gic No.41 interrupt on fpga v4,
@@ -317,18 +318,18 @@ irqreturn_t arisc_hwmsgbox_int_handler(int irq, void *dev)
  */
 	volatile unsigned int u1_en, u1_pend;
 
-	spin_lock_irqsave(&(int_lock), int_flag);
+	spin_lock_irqsave(&int_lock, hwmsg_flg);
 	u1_en = readl(vbase + AW_MSGBOX_IRQ_EN_REG(AW_HWMSG_QUEUE_USER_AC327));
 	u1_pend = readl(vbase + AW_MSGBOX_IRQ_STATUS_REG(AW_HWMSG_QUEUE_USER_AC327));
 	if ((u1_en & u1_pend) == 0)
 	{
-		spin_unlock_irqrestore(&(int_lock), int_flag);
+		spin_unlock_irqrestore(&int_lock, hwmsg_flg);
 		return IRQ_HANDLED;
 	}
-	spin_unlock_irqrestore(&(int_lock), int_flag);
+	spin_unlock_irqrestore(&int_lock, hwmsg_flg);
 #endif
 	ARISC_INF("ac327 msgbox interrupt handler...\n");
-	spin_lock_irqsave(&(int_lock), int_flag);
+	spin_lock_irqsave(&int_lock, hwmsg_flg);
 	/* process ac327 asyn received channel, process all received messages */
 	while (readl(vbase + AW_MSGBOX_MSG_STATUS_REG(ARISC_HWMSGBOX_ARISC_ASYN_TX_CH))) {
 		volatile unsigned int value;
@@ -409,7 +410,7 @@ irqreturn_t arisc_hwmsgbox_int_handler(int irq, void *dev)
 	}
 	/* clear pending */
 	arisc_hwmsgbox_clear_receiver_pending(ARISC_HWMSGBOX_ARISC_SYN_TX_CH, AW_HWMSG_QUEUE_USER_AC327);
-	spin_unlock_irqrestore(&(int_lock), int_flag);
+	spin_unlock_irqrestore(&int_lock, hwmsg_flg);
 
 	return IRQ_HANDLED;
 }

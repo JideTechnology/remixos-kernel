@@ -224,7 +224,6 @@ int arisc_cpux_ready_notify(void)
 
 	/* notify hwspinlock and hwmsgbox resume first */
 	arisc_hwmsgbox_standby_resume();
-	arisc_hwspinlock_standby_resume();
 
 	/* allocate a message frame */
 	pmessage = arisc_message_allocate(ARISC_MESSAGE_ATTR_HARDSYN);
@@ -304,7 +303,6 @@ int arisc_cpux_talkstandby_ready_notify(void)
 
 	/* notify hwspinlock and hwmsgbox resume first */
 	arisc_hwmsgbox_standby_resume();
-	arisc_hwspinlock_standby_resume();
 
 	/* allocate a message frame */
 	pmessage = arisc_message_allocate(ARISC_MESSAGE_ATTR_HARDSYN);

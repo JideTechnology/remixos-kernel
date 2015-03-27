@@ -58,7 +58,7 @@ typedef struct arisc_message
 	volatile struct arisc_message   *next;        /* pointer of next message frame             */
 	volatile struct arisc_msg_cb     cb;          /* the callback function and arg of message  */
 	volatile void                   *private;     /* message private data                      */
-	volatile unsigned int            paras[92];   /* the parameters of message                 */
+	volatile unsigned int            paras[22];   /* the parameters of message                 */
 } arisc_message_t;
 #else
 /*

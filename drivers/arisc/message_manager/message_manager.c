@@ -20,7 +20,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-
+#include <linux/hwspinlock.h>
 #include "message_manager_i.h"
 
 /* the start and end of message pool */
@@ -29,7 +29,6 @@ static struct arisc_message *message_end;
 
 /* spinlock for this module */
 static spinlock_t    msg_mgr_lock;
-static unsigned long msg_mgr_flag;
 
 /* message cache manager */
 static struct arisc_message_cache message_cache;
@@ -42,6 +41,8 @@ static atomic_t sem_used_num;
 static void *arisc_message_pool_base;
 static u32 arisc_message_pool_size;
 
+static struct hwspinlock *msg_mgr_hwlock;
+
 /**
  * initialize message manager.
  * @para:  none.
@@ -51,6 +52,10 @@ static u32 arisc_message_pool_size;
 int arisc_message_manager_init(void *addr, u32 size)
 {
 	int i;
+
+	msg_mgr_hwlock = hwspin_lock_request_specific(SUNXI_MSG_HWSPINLOCK);
+	if (!msg_mgr_hwlock)
+		pr_err("%s,%d request hwspinlock faild!\n", __func__, __LINE__);
 
 	arisc_message_pool_base = addr;
 	arisc_message_pool_size = size;
@@ -76,7 +81,6 @@ int arisc_message_manager_init(void *addr, u32 size)
 
 	/* initialize message manager spinlock */
 	spin_lock_init(&(msg_mgr_lock));
-	msg_mgr_flag = 0;
 
 	return 0;
 }
@@ -89,6 +93,12 @@ int arisc_message_manager_init(void *addr, u32 size)
  */
 int arisc_message_manager_exit(void)
 {
+	int ret;
+
+	ret = hwspin_lock_free(msg_mgr_hwlock);
+	if (ret)
+		pr_err("%s,%d free hwlock faild!\n", __func__, __LINE__);
+
 	return 0;
 }
 
@@ -108,9 +118,10 @@ static int arisc_semaphore_invalid(struct semaphore *psemaphore)
 static struct semaphore *arisc_semaphore_allocate(void)
 {
 	struct semaphore *sem = NULL;
+	unsigned long msg_flags;
 
 	/* try to allocate from cache first */
-	spin_lock_irqsave(&(msg_mgr_lock), msg_mgr_flag);
+	spin_lock_irqsave(&msg_mgr_lock, msg_flags);
 	if (atomic_read(&(sem_cache.number))) {
 		atomic_dec(&(sem_cache.number));
 		sem = sem_cache.cache[atomic_read(&(sem_cache.number))];
@@ -119,7 +130,7 @@ static struct semaphore *arisc_semaphore_allocate(void)
 			ARISC_ERR("allocate cache semaphore [%p] invalid\n", sem);
 		}
 	}
-	spin_unlock_irqrestore(&(msg_mgr_lock), msg_mgr_flag);
+	spin_unlock_irqrestore(&msg_mgr_lock, msg_flags);
 
 	if (arisc_semaphore_invalid(sem)) {
 		/* cache allocate fail, allocate from kmem */
@@ -141,6 +152,7 @@ static struct semaphore *arisc_semaphore_allocate(void)
 static int arisc_semaphore_free(struct semaphore *sem)
 {
 	struct semaphore *free_sem = sem;
+	unsigned long msg_flags;
 
 	if (arisc_semaphore_invalid(free_sem)) {
 		ARISC_ERR("free semaphore [%p] invalid\n", free_sem);
@@ -149,13 +161,13 @@ static int arisc_semaphore_free(struct semaphore *sem)
 	}
 
 	/* try to free semaphore to cache */
-	spin_lock_irqsave(&(msg_mgr_lock), msg_mgr_flag);
+	spin_lock_irqsave(&msg_mgr_lock, msg_flags);
 	if (atomic_read(&(sem_cache.number)) < ARISC_SEM_CACHE_MAX) {
 		sem_cache.cache[atomic_read(&(sem_cache.number))] = free_sem;
 		atomic_inc(&(sem_cache.number));
 		free_sem = NULL;
 	}
-	spin_unlock_irqrestore(&(msg_mgr_lock), msg_mgr_flag);
+	spin_unlock_irqrestore(&msg_mgr_lock, msg_flags);
 
 	/* try to free semaphore to kmem if free to cache fail */
 	if (free_sem) {
@@ -195,13 +207,15 @@ struct arisc_message *arisc_message_allocate(unsigned int msg_attr)
 {
 	struct arisc_message *pmessage = NULL;
 	struct arisc_message *palloc   = NULL;
+	unsigned long hwflags;
+	unsigned long msg_flags;
 
 	if (arisc_suspend_flag_query() && (msg_attr == ARISC_MESSAGE_ATTR_SOFTSYN)) {
 		msg_attr = ARISC_MESSAGE_ATTR_HARDSYN;
 	}
 
 	/* first find in message_cache */
-	spin_lock_irqsave(&(msg_mgr_lock), msg_mgr_flag);
+	spin_lock_irqsave(&msg_mgr_lock, msg_flags);
 	if (atomic_read(&(message_cache.number))) {
 		ARISC_INF("arisc message_cache.number = 0x%x.\n", atomic_read(&(message_cache.number)));
 		atomic_dec(&(message_cache.number));
@@ -211,13 +225,13 @@ struct arisc_message *arisc_message_allocate(unsigned int msg_attr)
 			ARISC_ERR("allocate cache message [%p] invalid\n", palloc);
 		}
 	}
-	spin_unlock_irqrestore(&(msg_mgr_lock), msg_mgr_flag);
+	spin_unlock_irqrestore(&msg_mgr_lock, msg_flags);
 	if (arisc_message_invalid(palloc)) {
 		/*
 		 * cached message_cache finded fail,
 		 * use spinlock 0 to exclusive with arisc.
 		 */
-		arisc_hwspin_lock_timeout(AW_MSG_HWSPINLOCK, ARISC_SPINLOCK_TIMEOUT);
+		hwspin_lock_timeout_irqsave(msg_mgr_hwlock, ARISC_SPINLOCK_TIMEOUT, &hwflags);
 
 		/* search from the start of message pool every time. */
 		pmessage = message_start;
@@ -233,7 +247,7 @@ struct arisc_message *arisc_message_allocate(unsigned int msg_attr)
 			pmessage++;
 		}
 		/* unlock hwspinlock 0 */
-		arisc_hwspin_unlock(AW_MSG_HWSPINLOCK);
+		hwspin_unlock_irqrestore(msg_mgr_hwlock, &hwflags);
 	}
 	if (arisc_message_invalid(palloc)) {
 		ARISC_ERR("allocate message [%p] frame is invalid\n", palloc);
@@ -262,6 +276,8 @@ struct arisc_message *arisc_message_allocate(unsigned int msg_attr)
 void arisc_message_free(struct arisc_message *pmessage)
 {
 	struct arisc_message *free_message = pmessage;
+	unsigned long hwflags;
+	unsigned long msg_flags;
 
 	/* check this message valid or not */
 	if (arisc_message_invalid(free_message)) {
@@ -274,7 +290,7 @@ void arisc_message_free(struct arisc_message *pmessage)
 		free_message->private = NULL;
 	}
 	/* try to free to free_list first */
-	spin_lock_irqsave(&(msg_mgr_lock), msg_mgr_flag);
+	spin_lock_irqsave(&msg_mgr_lock, msg_flags);
 	if (atomic_read(&(message_cache.number)) < ARISC_MESSAGE_CACHED_MAX) {
 		ARISC_INF("insert message [%p] to message_cache\n", free_message);
 		ARISC_INF("message_cache number : %d\n", atomic_read(&(message_cache.number)));
@@ -285,16 +301,16 @@ void arisc_message_free(struct arisc_message *pmessage)
 		free_message->state = ARISC_MESSAGE_ALLOCATED;
 		free_message = NULL;
 	}
-	spin_unlock_irqrestore(&(msg_mgr_lock), msg_mgr_flag);
+	spin_unlock_irqrestore(&msg_mgr_lock, msg_flags);
 
 	/*  try to free message to pool if free to cache fail */
 	if (free_message) {
 		/* free to message pool,set message state as FREED. */
-		arisc_hwspin_lock_timeout(AW_MSG_HWSPINLOCK, ARISC_SPINLOCK_TIMEOUT);
+		hwspin_lock_timeout_irqsave(msg_mgr_hwlock, ARISC_SPINLOCK_TIMEOUT, &hwflags);
 		ARISC_INF("insert message [%p] to message pool\n", free_message);
 		free_message->state = ARISC_MESSAGE_FREED;
 		free_message->next  = NULL;
-		arisc_hwspin_unlock(AW_MSG_HWSPINLOCK);
+		hwspin_unlock_irqrestore(msg_mgr_hwlock, &hwflags);
 	}
 }
 

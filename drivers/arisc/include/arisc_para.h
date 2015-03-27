@@ -164,7 +164,6 @@ typedef struct arisc_cfg
 	struct mem_cfg prcm;
 	struct mem_cfg cpuscfg;
 	struct dev_cfg msgbox;
-	struct dev_cfg hwspinlock;
 	struct cir_cfg scir;
 	struct dev_cfg suart;
 	struct dev_cfg srsb;
@@ -175,8 +174,6 @@ typedef struct arisc_cfg
 
 typedef struct arisc_para
 {
-	struct dram_para dram_para;
-	struct arisc_freq_voltage vf[ARISC_DVFS_VF_TABLE_MAX];
 	u32 message_pool_phys;
 	u32 message_pool_size;
 	u32 power_key_code;
@@ -184,6 +181,8 @@ typedef struct arisc_para
 	u32 suart_status;
 	u32 pmu_bat_shutdown_ltf;
 	u32 pmu_bat_shutdown_htf;
+	struct dram_para dram_para;
+	struct arisc_freq_voltage vf[ARISC_DVFS_VF_TABLE_MAX];
 } arisc_para_t;
 
 #define ARISC_PARA_SIZE (sizeof(struct arisc_para))

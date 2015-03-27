@@ -25,6 +25,12 @@
 #define HWLOCK_IRQSTATE	0x01	/* Disable interrupts, save state */
 #define HWLOCK_IRQ	0x02	/* Disable interrupts, don't save state */
 
+/* hwspinlock id */
+#define SUNXI_MSG_HWSPINLOCK (0)        /* message */
+
+#define SUNXI_RTC_HWSPINLOCK (2)        /* rtc reg */
+#define SUNXI_IDL_HWSPINLCOK (3)        /* cpuidle */
+
 struct device;
 struct hwspinlock;
 struct hwspinlock_device;

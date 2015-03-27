@@ -1571,42 +1571,6 @@ static int sunxi_arisc_parse_cfg(struct platform_device *pdev)
 		arisc_cfg.msgbox.size, arisc_cfg.msgbox.irq,
 		arisc_cfg.msgbox.status);
 
-	/* parse hwspinlock node */
-	arisc_cfg.hwspinlock.np = of_find_compatible_node(NULL, NULL, "allwinner,hwspinlock");
-	if (IS_ERR(arisc_cfg.hwspinlock.np)) {
-		ARISC_ERR("get [allwinner,hwspinlock] device node error\n");
-		return -EINVAL;
-	}
-
-	arisc_cfg.hwspinlock.clk[0] = of_clk_get_by_name(arisc_cfg.hwspinlock.np, "clk_hwspinlock_bus");
-	if(!arisc_cfg.hwspinlock.clk[0] || IS_ERR(arisc_cfg.hwspinlock.clk[0])){
-		ARISC_ERR("try to get clk_hwspinlock_bus failed!\n");
-		return -EINVAL;
-	}
-	arisc_cfg.hwspinlock.clk[1] = of_clk_get_by_name(arisc_cfg.hwspinlock.np, "clk_hwspinlock_rst");
-	if(!arisc_cfg.hwspinlock.clk[1] || IS_ERR(arisc_cfg.hwspinlock.clk[1])){
-		ARISC_ERR("try to get clk_hwspinlock_rst failed!\n");
-		return -EINVAL;
-	}
-
-	ret = of_address_to_resource(arisc_cfg.hwspinlock.np, 0, &res);
-	if (ret || !res.start) {
-		ARISC_ERR("get spinlock pbase error\n");
-		return -EINVAL;
-	}
-	arisc_cfg.hwspinlock.pbase = res.start;
-	arisc_cfg.hwspinlock.size = resource_size(&res);
-
-	arisc_cfg.hwspinlock.vbase = of_iomap(arisc_cfg.hwspinlock.np, 0);
-	if (!arisc_cfg.hwspinlock.vbase)
-		panic("Can't map hwspinlock registers");
-
-	arisc_cfg.hwspinlock.status = of_device_is_available(arisc_cfg.hwspinlock.np);
-
-	ARISC_INF("hwspinlock pbase:0x%llx, vbase:0x%p, size:0x%lx, status:%u\n",
-		arisc_cfg.hwspinlock.pbase, arisc_cfg.hwspinlock.vbase,
-		arisc_cfg.hwspinlock.size, arisc_cfg.hwspinlock.status);
-
 	/* parse s_uart node */
 	arisc_cfg.suart.np = of_find_compatible_node(NULL, NULL, "allwinner,s_uart");
 	if (IS_ERR(arisc_cfg.suart.np)) {
@@ -1758,10 +1722,6 @@ static int  sunxi_arisc_probe(struct platform_device *pdev)
 		ARISC_ERR("sunxi-arisc pin cfg failed\n");
 		return -EINVAL;
 	}
-
-	/* initialize hwspinlock */
-	ARISC_INF("hwspinlock initialize\n");
-	arisc_hwspinlock_init();
 
 	/* initialize hwmsgbox */
 	ARISC_INF("hwmsgbox initialize\n");

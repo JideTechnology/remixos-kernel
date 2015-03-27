@@ -34,8 +34,8 @@
 #include <linux/interrupt.h>
 #include <linux/jiffies.h>
 #include <linux/delay.h>
+#include <linux/hwspinlock.h>
 #include <linux/arisc/hwmsgbox.h>
-#include <linux/arisc/hwspinlock.h>
 
 /* configure and debugger */
 #include "./../arisc_i.h"
@@ -49,7 +49,6 @@
 
 /* driver headers */
 #include "./arisc_hwmsgbox.h"
-#include "./arisc_hwspinlock.h"
 
 /* global functions */
 extern int arisc_axp_int_notify(struct arisc_message *pmessage);

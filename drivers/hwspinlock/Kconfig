@@ -29,4 +29,13 @@ config HSEM_U8500
 
 	  If unsure, say N.
 
+config HWSPINLOCK_SUNXI
+	tristate "SUNXI Hardware Spinlock device"
+	depends on ARCH_SUNXI
+	select HWSPINLOCK
+	help
+	  Say y here to support the SUNXI Hardware Spinlock device.
+
+	  If unsure, say N.
+
 endmenu

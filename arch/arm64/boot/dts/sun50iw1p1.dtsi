@@ -341,11 +341,12 @@
 		};
 
 		hwspinlock: hwspinlock@1c18000 {
-			compatible = "allwinner,hwspinlock";
+			compatible = "allwinner,sunxi-hwspinlock";
 			clocks = <&clk_hwspinlock_rst>, <&clk_hwspinlock_bus>;
 			clock-names = "clk_hwspinlock_rst" , "clk_hwspinlock_bus";
 			reg = <0x0 0x01c18000 0x0 0x1000>;
 			status = "okay";
+			num-locks = <8>; /* the number hwspinlock we needed, max 32 */
 		};
 
 		s_cir0: s_cir@1f02000 {
