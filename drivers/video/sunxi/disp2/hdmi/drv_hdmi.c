@@ -604,10 +604,6 @@ s32 hdmi_init(struct platform_device *pdev)
 	hdmi_parse_io_config();
 	mutex_init(&mlock);
 
-	if ((hdmi_power_used) && (power_enable_count == 0)) {
-		hdmi_power_enable(hdmi_power);
-		power_enable_count ++;
-	}
 	if (io_enable_count == 0) {
 		hdmi_io_config(1);
 		io_enable_count ++;

@@ -314,6 +314,11 @@ static s32 disp_hdmi_sw_enable(struct disp_device* hdmi)
 	disp_sys_register_irq(hdmip->irq_no,0,disp_hdmi_event_proc,(void*)hdmi,0,0);
 	disp_sys_enable_irq(hdmip->irq_no);
 
+#if !defined(CONFIG_COMMON_CLK_ENABLE_SYNCBOOT)
+	if (0 != hdmi_clk_enable(hdmi))
+		return -1;
+#endif
+
 	spin_lock_irqsave(&hdmi_data_lock, flags);
 	hdmip->enabled = 1;
 	spin_unlock_irqrestore(&hdmi_data_lock, flags);
@@ -545,6 +550,18 @@ static s32 disp_hdmi_resume(struct disp_device* hdmi)
 	return 0;
 }
 
+static s32 disp_hdmi_get_status(struct disp_device *hdmi)
+{
+	struct disp_device_private_data *hdmip = disp_hdmi_get_priv(hdmi);
+
+	if ((NULL == hdmi) || (NULL == hdmip)) {
+		DE_WRN("hdmi set func null  hdl!\n");
+		return DIS_FAIL;
+	}
+
+	return disp_al_device_get_status(hdmi->disp);
+}
+
 s32 disp_init_hdmi(disp_bsp_init_para * para)
 {
 	hdmi_used = 1;
@@ -613,6 +630,7 @@ s32 disp_init_hdmi(disp_bsp_init_para * para)
 			hdmi->resume = disp_hdmi_resume;
 			hdmi->detect = disp_hdmi_detect;
 			hdmi->set_detect = disp_hdmi_set_detect;
+			hdmi->get_status = disp_hdmi_get_status;
 
 			if (bsp_disp_feat_is_supported_output_types(disp, DISP_OUTPUT_TYPE_HDMI)) {
 				hdmi->init(hdmi);

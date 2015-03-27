@@ -1496,6 +1496,11 @@ static s32 disp_lcd_sw_enable(struct disp_device* lcd)
 	if (mgr->sw_enable)
 		mgr->sw_enable(mgr);
 
+#if !defined(CONFIG_COMMON_CLK_ENABLE_SYNCBOOT)
+	if (0 != lcd_clk_enable(lcd))
+		return DIS_FAIL;
+#endif
+
 	/* init fix power */
 	for (i=0; i<LCD_POWER_NUM; i++) {
 		if (1 == lcdp->lcd_cfg.lcd_fix_power_used[i]) {

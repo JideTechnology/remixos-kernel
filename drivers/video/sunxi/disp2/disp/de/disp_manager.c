@@ -1043,6 +1043,11 @@ static s32 disp_mgr_sw_enable(struct disp_manager *mgr)
 	}
 	DE_INF("mgr %d enable\n", mgr->disp);
 
+#if !defined(CONFIG_COMMON_CLK_ENABLE_SYNCBOOT)
+	if (0 != disp_mgr_clk_enable(mgr))
+		return -1;
+#endif
+
 	if (mgr->device) {
 		if (mgr->device->get_resolution)
 			mgr->device->get_resolution(mgr->device, &width, &height);

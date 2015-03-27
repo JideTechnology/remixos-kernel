@@ -251,6 +251,11 @@ s32 disp_tv_sw_enable( struct disp_device* ptv)
 	disp_sys_register_irq(ptvp->irq_no,0,disp_tv_event_proc,(void*)ptv,0,0);
 	disp_sys_enable_irq(ptvp->irq_no);
 
+#if !defined(CONFIG_COMMON_CLK_ENABLE_SYNCBOOT)
+	if (0 != tv_clk_enable(ptv))
+		return -1;
+#endif
+
 	spin_lock_irqsave(&g_tv_data_lock, flags);
 	ptvp->enabled = 1;
 	spin_unlock_irqrestore(&g_tv_data_lock, flags);

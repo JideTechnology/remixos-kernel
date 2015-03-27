@@ -255,6 +255,11 @@ static s32 disp_vdevice_sw_enable(struct disp_device* vdevice)
 	if (mgr->sw_enable)
 		mgr->sw_enable(mgr);
 
+#if !defined(CONFIG_COMMON_CLK_ENABLE_SYNCBOOT)
+	if (0 != vdevice_clk_enable(vdevice))
+		return -1;
+#endif
+
 	disp_sys_register_irq(vdevicep->irq_no,0,disp_vdevice_event_proc,(void*)vdevice,0,0);
 	disp_sys_enable_irq(vdevicep->irq_no);
 

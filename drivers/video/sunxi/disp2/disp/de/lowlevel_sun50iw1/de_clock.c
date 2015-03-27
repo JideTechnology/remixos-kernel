@@ -102,12 +102,10 @@ static s32 __de_clk_enable(u32 clk_no, u32 enable)
 
 				if (de_clk_tbl[i].ahb_reset_shift < 32)
 				{
-					if ((clk_no != DE_CLK_CORE1) && (clk_no != DE_CLK_WB)) {
-						reg_val = readl(de_clk_tbl[i].ahb_reset_adr + de_base);
-						reg_val = SET_BITS(de_clk_tbl[i].ahb_reset_shift, 1, reg_val, 0);
-						writel(reg_val, de_clk_tbl[i].ahb_reset_adr + de_base);
-						__inf("clk %d reset disable\n", clk_no);
-					}
+					reg_val = readl(de_clk_tbl[i].ahb_reset_adr + de_base);
+					reg_val = SET_BITS(de_clk_tbl[i].ahb_reset_shift, 1, reg_val, 0);
+					writel(reg_val, de_clk_tbl[i].ahb_reset_adr + de_base);
+					__inf("clk %d reset disable\n", clk_no);
 				}
 			}
 		}
