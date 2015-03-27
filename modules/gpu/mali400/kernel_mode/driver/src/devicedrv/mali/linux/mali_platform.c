@@ -443,7 +443,7 @@ static void mali_change_freq(struct work_struct *work)
 {
 	int cur_freq = get_current_freq();
 	int high_level = private_data.dvfs_data.max_level, low_level = 0, temp_level, level_num;
-	
+
 	if(cur_freq > vf_table[private_data.dvfs_data.max_level].max_freq)
 	{
 		set_gpu_freq(vf_table[private_data.dvfs_data.max_level].max_freq);
@@ -528,7 +528,6 @@ static void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data
 			if(temperature >= tl_table[i].temp)
 			{
 				private_data.dvfs_data.max_level = tl_table[i].level;
-				goto out;
 			}
 		}
 	}
@@ -546,16 +545,7 @@ static void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data
 		{
 			private_data.dvfs_data.dvfs_flag = -1;
 		}
-		else
-		{
-			return;
-		}
-	}
-	else
-	{
-		return;
 	}
 
-out:
 	schedule_work(&wq_work);
 }
