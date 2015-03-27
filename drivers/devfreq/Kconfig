@@ -63,6 +63,12 @@ config DEVFREQ_GOV_USERSPACE
 	  Otherwise, the governor does not change the frequnecy
 	  given at the initialization.
 
+config DEVFREQ_GOV_ADAPTIVE
+	depends on ARCH_SUN50I
+	tristate "Adaptive"
+	help
+	  Sets the frequency according to dram master access or idle.
+
 comment "DEVFREQ Drivers"
 
 config ARM_EXYNOS4_BUS_DEVFREQ
@@ -77,5 +83,25 @@ config ARM_EXYNOS4_BUS_DEVFREQ
 	  the operating frequencies and voltages with OPP support.
 	  To operate with optimal voltages, ASV support is required
 	  (CONFIG_EXYNOS_ASV).
+
+config ARM_SUNXI_DRAM_DEVFREQ
+	bool "ARM Sunxi Dram DEVFREQ Driver"
+	depends on ARCH_SUN50I && PM_OPP
+	select DEVFREQ_GOV_ADAPTIVE
+	help
+	  DRAM Frequency scaling allows you to change the clock speed of
+	  DRAM on the fly. This is a nice method to save power, because
+	  the lower the DRAM clock speed, the less power the DRAM consumes.
+
+	  If in doubt, say N.
+
+config DEVFREQ_DRAM_FREQ_IN_VSYNC
+	bool "Change dram frequency in display vsync"
+	depends on ARM_SUNXI_DRAM_DEVFREQ
+	depends on ARCH_SUN50I
+	help
+	  This will allow dram frequency changed in display vsync.
+
+	  If in doubt, say N.
 
 endif # PM_DEVFREQ

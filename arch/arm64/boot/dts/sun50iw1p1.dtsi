@@ -284,6 +284,17 @@
 		lv8_freq = <0>;
 		lv8_volt = <1040>;
 	};
+
+	dramfreq {
+		compatible = "allwinner,sunxi-dramfreq";
+		reg = <0x0 0x01c62000 0x0 0x1000>,
+				<0x0 0x01c63000 0x0 0x1000>,
+				<0x0 0x01c20000 0x0 0x800>;
+		interrupts = <GIC_SPI 69 0x4>;
+		clocks = <&clk_pll_ddr0>,<&clk_pll_ddr1>;
+		status = "okay";
+	};
+
 	uboot: uboot {
 	};
 	soc: soc@01c00000 {

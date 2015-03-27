@@ -1780,7 +1780,7 @@ static struct platform_driver disp_driver = {
 };
 
 #ifdef CONFIG_DEVFREQ_DRAM_FREQ_IN_VSYNC
-struct ddrfreq_vb_time_ops
+struct dramfreq_vb_time_ops
 {
     int (*get_vb_time) (void);
     int (*get_next_vb_time) (void);
@@ -1788,8 +1788,8 @@ struct ddrfreq_vb_time_ops
 };
 extern s32 bsp_disp_get_vb_time(void);
 extern s32 bsp_disp_get_next_vb_time(void);
-extern int ddrfreq_set_vb_time_ops(struct ddrfreq_vb_time_ops *ops);
-static struct ddrfreq_vb_time_ops ddrfreq_ops =
+extern int dramfreq_set_vb_time_ops(struct dramfreq_vb_time_ops *ops);
+static struct dramfreq_vb_time_ops dramfreq_ops =
 {
 	.get_vb_time = bsp_disp_get_vb_time,
 	.get_next_vb_time = bsp_disp_get_next_vb_time,
@@ -1835,7 +1835,7 @@ static int __init disp_module_init(void)
 #endif
 
 #ifdef CONFIG_DEVFREQ_DRAM_FREQ_IN_VSYNC
-	ddrfreq_set_vb_time_ops(&ddrfreq_ops);
+	dramfreq_set_vb_time_ops(&dramfreq_ops);
 #endif
 
 	pr_info("[DISP]%s finish\n", __func__);
