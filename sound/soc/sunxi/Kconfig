@@ -64,7 +64,7 @@ config SND_SOC_DAUDIO1_MACHINE
  	  Say Y or M if you want to add the daudio1 MACHEINE interface.
 
 config SND_SUNXI_SOC_HDMIAUDIO
-	tristate "ASoC support for hdmiaudio platform."
+	tristate "ASoC support for hdmiaudio."
 	select SND_SOC_SUNXI_TDM
 	help
  	  Say Y or M if you want to add the hdmi platform interface.
