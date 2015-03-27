@@ -1309,7 +1309,7 @@ static int i915_scheduler_pop_from_queue_locked(struct intel_engine_cs *ring,
 
 #ifdef CONFIG_SYNC
 		if (node->params.fence_wait)
-			signalled = node->params.fence_wait->status;
+			signalled = node->params.fence_wait->status != 0;
 		else
 			signalled = true;
 #endif
