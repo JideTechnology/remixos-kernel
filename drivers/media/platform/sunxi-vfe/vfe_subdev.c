@@ -179,6 +179,8 @@ int vfe_gpio_write(struct v4l2_subdev *sd, enum gpio_type gpio_type, unsigned in
 	int force_value_flag = 1;
 	struct vfe_dev *dev=(struct vfe_dev *)dev_get_drvdata(sd->v4l2_dev->dev);
 	u32 gpio = dev->gpio[gpio_type].gpio;
+	if ((gpio_type == PWDN)||(gpio_type == RESET))
+		force_value_flag = 0;
 	
 #ifdef CONFIG_ARCH_SUN8IW3P1
 	return os_gpio_write(gpio, status, NULL, 1);
