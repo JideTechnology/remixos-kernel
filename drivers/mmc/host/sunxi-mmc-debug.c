@@ -293,7 +293,7 @@ static ssize_t dump_ccmu_reg_show(struct device *dev, struct device_attribute *a
 
 
 	p += sprintf(p, "Dump ccmu\n");
-	for (i=0x60; i<=0x400; i+=4) {
+	for (i=0x0; i<=0x400; i+=4) {
 		if (!(i&0xf))
 			p += sprintf(p, "\n0x%08llx : ", (u64)(ccmu_ptr + i));
 		p += sprintf(p, "%08x ", readl(ccmu_ptr + i));

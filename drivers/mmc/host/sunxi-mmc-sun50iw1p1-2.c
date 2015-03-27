@@ -578,6 +578,11 @@ static int __sunxi_mmc_do_oclk_onoff(struct sunxi_mmc_host *host, u32 oclk_en,u3
 		return -EIO;
 	}
 
+	/*only use mask data0 when update clk,clear it when not update clk*/
+	if(ignore_dat0)
+		mmc_writel(host, REG_CLKCR, 
+			mmc_readl(host, REG_CLKCR)&~SDXC_MASK_DATA0);
+
 	return 0;
 }
 
