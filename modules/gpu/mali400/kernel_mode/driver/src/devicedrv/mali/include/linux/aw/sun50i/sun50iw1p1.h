@@ -43,7 +43,7 @@ static struct aw_private_data private_data =
 	.sensor_num        = 2,
 	.dvfs_data         =
 	{
-		.dvfs_status = 1,
+		.dvfs_status = 0,
 		.dvfs_flag   = 0,
 	},
 };
