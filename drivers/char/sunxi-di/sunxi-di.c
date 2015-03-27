@@ -156,7 +156,7 @@ static void di_timer_handle(unsigned long arg)
 {
 	u32 flag_size = 0;
 
-	di_complete_check_set(DI_TIMEOUT);
+	di_complete_check_set(DI_MODULE_TIMEOUT);
 	wake_up_interruptible(&di_data->wait);
 	flag_size = (FLAG_WIDTH*FLAG_HIGH)/4;
 	di_reset();
