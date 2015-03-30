@@ -43,7 +43,7 @@ struct hwc_dispc_data {
     struct disp_layer_config       *hwc_layer_info[DISP_NUMS_SCREEN];
     int                     releasefencefd[CNOUTDISPSYNC];
     struct disp_capture_info       *data;
-    bool                    force_flip;
+    bool                    force_flip[DISP_NUMS_SCREEN];
 };
 
 struct display_sync {
@@ -72,6 +72,7 @@ struct composer_private_data {
 	bool                    b_no_output;
     bool                    wb_status;
     struct mutex	        sync_lock;
+    int                     disp_hotplug_cnt[CNOUTDISPSYNC];
     struct display_sync     *display_sync[CNOUTDISPSYNC];//0 is de0 ,1 is de1 , 2 is writeback,3 is FB
     struct disp_layer_config       *tmp_hw_lyr;
     disp_drv_info           *psg_disp_drv;
@@ -225,7 +226,7 @@ static bool hwc_fence_get(void *user_fence)
     if(copy_from_user(&fd, (void __user *)user_fence, sizeof(int)*CNOUTDISPSYNC))
     {
         printk(KERN_ERR "copy_from_user hwc_fence_get err.\n");
-        goto err;
+        goto fecne_ret;
     }
     for(i = 0; i < CNOUTDISPSYNC; i++)
     {
@@ -233,12 +234,12 @@ static bool hwc_fence_get(void *user_fence)
         {
             if(composer_priv.display_sync[i] == NULL)
             {
-                ret = sprintf(buf, "sunxi_%d",i);
+                ret = sprintf(buf, "sunxi_%d_%d",i,composer_priv.disp_hotplug_cnt[i]);
                 composer_priv.display_sync[i]= kzalloc(sizeof(struct display_sync),GFP_KERNEL);
                 if(composer_priv.display_sync[i] == NULL)
                 {
                     printk(KERN_ERR "kzalloc the dispay_sync err.\n");
-                    goto err;
+                    continue;
                 }
                 composer_priv.display_sync[i]->timeline = sw_sync_timeline_create(buf);
                 if(composer_priv.display_sync[i]->timeline == NULL)
@@ -246,11 +247,12 @@ static bool hwc_fence_get(void *user_fence)
                     kfree(composer_priv.display_sync[i]);
                     composer_priv.display_sync[i] = NULL;
                     printk("creat timeline err.\n");
-                    goto err;
+                    continue;
                 }
                 composer_priv.cur_disp_cnt[i] = 0;
                 composer_priv.cur_disp_cnt[i] = 0;
                 composer_priv.display_sync[i]->active = 1;
+                composer_priv.disp_hotplug_cnt[i]++;
             }
             composer_priv.display_sync[i]->timeline_count++;
             ret = sprintf(buf, "sunxi_%d_%d",i,composer_priv.display_sync[i]->timeline_count);
@@ -258,19 +260,21 @@ static bool hwc_fence_get(void *user_fence)
             if (fd[i] < 0)
             {
                 printk(KERN_ERR"get unused fd faild\n");
-                goto err;
+                continue;
             }
             pt = sw_sync_pt_create(composer_priv.display_sync[i]->timeline, composer_priv.display_sync[i]->timeline_count);
             if(pt == NULL)
             {
+                put_unused_fd(fd[i]);
                 printk(KERN_ERR"creat display pt faild\n");
-                goto err;
+                continue;
             }
             fence = sync_fence_create(buf, pt);
             if(fence == NULL)
             {
+                put_unused_fd(fd[i]);
                 printk(KERN_ERR"creat dispay fence faild\n");
-                goto err;
+                continue;
             }
             sync_fence_install(fence, fd[i]);
         }else{
@@ -288,14 +292,12 @@ static bool hwc_fence_get(void *user_fence)
             }
         }
     }
+fecne_ret:
     if(copy_to_user((void __user *)user_fence, fd, sizeof(int)*4))
     {
 	    printk(KERN_ERR"copy_to_user fail\n");
-        goto err;
 	}
 	return 0;
-err:
-    return -EFAULT;
 }
 
 static int hwc_commit(void * user_display)
@@ -318,33 +320,28 @@ static int hwc_commit(void * user_display)
         if(disp_data.releasefencefd[i] >= 0)
         {
             sync[i] = hwc_get_sync(i,disp_data.releasefencefd[i]);
-            if(disp_data.force_flip)
+            if(disp_data.force_flip[i])
             {
-                printk(KERN_ERR"hwc force flip disp[%d]:%d \n",i,sync[i]);
+                printk(KERN_INFO"hwc force flip disp[%d]:%d \n",i,sync[i]);
                 if(composer_priv.display_sync[i] != NULL
                     && composer_priv.display_sync[i]->active
                     && composer_priv.display_sync[i]->timeline != NULL)
                 {
                     composer_priv.cur_write_cnt[i] = sync[i];
                 }
+                schedule_work(&composer_priv.post2_cb_work);
             }
         }
     }
-    if(disp_data.force_flip)
+    if(disp_data.releasefencefd[composer_priv.primary_disp] >= 0 && !hwc_pridisp_sync())
     {
-        schedule_work(&composer_priv.post2_cb_work);
-		goto commit_ok;
-    }else{
-        if(disp_data.releasefencefd[composer_priv.primary_disp] >= 0 && !hwc_pridisp_sync())
-        {
-	        wait_event_interruptible_timeout(composer_priv.commit_wq,
-			    			       hwc_pridisp_sync(),
-					    	       msecs_to_jiffies(16));
-            /*for vsync shadow protected*/
-            //usleep_range(100,200);
-        }
+	    wait_event_interruptible_timeout(composer_priv.commit_wq,
+			    			   hwc_pridisp_sync(),
+					    	   msecs_to_jiffies(16));
+        /*for vsync shadow protected*/
+        //usleep_range(100,200);
     }
-    if(disp_data.data != NULL)
+    if(disp_data.data != NULL && !disp_data.force_flip[0])
     {
          if(copy_from_user(&wb_data, (void __user *)disp_data.data, sizeof(struct disp_capture_info)))
         {
@@ -354,7 +351,7 @@ static int hwc_commit(void * user_display)
     }
     for(i = 0; i < DISP_NUMS_SCREEN; i++)
     {
-		if(disp_data.releasefencefd[i] >= 0)
+		if(disp_data.releasefencefd[i] >= 0 && !disp_data.force_flip[i])
 		{
             if(copy_from_user(composer_priv.tmp_hw_lyr, (void __user *)disp_data.hwc_layer_info[i], sizeof(struct disp_layer_config)*(i?8:16)))
             {
