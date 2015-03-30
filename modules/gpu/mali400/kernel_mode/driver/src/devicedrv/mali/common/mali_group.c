@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2014 ARM Limited. All rights reserved.
+ * Copyright (C) 2011-2015 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -460,7 +460,7 @@ void mali_group_power_up(struct mali_group *group)
 	group->power_is_on = MALI_TRUE;
 
 	if (MALI_FALSE == mali_group_is_virtual(group)
-			&& MALI_FALSE == mali_group_is_in_virtual(group)) {
+	    && MALI_FALSE == mali_group_is_in_virtual(group)) {
 		mali_group_reset(group);
 	}
 

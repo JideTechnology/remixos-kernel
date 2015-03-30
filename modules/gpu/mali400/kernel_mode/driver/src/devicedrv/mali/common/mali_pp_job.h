@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2014 ARM Limited. All rights reserved.
+ * Copyright (C) 2011-2015 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -68,9 +68,6 @@ struct mali_pp_job {
 	 * No lock is thus needed for these.
 	 */
 	u32 *memory_cookies;                               /**< Memory cookies attached to job */
-#if defined(CONFIG_DMA_SHARED_BUFFER) && !defined(CONFIG_MALI_DMA_BUF_MAP_ON_ATTACH)
-	struct mali_dma_buf_attachment **dma_bufs;         /**< Array of DMA-bufs used by job */
-#endif
 
 	/*
 	 * These members are used by the scheduler,
@@ -418,32 +415,6 @@ MALI_STATIC_INLINE mali_bool mali_pp_job_needs_dma_buf_mapping(struct mali_pp_jo
 
 	return MALI_FALSE;
 }
-
-#if defined(CONFIG_DMA_SHARED_BUFFER) && !defined(CONFIG_MALI_DMA_BUF_MAP_ON_ATTACH)
-MALI_STATIC_INLINE u32 mali_pp_job_num_dma_bufs(struct mali_pp_job *job)
-{
-	MALI_DEBUG_ASSERT_POINTER(job);
-	return job->uargs.num_memory_cookies;
-}
-
-MALI_STATIC_INLINE struct mali_dma_buf_attachment *mali_pp_job_get_dma_buf(
-	struct mali_pp_job *job, u32 index)
-{
-	MALI_DEBUG_ASSERT_POINTER(job);
-	MALI_DEBUG_ASSERT(index < job->uargs.num_memory_cookies);
-	MALI_DEBUG_ASSERT_POINTER(job->dma_bufs);
-	return job->dma_bufs[index];
-}
-
-MALI_STATIC_INLINE void mali_pp_job_set_dma_buf(struct mali_pp_job *job,
-		u32 index, struct mali_dma_buf_attachment *mem)
-{
-	MALI_DEBUG_ASSERT_POINTER(job);
-	MALI_DEBUG_ASSERT(index < job->uargs.num_memory_cookies);
-	MALI_DEBUG_ASSERT_POINTER(job->dma_bufs);
-	job->dma_bufs[index] = mem;
-}
-#endif
 
 MALI_STATIC_INLINE void mali_pp_job_mark_sub_job_started(struct mali_pp_job *job, u32 sub_job)
 {

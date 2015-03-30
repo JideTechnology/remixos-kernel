@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2014 ARM Limited. All rights reserved.
+ * Copyright (C) 2012-2015 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -1194,7 +1194,7 @@ static void mali_scheduler_do_pp_job_delete(void *arg)
 
 	_MALI_OSK_LIST_FOREACHENTRY(job, tmp, &list,
 				    struct mali_pp_job, list) {
-		
+
 		_mali_osk_list_delinit(&job->list);
 		mali_pp_job_delete(job); /* delete the job object itself */
 	}
@@ -1266,8 +1266,8 @@ static void mali_scheduler_do_pp_job_queue(void *arg)
 			/* unlock scheduler in this uncommon case */
 			mali_scheduler_unlock();
 
-			mali_timeline_tracker_release(
-				mali_pp_job_get_tracker(job));
+			schedule_mask |= mali_timeline_tracker_release(
+						 mali_pp_job_get_tracker(job));
 
 			/* Notify user space and close the job object */
 			mali_scheduler_complete_pp_job(job, 0, MALI_TRUE,

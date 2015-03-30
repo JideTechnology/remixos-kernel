@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2014 ARM Limited. All rights reserved.
+ * Copyright (C) 2013-2015 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -58,22 +58,6 @@ mali_mmu_release_table_page(mali_dma_addr phys, void *virt)
  */
 int mali_mmap(struct file *filp, struct vm_area_struct *vma);
 
-/** @brief Allocate and initialize a Mali memory descriptor
- *
- * @param session Pointer to the session allocating the descriptor
- * @param type Type of memory the descriptor will represent
- */
-mali_mem_allocation *mali_mem_descriptor_create(struct mali_session_data *session, mali_mem_type type);
-
-/** @brief Destroy a Mali memory descriptor
- *
- * This function will only free the descriptor itself, and not the memory it
- * represents.
- *
- * @param descriptor Pointer to the descriptor to destroy
- */
-void mali_mem_descriptor_destroy(mali_mem_allocation *descriptor);
-
 /** @brief Start a new memory session
  *
  * Called when a process opens the Mali device node.
@@ -112,7 +96,8 @@ _mali_osk_errcode_t mali_mem_mali_map_prepare(mali_mem_allocation *descriptor);
  *
  * @param descriptor Pointer to the memory descriptor to unmap
  */
-void mali_mem_mali_map_free(mali_mem_allocation *descriptor);
+void mali_mem_mali_map_free(struct mali_session_data *session, u32 size, mali_address_t vaddr, u32 flags);
+
 
 /** @brief Parse resource and prepare the OS memory allocator
  *
@@ -129,8 +114,5 @@ _mali_osk_errcode_t mali_memory_core_resource_os_memory(u32 size);
  */
 _mali_osk_errcode_t mali_memory_core_resource_dedicated_memory(u32 start, u32 size);
 
-
-void mali_mem_ump_release(mali_mem_allocation *descriptor);
-void mali_mem_external_release(mali_mem_allocation *descriptor);
 
 #endif /* __MALI_MEMORY_H__ */

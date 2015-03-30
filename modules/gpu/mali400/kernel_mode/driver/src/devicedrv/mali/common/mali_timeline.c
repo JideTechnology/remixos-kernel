@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2014 ARM Limited. All rights reserved.
+ * Copyright (C) 2013-2015 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -115,6 +115,11 @@ static void mali_timeline_sync_fence_callback(struct sync_fence *sync_fence, str
 
 	mali_spinlock_reentrant_signal(system->spinlock, tid);
 
+	/*
+	 * Older versions of Linux, before 3.5, doesn't support fput() in interrupt
+	 * context. For those older kernels, allocate a list object and put the
+	 * fence object on that and defer the call to sync_fence_put() to a workqueue.
+	 */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,5,0)
 	{
 		struct mali_deferred_fence_put_entry *obj;
@@ -654,7 +659,7 @@ static mali_scheduler_mask mali_timeline_tracker_activate(struct mali_timeline_t
 		timeline = tracker->timeline;
 		MALI_DEBUG_ASSERT_POINTER(timeline);
 
-		mali_soft_job_system_activate_job((struct mali_soft_job *) tracker->job);
+		schedule_mask |= mali_soft_job_system_activate_job((struct mali_soft_job *) tracker->job);
 
 		/* Start a soft timer to make sure the soft job be released in a limited time */
 		mali_spinlock_reentrant_wait(system->spinlock, tid);

@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2010-2014 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2015 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -38,12 +38,14 @@
 #include "mali_kernel_license.h"
 #include "mali_memory.h"
 #include "mali_memory_dma_buf.h"
+#include "mali_memory_manager.h"
 #if defined(CONFIG_MALI400_INTERNAL_PROFILING)
 #include "mali_profiling_internal.h"
 #endif
 #if defined(CONFIG_MALI400_PROFILING) && defined(CONFIG_MALI_DVFS)
 #include "mali_osk_profiling.h"
 #include "mali_dvfs_policy.h"
+
 static int is_first_resume = 1;
 /*Store the clk and vol for boot/insmod and mali_resume*/
 static struct mali_gpu_clk_item mali_gpu_clk[2];
@@ -161,7 +163,6 @@ static int mali_driver_runtime_resume(struct device *dev);
 static int mali_driver_runtime_idle(struct device *dev);
 #endif
 
-#if defined(MALI_FAKE_PLATFORM_DEVICE)
 #if defined(CONFIG_MALI_DT)
 extern int mali_platform_device_init(struct platform_device *device);
 extern int mali_platform_device_deinit(struct platform_device *device);
@@ -169,10 +170,6 @@ extern int mali_platform_device_deinit(struct platform_device *device);
 extern int mali_platform_device_register(void);
 extern int mali_platform_device_unregister(void);
 #endif
-#endif
-
-extern int mali_platform_device_init(struct platform_device *device);
-extern int mali_platform_device_deinit(struct platform_device *device);
 
 #ifndef CONFIG_MALI_DT
 extern int aw_mali_platform_device_register(void);
@@ -401,7 +398,7 @@ int mali_module_init(void)
 		MALI_DEBUG_PRINT(2, ("mali_module_init() Failed to register driver (%d)\n", err));
 #ifdef MALI_FAKE_PLATFORM_DEVICE
 #ifndef CONFIG_MALI_DT
-	mali_platform_device_unregister();
+		mali_platform_device_unregister();
 #endif
 #endif
 		mali_platform_device = NULL;
@@ -421,11 +418,11 @@ int mali_module_init(void)
 	/* Just call mali_get_current_gpu_clk_item(),to record current clk info.*/
 	mali_get_current_gpu_clk_item(&mali_gpu_clk[0]);
 	_mali_osk_profiling_add_event(MALI_PROFILING_EVENT_TYPE_SINGLE |
-					  MALI_PROFILING_EVENT_CHANNEL_GPU |
-					  MALI_PROFILING_EVENT_REASON_SINGLE_GPU_FREQ_VOLT_CHANGE,
-					  mali_gpu_clk[0].clock,
-					  mali_gpu_clk[0].vol / 1000,
-					  0, 0, 0);
+				      MALI_PROFILING_EVENT_CHANNEL_GPU |
+				      MALI_PROFILING_EVENT_REASON_SINGLE_GPU_FREQ_VOLT_CHANGE,
+				      mali_gpu_clk[0].clock,
+				      mali_gpu_clk[0].vol / 1000,
+				      0, 0, 0);
 #endif
 
 	MALI_PRINT(("Mali device driver loaded\n"));
@@ -786,19 +783,29 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 
 #endif
 
+	case MALI_IOC_MEM_ALLOC:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_alloc_mem_s), sizeof(u64)));
+		err = mem_alloc_wrapper(session_data, (_mali_uk_alloc_mem_s __user *)arg);
+		break;
+
+	case MALI_IOC_MEM_FREE:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_free_mem_s), sizeof(u64)));
+		err = mem_free_wrapper(session_data, (_mali_uk_free_mem_s __user *)arg);
+		break;
+
+	case MALI_IOC_MEM_BIND:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_bind_mem_s), sizeof(u64)));
+		err = mem_bind_wrapper(session_data, (_mali_uk_bind_mem_s __user *)arg);
+		break;
+
+	case MALI_IOC_MEM_UNBIND:
+		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_unbind_mem_s), sizeof(u64)));
+		err = mem_unbind_wrapper(session_data, (_mali_uk_unbind_mem_s __user *)arg);
+		break;
+
 	case MALI_IOC_MEM_WRITE_SAFE:
 		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_mem_write_safe_s), sizeof(u64)));
 		err = mem_write_safe_wrapper(session_data, (_mali_uk_mem_write_safe_s __user *)arg);
-		break;
-
-	case MALI_IOC_MEM_MAP_EXT:
-		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_map_external_mem_s), sizeof(u64)));
-		err = mem_map_ext_wrapper(session_data, (_mali_uk_map_external_mem_s __user *)arg);
-		break;
-
-	case MALI_IOC_MEM_UNMAP_EXT:
-		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_unmap_external_mem_s), sizeof(u64)));
-		err = mem_unmap_ext_wrapper(session_data, (_mali_uk_unmap_external_mem_s __user *)arg);
 		break;
 
 	case MALI_IOC_MEM_QUERY_MMU_PAGE_TABLE_DUMP_SIZE:
@@ -811,51 +818,15 @@ static int mali_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, 
 		err = mem_dump_mmu_page_table_wrapper(session_data, (_mali_uk_dump_mmu_page_table_s __user *)arg);
 		break;
 
-#if defined(CONFIG_MALI400_UMP)
-
-	case MALI_IOC_MEM_ATTACH_UMP:
-		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_attach_ump_mem_s), sizeof(u64)));
-		err = mem_attach_ump_wrapper(session_data, (_mali_uk_attach_ump_mem_s __user *)arg);
-		break;
-
-	case MALI_IOC_MEM_RELEASE_UMP:
-		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_release_ump_mem_s), sizeof(u64)));
-		err = mem_release_ump_wrapper(session_data, (_mali_uk_release_ump_mem_s __user *)arg);
-		break;
-
-#else
-
-	case MALI_IOC_MEM_ATTACH_UMP:
-	case MALI_IOC_MEM_RELEASE_UMP: /* FALL-THROUGH */
-		MALI_DEBUG_PRINT(2, ("UMP not supported\n"));
-		err = -ENOTTY;
-		break;
-#endif
-
-#ifdef CONFIG_DMA_SHARED_BUFFER
-	case MALI_IOC_MEM_ATTACH_DMA_BUF:
-		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_attach_dma_buf_s), sizeof(u64)));
-		err = mali_attach_dma_buf(session_data, (_mali_uk_attach_dma_buf_s __user *)arg);
-		break;
-
-	case MALI_IOC_MEM_RELEASE_DMA_BUF:
-		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_release_dma_buf_s), sizeof(u64)));
-		err = mali_release_dma_buf(session_data, (_mali_uk_release_dma_buf_s __user *)arg);
-		break;
-
 	case MALI_IOC_MEM_DMA_BUF_GET_SIZE:
+#ifdef CONFIG_DMA_SHARED_BUFFER
 		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_dma_buf_get_size_s), sizeof(u64)));
 		err = mali_dma_buf_get_size(session_data, (_mali_uk_dma_buf_get_size_s __user *)arg);
-		break;
 #else
-
-	case MALI_IOC_MEM_ATTACH_DMA_BUF:   /* FALL-THROUGH */
-	case MALI_IOC_MEM_RELEASE_DMA_BUF:  /* FALL-THROUGH */
-	case MALI_IOC_MEM_DMA_BUF_GET_SIZE: /* FALL-THROUGH */
 		MALI_DEBUG_PRINT(2, ("DMA-BUF not supported\n"));
 		err = -ENOTTY;
-		break;
 #endif
+		break;
 
 	case MALI_IOC_PP_START_JOB:
 		BUILD_BUG_ON(!IS_ALIGNED(sizeof(_mali_uk_pp_start_job_s), sizeof(u64)));

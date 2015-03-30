@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2014 ARM Limited. All rights reserved.
+ * Copyright (C) 2010-2015 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -53,33 +53,33 @@
 #define MALI_OSK_RESOURCE_l2_LOCATION_END 22
 
 static _mali_osk_resource_t mali_osk_resource_bank[MALI_OSK_MAX_RESOURCE_NUMBER] = {
-{.description = "Mali_GP", .base = MALI_OFFSET_GP, .irq_name = "IRQGP",},
-{.description = "Mali_GP_MMU", .base = MALI_OFFSET_GP_MMU, .irq_name = "IRQGPMMU",},
-{.description = "Mali_PP0", .base = MALI_OFFSET_PP0, .irq_name = "IRQPP0",},
-{.description = "Mali_PP0_MMU", .base = MALI_OFFSET_PP0_MMU, .irq_name = "IRQPPMMU0",},
-{.description = "Mali_PP1", .base = MALI_OFFSET_PP1, .irq_name = "IRQPP1",},
-{.description = "Mali_PP1_MMU", .base = MALI_OFFSET_PP1_MMU, .irq_name = "IRQPPMMU1",},
-{.description = "Mali_PP2", .base = MALI_OFFSET_PP2, .irq_name = "IRQPP2",},
-{.description = "Mali_PP2_MMU", .base = MALI_OFFSET_PP2_MMU, .irq_name = "IRQPPMMU2",},
-{.description = "Mali_PP3", .base = MALI_OFFSET_PP3, .irq_name = "IRQPP3",},
-{.description = "Mali_PP3_MMU", .base = MALI_OFFSET_PP3_MMU, .irq_name = "IRQPPMMU3",},
-{.description = "Mali_PP4", .base = MALI_OFFSET_PP4, .irq_name = "IRQPP4",},
-{.description = "Mali_PP4_MMU", .base = MALI_OFFSET_PP4_MMU, .irq_name = "IRQPPMMU4",},
-{.description = "Mali_PP5", .base = MALI_OFFSET_PP5, .irq_name = "IRQPP5",},
-{.description = "Mali_PP5_MMU", .base = MALI_OFFSET_PP5_MMU, .irq_name = "IRQPPMMU5",},
-{.description = "Mali_PP6", .base = MALI_OFFSET_PP6, .irq_name = "IRQPP6",},
-{.description = "Mali_PP6_MMU", .base = MALI_OFFSET_PP6_MMU, .irq_name = "IRQPPMMU6",},
-{.description = "Mali_PP7", .base = MALI_OFFSET_PP7, .irq_name = "IRQPP7",},
-{.description = "Mali_PP7_MMU", .base = MALI_OFFSET_PP7_MMU, .irq_name = "IRQPPMMU",},
-{.description = "Mali_PP_Broadcast", .base = MALI_OFFSET_PP_BCAST, .irq_name = "IRQPP",},
-{.description = "Mali_PMU", .base = MALI_OFFSET_PMU, .irq_name = "IRQPMU",},
-{.description = "Mali_L2", .base = MALI_OFFSET_L2_RESOURCE0,},
-{.description = "Mali_L2", .base = MALI_OFFSET_L2_RESOURCE1,},
-{.description = "Mali_L2", .base = MALI_OFFSET_L2_RESOURCE2,},
-{.description = "Mali_PP_MMU_Broadcast", .base = MALI_OFFSET_PP_BCAST_MMU,},
-{.description = "Mali_Broadcast", .base = MALI_OFFSET_BCAST,},
-{.description = "Mali_DLBU", .base = MALI_OFFSET_DLBU,},
-{.description = "Mali_DMA", .base = MALI_OFFSET_DMA,},
+	{.description = "Mali_GP", .base = MALI_OFFSET_GP, .irq_name = "IRQGP",},
+	{.description = "Mali_GP_MMU", .base = MALI_OFFSET_GP_MMU, .irq_name = "IRQGPMMU",},
+	{.description = "Mali_PP0", .base = MALI_OFFSET_PP0, .irq_name = "IRQPP0",},
+	{.description = "Mali_PP0_MMU", .base = MALI_OFFSET_PP0_MMU, .irq_name = "IRQPPMMU0",},
+	{.description = "Mali_PP1", .base = MALI_OFFSET_PP1, .irq_name = "IRQPP1",},
+	{.description = "Mali_PP1_MMU", .base = MALI_OFFSET_PP1_MMU, .irq_name = "IRQPPMMU1",},
+	{.description = "Mali_PP2", .base = MALI_OFFSET_PP2, .irq_name = "IRQPP2",},
+	{.description = "Mali_PP2_MMU", .base = MALI_OFFSET_PP2_MMU, .irq_name = "IRQPPMMU2",},
+	{.description = "Mali_PP3", .base = MALI_OFFSET_PP3, .irq_name = "IRQPP3",},
+	{.description = "Mali_PP3_MMU", .base = MALI_OFFSET_PP3_MMU, .irq_name = "IRQPPMMU3",},
+	{.description = "Mali_PP4", .base = MALI_OFFSET_PP4, .irq_name = "IRQPP4",},
+	{.description = "Mali_PP4_MMU", .base = MALI_OFFSET_PP4_MMU, .irq_name = "IRQPPMMU4",},
+	{.description = "Mali_PP5", .base = MALI_OFFSET_PP5, .irq_name = "IRQPP5",},
+	{.description = "Mali_PP5_MMU", .base = MALI_OFFSET_PP5_MMU, .irq_name = "IRQPPMMU5",},
+	{.description = "Mali_PP6", .base = MALI_OFFSET_PP6, .irq_name = "IRQPP6",},
+	{.description = "Mali_PP6_MMU", .base = MALI_OFFSET_PP6_MMU, .irq_name = "IRQPPMMU6",},
+	{.description = "Mali_PP7", .base = MALI_OFFSET_PP7, .irq_name = "IRQPP7",},
+	{.description = "Mali_PP7_MMU", .base = MALI_OFFSET_PP7_MMU, .irq_name = "IRQPPMMU",},
+	{.description = "Mali_PP_Broadcast", .base = MALI_OFFSET_PP_BCAST, .irq_name = "IRQPP",},
+	{.description = "Mali_PMU", .base = MALI_OFFSET_PMU, .irq_name = "IRQPMU",},
+	{.description = "Mali_L2", .base = MALI_OFFSET_L2_RESOURCE0,},
+	{.description = "Mali_L2", .base = MALI_OFFSET_L2_RESOURCE1,},
+	{.description = "Mali_L2", .base = MALI_OFFSET_L2_RESOURCE2,},
+	{.description = "Mali_PP_MMU_Broadcast", .base = MALI_OFFSET_PP_BCAST_MMU,},
+	{.description = "Mali_Broadcast", .base = MALI_OFFSET_BCAST,},
+	{.description = "Mali_DLBU", .base = MALI_OFFSET_DLBU,},
+	{.description = "Mali_DMA", .base = MALI_OFFSET_DMA,},
 };
 
 _mali_osk_errcode_t _mali_osk_resource_initialize(void)
@@ -93,7 +93,7 @@ _mali_osk_errcode_t _mali_osk_resource_initialize(void)
 		if (res) {
 			mali_osk_resource_bank[i].irq = res->start;
 			if (0 == strncmp("Mali_PP_Broadcast", mali_osk_resource_bank[i].description,
-					strlen(mali_osk_resource_bank[i].description))) {
+					 strlen(mali_osk_resource_bank[i].description))) {
 				mali_is_450 = MALI_TRUE;
 			}
 		} else {
@@ -186,13 +186,15 @@ void _mali_osk_device_data_pmu_config_get(u16 *domain_config_array, int array_si
 	int length = 0, i = 0;
 	u32 u;
 
+	MALI_DEBUG_PRINT(2, ("Get pmu config from device tree configuration.\n"));
+
 	MALI_DEBUG_ASSERT(NULL != node);
 
 	if (!of_get_property(node, "pmu_domain_config", &length)) {
 		return;
 	}
 
-	if (array_size != length/sizeof(u32)) {
+	if (array_size != length / sizeof(u32)) {
 		MALI_PRINT_ERROR(("Wrong pmu domain config in device tree."));
 		return;
 	}
@@ -279,6 +281,7 @@ void _mali_osk_device_data_pmu_config_get(u16 *domain_config_array, int array_si
 {
 	_mali_osk_device_data data = { 0, };
 
+	MALI_DEBUG_PRINT(2, ("Get pmu config from platform device data.\n"));
 	if (_MALI_OSK_ERR_OK == _mali_osk_device_data_get(&data)) {
 		/* Copy the custom customer power domain config */
 		_mali_osk_memcpy(domain_config_array, data.pmu_domain_config, sizeof(data.pmu_domain_config));

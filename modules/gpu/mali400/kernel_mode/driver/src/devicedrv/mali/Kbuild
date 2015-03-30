@@ -67,6 +67,11 @@ mali-y += linux/mali_memory_external.o
 mali-y += linux/mali_memory_block_alloc.o
 
 mali-y += \
+	linux/mali_memory_manager.o \
+	linux/mali_memory_virtual.o \
+	linux/mali_memory_util.o
+
+mali-y += \
 	linux/mali_ukk_mem.o \
 	linux/mali_ukk_gp.o \
 	linux/mali_ukk_pp.o \
@@ -79,7 +84,6 @@ mali-y += \
 	linux/mali_platform.o\
 	common/mali_kernel_core.o \
 	linux/mali_kernel_linux.o \
-	common/mali_kernel_descriptor_mapping.o \
 	common/mali_session.o \
 	linux/mali_device_pause_resume.o \
 	common/mali_kernel_vsync.o \

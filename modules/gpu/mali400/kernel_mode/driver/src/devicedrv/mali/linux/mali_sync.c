@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2014 ARM Limited. All rights reserved.
+ * Copyright (C) 2012-2015 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -176,7 +176,7 @@ static void timeline_value_str(struct sync_timeline *timeline, char *str, int si
 
 	if (NULL != mali_sync_tl->timeline) {
 		_mali_osk_snprintf(str, size, "oldest (%u)  next (%u)\n", mali_sync_tl->timeline->point_oldest,
-			mali_sync_tl->timeline->point_next);
+				   mali_sync_tl->timeline->point_next);
 	}
 }
 #endif

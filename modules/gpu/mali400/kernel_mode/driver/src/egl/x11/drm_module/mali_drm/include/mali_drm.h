@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2012-2014 ARM Limited. All rights reserved.
+ * Copyright (C) 2010, 2012-2015 ARM Limited. All rights reserved.
  * 
  * This program is free software and is provided to you under the terms of the GNU General Public License version 2
  * as published by the Free Software Foundation, and any use by you of this program is subject to the terms of such GNU licence.
@@ -24,7 +24,7 @@
 #define DRM_IOCTL_MALI_FB_ALLOC     DRM_IOWR(DRM_COMMAND_BASE + DRM_MALI_FB_ALLOC, drm_mali_mem_t)
 #define DRM_IOCTL_MALI_FB_FREE      DRM_IOW( DRM_COMMAND_BASE + DRM_MALI_FB_FREE, drm_mali_mem_t)
 #define DRM_IOCTL_MALI_MEM_INIT     DRM_IOWR(DRM_COMMAND_BASE + DRM_MALI_MEM_INIT, drm_mali_mem_t)
-#define DRM_IOCTL_MALI_MEM_ALLOC        DRM_IOWR(DRM_COMMAND_BASE + DRM_MALI_MEM_ALLOC, drm_mali_mem_t)
+#define DRM_IOCTL_MALI_MEM_ALLOC    DRM_IOWR(DRM_COMMAND_BASE + DRM_MALI_MEM_ALLOC, drm_mali_mem_t)
 #define DRM_IOCTL_MALI_MEM_FREE     DRM_IOW( DRM_COMMAND_BASE + DRM_MALI_MEM_FREE, drm_mali_mem_t)
 #define DRM_IOCTL_MALI_FB_INIT      DRM_IOW( DRM_COMMAND_BASE + DRM_MALI_FB_INIT, drm_mali_fb_t)
 

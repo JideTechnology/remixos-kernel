@@ -350,7 +350,7 @@ struct attribute_group gpu_attribute_group =
  @Description:Init the clocks of gpu
 ***************************************************************
 */
-static int mali_platform_init(struct platform_device *mali_pdev)
+static int mali_platform_init(struct platform_device *device)
 {
 	bool err = 0;
 
@@ -381,7 +381,7 @@ err_out:
 ***************************************************************
 */
 #ifdef CONFIG_MALI_DT
-int mali_platform_device_init(struct platform_device *mali_pdev)
+int mali_platform_device_init(struct platform_device *device)
 #else
 int aw_mali_platform_device_register(void)
 #endif
@@ -390,7 +390,7 @@ int aw_mali_platform_device_register(void)
 	struct platform_device *pdev;
 
 #ifdef CONFIG_MALI_DT
-	pdev = mali_pdev;
+	pdev = device;
 #else
 	pdev = &mali_gpu_device;
 #endif
