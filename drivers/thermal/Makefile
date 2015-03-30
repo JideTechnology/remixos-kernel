@@ -28,6 +28,5 @@ obj-$(CONFIG_ARMADA_THERMAL)	+= armada_thermal.o
 obj-$(CONFIG_DB8500_CPUFREQ_COOLING)	+= db8500_cpufreq_cooling.o
 obj-$(CONFIG_INTEL_POWERCLAMP)	+= intel_powerclamp.o
 obj-$(CONFIG_SUNXI_BUDGET_COOLING)	+= sunxi_budget_cooling/
-obj-$(CONFIG_SUNXI_THERMAL)		+= sunxi-thermal.o
-sunxi-thermal-y					+= sunxi_ths.o
-sunxi-thermal-$(CONFIG_ARCH_SUN50IW1P1) += sun50i-thsensor.o
+obj-$(CONFIG_SUNXI_THERMAL)		+= sunxi_thermal/
+

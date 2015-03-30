@@ -1199,13 +1199,19 @@
 
 		sunxi_thermal_sensor:thermal_sensor{
 			compatible = "allwinner,thermal_sensor";
-			#thermal-sensor-cells = <1>;
 			reg = <0x0 0x01c25000 0x0 0x400>;
 			interrupts = <GIC_SPI 31 IRQ_TYPE_NONE>;
 			clocks = <&clk_hosc>,<&clk_ths>;
 			sensor_num = <3>;
-			int_temp= <120>;
+			shut_temp= <120>;
 			status = "okay";
+
+			combine0:combine0{
+				#thermal-sensor-cells = <1>;
+				combine_cnt = <3>;
+				combine_type = "max";
+				combine_chn = <0 1 2>;
+			};
 		};
 
 		sunxi_cpufreq_cooling:cpufreq_cool{
@@ -1227,7 +1233,7 @@
 
 				polling-delay-passive = <500>;
 				polling-delay = <2000>;
-				thermal-sensors = <&sunxi_thermal_sensor 0>;
+				thermal-sensors = <&combine0 0>;
 
 				trips{
 					trip0:t0{
