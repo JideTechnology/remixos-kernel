@@ -775,7 +775,7 @@ static void auto_bws_model(unsigned int width, unsigned int height, unsigned int
 		else if (pd_ymin >= pd_black)	//do noting use s0
 		{
 			pd_s0 = 256;
-			pd_ymin_fix = 0;
+			pd_ymin_fix = 16;
 		}
 		else
 		{
@@ -827,10 +827,6 @@ static void auto_bws_model(unsigned int width, unsigned int height, unsigned int
 	{
 		pr_warn("%s, ##################error para, mean=%d, validsum=%d, validcnt=%d, pd_ymin_fix=%d, pd_black=%d, pd_white=%d, pd_ymax_fix=%d,sum=%d\n",
 			__func__, mean, validsum, validcnt, pd_ymin_fix, pd_black, pd_white, pd_ymax_fix, sum);
-		pr_warn("hist value:\n");
-		for (i=0; i<256; i+=4) {
-			pr_warn("0x%x 0x%x 0x%x 0x%x\n", hist[i], hist[i+1], hist[i+2], hist[i+3]);
-		}
 		mean=0;
 		pd_ymin_fix = 16;
 		pd_black = 32;
