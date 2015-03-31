@@ -117,9 +117,9 @@ void set_pwr_regu_tree(u32 value, u32 bitmap)
 	return;
 }
 
-u32 (* get_pwr_regu_tree(void))[VCC_MAX_INDEX]
+void get_pwr_regu_tree(unsigned int *p)
 {
-	return &power_regu_tree;
+	memcpy((void *)p, (void *)power_regu_tree, sizeof(power_regu_tree));
 }
 
 s32 axp_check_sys_id(const char *supply_id)

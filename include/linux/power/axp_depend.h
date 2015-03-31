@@ -175,7 +175,7 @@ extern int del_sys_pwr_dm(const char *id);
 extern int is_sys_pwr_dm_id(const char *id);
 extern int is_sys_pwr_dm_active(unsigned int bitmap);
 extern char *get_sys_pwr_dm_id(unsigned int bitmap);
-extern unsigned int (* get_pwr_regu_tree(void))[VCC_MAX_INDEX];
+extern void get_pwr_regu_tree(unsigned int *p);
 extern ssize_t parse_pwr_dm_map(char *s, size_t size, unsigned int bitmap);
 #endif /* __AXP_DEPEND_H__ */
 
