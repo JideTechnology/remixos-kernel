@@ -928,10 +928,6 @@ static irqreturn_t sunxi_dramfreq_irq_handler(int irq, void *data)
 	irq_access   = readl(dramfreq->dramcom_base + MDFS_IRQ_STATUS0);
 	irq_idle     = readl(dramfreq->dramcom_base + MDFS_IRQ_STATUS1);
 
-	if (!dramfreq->pause)
-		DRAMFREQ_DBG(DEBUG_FREQ, "(IRQ) access=0x%x, idle=0x%x\n",
-							irq_access, irq_idle);
-
 	for (i = 0; i < MASTER_MAX; i++) {
 		idx = key_masters_int_idx[i][1];
 		if ((irq_access >> idx) & 0x1) {
