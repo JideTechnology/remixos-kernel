@@ -705,8 +705,8 @@ i2c_dw_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 	mutex_lock(&dev->lock);
 
 	if (dev->status & STATUS_SUSPENDED) {
-		dev_err(dev->dev, "i2c xfer after suspend!\n");
 		mutex_unlock(&dev->lock);
+		dev_WARN(dev->dev, "i2c xfer after suspend!\n");
 		return -EIO;
 	}
 
