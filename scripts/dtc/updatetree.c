@@ -161,7 +161,8 @@ int sunxi_dt_init_pinconf_prop(struct script_section *section,
 		ep = container_of(o, struct script_entry,  entries);
 		entry = container_of(ep, struct script_gpio_entry, entry);
 		if (entry->data[0] == 2 || entry->data[0] == 3 ||
-		    entry->data[0] == 4 || entry->data[0] == 5) {
+		    entry->data[0] == 4 || entry->data[0] == 5 ||
+		    entry->data[0] == 7) {
 			if (!sleep_state) {
 				prop = get_property(node, "pinctrl-0");
 			} else {
@@ -575,6 +576,7 @@ void sunxi_dt_update_propval_gpio(const char *section_name,
 	case 3:
 	case 4:
 	case 5:
+	case 7:
 		if (sleep_state) {
 			sunxi_dt_update_pin_group_sleep(section_name, bi, node, ep);
 		} else {
