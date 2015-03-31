@@ -530,7 +530,7 @@ static void parse_sysconfig_fex(void)
 {
 	char fx_name[8] = {0};
 	char tlx_name[10] = {0};
-	int ft_count = 0, tlt_count = 0, i, value;
+	int ft_count, tlt_count, i, value;
 
 	value = get_para_from_fex("gpu_mali400_0", "normal_level", 0);
 	if(value != -1)
@@ -538,7 +538,7 @@ static void parse_sysconfig_fex(void)
 		private_data.normal_level = value;
 	}
 
-	value = get_para_from_fex("gpu_mali400_0", "scene_ctrl_staus", 1);
+	value = get_para_from_fex("gpu_mali400_0", "scene_ctrl_status", 1);
 	if(value != -1)
 	{
 		private_data.dvfs_data.dvfs_status = value;
@@ -553,6 +553,7 @@ static void parse_sysconfig_fex(void)
 	value = get_para_from_fex("gpu_mali400_0", "ft_count", sizeof(vf_table)/sizeof(vf_table[0]));
 	if(value != -1)
 	{
+		ft_count = value;
 		private_data.dvfs_data.max_level = value - 1;
 		if(private_data.normal_level > value -1)
 		{
@@ -563,6 +564,7 @@ static void parse_sysconfig_fex(void)
 	value = get_para_from_fex("gpu_mali400_0", "tlt_count", sizeof(tl_table)/sizeof(tl_table[0]));
 	if(value != -1)
 	{
+		tlt_count = value;
 		private_data.tempctrl_data.count = value;
 	}
 
@@ -729,7 +731,7 @@ static void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data
 		{
 			if(temperature < tl_table[0].temp)
 			{
-				if(cur_freq != vf_table[tl_table[0].level].max_freq)
+				if(cur_freq > vf_table[tl_table[0].level].max_freq)
 				{
 					private_data.tempctrl_data.temp_ctrl_flag = 1;
 					private_data.tempctrl_data.level = tl_table[0].level;
@@ -741,9 +743,12 @@ static void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data
 				{
 					if(temperature >= tl_table[i].temp)
 					{
-						private_data.tempctrl_data.temp_ctrl_flag = 1;
-						private_data.tempctrl_data.level = tl_table[i].level;
-						break;
+						if(cur_freq > vf_table[tl_table[i].level].max_freq)
+						{
+							private_data.tempctrl_data.temp_ctrl_flag = 1;
+							private_data.tempctrl_data.level = tl_table[i].level;
+							break;
+						}
 					}
 				}
 			}
@@ -755,7 +760,7 @@ static void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data
 		return;
 	}
 
-	if(private_data.tempctrl_data.temp_ctrl_flag)
+	if(!private_data.tempctrl_data.temp_ctrl_flag)
 	{
 		return;
 	}
