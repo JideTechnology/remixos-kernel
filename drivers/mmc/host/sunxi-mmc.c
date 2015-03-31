@@ -637,6 +637,24 @@ static void sunxi_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			return;
 		}
 
+#if 0
+		if (!IS_ERR(host->reset)) {
+			rval = reset_control_deassert(host->reset);
+			if (rval) {
+				dev_err(mmc_dev(mmc), "reset err %d\n", rval);
+				return;
+			}
+		}
+#else
+		if (!IS_ERR(host->clk_rst)) {
+			rval = clk_prepare_enable(host->clk_rst);
+			if (rval) {
+				dev_err(mmc_dev(mmc), "reset err %d\n", rval);
+				return;
+			}
+		}
+#endif
+
 		rval = clk_prepare_enable(host->clk_ahb);
 		if (rval) {
 			dev_err(mmc_dev(mmc), "Enable ahb clk err %d\n", rval);
@@ -647,23 +665,7 @@ static void sunxi_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			dev_err(mmc_dev(mmc), "Enable mmc clk err %d\n", rval);
 			return;
 		}
-#if 0
-		if (!IS_ERR(host->reset)) {
-			rval = reset_control_deassert(host->reset);
-			if (rval) {
-				dev_err(mmc_dev(mmc), "reset err %d\n", rval);
-				return;
-			}
-		}
-#else
-	if (!IS_ERR(host->clk_rst)) {
-		rval = clk_prepare_enable(host->clk_rst);
-		if (rval) {
-			dev_err(mmc_dev(mmc), "reset err %d\n", rval);
-			return;
-		}
-	}
-#endif
+
 
 		host->ferror = sunxi_mmc_init_host(mmc);
 		if (host->ferror)
@@ -683,16 +685,15 @@ static void sunxi_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		disable_irq(host->irq);		
 		sunxi_mmc_reset_host(host);
 
+		clk_disable_unprepare(host->clk_mmc);
+		clk_disable_unprepare(host->clk_ahb);
 #if 0
 		if (!IS_ERR(host->reset))
 			reset_control_assert(host->reset);
 #else
-	if (!IS_ERR(host->clk_rst))
-		clk_disable_unprepare(host->clk_rst);
-
+		if (!IS_ERR(host->clk_rst))
+			clk_disable_unprepare(host->clk_rst);
 #endif
-		clk_disable_unprepare(host->clk_mmc);
-		clk_disable_unprepare(host->clk_ahb);
 
 		rval = pinctrl_select_state(host->pinctrl, host->pins_sleep);
 		if (rval){
@@ -1245,7 +1246,6 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		}
 	}
 
-
 	host->pinctrl = devm_pinctrl_get(&pdev->dev);
 	if (IS_ERR(host->pinctrl)) {
 		ret = PTR_ERR(host->pinctrl);
@@ -1270,19 +1270,23 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 
 	host->reg_base = devm_ioremap_resource(&pdev->dev,
 			      platform_get_resource(pdev, IORESOURCE_MEM, 0));
-	if (IS_ERR(host->reg_base))
-		return PTR_ERR(host->reg_base);
+	if (IS_ERR(host->reg_base)){
+		ret = PTR_ERR(host->reg_base);
+		goto error_disable_regulator;
+	}
 
 	host->clk_ahb = devm_clk_get(&pdev->dev, "ahb");
 	if (IS_ERR(host->clk_ahb)) {
 		dev_err(&pdev->dev, "Could not get ahb clock\n");
-		return PTR_ERR(host->clk_ahb);
+		ret =  PTR_ERR(host->clk_ahb);
+		goto error_disable_regulator;		
 	}
 
 	host->clk_mmc = devm_clk_get(&pdev->dev, "mmc");
 	if (IS_ERR(host->clk_mmc)) {
 		dev_err(&pdev->dev, "Could not get mmc clock\n");
-		return PTR_ERR(host->clk_mmc);
+		ret = PTR_ERR(host->clk_mmc);
+		goto error_disable_regulator;
 	}
 
 #if 0
@@ -1293,19 +1297,6 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		dev_warn(&pdev->dev, "Could not get mmc rst\n");
 	}
 #endif
-
-	ret = clk_prepare_enable(host->clk_ahb);
-	if (ret) {
-		dev_err(&pdev->dev, "Enable ahb clk err %d\n", ret);
-		return ret;
-	}
-
-
-	ret = clk_prepare_enable(host->clk_mmc);
-	if (ret) {
-		dev_err(&pdev->dev, "Enable mmc clk err %d\n", ret);
-		goto error_disable_clk_ahb;
-	}
 
 #if 0
 	if (!IS_ERR(host->reset)) {
@@ -1320,10 +1311,23 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		ret = clk_prepare_enable(host->clk_rst);
 		if (ret) {
 			dev_err(&pdev->dev, "reset err %d\n", ret);
-			goto error_disable_clk_mmc;
+			goto error_disable_regulator;
 		}
 	}
 #endif
+
+	ret = clk_prepare_enable(host->clk_ahb);
+	if (ret) {
+		dev_err(&pdev->dev, "Enable ahb clk err %d\n", ret);
+		goto error_assert_reset;
+	}
+
+
+	ret = clk_prepare_enable(host->clk_mmc);
+	if (ret) {
+		dev_err(&pdev->dev, "Enable mmc clk err %d\n", ret);
+		goto error_disable_clk_ahb;
+	}
 
 	/*
 	 * Sometimes the controller asserts the irq on boot for some reason,
@@ -1331,18 +1335,20 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 	 */
 	ret = sunxi_mmc_reset_host(host);
 	if (ret)
-		goto error_assert_reset;
+		goto error_disable_clk_mmc;
 
 	host->irq = platform_get_irq(pdev, 0);
 	ret = devm_request_threaded_irq(&pdev->dev, host->irq, sunxi_mmc_irq,
 			sunxi_mmc_handle_manual_stop, 0, "sunxi-mmc", host);
 	if(ret){
 		dev_err(&pdev->dev, "faild to request irq %d\n", ret);
-		goto error_assert_reset;
+		goto error_disable_clk_mmc;
 	}
 
 	disable_irq(host->irq);
 
+	clk_disable_unprepare(host->clk_mmc);
+	clk_disable_unprepare(host->clk_ahb);
 #if 0
 	if (!IS_ERR(host->reset))
 		reset_control_assert(host->reset);
@@ -1350,14 +1356,16 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 	if (!IS_ERR(host->clk_rst))
 		clk_disable_unprepare(host->clk_rst);
 #endif
-	clk_disable_unprepare(host->clk_mmc);
-	clk_disable_unprepare(host->clk_ahb);
 	//ret = mmc_create_sys_fs(host,pdev);
 	//if(ret)
 	//	goto error_disable_regulator;
 
 	return ret;
 
+error_disable_clk_mmc:
+	clk_disable_unprepare(host->clk_mmc);
+error_disable_clk_ahb:
+	clk_disable_unprepare(host->clk_ahb);
 error_assert_reset:
 #if 0
 	if (!IS_ERR(host->reset))
@@ -1366,10 +1374,6 @@ error_assert_reset:
 if (!IS_ERR(host->clk_rst))
 	clk_disable_unprepare(host->clk_rst);
 #endif
-error_disable_clk_mmc:
-	clk_disable_unprepare(host->clk_mmc);
-error_disable_clk_ahb:
-	clk_disable_unprepare(host->clk_ahb);
 error_disable_regulator:
 	if (!IS_ERR(host->mmc->supply.vdmmc))
 			regulator_disable(host->mmc->supply.vdmmc);
@@ -1440,8 +1444,8 @@ static int sunxi_mmc_probe(struct platform_device *pdev)
 	if (ret)
 		goto error_free_dma;
 
-
-	if(ret = mmc_create_sys_fs(host,pdev)){
+	ret = mmc_create_sys_fs(host,pdev);
+	if(ret){
 		dev_err(&pdev->dev, "create sys fs failed\n");
 		goto error_free_dma;
 	}
@@ -1555,6 +1559,9 @@ static int sunxi_mmc_suspend(struct device *dev)
 				struct sunxi_mmc_host *host = mmc_priv(mmc);
 				disable_irq(host->irq);
 				sunxi_mmc_regs_save(host);
+
+				clk_disable_unprepare(host->clk_mmc);
+				clk_disable_unprepare(host->clk_ahb);
 #if 0
 				if (!IS_ERR(host->reset))
 					reset_control_assert(host->reset);
@@ -1562,9 +1569,6 @@ static int sunxi_mmc_suspend(struct device *dev)
 				if (!IS_ERR(host->clk_rst))
 					clk_disable_unprepare(host->clk_rst);
 #endif
-				clk_disable_unprepare(host->clk_mmc);
-				clk_disable_unprepare(host->clk_ahb);
-				
 				ret = pinctrl_select_state(host->pinctrl, host->pins_sleep);
 				if (ret){
 					dev_err(mmc_dev(mmc), "could not set sleep pins in suspend\n");
@@ -1617,6 +1621,23 @@ static int sunxi_mmc_resume(struct device *dev)
 				return ret;
 			}
 			
+#if 0
+			if (!IS_ERR(host->reset)) {
+					ret = reset_control_deassert(host->reset);
+					if (ret) {
+						dev_err(mmc_dev(mmc), "reset err %d\n", ret);
+						return ret;
+					}
+			}			
+#else
+			if (!IS_ERR(host->clk_rst)) {
+				ret = clk_prepare_enable(host->clk_rst);
+				if (ret) {
+					dev_err(mmc_dev(mmc), "reset err %d\n", ret);
+					return ret;
+				}
+			}
+#endif
 			ret = clk_prepare_enable(host->clk_ahb);
 			if (ret) {
 				dev_err(mmc_dev(mmc), "Enable ahb clk err %d\n", ret);
@@ -1627,23 +1648,7 @@ static int sunxi_mmc_resume(struct device *dev)
 				dev_err(mmc_dev(mmc), "Enable mmc clk err %d\n", ret);
 				return ret;
 			}
-#if 0
-			if (!IS_ERR(host->reset)) {
-				ret = reset_control_deassert(host->reset);
-				if (ret) {
-					dev_err(mmc_dev(mmc), "reset err %d\n", ret);
-					return ret;
-				}
-			}			
-#else
-			if (!IS_ERR(host->clk_rst)) {
-				ret = clk_prepare_enable(host->clk_rst);
-			if (ret) {
-					dev_err(mmc_dev(mmc), "reset err %d\n", ret);
-					return ret;
-				}
-			}
-#endif
+
 
 			host->ferror = sunxi_mmc_init_host(mmc);
 			if (host->ferror)
