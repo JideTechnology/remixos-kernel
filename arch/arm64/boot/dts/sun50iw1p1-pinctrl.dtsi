@@ -434,38 +434,6 @@
 				allwinner,pull = <0>;
 			};
 
-			lcd_pins_a: disp@0 {
-				allwinner,pins = "PD12", "PD13", "PD14", "PD15", "PD16", "PD17", "PD18", "PD19", "PD20", "PD21";
-				allwinner,function = "lvds0";
-				allwinner,muxsel = <3>;
-				allwinner,drive = <1>;
-				allwinner,pull = <1>;
-			};
-
-			lcd_pins_b: disp@1 {
-				allwinner,pins = "PD12", "PD13", "PD14", "PD15", "PD16", "PD17", "PD18", "PD19", "PD20", "PD21";
-				allwinner,function = "io_disabled";
-				allwinner,muxsel = <7>;
-				allwinner,drive = <1>;
-				allwinner,pull = <1>;
-			};
-
-			pwm_pins_a: pwm@0 {
-				allwinner,pins = "PD22";
-				allwinner,function = "pwm0";
-				allwinner,muxsel = <2>;
-				allwinner,drive = <1>;
-				allwinner,pull = <1>;
-			};
-
-			pwm_pins_b: pwm@1 {
-				allwinner,pins = "PD22";
-				allwinner,function = "io_disabled";
-				allwinner,muxsel = <7>;
-				allwinner,drive = <1>;
-				allwinner,pull = <1>;
-			};
-
 			gmac_pins_a: gmac@0 {
 				allwinner,pins = "PD8", "PD9", "PD10", "PD11",
 						"PD12", "PD13", "PD14", "PD15",

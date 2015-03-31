@@ -40,10 +40,11 @@
 		mmc0 = &sdc0;
 		mmc2 = &sdc2;
 		nand0 =&nand0;
-		disp = &soc_disp;
-		lcd0 = &soc_lcd0;
-		hdmi = &soc_hdmi;
-		pwm = &soc_pwm;
+		disp = &disp;
+		lcd0 = &lcd0;
+		hdmi = &hdmi;
+		pwm = &pwm;
+		boot_disp = &boot_disp;
 	};
 
 	chosen {
@@ -922,7 +923,7 @@
 		};
 
 
-		soc_disp: disp@01000000 {
+		disp: disp@01000000 {
 			compatible = "allwinner,sun50i-disp";
 			reg = <0x0 0x01000000 0x0 0x00300000>,/*de*/
 				<0x0 0x01c0c000 0x0 0x17fc>,/*lcd*/
@@ -931,76 +932,21 @@
 				<GIC_SPI 89 0x0104>;/* for dsi */
 			clocks = <&clk_de>,<&clk_tcon0>,
 				<&clk_lvds>,<&clk_mipidsi>,<&clk_tcon1>;
-			disp_init_enable = <1>;
-			disp_mode = <0>;
-			screen0_output_type = <1>;
-			screen0_output_mode = <4>;
-			screen1_output_type = <3>;
-			screen1_output_mode = <4>;
-			fb0_format = <0>;
-			fb0_width = <0>;
-			fb0_height = <0>;
-			fb1_format = <0>;
-			fb1_width = <0>;
-			fb1_height = <0>;
 
 			status = "okay";
 		};
 
-		soc_lcd0: lcd0@01c0c000 {
+		lcd0: lcd0@01c0c000 {
 			compatible = "allwinner,sunxi-lcd0";
-			lcd_driver_name = "default_lcd";
-			lcd_used = <1>;
-			lcd_if = <3>;
-			lcd_x = <1280>;
-			lcd_y = <800>;
-			lcd_width = <150>;
-			lcd_height = <94>;
-			lcd_dclk_freq = <70>;
-			lcd_pwm_used = <1>;
-			lcd_pwm_ch = <0>;
-			lcd_pwm_freq = <5000>;
-			lcd_pwm_pol = <1>;
-			lcd_pwm_max_limit = <255>;
-			lcd_hbp = <20>;
-			lcd_ht = <1418>;
-			lcd_hspw = <10>;
-			lcd_vbp = <10>;
-			lcd_vt = <814>;
-			lcd_vspw = <5>;
-			lcd_lvds_if = <0>;
-			lcd_lvds_colordepth = <1>;
-			lcd_lvds_mode = <0>;
-			lcd_frm = <1>;
-			lcd_hv_clk_phase = <0>;
-			lcd_hv_sync_polarity = <0>;
-			lcd_gamma_en = <0>;
-			lcd_bright_curve_en = <0>;
-			lcd_cmap_en = <0>;
-
-			lcd_power = "vcc-lcd-0";
-			lcd_bl_en = <&pio PD 23 1 0 0 1>;
-			lcd_bl_en_power = "none";/* power for lcd_bl_en pin */
-			lcd_fix_power = "vcc-dsi-33";/* power for lcd controler */
-
 			pinctrl-names = "active","sleep";
-			pinctrl-0 = <&lcd_pins_a>;
-			pinctrl-1 = <&lcd_pins_b>;
-			lcd_pin_power = "vcc-pd";/* power for pinctrl-0/1.. */
-
-			lcd_backlight = <50>;
 
 			status = "okay";
 		};
 
-		soc_hdmi: hdmi@01ee0000 {
+		hdmi: hdmi@01ee0000 {
 			compatible = "allwinner,sunxi-hdmi";
 			reg = <0x0 0x01ee0000 0x0 0x20000>;
 			clocks = <&clk_hdmi>,<&clk_hdmi_slow>;
-			hdmi_power = "vcc-hdmi-33";
-			hdmi_hdcp_enable = <0>;
-			hdmi_cts_compatibility = <0>;
-			status = "okay";
 		};
 
 		soc_tr: tr@01000000 {
@@ -1011,14 +957,15 @@
 			status = "okay";
 		};
 
-		soc_pwm: pwm@01c21400 {
+		pwm: pwm@01c21400 {
 			compatible = "allwinner,sunxi-pwm0";
 			reg = <0x0 0x01c21400 0x0 0x3c>;
 			pwm-number = <1>;
 			pinctrl-names = "active", "sleep";
-			pinctrl-0 = <&pwm_pins_a>;
-			pinctrl-1 = <&pwm_pins_b>;
-			status = "okay";
+		};
+
+		boot_disp: boot_disp {
+			compatible = "allwinner,boot_disp";
 		};
 
 		csi_cci0:cci@0x01cb3000 {

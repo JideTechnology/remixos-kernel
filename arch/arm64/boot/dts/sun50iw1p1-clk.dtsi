@@ -347,7 +347,6 @@ clocks {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
 			assigned-clock-parents = <&clk_pll_video0>;
-			assigned-clock-rates = <297000000>;
 			clock-output-names = "tcon1";
 		};	
 		clk_deinterlace: deinterlace {
@@ -394,7 +393,6 @@ clocks {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
 			assigned-clock-parents = <&clk_pll_video0>;
-			assigned-clock-rates = <297000000>;
 			clock-output-names = "hdmi";
 		};	
 		clk_hdmi_slow: hdmi_slow {
