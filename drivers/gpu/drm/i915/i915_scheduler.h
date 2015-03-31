@@ -59,6 +59,11 @@ struct i915_scheduler_obj_entry {
 	struct drm_i915_gem_object          *obj;
 };
 
+enum i915_scheduler_queue_entry_flags {
+	/* Fence is being waited on */
+	i915_qef_fence_waiting              = (1 << 0),
+};
+
 struct i915_scheduler_queue_entry {
 	struct i915_execbuffer_params       params;
 	uint32_t                            priority;
@@ -71,6 +76,7 @@ struct i915_scheduler_queue_entry {
 	struct timespec                     stamp;
 	struct list_head                    link;
 	uint32_t                            scheduler_index;
+	uint32_t                            flags;
 };
 const char *i915_qe_state_str(struct i915_scheduler_queue_entry *node);
 

@@ -1218,6 +1218,7 @@ int i915_scheduler_submit_max_priority(struct intel_engine_cs *ring,
 struct i915_sync_fence_waiter {
 	struct sync_fence_waiter sfw;
 	struct drm_device	 *dev;
+	struct i915_scheduler_queue_entry *node;
 };
 
 static void i915_scheduler_wait_fence_signaled(struct sync_fence *fence,
@@ -1234,18 +1235,34 @@ static void i915_scheduler_wait_fence_signaled(struct sync_fence *fence,
 	 * NB: The callback is executed at interrupt time, thus it can not
 	 * call _submit() directly. It must go via the delayed work handler.
 	 */
-	if (dev_priv)
+	if (dev_priv) {
+		struct i915_scheduler   *scheduler;
+		unsigned long           flags;
+
+		scheduler = dev_priv->scheduler;
+
+		spin_lock_irqsave(&scheduler->lock, flags);
+		i915_waiter->node->flags &= ~i915_qef_fence_waiting;
+		spin_unlock_irqrestore(&scheduler->lock, flags);
+
 		queue_work(dev_priv->wq, &dev_priv->mm.scheduler_work);
+	}
 
 	kfree(waiter);
 }
 
 static bool i915_scheduler_async_fence_wait(struct drm_device *dev,
-					    struct sync_fence *fence)
+					    struct i915_scheduler_queue_entry *node)
 {
 	struct i915_sync_fence_waiter	*fence_waiter;
+	struct sync_fence		*fence = node->params.fence_wait;
 	int				signaled;
 	bool				success = true;
+
+	if ((node->flags & i915_qef_fence_waiting) == 0)
+		node->flags |= i915_qef_fence_waiting;
+	else
+		return true;
 
 	if (fence == NULL)
 		return false;
@@ -1260,6 +1277,7 @@ static bool i915_scheduler_async_fence_wait(struct drm_device *dev,
 
 		INIT_LIST_HEAD(&fence_waiter->sfw.waiter_list);
 		fence_waiter->sfw.callback = i915_scheduler_wait_fence_signaled;
+		fence_waiter->node = node;
 		fence_waiter->dev = dev;
 
 		if (sync_fence_wait_async(fence, &fence_waiter->sfw)) {
@@ -1283,10 +1301,9 @@ static int i915_scheduler_pop_from_queue_locked(struct intel_engine_cs *ring,
 {
 	struct drm_i915_private            *dev_priv = ring->dev->dev_private;
 	struct i915_scheduler              *scheduler = dev_priv->scheduler;
-	struct i915_scheduler_queue_entry  *best_wait;
+	struct i915_scheduler_queue_entry  *best_wait, *fence_wait = NULL;
 	struct i915_scheduler_queue_entry  *best;
 	struct i915_scheduler_queue_entry  *node;
-	struct sync_fence  *fence_wait = NULL;
 	int     ret;
 	int     i;
 	bool	signalled, any_queued;
@@ -1383,7 +1400,7 @@ static int i915_scheduler_pop_from_queue_locked(struct intel_engine_cs *ring,
 			 * spinlock is still held and the wait requires doing
 			 * a memory allocation.
 			 */
-			fence_wait = best_wait->params.fence_wait;
+			fence_wait = best_wait;
 			ret = -EAGAIN;
 		} else if (only_remote) {
 			/* The only dependent buffers are on another ring. */
