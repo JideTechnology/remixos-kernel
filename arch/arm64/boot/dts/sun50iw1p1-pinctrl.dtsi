@@ -280,7 +280,7 @@
 				allwinner,pins = "PG0", "PG1", "PG2", "PG3","PG4","PG5";
 				allwinner,function = "sdc1";
 				allwinner,muxsel = <2>;
-				allwinner,drive = <1>;
+				allwinner,drive = <3>;
 				allwinner,pull = <1>;
 			};
 
