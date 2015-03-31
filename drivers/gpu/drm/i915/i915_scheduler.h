@@ -111,6 +111,8 @@ struct i915_scheduler_stats {
 	uint32_t            kill_queued;
 
 	uint32_t            fence_wait;
+	uint32_t            fence_again;
+	uint32_t            fence_got;
 };
 
 struct i915_scheduler {

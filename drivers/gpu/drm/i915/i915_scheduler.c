@@ -213,6 +213,9 @@ int i915_scheduler_queue_execbuffer(struct i915_scheduler_queue_entry *qe)
 
 	BUG_ON(!scheduler);
 
+	if (qe->params.fence_wait)
+		scheduler->stats[ring->id].fence_got++;
+
 	if (i915.scheduler_override & i915_so_direct_submit) {
 		int ret;
 
@@ -1254,15 +1257,20 @@ static void i915_scheduler_wait_fence_signaled(struct sync_fence *fence,
 static bool i915_scheduler_async_fence_wait(struct drm_device *dev,
 					    struct i915_scheduler_queue_entry *node)
 {
+	struct drm_i915_private         *dev_priv = node->params.ring->dev->dev_private;
+	struct i915_scheduler           *scheduler = dev_priv->scheduler;
 	struct i915_sync_fence_waiter	*fence_waiter;
 	struct sync_fence		*fence = node->params.fence_wait;
 	int				signaled;
 	bool				success = true;
 
-	if ((node->flags & i915_qef_fence_waiting) == 0)
+	if ((node->flags & i915_qef_fence_waiting) == 0) {
 		node->flags |= i915_qef_fence_waiting;
-	else
+		scheduler->stats[node->params.ring->id].fence_wait++;
+	} else {
+		scheduler->stats[node->params.ring->id].fence_again++;
 		return true;
+	}
 
 	if (fence == NULL)
 		return false;
@@ -1421,8 +1429,6 @@ static int i915_scheduler_pop_from_queue_locked(struct intel_engine_cs *ring,
 		spin_unlock_irqrestore(&scheduler->lock, *flags);
 		i915_scheduler_async_fence_wait(ring->dev, fence_wait);
 		spin_lock_irqsave(&scheduler->lock, *flags);
-
-		scheduler->stats[ring->id].fence_wait++;
 #else
 		BUG_ON(true);
 #endif
