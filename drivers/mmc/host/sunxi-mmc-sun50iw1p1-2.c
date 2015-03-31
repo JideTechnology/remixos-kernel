@@ -339,6 +339,7 @@ struct sunxi_mmc_clk_dly {
 	char *mod_str;
 	char *raw_tm_sm_str[2];
 	u32 raw_tm_sm[2];
+	u32 raw_tm_sm_def[2];
 };
 
 
@@ -350,7 +351,8 @@ static struct sunxi_mmc_clk_dly mmc_clk_dly[SM_NUM] = {
 						.raw_tm_sm_str[1] = "sdc_tm4_sm0_freq1",
 						.raw_tm_sm [0] = 0,
 						.raw_tm_sm [1] = 0,
-
+						.raw_tm_sm_def [0] = 0,
+						.raw_tm_sm_def [1] = 0,
 					 },
 	[SM1_HSSDR52_SDR25] = {
 						.spm	  = SM1_HSSDR52_SDR25,
@@ -359,7 +361,8 @@ static struct sunxi_mmc_clk_dly mmc_clk_dly[SM_NUM] = {
 						.raw_tm_sm_str[1] = "sdc_tm4_sm1_freq1",
 						.raw_tm_sm [0] = 0,
 						.raw_tm_sm [1] = 0,
-
+						.raw_tm_sm_def [0] = 0,
+						.raw_tm_sm_def [1] = 0,
 					 },
 	[SM2_HSDDR52_DDR50] = {
 						.spm	  = SM2_HSDDR52_DDR50,
@@ -368,7 +371,8 @@ static struct sunxi_mmc_clk_dly mmc_clk_dly[SM_NUM] = {
 						.raw_tm_sm_str[1] = "sdc_tm4_sm2_freq1",
 						.raw_tm_sm [0] = 0,
 						.raw_tm_sm [1] = 0,
-
+						.raw_tm_sm_def [0] = 0,
+						.raw_tm_sm_def [1] = 0,
 					 },
 	[SM3_HS200_SDR104] = {
 						.spm	  = SM3_HS200_SDR104,
@@ -377,15 +381,19 @@ static struct sunxi_mmc_clk_dly mmc_clk_dly[SM_NUM] = {
 						.raw_tm_sm_str[1] = "sdc_tm4_sm3_freq1",
 						.raw_tm_sm [0] = 0,
 						.raw_tm_sm [1] = 0,
-					 },
+						.raw_tm_sm_def [0] = 0,
+						.raw_tm_sm_def [1] = 0x00000405,
+						},
 	[SM4_HS400] = {
 						.spm	  = SM4_HS400,
 						.mod_str	=  "HS400",
 						.raw_tm_sm_str[0] = "sdc_tm4_sm4_freq0",
 						.raw_tm_sm_str[1] = "sdc_tm4_sm4_freq1",
 						.raw_tm_sm [0] = 0,
-						.raw_tm_sm [1] = 0,
-					 },
+						.raw_tm_sm [1] = 0x00000608,
+						.raw_tm_sm_def [0] = 0,
+						.raw_tm_sm_def [1] = 0x00000408,
+						},
 };
 
 
@@ -399,6 +407,7 @@ static void sunxi_mmc_set_clk_dly(struct sunxi_mmc_host *host,int clk,int bus_wi
 	char *m_str	=  NULL;
 	struct device_node *np = NULL;
 	u32 *raw_sm	= 0;
+	u32 *raw_sm_def	= 0;
 	u32 rval	= 0;
 	int frq_index	= 0;
 	u32 cmd_drv_ph	= 1;
@@ -465,6 +474,7 @@ static void sunxi_mmc_set_clk_dly(struct sunxi_mmc_host *host,int clk,int bus_wi
 	dev_dbg(mmc_dev(host->mmc),"freq %d frq index %d,frq/4 %x\n",clk,frq_index,frq_index/4);
 	raw_sm_str 	= mmc_clk_dly[speed_mod].raw_tm_sm_str[frq_index/4];
 	raw_sm 		= &mmc_clk_dly[speed_mod].raw_tm_sm[frq_index/4];
+	raw_sm_def	= &mmc_clk_dly[speed_mod].raw_tm_sm_def[frq_index/4];
 	m_str  		= mmc_clk_dly[speed_mod].mod_str;
 
 	rval = of_property_read_u32(np, raw_sm_str, raw_sm);
@@ -484,7 +494,17 @@ static void sunxi_mmc_set_clk_dly(struct sunxi_mmc_host *host,int clk,int bus_wi
 			}
 			dev_dbg(mmc_dev(host->mmc),"Get speed mode %s clk dly %s ok\n",m_str,raw_sm_str);
 		}else{
+			u32 sm_shift	= (frq_index%4)*8;
 			dev_dbg(mmc_dev(host->mmc),"%s use default value\n",m_str);
+			rval = ((*raw_sm_def)>>sm_shift)&0xff;
+			if(timing == MMC_TIMING_MMC_HS400){
+				u32 raw_sm_hs200  = 0;
+				ds_dly	= rval;
+				raw_sm_hs200 = mmc_clk_dly[SM3_HS200_SDR104].raw_tm_sm_def[frq_index/4];
+				sam_dly	= ((raw_sm_hs200)>>sm_shift)&0xff;
+			}else{
+				sam_dly	= rval;
+			}
 		}
 
 	}
