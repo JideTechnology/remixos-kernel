@@ -36,27 +36,27 @@ static struct aw_vf_table vf_table[] =
 	},
 	{
 		.vol      = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.max_freq = 312, /* MHz */
-	},
-	{
-		.vol      = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.max_freq = 432, /* MHz */
-	},
-	{
-		.vol      = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.max_freq = 576, /* MHz */
+		.max_freq = 384, /* MHz */
 	},
 };
 
 static struct aw_private_data private_data =
 {
 	.clk_status       = 0,
-	.temp_ctrl_status = 1,
+	.normal_level     = 2,
 	.sensor_num       = 0,
+	.regulator        = NULL,
+	.regulator_id     = "vdd-sys",
 	.dvfs_data        =
 	{
-		.dvfs_status = 1,
-		.dvfs_flag   = 0,
+		.max_level   = 2,
+		.dvfs_status = 0,
+	},
+	.tempctrl_data =
+	{
+		.temp_ctrl_status = 1,
+		.temp_ctrl_flag   = 0,
+		.count            = 1,
 	},
 };
 
@@ -79,15 +79,7 @@ static struct aw_tl_table tl_table[] =
 {
 	{
 		.temp  = 70,
-		.level = 3,
-	},
-	{
-		.temp  = 80,
-		.level = 2,
-	},
-	{
-		.temp  = 90,
-		.level = 0,
+		.level = 1,
 	},
 };
 

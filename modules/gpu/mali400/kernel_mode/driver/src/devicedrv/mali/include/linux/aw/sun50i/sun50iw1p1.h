@@ -38,25 +38,36 @@ static struct aw_vf_table vf_table[] =
 
 static struct aw_private_data private_data =
 {
-	.clk_status        = 0,
-	.temp_ctrl_status  = 1,
-	.sensor_num        = 2,
-	.dvfs_data         =
+	.clk_status    = 0,
+	.normal_level  = 3,
+	.sensor_num    = 2,
+#ifdef CONFIG_MALI_DT
+	.np_gpu        = NULL,
+#endif
+	.regulator     = NULL,
+	.regulator_id  = "vdd-sys",
+	.dvfs_data     =
 	{
+		.max_level   = 3,
 		.dvfs_status = 0,
-		.dvfs_flag   = 0,
+	},
+	.tempctrl_data =
+	{
+		.temp_ctrl_status = 1,
+		.temp_ctrl_flag   = 0,
+		.count            = 3,
 	},
 };
 
 static struct aw_clk_data clk_data[] =
 {
 	{
-		.clk_name       = "pll",
-		.clk_handle     = NULL,
+		.clk_name   = "pll",
+		.clk_handle = NULL,
 	},
 	{
-		.clk_name       = "mali",
-		.clk_handle     = NULL,
+		.clk_name   = "mali",
+		.clk_handle = NULL,
 	},
 };
 

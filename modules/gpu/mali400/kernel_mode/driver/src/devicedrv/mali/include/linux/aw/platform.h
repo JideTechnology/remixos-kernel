@@ -24,6 +24,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/stat.h>
 #include <linux/workqueue.h>
+#include <linux/regulator/consumer.h>
 #ifdef CONFIG_OF
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
@@ -72,16 +73,29 @@ struct aw_dvfs_data
 {
 	u8   max_level;
 	bool dvfs_status;
-	int dvfs_flag;
-	struct mutex dvfs_lock;
+	struct mutex lock;
+};
+
+struct aw_tempctrl_data
+{
+	bool temp_ctrl_status;
+	char temp_ctrl_flag;
+	u8 level;
+	u8 count;     /* The data in tl_table to use */
 };
 
 struct aw_private_data
 {
 	bool   clk_status;
-	bool   temp_ctrl_status;
+	u8     normal_level;
 	u8     sensor_num;
+#ifdef CONFIG_MALI_DT
+	struct device_node *np_gpu;
+#endif
+	struct regulator *regulator;
+	char   *regulator_id;
 	struct aw_dvfs_data dvfs_data;
+	struct aw_tempctrl_data tempctrl_data;
 };
 
 #if defined CONFIG_ARCH_SUN8IW3P1

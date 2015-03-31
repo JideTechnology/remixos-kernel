@@ -44,6 +44,27 @@ static struct platform_device mali_gpu_device =
 
 /*
 ***************************************************************
+ @Function   :get_temperature
+ @Description:Get the temperature of gpu
+***************************************************************
+*/
+static long get_temperature(void)
+{
+	#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0))
+		return ths_read_data(private_data.sensor_num);
+	#else
+		long temperature;
+		if(sunxi_get_sensor_temp(private_data.sensor_num, &temperature))
+		{
+			MALI_PRINT_ERROR(("Failed to get the temperature information from sensor %d!\n", private_data.sensor_num));
+			return -1;
+		}
+		return temperature;
+	#endif
+}
+
+/*
+***************************************************************
  @Function   :get_gpu_clk
  @Description:Get gpu related clocks
 ***************************************************************
@@ -51,14 +72,10 @@ static struct platform_device mali_gpu_device =
 static bool get_gpu_clk(void)
 {
 	int i;
-#ifdef CONFIG_MALI_DT
-	struct device_node * np_gpu = NULL;
-	np_gpu = of_find_compatible_node(NULL, NULL, "arm,mali-400");
-#endif /* CONFIG_MALI_DT */
 	for(i = 0; i < sizeof(clk_data)/sizeof(clk_data[0]); i++)
 	{
 #ifdef CONFIG_MALI_DT
-		clk_data[i].clk_handle = of_clk_get(np_gpu, i);
+		clk_data[i].clk_handle = of_clk_get(private_data.np_gpu, i);
 #else
 		clk_data[i].clk_handle = clk_get(NULL, clk_data[i].clk_id);
 #endif /* CONFIG_MALI_DT */
@@ -122,14 +139,31 @@ static void set_gpu_freq(int freq /* MHz */)
 		return;
 	}
 
-	mutex_lock(&private_data.dvfs_data.dvfs_lock);
+	mutex_lock(&private_data.dvfs_data.lock);
 	mali_dev_pause();
 	if(set_clk_freq(freq))
 	{
 		MALI_PRINT(("Set gpu frequency to %d MHz\n", freq));
 	}
 	mali_dev_resume();
-	mutex_unlock(&private_data.dvfs_data.dvfs_lock);
+	mutex_unlock(&private_data.dvfs_data.lock);
+}
+
+/*
+***************************************************************
+ @Function   :set_voltage
+ @Description:Set the voltage of gpu
+***************************************************************
+*/
+static void set_voltage(int vol /* mV */)
+{
+	if (!IS_ERR_OR_NULL(private_data.regulator))
+	{
+		if(regulator_set_voltage(private_data.regulator, vol*1000, vol*1000) != 0)
+		{
+			MALI_PRINT_ERROR(("Failed to set gpu voltage!\n"));
+		}
+	}
 }
 
 /*
@@ -236,7 +270,25 @@ err_out:
 */
 static ssize_t dvfs_android_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-    return dvfs_manual_show(dev, attr, buf);
+    u32 level = 0,bufercnt = 0,ret = 0;
+    char str[2];
+    ret = sprintf(buf + bufercnt, "  level frequency\n");
+    while(level <= private_data.dvfs_data.max_level)
+    {
+        if(get_current_freq() == vf_table[level].max_freq)
+        {
+           sprintf(str, "->");
+        }
+		else
+		{
+            sprintf(str, "  ");
+        }
+        bufercnt += ret;
+        ret = sprintf(buf+bufercnt, "%s  %1d    %3dMHz\n", str, level, vf_table[level].max_freq);
+        level++;
+    }
+
+    return bufercnt+ret;
 }
 
 /*
@@ -249,30 +301,43 @@ static ssize_t dvfs_android_store(struct device *dev, struct device_attribute *a
 {
     if(private_data.dvfs_data.dvfs_status)
 	{
-		return dvfs_manual_store(dev, attr, buf, count);
+		int err;
+		unsigned long cmd;
+		err = strict_strtoul(buf, 10, &cmd);
+		if (err)
+		{
+			MALI_PRINT_ERROR(("Invalid parameter!\n"));
+			goto out;
+		}
+
+		if(cmd == 0 || cmd == 1)
+		{
+			set_gpu_freq(vf_table[private_data.dvfs_data.max_level].max_freq);
+		}
 	}
 
+out:
 	return count;
 }
 
 /*
 ***************************************************************
- @Function   :status_dvfs_show
+ @Function   :scene_ctrl_status_show
  @Description:Show the dvfs status
 ***************************************************************
 */
-static ssize_t status_dvfs_show(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t scene_ctrl_status_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
     return sprintf(buf, "%d\n", private_data.dvfs_data.dvfs_status);
 }
 
 /*
 ***************************************************************
- @Function   :status_dvfs_store
+ @Function   :scene_ctrl_status_store
  @Description:Change the dvfs status
 ***************************************************************
 */
-static ssize_t status_dvfs_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t scene_ctrl_status_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
     int err;
 	unsigned long status;
@@ -297,7 +362,17 @@ out:
 */
 static ssize_t status_tempctrl_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-    return sprintf(buf, "%d\n", private_data.temp_ctrl_status);
+	u32 i = 0,bufercnt = 0,ret = 0;
+    ret = sprintf(buf, "sensor: %d, status: %d, temperature: %ld\n", private_data.sensor_num, private_data.tempctrl_data.temp_ctrl_status, get_temperature());
+	bufercnt = ret;
+    ret = sprintf(buf + bufercnt, "num temperature level\n");
+    while(i < private_data.tempctrl_data.count)
+    {
+		bufercnt += ret;
+        ret = sprintf(buf+bufercnt, " %d     %3d        %d\n", i, tl_table[i].temp, tl_table[i].level);
+        i++;
+    }
+	return bufercnt+ret;
 }
 
 /*
@@ -317,7 +392,64 @@ static ssize_t status_tempctrl_store(struct device *dev, struct device_attribute
 		goto out;
 	}
 
-	private_data.temp_ctrl_status = status;
+	if(status <= 1)
+	{
+		private_data.tempctrl_data.temp_ctrl_status = status;
+	}
+	else
+	{
+		MALI_PRINT_ERROR(("The parameter is too large!\n"));
+	}
+
+out:
+	return count;
+}
+
+/*
+***************************************************************
+ @Function   :change_voltage_show
+ @Description:Show the current voltage of gpu
+***************************************************************
+*/
+static ssize_t change_voltage_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int count = 0;
+	if (!IS_ERR_OR_NULL(private_data.regulator))
+	{
+		count = sprintf(buf, "%d mV\n", regulator_get_voltage(private_data.regulator)/1000);
+	}
+	return count;
+}
+
+/*
+***************************************************************
+ @Function   :change_voltage_store
+ @Description:Change the voltage of gpu
+***************************************************************
+*/
+static ssize_t change_voltage_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    int err;
+	unsigned long vol;
+	err = strict_strtoul(buf, 10, &vol);
+	if (err)
+	{
+		MALI_PRINT_ERROR(("Invalid parameter!\n"));
+		goto out;
+	}
+
+	if(vol <= 1300)
+	{
+		mutex_lock(&private_data.dvfs_data.lock);
+		mali_dev_pause();
+		set_voltage(vol);
+		mali_dev_resume();
+		mutex_unlock(&private_data.dvfs_data.lock);
+	}
+	else
+	{
+		MALI_PRINT_ERROR(("The parameter is too large!\n"));
+	}
 
 out:
 	return count;
@@ -325,16 +457,18 @@ out:
 
 static DEVICE_ATTR(manual, S_IRUGO|S_IWUGO, dvfs_manual_show, dvfs_manual_store);
 static DEVICE_ATTR(android, S_IRUGO|S_IWUGO, dvfs_android_show, dvfs_android_store);
-static DEVICE_ATTR(dvfs_status, S_IRUGO|S_IWUGO, status_dvfs_show, status_dvfs_store);
-static DEVICE_ATTR(tempctrl_status, S_IRUGO|S_IWUGO, status_tempctrl_show, status_tempctrl_store);
+static DEVICE_ATTR(scene_ctrl_status, S_IRUGO|S_IWUGO, scene_ctrl_status_show, scene_ctrl_status_store);
+static DEVICE_ATTR(tempctrl, S_IRUGO|S_IWUGO, status_tempctrl_show, status_tempctrl_store);
+static DEVICE_ATTR(voltage, S_IRUGO|S_IWUGO, change_voltage_show, change_voltage_store);
 
 static struct attribute *gpu_attributes[] =
 {
     &dev_attr_manual.attr,
 	&dev_attr_android.attr,
-	&dev_attr_dvfs_status.attr,
-	&dev_attr_tempctrl_status.attr,
-	
+	&dev_attr_scene_ctrl_status.attr,
+	&dev_attr_tempctrl.attr,
+	&dev_attr_voltage.attr,
+
     NULL,
 };
 
@@ -343,6 +477,122 @@ struct attribute_group gpu_attribute_group =
 	.name = "dvfs",
 	.attrs = gpu_attributes,
 };
+
+/*
+***************************************************************
+ @Function   :get_para_from_fex
+ @Description:Get a parameter from sys_config.fex
+***************************************************************
+*/
+static int get_para_from_fex(char *main_key, char *second_key, int max_value)
+{
+	u32 value;
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0))
+	script_item_u val;
+    script_item_value_type_e type;
+	type = script_get_item(main_key, second_key, &val);
+	if (SCIRPT_ITEM_VALUE_TYPE_INT != type)
+    {
+		MALI_PRINT_ERROR(("%s: %s in sys_config.fex is invalid!\n", main_key, second_key));
+		return -1;
+	}
+	value = val.val;
+#else
+	if(of_property_read_u32(private_data.np_gpu, second_key, &value) < 0)
+	{
+		return -1;
+	}
+#endif
+	if(max_value)
+	{
+		if(value <= max_value)
+		{
+			return value;
+		}
+		else
+		{
+			return -1;
+		}
+	}
+	else
+	{
+		return value;
+	}
+}
+
+/*
+***************************************************************
+ @Function   :parse_sysconfig_fex
+ @Description:Parse sys_config.fex
+***************************************************************
+*/
+static void parse_sysconfig_fex(void)
+{
+	char fx_name[8] = {0};
+	char tlx_name[10] = {0};
+	int ft_count = 0, tlt_count = 0, i, value;
+
+	value = get_para_from_fex("gpu_mali400_0", "normal_level", 0);
+	if(value != -1)
+	{
+		private_data.normal_level = value;
+	}
+
+	value = get_para_from_fex("gpu_mali400_0", "scene_ctrl_staus", 1);
+	if(value != -1)
+	{
+		private_data.dvfs_data.dvfs_status = value;
+	}
+
+	value = get_para_from_fex("gpu_mali400_0", "temp_ctrl_status", 1);
+	if(value != -1)
+	{
+		private_data.tempctrl_data.temp_ctrl_status = value;
+	}
+
+	value = get_para_from_fex("gpu_mali400_0", "ft_count", sizeof(vf_table)/sizeof(vf_table[0]));
+	if(value != -1)
+	{
+		private_data.dvfs_data.max_level = value - 1;
+		if(private_data.normal_level > value -1)
+		{
+			private_data.normal_level = value -1;
+		}
+	}
+
+	value = get_para_from_fex("gpu_mali400_0", "tlt_count", sizeof(tl_table)/sizeof(tl_table[0]));
+	if(value != -1)
+	{
+		private_data.tempctrl_data.count = value;
+	}
+
+	for(i = 0; i < ft_count; i++)
+	{
+		sprintf(fx_name, "f%d_freq",i);
+		value = get_para_from_fex("gpu_mali400_0", fx_name, 0);
+		if(value != -1)
+		{
+			vf_table[i].max_freq = value;
+		}
+	}
+
+	for(i = 0; i < tlt_count; i++)
+	{
+		sprintf(tlx_name, "tl%d_temp",i);
+		value = get_para_from_fex("gpu_mali400_0", tlx_name, 0);
+		if(value != -1)
+		{
+			tl_table[i].temp = value;
+		}
+
+		sprintf(tlx_name, "tl%d_level",i);
+		value = get_para_from_fex("gpu_mali400_0", tlx_name, 0);
+		if(value != -1)
+		{
+			tl_table[i].level = value;
+		}
+	}
+}
 
 /*
 ***************************************************************
@@ -356,8 +606,21 @@ static int mali_platform_init(struct platform_device *device)
 
 	private_data.dvfs_data.max_level = sizeof(vf_table)/sizeof(vf_table[0]) - 1;
 
+#ifdef CONFIG_MALI_DT
+	private_data.np_gpu = of_find_compatible_node(NULL, NULL, "arm,mali-400");
+#endif /* CONFIG_MALI_DT */
+
+	parse_sysconfig_fex();
+
+	private_data.regulator = regulator_get(NULL, private_data.regulator_id);
+	if (IS_ERR_OR_NULL(private_data.regulator))
+	{
+		MALI_PRINT_ERROR(("Failed to get regulator!\n"));
+        private_data.regulator = NULL;
+	}
+
 	err = get_gpu_clk();
-	err &= set_clk_freq(vf_table[private_data.dvfs_data.max_level].max_freq);	
+	err &= set_clk_freq(vf_table[private_data.normal_level].max_freq);
 	err &= enable_gpu_clk();
 
 	if(!err)
@@ -419,7 +682,7 @@ int aw_mali_platform_device_register(void)
 		pm_runtime_enable(&(pdev->dev));
 #endif /* CONFIG_PM_RUNTIME */
 
-		mutex_init(&private_data.dvfs_data.dvfs_lock);
+		mutex_init(&private_data.dvfs_data.lock);
 
 		INIT_WORK(&wq_work, mali_change_freq);
 
@@ -441,61 +704,10 @@ int aw_mali_platform_device_register(void)
 */
 static void mali_change_freq(struct work_struct *work)
 {
-	int cur_freq = get_current_freq();
-	int high_level = private_data.dvfs_data.max_level, low_level = 0, temp_level, level_num;
-
-	if(cur_freq > vf_table[private_data.dvfs_data.max_level].max_freq)
+	if(private_data.tempctrl_data.temp_ctrl_flag)
 	{
-		set_gpu_freq(vf_table[private_data.dvfs_data.max_level].max_freq);
-		cur_freq = get_current_freq();
-	}
-	
-	if(private_data.dvfs_data.dvfs_status && private_data.dvfs_data.dvfs_flag)
-	{
-		if(private_data.dvfs_data.dvfs_flag < 0 && cur_freq <= vf_table[0].max_freq)
-		{
-			goto out;
-		}
-		else if(private_data.dvfs_data.dvfs_flag > 0 && cur_freq == vf_table[private_data.dvfs_data.max_level].max_freq)
-		{
-			goto out;
-		}
-
-		/* Find the nearest level */
-		while(high_level-low_level != 1)
-		{
-			level_num = high_level - low_level + 1;
-			temp_level = low_level + level_num/2;
-
-			if(cur_freq > vf_table[temp_level].max_freq)
-			{
-				low_level = temp_level;
-			}
-			else
-			{
-				high_level = temp_level;
-			}
-		}
-
-		if(private_data.dvfs_data.dvfs_flag > 0 && cur_freq == vf_table[high_level].max_freq)
-		{
-			if(high_level < private_data.dvfs_data.max_level)
-			{
-				high_level += 1;
-			}
-		}
-		else if(private_data.dvfs_data.dvfs_flag < 0 && cur_freq == vf_table[low_level].max_freq)
-		{
-			if(high_level < private_data.dvfs_data.max_level)
-			{
-				high_level += 1;
-			}
-		}
-
-		set_gpu_freq(vf_table[private_data.dvfs_data.dvfs_flag < 0 ? low_level : high_level].max_freq);
-
-out:
-		private_data.dvfs_data.dvfs_flag = 0;
+		set_gpu_freq(vf_table[private_data.tempctrl_data.level].max_freq);
+		private_data.tempctrl_data.temp_ctrl_flag = 0;
 	}
 }
 
@@ -507,44 +719,45 @@ out:
 */
 static void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data)
 {
-	int utilization = 0;
 	int i = 0;
+	int cur_freq = get_current_freq();
 
-	if(private_data.temp_ctrl_status)
+	if(private_data.tempctrl_data.temp_ctrl_status)
 	{
-		long temperature = 0;
-	#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0))
-		temperature = ths_read_data(private_data.sensor_num);
-	#else
-		if(sunxi_get_sensor_temp(private_data.sensor_num, &temperature))
+		long temperature = get_temperature();
+		if(temperature > 0)
 		{
-			MALI_PRINT_ERROR(("Failed to get the temperature information from sensor %d!\n", private_data.sensor_num));
-		}
-	#endif
-
-		/* Change the private_data.dvfs_data.max_level according to the sensor temperature */
-		for(i = sizeof(tl_table)/sizeof(tl_table[0]) -1; i >= 0; i--)
-		{
-			if(temperature >= tl_table[i].temp)
+			if(temperature < tl_table[0].temp)
 			{
-				private_data.dvfs_data.max_level = tl_table[i].level;
+				if(cur_freq != vf_table[tl_table[0].level].max_freq)
+				{
+					private_data.tempctrl_data.temp_ctrl_flag = 1;
+					private_data.tempctrl_data.level = tl_table[0].level;
+				}
+			}
+			else
+			{
+				for(i = private_data.tempctrl_data.count - 1; i >= 0; i--)
+				{
+					if(temperature >= tl_table[i].temp)
+					{
+						private_data.tempctrl_data.temp_ctrl_flag = 1;
+						private_data.tempctrl_data.level = tl_table[i].level;
+						break;
+					}
+				}
 			}
 		}
 	}
 
-	if(private_data.dvfs_data.dvfs_status)
+	if(!private_data.tempctrl_data.temp_ctrl_status)
 	{
-		utilization = data->utilization_gpu;
+		return;
+	}
 
-		/* Determine the frequency change */
-		if(utilization > 160)
-		{
-			private_data.dvfs_data.dvfs_flag = 1;
-		}
-		else if(utilization < 50)
-		{
-			private_data.dvfs_data.dvfs_flag = -1;
-		}
+	if(private_data.tempctrl_data.temp_ctrl_flag)
+	{
+		return;
 	}
 
 	schedule_work(&wq_work);
