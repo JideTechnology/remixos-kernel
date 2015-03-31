@@ -26,7 +26,7 @@
 
 
 #define DRIVER_NAME "sunxi-mmc"
-#define DRIVER_RIVISION "v0.5 2015-3-31 10:48"
+#define DRIVER_RIVISION "v0.5 2015-3-31 14:21"
 #define DRIVER_VERSION "SD/MMC/SDIO Host Controller Driver(" DRIVER_RIVISION ")" \
 			" Compiled in " __DATE__ " at " __TIME__""
 
@@ -101,10 +101,10 @@
 #define SDXC_WIDTH8			2
 
 /* smc command bits */
-#define SDXC_RESP_EXPIRE		BIT(6)
+#define SDXC_RESP_EXPECT		BIT(6)
 #define SDXC_LONG_RESPONSE		BIT(7)
 #define SDXC_CHECK_RESPONSE_CRC		BIT(8)
-#define SDXC_DATA_EXPIRE		BIT(9)
+#define SDXC_DATA_EXPECT		BIT(9)
 #define SDXC_WRITE			BIT(10)
 #define SDXC_SEQUENCE_MODE		BIT(11)
 #define SDXC_SEND_AUTO_STOP		BIT(12)
@@ -113,10 +113,10 @@
 #define SDXC_SEND_INIT_SEQUENCE		BIT(15)
 #define SDXC_UPCLK_ONLY			BIT(21)
 #define SDXC_READ_CEATA_DEV		BIT(22)
-#define SDXC_CCS_EXPIRE			BIT(23)
+#define SDXC_CCS_EXPECT			BIT(23)
 #define SDXC_ENABLE_BIT_BOOT		BIT(24)
 #define SDXC_ALT_BOOT_OPTIONS		BIT(25)
-#define SDXC_BOOT_ACK_EXPIRE		BIT(26)
+#define SDXC_BOOT_ACK_EXPECT		BIT(26)
 #define SDXC_BOOT_ABORT			BIT(27)
 #define SDXC_VOLTAGE_SWITCH	        BIT(28)
 #define SDXC_USE_HOLD_REGISTER	        BIT(29)
@@ -193,6 +193,10 @@
 #define SDXC_IDMAC_READ				(6 << 13)
 #define SDXC_IDMAC_WRITE			(7 << 13)
 #define SDXC_IDMAC_DESC_CLOSE			(8 << 13)
+
+
+/*When one dma des transfer 4k,PAGE_SIZE*4 can transfer max 4M data */
+#define SUNXI_REQ_PAGE_SIZE			(PAGE_SIZE*4)
 
 /*
 * If the idma-des-size-bits of property is ie 13, bufsize bits are:
@@ -287,6 +291,9 @@ struct sunxi_mmc_host {
 	void (*sunxi_mmc_set_acmda)(struct sunxi_mmc_host *host);
 
 	void (*sunxi_mmc_shutdown)(struct platform_device * pdev);
+
+	/*really controller id,no logic id*/
+	int phy_index;
 };
 
 

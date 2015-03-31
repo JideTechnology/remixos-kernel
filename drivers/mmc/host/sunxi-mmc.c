@@ -155,7 +155,7 @@ static int sunxi_mmc_init_host(struct mmc_host *mmc)
 	mmc_writel(host, REG_IMASK, host->sdio_imask);
 	mmc_writel(host, REG_RINTR, 0xffffffff);
 	mmc_writel(host, REG_DBGC, 0xdeb);
-	mmc_writel(host, REG_FUNS, SDXC_CEATA_ON);
+	//mmc_writel(host, REG_FUNS, SDXC_CEATA_ON);
 	mmc_writel(host, REG_DLBA, host->sg_dma);
 
 	rval = mmc_readl(host, REG_GCTRL);
@@ -262,7 +262,7 @@ static void sunxi_mmc_send_manual_stop(struct sunxi_mmc_host *host,
 	u32 arg, cmd_val, ri;
 	unsigned long expire = jiffies + msecs_to_jiffies(1000);
 
-	cmd_val = SDXC_START | SDXC_RESP_EXPIRE |
+	cmd_val = SDXC_START | SDXC_RESP_EXPECT |
 		  SDXC_STOP_ABORT_CMD | SDXC_CHECK_RESPONSE_CRC;
 
 	if (req->cmd->opcode == SD_IO_RW_EXTENDED) {
@@ -306,8 +306,8 @@ static void sunxi_mmc_dump_errinfo(struct sunxi_mmc_host *host)
 		return;
 
 	dev_err(mmc_dev(host->mmc),
-		"smc %d err, cmd %d,%s%s%s%s%s%s%s%s%s%s !!\n",
-		host->mmc->index, cmd->opcode,
+		"smc %d p%d err, cmd %d,%s%s%s%s%s%s%s%s%s%s !!\n",
+		host->mmc->index,host->phy_index, cmd->opcode,
 		data ? (data->flags & MMC_DATA_WRITE ? " WR" : " RD") : "",
 		host->int_sum & SDXC_RESP_ERROR     ? " RE"     : "",
 		host->int_sum & SDXC_RESP_CRC_ERROR  ? " RCE"    : "",
@@ -902,14 +902,14 @@ static void sunxi_mmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	}
 
 	if (cmd->flags & MMC_RSP_PRESENT) {
-		cmd_val |= SDXC_RESP_EXPIRE;
+		cmd_val |= SDXC_RESP_EXPECT;
 		if (cmd->flags & MMC_RSP_136)
 			cmd_val |= SDXC_LONG_RESPONSE;
 		if (cmd->flags & MMC_RSP_CRC)
 			cmd_val |= SDXC_CHECK_RESPONSE_CRC;
 
 		if ((cmd->flags & MMC_CMD_MASK) == MMC_CMD_ADTC) {
-			cmd_val |= SDXC_DATA_EXPIRE | SDXC_WAIT_PRE_OVER;
+			cmd_val |= SDXC_DATA_EXPECT | SDXC_WAIT_PRE_OVER;
 			if (cmd->data->flags & MMC_DATA_STREAM) {
 				imask |= SDXC_AUTO_COMMAND_DONE;
 				cmd_val |= SDXC_SEQUENCE_MODE |
@@ -925,8 +925,10 @@ static void sunxi_mmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 			if (cmd->data->flags & MMC_DATA_WRITE)
 				cmd_val |= SDXC_WRITE;
-			else
+			else if(cmd->data->flags & MMC_DATA_READ)
 				wait_dma = true;
+			else
+				dev_err(mmc_dev(mmc),"!!!!!!!Not support cmd->data->flags %x !!!!!!!\n",cmd->data->flags);
 		} else {
 			imask |= SDXC_COMMAND_DONE;
 		}
@@ -1002,7 +1004,9 @@ void sunxi_mmc_do_shutdown(struct platform_device * pdev)
 	}
 
 	dev_info(mmc_dev(mmc),"try to disable cache\n");
+	mmc_claim_host(mmc);
     err = mmc_cache_ctrl(mmc, 0);
+	mmc_release_host(mmc);
     if (err){
 		dev_err(mmc_dev(mmc),"disable cache failed\n");
 		mmc_claim_host(mmc);//not release host to not allow android to read/write after shutdown
@@ -1190,6 +1194,7 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		sunxi_mmc_reg_ex_res_inter(host,2);
 		host->sunxi_mmc_set_acmda = sunxi_mmc_set_a12a;
 		host->sunxi_mmc_shutdown = sunxi_mmc_do_shutdown;
+		host->phy_index = 2;
  	}else if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc0")){
   		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc0;
 		//host->dma_tl = (0x2<<28)|(15<<16)|240;
@@ -1199,6 +1204,7 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		host->sunxi_mmc_restore_spec_reg = sunxi_mmc_restore_spec_reg0;
 		sunxi_mmc_reg_ex_res_inter(host,0);
 		host->sunxi_mmc_set_acmda = sunxi_mmc_set_a12a;
+		host->phy_index = 0;
  	}else if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc1")){
  		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc1;
 		host->dma_tl = (0x3<<28)|(15<<16)|240;
@@ -1207,6 +1213,7 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		host->sunxi_mmc_restore_spec_reg = sunxi_mmc_restore_spec_reg1;
 		sunxi_mmc_reg_ex_res_inter(host,1);
 		host->sunxi_mmc_set_acmda = sunxi_mmc_set_a12a;
+		host->phy_index = 1;
  	}else{
  		host->sunxi_mmc_clk_set_rate = NULL;
 		host->dma_tl = 0;
@@ -1214,6 +1221,7 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		host->sunxi_mmc_save_spec_reg = NULL;
 		host->sunxi_mmc_restore_spec_reg = NULL;
 		host->sunxi_mmc_set_acmda = NULL;
+		host->phy_index = 0;
  	}
 
 
@@ -1344,9 +1352,9 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 #endif
 	clk_disable_unprepare(host->clk_mmc);
 	clk_disable_unprepare(host->clk_ahb);
-	ret = mmc_create_sys_fs(host,pdev);
-	if(ret)
-		goto error_disable_regulator;
+	//ret = mmc_create_sys_fs(host,pdev);
+	//if(ret)
+	//	goto error_disable_regulator;
 
 	return ret;
 
@@ -1397,7 +1405,7 @@ static int sunxi_mmc_probe(struct platform_device *pdev)
 	host->dma_mask = DMA_BIT_MASK(32);
 	pdev->dev.dma_mask = &host->dma_mask;
 	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
-	host->sg_cpu = dma_alloc_coherent(&pdev->dev, PAGE_SIZE,
+	host->sg_cpu = dma_alloc_coherent(&pdev->dev, SUNXI_REQ_PAGE_SIZE,
 					  &host->sg_dma, GFP_KERNEL);
 	if (!host->sg_cpu) {
 		dev_err(&pdev->dev, "Failed to allocate DMA descriptor mem\n");
@@ -1408,7 +1416,7 @@ static int sunxi_mmc_probe(struct platform_device *pdev)
 	mmc->ops		= &sunxi_mmc_ops;
 	mmc->max_blk_count	= 8192;
 	mmc->max_blk_size	= 4096;
-	mmc->max_segs		= PAGE_SIZE / sizeof(struct sunxi_idma_des);
+	mmc->max_segs		= SUNXI_REQ_PAGE_SIZE / sizeof(struct sunxi_idma_des);
 	mmc->max_seg_size	= (1 << host->idma_des_size_bits);
 	mmc->max_req_size	= mmc->max_seg_size * mmc->max_segs;
 	/* 400kHz ~ 50MHz */
@@ -1432,12 +1440,18 @@ static int sunxi_mmc_probe(struct platform_device *pdev)
 	if (ret)
 		goto error_free_dma;
 
+
+	if(ret = mmc_create_sys_fs(host,pdev)){
+		dev_err(&pdev->dev, "create sys fs failed\n");
+		goto error_free_dma;
+	}
+	
 	dev_info(&pdev->dev, "base:0x%p irq:%u\n", host->reg_base, host->irq);
 	platform_set_drvdata(pdev, mmc);
 	return 0;
 
 error_free_dma:
-	dma_free_coherent(&pdev->dev, PAGE_SIZE, host->sg_cpu, host->sg_dma);
+	dma_free_coherent(&pdev->dev, SUNXI_REQ_PAGE_SIZE, host->sg_cpu, host->sg_dma);
 error_free_host:
 	mmc_free_host(mmc);
 	return ret;
@@ -1459,7 +1473,7 @@ static int sunxi_mmc_remove(struct platform_device *pdev)
 
 	sunxi_mmc_regulator_release_supply(mmc);
 
-	dma_free_coherent(&pdev->dev, PAGE_SIZE, host->sg_cpu, host->sg_dma);
+	dma_free_coherent(&pdev->dev, SUNXI_REQ_PAGE_SIZE, host->sg_cpu, host->sg_dma);
 	mmc_free_host(mmc);
 
 	return 0;
@@ -1484,8 +1498,11 @@ void sunxi_mmc_regs_save(struct sunxi_mmc_host* host)
 	bak_regs->dlba		= mmc_readl(host, REG_DLBA);
 	bak_regs->imask		= mmc_readl(host, REG_IMASK);
 
-	if(host->sunxi_mmc_save_spec_reg)
+	if(host->sunxi_mmc_save_spec_reg){
 		host->sunxi_mmc_save_spec_reg(host);
+	}else{
+		dev_warn(mmc_dev(host->mmc),"no spec reg save\n");
+	}
 }
 
 void sunxi_mmc_regs_restore(struct sunxi_mmc_host* host)
@@ -1505,8 +1522,11 @@ void sunxi_mmc_regs_restore(struct sunxi_mmc_host* host)
 	mmc_writel(host, REG_IMASK , bak_regs->dlba	);
 
 
-	if(host->sunxi_mmc_restore_spec_reg)
+	if(host->sunxi_mmc_restore_spec_reg){
 		host->sunxi_mmc_restore_spec_reg(host);
+	}else{
+		dev_warn(mmc_dev(host->mmc),"no spec reg restore\n");
+	}
 	if(host->sunxi_mmc_set_acmda){
 		host->sunxi_mmc_set_acmda(host);
 	}
