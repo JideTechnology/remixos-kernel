@@ -554,7 +554,9 @@ void sunxi_mmc_thld_ctl_for_sdmmc1(struct sunxi_mmc_host *host,
 	if( (data->flags & MMC_DATA_READ)
 		&& (bsz <= SDXC_CARD_RD_THLD_SIZE)
 		&& ((SDXC_FIFO_DETH<<2) >= (rdtl+bsz))      //((SDXC_FIFO_DETH<<2)-bsz) >= (rdtl)
-		&& (ios->timing == MMC_TIMING_MMC_HS200) ){
+		&& ((ios->timing == MMC_TIMING_MMC_HS200)\
+				||(ios->timing == MMC_TIMING_UHS_SDR50)\
+				||(ios->timing == MMC_TIMING_UHS_SDR104)) ){
 		rval = mmc_readl(host,REG_THLD);
 		rval &= ~SDXC_CARD_RD_THLD_MASK;
 		rval |= data->blksz<<SDXC_CARD_RD_THLD_SIZE_SHIFT;
