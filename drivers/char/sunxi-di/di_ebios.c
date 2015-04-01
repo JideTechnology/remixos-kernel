@@ -400,7 +400,7 @@ __s32 DI_Module_Enable(void)
 
 __s32 DI_Set_Reset(void)
 {
-	di_dev->frm_ctrl.bits.frm_start = 0x1;
+	di_dev->frm_ctrl.bits.frm_start = 0x0;
 	di_dev->modl_en.bits.en = 0x0;
 
 	return 0;
@@ -442,7 +442,7 @@ __s32 DI_Get_Irq_Status(void)
 	}
 	else
 	{
-		return -1;
+		return 3;
 	}
 }
 

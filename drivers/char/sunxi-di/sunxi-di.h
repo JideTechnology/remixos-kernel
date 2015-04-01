@@ -7,7 +7,7 @@
 //#define DI_RESERVED_MEM
 
 #define DI_MODULE_NAME "deinterlace"
-#define DI_TIMEOUT                      15                    /* DI-Interlace 15ms timeout */
+#define DI_TIMEOUT                      30                    /* DI-Interlace 30ms timeout */
 #define DI_MODULE_TIMEOUT               0x1055
 #define FLAG_WIDTH                      (2048)
 #define FLAG_HIGH                       (1100)
