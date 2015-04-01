@@ -268,6 +268,14 @@ enum {
 	USB_GADGET_FIRST_AVAIL_IDX,
 };
 
+/* USB2 compliance require that un-configured current must be <= 100mA,
+ * USB3 require <=150mA, OTG require <=2.5mA.
+ */
+#define USB_HIGH_VBUS_DRAW_UNCONF	100
+#define USB_SUPER_VBUS_DRAW_UNCONF	150
+#define USB_OTG_VBUS_DRAW_UNCONF	2
+#define USB_VBUS_DRAW_SUSPEND		2
+
 /**
  * struct usb_composite_driver - groups configurations into a gadget
  * @name: For diagnostics, identifies the driver.

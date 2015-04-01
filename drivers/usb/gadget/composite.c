@@ -579,6 +579,20 @@ static void device_qual(struct usb_composite_dev *cdev)
 }
 
 /*-------------------------------------------------------------------------*/
+static unsigned unconfigured_vbus_draw(struct usb_composite_dev *cdev)
+{
+	struct usb_gadget *g = cdev->gadget;
+	unsigned power;
+
+	if (gadget_is_otg(g))
+		power = USB_OTG_VBUS_DRAW_UNCONF;
+	else if (g->speed == USB_SPEED_SUPER)
+		power = USB_SUPER_VBUS_DRAW_UNCONF;
+	else
+		power = USB_HIGH_VBUS_DRAW_UNCONF;
+
+	return power;
+}
 
 static void reset_config(struct usb_composite_dev *cdev)
 {
@@ -602,7 +616,7 @@ static int set_config(struct usb_composite_dev *cdev,
 	struct usb_gadget	*gadget = cdev->gadget;
 	struct usb_configuration *c = NULL;
 	int			result = -EINVAL;
-	unsigned		power = gadget_is_otg(gadget) ? 8 : 100;
+	unsigned		power = unconfigured_vbus_draw(cdev);
 	int			tmp;
 
 	if (number) {
@@ -1746,7 +1760,7 @@ composite_suspend(struct usb_gadget *gadget)
 
 	cdev->suspended = 1;
 
-	usb_gadget_vbus_draw(gadget, 2);
+	usb_gadget_vbus_draw(gadget, USB_VBUS_DRAW_SUSPEND);
 }
 
 static void
@@ -1769,10 +1783,11 @@ composite_resume(struct usb_gadget *gadget)
 		}
 
 		maxpower = cdev->config->MaxPower;
-
-		usb_gadget_vbus_draw(gadget, maxpower ?
-			maxpower : CONFIG_USB_GADGET_VBUS_DRAW);
-	}
+		if (!maxpower)
+			maxpower = CONFIG_USB_GADGET_VBUS_DRAW;
+	} else
+		maxpower = unconfigured_vbus_draw(cdev);
+	usb_gadget_vbus_draw(gadget, maxpower);
 
 	cdev->suspended = 0;
 }
