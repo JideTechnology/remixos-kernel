@@ -389,6 +389,8 @@ s32 axp81x_init(struct axp_charger *charger)
 	ocv_cap[61] = 0xDF;
 	ocv_cap[62] = axp81x_config.pmu_bat_para32;
 	axp_writes(charger->master, 0xC0,63,ocv_cap);
+	/* ocv and coulombmeter is default enable */
+	axp_set_bits(charger->master,AXP81X_COULOMB_CONTROL,AXP81X_COULOMB_ENABLE);
 	/* pok open time set */
 	if(axp81x_config.pmu_powkey_on_time < 1000)
 		val = 0x00;
