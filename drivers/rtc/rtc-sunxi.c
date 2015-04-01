@@ -508,6 +508,7 @@ static int sunxi_rtc_probe(struct platform_device *pdev)
 	tmp_data |= (RTC_SOURCE_EXTERNAL | REG_LOSCCTRL_MAGIC);
 	tmp_data |= (EXT_LOSC_GSM);
 	writel(tmp_data, chip->base + SUNXI_LOSC_CTRL);
+	device_init_wakeup(&pdev->dev, 1);
 
 	chip->rtc = rtc_device_register("rtc-sunxi", &pdev->dev,
 	                                &sunxi_rtc_ops, THIS_MODULE);
