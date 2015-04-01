@@ -329,8 +329,17 @@ int i915_scheduler_queue_execbuffer(struct i915_scheduler_queue_entry *qe)
 				if (I915_SQS_IS_COMPLETE(test))
 					continue;
 
-				found = (node->params.ctx == test->params.ctx);
+				/*
+				 * Batches on the same ring for the same
+				 * context must be kept in order.
+				 */
+				found = (node->params.ctx == test->params.ctx) &&
+					(node->params.ring == test->params.ring);
 
+				/*
+				 * Batches working on the same objects must
+				 * be kept in order.
+				 */
 				for (i = 0; (i < node->num_objs) && !found; i++) {
 					for (j = 0; j < test->num_objs; j++) {
 						if (node->saved_objects[i].obj !=
