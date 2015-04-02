@@ -126,18 +126,21 @@ typedef struct bus_para{
 }bus_para_t;
 
 //for bitmap macro definition
-#define PM_PLL_C0      (0)
-#define PM_PLL_C1      (1)
-#define PM_PLL_AUDIO   (2)
-#define PM_PLL_VIDEO0  (3)
-#define PM_PLL_VE      (4)
-#define PM_PLL_DRAM    (5)
-#define PM_PLL_PERIPH  (6)
-#define PM_PLL_GPU	    (7)
-#define PM_PLL_HSIC    (8)
-#define PM_PLL_DE	    (9)
-#define PM_PLL_VIDEO1  (10)
-#define PLL_NUM (11)
+#define PM_PLL_C0	(0)
+#define PM_PLL_C1	(1)
+#define PM_PLL_AUDIO	(2)
+#define PM_PLL_VIDEO0	(3)
+#define PM_PLL_VE	(4)
+#define PM_PLL_DRAM	(5)
+#define PM_PLL_PERIPH	(6)
+#define PM_PLL_GPU	(7)
+#define PM_PLL_HSIC	(8)
+#define PM_PLL_DE	(9)
+#define PM_PLL_VIDEO1	(10)
+#define PLL_PERIPH1	(11)
+#define PLL_DRAM1	(12)
+#define PLL_MIPI	(13)
+#define PLL_NUM		(14)
 
 #define BUS_C0      (0)
 #define BUS_C1      (1)
@@ -222,7 +225,7 @@ typedef struct cpus_clk_para{
 }cpus_para_t;
 
 typedef struct io_state_config{
-    unsigned int *paddr;
+    unsigned int paddr;
     unsigned int value_mask; //specify the effect bit.
     unsigned int value;
 }io_state_config_t;
@@ -344,7 +347,7 @@ typedef struct soc_pwr_dep{
     /*
      * id of scene_lock
      */
-    unsigned long id;
+    unsigned int id;
     
     pwr_dm_state_t soc_pwr_dm_state;
     pm_dram_para_t soc_dram_state; 
@@ -357,7 +360,7 @@ typedef struct extended_standby{
     /*
      * id of extended standby
      */
-    unsigned long id;
+    unsigned int id;
     unsigned int pmu_id;	//for: 808 || 809+806 || 803 || 813
 				//support 4 pmu: each pmu_id range is: 0-255;
 				//pmu_id <--> pmu_name have directly mapping, u can get the pmu_name from sys_config.fex files.;
@@ -425,23 +428,23 @@ typedef struct sst_power_info_para
 
 typedef	struct super_standby_para
 {
-	unsigned long event;			//cpus wakeup event types
-	unsigned long resume_code_src; 		//cpux resume code src
-	unsigned long resume_code_length; 	//cpux resume code length
-	unsigned long resume_entry; 		//cpux resume entry
-	unsigned long timeout;			//wakeup after timeout seconds
-	unsigned long gpio_enable_bitmap;
-	unsigned long cpux_gpiog_bitmap;
-	extended_standby_t *pextended_standby;
+	unsigned int event;			//cpus wakeup event types
+	unsigned int resume_code_src; 		//cpux resume code src
+	unsigned int resume_code_length; 	//cpux resume code length
+	unsigned int resume_entry; 		//cpux resume entry
+	unsigned int timeout;			//wakeup after timeout seconds
+	unsigned int gpio_enable_bitmap;
+	unsigned int cpux_gpiog_bitmap;
+	unsigned int pextended_standby;
 } super_standby_para_t;
 
 typedef	struct normal_standby_para
 {
-	unsigned long event;		//cpus wakeup event types
-	unsigned long timeout;		//wakeup after timeout seconds
-	unsigned long gpio_enable_bitmap;
-	unsigned long cpux_gpiog_bitmap;
-	extended_standby_t *pextended_standby;
+	unsigned int event;		//cpus wakeup event types
+	unsigned int timeout;		//wakeup after timeout seconds
+	unsigned int gpio_enable_bitmap;
+	unsigned int cpux_gpiog_bitmap;
+	unsigned int pextended_standby;
 } normal_standby_para_t;
 
 
@@ -473,9 +476,9 @@ struct aw_standby_para{
 	unsigned int axp_event;		/**<axp event type for system wakeup    */
 	unsigned int debug_mask;	/* debug mask */
 	signed int   timeout;		/**<time to power off system from now, based on second */
-	unsigned long gpio_enable_bitmap;
-	unsigned long cpux_gpiog_bitmap;
-	extended_standby_t *pextended_standby;
+	unsigned int gpio_enable_bitmap;
+	unsigned int cpux_gpiog_bitmap;
+	unsigned int pextended_standby;
 };
 
 
@@ -490,7 +493,7 @@ struct aw_pm_info{
 typedef struct sst_dram_info
 {
 	unsigned int dram_crc_enable;
-	unsigned int *dram_crc_src;
+	unsigned int dram_crc_src;
 	unsigned int dram_crc_len;
 	unsigned int dram_crc_error;
 	unsigned int dram_crc_total_count;

@@ -826,19 +826,19 @@ static int aw_early_suspend(void)
 #ifdef RESUME_FROM_RESUME1
     super_standby_para_info.resume_entry = SRAM_FUNC_START_PA;
     if ((NULL != extended_standby_manager_id) && (NULL != extended_standby_manager_id->pextended_standby))
-	super_standby_para_info.pextended_standby = (extended_standby_t *)(standby_space.extended_standby_mem_base);
+	super_standby_para_info.pextended_standby = (unsigned int)(standby_space.extended_standby_mem_base);
     else
-	super_standby_para_info.pextended_standby = NULL;
+	super_standby_para_info.pextended_standby = 0;
 #endif
 
     super_standby_para_info.timeout = time_to_wakeup;
     if(0 < super_standby_para_info.timeout){
-	super_standby_para_info.event |= CPU0_WAKEUP_TIMEOUT;
+	super_standby_para_info.event |= CPUS_WAKEUP_TIMEOUT;
     }
 
     save_pm_secure_mem_status(BEFORE_EARLY_SUSPEND |0xb);
     if(unlikely(debug_mask&PM_STANDBY_PRINT_STANDBY)){
-	pr_info("total(def & dynamic config) standby wakeup src config: 0x%lx.\n", super_standby_para_info.event);
+	pr_info("total(def & dynamic config) standby wakeup src config: 0x%x.\n", super_standby_para_info.event);
 	parse_wakeup_event(NULL, 0, super_standby_para_info.event, CPUS_ID);
     }
 
@@ -854,9 +854,9 @@ static int aw_early_suspend(void)
 	memcpy((void *)(phys_to_virt(standby_space.extended_standby_mem_base)),
 		(void *)(extended_standby_manager_id->pextended_standby),
 		sizeof(*(extended_standby_manager_id->pextended_standby)));
-    //dmac_flush_range((void *)phys_to_virt(DRAM_MEM_PARA_INFO_PA), (void *)(phys_to_virt(DRAM_EXTENDED_STANDBY_INFO_PA) + DRAM_EXTENDED_STANDBY_INFO_SIZE));
+    __dma_flush_range((void *)phys_to_virt(standby_space.standby_mem_base), (void *)(phys_to_virt(standby_space.standby_mem_base + standby_space.mem_size)));
    init_wakeup_src(super_standby_para_info.event);
-#if CONFIG_CPU_OPS_SUNXI
+#ifdef CONFIG_CPU_OPS_SUNXI
    asm("wfi");
 #else
    cpu_suspend(3);
@@ -1389,7 +1389,6 @@ static int __init aw_pm_init(void)
 
 	/*init debug state*/
 	pm_secure_mem_status_init("rtc");
-	
 	/*for auto test reason.*/
 	//*(volatile __u32 *)(STANDBY_STATUS_REG  + 0x08) = BOOT_UPGRAGE_FLAG;
 

@@ -41,9 +41,9 @@ static int audio_codec_init = 0;
  */
 int arisc_rsb_read_block_data(struct arisc_rsb_block_cfg *cfg)
 {
-	int                   i;
-	int                   result;
-	struct arisc_message *pmessage;
+	int i;
+	int result;
+	u32 paras[22];
 
 	if ((cfg == NULL) || (cfg->devaddr == 0) || (cfg->regaddr == NULL) || (cfg->data == NULL) || (cfg->len > RSB_TRANS_BYTE_MAX) ||
 		((cfg->datatype !=  RSB_DATA_TYPE_BYTE) && (cfg->datatype !=  RSB_DATA_TYPE_HWORD) && (cfg->datatype !=  RSB_DATA_TYPE_WORD)) ||
@@ -52,52 +52,38 @@ int arisc_rsb_read_block_data(struct arisc_rsb_block_cfg *cfg)
 		return -EINVAL;
 	}
 
-	pmessage = arisc_message_allocate(cfg->msgattr);
-
-	if (pmessage == NULL) {
-		ARISC_WRN("allocate message failed\n");
-		return -ENOMEM;
-	}
-
-	/* initialize message */
-	pmessage->type       = ARISC_RSB_READ_BLOCK_DATA;
-	pmessage->state      = ARISC_MESSAGE_INITIALIZED;
-	pmessage->cb.handler = NULL;
-	pmessage->cb.arg     = NULL;
-
 	/*
 	 * package address and data to message->paras,
 	 * message->paras data layout:
 	 * |para[0]       |para[1]|para[2]   |para[3]|para[4]|para[5]|para[6]|
 	 * |(len|datatype)|devaddr|regaddr0~3|data0  |data1  |data2  |data3  |
 	 */
-	pmessage->paras[0] = 0;
-	pmessage->paras[1] = 0;
-	pmessage->paras[2] = 0;
-	pmessage->paras[3] = 0;
-	pmessage->paras[5] = 0;
-	pmessage->paras[6] = 0;
-	//memset(pmessage->paras, 0, sizeof(pmessage->paras));
-	//memset(pmessage->paras, 0, sizeof(unsigned int) * 4);
-	pmessage->paras[0] = ((cfg->len & 0xffff) | ((cfg->datatype << 16) & 0xffff0000));
-	pmessage->paras[1] = cfg->devaddr;
+	paras[0] = 0;
+	paras[1] = 0;
+	paras[2] = 0;
+	paras[3] = 0;
+	paras[5] = 0;
+	paras[6] = 0;
+	paras[0] = ((cfg->len & 0xffff) | ((cfg->datatype << 16) & 0xffff0000));
+	paras[1] = cfg->devaddr;
 
 	for (i = 0; i < cfg->len; i++) {
 			/* pack 8bit regaddr0~regaddr3 into 32bit paras[1] */
-			pmessage->paras[2] |= (cfg->regaddr[i] << (i * 8));
+			paras[2] |= (cfg->regaddr[i] << (i * 8));
 	}
 
+	/* FIXME: if the runtime sever enable the mmu & dcache,
+	 * should not use flush cache here.
+	 */
+	flush_cache_all();
 	/* send message use hwmsgbox */
-	arisc_hwmsgbox_send_message(pmessage, ARISC_SEND_MSG_TIMEOUT);
+	result = invoke_scp_fn_smc(ARM_SVC_ARISC_RSB_READ_BLOCK_DATA, virt_to_phys(paras), 0, 0);
+	flush_cache_all();
 
 	/* copy message readout data to user data buffer */
 	for (i = 0; i < cfg->len; i++) {
-			cfg->data[i] = pmessage->paras[3 + i];
+			cfg->data[i] = paras[3 + i];
 	}
-
-	/* free message */
-	result = pmessage->result;
-	arisc_message_free(pmessage);
 
 	return result;
 }
@@ -113,9 +99,9 @@ EXPORT_SYMBOL(arisc_rsb_read_block_data);
  */
 int arisc_rsb_write_block_data(struct arisc_rsb_block_cfg *cfg)
 {
-	int                   i;
-	int                   result;
-	struct arisc_message *pmessage;
+	int i;
+	int result;
+	u32 paras[22];
 
 	if ((cfg == NULL) || (cfg->devaddr == 0) || (cfg->regaddr == NULL) || (cfg->data == NULL) || (cfg->len > RSB_TRANS_BYTE_MAX) ||
 		((cfg->datatype !=  RSB_DATA_TYPE_BYTE) && (cfg->datatype !=  RSB_DATA_TYPE_HWORD) && (cfg->datatype !=  RSB_DATA_TYPE_WORD)) ||
@@ -124,48 +110,35 @@ int arisc_rsb_write_block_data(struct arisc_rsb_block_cfg *cfg)
 		return -EINVAL;
 	}
 
-	pmessage = arisc_message_allocate(cfg->msgattr);
-
-	if (pmessage == NULL) {
-		ARISC_WRN("allocate message failed\n");
-		return -ENOMEM;
-	}
-	/* initialize message */
-	pmessage->type       = ARISC_RSB_WRITE_BLOCK_DATA;
-	pmessage->state      = ARISC_MESSAGE_INITIALIZED;
-	pmessage->cb.handler = NULL;
-	pmessage->cb.arg     = NULL;
-
 	/*
 	 * package address and data to message->paras,
 	 * message->paras data layout:
 	 * |para[0]       |para[1]|para[2]   |para[3]|para[4]|para[5]|para[6]|
 	 * |(len|datatype)|devaddr|regaddr0~3|data0  |data1  |data2  |data3  |
 	 */
-	pmessage->paras[0] = 0;
-	pmessage->paras[1] = 0;
-	pmessage->paras[2] = 0;
-	pmessage->paras[3] = 0;
-	pmessage->paras[5] = 0;
-	pmessage->paras[6] = 0;
-	//memset(pmessage->paras, 0, sizeof(pmessage->paras));
-	//memset(pmessage->paras, 0, sizeof(unsigned int) * 4);
-	pmessage->paras[0] = ((cfg->len & 0xffff) | ((cfg->datatype << 16) & 0xffff0000));
-	pmessage->paras[1] = cfg->devaddr;
+	paras[0] = 0;
+	paras[1] = 0;
+	paras[2] = 0;
+	paras[3] = 0;
+	paras[5] = 0;
+	paras[6] = 0;
+	paras[0] = ((cfg->len & 0xffff) | ((cfg->datatype << 16) & 0xffff0000));
+	paras[1] = cfg->devaddr;
 
 	for (i = 0; i < cfg->len; i++) {
 			/* pack 8bit regaddr0~regaddr3 into 32bit paras[1] */
-			pmessage->paras[2] |= (cfg->regaddr[i] << (i * 8));
+			paras[2] |= (cfg->regaddr[i] << (i * 8));
 
 			/* pack 32bit data0~data3 into 32bit paras[2]~paras[5] */
-			pmessage->paras[3 + i] = cfg->data[i];
+			paras[3 + i] = cfg->data[i];
 	}
-	/* send message use hwmsgbox */
-	arisc_hwmsgbox_send_message(pmessage, ARISC_SEND_MSG_TIMEOUT);
 
-	/* free message */
-	result = pmessage->result;
-	arisc_message_free(pmessage);
+	/* FIXME: if the runtime sever enable the mmu & dcache,
+	 * should not use flush cache here.
+	 */
+	flush_cache_all();
+	/* send message use hwmsgbox */
+	result = invoke_scp_fn_smc(ARM_SVC_ARISC_RSB_WRITE_BLOCK_DATA, virt_to_phys(paras), 0, 0);
 
 	return result;
 }
@@ -191,9 +164,9 @@ EXPORT_SYMBOL(arisc_rsb_write_block_data);
  */
 int rsb_bits_ops_sync(struct arisc_rsb_bits_cfg *cfg)
 {
-	int                   i;
-	int                   result;
-	struct arisc_message *pmessage;
+	int i;
+	int result;
+	u32 paras[22];
 
 	if ((cfg == NULL) || (cfg->devaddr == 0) || (cfg->regaddr == NULL) || (cfg->mask == NULL) || (cfg->delay == NULL) || (cfg->len > RSB_TRANS_BYTE_MAX) ||
 		((cfg->datatype !=  RSB_DATA_TYPE_BYTE) && (cfg->datatype !=  RSB_DATA_TYPE_HWORD) && (cfg->datatype !=  RSB_DATA_TYPE_WORD)) ||
@@ -202,55 +175,42 @@ int rsb_bits_ops_sync(struct arisc_rsb_bits_cfg *cfg)
 		return -EINVAL;
 	}
 
-	pmessage = arisc_message_allocate(cfg->msgattr);
-
-	if (pmessage == NULL) {
-		ARISC_WRN("allocate message failed\n");
-		return -ENOMEM;
-	}
-	/* initialize message */
-	pmessage->type       = ARISC_RSB_BITS_OPS_SYNC;
-	pmessage->state      = ARISC_MESSAGE_INITIALIZED;
-	pmessage->cb.handler = NULL;
-	pmessage->cb.arg     = NULL;
-
 	/*
 	 * package address and data to message->paras,
 	 * message->paras data layout:
 	 * |para[0]       |para[1]|para[2]   |para[3]|para[4]|para[5]|para[6]|para[7] |para[8]|
 	 * |(len|datatype)|devaddr|regaddr0~3|mask0  |mask1  |mask2  |mask3  |delay0~3|ops    |
 	 */
-	pmessage->paras[0] = 0;
-	pmessage->paras[1] = 0;
-	pmessage->paras[2] = 0;
-	pmessage->paras[3] = 0;
-	pmessage->paras[4] = 0;
-	pmessage->paras[5] = 0;
-	pmessage->paras[6] = 0;
-	pmessage->paras[7] = 0;
-	pmessage->paras[8] = 0;
-	//memset(pmessage->paras, 0, sizeof(pmessage->paras));
-	//memset(pmessage->paras, 0, sizeof(unsigned int) * 4);
-	pmessage->paras[0] = ((cfg->len & 0xffff) | ((cfg->datatype << 16) & 0xffff0000));
-	pmessage->paras[1] = cfg->devaddr;
-	pmessage->paras[8] = cfg->ops;
+	paras[0] = 0;
+	paras[1] = 0;
+	paras[2] = 0;
+	paras[3] = 0;
+	paras[4] = 0;
+	paras[5] = 0;
+	paras[6] = 0;
+	paras[7] = 0;
+	paras[8] = 0;
+	paras[0] = ((cfg->len & 0xffff) | ((cfg->datatype << 16) & 0xffff0000));
+	paras[1] = cfg->devaddr;
+	paras[8] = cfg->ops;
 
 	for (i = 0; i < cfg->len; i++) {
 			/* pack 8bit regaddr0~regaddr3 into 32bit paras[1] */
-			pmessage->paras[2] |= (cfg->regaddr[i] << (i * 8));
+			paras[2] |= (cfg->regaddr[i] << (i * 8));
 
 			/* pack 32bit mask0~mask3 into 32bit paras[2] */
-			pmessage->paras[3 + i] = cfg->mask[i];
+			paras[3 + i] = cfg->mask[i];
 
 			/* pack 8bit delay0~delay3 into 32bit paras[6] */
-			pmessage->paras[7] |= (cfg->delay[i] << (i * 8));
+			paras[7] |= (cfg->delay[i] << (i * 8));
 	}
-	/* send message use hwmsgbox */
-	arisc_hwmsgbox_send_message(pmessage, ARISC_SEND_MSG_TIMEOUT);
 
-	/* free message */
-	result = pmessage->result;
-	arisc_message_free(pmessage);
+	/* FIXME: if the runtime sever enable the mmu & dcache,
+	 * should not use flush cache here.
+	 */
+	flush_cache_all();
+	/* send message use hwmsgbox */
+	result = invoke_scp_fn_smc(ARM_SVC_ARISC_RSB_BITS_OPS_SYNC, virt_to_phys(paras), 0, 0);
 
 	return result;
 }
@@ -267,37 +227,10 @@ EXPORT_SYMBOL(rsb_bits_ops_sync);
  */
 int arisc_rsb_set_interface_mode(u32 devaddr, u32 regaddr, u32 data)
 {
-	int                   result;
-	struct arisc_message *pmessage;
+	int result;
 
-	pmessage = arisc_message_allocate(ARISC_MESSAGE_ATTR_HARDSYN);
-
-	if (pmessage == NULL) {
-		ARISC_WRN("allocate message failed\n");
-		return -ENOMEM;
-	}
-
-	/* initialize message */
-	pmessage->type       = ARISC_RSB_SET_INTERFACE_MODE;
-	pmessage->state      = ARISC_MESSAGE_INITIALIZED;
-	pmessage->cb.handler = NULL;
-	pmessage->cb.arg     = NULL;
-
-	/*
-	 * package address and data to message->paras,
-	 * message->paras data layout:
-	 * |para[0]|para[1]|para[2]|
-	 * |devaddr|regaddr|data   |
-	 */
-	pmessage->paras[0] = devaddr;
-	pmessage->paras[1] = regaddr;
-	pmessage->paras[2] = data;
 	/* send message use hwmsgbox */
-	arisc_hwmsgbox_send_message(pmessage, ARISC_SEND_MSG_TIMEOUT);
-
-	/* free message */
-	result = pmessage->result;
-	arisc_message_free(pmessage);
+	result = invoke_scp_fn_smc(ARM_SVC_ARISC_RSB_SET_INTERFACE_MODE, (u64)devaddr, (u64)regaddr, (u64)data);
 
 	return result;
 }
@@ -313,8 +246,7 @@ EXPORT_SYMBOL(arisc_rsb_set_interface_mode);
  */
 int arisc_rsb_set_rtsaddr(u32 devaddr, u32 rtsaddr)
 {
-	int                   result;
-	struct arisc_message *pmessage;
+	int result;
 
 	/* check audio codec has been initialized */
 	if (devaddr == RSB_DEVICE_SADDR7) {
@@ -324,33 +256,10 @@ int arisc_rsb_set_rtsaddr(u32 devaddr, u32 rtsaddr)
 			audio_codec_init = 1;
 	}
 
-	pmessage = arisc_message_allocate(ARISC_MESSAGE_ATTR_HARDSYN);
+	printk("%s-%u: devaddr:%x, rtsaddr:%x\n", __func__, __LINE__, devaddr, rtsaddr);
 
-	if (pmessage == NULL) {
-		ARISC_WRN("allocate message failed\n");
-		return -ENOMEM;
-	}
-
-	/* initialize message */
-	pmessage->type       = ARISC_RSB_SET_RTSADDR;
-	pmessage->state      = ARISC_MESSAGE_INITIALIZED;
-	pmessage->cb.handler = NULL;
-	pmessage->cb.arg     = NULL;
-
-	/*
-	 * package address and data to message->paras,
-	 * message->paras data layout:
-	 * |para[0]|para[1]|
-	 * |devaddr|rtsaddr|
-	 */
-	pmessage->paras[0] = devaddr;
-	pmessage->paras[1] = rtsaddr;
 	/* send message use hwmsgbox */
-	arisc_hwmsgbox_send_message(pmessage, ARISC_SEND_MSG_TIMEOUT);
-
-	/* free message */
-	result = pmessage->result;
-	arisc_message_free(pmessage);
+	result = invoke_scp_fn_smc(ARM_SVC_ARISC_RSB_SET_RTSADDR, (u64)devaddr, (u64)rtsaddr, 0);
 
 	return result;
 }

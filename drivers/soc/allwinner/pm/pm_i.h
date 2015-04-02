@@ -14,9 +14,6 @@
 #include "mem_mapping.h"
 
 #include <linux/power/aw_pm.h>
-#include <linux/arisc/hwmsgbox.h>
-
-
 #include <stdarg.h>
 
 #if 0

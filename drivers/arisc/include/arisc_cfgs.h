@@ -48,28 +48,6 @@
 #define ARISC_DEBUG_ON
 #define ARISC_DEBUG_LEVEL           (3) /* debug level */
 
-/* the max number of cached message frame */
-#define ARISC_MESSAGE_CACHED_MAX    (4)
-
-/* spinlock max timeout, base on ms */
-#define ARISC_SPINLOCK_TIMEOUT      (100)
-
-/* send message max timeout, base on ms */
-#define ARISC_SEND_MSG_TIMEOUT      (4000)
-
-/* hwmsgbox channels configure */
-#define ARISC_HWMSGBOX_ARISC_ASYN_TX_CH (0)
-#define ARISC_HWMSGBOX_ARISC_ASYN_RX_CH (1)
-#define ARISC_HWMSGBOX_ARISC_SYN_TX_CH  (2)
-#define ARISC_HWMSGBOX_ARISC_SYN_RX_CH  (3)
-#define ARISC_HWMSGBOX_AC327_SYN_TX_CH  (4)
-#define ARISC_HWMSGBOX_AC327_SYN_RX_CH  (5)
-
-/* dvfs config */
-#define ARISC_DVFS_VF_TABLE_MAX         (16)
-/* ir config */
-#define ARISC_IR_KEY_SUP_NUM            (8)     /* the number of IR remote support */
-
-#define ARISC_DEV_CLKSRC_NUM            (4)     /* the number of dev clocksource support */
+#define ARISC_DEV_CLKSRC_NUM        (4)     /* the number of dev clocksource support */
 
 #endif /* __ARISC_CFGS_H */

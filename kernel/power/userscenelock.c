@@ -268,7 +268,7 @@ ssize_t wakeup_src_show(
 		s += scnprintf(s, end - s, "wakeup_gpio_group 0x%lx\n", manager->wakeup_gpio_group);
 		s += parse_wakeup_gpio_group_map(s, end - s, manager->wakeup_gpio_group);
 		if (NULL != manager->pextended_standby)
-			s += scnprintf(s, end - s, "extended_standby id = 0x%lx\n", manager->pextended_standby->id);
+			s += scnprintf(s, end - s, "extended_standby id = 0x%x\n", manager->pextended_standby->id);
 	}
 
 	s += scnprintf(s, end - s, "%s\n", "==========================wakeup src setting usage help info========:");

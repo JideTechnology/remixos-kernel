@@ -16,6 +16,138 @@
 
 #include <linux/power/aw_pm.h>
 
+/* the base of messages */
+#define ARISC_MESSAGE_BASE          (0x10)
+
+/* standby commands */
+#define ARISC_SSTANDBY_ENTER_REQ        (ARISC_MESSAGE_BASE + 0x00)  /* request to enter       (ac327 to arisc) */
+#define ARISC_SSTANDBY_RESTORE_NOTIFY   (ARISC_MESSAGE_BASE + 0x01)  /* restore finished       (ac327 to arisc) */
+#define ARISC_NSTANDBY_ENTER_REQ        (ARISC_MESSAGE_BASE + 0x02)  /* request to enter       (ac327 to arisc) */
+#define ARISC_NSTANDBY_WAKEUP_NOTIFY    (ARISC_MESSAGE_BASE + 0x03)  /* wakeup notify          (arisc to ac327) */
+#define ARISC_NSTANDBY_RESTORE_REQ      (ARISC_MESSAGE_BASE + 0x04)  /* request to restore     (ac327 to arisc) */
+#define ARISC_NSTANDBY_RESTORE_COMPLETE (ARISC_MESSAGE_BASE + 0x05)  /* arisc restore complete (arisc to ac327) */
+#define ARISC_ESSTANDBY_ENTER_REQ       (ARISC_MESSAGE_BASE + 0x06)  /* request to enter       (ac327 to arisc) */
+#define ARISC_TSTANDBY_ENTER_REQ        (ARISC_MESSAGE_BASE + 0x07)  /* request to enter       (ac327 to arisc) */
+#define ARISC_TSTANDBY_RESTORE_NOTIFY   (ARISC_MESSAGE_BASE + 0x08)  /* restore finished       (ac327 to arisc) */
+#define ARISC_FAKE_POWER_OFF_REQ        (ARISC_MESSAGE_BASE + 0x09)  /* request to enter       (ac327 to arisc) */
+#define ARISC_CPUIDLE_ENTER_REQ         (ARISC_MESSAGE_BASE + 0x0a)  /* request to enter       (ac327 to arisc) */
+#define ARISC_STANDBY_INFO_REQ          (ARISC_MESSAGE_BASE + 0x10)  /* request sst info       (ac327 to arisc) */
+#define ARISC_CPUIDLE_CFG_REQ           (ARISC_MESSAGE_BASE + 0x11)  /* request to config      (ac327 to arisc) */
+#define ARISC_CPU_OP_REQ                (ARISC_MESSAGE_BASE + 0x12)  /* cpu operations         (ac327 to arisc) */
+#define ARISC_QUERY_WAKEUP_SRC_REQ      (ARISC_MESSAGE_BASE + 0x13)  /* query wakeup source    (ac327 to arisc) */
+#define ARISC_SYS_OP_REQ                (ARISC_MESSAGE_BASE + 0x14)  /* system operations      (ac327 to arisc) */
+
+/* dvfs commands */
+#define ARISC_CPUX_DVFS_REQ              (ARISC_MESSAGE_BASE + 0x20)  /* request dvfs           (ac327 to arisc) */
+#define ARISC_CPUX_DVFS_CFG_VF_REQ       (ARISC_MESSAGE_BASE + 0x21)  /* request config dvfs v-f table(ac327 to arisc) */
+
+/* pmu commands */
+#define ARISC_AXP_INT_COMING_NOTIFY      (ARISC_MESSAGE_BASE + 0x40)  /* interrupt coming notify(arisc to ac327) */
+#define ARISC_AXP_DISABLE_IRQ            (ARISC_MESSAGE_BASE + 0x41)  /* disable axp irq of arisc                */
+#define ARISC_AXP_ENABLE_IRQ             (ARISC_MESSAGE_BASE + 0x42)  /* enable axp irq of arisc                 */
+#define ARISC_AXP_GET_CHIP_ID            (ARISC_MESSAGE_BASE + 0x43)  /* axp get chip id                         */
+#define ARISC_AXP_SET_PARAS              (ARISC_MESSAGE_BASE + 0x44)  /* config axp parameters (ac327 to arisc)  */
+#define ARISC_SET_PMU_VOLT               (ARISC_MESSAGE_BASE + 0x45)  /* set pmu volt (ac327 to arisc)           */
+#define ARISC_GET_PMU_VOLT               (ARISC_MESSAGE_BASE + 0x46)  /* get pmu volt (ac327 to arisc)           */
+#define ARISC_SET_LED_BLN                (ARISC_MESSAGE_BASE + 0x47)  /* set led bln (ac327 to arisc)            */
+#define ARISC_AXP_REBOOT                 (ARISC_MESSAGE_BASE + 0x48)  /* reboot system for no pmu protocols      */
+#define ARISC_SET_PWR_TREE               (ARISC_MESSAGE_BASE + 0x49)  /* set power tree (ac327 to arisc)         */
+
+/* set arisc debug commands */
+#define ARISC_SET_DEBUG_LEVEL            (ARISC_MESSAGE_BASE + 0x50)  /* set arisc debug level  (ac327 to arisc)     */
+#define ARISC_MESSAGE_LOOPBACK           (ARISC_MESSAGE_BASE + 0x51)  /* loopback message  (ac327 to arisc)          */
+#define ARISC_SET_UART_BAUDRATE          (ARISC_MESSAGE_BASE + 0x52)  /* set uart baudrate (ac327 to arisc)          */
+#define ARISC_SET_DRAM_PARAS             (ARISC_MESSAGE_BASE + 0x53)  /* config dram parameter (ac327 to arisc)      */
+#define ARISC_SET_DEBUG_DRAM_CRC_PARAS   (ARISC_MESSAGE_BASE + 0x54)  /* config dram crc parameters (ac327 to arisc) */
+#define ARISC_SET_IR_PARAS               (ARISC_MESSAGE_BASE + 0x55)  /* config ir parameter (ac327 to arisc)        */
+#define ARISC_REPORT_ERR_INFO            (ARISC_MESSAGE_BASE + 0x56)  /* report arisc error info (arisc to ac327)    */
+
+/* audio commands */
+#define ARISC_AUDIO_START                (ARISC_MESSAGE_BASE + 0x60)  /* audio start play/capture(ac327 to arisc) */
+#define ARISC_AUDIO_STOP                 (ARISC_MESSAGE_BASE + 0x61)  /* audio stop  play/capture(ac327 to arisc) */
+#define ARISC_AUDIO_SET_BUF_PER_PARAS    (ARISC_MESSAGE_BASE + 0x62)  /* set audio buffer and peroid paras(ac327 to arisc) */
+#define ARISC_AUDIO_GET_POSITION         (ARISC_MESSAGE_BASE + 0x63)  /* get audio buffer position(ac327 to arisc) */
+#define ARISC_AUDIO_SET_TDM_PARAS        (ARISC_MESSAGE_BASE + 0x64)  /* set audio tdm parameters(ac327 to arisc) */
+#define ARISC_AUDIO_PERDONE_NOTIFY       (ARISC_MESSAGE_BASE + 0x65)  /* audio period done notify(arisc to ac327) */
+#define ARISC_AUDIO_ADD_PERIOD           (ARISC_MESSAGE_BASE + 0x66)  /* audio period done notify(arisc to ac327) */
+
+/* rsb commands */
+#define ARISC_RSB_READ_BLOCK_DATA        (ARISC_MESSAGE_BASE + 0x70)  /* rsb read block data        (ac327 to arisc) */
+#define ARISC_RSB_WRITE_BLOCK_DATA       (ARISC_MESSAGE_BASE + 0x71)  /* rsb write block data       (ac327 to arisc) */
+#define ARISC_RSB_BITS_OPS_SYNC          (ARISC_MESSAGE_BASE + 0x72)  /* rsb clear bits sync        (ac327 to arisc) */
+#define ARISC_RSB_SET_INTERFACE_MODE     (ARISC_MESSAGE_BASE + 0x73)  /* rsb set interface mode     (ac327 to arisc) */
+#define ARISC_RSB_SET_RTSADDR            (ARISC_MESSAGE_BASE + 0x74)  /* rsb set runtime slave addr (ac327 to arisc) */
+
+/* arisc initialize state notify commands */
+#define ARISC_STARTUP_NOTIFY             (ARISC_MESSAGE_BASE + 0x80)  /* arisc init state notify(arisc to ac327) */
+
+
+/* the base of ARM SVC ARISC */
+#define ARM_SVC_ARISC_BASE          (0xc0000000)
+
+/* standby commands */
+#define ARM_SVC_ARISC_SSTANDBY_ENTER_REQ        (ARM_SVC_ARISC_BASE + ARISC_SSTANDBY_ENTER_REQ)        /* request to enter       (ac327 to arisc) */
+#define ARM_SVC_ARISC_SSTANDBY_RESTORE_NOTIFY   (ARM_SVC_ARISC_BASE + ARISC_SSTANDBY_RESTORE_NOTIFY)   /* restore finished       (ac327 to arisc) */
+#define ARM_SVC_ARISC_NSTANDBY_ENTER_REQ        (ARM_SVC_ARISC_BASE + ARISC_NSTANDBY_ENTER_REQ)        /* request to enter       (ac327 to arisc) */
+#define ARM_SVC_ARISC_NSTANDBY_WAKEUP_NOTIFY    (ARM_SVC_ARISC_BASE + ARISC_NSTANDBY_WAKEUP_NOTIFY)    /* wakeup notify          (arisc to ac327) */
+#define ARM_SVC_ARISC_NSTANDBY_RESTORE_REQ      (ARM_SVC_ARISC_BASE + ARISC_NSTANDBY_RESTORE_REQ)      /* request to restore     (ac327 to arisc) */
+#define ARM_SVC_ARISC_NSTANDBY_RESTORE_COMPLETE (ARM_SVC_ARISC_BASE + ARISC_NSTANDBY_RESTORE_COMPLETE) /* arisc restore complete (arisc to ac327) */
+#define ARM_SVC_ARISC_ESSTANDBY_ENTER_REQ       (ARM_SVC_ARISC_BASE + ARISC_ESSTANDBY_ENTER_REQ)       /* request to enter       (ac327 to arisc) */
+#define ARM_SVC_ARISC_TSTANDBY_ENTER_REQ        (ARM_SVC_ARISC_BASE + ARISC_TSTANDBY_ENTER_REQ)        /* request to enter       (ac327 to arisc) */
+#define ARM_SVC_ARISC_TSTANDBY_RESTORE_NOTIFY   (ARM_SVC_ARISC_BASE + ARISC_TSTANDBY_RESTORE_NOTIFY)   /* restore finished       (ac327 to arisc) */
+#define ARM_SVC_ARISC_FAKE_POWER_OFF_REQ        (ARM_SVC_ARISC_BASE + ARISC_FAKE_POWER_OFF_REQ)        /* request to enter       (ac327 to arisc) */
+#define ARM_SVC_ARISC_CPUIDLE_ENTER_REQ         (ARM_SVC_ARISC_BASE + ARISC_CPUIDLE_ENTER_REQ)         /* request to enter       (ac327 to arisc) */
+#define ARM_SVC_ARISC_STANDBY_INFO_REQ          (ARM_SVC_ARISC_BASE + ARISC_STANDBY_INFO_REQ)          /* request sst info       (ac327 to arisc) */
+#define ARM_SVC_ARISC_CPUIDLE_CFG_REQ           (ARISC_MESSAGE_BASE + ARISC_CPUIDLE_CFG_REQ)           /* request to config      (ac327 to arisc) */
+#define ARM_SVC_ARISC_CPU_OP_REQ                (ARM_SVC_ARISC_BASE + ARISC_CPU_OP_REQ)                /* cpu operations         (ac327 to arisc) */
+#define ARM_SVC_ARISC_QUERY_WAKEUP_SRC_REQ      (ARM_SVC_ARISC_BASE + ARISC_QUERY_WAKEUP_SRC_REQ)      /* query wakeup source    (ac327 to arisc) */
+#define ARM_SVC_ARISC_SYS_OP_REQ                (ARM_SVC_ARISC_BASE + ARISC_SYS_OP_REQ)                /* system operations      (ac327 to arisc) */
+
+/* dvfs commands */
+#define ARM_SVC_ARISC_CPUX_DVFS_REQ              (ARM_SVC_ARISC_BASE + ARISC_CPUX_DVFS_REQ)            /* request dvfs           (ac327 to arisc) */
+#define ARM_SVC_ARISC_CPUX_DVFS_CFG_VF_REQ       (ARM_SVC_ARISC_BASE + ARISC_CPUX_DVFS_CFG_VF_REQ)     /* request config dvfs v-f table(ac327 to arisc) */
+
+/* pmu commands */
+#define ARM_SVC_ARISC_AXP_INT_COMING_NOTIFY      (ARM_SVC_ARISC_BASE + ARISC_AXP_INT_COMING_NOTIFY)    /* interrupt coming notify(arisc to ac327) */
+#define ARM_SVC_ARISC_AXP_DISABLE_IRQ            (ARM_SVC_ARISC_BASE + ARISC_AXP_DISABLE_IRQ)          /* disable axp irq of arisc                */
+#define ARM_SVC_ARISC_AXP_ENABLE_IRQ             (ARM_SVC_ARISC_BASE + ARISC_AXP_ENABLE_IRQ)           /* enable axp irq of arisc                 */
+#define ARM_SVC_ARISC_AXP_GET_CHIP_ID            (ARM_SVC_ARISC_BASE + ARISC_AXP_GET_CHIP_ID)          /* axp get chip id                         */
+#define ARM_SVC_ARISC_AXP_SET_PARAS              (ARM_SVC_ARISC_BASE + ARISC_AXP_SET_PARAS)            /* config axp parameters (ac327 to arisc)  */
+#define ARM_SVC_ARISC_SET_PMU_VOLT               (ARM_SVC_ARISC_BASE + ARISC_SET_PMU_VOLT)             /* set pmu volt (ac327 to arisc)           */
+#define ARM_SVC_ARISC_GET_PMU_VOLT               (ARM_SVC_ARISC_BASE + ARISC_GET_PMU_VOLT)             /* get pmu volt (ac327 to arisc)           */
+#define ARM_SVC_ARISC_SET_LED_BLN                (ARM_SVC_ARISC_BASE + ARISC_SET_LED_BLN)              /* set led bln (ac327 to arisc)            */
+#define ARM_SVC_ARISC_AXP_REBOOT                 (ARM_SVC_ARISC_BASE + ARISC_AXP_REBOOT)               /* reboot system for no pmu protocols      */
+#define ARM_SVC_ARISC_SET_PWR_TREE               (ARM_SVC_ARISC_BASE + ARISC_SET_PWR_TREE)             /* set power tree (ac327 to arisc)         */
+
+/* set arisc debug commands */
+#define ARM_SVC_ARISC_SET_DEBUG_LEVEL            (ARM_SVC_ARISC_BASE + ARISC_SET_DEBUG_LEVEL)          /* set arisc debug level  (ac327 to arisc)     */
+#define ARM_SVC_ARISC_MESSAGE_LOOPBACK           (ARM_SVC_ARISC_BASE + ARISC_MESSAGE_LOOPBACK)         /* loopback message  (ac327 to arisc)          */
+#define ARM_SVC_ARISC_SET_UART_BAUDRATE          (ARM_SVC_ARISC_BASE + ARISC_SET_UART_BAUDRATE)        /* set uart baudrate (ac327 to arisc)          */
+#define ARM_SVC_ARISC_SET_DRAM_PARAS             (ARM_SVC_ARISC_BASE + ARISC_SET_DRAM_PARAS)           /* config dram parameter (ac327 to arisc)      */
+#define ARM_SVC_ARISC_SET_DEBUG_DRAM_CRC_PARAS   (ARM_SVC_ARISC_BASE + ARISC_SET_DEBUG_DRAM_CRC_PARAS) /* config dram crc parameters (ac327 to arisc) */
+#define ARM_SVC_ARISC_SET_IR_PARAS               (ARM_SVC_ARISC_BASE + ARISC_SET_IR_PARAS)             /* config ir parameter (ac327 to arisc)        */
+#define ARM_SVC_ARISC_REPORT_ERR_INFO            (ARM_SVC_ARISC_BASE + ARISC_REPORT_ERR_INFO)          /* report arisc error info (arisc to ac327)    */
+
+/* audio commands */
+#define ARM_SVC_ARISC_AUDIO_START                (ARM_SVC_ARISC_BASE + ARISC_AUDIO_START)              /* audio start play/capture(ac327 to arisc) */
+#define ARM_SVC_ARISC_AUDIO_STOP                 (ARM_SVC_ARISC_BASE + ARISC_AUDIO_STOP)               /* audio stop  play/capture(ac327 to arisc) */
+#define ARM_SVC_ARISC_AUDIO_SET_BUF_PER_PARAS    (ARM_SVC_ARISC_BASE + ARISC_AUDIO_SET_BUF_PER_PARAS)  /* set audio buffer and peroid paras(ac327 to arisc) */
+#define ARM_SVC_ARISC_AUDIO_GET_POSITION         (ARM_SVC_ARISC_BASE + ARISC_AUDIO_GET_POSITION)       /* get audio buffer position(ac327 to arisc) */
+#define ARM_SVC_ARISC_AUDIO_SET_TDM_PARAS        (ARM_SVC_ARISC_BASE + ARISC_AUDIO_SET_TDM_PARAS)      /* set audio tdm parameters(ac327 to arisc) */
+#define ARM_SVC_ARISC_AUDIO_PERDONE_NOTIFY       (ARM_SVC_ARISC_BASE + ARISC_AUDIO_PERDONE_NOTIFY)     /* audio period done notify(arisc to ac327) */
+#define ARM_SVC_ARISC_AUDIO_ADD_PERIOD           (ARM_SVC_ARISC_BASE + ARISC_AUDIO_ADD_PERIOD)         /* audio period done notify(arisc to ac327) */
+
+/* rsb commands */
+#define ARM_SVC_ARISC_RSB_READ_BLOCK_DATA        (ARM_SVC_ARISC_BASE + ARISC_RSB_READ_BLOCK_DATA)      /* rsb read block data        (ac327 to arisc) */
+#define ARM_SVC_ARISC_RSB_WRITE_BLOCK_DATA       (ARM_SVC_ARISC_BASE + ARISC_RSB_WRITE_BLOCK_DATA)     /* rsb write block data       (ac327 to arisc) */
+#define ARM_SVC_ARISC_RSB_BITS_OPS_SYNC          (ARM_SVC_ARISC_BASE + ARISC_RSB_BITS_OPS_SYNC)        /* rsb clear bits sync        (ac327 to arisc) */
+#define ARM_SVC_ARISC_RSB_SET_INTERFACE_MODE     (ARM_SVC_ARISC_BASE + ARISC_RSB_SET_INTERFACE_MODE)   /* rsb set interface mode     (ac327 to arisc) */
+#define ARM_SVC_ARISC_RSB_SET_RTSADDR            (ARM_SVC_ARISC_BASE + ARISC_RSB_SET_RTSADDR)          /* rsb set runtime slave addr (ac327 to arisc) */
+
+/* arisc initialize state notify commands */
+#define ARM_SVC_ARISC_STARTUP_NOTIFY             (ARM_SVC_ARISC_BASE + ARISC_STARTUP_NOTIFY)           /* arisc init state notify(arisc to ac327) */
+
+
 #define NMI_INT_TYPE_PMU (0)
 #define NMI_INT_TYPE_RTC (1)
 #define NMI_INT_TYPE_PMU_OFFSET (0x1 << NMI_INT_TYPE_PMU)
@@ -112,89 +244,15 @@ typedef enum arisc_rsb_datatype {
 	RSB_DATA_TYPE_WORD  = 4
 } arisc_rsb_datatype_e;
 
-#if defined CONFIG_ARCH_SUN8IW1P1
-typedef enum arisc_p2wi_bits_ops {
-	P2WI_CLR_BITS,
-	P2WI_SET_BITS
-} arisc_p2wi_bits_ops_e;
-#elif (defined CONFIG_ARCH_SUN8IW3P1) || (defined CONFIG_ARCH_SUN8IW5P1) || (defined CONFIG_ARCH_SUN8IW6P1) || \
-      (defined CONFIG_ARCH_SUN8IW7P1) || (defined CONFIG_ARCH_SUN8IW9P1) || (defined CONFIG_ARCH_SUN9IW1P1) || \
-      (defined CONFIG_ARCH_SUN50IW1P1)
 /* rsb transfer data type */
 typedef enum arisc_rsb_bits_ops {
 	RSB_CLR_BITS,
 	RSB_SET_BITS
 } arisc_rsb_bits_ops_e;
-#endif
-
-typedef enum arisc_audio_mode {
-	AUDIO_PLAY,                   /* play    mode */
-	AUDIO_CAPTURE                 /* capture mode */
-} arisc_audio_mode_e;
-
-typedef struct arisc_audio_mem
-{
-    unsigned int mode;
-	unsigned int sram_base_addr;
-	unsigned int buffer_size;
-	unsigned int period_size;
-}arisc_audio_mem_t;
-
-typedef struct arisc_audio_tdm
-{
-    unsigned int mode;
-	unsigned int samplerate;
-	unsigned int channum;
-}arisc_audio_tdm_t;
 
 /* arisc call-back */
 typedef int (*arisc_cb_t)(void *arg);
 
-/* sunxi_perdone_cbfn
- *
- * period done callback routine type
-*/
-/* audio callback struct */
-typedef struct audio_cb {
-	arisc_cb_t	handler;	/* dma callback fuction */
-	void 		*arg;	    /* args of func         */
-}audio_cb_t;
-
-#if defined CONFIG_ARCH_SUN8IW1P1
-/*
- * @len :       number of read registers, max len:8;
- * @msgattr:    message attribute, 0:async, 1:soft sync, 2:hard aync
- * @addr:       point of registers address;
- * @data:       point of registers data;
- */
-typedef struct arisc_p2wi_block_cfg
-{
-    unsigned int len;
-    unsigned int msgattr;
-	unsigned char *addr;
-	unsigned char *data;
-}arisc_p2wi_block_cfg_t;
-
-/*
- * @len  :       number of operate registers, max len:8;
- * @msgattr:     message attribute, 0:async, 1:soft sync, 2:hard aync
- * @ops:         bits operation, 0:clear bits, 1:set bits
- * @addr :       point of registers address;
- * @mask :       point of mask bits data;
- * @delay:       point of delay times;
- */
-typedef struct arisc_p2wi_bits_cfg
-{
-    unsigned int len;
-    unsigned int msgattr;
-    unsigned int ops;
-	unsigned char *addr;
-	unsigned char *mask;
-	unsigned char *delay;
-}arisc_p2wi_bits_cfg_t;
-#elif (defined CONFIG_ARCH_SUN8IW3P1) || (defined CONFIG_ARCH_SUN8IW5P1) || (defined CONFIG_ARCH_SUN8IW6P1) || \
-      (defined CONFIG_ARCH_SUN8IW7P1) || (defined CONFIG_ARCH_SUN8IW9P1) || (defined CONFIG_ARCH_SUN9IW1P1) || \
-      (defined CONFIG_ARCH_SUN50IW1P1)
 /*
  * @len :       number of read registers, max len:4;
  * @datatype:   type of the data, 0:byte(8bits), 1:halfword(16bits), 2:word(32bits)
@@ -205,10 +263,10 @@ typedef struct arisc_p2wi_bits_cfg
  */
 typedef struct arisc_rsb_block_cfg
 {
-    unsigned int len;
-    unsigned int datatype;
-    unsigned int msgattr;
-    unsigned int devaddr;
+	unsigned int len;
+	unsigned int datatype;
+	unsigned int msgattr;
+	unsigned int devaddr;
 	unsigned char *regaddr;
 	unsigned int *data;
 }arisc_rsb_block_cfg_t;
@@ -234,7 +292,6 @@ typedef struct arisc_rsb_bits_cfg
 	unsigned char *delay;
 	unsigned int *mask;
 }arisc_rsb_bits_cfg_t;
-#endif
 
 typedef enum arisc_rw_type
 {
@@ -271,26 +328,7 @@ typedef struct sunxi_enter_idle_para{
  * return: result, 0 - set frequency successed,
  *                !0 - set frequency failed;
  */
-int arisc_dvfs_set_cpufreq(unsigned int freq, unsigned int pll, unsigned long mode, arisc_cb_t cb, void *cb_arg);
-
-/*
- * enter cpu idle.
- * @cb: callback function.
- * @cb_arg: arg for callback function.
- * @pars: arg for enter cpuidle.
- *
- * return: result, 0 - enter cpuidle successed, !0 - failed;
- */
-extern int arisc_enter_cpuidle(arisc_cb_t cb, void *cb_arg, struct sunxi_enter_idle_para *para);
-
-/* ====================================standby interface==================================== */
-/**
- * enter super standby.
- * @para:  parameter for enter normal standby.
- *
- * return: result, 0 - super standby successed, !0 - super standby failed;
- */
-int arisc_standby_super(struct super_standby_para *para, arisc_cb_t cb, void *cb_arg);
+int arisc_dvfs_set_cpufreq(unsigned int freq, unsigned int pll, unsigned int mode, arisc_cb_t cb, void *cb_arg);
 
 /**
  * query super-standby wakeup source.
@@ -298,7 +336,7 @@ int arisc_standby_super(struct super_standby_para *para, arisc_cb_t cb, void *cb
  *
  * return: result, 0 - query successed, !0 - query failed;
  */
-int arisc_query_wakeup_source(unsigned long *event);
+int arisc_query_wakeup_source(u32 *event);
 
 extern int arisc_query_set_standby_info(struct standby_info_para *para, arisc_rw_type_e op);
 
@@ -343,22 +381,6 @@ int arisc_query_dram_crc_result(unsigned long *perror, unsigned long *ptotal_cou
 int arisc_set_dram_crc_result(unsigned long error, unsigned long total_count,
 	unsigned long error_count);
 
-/**
- * notify arisc cpux restored.
- * @para:  none.
- *
- * return: result, 0 - notify successed, !0 - notify failed;
- */
-int arisc_cpux_ready_notify(void);
-
-/* talk-standby interfaces */
-int arisc_standby_talk(struct super_standby_para *para, arisc_cb_t cb, void *cb_arg);
-int arisc_cpux_talkstandby_ready_notify(void);
-
-#if defined CONFIG_ARCH_SUN8IW1P1
-void arisc_fake_power_off(void);
-#endif
-
 /* ====================================axp interface==================================== */
 /**
  * register call-back function, call-back function is for arisc notify some event to ac327,
@@ -388,149 +410,11 @@ int arisc_axp_get_chip_id(unsigned char *chip_id);
 #if (defined CONFIG_ARCH_SUN8IW5P1) || (defined CONFIG_ARCH_SUN50IW1P1)
 int arisc_adjust_pmu_chgcur(unsigned int max_chgcur, unsigned int chg_ic_temp);
 #endif
+int arisc_set_pwr_tree(u32 *pwr_tree);
+int arisc_set_led_bln(u32 led_rgb, u32 led_onms, u32 led_offms, u32 led_darkms);
 
-int arisc_set_led_bln(unsigned long led_rgb, unsigned long led_onms,  \
-                      unsigned long led_offms, unsigned long led_darkms);
 
-/* ====================================audio interface==================================== */
-/**
- * start audio play or capture.
- * @mode:    start audio in which mode ; 0:play, 1;capture.
- *
- * return: result, 0 - start audio play or capture successed,
- *                !0 - start audio play or capture failed.
- */
-int arisc_audio_start(int mode);
-
-/**
- * stop audio play or capture.
- * @mode:    stop audio in which mode ; 0:play, 1;capture.
- *
- * return: result, 0 - stop audio play or capture successed,
- *                !0 - stop audio play or capture failed.
- */
-int arisc_audio_stop(int mode);
-
-/**
- * set audio buffer and period parameters.
- * @audio_mem:
- *             mode          :which mode be set; 0:paly, 1:capture;
- *             sram_base_addr:sram base addr of buffer;
- *             buffer_size   :the size of buffer;
- *             period_size   :the size of period;
- *
- * |period|period|period|period|...|period|period|period|period|...|
- * | paly                   buffer | capture                buffer |
- * |                               |
- * 1                               2
- * 1:paly sram_base_addr,          2:capture sram_base_addr;
- * buffer size = capture sram_base_addr - paly sram_base_addr.
- *
- * return: result, 0 - set buffer and period parameters successed,
- *                !0 - set buffer and period parameters failed.
- *
- */
-int arisc_buffer_period_paras(struct arisc_audio_mem audio_mem);
-
-/**
- * get audio play or capture real-time address.
- * @mode:    in which mode; 0:play, 1;capture;
- * @addr:    real-time address in which mode.
- *
- * return: result, 0 - get real-time address successed,
- *                !0 - get real-time address failed.
- */
-int arisc_get_position(int mode, unsigned int *addr);
-
-/**
- * register audio callback function.
- * @mode:    in which mode; 0:play, 1;capture;
- * @handler: audio callback handler which need be register;
- * @arg    : the pointer of audio callback arguments.
- *
- * return: result, 0 - register audio callback function successed,
- *                !0 - register audio callback function failed.
- */
-int arisc_audio_cb_register(int mode, arisc_cb_t handler, void *arg);
-
-/**
- * unregister audio callback function.
- * @mode:    in which mode; 0:play, 1;capture;
- * @handler: audio callback handler which need be register;
- * @arg    : the pointer of audio callback arguments.
- *
- * return: result, 0 - unregister audio callback function successed,
- *                !0 - unregister audio callback function failed.
- */
-int arisc_audio_cb_unregister(int mode, arisc_cb_t handler);
-
-/**
- * set audio tdm parameters.
- * @tdm_cfg: audio tdm struct
- *           mode      :in which mode; 0:play, 1;capture;
- *           samplerate:tdm samplerate depend on audio data;
- *           channel   :audio channel number, 1 or 2.
-
- * return: result, 0 - set buffer and period parameters successed,
- *                !0 - set buffer and period parameters failed.
- *
- */
-int arisc_tdm_paras(struct arisc_audio_tdm tdm_cfg);
-
-/**
- * add audio period.
- * @mode:    start audio in which mode ; 0:play, 1;capture.
- * @addr:    period address which will be add in buffer
- *
- * return: result, 0 - add audio period successed,
- *                !0 - add audio period failed.
- *
- */
-int arisc_add_period(u32 mode, u32 addr);
-
-/* ====================================p2wi/rsb interface==================================== */
-#if defined CONFIG_ARCH_SUN8IW1P1
-/**
- * p2wi read block data.
- * @cfg:    point of arisc_p2wi_block_cfg struct;
- *
- * return: result, 0 - read register successed,
- *                !0 - read register failed or the len more then max len;
- */
-int arisc_p2wi_read_block_data(struct arisc_p2wi_block_cfg *cfg);
-
-/**
- * p2wi write block data.
- * @cfg:    point of arisc_p2wi_block_cfg struct;
- *
- * return: result, 0 - write register successed,
- *                !0 - write register failedor the len more then max len;
- */
-int arisc_p2wi_write_block_data(struct arisc_p2wi_block_cfg *cfg);
-
-/**
- * p2wi bits operation sync.
- * @cfg:    point of arisc_p2wi_bits_cfg struct;
- *
- * return: result, 0 - bits operation successed,
- *                !0 - bits operation failed, or the len more then max len;
- *
- * p2wi clear bits internal:
- * data = p2wi_read(addr);
- * data = data & (~mask);
- * p2wi_write(addr, data);
- *
- * p2wi set bits internal:
- * data = p2wi_read(addr);
- * data = data | mask;
- * p2wi_write(addr, data);
- *
- */
-int p2wi_bits_ops_sync(struct arisc_p2wi_bits_cfg *cfg);
-
-#elif (defined CONFIG_ARCH_SUN8IW3P1) || (defined CONFIG_ARCH_SUN8IW5P1) || (defined CONFIG_ARCH_SUN8IW6P1) || \
-      (defined CONFIG_ARCH_SUN8IW7P1) || (defined CONFIG_ARCH_SUN8IW9P1) || (defined CONFIG_ARCH_SUN9IW1P1) || \
-      (defined CONFIG_ARCH_SUN50IW1P1)
+/* ====================================rsb interface==================================== */
 /**
  * rsb read block data.
  * @cfg:    point of arisc_rsb_block_cfg struct;
@@ -589,7 +473,6 @@ int arisc_rsb_set_interface_mode(u32 devaddr, u32 regaddr, u32 data);
  *                !0 - set rsb runtime address failed;
  */
 int arisc_rsb_set_rtsaddr(u32 devaddr, u32 rtsaddr);
-#endif
 
 /**
  * set pmu voltage.

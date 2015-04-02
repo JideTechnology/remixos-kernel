@@ -90,7 +90,7 @@ static int sunxi_hwspinlock_probe(struct platform_device *pdev)
 	void __iomem *iobase;
 	int num_locks, i, ret;
 	struct resource res;
-	struct clk *hwspinlock_rst, *hwspinlock_bus;
+	//struct clk *hwspinlock_rst, *hwspinlock_bus;
 	struct device_node *node = pdev->dev.of_node;
 
 	ret = of_address_to_resource(node, 0, &res);
@@ -103,6 +103,7 @@ static int sunxi_hwspinlock_probe(struct platform_device *pdev)
 	if (IS_ERR(iobase))
 		return PTR_ERR(iobase);
 
+#if 0
 	hwspinlock_bus = of_clk_get_by_name(node, "clk_hwspinlock_bus");
 	if(!hwspinlock_bus || IS_ERR(hwspinlock_bus)){
 		pr_err("try to get clk_spinlock failed!\n");
@@ -128,6 +129,7 @@ static int sunxi_hwspinlock_probe(struct platform_device *pdev)
 	ret = clk_enable(hwspinlock_rst);
 	if (ret)
 		clk_unprepare(hwspinlock_rst);
+#endif
 
 	ret = of_property_read_u32(node, "num-locks", &num_locks);
 	if (ret || (num_locks == 0))

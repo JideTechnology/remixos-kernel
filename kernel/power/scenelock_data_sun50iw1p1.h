@@ -23,12 +23,12 @@ scene_extended_standby_t extended_standby[] = {
 		.soc_pwr_dep.soc_dram_state.selfresh_flag     = 0x1,
 		.soc_pwr_dep.soc_io_state.hold_flag     = 0x1,
 		//for pf port: set the io to disable state.;
-		.soc_pwr_dep.soc_io_state.io_state[0]     = {(unsigned int *)0x01c208b4, 0x00f0f0ff, 0x00707077},
-		.soc_pwr_dep.soc_io_state.io_state[1]     = {(unsigned int *)0x01c208b4, 0x000f0f00, 0x00070700},
+		.soc_pwr_dep.soc_io_state.io_state[0]     = {0x01c208b4, 0x00f0f0ff, 0x00707077},
+		.soc_pwr_dep.soc_io_state.io_state[1]     = {0x01c208b4, 0x000f0f00, 0x00070700},
 #if 0		
 		//for pb port
-		.soc_pwr_dep.soc_io_state.io_state[0]     = {(unsigned int *)0x01c20824, 0x0000ffff, 0x00007777},
-		.soc_pwr_dep.soc_io_state.io_state[1]     = {(unsigned int *)0x01c20828, 0x00000ff0, 0x00000770},
+		.soc_pwr_dep.soc_io_state.io_state[0]     = {0x01c20824, 0x0000ffff, 0x00007777},
+		.soc_pwr_dep.soc_io_state.io_state[1]     = {0x01c20828, 0x00000ff0, 0x00000770},
 #endif
 
 	},
@@ -66,8 +66,8 @@ scene_extended_standby_t extended_standby[] = {
 		.soc_pwr_dep.soc_dram_state.selfresh_flag     = 0x1,
 		.soc_pwr_dep.soc_io_state.hold_flag     = 0x0,
 		//for pf port: set the io to disable state.;
-		.soc_pwr_dep.soc_io_state.io_state[0]     = {(unsigned int *)0x01c208b4, 0x00f0f0ff, 0x00707077},
-		.soc_pwr_dep.soc_io_state.io_state[1]     = {(unsigned int *)0x01c208b4, 0x000f0f00, 0x00070700},
+		.soc_pwr_dep.soc_io_state.io_state[0]     = {0x01c208b4, 0x00f0f0ff, 0x00707077},
+		.soc_pwr_dep.soc_io_state.io_state[1]     = {0x01c208b4, 0x000f0f00, 0x00070700},
 	},
 	{
 		.scene_type	= SCENE_USB_OHCI_STANDBY,
@@ -102,8 +102,8 @@ scene_extended_standby_t extended_standby[] = {
 		.soc_pwr_dep.soc_dram_state.selfresh_flag     = 0x1,
 		.soc_pwr_dep.soc_io_state.hold_flag     = 0x0,
 		//for pf port: set the io to disable state.;
-		.soc_pwr_dep.soc_io_state.io_state[0]     = {(unsigned int *)0x01c208b4, 0x00f0f0ff, 0x00707077},
-		.soc_pwr_dep.soc_io_state.io_state[1]     = {(unsigned int *)0x01c208b4, 0x000f0f00, 0x00070700},
+		.soc_pwr_dep.soc_io_state.io_state[0]     = {0x01c208b4, 0x00f0f0ff, 0x00707077},
+		.soc_pwr_dep.soc_io_state.io_state[1]     = {0x01c208b4, 0x000f0f00, 0x00070700},
 	},
 	{
 		.scene_type	= SCENE_USB_EHCI_STANDBY,
@@ -133,8 +133,8 @@ scene_extended_standby_t extended_standby[] = {
 		.soc_pwr_dep.soc_dram_state.selfresh_flag     = 0x1,
 		.soc_pwr_dep.soc_io_state.hold_flag     = 0x0,
 		//for pf port: set the io to disable state.;
-		.soc_pwr_dep.soc_io_state.io_state[0]     = {(unsigned int *)0x01c208b4, 0x00f0f0ff, 0x00707077},
-		.soc_pwr_dep.soc_io_state.io_state[1]     = {(unsigned int *)0x01c208b4, 0x000f0f00, 0x00070700},
+		.soc_pwr_dep.soc_io_state.io_state[0]     = {0x01c208b4, 0x00f0f0ff, 0x00707077},
+		.soc_pwr_dep.soc_io_state.io_state[1]     = {0x01c208b4, 0x000f0f00, 0x00070700},
 	},
 	{
 		.scene_type	= SCENE_MP3_STANDBY,
@@ -165,8 +165,8 @@ scene_extended_standby_t extended_standby[] = {
 		.soc_pwr_dep.soc_dram_state.selfresh_flag     = 0x1,
 		.soc_pwr_dep.soc_io_state.hold_flag     = 0x1,
 		//for pf port: set the io to disable state.;
-		.soc_pwr_dep.soc_io_state.io_state[0]     = {(unsigned int *)0x01c208b4, 0x00f0f0ff, 0x00707077},
-		.soc_pwr_dep.soc_io_state.io_state[1]     = {(unsigned int *)0x01c208b4, 0x000f0f00, 0x00070700},
+		.soc_pwr_dep.soc_io_state.io_state[0]     = {0x01c208b4, 0x00f0f0ff, 0x00707077},
+		.soc_pwr_dep.soc_io_state.io_state[1]     = {0x01c208b4, 0x000f0f00, 0x00070700},
 
 	},
 	{
@@ -189,8 +189,8 @@ scene_extended_standby_t extended_standby[] = {
 		.soc_pwr_dep.soc_dram_state.selfresh_flag     = 0x1,
 		.soc_pwr_dep.soc_io_state.hold_flag     = 0x1,
 		//for pf port: set the io to disable state.;
-		.soc_pwr_dep.soc_io_state.io_state[0]     = {(unsigned int *)0x01c208b4, 0x00f0f0ff, 0x00707077},
-		.soc_pwr_dep.soc_io_state.io_state[1]     = {(unsigned int *)0x01c208b4, 0x000f0f00, 0x00070700},
+		.soc_pwr_dep.soc_io_state.io_state[0]     = {0x01c208b4, 0x00f0f0ff, 0x00707077},
+		.soc_pwr_dep.soc_io_state.io_state[1]     = {0x01c208b4, 0x000f0f00, 0x00070700},
 
 	},
 #if 0
@@ -234,12 +234,12 @@ scene_extended_standby_t extended_standby[] = {
 		.soc_pwr_dep.soc_dram_state.selfresh_flag     = 0x1,
 		.soc_pwr_dep.soc_io_state.hold_flag     = 0x0,
 		//for pf port: set the io to disable state.;
-		.soc_pwr_dep.soc_io_state.io_state[0]     = {(unsigned int *)0x01c208b4, 0x00f0f0ff, 0x00707077},
-		.soc_pwr_dep.soc_io_state.io_state[1]     = {(unsigned int *)0x01c208b4, 0x000f0f00, 0x00070700},
+		.soc_pwr_dep.soc_io_state.io_state[0]     = {0x01c208b4, 0x00f0f0ff, 0x00707077},
+		.soc_pwr_dep.soc_io_state.io_state[1]     = {0x01c208b4, 0x000f0f00, 0x00070700},
 #if 0		
 		//for pb port
-		.soc_pwr_dep.soc_io_state.io_state[0]     = {(unsigned int *)0x01c20824, 0x0000ffff, 0x00007777},
-		.soc_pwr_dep.soc_io_state.io_state[1]     = {(unsigned int *)0x01c20828, 0x00000ff0, 0x00000770},
+		.soc_pwr_dep.soc_io_state.io_state[0]     = {0x01c20824, 0x0000ffff, 0x00007777},
+		.soc_pwr_dep.soc_io_state.io_state[1]     = {0x01c20828, 0x00000ff0, 0x00000770},
 #endif
 
 	},
@@ -266,8 +266,8 @@ scene_extended_standby_t extended_standby[] = {
 		.soc_pwr_dep.soc_dram_state.selfresh_flag     = 0x1,
 		.soc_pwr_dep.soc_io_state.hold_flag     = 0x1,
 		//for pf port: set the io to disable state.;
-		.soc_pwr_dep.soc_io_state.io_state[0]     = {(unsigned int *)0x01c208b4, 0x00f0f0ff, 0x00707077},
-		.soc_pwr_dep.soc_io_state.io_state[1]     = {(unsigned int *)0x01c208b4, 0x000f0f00, 0x00070700},
+		.soc_pwr_dep.soc_io_state.io_state[0]     = {0x01c208b4, 0x00f0f0ff, 0x00707077},
+		.soc_pwr_dep.soc_io_state.io_state[1]     = {0x01c208b4, 0x000f0f00, 0x00070700},
 	},
 	{
 		.scene_type	= SCENE_MISC1_STANDBY,
@@ -288,8 +288,8 @@ scene_extended_standby_t extended_standby[] = {
 		.soc_pwr_dep.soc_dram_state.selfresh_flag     = 0x1,
 		.soc_pwr_dep.soc_io_state.hold_flag     = 0x1,		//hold gpio
 		//for pf port: set the io to disable state.;
-		.soc_pwr_dep.soc_io_state.io_state[0]     = {(unsigned int *)0x01c208b4, 0x00f0f0ff, 0x00707077},
-		.soc_pwr_dep.soc_io_state.io_state[1]     = {(unsigned int *)0x01c208b4, 0x000f0f00, 0x00070700},
+		.soc_pwr_dep.soc_io_state.io_state[0]     = {0x01c208b4, 0x00f0f0ff, 0x00707077},
+		.soc_pwr_dep.soc_io_state.io_state[1]     = {0x01c208b4, 0x000f0f00, 0x00070700},
 	},
 	{
 		//for parse sysconfig config. //
@@ -313,8 +313,8 @@ scene_extended_standby_t extended_standby[] = {
 		.soc_pwr_dep.soc_dram_state.selfresh_flag     = 0x1,	    //enter selfresh, for compatible reason.
 		.soc_pwr_dep.soc_io_state.hold_flag     = 0x1,
 		//for pf port: set the io to disable state.;
-		.soc_pwr_dep.soc_io_state.io_state[0]     = {(unsigned int *)0x01c208b4, 0x00f0f0ff, 0x00707077},
-		.soc_pwr_dep.soc_io_state.io_state[1]     = {(unsigned int *)0x01c208b4, 0x000f0f00, 0x00070700},
+		.soc_pwr_dep.soc_io_state.io_state[0]     = {0x01c208b4, 0x00f0f0ff, 0x00707077},
+		.soc_pwr_dep.soc_io_state.io_state[1]     = {0x01c208b4, 0x000f0f00, 0x00070700},
 	},
 
 };

@@ -25,28 +25,8 @@
 int arisc_message_loopback(void)
 {
 	int                   result;
-	struct arisc_message *pmessage;
 
-	/* allocate a message frame */
-	pmessage = arisc_message_allocate(ARISC_MESSAGE_ATTR_HARDSYN);
-	if (pmessage == NULL) {
-		ARISC_WRN("allocate message failed\n");
-		return -ENOMEM;
-	}
-
-	/* initialize message */
-	pmessage->type       = ARISC_MESSAGE_LOOPBACK;
-	pmessage->state      = ARISC_MESSAGE_INITIALIZED;
-	pmessage->paras[0]   = 11;
-	pmessage->cb.handler = NULL;
-	pmessage->cb.arg     = NULL;
-
-	/* send message use hwmsgbox */
-	arisc_hwmsgbox_send_message(pmessage, ARISC_SEND_MSG_TIMEOUT);
-
-	/* free message */
-	result = pmessage->result;
-	arisc_message_free(pmessage);
+	result = invoke_scp_fn_smc(ARM_SVC_ARISC_MESSAGE_LOOPBACK, 0, 0, 0);
 
 	return result;
 }

@@ -27,6 +27,10 @@
 #include <asm/atomic.h>
 #include <asm/barrier.h>
 #include <asm/memory.h>
+#include <asm/compiler.h>
+#include <asm/cacheflush.h>
+#include <linux/dma-mapping.h>
+#include <linux/reboot.h>
 #include <linux/arisc/arisc.h>
 #include <linux/sysfs.h>
 #include <linux/device.h>
@@ -40,6 +44,7 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
+#include <linux/power/axp_depend.h>
 
 #define DRV_NAME    "sunxi-arisc"
 #define DEV_NAME    "sunxi-arisc"
@@ -78,6 +83,8 @@ extern int arisc_config_dram_paras(void);
 extern int arisc_sysconfig_ir_paras(void);
 extern int arisc_config_pmu_paras(void);
 extern int arisc_suspend_flag_query(void);
+extern noinline int invoke_scp_fn_smc(u64 function_id, u64 arg0, u64 arg1,
+					 u64 arg2);
 #if (defined CONFIG_ARCH_SUN8IW7P1)
 extern void arisc_power_off(void);
 #endif

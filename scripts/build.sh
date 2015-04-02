@@ -238,7 +238,7 @@ build_ramfs()
 		BASE="0x20000000";
 		KERNEL_OFFSET="0x8000";
 	elif [ "${CHIP}" = "sun50i" ]; then
-		BASE="0x40000000";
+		BASE="0x44000000";
 		KERNEL_OFFSET="0x80000";
 	else
 		BASE="0x40000000";

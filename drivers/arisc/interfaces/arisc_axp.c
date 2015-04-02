@@ -77,27 +77,9 @@ EXPORT_SYMBOL(arisc_nmi_cb_unregister);
 int arisc_disable_nmi_irq(void)
 {
 	int                   result;
-	struct arisc_message *pmessage;
-
-	/* allocate a message frame */
-	pmessage = arisc_message_allocate(ARISC_MESSAGE_ATTR_HARDSYN);
-	if (pmessage == NULL) {
-		ARISC_WRN("allocate message failed\n");
-		return -ENOMEM;
-	}
-
-	/* initialize message */
-	pmessage->type       = ARISC_AXP_DISABLE_IRQ;
-	pmessage->state      = ARISC_MESSAGE_INITIALIZED;
-	pmessage->cb.handler = NULL;
-	pmessage->cb.arg     = NULL;
 
 	/* send message use hwmsgbox */
-	arisc_hwmsgbox_send_message(pmessage, ARISC_SEND_MSG_TIMEOUT);
-
-	/* free message */
-	result = pmessage->result;
-	arisc_message_free(pmessage);
+	result = invoke_scp_fn_smc(ARM_SVC_ARISC_AXP_DISABLE_IRQ, 0, 0, 0);
 
 	return result;
 }
@@ -105,28 +87,10 @@ EXPORT_SYMBOL(arisc_disable_nmi_irq);
 
 int arisc_enable_nmi_irq(void)
 {
-	int                   result;
-	struct arisc_message *pmessage;
-
-	/* allocate a message frame */
-	pmessage = arisc_message_allocate(ARISC_MESSAGE_ATTR_HARDSYN);
-	if (pmessage == NULL) {
-		ARISC_WRN("allocate message failed\n");
-		return -ENOMEM;
-	}
-
-	/* initialize message */
-	pmessage->type       = ARISC_AXP_ENABLE_IRQ;
-	pmessage->state      = ARISC_MESSAGE_INITIALIZED;
-	pmessage->cb.handler = NULL;
-	pmessage->cb.arg     = NULL;
+	int result;
 
 	/* send message use hwmsgbox */
-	arisc_hwmsgbox_send_message(pmessage, ARISC_SEND_MSG_TIMEOUT);
-
-	/* free message */
-	result = pmessage->result;
-	arisc_message_free(pmessage);
+	result = invoke_scp_fn_smc(ARM_SVC_ARISC_AXP_ENABLE_IRQ, 0, 0, 0);
 
 	return result;
 }
@@ -134,74 +98,33 @@ EXPORT_SYMBOL(arisc_enable_nmi_irq);
 
 int arisc_axp_get_chip_id(unsigned char *chip_id)
 {
-	int                   i;
-	int                   result;
-	struct arisc_message *pmessage;
+	int result;
 
-	/* allocate a message frame */
-	pmessage = arisc_message_allocate(ARISC_MESSAGE_ATTR_HARDSYN);
-	if (pmessage == NULL) {
-		ARISC_WRN("allocate message failed\n");
-		return -ENOMEM;
-	}
-
-	/* initialize message */
-	pmessage->type       = ARISC_AXP_GET_CHIP_ID;
-	pmessage->state      = ARISC_MESSAGE_INITIALIZED;
-	pmessage->cb.handler = NULL;
-	pmessage->cb.arg     = NULL;
-
-	memset((void *)pmessage->paras, 0, 16);
-
-	/* send message use hwmsgbox */
-	arisc_hwmsgbox_send_message(pmessage, ARISC_SEND_MSG_TIMEOUT);
-
-	/* |paras[0]    |paras[1]    |paras[2]     |paras[3]      |
-	 * |chip_id[0~3]|chip_id[4~7]|chip_id[8~11]|chip_id[12~15]|
+	/* FIXME: if the runtime sever enable the mmu & dcache,
+	 * should not use flush cache here.
 	 */
-	/* copy message readout data to user data buffer */
-	for (i = 0; i < 4; i++) {
-			chip_id[i] = (pmessage->paras[0] >> (i * 8)) & 0xff;
-			chip_id[4 + i] = (pmessage->paras[1] >> (i * 8)) & 0xff;
-			chip_id[8 + i] = (pmessage->paras[2] >> (i * 8)) & 0xff;
-			chip_id[12 + i] = (pmessage->paras[3] >> (i * 8)) & 0xff;
-	}
-
-	/* free message */
-	result = pmessage->result;
-	arisc_message_free(pmessage);
+	result = invoke_scp_fn_smc(ARM_SVC_ARISC_AXP_GET_CHIP_ID, virt_to_phys(chip_id), 0, 0);
+	flush_cache_all();
 
 	return result;
 }
 EXPORT_SYMBOL(arisc_axp_get_chip_id);
 
-int arisc_set_led_bln(unsigned long led_rgb, unsigned long led_onms,  \
-                      unsigned long led_offms, unsigned long led_darkms)
+int arisc_set_led_bln(u32 led_rgb, u32 led_onms, u32 led_offms, u32 led_darkms)
 {
 	int result;
-	struct arisc_message *pmessage;
+	u32 paras[22];
 
-	/* allocate a message frame */
-	pmessage = arisc_message_allocate(ARISC_MESSAGE_ATTR_HARDSYN);
-	if (pmessage == NULL) {
-		ARISC_WRN("allocate message failed\n");
-		return -ENOMEM;
-	}
+	paras[0] = led_rgb;
+	paras[1] = led_onms;
+	paras[2] = led_offms;
+	paras[3] = led_darkms;
 
-	/* initialize message */
-	pmessage->type       = ARISC_SET_LED_BLN;
-	pmessage->private    = (void *)0; /* set charge magic flag */
-	pmessage->paras[0]   = led_rgb;
-	pmessage->paras[1]   = led_onms;
-	pmessage->paras[2]   = led_offms;
-	pmessage->paras[3]   = led_darkms;
-
-	/* send message use hwmsgbox */
-	arisc_hwmsgbox_send_message(pmessage, ARISC_SEND_MSG_TIMEOUT);
-
-	/* free message */
-	result = pmessage->result;
-	arisc_message_free(pmessage);
+	/* FIXME: if the runtime sever enable the mmu & dcache,
+	 * should not use flush cache here.
+	 */
+	flush_cache_all();
+	result = invoke_scp_fn_smc(ARM_SVC_ARISC_SET_LED_BLN, virt_to_phys(paras), 0, 0);
 
 	return result;
 
@@ -211,38 +134,29 @@ EXPORT_SYMBOL(arisc_set_led_bln);
 #if (defined CONFIG_ARCH_SUN8IW5P1) || (defined CONFIG_ARCH_SUN50IW1P1)
 int arisc_adjust_pmu_chgcur(unsigned int max_chgcur, unsigned int chg_ic_temp)
 {
-	int                   result;
-	struct arisc_message *pmessage;
+	int result;
 
-	/* allocate a message frame */
-	pmessage = arisc_message_allocate(ARISC_MESSAGE_ATTR_HARDSYN);
-	if (pmessage == NULL) {
-		ARISC_WRN("allocate message failed\n");
-		return -ENOMEM;
-	}
-
-	/* initialize message */
-	pmessage->type       = ARISC_AXP_SET_PARAS;
-	pmessage->private    = (void *)0x62; /* set charge current flag */
-	pmessage->paras[0]   = chg_ic_temp;
-	pmessage->paras[1]   = max_chgcur;
-	pmessage->paras[2]   = 0;
-
-	/* send message use hwmsgbox */
-	arisc_hwmsgbox_send_message(pmessage, ARISC_SEND_MSG_TIMEOUT);
-
-	/* free message */
-	result = pmessage->result;
-	arisc_message_free(pmessage);
+	result = invoke_scp_fn_smc(ARM_SVC_ARISC_AXP_SET_PARAS, max_chgcur, chg_ic_temp, 1);
 
 	return result;
 }
 EXPORT_SYMBOL(arisc_adjust_pmu_chgcur);
 #endif
 
-int arisc_axp_int_notify(struct arisc_message *pmessage)
+int arisc_set_pwr_tree(u32 *pwr_tree)
 {
-	u32 type = pmessage->paras[0];
+	int result;
+
+	flush_cache_all();
+	result = invoke_scp_fn_smc(ARM_SVC_ARISC_SET_PWR_TREE, virt_to_phys(pwr_tree), 0, 0);
+
+	return result;
+}
+EXPORT_SYMBOL(arisc_set_pwr_tree);
+
+
+int arisc_axp_int_notify(u32 type)
+{
 	u32 ret = 0;
 
 	if (type & NMI_INT_TYPE_PMU_OFFSET) {
@@ -272,30 +186,9 @@ int arisc_axp_int_notify(struct arisc_message *pmessage)
 
 int arisc_pmu_set_voltage(u32 type, u32 voltage)
 {
-	int                   result;
-	struct arisc_message *pmessage;
+	int result;
 
-	/* allocate a message frame */
-	pmessage = arisc_message_allocate(ARISC_MESSAGE_ATTR_HARDSYN);
-	if (pmessage == NULL) {
-		ARISC_WRN("allocate message failed\n");
-		return -ENOMEM;
-	}
-
-	/* initialize message */
-	pmessage->type       = ARISC_SET_PMU_VOLT;
-	pmessage->state      = ARISC_MESSAGE_INITIALIZED;
-	pmessage->cb.handler = NULL;
-	pmessage->cb.arg     = NULL;
-	pmessage->paras[0]   = type;
-	pmessage->paras[1]   = voltage;
-
-	/* send message use hwmsgbox */
-	arisc_hwmsgbox_send_message(pmessage, ARISC_SEND_MSG_TIMEOUT);
-
-	/* free message */
-	result = pmessage->result;
-	arisc_message_free(pmessage);
+	result = invoke_scp_fn_smc(ARM_SVC_ARISC_SET_PMU_VOLT, type, voltage, 0);
 
 	return result;
 }
@@ -303,64 +196,10 @@ EXPORT_SYMBOL(arisc_pmu_set_voltage);
 
 unsigned int arisc_pmu_get_voltage(u32 type)
 {
-	u32                   voltage;
-	struct arisc_message *pmessage;
+	u32 voltage;
 
-	/* allocate a message frame */
-	pmessage = arisc_message_allocate(ARISC_MESSAGE_ATTR_HARDSYN);
-	if (pmessage == NULL) {
-		ARISC_WRN("allocate message failed\n");
-		return -ENOMEM;
-	}
-
-	/* initialize message */
-	pmessage->type       = ARISC_GET_PMU_VOLT;
-	pmessage->state      = ARISC_MESSAGE_INITIALIZED;
-	pmessage->cb.handler = NULL;
-	pmessage->cb.arg     = NULL;
-	pmessage->paras[0]   = type;
-
-	/* send message use hwmsgbox */
-	arisc_hwmsgbox_send_message(pmessage, ARISC_SEND_MSG_TIMEOUT);
-	voltage = pmessage->paras[1];
-
-	/* free message */
-	arisc_message_free(pmessage);
+	invoke_scp_fn_smc(ARM_SVC_ARISC_GET_PMU_VOLT, type, virt_to_phys(&voltage), 0);
 
 	return voltage;
 }
 EXPORT_SYMBOL(arisc_pmu_get_voltage);
-
-#if (defined CONFIG_ARCH_SUN8IW7P1)
-/* type:0:shutdown, 1:IR wait, 2:reboot */
-static int arisc_pmu_reboot(u32 type)
-{
-	struct arisc_message *pmessage;
-
-	/* allocate a message frame */
-	pmessage = arisc_message_allocate(ARISC_MESSAGE_ATTR_ASYN);
-	if (pmessage == NULL) {
-		ARISC_WRN("allocate message failed\n");
-		return -ENOMEM;
-	}
-
-	/* initialize message */
-	pmessage->type       = ARISC_AXP_REBOOT;
-	pmessage->state      = ARISC_MESSAGE_INITIALIZED;
-	pmessage->cb.handler = NULL;
-	pmessage->cb.arg     = NULL;
-	pmessage->paras[0]   = type;
-	pmessage->paras[1]   = 0;
-
-	/* send message use hwmsgbox */
-	arisc_hwmsgbox_send_message(pmessage, ARISC_SEND_MSG_TIMEOUT);
-
-	return 0;
-}
-
-void arisc_power_off(void)
-{
-	ARISC_LOG("arisc power off\n");
-	arisc_pmu_reboot(0);
-}
-#endif

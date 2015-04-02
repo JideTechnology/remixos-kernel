@@ -34,8 +34,6 @@
 #include <linux/interrupt.h>
 #include <linux/jiffies.h>
 #include <linux/delay.h>
-#include <linux/hwspinlock.h>
-#include <linux/arisc/hwmsgbox.h>
 
 /* configure and debugger */
 #include "./../arisc_i.h"
@@ -43,23 +41,12 @@
 #include "./arisc_dbgs.h"
 #include "./arisc_para.h"
 
-/* messages define */
-#include "./arisc_messages.h"
-#include "./arisc_message_manager.h"
-
-/* driver headers */
-#include "./arisc_hwmsgbox.h"
-
 /* global functions */
-extern int arisc_axp_int_notify(struct arisc_message *pmessage);
-extern int arisc_audio_perdone_notify(struct arisc_message *pmessage);
 extern int arisc_set_debug_level(unsigned int level);
 extern int arisc_dvfs_cfg_vf_table(void);
 extern int arisc_set_uart_baudrate(u32 baudrate);
 extern int arisc_set_dram_crc_paras(unsigned int dram_crc_en, unsigned int dram_crc_srcaddr, unsigned int dram_crc_len);
-extern int arisc_query_set_standby_info(struct standby_info_para *para, arisc_rw_type_e op);
 extern int arisc_sysconfig_sstpower_paras(void);
-extern int arisc_report_error_info(struct arisc_message *pmessage);
 
 /* global vars */
 extern unsigned long arisc_sram_a2_vbase;

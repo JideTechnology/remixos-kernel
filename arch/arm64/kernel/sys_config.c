@@ -492,7 +492,7 @@ EXPORT_SYMBOL(script_is_main_key_exist);
 
 unsigned int script_get_length(void)
 {
-	script_origin_head_t         *orign_head = __va(0x40010000);
+	script_origin_head_t         *orign_head = __va(0x44010000);
 
 	return orign_head->length;
 }
@@ -504,7 +504,7 @@ int __init script_init(void)
 {
     int     i, j, count;
 
-    script_origin_head_t        *script_hdr = __va(0x40010000);
+    script_origin_head_t        *script_hdr = __va(0x44010000);
 
     script_origin_main_key_t    *origin_main;
     script_origin_sub_key_t     *origin_sub;

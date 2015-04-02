@@ -319,7 +319,7 @@ const extended_standby_manager_t *get_extended_standby_manager(void)
 	    //update sys_mask
 	    manager_data->pextended_standby->soc_pwr_dm_state.sys_mask = get_sys_pwr_dm_mask();
 #endif
-	    EXSTANDBY_DBG("leave %s : id 0x%lx\n", __func__, manager_data->pextended_standby->id);
+	    EXSTANDBY_DBG("leave %s : id 0x%x\n", __func__, manager_data->pextended_standby->id);
 	}
 	return manager_data;
 }
@@ -357,7 +357,7 @@ bool set_extended_standby_manager(scene_extended_standby_t *local_standby)
 	}
 
 	if (NULL != extended_standby_manager.pextended_standby)
-		EXSTANDBY_DBG("leave %s : id 0x%lx\n", __func__, extended_standby_manager.pextended_standby->id);
+		EXSTANDBY_DBG("leave %s : id 0x%x\n", __func__, extended_standby_manager.pextended_standby->id);
 	return true;
 }
 
@@ -599,7 +599,7 @@ int extended_standby_show_state(void)
 	printk(KERN_INFO "wakeup_gpio_group 0x%16lx\n", extended_standby_manager.wakeup_gpio_group);
 	parse_wakeup_gpio_group_map(NULL, 0, extended_standby_manager.wakeup_gpio_group);
 	if (NULL != extended_standby_manager.pextended_standby) {
-		printk(KERN_INFO "extended_standby id = 0x%16lx\n", extended_standby_manager.pextended_standby->id);
+		printk(KERN_INFO "extended_standby id = 0x%16x\n", extended_standby_manager.pextended_standby->id);
 		printk(KERN_INFO "extended_standby pmu_id = 0x%16x\n", extended_standby_manager.pextended_standby->pmu_id);
 		printk(KERN_INFO "extended_standby soc_id = 0x%16x\n", extended_standby_manager.pextended_standby->soc_id);
 		printk(KERN_INFO "extended_standby pwr dep as follow: \n");
@@ -662,9 +662,9 @@ int extended_standby_show_state(void)
 		EXSTANDBY_DBG("     hold_flag = %d. \n", extended_standby_manager.pextended_standby->soc_io_state.hold_flag);
 		
 		for (i=0; i<IO_NUM; i++){
-		    if((unsigned int *)0 != extended_standby_manager.pextended_standby->soc_io_state.io_state[i].paddr){
-			printk(KERN_INFO "    count %4d io config: addr 0x%p, value_mask 0x%8x, value 0x%8x. \n", i,			   \
-				(void *)extended_standby_manager.pextended_standby->soc_io_state.io_state[i].paddr,		    \
+		    if(0 != extended_standby_manager.pextended_standby->soc_io_state.io_state[i].paddr){
+			printk(KERN_INFO "    count %4d io config: addr 0x%x, value_mask 0x%8x, value 0x%8x. \n", i,			   \
+				extended_standby_manager.pextended_standby->soc_io_state.io_state[i].paddr,		    \
 				extended_standby_manager.pextended_standby->soc_io_state.io_state[i].value_mask,		    \
 				extended_standby_manager.pextended_standby->soc_io_state.io_state[i].value);
 		    }
