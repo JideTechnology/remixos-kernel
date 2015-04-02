@@ -663,6 +663,9 @@ static void __init do_ctors(void)
 bool initcall_debug;
 core_param(initcall_debug, initcall_debug, bool, 0644);
 
+int initcall_debug_delay_ms = 0;
+core_param(initcall_debug_delay_ms, initcall_debug_delay_ms, int, 0644);
+
 static char msgbuf[64];
 
 static int __init_or_module do_one_initcall_debug(initcall_t fn)

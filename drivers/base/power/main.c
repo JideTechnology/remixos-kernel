@@ -33,6 +33,7 @@
 #include <linux/cpuidle.h>
 #include <linux/timer.h>
 #include <linux/wakeup_reason.h>
+#include <linux/delay.h>
 
 #include "../base.h"
 #include "power.h"
@@ -192,6 +193,10 @@ static void initcall_debug_report(struct device *dev, ktime_t calltime,
 		delta = ktime_sub(rettime, calltime);
 		pr_info("call %s+ returned %d after %Ld usecs\n", dev_name(dev),
 			error, (unsigned long long)ktime_to_ns(delta) >> 10);
+		if(initcall_debug_delay_ms > 0){
+		    printk("sleep %d ms for debug. \n", initcall_debug_delay_ms);
+		    msleep(initcall_debug_delay_ms);
+		}
 	}
 }
 
@@ -385,7 +390,6 @@ static int dpm_run_callback(pm_callback_t cb, struct device *dev,
 		return 0;
 
 	calltime = initcall_debug_start(dev);
-
 	pm_dev_dbg(dev, state, info);
 	error = cb(dev);
 	suspend_report_result(cb, error);
@@ -427,7 +431,7 @@ static void dpm_wd_set(struct dpm_watchdog *wd, struct device *dev)
 	wd->tsk = get_current();
 
 	init_timer_on_stack(timer);
-	timer->expires = jiffies + HZ * 12;
+	timer->expires = jiffies + (initcall_debug_delay_ms/1000 + 12) * HZ;
 	timer->function = dpm_wd_handler;
 	timer->data = (unsigned long)wd;
 	add_timer(timer);

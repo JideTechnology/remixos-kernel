@@ -158,6 +158,7 @@ void __init load_default_modules(void);
 extern void (*late_time_init)(void);
 
 extern bool initcall_debug;
+extern int initcall_debug_delay_ms;
 
 #endif
   
