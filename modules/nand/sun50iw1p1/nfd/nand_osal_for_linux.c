@@ -57,6 +57,14 @@
 #include <linux/dma/sunxi-dma.h>
 #endif
 
+#define  NAND_DRV_VERSION_0		0x2
+#define  NAND_DRV_VERSION_1		0x24
+#define  NAND_DRV_DATE			0x20150402
+#define  NAND_DRV_TIME			0x1122
+
+#define GPIO_BASE_ADDR			0x01c20800
+#define CCMU_BASE_ADDR			0x01c20000
+
 
 struct clk *pll6;
 struct clk *nand0_clk;
@@ -1174,4 +1182,64 @@ __u32 NAND_Print_level(void)
 
 	return print_level;
 }
+
+int NAND_Get_Dragonboard_Flag(void)
+{	
+	int ret;
+	int dragonboard_flag = 0;
+
+	ret = of_property_read_u32(ndfc_dev->of_node, "nand0_dragonboard", &dragonboard_flag);
+	if (ret) 
+	{
+		NAND_Print("Failed to get dragonboard_flag\n");
+		dragonboard_flag = 0;
+	}
+	else
+	{
+		NAND_Print("nand : get dragonboard_flag %x \n",dragonboard_flag); 
+	}
+
+	return dragonboard_flag;
+}
+
+
+void NAND_Print_Version(void)
+{
+	int val[4]={0};
+
+	val[0] = NAND_DRV_VERSION_0;
+	val[1] = NAND_DRV_VERSION_1;
+	val[2] = NAND_DRV_DATE;
+	val[3] = NAND_DRV_TIME;
+	
+	printk("kernel: nand version: %x %x %x %x \n",val[0],val[1],val[2],val[3]);
+}
+
+void Dump_Gpio_Reg_Show(void)
+{
+	void __iomem *gpio_ptr =  ioremap(GPIO_BASE_ADDR, 0x300);
+
+	printk("Reg 0x01c20848: 0x%x\n", *((volatile __u32 *)gpio_ptr + 18));
+	printk("Reg 0x01c2084c: 0x%x\n", *((volatile __u32 *)gpio_ptr + 19));
+	printk("Reg 0x01c20850: 0x%x\n", *((volatile __u32 *)gpio_ptr + 20));
+	printk("Reg 0x01c2085c: 0x%x\n", *((volatile __u32 *)gpio_ptr + 23));
+	printk("Reg 0x01c20864: 0x%x\n", *((volatile __u32 *)gpio_ptr + 24));
+	printk("Reg 0x01c20864: 0x%x\n", *((volatile __u32 *)gpio_ptr + 25));
+	printk("Reg 0x01c20864: 0x%x\n", *((volatile __u32 *)gpio_ptr + 26));
+	
+	iounmap(gpio_ptr);
+
+}
+
+void Dump_Ccmu_Reg_Show(void)
+{
+	void __iomem *ccmu_ptr =  ioremap(CCMU_BASE_ADDR, 0x300);
+
+	printk("Reg 0x01c20028: 0x%x\n", *((volatile __u32 *)ccmu_ptr + 10));
+	printk("Reg 0x01c20080: 0x%x\n", *((volatile __u32 *)ccmu_ptr + 32));
+	
+	iounmap(ccmu_ptr);
+
+}
+
 

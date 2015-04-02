@@ -17,6 +17,8 @@ extern __u32 nand_wait_dma_mode(void);
 extern void do_nand_interrupt(unsigned int no);
 extern void print_nftl_zone(void * zone);
 extern int NAND_get_storagetype(void);
+extern int NAND_Get_Dragonboard_Flag(void);
+
 int test_mbr(uchar* data);
 extern int NAND_Print_DBG(const char *fmt, ...);
 extern __u32 NAND_GetMaxChannelCnt(void);
@@ -365,7 +367,8 @@ int __init nand_init(void)
     int nand_flush_cache_num = 8;
 //    script_item_value_type_e  type;
  //   char * dev_name = "nand_dev";
-	int storage_type =0;	
+	//int storage_type =0;	
+	int dragonboard_flag = 0;
 	uchar *data = kmalloc(0x400,GFP_KERNEL);
 
 	exit_probe_flag = 0;
@@ -470,9 +473,10 @@ int __init nand_init(void)
 
 	flush_cache_num = nand_flush_cache_num;
 
-    storage_type = NAND_get_storagetype();
+    //storage_type = NAND_get_storagetype();
+    dragonboard_flag = NAND_Get_Dragonboard_Flag();
 
-	if((1 != storage_type)&&(2 != storage_type))
+	if(0 == dragonboard_flag)
     {
 	    nand_dbg_err("nand init start\n");
 
@@ -496,7 +500,7 @@ int __init nand_init(void)
     }
 	else
 	{
-		nand_dbg_err("storage_type=%d,run nand test for dragonboard\n",storage_type);
+		nand_dbg_err("dragonboard_flag=%d,run nand test for dragonboard\n",dragonboard_flag);
 		init_blklayer_for_dragonboard();
 	}
 
