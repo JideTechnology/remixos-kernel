@@ -1,4 +1,5 @@
 #include "../axp-rw.h"
+#include "../axp-cfg.h"
 
 static u8 axp_reg_addr = 0;
 
@@ -32,8 +33,8 @@ static void axp81x_mfd_irq_work(struct work_struct *work)
 	}
 #ifdef	CONFIG_AXP_TWI_USED
 	enable_irq(chip->client->irq);
-#elif defined(CONFIG_SUNXI_ARISC)
-	arisc_enable_nmi_irq();
+#elif defined(CONFIG_AXP_NMI_USED)
+	enable_nmi();
 #endif
 	return;
 }

@@ -11,6 +11,7 @@ obj-$(CONFIG_AW_AXP) += axp-filenode.o
 obj-$(CONFIG_AW_AXP) += axp-device.o
 obj-$(CONFIG_AW_AXP) += axp-regu-device.o
 obj-$(CONFIG_AW_AXP) += axp-debugfs.o
+obj-$(CONFIG_AXP_NMI_USED) += nmi/sunxi-nmi.o
 
 #AXP81x
 obj-$(CONFIG_AW_AXP81X) += axp81x/axp81x-board.o

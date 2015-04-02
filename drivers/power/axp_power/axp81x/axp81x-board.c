@@ -186,6 +186,7 @@ static s32  axp81x_platform_probe(struct platform_device *pdev)
 	axp81x_dev.attrs = axp81x_mfd_attrs;
 	axp81x_dev.attrs_number = ARRAY_SIZE(axp81x_mfd_attrs);
 	axp81x_dev.pdata = &axp_pdata;
+	axp81x_dev.irq_number = axp81x_config.pmu_irq_id;
 	ret = axp_register_mfd(&axp81x_dev);
 	if (ret < 0) {
 		printk("axp81x mfd register failed\n");
@@ -221,7 +222,7 @@ static s32 __init axp81x_board_init(void)
 		return -1;
 	} else {
 		axp_pdata.num_regl_devs = 23;//sizeof(*axp_regu_info)/sizeof(struct axp_funcdev_info);
-		printk(KERN_ERR "%s: liming axp regl_devs num = %d\n", __func__, axp_pdata.num_regl_devs);
+		printk(KERN_ERR "%s: axp regl_devs num = %d\n", __func__, axp_pdata.num_regl_devs);
 		axp_pdata.regl_devs = (struct axp_funcdev_info *)axp_regu_info;
 		if (NULL == axp_pdata.regl_devs) {
 			printk(KERN_ERR "%s: get regl_devs failed\n", __func__);

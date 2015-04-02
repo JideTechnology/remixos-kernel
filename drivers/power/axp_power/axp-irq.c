@@ -11,9 +11,6 @@
 #include <linux/input.h>
 #include <linux/wakelock.h>
 #include "axp-cfg.h"
-#ifdef CONFIG_SUNXI_ARISC
-#include <linux/arisc/arisc.h>
-#endif
 #ifdef CONFIG_AW_AXP81X
 #include "axp81x/axp81x-sply.h"
 #include "axp81x/axp81x-common.h"
@@ -226,9 +223,8 @@ s32 axp_disable_irq(struct axp_charger *charger, u32 reg_count)
 	if(0 != ret)
 		printk("%s: clean axp irq state failed.\n", __func__);
 
-#ifdef CONFIG_SUNXI_ARISC
-	arisc_disable_nmi_irq();
-#else
+#ifdef CONFIG_AXP_NMI_USED
+	disable_nmi();
 #endif
 
 	/* close all irqs*/
@@ -248,9 +244,8 @@ s32 axp_enable_irq(struct axp_charger *charger)
 	if(0 != ret)
 		printk("%s: axp irq enable failed.\n", __func__);
 
-#ifdef CONFIG_SUNXI_ARISC
-	arisc_enable_nmi_irq();
-#else
+#ifdef CONFIG_AXP_NMI_USED
+	enable_nmi();
 #endif
 
 	return ret;

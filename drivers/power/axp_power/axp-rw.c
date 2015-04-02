@@ -26,9 +26,8 @@ s32 axp_register_notifier(struct device *dev, struct notifier_block *nb,
 		blocking_notifier_chain_register(&chip->notifier_list, nb);
 	}
 	chip->ops->enable_irqs(chip, irqs);
-#ifdef CONFIG_SUNXI_ARISC
-	arisc_enable_nmi_irq();
-#else
+#ifdef CONFIG_AXP_NMI_USED
+	enable_nmi();
 #endif
 	return 0;
 }
@@ -38,9 +37,8 @@ s32 axp_unregister_notifier(struct device *dev, struct notifier_block *nb,
 				u64 irqs)
 {
 	struct axp_dev *chip = dev_get_drvdata(dev);
-#ifdef CONFIG_SUNXI_ARISC
-	arisc_disable_nmi_irq();
-#else
+#ifdef CONFIG_AXP_NMI_USED
+	disable_nmi();
 #endif
 	chip->ops->disable_irqs(chip, irqs);
 	if(NULL != nb) {

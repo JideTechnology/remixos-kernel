@@ -10,24 +10,26 @@
 #include <linux/init.h>
 #include <linux/device.h>
 #include <linux/module.h>
+#include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/reboot.h>
 #include <linux/mfd/axp-mfd.h>
-#ifdef CONFIG_SUNXI_ARISC
-#include <linux/arisc/arisc.h>
-#endif
 #include "axp-cfg.h"
 
 static DEFINE_SPINLOCK(axp_list_lock);
 static LIST_HEAD(mfd_list);
 
-#ifdef CONFIG_SUNXI_ARISC
-static s32 axp_mfd_irq_cb(void *arg)
+static irqreturn_t axp_mfd_irq_cb(int irq, void *data)
 {
-	struct axp_dev *dev;
+	struct axp_dev *dev = data;
 	unsigned long irqflags;
+
+#ifdef CONFIG_AXP_NMI_USED
+	disable_nmi();
+	clear_nmi_status();
+#endif
 
 	spin_lock_irqsave(&axp_list_lock, irqflags);
 	list_for_each_entry(dev, &mfd_list, list) {
@@ -35,9 +37,8 @@ static s32 axp_mfd_irq_cb(void *arg)
 	}
 	spin_unlock_irqrestore(&axp_list_lock, irqflags);
 
-	return 0;
+	return IRQ_HANDLED;
 }
-#endif
 
 struct axp_dev *axp_dev_lookup(s32 type)
 {
@@ -145,16 +146,32 @@ s32 axp_register_mfd(struct axp_dev *dev)
 	list_add(&dev->list, &mfd_list);
 	spin_unlock_irqrestore(&axp_list_lock, irqflags);
 
+	ret = request_irq(dev->irq_number, axp_mfd_irq_cb,
+		IRQF_SHARED|IRQF_DISABLED|IRQF_NO_SUSPEND, "axp", dev);
+	if (ret) {
+		printk(KERN_ERR "failed to request irq %d\n",
+				dev->irq_number);
+		goto out_free_dev;
+	}
+
 	ret = axp_mfd_add_subdevs(dev);
 	if (ret)
-		goto out_free_dev;
+		goto out_free_irq;
 
 	ret = axp_mfd_create_attrs(dev);
 	if(ret)
-		goto out_free_dev;
+		goto out_free_subdevs;
 
 	return 0;
+out_free_subdevs:
+	axp_mfd_remove_subdevs(dev);
+out_free_irq:
+	free_irq(dev->irq_number, dev);
 out_free_dev:
+	spin_lock_irqsave(&axp_list_lock, irqflags);
+	list_del(&dev->list);
+	spin_unlock_irqrestore(&axp_list_lock, irqflags);
+
 	return ret;
 }
 EXPORT_SYMBOL(axp_register_mfd);
@@ -167,7 +184,7 @@ void axp_unregister_mfd(struct axp_dev *dev)
 		return;
 
 	axp_mfd_remove_subdevs(dev);
-
+	free_irq(dev->irq_number, dev);
 	spin_lock_irqsave(&axp_list_lock, irqflags);
 	list_del(&dev->list);
 	spin_unlock_irqrestore(&axp_list_lock, irqflags);
@@ -184,12 +201,8 @@ static s32 __init axp_mfd_init(void)
 	if(!pm_power_off)
 		pm_power_off = axp_power_off;
 
-#ifdef CONFIG_SUNXI_ARISC
-	ret = arisc_nmi_cb_register(NMI_INT_TYPE_PMU, axp_mfd_irq_cb, NULL);
-	if (ret) {
-		printk("axp failed to reg irq cb\n");
-	}
-#else
+#ifdef CONFIG_AXP_NMI_USED
+	set_nmi_trigger(IRQF_TRIGGER_LOW);
 #endif
 	return ret;
 }
@@ -197,12 +210,6 @@ static s32 __init axp_mfd_init(void)
 static void __exit axp_mfd_exit(void)
 {
 	pm_power_off = NULL;
-
-#ifdef CONFIG_SUNXI_ARISC
-	arisc_nmi_cb_unregister(NMI_INT_TYPE_PMU, axp_mfd_irq_cb);
-#else
-#endif
-
 }
 
 subsys_initcall(axp_mfd_init);

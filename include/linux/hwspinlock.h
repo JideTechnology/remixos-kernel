@@ -30,6 +30,7 @@
 
 #define SUNXI_RTC_HWSPINLOCK (2)        /* rtc reg */
 #define SUNXI_IDL_HWSPINLCOK (3)        /* cpuidle */
+#define SUNXI_INTC_HWSPINLOCK (4)       /* intc */
 
 struct device;
 struct hwspinlock;

@@ -75,6 +75,7 @@ struct axp_dev {
 
 	s32			type;
 	u64			irqs_enabled;
+	u32			irq_number;
 
 	spinlock_t		spinlock;
 	struct mutex		lock;

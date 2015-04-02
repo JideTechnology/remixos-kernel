@@ -16,4 +16,8 @@ config AXP_TWI_USED
 	bool "AXP use twi as transfer channel"
 	default n
 
+config AXP_NMI_USED
+	bool "AXP use NMI as IRQ SRC"
+	default n
+
 endif # !AW_AXP

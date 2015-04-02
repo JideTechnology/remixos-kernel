@@ -173,6 +173,13 @@ enum {
 #define AXP_LDOIO_ID_START      30
 #define AXP_DCDC_ID_START       40
 
+#ifdef CONFIG_AXP_NMI_USED
+extern void clear_nmi_status(void);
+extern void disable_nmi(void);
+extern void enable_nmi(void);
+extern void set_nmi_trigger(u32 trigger);
+#endif
+
 #ifdef CONFIG_AW_AXP81X
 extern s32 axp_debug;
 #define DBG_PSY_MSG(level_mask, fmt, arg...)	if (unlikely(axp_debug & level_mask)) \

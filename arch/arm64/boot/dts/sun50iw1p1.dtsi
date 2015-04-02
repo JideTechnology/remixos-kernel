@@ -1087,6 +1087,17 @@
 			pinctrl-0 = <&scr_pins_a>;
 			status = "okay";
 		};
+		nmi:nmi@0x01f00c00{
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "allwinner,sunxi-nmi";
+			reg = <0x0 0x01f00c00 0x0 0x50>;
+			nmi_irq_ctrl = <0x0c>;
+			nmi_irq_en = <0x40>;
+			nmi_irq_status = <0x10>;
+			nmi_irq_mask = <0x50>;
+			status = "okay";
+		};
 		pmu0:pmu0@0{
 			compatible = "allwinner,pmu0";
 			pmu_batdeten               = <1>;
