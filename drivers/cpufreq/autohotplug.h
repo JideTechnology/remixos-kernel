@@ -29,26 +29,18 @@
 #define STABLE_BOOST          2
 #define STABLE_LAST_BIG       3
 
-#define LOAD_LEVEL_INVALID   -1
-#define LOAD_LEVEL_DOWN       0
-#define LOAD_LEVEL_NORMAL     1
-#define LOAD_LEVEL_MIDDLE     2
-#define LOAD_LEVEL_UP         3
-#define LOAD_LEVEL_BOOST      4
-
 #if defined(CONFIG_SCHED_HMP)
-	#define AUTOHOTPLUG_SUNXI_SYSFS_MAX (3)
+	#define AUTOHOTPLUG_SUNXI_SYSFS_MAX (5)
 #elif defined(CONFIG_SCHED_SMP_DCMP)
-	#define AUTOHOTPLUG_SUNXI_SYSFS_MAX (1)
+	#define AUTOHOTPLUG_SUNXI_SYSFS_MAX (2)
 #else
 	#define AUTOHOTPLUG_SUNXI_SYSFS_MAX (0)
 #endif
 
-#define HOTPLUG_DATA_SYSFS_MAX (14 + AUTOHOTPLUG_SUNXI_SYSFS_MAX)
+#define HOTPLUG_DATA_SYSFS_MAX (11 + AUTOHOTPLUG_SUNXI_SYSFS_MAX)
 
 struct autohotplug_loadinfo
 {
-	unsigned long cpu_load_lasttime[CONFIG_NR_CPUS];
 	unsigned int  cpu_load[CONFIG_NR_CPUS];
 	unsigned int  max_load;
 	unsigned int  min_load;

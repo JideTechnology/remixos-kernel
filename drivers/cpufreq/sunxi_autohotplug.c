@@ -11,14 +11,14 @@ extern unsigned int  load_down_stable_us;
 extern unsigned int  load_boost_stable_us;
 
 #if defined(CONFIG_SCHED_HMP) || defined(CONFIG_SCHED_SMP_DCMP)
-extern unsigned int load_save_up;
+static unsigned int load_save_up = 60;
 static unsigned int little_core_coop_min_freq = 600000;
 
 #ifdef CONFIG_SCHED_HMP
 extern void __init arch_get_fast_and_slow_cpus(struct cpumask *fast,
 									struct cpumask *slow);
 extern unsigned long cpu_boost_lasttime;
-extern unsigned int  load_try_boost;
+static unsigned int  load_try_boost = 90;
 static unsigned int  load_save_big_up = 80;
 static unsigned int  load_lastbig_stable_us = 1500000;
 int hmp_cluster0_is_big = 0;
@@ -36,10 +36,10 @@ static int is_cpu_load_stable(unsigned int cpu, int stable_type)
 	else if(stable_type == STABLE_UP)
 		return time_after_eq(jiffies,
 					cpu_up_lasttime + usecs_to_jiffies(load_up_stable_us));
+#if defined(CONFIG_SCHED_HMP)
 	else if(stable_type == STABLE_BOOST)
 		return time_after_eq(jiffies,
 					cpu_up_lasttime + usecs_to_jiffies(load_boost_stable_us));
-#if defined(CONFIG_SCHED_HMP)
 	else if(stable_type == STABLE_LAST_BIG)
 		return time_after_eq(jiffies,
 					cpu_up_lasttime + usecs_to_jiffies(load_lastbig_stable_us));
@@ -107,7 +107,7 @@ static int autohotplug_smart_try_down_hmp_normal(struct autohotplug_loadinfo *lo
 	unsigned int to_down = CONFIG_NR_CPUS;
 	unsigned int on_boost = CONFIG_NR_CPUS;
 
-	if (get_cpus_stable_under(load, load_try_down, &to_down, 0) >= 1) {
+	if (get_cpus_under(load, load_try_down, &to_down, 0) >= 1) {
 		if (get_bigs_under(load, load_try_down, &to_down) >= 2)
 			return do_cpu_down(to_down);
 		else if (get_littles_under(load, load_try_down, &to_down) > 1)
@@ -318,10 +318,14 @@ static void autohotplug_smart_init_attr(void)
 #if defined(CONFIG_SCHED_HMP) || defined(CONFIG_SCHED_SMP_DCMP)
 	autohotplug_attr_add("little_min_freq", &little_core_coop_min_freq, 0644,
 						NULL, NULL);
+	autohotplug_attr_add("save_all_up_load",   &load_save_up,           0644,
+							NULL, NULL);
 #ifdef CONFIG_SCHED_HMP
-	autohotplug_attr_add("save_big_up",     &load_save_big_up,          0644,
+	autohotplug_attr_add("try_boost_load",     &load_try_boost,         0644,
+							NULL, NULL);
+	autohotplug_attr_add("save_big_up_load",   &load_save_big_up,       0644,
 						NULL, NULL);
-	autohotplug_attr_add("stable_lastB_us", &load_lastbig_stable_us,    0644,
+	autohotplug_attr_add("stable_last_big_us", &load_lastbig_stable_us, 0644,
 						NULL, NULL);
 #endif
 #endif

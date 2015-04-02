@@ -44,29 +44,28 @@ static unsigned int boost_all_online  = 0;
 static unsigned int hotplug_period_us = 50000;
 static unsigned int hotplug_sample_us = 20000;
 static unsigned int cpu_up_lastcpu    = INVALID_CPU;
+static unsigned int total_nr_cpus     = CONFIG_NR_CPUS;
 
-static unsigned int hotplug_up_attempt_hold_us = 500000;
-static unsigned int hotplug_up_cpu_hold_us     = 1500000;
-static unsigned int hotplug_boost_hold_us      = 3000000;
-static unsigned int total_nr_cpus              = CONFIG_NR_CPUS;
+static unsigned int  cpu_up_last_hold_us    = 1500000;
+static unsigned int  cpu_boost_last_hold_us = 3000000;
 
 unsigned int load_try_down          = 30;
-unsigned int load_save_up           = 60;
 unsigned int load_try_up            = 70;
-unsigned int load_try_boost         = 90;
 
 unsigned int load_last_big_min_freq = 300000;
 unsigned int load_up_stable_us      = 50000;
 unsigned int load_down_stable_us    = 1000000;
 unsigned int load_boost_stable_us   = 200000;
 
-unsigned long cpu_boost_lasttime;
-unsigned long cpu_up_lasttime;
+unsigned long cpu_boost_lasttime    = 0;
+unsigned long cpu_up_lasttime       = 0;
 
+#ifdef CONFIG_CPU_AUTOHOTPLUG_ROOMAGE
 static int cluster0_min_online = 0;
 static int cluster0_max_online = 0;
 static int cluster1_min_online = 0;
 static int cluster1_max_online = 0;
+#endif
 
 /* Check if cpu is in fastest hmp_domain */
 unsigned int is_cpu_big(int cpu)
@@ -82,6 +81,7 @@ unsigned int is_cpu_little(int cpu)
 
 int do_cpu_down(unsigned int cpu)
 {
+#ifdef CONFIG_CPU_AUTOHOTPLUG_ROOMAGE
 	int i, cur_c0_online = 0, cur_c1_online = 0;
 	struct cpumask *c0_mask;
 	struct cpumask *c1_mask;
@@ -109,13 +109,14 @@ int do_cpu_down(unsigned int cpu)
 
 	if (cpumask_test_cpu(cpu, c1_mask) && cur_c1_online <= cluster1_min_online)
 		return 0;
+#endif
 
 	if (cpu == cpu_up_lastcpu && time_before(jiffies,
-				cpu_up_lasttime + usecs_to_jiffies(hotplug_up_cpu_hold_us)))
+				cpu_up_lasttime + usecs_to_jiffies(cpu_up_last_hold_us)))
 		return 0;
 
 	if (time_before(jiffies,
-				cpu_boost_lasttime + usecs_to_jiffies(hotplug_boost_hold_us)))
+				cpu_boost_lasttime + usecs_to_jiffies(cpu_boost_last_hold_us)))
 		return 0;
 
 	if (cpu_down(cpu))
@@ -128,6 +129,7 @@ int do_cpu_down(unsigned int cpu)
 
 int do_cpu_up(unsigned int cpu)
 {
+#ifdef CONFIG_CPU_AUTOHOTPLUG_ROOMAGE
 	int i, cur_c0_online = 0, cur_c1_online = 0;
 	struct cpumask *c0_mask;
 	struct cpumask *c1_mask;
@@ -155,6 +157,7 @@ int do_cpu_up(unsigned int cpu)
 
 	if (cpumask_test_cpu(cpu, c1_mask) && cur_c1_online >= cluster1_max_online)
 		return 0;
+#endif
 
 	if (cpu_up(cpu))
 		return 0;
@@ -165,30 +168,6 @@ int do_cpu_up(unsigned int cpu)
 	trace_autohotplug_operate(cpu, 1);
 
 	return 1;
-}
-
-int get_cpus_stable_under(struct autohotplug_loadinfo *load,
-						unsigned char level, unsigned int *first, int is_up)
-{
-	int i, found = 0, count = 0;
-
-	for (i = total_nr_cpus - 1; i >= 0; i--) {
-		if ((load->cpu_load[i] != INVALID_LOAD)
-				&& load->cpu_load[i] < level
-				&& time_after_eq(jiffies, load->cpu_load_lasttime[i]
-					+ usecs_to_jiffies(is_up ? load_up_stable_us
-					: load_down_stable_us))
-			)
-		{
-			if (first && (!found)) {
-				*first = i;
-				found = 1;
-			}
-			count++;
-		}
-	}
-
-	return count;
 }
 
 int get_bigs_under(struct autohotplug_loadinfo *load,
@@ -544,16 +523,10 @@ static int autohotplug_thread_task(void *data)
 						try_attemp = 1;
 						if (cur_governor->try_freq_limit)
 							cur_governor->try_freq_limit();
-					} else {
-						if (time_after_eq(jiffies, cpu_up_lasttime
-								+ usecs_to_jiffies(hotplug_up_attempt_hold_us)))
-						{
-							if (cur_governor->try_down(&load)) {
-								try_attemp = 2;
-								if (cur_governor->try_freq_limit)
-									cur_governor->try_freq_limit();
-							}
-						}
+					} else if (cur_governor->try_down(&load)) {
+						try_attemp = 2;
+						if (cur_governor->try_freq_limit)
+							cur_governor->try_freq_limit();
 					}
 				}
 			}
@@ -598,30 +571,10 @@ static unsigned int autohotplug_updateload(int cpu)
 	return ((unsigned int)load);
 }
 
-static int autohotplug_get_load_level(unsigned int load)
-{
-	if (load == INVALID_LOAD)
-		return LOAD_LEVEL_INVALID;
-	else if(load < load_try_down)
-		return LOAD_LEVEL_DOWN;
-	else if(load < load_save_up)
-		return LOAD_LEVEL_NORMAL;
-	else if(load < load_try_up)
-		return LOAD_LEVEL_MIDDLE;
-	else if(load < load_try_boost)
-		return LOAD_LEVEL_UP;
-	else
-		return LOAD_LEVEL_BOOST;
-}
-
 static void autohotplug_set_load(unsigned int cpu, unsigned int load)
 {
 	if (cpu >= total_nr_cpus)
 		return;
-
-	if (autohotplug_get_load_level(governor_load.load.cpu_load[cpu])
-								!= autohotplug_get_load_level(load))
-		governor_load.load.cpu_load_lasttime[cpu] = jiffies;
 
 	governor_load.load.cpu_load[cpu] = load;
 }
@@ -895,33 +848,27 @@ void autohotplug_attr_add(const char *name, unsigned int *value, umode_t mode,
 static int autohotplug_attr_init(void)
 {
 	memset(&autohotplug_data, sizeof(autohotplug_data), 0);
-	autohotplug_attr_add("enable",          &hotplug_enable,             0644,
+	autohotplug_attr_add("enable",             &hotplug_enable,         0644,
 							NULL, autohotplug_enable_from_sysfs);
-	autohotplug_attr_add("boost_all",       &boost_all_online,           0644,
+	autohotplug_attr_add("boost_all",          &boost_all_online,       0644,
 							NULL, NULL);
-	autohotplug_attr_add("timer_task_us",   &hotplug_period_us,          0644,
+	autohotplug_attr_add("polling_us",         &hotplug_period_us,      0644,
 							NULL, NULL);
-	autohotplug_attr_add("try_cpuup_level", &load_try_up,                0644,
+	autohotplug_attr_add("try_up_load",        &load_try_up,            0644,
 							NULL, NULL);
-	autohotplug_attr_add("try_boost_level", &load_try_boost,             0644,
+	autohotplug_attr_add("try_down_load",      &load_try_down,          0644,
 							NULL, NULL);
-	autohotplug_attr_add("try_cpudn_level", &load_try_down,              0644,
+	autohotplug_attr_add("hold_last_boost_us", &cpu_boost_last_hold_us, 0644,
 							NULL, NULL);
-	autohotplug_attr_add("save_all_up",     &load_save_up,               0644,
+	autohotplug_attr_add("hold_last_up_us",    &cpu_up_last_hold_us,    0644,
 							NULL, NULL);
-	autohotplug_attr_add("hold_atept_us",   &hotplug_up_attempt_hold_us, 0644,
+	autohotplug_attr_add("stable_boost_us",    &load_boost_stable_us,   0644,
 							NULL, NULL);
-	autohotplug_attr_add("hold_cpuup_us",   &hotplug_up_cpu_hold_us,     0644,
+	autohotplug_attr_add("stable_up_us",       &load_up_stable_us,      0644,
 							NULL, NULL);
-	autohotplug_attr_add("hold_boost_us",   &hotplug_boost_hold_us,      0644,
+	autohotplug_attr_add("stable_down_us",     &load_down_stable_us,    0644,
 							NULL, NULL);
-	autohotplug_attr_add("stable_tryup_us", &load_up_stable_us,          0644,
-							NULL, NULL);
-	autohotplug_attr_add("stable_boost_us", &load_boost_stable_us,       0644,
-							NULL, NULL);
-	autohotplug_attr_add("stable_tdown_us", &load_down_stable_us,        0644,
-							NULL, NULL);
-	autohotplug_attr_add("lock", (unsigned int *)&hotplug_lock,          0644,
+	autohotplug_attr_add("lock", (unsigned int *)&hotplug_lock,         0644,
 						autohotplug_lock_to_sysfs, autohotplug_lock_from_sysfs);
 
 	/* init governor attr */
@@ -972,10 +919,12 @@ static int autohotplug_init(void)
 	for_each_possible_cpu(cpu) {
 		pcpu = &per_cpu(cpuinfo, cpu);
 		spin_lock_init(&pcpu->load_lock);
+#ifdef CONFIG_CPU_AUTOHOTPLUG_ROOMAGE
 		if (cpumask_test_cpu(cpu, &autohotplug_fast_cpumask))
 			cluster1_max_online++;
 		else
 			cluster0_max_online++;
+#endif
 	}
 
 	mutex_init(&hotplug_enable_mutex);
