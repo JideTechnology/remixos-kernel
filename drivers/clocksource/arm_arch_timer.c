@@ -214,7 +214,37 @@ static void arch_timer_set_mode_phys_mem(enum clock_event_mode mode,
 {
 	timer_set_mode(ARCH_TIMER_MEM_PHYS_ACCESS, mode, clk);
 }
+#ifdef  CONFIG_ARCH_SUN50I
+#define ARCH_TVAL_TRY_MAX_TIME (8)
+static __always_inline void set_next_event(const int access, unsigned long evt,
+				  struct clock_event_device *clk)
+{
+	unsigned int  retry = 0;
+	unsigned long ctrl;
+	unsigned long tval;
 
+	ctrl = arch_timer_reg_read(access, ARCH_TIMER_REG_CTRL, clk);
+	ctrl |= ARCH_TIMER_CTRL_ENABLE;
+	ctrl &= ~ARCH_TIMER_CTRL_IT_MASK;
+
+	/* sun50i timer maybe imprecise,
+	 * we should try to fix this.
+	 */
+	while (retry < ARCH_VCNT_TRY_MAX_TIME) {
+		arch_timer_reg_write(access, ARCH_TIMER_REG_TVAL, evt, clk);
+		tval = arch_timer_reg_read(access, ARCH_TIMER_REG_TVAL, clk);
+		if (tval <= evt) {
+			/* set tval succeeded, let timer running */
+			arch_timer_reg_write(access, ARCH_TIMER_REG_CTRL, ctrl, clk);
+			return;
+		}
+		/* tval set value error, try again */
+		retry++;
+	}
+	/* set tval fail, just let timer running */
+	arch_timer_reg_write(access, ARCH_TIMER_REG_CTRL, ctrl, clk);
+}
+#else
 static __always_inline void set_next_event(const int access, unsigned long evt,
 				  struct clock_event_device *clk)
 {
@@ -225,6 +255,7 @@ static __always_inline void set_next_event(const int access, unsigned long evt,
 	arch_timer_reg_write(access, ARCH_TIMER_REG_TVAL, evt, clk);
 	arch_timer_reg_write(access, ARCH_TIMER_REG_CTRL, ctrl, clk);
 }
+#endif /* CONFIG_ARCH_SUN50I */
 
 static int arch_timer_set_next_event_virt(unsigned long evt,
 					  struct clock_event_device *clk)

@@ -135,6 +135,38 @@ static inline void arch_timer_evtstrm_enable(int divider)
 #endif
 }
 
+#ifdef  CONFIG_ARCH_SUN50I
+#define ARCH_VCNT_TRY_MAX_TIME (8)
+#define ARCH_VCNT_MAX_DELTA    (8)
+static inline u64 arch_counter_get_cntvct(void)
+{
+	u64 cval0;
+	u64 cval1;
+	u64 delta;
+	u32 retry = 0;
+
+	/* sun50i vcnt maybe imprecise,
+	 * we should try to fix this.
+	 */
+	while (retry < ARCH_VCNT_TRY_MAX_TIME) {
+		isb();
+		asm volatile("mrs %0, cntvct_el0" : "=r" (cval0));
+		isb();
+		asm volatile("mrs %0, cntvct_el0" : "=r" (cval1));
+		delta = cval1 - cval0;
+		if ((cval1 >= cval0) && (delta < ARCH_VCNT_MAX_DELTA)) {
+			/* read valid vcnt */
+			return cval1;
+		}
+		/* vcnt value error, try again */
+		retry++;
+	}
+	/* Do not warry for this, just return the last time vcnt.
+	 * arm64 have enabled CONFIG_CLOCKSOURCE_VALIDATE_LAST_CYCLE.
+	 */
+	return cval1;
+}
+#else
 static inline u64 arch_counter_get_cntvct(void)
 {
 	u64 cval;
@@ -144,6 +176,7 @@ static inline u64 arch_counter_get_cntvct(void)
 
 	return cval;
 }
+#endif /* CONFIG_ARCH_SUN50I */
 
 static inline int arch_timer_arch_init(void)
 {
