@@ -842,10 +842,12 @@ static int aw_early_suspend(void)
 	parse_wakeup_event(NULL, 0, super_standby_para_info.event, CPUS_ID);
     }
 
-    if(standby_space.mem_size < sizeof(super_standby_para_info)){
+    if(standby_space.mem_size < sizeof(super_standby_para_info) + sizeof(*(extended_standby_manager_id->pextended_standby))){
 	//judge the reserved space for mem para is enough or not.
+	printk("ERR: reserved space is not enough for mem_para. \n");
+	printk("need size: %lx. \n", sizeof(super_standby_para_info) + sizeof(*(extended_standby_manager_id->pextended_standby)));
+        printk("reserved size: %lx. \n", standby_space.mem_size);
 	return -1;
-
     }
 
     //clean all the data into dram
