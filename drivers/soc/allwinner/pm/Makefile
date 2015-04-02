@@ -20,6 +20,7 @@ pm_tmp-y :=	mem_mapping.o               \
 		mem_tmr.o                   \
 		mem_tmstmp.o                \
 		pm_debug.o                  \
+		pm_errcode.o                  \
 		pm_debug_io.o               \
 		pm_debug_secure.o           \
 		mem_hwspinlock.o            \

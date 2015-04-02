@@ -52,7 +52,7 @@ static standby_space_cfg_t standby_space;
 //#define CROSS_MAPPING_STANDBY
 
 #define AW_PM_DBG   1
-#undef PM_DBG
+//#undef PM_DBG
 #if(AW_PM_DBG)
     #define PM_DBG(format,args...)   printk("[pm]"format,##args)
 #else
@@ -322,6 +322,25 @@ static ssize_t debug_mask_store(struct device *dev,
     return count;
 }
 
+static ssize_t parse_status_code_store(struct device *dev, 
+	struct device_attribute *attr, const char *buf, size_t size)
+{
+    unsigned int status_code = 0;
+    unsigned int index = 0;
+
+    sscanf(buf, "%x %x\n", &status_code, &index);
+    parse_status_code(status_code, index);
+    return size;
+}
+
+ssize_t parse_status_code_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    char *s = buf;
+
+    show_mem_status();
+    return (s - buf);
+}
+
 static void init_wakeup_src(unsigned int event)
 {
 #if 0
@@ -444,7 +463,6 @@ static void exit_wakeup_src(unsigned int event)
 		serial_exit();
 	}
 	
-	save_pm_secure_mem_status(BEFORE_LATE_RESUME);
 	mem_int_exit();
 #endif	
 	mem_tmr_restore(&(saved_tmr_state));
@@ -678,7 +696,7 @@ static int aw_pm_begin(suspend_state_t state)
 	static int backup_console_loglevel = 0;
 	static __u32 backup_debug_mask = 0;
 
-	PM_DBG("version 2014年09月25日 星期四 09时14分04秒_2b7dd9f33b4db4f767f10ac3e26343b3ed04ce04 %d state begin\n", state);
+	PM_DBG("%d state begin\n", state);
 	//set freq max
 #ifdef CONFIG_CPU_FREQ_USR_EVNT_NOTIFY
 	//cpufreq_user_event_notify();
@@ -688,8 +706,9 @@ static int aw_pm_begin(suspend_state_t state)
 
 	//check rtc status, if err happened, do sth to fix it.
 	suspend_status = get_pm_secure_mem_status(); 
-	suspend_status = FIRST_BOOT_FLAG; 
-	if( (FIRST_BOOT_FLAG)!= suspend_status && (RESUME_COMPLETE_FLAG) != suspend_status){
+	if( (error_gen(MOD_FIRST_BOOT_FLAG, 0)!= suspend_status) &&	    \
+		(BOOT_UPGRADE_FLAG !=  suspend_status) &&		    \
+		(error_gen(MOD_RESUME_COMPLETE_FLAG, 0) != suspend_status)){
 	    suspend_result = -1;
 	    printk("suspend_err, rtc gpr as follow: \n");
 	    show_mem_status();
@@ -719,7 +738,7 @@ static int aw_pm_begin(suspend_state_t state)
 	    }
 	    suspend_result = 0; 
 	}
-	save_pm_secure_mem_status(BEFORE_EARLY_SUSPEND |0x1);
+	save_pm_secure_mem_status(error_gen(MOD_FREEZER_THREAD,0));
 	
 	return 0;
 
@@ -744,7 +763,7 @@ static int aw_pm_begin(suspend_state_t state)
 static int aw_pm_prepare(void)
 {
     PM_DBG("prepare\n");
-	save_pm_secure_mem_status(BEFORE_EARLY_SUSPEND |0x3);
+    save_pm_secure_mem_status(error_gen(MOD_SUSPEND_DEVICES, ERR_SUSPEND_DEVICES_SUSPEND_DEVICES_DONE));
 
     return 0;
 }
@@ -778,7 +797,7 @@ static int aw_pm_prepare_late(void)
 	
     cpufreq_driver_target(&policy, suspend_freq, CPUFREQ_RELATION_L);
 #endif
-    save_pm_secure_mem_status(BEFORE_EARLY_SUSPEND |0x5);
+    save_pm_secure_mem_status(error_gen(MOD_SUSPEND_DEVICES, ERR_SUSPEND_DEVICES_LATE_SUSPEND_DEVICES_DONE));
     return 0;
 
 #ifdef CONFIG_CPU_FREQ	
@@ -836,7 +855,6 @@ static int aw_early_suspend(void)
 	super_standby_para_info.event |= CPUS_WAKEUP_TIMEOUT;
     }
 
-    save_pm_secure_mem_status(BEFORE_EARLY_SUSPEND |0xb);
     if(unlikely(debug_mask&PM_STANDBY_PRINT_STANDBY)){
 	pr_info("total(def & dynamic config) standby wakeup src config: 0x%x.\n", super_standby_para_info.event);
 	parse_wakeup_event(NULL, 0, super_standby_para_info.event, CPUS_ID);
@@ -857,13 +875,16 @@ static int aw_early_suspend(void)
 		(void *)(extended_standby_manager_id->pextended_standby),
 		sizeof(*(extended_standby_manager_id->pextended_standby)));
     __dma_flush_range((void *)phys_to_virt(standby_space.standby_mem_base), (void *)(phys_to_virt(standby_space.standby_mem_base + standby_space.mem_size)));
+    save_pm_secure_mem_status(error_gen(MOD_SUSPEND_CPUXSYS, ERR_SUSPEND_CPUXSYS_CONFIG_SUPER_PARA_DONE));
    init_wakeup_src(super_standby_para_info.event);
+   save_pm_secure_mem_status(error_gen(MOD_SUSPEND_CPUXSYS, ERR_SUSPEND_CPUXSYS_CONFIG_WAKEUP_SRC_DONE));
 #ifdef CONFIG_CPU_OPS_SUNXI
    asm("wfi");
 #else
    cpu_suspend(3);
 #endif
     exit_wakeup_src(super_standby_para_info.event);
+    save_pm_secure_mem_status(error_gen(MOD_RESUME_CPUXSYS, ERR_RESUME_CPUXSYS_CONFIG_WAKEUP_SRC_DONE));
 
 #endif
     return 0;
@@ -944,16 +965,11 @@ static int aw_super_standby(suspend_state_t state)
 		mem_para_info.axp_event = CPUS_BOOTFAST_WAKEUP;
 	}
 	
+        save_pm_secure_mem_status(error_gen(MOD_SUSPEND_CPUXSYS, ERR_SUSPEND_CPUXSYS_CONFIG_MEM_PARA_DONE));
 	result = aw_early_suspend();
 
 	aw_late_resume();
-	save_pm_secure_mem_status(LATE_RESUME_START |0x7);
-	//have been disable dcache in resume1
-	//enable_cache();
-	if(unlikely(debug_mask&PM_STANDBY_PRINT_RESUME)){
-		print_call_info();
-	}
-	save_pm_secure_mem_status(LATE_RESUME_START |0x8);
+	save_pm_secure_mem_status(error_gen(MOD_RESUME_CPUXSYS, ERR_RESUME_CPUXSYS_RESUME_DEVICES_DONE));
 
 	return 0;
 
@@ -982,7 +998,7 @@ static int aw_pm_enter(suspend_state_t state)
 
     PM_DBG("enter state %d\n", state);
 
-    save_pm_secure_mem_status(BEFORE_EARLY_SUSPEND |0x7);
+    save_pm_secure_mem_status(error_gen(MOD_SUSPEND_CORE, 0));
     if(unlikely(0 == console_suspend_enabled)){
 	debug_mask |= (PM_STANDBY_PRINT_RESUME | PM_STANDBY_PRINT_STANDBY);
     }else{
@@ -1014,6 +1030,7 @@ static int aw_pm_enter(suspend_state_t state)
 
     extended_standby_manager_id = get_extended_standby_manager();
     extended_standby_show_state();
+    save_pm_secure_mem_status(error_gen(MOD_SUSPEND_CPUXSYS, ERR_SUSPEND_CPUXSYS_SHOW_DEVICES_STATE_DONE));
 
     aw_super_standby(state);
 
@@ -1037,6 +1054,7 @@ static int aw_pm_enter(suspend_state_t state)
     //#if 0
     writel(sram_backup,(volatile void __iomem *)SRAM_CTRL_REG1_ADDR_VA);
 #endif
+    save_pm_secure_mem_status(error_gen(MOD_RESUME_CPUXSYS, ERR_RESUME_CPUXSYS_RESUME_CPUXSYS_DONE));
     return 0;
 }
 
@@ -1058,7 +1076,8 @@ static int aw_pm_enter(suspend_state_t state)
  */
 static void aw_pm_wake(void)
 {
-	save_pm_secure_mem_status(AFTER_LATE_RESUME |0x1);
+    save_pm_secure_mem_status(error_gen(MOD_RESUME_PROCESSORS,0));
+    PM_DBG("%s \n", __func__);
     return;
 }
 
@@ -1081,7 +1100,7 @@ static void aw_pm_finish(void)
 #ifdef CONFIG_CPU_FREQ	
     struct cpufreq_policy policy;
 #endif
-    save_pm_secure_mem_status(AFTER_LATE_RESUME |0x2);
+    save_pm_secure_mem_status(error_gen(MOD_RESUME_DEVICES, ERR_RESUME_DEVICES_EARLY_RESUME_DEVICES_DONE));
     PM_DBG("platform wakeup finish\n");
 
 #ifdef CONFIG_CPU_FREQ	
@@ -1117,9 +1136,11 @@ out:
 */
 static void aw_pm_end(void)
 {
+    save_pm_secure_mem_status(error_gen(MOD_RESUME_DEVICES, ERR_RESUME_DEVICES_RESUME_DEVICES_DONE));
+    PM_DBG("aw_pm_end!\n");
 
-	save_pm_secure_mem_status(RESUME_COMPLETE_FLAG);
-	PM_DBG("aw_pm_end!\n");
+    save_pm_secure_mem_status(error_gen(MOD_RESUME_COMPLETE_FLAG, 0));
+    return ;
 }
 
 
@@ -1140,7 +1161,7 @@ static void aw_pm_end(void)
 */
 static void aw_pm_recover(void)
 {
-	save_pm_secure_mem_status(AFTER_LATE_RESUME |0x3);
+    save_pm_secure_mem_status(error_gen(MOD_SUSPEND_DEVICES, ERR_SUSPEND_DEVICES_SUSPEND_DEVICES_FAILED ));
     PM_DBG("aw_pm_recover\n");
 }
 
@@ -1163,8 +1184,12 @@ static struct platform_suspend_ops aw_pm_ops = {
 static DEVICE_ATTR(debug_mask, S_IRUGO|S_IWUSR|S_IWGRP,
 		debug_mask_show, debug_mask_store);
 
+static DEVICE_ATTR(parse_status_code, S_IRUGO|S_IWUSR|S_IWGRP,
+		parse_status_code_show, parse_status_code_store);
+
 static struct attribute * g[] = {
 	&dev_attr_debug_mask.attr,
+	&dev_attr_parse_status_code.attr,
 	NULL,
 };
 static struct attribute_group attr_group = {
@@ -1392,7 +1417,7 @@ static int __init aw_pm_init(void)
 	/*init debug state*/
 	pm_secure_mem_status_init("rtc");
 	/*for auto test reason.*/
-	//*(volatile __u32 *)(STANDBY_STATUS_REG  + 0x08) = BOOT_UPGRAGE_FLAG;
+	//*(volatile __u32 *)(STANDBY_STATUS_REG  + 0x08) = BOOT_UPGRADE_FLAG;
 
 #if (defined(CONFIG_ARCH_SUN8IW8P1) || defined(CONFIG_ARCH_SUN8IW6P1) || defined(CONFIG_ARCH_SUN50IW1P1)) && defined(CONFIG_AW_AXP)
 	config_pmu_para();

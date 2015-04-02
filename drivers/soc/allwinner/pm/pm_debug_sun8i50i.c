@@ -1,5 +1,7 @@
 #include "pm_i.h"
 
+#define CPUX_STATUS_CODE_INDEX (1)
+#define CPUS_STATUS_CODE_INDEX (2)
 static u32 *base;
 static u32 len;
 
@@ -15,14 +17,15 @@ void mem_status_init(char *name)
     }
     else{
 	printk(KERN_INFO "np name = %s. \n", np->full_name);
-	of_property_read_u32(np, "gpr_offset", &gpr_offset);
-	of_property_read_u32(np, "gpr_len", &len);
+	if(!of_property_read_u32(np, "gpr_offset", &gpr_offset)){
+	    if(!of_property_read_u32(np, "gpr_len", &len)){
+		base = (gpr_offset/sizeof(u32) + base);
+		printk("base = %p, len = %x.\n", base, len);
 
-	base = (gpr_offset/sizeof(u32) + base);
-	printk("base = %p, len = %x.\n", base, len);
+	    }
+	}
     }
 
-    
     return  ;
 }
 
@@ -50,7 +53,7 @@ void mem_status_exit(void)
 
 void save_mem_status(volatile __u32 val)
 {
-	*(volatile __u32 *)((phys_addr_t)(base  + 1)) = val;
+	*(volatile __u32 *)((phys_addr_t)(base  + CPUX_STATUS_CODE_INDEX)) = val;
 //	asm volatile ("dsb");
 //	asm volatile ("isb");
 	return;
@@ -58,16 +61,45 @@ void save_mem_status(volatile __u32 val)
 
 __u32 get_mem_status(void)
 {
-	return *(volatile __u32 *)((phys_addr_t)(base  + 1));
+	return *(volatile __u32 *)((phys_addr_t)(base  + CPUX_STATUS_CODE_INDEX));
+}
+
+void parse_cpux_status_code(__u32 code)
+{
+    printk("%s. \n", pm_errstr(code));
+
+}
+
+void parse_cpus_status_code(__u32 code)
+{
+
+}
+
+void parse_status_code(__u32 code, __u32 index)
+{
+    switch(index){
+	case CPUX_STATUS_CODE_INDEX:
+	    parse_cpux_status_code(code);
+	    break;
+	case CPUS_STATUS_CODE_INDEX: 
+	    parse_cpus_status_code(code);
+	    break;
+	default:
+	    printk(KERN_INFO "notice: para err, index = %x.\n", index);
+    }
+
+    return ;
 }
 
 void show_mem_status(void)
 {
 	int i = 0;
+	__u32 status_code = 0;
 
 	while(i < len){
-		printk("addr %p, value = %x. \n", \
-			(base + i), *(volatile int *)((phys_addr_t)(base + i)));
+		status_code = *(volatile int *)((phys_addr_t)(base + i));
+		printk(KERN_INFO "addr %p, value = %x. \n", (base + i), status_code);
+		parse_status_code(status_code, i);
 		i++;
 	}
 }

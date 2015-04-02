@@ -81,6 +81,7 @@ void mem_status_exit(void);
 void save_mem_flag(void);
 void clear_mem_flag(void);
 void save_mem_status(volatile __u32 val);
+void parse_status_code(__u32 code, __u32 index);
 void save_mem_status_nommu(volatile __u32 val);
 void save_cpux_mem_status_nommu(volatile __u32 val);
 
