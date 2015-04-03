@@ -644,7 +644,7 @@ int sunxi_isp_init_subdev(struct isp_dev *isp)
 
 	v4l2_subdev_init(sd, &sunxi_isp_subdev_ops);
 	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
-	snprintf(sd->name, sizeof(sd->name), "sunxi_isp.%d", isp->isp_sel);
+	snprintf(sd->name, sizeof(sd->name), "sunxi_isp.%u", isp->isp_sel);
 
 	v4l2_ctrl_handler_init(handler, 3 + ARRAY_SIZE(isp_ctrls));
 

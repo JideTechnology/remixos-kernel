@@ -34,7 +34,7 @@ struct size{
 };
 struct buffer {
     void * start;
-    size_t length;
+    int length;
 };
 
 static char path_name[20] = {'\0'};
@@ -72,7 +72,7 @@ static int read_frame (int mode)
 	if (count == read_num/2)
     {
 		printf("file length = %d\n",buffers[buf.index].length);
-		printf("file start = %x\n",buffers[buf.index].start); 
+		printf("file start = %p\n",buffers[buf.index].start); 
 
 		num = (mode > 2) ? 2 : mode;
 		bfstart = buffers[buf.index].start;
