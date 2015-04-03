@@ -352,6 +352,7 @@ sunxi_ths_controller_register(struct device *dev ,struct sunxi_ths_controller_op
 	controller->ops = ops;
 	controller->data = data;
 	atomic_set(&controller->is_suspend, 0);
+	atomic_set(&controller->usage, 0);
 	mutex_init(&controller->lock);
 	INIT_LIST_HEAD(&controller->combine_list);
 	mutex_lock(&controller_list_lock);
@@ -447,6 +448,7 @@ static int sunxi_combine_probe(struct platform_device *pdev)
 	err = sunxi_combine_parse(sensor);
 	if(err)
 		goto fail;
+	atomic_add(1, &sensor->combine->controller->usage);
 	sensor->tz = thermal_zone_of_sensor_register(&pdev->dev,
 				0, sensor, sunxi_combine_get_temp, NULL);
 	if(IS_ERR(sensor->tz)){
