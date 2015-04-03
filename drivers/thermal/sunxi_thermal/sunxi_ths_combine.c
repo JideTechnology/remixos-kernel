@@ -275,7 +275,7 @@ static int sunxi_combine_get_temp(void *data, long *temperature)
 	if((!is_suspend) && (!emulate)){
 		switch(sensor->combine->type){
 		case COMBINE_MAX_TEMP:
-			for(i = 0, taget = -20; i < sensor->combine->combine_cnt; i++){
+			for(i = 0, taget = -40; i < sensor->combine->combine_cnt; i++){
 				chn = sensor->combine->combine_chn[i];
 				ret = controller->ops->get_temp(controller, chn, &temp);
 				if(ret)

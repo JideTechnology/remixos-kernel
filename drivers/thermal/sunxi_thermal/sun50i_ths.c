@@ -53,18 +53,18 @@ static struct sunxi_ths_controller *main_ctrl;
 
 static long sun50_th_reg_to_temp(u32 reg_data)
 {
-	u64 t;
+	s32 t;
 	t = (MINUPA - reg_data * MULPA);
-	do_div(t, DIVPA);
+	t = t / DIVPA;
 	return (long)t;
 }
 
 static u32 sun50_th_temp_to_reg(long temp)
 {
-	u64 t;
-	t = (MINUPA - temp * DIVPA);
-	do_div(t, MULPA);
-	return (u32)t;
+	s32 reg;
+	reg = (MINUPA - temp * DIVPA);
+	reg = reg / MULPA;
+	return (u32)reg;
 }
 
 static void ths_sensor_init(struct sunxi_ths_data *ths_data)
@@ -204,7 +204,7 @@ static int sun50i_th_get_temp(struct sunxi_ths_controller *controller, u32 id, l
 		reg_data = readl(ths_data->base_addr + THS_DATA_REG0 + id * 4);
 		thsprintk(DEBUG_DATA_INFO, "THS data%d = 0x%x\n", id, reg_data);
 		t = sun50_th_reg_to_temp(reg_data);
-		if(-20 > t || 180 < t)
+		if(-40 > t || 180 < t)
 			return -1;
 		*temp = t;
 		return 0;
