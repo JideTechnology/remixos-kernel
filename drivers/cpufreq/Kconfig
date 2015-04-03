@@ -199,6 +199,15 @@ config CPU_AUTOHOTPLUG_ROOMAGE
 	  depends on CPU_AUTOHOTPLUG
 	  default y
 
+config CPU_AUTOHOTPLUG_STATS
+	tristate "CPU autohotplug statistics"
+	depends on CPU_AUTOHOTPLUG
+	default y
+	help
+	  Enable up/down count and total time plugged statistics per CPU.
+
+	  If in doubt say N.
+
 config CPU_FREQ_GOV_CONSERVATIVE
 	tristate "'conservative' cpufreq governor"
 	depends on CPU_FREQ

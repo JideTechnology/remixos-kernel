@@ -60,6 +60,46 @@ unsigned int load_boost_stable_us   = 200000;
 unsigned long cpu_boost_lasttime    = 0;
 unsigned long cpu_up_lasttime       = 0;
 
+#ifdef CONFIG_CPU_AUTOHOTPLUG_STATS
+static unsigned long cpu_on_lasttime[CONFIG_NR_CPUS];
+static unsigned long cpu_on_time_total[CONFIG_NR_CPUS];
+static unsigned long cpu_up_count_total[CONFIG_NR_CPUS];
+static unsigned long cpu_down_count_total[CONFIG_NR_CPUS];
+
+static char *cpu_on_time_total_sysfs[] = {
+	"cpu0_on_time",
+	"cpu1_on_time",
+	"cpu2_on_time",
+	"cpu3_on_time",
+	"cpu4_on_time",
+	"cpu5_on_time",
+	"cpu6_on_time",
+	"cpu7_on_time"
+};
+
+static char *cpu_count_up_sysfs[] = {
+	"cpu0_up_count",
+	"cpu1_up_count",
+	"cpu2_up_count",
+	"cpu3_up_count",
+	"cpu4_up_count",
+	"cpu5_up_count",
+	"cpu6_up_count",
+	"cpu7_up_count"
+};
+
+static char *cpu_count_down_sysfs[] = {
+	"cpu0_down_count",
+	"cpu1_down_count",
+	"cpu2_down_count",
+	"cpu3_down_count",
+	"cpu4_down_count",
+	"cpu5_down_count",
+	"cpu6_down_count",
+	"cpu7_down_count"
+};
+#endif /* CONFIG_CPU_AUTOHOTPLUG_STATS */
+
 #ifdef CONFIG_CPU_AUTOHOTPLUG_ROOMAGE
 static int cluster0_min_online = 0;
 static int cluster0_max_online = 0;
@@ -658,8 +698,15 @@ static int autohotplug_timer_start(void)
 	hotplug_sample_timer.expires = jiffies + usecs_to_jiffies(hotplug_sample_us);
 	add_timer_on(&hotplug_sample_timer, 0);
 
-	for (i = total_nr_cpus - 1; i >= 0; i--)
+	for (i = total_nr_cpus - 1; i >= 0; i--) {
 		autohotplug_set_load(i, INVALID_LOAD);
+#ifdef CONFIG_CPU_AUTOHOTPLUG_STATS
+		cpu_on_time_total[i] = 0;
+		cpu_up_count_total[i] = 1;
+		cpu_down_count_total[i] = 0;
+		cpu_on_lasttime[i] = get_jiffies_64();
+#endif
+	}
 
 	cpu_up_lasttime = jiffies;
 	cpu_boost_lasttime = jiffies;
@@ -744,6 +791,56 @@ unsigned int autohotplug_enable_from_sysfs(unsigned int temp, unsigned int *valu
 	return temp;
 }
 
+#ifdef CONFIG_CPU_AUTOHOTPLUG_STATS
+static unsigned int autohotplug_cpu_time_up_to_sysfs(unsigned int temp,
+						unsigned int *value)
+{
+	u64 cur_jiffies = get_jiffies_64();
+	unsigned int index = ((unsigned long)value - (unsigned long)cpu_on_time_total)
+							/ sizeof(unsigned long);
+
+	if (cpu_online(index))
+		return cpu_on_time_total[index] + (cur_jiffies - cpu_on_lasttime[index]);
+	else
+		return cpu_on_time_total[index];
+}
+
+static unsigned int autohotplug_cpu_count_up_to_sysfs(unsigned int temp,
+						unsigned int *value)
+{
+	unsigned int index = ((unsigned long)value - (unsigned long)cpu_up_count_total)
+							/ sizeof(unsigned long);
+
+	return cpu_up_count_total[index];
+}
+
+static unsigned int autohotplug_cpu_count_down_to_sysfs(unsigned int temp,
+						unsigned int *value)
+{
+	unsigned int index = ((unsigned long)value - (unsigned long)cpu_down_count_total)
+							/ sizeof(unsigned long);
+
+	return cpu_down_count_total[index];
+}
+
+static void autohotplug_attr_stats_init(void)
+{
+	int i;
+
+	for (i = 0; i < CONFIG_NR_CPUS; i++) {
+		autohotplug_attr_add(cpu_on_time_total_sysfs[i],
+							(unsigned int *)&cpu_on_time_total[i],
+							0444, autohotplug_cpu_time_up_to_sysfs, NULL);
+		autohotplug_attr_add(cpu_count_up_sysfs[i],
+							(unsigned int *)&cpu_up_count_total[i],
+							0444, autohotplug_cpu_count_up_to_sysfs, NULL);
+		autohotplug_attr_add(cpu_count_down_sysfs[i],
+							(unsigned int *)&cpu_down_count_total[i],
+							0444, autohotplug_cpu_count_down_to_sysfs, NULL);
+	}
+}
+#endif /* CONFIG_CPU_AUTOHOTPLUG_STATS */
+
 unsigned int autohotplug_lock_from_sysfs(unsigned int temp, unsigned int *value)
 {
 	int ret, prev_lock;
@@ -824,7 +921,7 @@ static ssize_t autohotplug_store(struct kobject *a, struct attribute *attr,
 
 void autohotplug_attr_add(const char *name, unsigned int *value, umode_t mode,
 		unsigned int (*to_sysfs)(unsigned int, unsigned int *),
-		unsigned int (*from_sysfs)(unsigned int ,unsigned int*))
+		unsigned int (*from_sysfs)(unsigned int ,unsigned int *))
 {
 	int i = 0;
 
@@ -848,6 +945,11 @@ void autohotplug_attr_add(const char *name, unsigned int *value, umode_t mode,
 static int autohotplug_attr_init(void)
 {
 	memset(&autohotplug_data, sizeof(autohotplug_data), 0);
+
+#ifdef CONFIG_CPU_AUTOHOTPLUG_STATS
+	autohotplug_attr_stats_init();
+#endif
+
 	autohotplug_attr_add("enable",             &hotplug_enable,         0644,
 							NULL, autohotplug_enable_from_sysfs);
 	autohotplug_attr_add("boost_all",          &boost_all_online,       0644,
@@ -897,6 +999,52 @@ static struct notifier_block reboot_notifier = {
 	.priority   = 1,
 };
 
+#ifdef CONFIG_CPU_AUTOHOTPLUG_STATS
+static int __cpuinit autohotplug_cpu_callback(struct notifier_block *nfb,
+		unsigned long action, void *hcpu)
+{
+	unsigned long flags;
+	unsigned int cpu = (unsigned long)hcpu;
+	struct device *dev;
+
+	dev = get_cpu_device(cpu);
+	if (dev) {
+		switch (action) {
+			case CPU_ONLINE:
+				spin_lock_irqsave(&hotplug_load_lock, flags);
+				autohotplug_set_load(cpu, INVALID_LOAD);
+				cpu_on_lasttime[cpu] = get_jiffies_64();
+				cpu_up_count_total[cpu]++;
+				spin_unlock_irqrestore(&hotplug_load_lock, flags);
+				break;
+			case CPU_DOWN_PREPARE:
+			case CPU_UP_CANCELED_FROZEN:
+			case CPU_DOWN_FAILED:
+				spin_lock_irqsave(&hotplug_load_lock, flags);
+				autohotplug_set_load(cpu, INVALID_LOAD);
+				spin_unlock_irqrestore(&hotplug_load_lock, flags);
+				break;
+			case CPU_DEAD:
+				spin_lock_irqsave(&hotplug_load_lock, flags);
+				if (cpu_on_lasttime[cpu]) {
+					cpu_on_time_total[cpu] += get_jiffies_64() - cpu_on_lasttime[cpu];
+					cpu_on_lasttime[cpu] = 0;
+					cpu_down_count_total[cpu]++;
+				}
+				spin_unlock_irqrestore(&hotplug_load_lock, flags);
+				break;
+			default:
+				break;
+		}
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block __refdata autohotplug_cpu_notifier = {
+	.notifier_call = autohotplug_cpu_callback,
+};
+#endif /* CONFIG_CPU_AUTOHOTPLUG_STATS */
+
 static int autohotplug_init(void)
 {
 	int cpu;
@@ -942,6 +1090,10 @@ static int autohotplug_init(void)
 
 	/* attr init */
 	autohotplug_attr_init();
+
+#ifdef CONFIG_CPU_AUTOHOTPLUG_STATS
+	register_hotcpu_notifier(&autohotplug_cpu_notifier);
+#endif
 
 	/* register reboot notifier for process cpus when reboot */
 	register_reboot_notifier(&reboot_notifier);
