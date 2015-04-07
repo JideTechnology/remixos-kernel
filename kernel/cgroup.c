@@ -27,6 +27,9 @@
  */
 
 #include <linux/cgroup.h>
+#ifdef CONFIG_ARCH_SUNXI
+#include <linux/cpu.h>
+#endif
 #include <linux/cred.h>
 #include <linux/ctype.h>
 #include <linux/errno.h>
@@ -2259,7 +2262,19 @@ EXPORT_SYMBOL_GPL(cgroup_attach_task_all);
 
 static int cgroup_tasks_write(struct cgroup *cgrp, struct cftype *cft, u64 pid)
 {
-	return attach_task_by_pid(cgrp, pid, false);
+	int ret;
+
+#ifdef CONFIG_ARCH_SUNXI
+	get_online_cpus();
+#endif
+
+	ret = attach_task_by_pid(cgrp, pid, false);
+
+#ifdef CONFIG_ARCH_SUNXI
+	put_online_cpus();
+#endif
+
+	return ret;
 }
 
 static int cgroup_procs_write(struct cgroup *cgrp, struct cftype *cft, u64 tgid)
