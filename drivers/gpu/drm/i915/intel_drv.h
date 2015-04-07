@@ -184,7 +184,12 @@ struct intel_panel {
 		bool enabled;
 		bool combination_mode;	/* gen 2/4 only */
 		bool active_low_pwm;
+
+		/* PWM chip */
+		struct pwm_device *pwm;
+
 		struct backlight_device *device;
+
 	} backlight;
 
 	void (*backlight_power)(struct intel_connector *, bool enable);
