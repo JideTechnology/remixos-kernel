@@ -686,7 +686,7 @@
 			pinctrl-1 = <&daudio0_pins_b>;
 			pcm_lrck_period =  <0x20>;
 			pcm_lrckr_period =  <0x01>;
-			slot_width_select =  <0x10>;
+			slot_width_select =  <0x20>;
 			pcm_lsb_first =  <0x0>;
 			tx_data_mode =  <0x0>;
 			rx_data_mode =  <0x0>;
@@ -712,7 +712,7 @@
 			clocks = <&clk_pll_audio>,<&clk_i2s1>;
 			pcm_lrck_period =  <0x20>;
 			pcm_lrckr_period =  <0x01>;
-			slot_width_select =  <0x10>;
+			slot_width_select =  <0x20>;
 			pcm_lsb_first =  <0x0>;
 			tx_data_mode =  <0x0>;
 			rx_data_mode =  <0x0>;

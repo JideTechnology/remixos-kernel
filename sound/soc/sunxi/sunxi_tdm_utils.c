@@ -422,10 +422,9 @@ int tdm_set_clkdiv(int sample_rate,struct sunxi_tdm_info *sunxi_tdm)
 		reg_val |= (5<<0);
 	else if(tdm->slot_width_select == 28)
 		reg_val |= (6<<0);
-	else if(tdm->slot_width_select == 32)
-		reg_val |= (7<<0);
 	else
-		reg_val |= (1<<0);
+		reg_val |= (7<<0);
+
 	if(tdm->frametype)/*pcm mode*/
 		reg_val |= SUNXI_DAUDIOFAT0_LRCK_WIDTH;
 	else

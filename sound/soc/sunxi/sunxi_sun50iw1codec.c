@@ -75,6 +75,7 @@ static const DECLARE_TLV_DB_SCALE(mic2_to_l_r_mix_vol_tlv, -450, 150, 0);
 static const DECLARE_TLV_DB_SCALE(mic2_boost_vol_tlv, 0, 200, 0);
 static const DECLARE_TLV_DB_SCALE(linein_to_l_r_mix_vol_tlv, -450, 150, 0);
 static const DECLARE_TLV_DB_SCALE(adc_input_vol_tlv, -450, 150, 0);
+static const DECLARE_TLV_DB_SCALE(phoneout_vol_tlv, -450, 150, 0);
 
 struct aif1_fs {
 	unsigned int samplerate;
@@ -606,6 +607,7 @@ static int ac_speaker_event(struct snd_soc_dapm_widget *w,
 	pr_debug("..speaker power state change.\n");
 	switch (event) {
 		case SND_SOC_DAPM_POST_PMU:
+			msleep(50);
 			if (spk_gpio.cfg)
 				gpio_set_value(spk_gpio.gpio, 1);
 
@@ -766,6 +768,8 @@ static const struct snd_kcontrol_new sunxi_codec_controls[] = {
 	SOC_SINGLE_TLV("LINEINL/R to L_R output mixer gain", LINEIN_CTRL, LINEING, 0x7, 0, linein_to_l_r_mix_vol_tlv),
 	/*ADC*/
 	SOC_SINGLE_TLV("ADC input gain control", ADC_CTRL, ADCG, 0x7, 0, adc_input_vol_tlv),
+
+	SOC_SINGLE_TLV("Phoneout gain control", PHONEOUT_CTRL, PHONEOUTGAIN, 0x7, 0, phoneout_vol_tlv),
 };
 
 /*0x244:AIF1 AD0 OUT */
@@ -894,6 +898,9 @@ static const struct snd_kcontrol_new ac_loutmix_controls[] = {
 	SOC_DAPM_SINGLE("LINEINL Switch", OL_MIX_CTRL, LMIXMUTELINEINL, 1, 0),
 	SOC_DAPM_SINGLE("MIC2Booststage Switch", OL_MIX_CTRL, LMIXMUTEMIC2BOOST, 1, 0),
 	SOC_DAPM_SINGLE("MIC1Booststage Switch", OL_MIX_CTRL, LMIXMUTEMIC1BOOST, 1, 0),
+
+	SOC_DAPM_SINGLE("PHONEINP Switch", OL_MIX_CTRL, LMIXMUTEPHONEP, 1, 0),
+	SOC_DAPM_SINGLE("PHONEINP-PHONEINN Switch", OL_MIX_CTRL, LMIXMUTEPHONEPN, 1, 0),
 };
 
 /*analog:0x02:defined right output mixer*/
@@ -903,6 +910,9 @@ static const struct snd_kcontrol_new ac_routmix_controls[] = {
 	SOC_DAPM_SINGLE("LINEINR Switch", OR_MIX_CTRL, RMIXMUTELINEINR, 1, 0),
 	SOC_DAPM_SINGLE("MIC2Booststage Switch", OR_MIX_CTRL, RMIXMUTEMIC2BOOST, 1, 0),
 	SOC_DAPM_SINGLE("MIC1Booststage Switch", OR_MIX_CTRL, RMIXMUTEMIC1BOOST, 1, 0),
+
+	SOC_DAPM_SINGLE("PHONEINN Switch", OR_MIX_CTRL, LMIXMUTEPHONEN, 1, 0),
+	SOC_DAPM_SINGLE("PHONEINN-PHONEINP Switch", OR_MIX_CTRL, LMIXMUTEPHONENP, 1, 0),
 };
 
 /*hp source select*/
@@ -1034,6 +1044,10 @@ static const struct snd_kcontrol_new ac_ladcmix_controls[] = {
 	SOC_DAPM_SINGLE("LINEINL Switch", L_ADCMIX_SRC, LADCMIXMUTELINEINL, 1, 0),
 	SOC_DAPM_SINGLE("l_output mixer Switch", L_ADCMIX_SRC, LADCMIXMUTELOUTPUT, 1, 0),
 	SOC_DAPM_SINGLE("r_output mixer Switch", L_ADCMIX_SRC, LADCMIXMUTEROUTPUT, 1, 0),
+
+
+	SOC_DAPM_SINGLE("PHONINP Switch", L_ADCMIX_SRC, LADCMIXMUTEPHONEP, 1, 0),
+	SOC_DAPM_SINGLE("PHONINP-PHONINN Switch", L_ADCMIX_SRC, LADCMIXMUTEPHONEPN, 1, 0),
 };
 
 /*0x0c:defined right input adc mixer*/
@@ -1043,6 +1057,9 @@ static const struct snd_kcontrol_new ac_radcmix_controls[] = {
 	SOC_DAPM_SINGLE("LINEINR Switch", R_ADCMIX_SRC, RADCMIXMUTELINEINR, 1, 0),
 	SOC_DAPM_SINGLE("r_output mixer Switch", R_ADCMIX_SRC, RADCMIXMUTEROUTPUT, 1, 0),
 	SOC_DAPM_SINGLE("l_output mixer Switch", R_ADCMIX_SRC, RADCMIXMUTELOUTPUT, 1, 0),
+
+	SOC_DAPM_SINGLE("PHONINN Switch", R_ADCMIX_SRC, LADCMIXMUTEPHONEN, 1, 0),
+	SOC_DAPM_SINGLE("PHONINN-PHONINP Switch", R_ADCMIX_SRC, LADCMIXMUTEPHONENP, 1, 0),
 };
 
 /*0x08:mic2 source select*/
@@ -1076,6 +1093,14 @@ static const struct snd_kcontrol_new aif2inl_aif3switch =
 static const struct snd_kcontrol_new aif2inr_aif3switch =
 	SOC_DAPM_SINGLE("aif2inr aif3", SUNXI_AIF1_RXD_CTRL, 3, 1, 1);
 
+
+/*defined lineout mixer*/
+static const struct snd_kcontrol_new phoneout_mix_controls[] = {
+	SOC_DAPM_SINGLE("MIC1 boost Switch", PHONEOUT_CTRL, PHONEOUTS3, 1, 0),
+	SOC_DAPM_SINGLE("MIC2 boost Switch", PHONEOUT_CTRL, PHONEOUTS2, 1, 0),
+	SOC_DAPM_SINGLE("Rout_Mixer_Switch", PHONEOUT_CTRL, PHONEOUTS1, 1, 0),
+	SOC_DAPM_SINGLE("Lout_Mixer_Switch", PHONEOUT_CTRL, PHONEOUTS0, 1, 0),
+};
 
 /*built widget*/
 static const struct snd_soc_dapm_widget ac_dapm_widgets[] = {
@@ -1248,6 +1273,16 @@ static const struct snd_soc_dapm_widget ac_dapm_widgets[] = {
 	/*src clk*/
 	SND_SOC_DAPM_SUPPLY("src clk", SND_SOC_NOPM,
 			0, 0, srcclk_late_ev, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_PGA("PHONEIN PGA", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_INPUT("PHONEINP"),
+	SND_SOC_DAPM_INPUT("PHONEINN"),
+
+	SND_SOC_DAPM_OUTPUT("PHONEOUTP"),
+	SND_SOC_DAPM_OUTPUT("PHONEOUTN"),
+
+	SND_SOC_DAPM_MIXER("Phoneout Mixer", PHONEOUT_CTRL, PHONEOUTEN, 0,
+		phoneout_mix_controls, ARRAY_SIZE(phoneout_mix_controls)),
 };
 
 static const struct snd_soc_dapm_route ac_dapm_routes[] = {
@@ -1349,6 +1384,11 @@ static const struct snd_soc_dapm_route ac_dapm_routes[] = {
 	{"Right Output Mixer", "LINEINR Switch",		"LINEINN"},
 	{"Right Output Mixer", "MIC2Booststage Switch",		"MIC2 PGA"},
 	{"Right Output Mixer", "MIC1Booststage Switch",		"MIC1 PGA"},
+
+	//{"Right Output Mixer", "LINEINL-LINEINR Switch",		"PHONEIN PGA"},
+
+
+
 
 	{"Left Output Mixer", "DACL Switch",		"DACL Mixer"},
 	{"Left Output Mixer", "DACR Switch",		"DACR Mixer"},
@@ -1477,6 +1517,29 @@ static const struct snd_soc_dapm_route ac_dapm_routes[] = {
 
 	{"AIF2DACL", NULL,"src clk"},
 
+
+	{"PHONEIN PGA", NULL,"PHONEINP"},
+	{"PHONEIN PGA", NULL,"PHONEINN"},
+
+	{"LADC input Mixer", "PHONINP-PHONINN Switch","PHONEIN PGA"},
+	{"LADC input Mixer", "PHONINP Switch","PHONEINP"},
+
+
+	{"RADC input Mixer", "PHONINN-PHONINP Switch","PHONEIN PGA"},
+	{"RADC input Mixer", "PHONINN Switch","PHONEINN"},
+
+	{"Phoneout Mixer", "MIC1 boost Switch","MIC1 PGA"},
+	{"Phoneout Mixer", "MIC2 boost Switch","MIC2 PGA"},
+	{"Phoneout Mixer", "Rout_Mixer_Switch","Right Output Mixer"},
+	{"Phoneout Mixer", "Lout_Mixer_Switch","Left Output Mixer"},
+
+	{"Right Output Mixer", "PHONEINN Switch","PHONEINN"},
+	{"Right Output Mixer", "PHONEINN-PHONEINP Switch","PHONEIN PGA"},
+
+	{"Left Output Mixer", "PHONEINP Switch","PHONEINP"},
+	{"Left Output Mixer", "PHONEINP-PHONEINN Switch","PHONEIN PGA"},
+
+
 };
 static int codec_start(struct snd_pcm_substream *substream, struct snd_soc_dai *codec_dai)
 {
@@ -1509,6 +1572,7 @@ static int codec_aif_mute(struct snd_soc_dai *codec_dai, int mute)
 	} else {
 		snd_soc_write(codec, SUNXI_DAC_VOL_CTRL, 0xa0a0);
 	}
+	msleep(100);
 	return 0;
 }
 
@@ -2011,7 +2075,7 @@ static unsigned int codec_read(struct snd_soc_codec *codec,
 					  unsigned int reg)
 {
 	struct sunxi_codec *sunxi_internal_codec = snd_soc_codec_get_drvdata(codec);
-	if (reg <= 0x1d) {
+	if (reg <= 0x1e) {
 		/*analog reg*/
 		return read_prcm_wvalue(reg,sunxi_internal_codec->codec_abase);
 	} else {
@@ -2024,7 +2088,7 @@ static int codec_write(struct snd_soc_codec *codec,
 				  unsigned int reg, unsigned int value)
 {
 	struct sunxi_codec *sunxi_internal_codec = snd_soc_codec_get_drvdata(codec);
-	if (reg <= 0x1d) {
+	if (reg <= 0x1e) {
 		/*analog reg*/
 		write_prcm_wvalue(reg, value,sunxi_internal_codec->codec_abase);
 	} else {

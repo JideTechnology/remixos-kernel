@@ -719,7 +719,7 @@ static int sun50iw1_machine_probe(struct platform_device *pdev)
 	/*
 	*initial the parameters for judge switch state
 	*/
-	ctx->HEADSET_DATA = 0x10;
+	ctx->HEADSET_DATA = 0x05;
 	INIT_DELAYED_WORK(&ctx->hs_insert_work, sun50iw1_check_hs_insert_status);
 	INIT_DELAYED_WORK(&ctx->hs_button_work, sun50iw1_check_hs_button_status);
 	INIT_DELAYED_WORK(&ctx->hs_remove_work, sun50iw1_check_hs_remove_status);

@@ -1737,7 +1737,7 @@
 #define LHP_CAL_SET					(0x1b)
 #define MDET_CTRL					(0x1c)
 #define JACK_MIC_CTRL				(0x1d)
-
+#define PHONEOUT_CTRL					(0x1E)
 /*
 *      apb0 base
 *      0x00 HP_CTRL
@@ -1754,6 +1754,8 @@
 #define LMIXMUTEDACR                     	(0)
 #define LMIXMUTEDACL                     	(1)
 #define LMIXMUTELINEINL                     (2)
+#define LMIXMUTEPHONEP                    	(3)
+#define LMIXMUTEPHONEPN                     (4)
 #define LMIXMUTEMIC2BOOST                	(5)
 #define LMIXMUTEMIC1BOOST                	(6)
 
@@ -1765,6 +1767,8 @@
 #define RMIXMUTEDACL                     	(0)
 #define RMIXMUTEDACR                     	(1)
 #define RMIXMUTELINEINR                     (2)
+#define LMIXMUTEPHONEN                    	(3)
+#define LMIXMUTEPHONENP                     (4)
 #define RMIXMUTEMIC2BOOST                	(5)
 #define RMIXMUTEMIC1BOOST                	(6)
 
@@ -1841,6 +1845,10 @@
 #define LADCMIXMUTE                     (0)
 #define LADCMIXMUTEMIC1BOOST     		(6)
 #define LADCMIXMUTEMIC2BOOST     		(5)
+
+#define LADCMIXMUTEPHONEPN              (4)
+#define LADCMIXMUTEPHONEP              (3)
+
 #define LADCMIXMUTELINEINL              (2)
 #define LADCMIXMUTELOUTPUT              (1)
 #define LADCMIXMUTEROUTPUT              (0)
@@ -1852,6 +1860,8 @@
 #define RADCMIXMUTE                     (0)
 #define RADCMIXMUTEMIC1BOOST     		(6)
 #define RADCMIXMUTEMIC2BOOST     		(5)
+#define LADCMIXMUTEPHONENP              (4)
+#define LADCMIXMUTEPHONEN              (3)
 #define RADCMIXMUTELINEINR              (2)
 #define RADCMIXMUTEROUTPUT              (1)
 #define RADCMIXMUTELOUTPUT              (0)
@@ -1994,6 +2004,17 @@
 #define POPFREE							(3)
 #define AUTOPLEN						(1)
 #define MICDETPL						(0)
+
+/*
+*	0X1E PHONEOUT_CTRL
+*
+*/
+#define PHONEOUTGAIN						(5)
+#define PHONEOUTEN						(4)
+#define PHONEOUTS3						(3)
+#define PHONEOUTS2						(2)
+#define PHONEOUTS1						(1)
+#define PHONEOUTS0						(0)
 
 
 #define SUNXI_TXCHSEL_CHNUM(v)                         (((v)-1)<<0)
