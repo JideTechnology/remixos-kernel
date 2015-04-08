@@ -12,9 +12,85 @@
 #include "sunxi-budget-cooling.h"
 #include "sunxi-budget-interface.h"
 
-#define SUNXI_BUDGET_COOLING_NAME "sunxi_budget_cool"
+#define SUNXI_BUDGET_COOLING_NAME "sunxi-budget"
+#define SUNXI_BUDGET_DRIVER_NAME "sunxi-budget-cooling"
 
 static struct sunxi_budget_cooling_device *budget_cdev;
+
+#define USERSPACE_ROOMAGE
+#ifdef USERSPACE_ROOMAGE
+static ssize_t
+sunxi_budget_roomage_show(struct device *dev,
+					struct device_attribute *attr, char *buf)
+{
+	int ret=0,i;
+	unsigned int roomage_data[8] = {0};
+	struct sunxi_budget_cooling_device *budget_cdev = dev_get_drvdata(dev);
+
+	if(!budget_cdev)
+		return ret;
+	for(i = 0; i < budget_cdev->cluster_num; i++){
+		sunxi_cpufreq_get_roomage(budget_cdev, &roomage_data[2 * i],
+				&roomage_data[2 * i + 4], i);
+		sunxi_hotplug_get_roomage(budget_cdev, &roomage_data[2 * i + 1],
+				&roomage_data[2 * i + 5], i);
+	}
+
+	ret += sprintf(buf, "roomage:%d,%d,%d,%d,%d,%d,%d,%d\n",
+				roomage_data[0],
+				roomage_data[1],
+				roomage_data[2],
+				roomage_data[3],
+				roomage_data[4],
+				roomage_data[5],
+				roomage_data[6],
+				roomage_data[7]);
+	return ret;
+}
+
+static ssize_t
+sunxi_budget_roomage_store(struct device *dev, struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	int i;
+	unsigned int roomage_data[8] = {0};
+	unsigned int pre_freq_floor = 0, pre_freq_roof = 0, next_freq_floor = 0, next_freq_roof = 0;
+	unsigned int pre_num_floor = 0, pre_num_roof = 0, next_num_floor = 0, next_num_roof = 0;
+	struct sunxi_budget_cooling_device *budget_cdev = dev_get_drvdata(dev);
+
+	if(!budget_cdev)
+		return count;
+
+	sscanf(buf,"%u %u %u %u %u %u %u %u\n",
+			&roomage_data[0],
+			&roomage_data[1],
+			&roomage_data[2],
+			&roomage_data[3],
+			&roomage_data[4],
+			&roomage_data[5],
+			&roomage_data[6],
+			&roomage_data[7]);
+	for(i = 0; i < budget_cdev->cluster_num; i++){
+		sunxi_cpufreq_get_roomage(budget_cdev, &pre_freq_floor, &pre_freq_roof, i);
+		sunxi_hotplug_get_roomage(budget_cdev, &pre_num_floor, &pre_num_roof, i);
+		next_freq_floor = roomage_data[2 * i];
+		next_num_floor = roomage_data[2 * i + 1];
+		next_freq_roof = roomage_data[2 * i + 4];
+		next_num_roof = roomage_data[2 *i + 5];
+
+		if(next_freq_roof < pre_freq_roof && next_num_roof > pre_num_roof){
+			sunxi_cpufreq_set_roomage(budget_cdev, next_freq_floor, next_freq_roof, i);
+			sunxi_hotplug_set_roomage(budget_cdev, next_num_floor, next_num_roof, i);
+		}else{
+			sunxi_hotplug_set_roomage(budget_cdev, next_num_floor, next_num_roof, i);
+			sunxi_cpufreq_set_roomage(budget_cdev, next_freq_floor, next_freq_roof, i);
+		}
+	}
+
+	return count;
+}
+static DEVICE_ATTR(roomage, 0644,sunxi_budget_roomage_show, sunxi_budget_roomage_store);
+#endif
 
 static int cpu_budget_apply_cooling(struct sunxi_budget_cooling_device *cooling_device,
 				unsigned long cooling_state)
@@ -220,6 +296,10 @@ static int sunxi_budget_cooling_probe(struct platform_device *pdev)
 		goto fail;
 	budget_cdev->cool_dev = cool_dev;
 	budget_cdev->cooling_state = 0;
+	dev_set_drvdata(&pdev->dev, budget_cdev);
+	#ifdef USERSPACE_ROOMAGE
+	device_create_file(&pdev->dev, &dev_attr_roomage);
+	#endif
 
 	pr_info("CPU budget cooling register Success\n");
 	return 0;
@@ -255,7 +335,7 @@ static struct platform_driver sunxi_budget_cooling_driver = {
 	.probe  = sunxi_budget_cooling_probe,
 	.remove = sunxi_budget_cooling_remove,
 	.driver = {
-		.name   = SUNXI_BUDGET_COOLING_NAME,
+		.name   = SUNXI_BUDGET_DRIVER_NAME,
 		.owner  = THIS_MODULE,
 		.of_match_table = of_match_ptr(sunxi_budget_cooling_of_match),
 	}

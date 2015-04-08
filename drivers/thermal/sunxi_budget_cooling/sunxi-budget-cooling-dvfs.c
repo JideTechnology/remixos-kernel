@@ -48,6 +48,36 @@ int sunxi_cpufreq_update_state(struct sunxi_budget_cooling_device *cooling_devic
 }
 EXPORT_SYMBOL(sunxi_cpufreq_update_state);
 
+int sunxi_cpufreq_get_roomage(struct sunxi_budget_cooling_device *cooling_device,
+				u32 *freq_floor, u32 *freq_roof, u32 cluster)
+{
+	struct sunxi_budget_cpufreq *cpufreq = cooling_device->cpufreq;
+	if(NULL == cpufreq)
+		return 0;
+	*freq_floor = cpufreq->cluster_freq_floor[cluster];
+	*freq_roof = cpufreq->cluster_freq_roof[cluster];
+	return 0;
+}
+EXPORT_SYMBOL(sunxi_cpufreq_get_roomage);
+
+int sunxi_cpufreq_set_roomage(struct sunxi_budget_cooling_device *cooling_device,
+				u32 freq_floor, u32 freq_roof, u32 cluster)
+{
+	unsigned long flags;
+	struct sunxi_budget_cpufreq *cpufreq = cooling_device->cpufreq;
+	if(NULL == cpufreq)
+		return 0;
+	spin_lock_irqsave(&cpufreq->lock, flags);
+
+	cpufreq->cluster_freq_floor[cluster] = freq_floor;
+	cpufreq->cluster_freq_roof[cluster] = freq_roof;
+
+	spin_unlock_irqrestore(&cpufreq->lock, flags);
+	sunxi_cpufreq_update_state(cooling_device, cluster);
+	return 0;
+}
+EXPORT_SYMBOL(sunxi_cpufreq_set_roomage);
+
 static int cpufreq_thermal_notifier(struct notifier_block *nb,
 					unsigned long event, void *data)
 {

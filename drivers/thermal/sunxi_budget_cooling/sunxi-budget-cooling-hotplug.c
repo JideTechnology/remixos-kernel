@@ -90,6 +90,36 @@ int sunxi_hotplug_update_state(struct sunxi_budget_cooling_device *cooling_devic
 }
 EXPORT_SYMBOL(sunxi_hotplug_update_state);
 
+int sunxi_hotplug_get_roomage(struct sunxi_budget_cooling_device *cooling_device,
+				u32 *num_floor, u32 *num_roof, u32 cluster)
+{
+	struct sunxi_budget_hotplug *hotplug = cooling_device->hotplug;
+	if(NULL == hotplug)
+		return 0;
+	*num_floor = hotplug->cluster_num_floor[cluster];
+	*num_roof = hotplug->cluster_num_roof[cluster];
+	return 0;
+}
+EXPORT_SYMBOL(sunxi_hotplug_get_roomage);
+
+int sunxi_hotplug_set_roomage(struct sunxi_budget_cooling_device *cooling_device,
+				u32 num_floor, u32 num_roof, u32 cluster)
+{
+	unsigned long flags;
+	struct sunxi_budget_hotplug *hotplug = cooling_device->hotplug;
+	if(NULL == hotplug)
+		return 0;
+	spin_lock_irqsave(&hotplug->lock, flags);
+
+	hotplug->cluster_num_floor[cluster] = num_floor;
+	hotplug->cluster_num_roof[cluster] = num_roof;
+
+	spin_unlock_irqrestore(&hotplug->lock, flags);
+	sunxi_hotplug_update_state(cooling_device, cluster);
+	return 0;
+}
+EXPORT_SYMBOL(sunxi_hotplug_set_roomage);
+
 static int hotplug_thermal_notifier(struct notifier_block *nfb,
 					unsigned long action, void *hcpu)
 {
