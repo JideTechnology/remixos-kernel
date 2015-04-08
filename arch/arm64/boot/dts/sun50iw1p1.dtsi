@@ -1248,10 +1248,10 @@
 			interrupts = <GIC_SPI 30 IRQ_TYPE_NONE>;
 			status = "okay";
 			key_cnt = <5>;
-			key1 = <222 115>;
-			key2 = <444 114>;
-			key3 = <666 139>;
-			key4 = <857 28>;
+			key1 = <240 115>;
+			key2 = <500 114>;
+			key3 = <700 139>;
+			key4 = <890 28>;
 			key5 = <2000 102>;
 		};
 

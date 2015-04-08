@@ -13,7 +13,7 @@
 #define LRADC_DATA1             (0x10)
 
 #define FIRST_CONCERT_DLY       (0<<24)
-#define CHAN                    (0x3)
+#define CHAN                    (0x0)
 #define ADC_CHAN_SELECT         (CHAN<<22)
 #define LRADC_KEY_MODE          (0)
 #define KEY_MODE_SELECT         (LRADC_KEY_MODE<<12)
