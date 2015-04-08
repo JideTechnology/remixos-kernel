@@ -140,7 +140,7 @@ s32 axp_register_mfd(struct axp_dev *dev)
 
 	ret = dev->ops->init_chip(dev);
 	if (ret)
-		goto out_free_dev;
+		goto out_free;
 
 	spin_lock_irqsave(&axp_list_lock, irqflags);
 	list_add(&dev->list, &mfd_list);
@@ -171,6 +171,7 @@ out_free_dev:
 	spin_lock_irqsave(&axp_list_lock, irqflags);
 	list_del(&dev->list);
 	spin_unlock_irqrestore(&axp_list_lock, irqflags);
+out_free:
 
 	return ret;
 }
