@@ -326,6 +326,7 @@ int enable_cedar_hw_clk(void)
 
 	clk_status = 1;
 
+	sunxi_periph_reset_deassert(ve_moduleclk);
 	if (clk_enable(ve_moduleclk)) {
 		printk("enable ve_moduleclk failed; \n");
 		goto out;
@@ -359,6 +360,7 @@ int disable_cedar_hw_clk(void)
 		printk("ve_moduleclk is invalid, just return!\n");
 	} else {
 		clk_disable(ve_moduleclk);
+		sunxi_periph_reset_assert(ve_moduleclk);
 		res = 0;
 	}
 
@@ -1428,7 +1430,8 @@ static int cedardev_init(struct platform_device *pdev)
 	}
 
 	// no reset ve module
-	sunxi_periph_reset_deassert(ve_moduleclk);
+	//sunxi_periph_reset_deassert(ve_moduleclk);
+	sunxi_periph_reset_assert(ve_moduleclk);
 
 	clk_prepare(ve_moduleclk);
 
