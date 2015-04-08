@@ -3040,6 +3040,7 @@ static int i915_scheduler_info(struct seq_file *m, void *unused)
 	PRINT_VAR("  ExecFinal killed",     "u", stats[r].exec_dead);
 	PRINT_VAR("  Fence wait",           "u", stats[r].fence_wait);
 	PRINT_VAR("  Fence wait again",     "u", stats[r].fence_again);
+	PRINT_VAR("  Fence wait ignore",    "u", stats[r].fence_ignore);
 	PRINT_VAR("  Fence supplied",       "u", stats[r].fence_got);
 	PRINT_VAR("  Hung flying",          "u", stats[r].kill_flying);
 	PRINT_VAR("  Hung queued",          "u", stats[r].kill_queued);

@@ -339,3 +339,38 @@ void i915_sync_hung_ring(struct intel_engine_cs *ring)
 	i915_sync_timeline_advance(req->ctx, req->ring, req->sync_value);
 	timeline->pvt.killed_at = 0;
 }
+
+bool i915_safe_to_ignore_fence(struct intel_engine_cs *ring, struct sync_fence *fence)
+{
+	struct i915_sync_timeline *timeline;
+	struct sync_pt *pt;
+	bool ignore;
+
+	if (fence->status != 0)
+		return true;
+
+	ignore = true;
+	list_for_each_entry(pt, &fence->pt_list_head, pt_list) {
+		/* No need to worry about dead points: */
+		if (pt->status != 0)
+			continue;
+
+		/* Can't ignore other people's points: */
+		if(pt->parent->ops != &i915_sync_timeline_ops) {
+			ignore = false;
+			break;
+		}
+
+		timeline = container_of(pt->parent, struct i915_sync_timeline, obj);
+
+		/* Can't ignore points on other rings: */
+		if (timeline->pvt.ring != ring) {
+			ignore = false;
+			break;
+		}
+
+		/* Same ring means guaranteed to be in order so ignore it. */
+	}
+
+	return ignore;
+}

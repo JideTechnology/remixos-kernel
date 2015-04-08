@@ -60,6 +60,8 @@ struct i915_sync_pt {
 	struct drm_i915_gem_syncpt_driver_data pvt;
 };
 
+bool i915_safe_to_ignore_fence(struct intel_engine_cs *ring, struct sync_fence *fence);
+
 #ifdef CONFIG_DRM_I915_SYNC
 
 int i915_sync_timeline_create(struct drm_device *dev,

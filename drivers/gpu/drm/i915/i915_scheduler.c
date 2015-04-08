@@ -1339,6 +1339,11 @@ static int i915_scheduler_pop_from_queue_locked(struct intel_engine_cs *ring,
 			signalled = node->params.fence_wait->status != 0;
 		else
 			signalled = true;
+
+		if (!signalled) {
+			signalled = i915_safe_to_ignore_fence(ring, node->params.fence_wait);
+			scheduler->stats[node->params.ring->id].fence_ignore++;
+		}
 #endif
 
 		has_local  = false;
