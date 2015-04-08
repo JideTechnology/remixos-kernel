@@ -510,6 +510,306 @@ static void cedar_engine_for_events(unsigned long arg)
 	spin_unlock_irqrestore(&cedar_spin_lock, flags);
 }
 
+
+static long compat_cedardev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	long  ret = 0;
+	int ve_timeout = 0;
+	//struct cedar_dev *devp;
+#ifdef USE_CEDAR_ENGINE
+	int rel_taskid = 0;
+	struct __cedarv_task task_ret;
+	struct cedarv_engine_task *task_ptr = NULL;
+#endif
+	unsigned long flags;
+	struct ve_info *info;
+
+	info = filp->private_data;
+
+	switch (cmd)
+	{
+		case IOCTL_ENGINE_REQ:
+#ifdef USE_CEDAR_ENGINE
+			if(copy_from_user(&task_ret, (void __user*)arg, sizeof(struct __cedarv_task))){
+				printk("IOCTL_ENGINE_REQ copy_from_user fail\n");
+				return -EFAULT;
+			}
+			spin_lock_irqsave(&cedar_spin_lock, flags);
+
+			if(!list_empty(&run_task_list) && ( task_ret.block_mode == CEDAR_NONBLOCK_TASK)){
+				spin_unlock_irqrestore(&cedar_spin_lock, flags);
+				return CEDAR_RUN_LIST_NONULL;
+			}
+			spin_unlock_irqrestore(&cedar_spin_lock, flags);
+
+			task_ptr = kmalloc(sizeof(struct cedarv_engine_task), GFP_KERNEL);
+			if(!task_ptr){
+				printk("get mem for IOCTL_ENGINE_REQ\n");
+				return PTR_ERR(task_ptr);
+			}
+			task_ptr->task_handle = current;
+			task_ptr->t.ID = task_ret.ID;
+			task_ptr->t.timeout = jiffies + msecs_to_jiffies(1000*task_ret.timeout);//ms to jiffies
+			task_ptr->t.frametime = task_ret.frametime;
+			task_ptr->t.task_prio = task_ret.task_prio;
+			task_ptr->running = 0;
+			task_ptr->is_first_task = 0;
+			task_ptr->status = TASK_INIT;
+
+			cedardev_insert_task(task_ptr);
+
+			ret = enable_cedar_hw_clk();
+			if (ret < 0) {
+				printk("Warring: cedar clk enable somewhere error!\n");
+				return -EFAULT;
+			}
+			return task_ptr->is_first_task;
+#else
+			enable_cedar_hw_clk();
+			cedar_devp->ref_count++;
+			break;
+#endif
+		case IOCTL_ENGINE_REL:
+#ifdef USE_CEDAR_ENGINE
+			rel_taskid = (int)arg;
+
+			ret = cedardev_del_task(rel_taskid);
+#else
+			ret = disable_cedar_hw_clk();
+			if (ret < 0) {
+				printk("Warring: cedar clk disable somewhere error!\n");
+				return -EFAULT;
+			}
+			cedar_devp->ref_count--;
+#endif
+			return ret;
+		case IOCTL_ENGINE_CHECK_DELAY:
+			{
+				struct cedarv_engine_task_info task_info;
+
+				if(copy_from_user(&task_info, (void __user*)arg, sizeof(struct cedarv_engine_task_info))){
+					printk("IOCTL_ENGINE_CHECK_DELAY copy_from_user fail\n");
+					return -EFAULT;
+				}
+				task_info.total_time = cedardev_check_delay(task_info.task_prio);
+#ifdef CEDAR_DEBUG
+				printk("%s,%d,%d\n", __func__, __LINE__, task_info.total_time);
+#endif
+				task_info.frametime = 0;
+				spin_lock_irqsave(&cedar_spin_lock, flags);
+				if(!list_empty(&run_task_list)){
+
+					struct cedarv_engine_task *task_entry;
+#ifdef CEDAR_DEBUG
+					printk("%s,%d\n",__func__,__LINE__);
+#endif
+					task_entry = list_entry(run_task_list.next, struct cedarv_engine_task, list);
+					if(task_entry->running == 1)
+						task_info.frametime = task_entry->t.frametime;
+#ifdef CEDAR_DEBUG
+					printk("%s,%d,%d\n",__func__,__LINE__,task_info.frametime);
+#endif
+				}
+				spin_unlock_irqrestore(&cedar_spin_lock, flags);
+
+				if (copy_to_user((void *)arg, &task_info, sizeof(struct cedarv_engine_task_info))){
+					printk("IOCTL_ENGINE_CHECK_DELAY copy_to_user fail\n");
+					return -EFAULT;
+				}
+			}
+			break;
+		case IOCTL_WAIT_VE_DE:
+			ve_timeout = (int)arg;
+			cedar_devp->de_irq_value = 0;
+
+			spin_lock_irqsave(&cedar_spin_lock, flags);
+			if(cedar_devp->de_irq_flag)
+				cedar_devp->de_irq_value = 1;
+			spin_unlock_irqrestore(&cedar_spin_lock, flags);
+
+			wait_event_interruptible_timeout(wait_ve, cedar_devp->de_irq_flag, ve_timeout*HZ);
+			cedar_devp->de_irq_flag = 0;
+
+			return cedar_devp->de_irq_value;
+
+		case IOCTL_WAIT_VE_EN:
+
+		#if 0
+			printk("ve_top_00:%x\n",readl(cedar_devp->iomap_addrs.regs_macc));
+			printk("ve_top_04:%x\n",readl((cedar_devp->iomap_addrs.regs_macc)+4));
+			printk("ve_top_08:%x\n",readl((cedar_devp->iomap_addrs.regs_macc)+8));
+			printk("ve_top_0c:%x\n",readl((cedar_devp->iomap_addrs.regs_macc)+12));
+
+			printk("ycy the sram base addr is %p, value is %x\n",cedar_devp->sram_bass_vir, *((unsigned int*)(cedar_devp->sram_bass_vir)));
+			printk("ycy the sram for ve addr is %p, value is %x\n",(cedar_devp->sram_bass_vir+1), *((unsigned int*)(cedar_devp->sram_bass_vir+1)));
+
+			printk("ycy clk_bass_vir 0x18  is %p, the value:%x\n",(cedar_devp->clk_bass_vir+6), (*(cedar_devp->clk_bass_vir+6)));
+			printk("ycy clk_bass_vir 0x13c  is %p, the value:%x\n",(cedar_devp->clk_bass_vir+79), (*(cedar_devp->clk_bass_vir+79)));
+			printk("ycy clk_bass_virm 0x64  is %p, the value:%x\n",(cedar_devp->clk_bass_vir+25), (*(cedar_devp->clk_bass_vir+25)));
+			printk("ycy clk_bass_vir 0x2c4  is %p, the value:%x\n",(cedar_devp->clk_bass_vir+177), (*(cedar_devp->clk_bass_vir+177)));
+			printk("ycy clk_bass_vir 0x100  is %p, the value:%x\n",(cedar_devp->clk_bass_vir+64), (*(cedar_devp->clk_bass_vir+64)));
+		#endif
+
+			ve_timeout = (int)arg;
+			cedar_devp->en_irq_value = 0;
+
+			spin_lock_irqsave(&cedar_spin_lock, flags);
+			if(cedar_devp->en_irq_flag)
+				cedar_devp->en_irq_value = 1;
+			spin_unlock_irqrestore(&cedar_spin_lock, flags);
+
+			wait_event_interruptible_timeout(wait_ve, cedar_devp->en_irq_flag, ve_timeout*HZ);
+			cedar_devp->en_irq_flag = 0;
+
+			return cedar_devp->en_irq_value;
+
+#if ((defined CONFIG_ARCH_SUN8IW8P1) || (defined CONFIG_ARCH_SUN50I))
+
+		case IOCTL_WAIT_JPEG_DEC:
+			ve_timeout = (int)arg;
+			cedar_devp->jpeg_irq_value = 0;
+
+			spin_lock_irqsave(&cedar_spin_lock, flags);
+			if(cedar_devp->jpeg_irq_flag)
+				cedar_devp->jpeg_irq_value = 1;
+			spin_unlock_irqrestore(&cedar_spin_lock, flags);
+
+			wait_event_interruptible_timeout(wait_ve, cedar_devp->jpeg_irq_flag, ve_timeout*HZ);
+			cedar_devp->jpeg_irq_flag = 0;
+			return cedar_devp->jpeg_irq_value;
+#endif
+		case IOCTL_ENABLE_VE:
+			if (clk_prepare_enable(ve_moduleclk)) {
+				printk("try to enable ve_moduleclk failed!\n");
+			}
+			break;
+
+		case IOCTL_DISABLE_VE:
+			if ((NULL == ve_moduleclk)||IS_ERR(ve_moduleclk)) {
+				printk("ve_moduleclk is invalid, just return!\n");
+				return -EFAULT;
+			} else {
+				clk_disable_unprepare(ve_moduleclk);
+			}
+			break;
+
+		case IOCTL_RESET_VE:
+			sunxi_periph_reset_assert(ve_moduleclk);
+			sunxi_periph_reset_deassert(ve_moduleclk);
+			break;
+
+		case IOCTL_SET_VE_FREQ:
+			{
+				int arg_rate = (int)arg;
+
+#if 0
+				int v_div = 0;
+				v_div = (ve_parent_clk_rate/1000000 + (arg_rate-1))/arg_rate;
+				if (v_div <= 8 && v_div >= 1) {
+					if (clk_set_rate(ve_moduleclk, ve_parent_clk_rate/v_div)) {
+						/*
+						 * while set the rate fail, don't return the fail value,
+						 * we can still set the other rate of ve module clk.
+						 */
+						printk("try to set ve_rate fail\n");
+					}
+				}
+#else
+				if(arg_rate >= VE_CLK_LOW_WATER &&
+						arg_rate <= VE_CLK_HIGH_WATER &&
+						clk_get_rate(ve_moduleclk)/1000000 != arg_rate) {
+					if(!clk_set_rate(ve_parent_pll_clk, arg_rate*1000000)) {
+						ve_parent_clk_rate = clk_get_rate(ve_parent_pll_clk);
+						if(clk_set_rate(ve_moduleclk, ve_parent_clk_rate)) {
+							printk("set ve clock failed\n");
+						}
+
+					} else {
+						printk("set pll4 clock failed\n");
+					}
+				}
+				ret = clk_get_rate(ve_moduleclk);
+#endif
+				break;
+			}
+		case IOCTL_GETVALUE_AVS2:
+		case IOCTL_ADJUST_AVS2:
+		case IOCTL_ADJUST_AVS2_ABS:
+		case IOCTL_CONFIG_AVS2:
+		case IOCTL_RESET_AVS2:
+		case IOCTL_PAUSE_AVS2:
+		case IOCTL_START_AVS2:
+			// printk("do not supprot this ioctrl now\n");
+			break;
+
+		case IOCTL_GET_ENV_INFO:
+			{
+				struct cedarv_env_infomation env_info;
+
+				env_info.phymem_start = 0; // do not use this interface ,ve get phy mem form ion now
+				env_info.phymem_total_size = 0;//ve_size = 0x04000000
+				env_info.address_macc = 0;
+				if (copy_to_user((char *)arg, &env_info, sizeof(struct cedarv_env_infomation)))
+					return -EFAULT;
+			}
+			break;
+		case IOCTL_GET_IC_VER:
+			{
+				return 0;
+			}
+		case IOCTL_READ_REG:
+			{
+				struct cedarv_regop reg_para;
+				if(copy_from_user(&reg_para, (void __user*)arg, sizeof(struct cedarv_regop)))
+				{
+					return -EFAULT;
+				}
+				return readl((void*)reg_para.addr);
+			}
+
+		case IOCTL_WRITE_REG:
+			{
+				struct cedarv_regop reg_para;
+				if(copy_from_user(&reg_para, (void __user*)arg, sizeof(struct cedarv_regop)))
+				{
+					return -EFAULT;
+				}
+				writel(reg_para.value, (void*)reg_para.addr);
+				break;
+			}
+			break;
+		case IOCTL_SET_REFCOUNT:
+			cedar_devp->ref_count = (int)arg;
+			break;
+		case IOCTL_SET_VOL:
+			{
+
+#if defined CONFIG_ARCH_SUN9IW1P1
+				int ret;
+				int vol = (int)arg;
+
+				if (down_interruptible(&cedar_devp->sem)) {
+					return -ERESTARTSYS;
+				}
+				info->set_vol_flag = 1;
+
+				//set output voltage to arg mV
+				ret = regulator_set_voltage(regu,vol*1000,3300000);
+				if(IS_ERR(regu )) {
+					printk("some error happen, fail to set axp15_dcdc4 regulator voltage!\n");
+				}
+
+				//printk("set voltage value vol: %d(mv)\n", vol);
+				up(&cedar_devp->sem);
+#endif
+				break;
+			}
+		default:
+			return -1;
+	}
+	return ret;
+}
+
 /*
  * ioctl function
  * including : wait video engine done,
@@ -532,8 +832,6 @@ static long cedardev_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 	struct ve_info *info;
 
 	info = filp->private_data;
-
-	//printk("ycy cedar_ve cedardev_ioctl cmd is %d\n",cmd);
 
 	switch (cmd)
 	{
@@ -992,6 +1290,9 @@ static const struct file_operations cedardev_fops = {
 	.release = cedardev_release,
 	.llseek  = no_llseek,
 	.unlocked_ioctl   = cedardev_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = compat_cedardev_ioctl,
+#endif
 };
 
 static int cedardev_init(struct platform_device *pdev)
