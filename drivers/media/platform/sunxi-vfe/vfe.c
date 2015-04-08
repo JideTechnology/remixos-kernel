@@ -3150,6 +3150,11 @@ int vidioc_set_subchannel(struct file *file, struct v4l2_fh *fh, struct v4l2_pix
 	struct isp_size_settings size_settings;
 	struct vfe_dev *dev = video_drvdata(file);
 	struct isp_fmt_cfg *isp_fmt_cfg = &dev->ccm_cfg[dev->input]->isp_fmt;
+	if(!dev->is_isp_used)
+	{
+		vfe_err("isp must be set first when set subchannel\n");
+		return -1;
+	}		
 	isp_fmt_cfg->isp_fmt[SUB_CH] = pix_fmt_v4l2_to_common(sub->pixelformat);
 	isp_fmt_cfg->isp_size[SUB_CH].width = sub->width;
 	isp_fmt_cfg->isp_size[SUB_CH].height = sub->height;
@@ -3157,7 +3162,11 @@ int vidioc_set_subchannel(struct file *file, struct v4l2_fh *fh, struct v4l2_pix
 	dev->thumb_height = sub->height;
 	if(isp_fmt_cfg->isp_size[SUB_CH].height > isp_fmt_cfg->isp_size[MAIN_CH].height || isp_fmt_cfg->isp_size[SUB_CH].width > isp_fmt_cfg->isp_size[MAIN_CH].width)
 	{
-		vfe_err("subchannel size > main channel size!!!");
+		vfe_err("subchannel size > main channel size,main_height = %d main_width = %d sub_height = %d sub_width= %d\n",
+			isp_fmt_cfg->isp_size[MAIN_CH].width,
+			isp_fmt_cfg->isp_size[MAIN_CH].height,
+			isp_fmt_cfg->isp_size[SUB_CH].width,
+			isp_fmt_cfg->isp_size[SUB_CH].height);
 		return -1;
 	}
 	dev->isp_gen_set_pt->double_ch_flag = 1;
@@ -3180,6 +3189,11 @@ int vidioc_set_rotchannel(struct file *file, struct v4l2_fh *fh, struct rot_chan
 	struct isp_size_settings size_settings;
 	struct vfe_dev *dev = video_drvdata(file);
 	struct isp_fmt_cfg *isp_fmt_cfg = &dev->ccm_cfg[dev->input]->isp_fmt;
+	if(!dev->is_isp_used)
+	{
+		vfe_err("isp must be set first when set rotchannel\n");
+		return -1;
+	}	
 	isp_fmt_cfg->isp_fmt[ROT_CH] = isp_fmt_cfg->isp_fmt[rot->sel_ch];
 	isp_fmt_cfg->rot_angle = rot->rotation;
 	isp_fmt_cfg->rot_ch = rot->sel_ch;
