@@ -144,6 +144,7 @@ static __always_inline irqreturn_t timer_handler(const int access,
 		evt->event_handler(evt);
 		return IRQ_HANDLED;
 	}
+
 	return IRQ_NONE;
 }
 
@@ -419,31 +420,9 @@ static u64 arch_counter_get_cntvct_mem(void)
  */
 u64 (*arch_timer_read_counter)(void) = arch_counter_get_cntvct;
 
-static void __iomem *sun50i_cpuscfg_base;
-#define SUN50I_CPUSCFG_PBASE	(0x01F01C00)
-static DEFINE_RAW_SPINLOCK(cnt64_lock);
-u64 cpuscfg_read_cnt64(void)
-{
-	u64 cnt64;
-	u64 hi;
-	u64 low;
-	unsigned long flags;
-
-	raw_spin_lock_irqsave(&cnt64_lock, flags);
-
-	writel(0x2, sun50i_cpuscfg_base + 0x280);
-	low = readl(sun50i_cpuscfg_base + 0x284);
-	hi  = readl(sun50i_cpuscfg_base + 0x288);
-	cnt64  = (hi << 32) + low;
-
-	raw_spin_unlock_irqrestore(&cnt64_lock, flags);
-
-	return cnt64;
-}
 static cycle_t arch_counter_read(struct clocksource *cs)
 {
-	return cpuscfg_read_cnt64();
-	//return arch_counter_get_cntvct();
+	return arch_counter_get_cntvct();
 }
 
 static cycle_t arch_counter_read_cc(const struct cyclecounter *cc)
@@ -451,7 +430,7 @@ static cycle_t arch_counter_read_cc(const struct cyclecounter *cc)
 	return arch_counter_get_cntvct();
 }
 
-struct clocksource clocksource_counter = {
+static struct clocksource clocksource_counter = {
 	.name	= "arch_sys_counter",
 	.rating	= 400,
 	.read	= arch_counter_read,
@@ -475,8 +454,6 @@ static void __init arch_counter_register(unsigned type)
 {
 	u64 start_count;
 
-	sun50i_cpuscfg_base = ioremap(SUN50I_CPUSCFG_PBASE, SZ_4K);
-	
 	/* Register the CP15 based counter if we have one */
 	if (type & ARCH_CP15_TIMER)
 		arch_timer_read_counter = arch_counter_get_cntvct;
