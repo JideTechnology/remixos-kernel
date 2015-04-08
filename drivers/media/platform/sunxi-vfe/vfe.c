@@ -1784,145 +1784,145 @@ static enum v4l2_mbus_pixelcode *try_fmt_internal(struct vfe_dev *dev,struct v4l
 	ccm_fmt.width = f->fmt.pix.width;
 	ccm_fmt.height = f->fmt.pix.height;
   
-  //find the expect bus format via frame format list
-  if(pix_fmt_type == YUV422_PL || pix_fmt_type == YUV422_SPL || \
-    pix_fmt_type == YUV420_PL || pix_fmt_type == YUV420_SPL) {
-    if(dev->is_isp_used&&dev->is_bayer_raw) {
-     // vfe_print("using isp at %s!\n",__func__);
-      for(bus_pix_code = try_bayer_rgb_bus; bus_pix_code < try_bayer_rgb_bus + N_TRY_BAYER; bus_pix_code++) {
-        ccm_fmt.code  = *bus_pix_code;
-        ccm_fmt.field = f->fmt.pix.field;
-        ret = v4l2_subdev_call(dev->sd,video,try_mbus_fmt,&ccm_fmt);
-        if (ret >= 0) {
-          vfe_dbg(0,"try bayer bus ok when pix fmt is yuv422/yuv420 at %s!\n",__func__);
-          break;
-        }
-      }
-      if (ret < 0 ) {
-        vfe_err("try bayer bus error when pix fmt is yuv422/yuv420 at %s!\n",__func__);
-        for(bus_pix_code = try_yuv422_bus; bus_pix_code < try_yuv422_bus + N_TRY_YUV422; bus_pix_code++) {
-          ccm_fmt.code  = *bus_pix_code;
-          ccm_fmt.field = f->fmt.pix.field;
-          ret = v4l2_subdev_call(dev->sd,video,try_mbus_fmt,&ccm_fmt);
-          if (ret >= 0) {
-            vfe_dbg(0,"try yuv22 bus ok when pix fmt is yuv422/yuv420 at %s!\n",__func__);
-            break;
-          }
-        }
-        if (ret < 0) {
-          vfe_err("try yuv22 fmt error when pix fmt is yuv422/yuv420 at %s!\n",__func__);
-          if(pix_fmt_type == YUV420_PL || pix_fmt_type == YUV420_SPL) {
-            for(bus_pix_code = try_yuv420_bus; bus_pix_code < try_yuv420_bus + N_TRY_YUV420; bus_pix_code++) {
-              ccm_fmt.code  = *bus_pix_code;
-              ccm_fmt.field = f->fmt.pix.field;
-              ret = v4l2_subdev_call(dev->sd,video,try_mbus_fmt,&ccm_fmt);
-              if (ret >= 0) {
-                vfe_dbg(0,"try yuv420 bus ok when pix fmt is yuv420 at %s!\n",__func__);
-                break;
-              } 
-            }
-            if (ret < 0) {
-              vfe_err("try yuv420 bus error when pix fmt is yuv420 at %s!\n",__func__);
-              return NULL;
-            }
-          } else {
-            return NULL;
-          }
-        }
-      }
-    } else {
-     // vfe_dbg(0,"not using isp at %s!\n",__func__);
-      for(bus_pix_code = try_yuv422_bus; bus_pix_code < try_yuv422_bus + N_TRY_YUV422; bus_pix_code++) {
-        ccm_fmt.code  = *bus_pix_code;
-        ccm_fmt.field = f->fmt.pix.field;
-        ret = v4l2_subdev_call(dev->sd,video,try_mbus_fmt,&ccm_fmt);
-        vfe_dbg(0,"v4l2_subdev_call try_mbus_fmt return %x\n",ret);
-        if (ret >= 0) {
-          vfe_dbg(0,"try yuv422 fmt ok when pix fmt is yuv422/yuv420 at %s!\n",__func__);
-          break;
-        } 
-      }
-      if (ret < 0) {
-        vfe_err("try yuv422 fmt error when pix fmt is yuv422/yuv420 at %s!\n",__func__);
-        if(pix_fmt_type == YUV420_PL || pix_fmt_type == YUV420_SPL) {
-        
-        } else {
-          return NULL;
-        }
-      }
-    }
-  } else if (pix_fmt_type == YUV422_INTLVD) {
-    //vfe_dbg(0,"not using isp at %s!\n",__func__);
-    for(bus_pix_code = try_yuv422_bus; bus_pix_code < try_yuv422_bus + N_TRY_YUV422; bus_pix_code++) {
-      ccm_fmt.code  = *bus_pix_code;
-      ccm_fmt.field = f->fmt.pix.field;
-      ret = v4l2_subdev_call(dev->sd,video,try_mbus_fmt,&ccm_fmt);
-      if (ret >= 0) {
-        vfe_dbg(0,"try yuv422 bus ok when pix fmt is yuv422 interleaved at %s!\n",__func__);
-        break;
-      } 
-    }
-    if (ret < 0) {
-      vfe_err("try yuv422 bus error when pix fmt is yuv422 interleaved at %s!\n",__func__);
-      return NULL;
-    }
-  } else if (pix_fmt_type == BAYER_RGB) {
-   // vfe_dbg(0,"not using isp at %s!\n",__func__);
-    for(bus_pix_code = try_bayer_rgb_bus; bus_pix_code < try_bayer_rgb_bus + N_TRY_BAYER; bus_pix_code++) {
-      ccm_fmt.code  = *bus_pix_code;
-      ccm_fmt.field = f->fmt.pix.field;
-      ret = v4l2_subdev_call(dev->sd,video,try_mbus_fmt,&ccm_fmt);
-      if (ret >= 0) {
-        vfe_dbg(0,"try bayer bus ok when pix fmt is bayer rgb at %s!\n",__func__);
-        break;
-      }
-    }
-    if (ret < 0) {
-      vfe_err("try bayer bus error when pix fmt is bayer rgb at %s!\n",__func__);
-      return NULL;
-    } 
-  } else if (pix_fmt_type == RGB565) {
-  //  vfe_dbg(0,"not using isp at %s!\n",__func__);
-    for(bus_pix_code = try_rgb565_bus; bus_pix_code < try_rgb565_bus + N_TRY_BAYER; bus_pix_code++) {
-      ccm_fmt.code  = *bus_pix_code;
-      ccm_fmt.field = f->fmt.pix.field;
-      ret = v4l2_subdev_call(dev->sd,video,try_mbus_fmt,&ccm_fmt);
-      if (ret >= 0) {
-        vfe_dbg(0,"try rgb565 bus ok when pix fmt is rgb565 at %s!\n",__func__);
-        break;
-      }
-    }
-    if (ret < 0) {
-      vfe_err("try rgb565 bus error when pix fmt is rgb565 at %s!\n",__func__);
-      return NULL;
-    }   
-  } else if (pix_fmt_type == RGB888 || pix_fmt_type == PRGB888) {
-  //  vfe_dbg(0,"not using isp at %s!\n",__func__);
-    for(bus_pix_code = try_rgb888_bus; bus_pix_code < try_rgb888_bus + N_TRY_BAYER; bus_pix_code++) {
-      ccm_fmt.code  = *bus_pix_code;
-      ccm_fmt.field = f->fmt.pix.field;
-      ret = v4l2_subdev_call(dev->sd,video,try_mbus_fmt,&ccm_fmt);
-      if (ret >= 0) {
-        vfe_dbg(0,"try rgb888 bus ok when pix fmt is rgb888/prgb888 at %s!\n",__func__);
-        break;
-      }
-    }
-    if (ret < 0) {
-      vfe_err("try rgb888 bus error when pix fmt is rgb888/prgb888 at %s!\n",__func__);
-      return NULL;
-    }       
-  } else {
-    return NULL;
-  }
+	//find the expect bus format via frame format list
+  	if(pix_fmt_type == YUV422_PL || pix_fmt_type == YUV422_SPL || \
+      pix_fmt_type == YUV420_PL || pix_fmt_type == YUV420_SPL) {
+		if(dev->is_isp_used&&dev->is_bayer_raw) {
+			// vfe_print("using isp at %s!\n",__func__);
+			for(bus_pix_code = try_bayer_rgb_bus; bus_pix_code < try_bayer_rgb_bus + N_TRY_BAYER; bus_pix_code++) {
+				ccm_fmt.code  = *bus_pix_code;
+				ccm_fmt.field = f->fmt.pix.field;
+				ret = v4l2_subdev_call(dev->sd,video,try_mbus_fmt,&ccm_fmt);
+				if (ret >= 0) {
+					vfe_dbg(0,"try bayer bus ok when pix fmt is yuv422/yuv420 at %s!\n",__func__);
+					break;
+				}
+			}
+			if (ret < 0 ) {
+				vfe_err("try bayer bus error when pix fmt is yuv422/yuv420 at %s!\n",__func__);
+				for(bus_pix_code = try_yuv422_bus; bus_pix_code < try_yuv422_bus + N_TRY_YUV422; bus_pix_code++) {
+					ccm_fmt.code  = *bus_pix_code;
+					ccm_fmt.field = f->fmt.pix.field;
+					ret = v4l2_subdev_call(dev->sd,video,try_mbus_fmt,&ccm_fmt);
+					if (ret >= 0) {
+						vfe_dbg(0,"try yuv22 bus ok when pix fmt is yuv422/yuv420 at %s!\n",__func__);
+						break;
+					}
+				}
+				if (ret < 0) {
+					vfe_err("try yuv22 fmt error when pix fmt is yuv422/yuv420 at %s!\n",__func__);
+					if(pix_fmt_type == YUV420_PL || pix_fmt_type == YUV420_SPL) {
+						for(bus_pix_code = try_yuv420_bus; bus_pix_code < try_yuv420_bus + N_TRY_YUV420; bus_pix_code++) {
+							ccm_fmt.code  = *bus_pix_code;
+							ccm_fmt.field = f->fmt.pix.field;
+							ret = v4l2_subdev_call(dev->sd,video,try_mbus_fmt,&ccm_fmt);
+							if (ret >= 0) {
+								vfe_dbg(0,"try yuv420 bus ok when pix fmt is yuv420 at %s!\n",__func__);
+								break;
+							} 
+						}
+						if (ret < 0) {
+							vfe_err("try yuv420 bus error when pix fmt is yuv420 at %s!\n",__func__);
+							return NULL;
+						}
+					} else {
+						return NULL;
+					}
+				}
+			}
+		} else {
+			// vfe_dbg(0,"not using isp at %s!\n",__func__);
+			for(bus_pix_code = try_yuv422_bus; bus_pix_code < try_yuv422_bus + N_TRY_YUV422; bus_pix_code++) {
+				ccm_fmt.code  = *bus_pix_code;
+				ccm_fmt.field = f->fmt.pix.field;
+				ret = v4l2_subdev_call(dev->sd,video,try_mbus_fmt,&ccm_fmt);
+				vfe_dbg(0,"v4l2_subdev_call try_mbus_fmt return %x\n",ret);
+				if (ret >= 0) {
+					vfe_dbg(0,"try yuv422 fmt ok when pix fmt is yuv422/yuv420 at %s!\n",__func__);
+					break;
+				} 
+			}
+			if (ret < 0) {
+				vfe_err("try yuv422 fmt error when pix fmt is yuv422/yuv420 at %s!\n",__func__);
+				if(pix_fmt_type == YUV420_PL || pix_fmt_type == YUV420_SPL) {
+
+				} else {
+					return NULL;
+				}
+			}
+		}
+	} else if (pix_fmt_type == YUV422_INTLVD) {
+		//vfe_dbg(0,"not using isp at %s!\n",__func__);
+		for(bus_pix_code = try_yuv422_bus; bus_pix_code < try_yuv422_bus + N_TRY_YUV422; bus_pix_code++) {
+			ccm_fmt.code  = *bus_pix_code;
+			ccm_fmt.field = f->fmt.pix.field;
+			ret = v4l2_subdev_call(dev->sd,video,try_mbus_fmt,&ccm_fmt);
+			if (ret >= 0) {
+				vfe_dbg(0,"try yuv422 bus ok when pix fmt is yuv422 interleaved at %s!\n",__func__);
+				break;
+			} 
+		}
+		if (ret < 0) {
+			vfe_err("try yuv422 bus error when pix fmt is yuv422 interleaved at %s!\n",__func__);
+			return NULL;
+		}
+	} else if (pix_fmt_type == BAYER_RGB) {
+		// vfe_dbg(0,"not using isp at %s!\n",__func__);
+		for(bus_pix_code = try_bayer_rgb_bus; bus_pix_code < try_bayer_rgb_bus + N_TRY_BAYER; bus_pix_code++) {
+			ccm_fmt.code  = *bus_pix_code;
+			ccm_fmt.field = f->fmt.pix.field;
+			ret = v4l2_subdev_call(dev->sd,video,try_mbus_fmt,&ccm_fmt);
+			if (ret >= 0) {
+				vfe_dbg(0,"try bayer bus ok when pix fmt is bayer rgb at %s!\n",__func__);
+				break;
+			}
+		}
+		if (ret < 0) {
+			vfe_err("try bayer bus error when pix fmt is bayer rgb at %s!\n",__func__);
+			return NULL;
+		} 
+	} else if (pix_fmt_type == RGB565) {
+		//  vfe_dbg(0,"not using isp at %s!\n",__func__);
+		for(bus_pix_code = try_rgb565_bus; bus_pix_code < try_rgb565_bus + N_TRY_BAYER; bus_pix_code++) {
+			ccm_fmt.code  = *bus_pix_code;
+			ccm_fmt.field = f->fmt.pix.field;
+			ret = v4l2_subdev_call(dev->sd,video,try_mbus_fmt,&ccm_fmt);
+			if (ret >= 0) {
+				vfe_dbg(0,"try rgb565 bus ok when pix fmt is rgb565 at %s!\n",__func__);
+				break;
+			}
+		}
+		if (ret < 0) {
+			vfe_err("try rgb565 bus error when pix fmt is rgb565 at %s!\n",__func__);
+			return NULL;
+		}   
+	} else if (pix_fmt_type == RGB888 || pix_fmt_type == PRGB888) {
+		//  vfe_dbg(0,"not using isp at %s!\n",__func__);
+		for(bus_pix_code = try_rgb888_bus; bus_pix_code < try_rgb888_bus + N_TRY_BAYER; bus_pix_code++) {
+			ccm_fmt.code  = *bus_pix_code;
+			ccm_fmt.field = f->fmt.pix.field;
+			ret = v4l2_subdev_call(dev->sd,video,try_mbus_fmt,&ccm_fmt);
+			if (ret >= 0) {
+				vfe_dbg(0,"try rgb888 bus ok when pix fmt is rgb888/prgb888 at %s!\n",__func__);
+				break;
+			}
+		}
+		if (ret < 0) {
+			vfe_err("try rgb888 bus error when pix fmt is rgb888/prgb888 at %s!\n",__func__);
+			return NULL;
+		}       
+	} else {
+		return NULL;
+	}
   
-  f->fmt.pix.width = ccm_fmt.width;
-  f->fmt.pix.height = ccm_fmt.height;
+	f->fmt.pix.width = ccm_fmt.width;
+	f->fmt.pix.height = ccm_fmt.height;
   
-  vfe_dbg(0,"bus pixel code = %x at %s\n",*bus_pix_code,__func__);
-  vfe_dbg(0,"pix->width = %d at %s\n",f->fmt.pix.width,__func__);
-  vfe_dbg(0,"pix->height = %d at %s\n",f->fmt.pix.height,__func__);
+	vfe_dbg(0,"bus pixel code = %x at %s\n",*bus_pix_code,__func__);
+	vfe_dbg(0,"pix->width = %d at %s\n",f->fmt.pix.width,__func__);
+	vfe_dbg(0,"pix->height = %d at %s\n",f->fmt.pix.height,__func__);
   
-  return bus_pix_code;
+	return bus_pix_code;
 }
 
 static enum pkt_fmt get_pkt_fmt(enum bus_pixelcode bus_pix_code)
@@ -1979,265 +1979,261 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,
 static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
           struct v4l2_format *f)
 {
-  struct vfe_dev *dev = video_drvdata(file);
-  struct videobuf_queue *q = &dev->vb_vidq;
-  struct v4l2_mbus_framefmt ccm_fmt;
-  struct v4l2_mbus_config mbus_cfg;
-  struct isp_size_settings size_settings;
-  enum v4l2_mbus_pixelcode *bus_pix_code;
-  struct sensor_win_size win_cfg;
-  struct isp_fmt_cfg *isp_fmt_cfg = &dev->ccm_cfg[dev->input]->isp_fmt;
+	struct vfe_dev *dev = video_drvdata(file);
+	struct videobuf_queue *q = &dev->vb_vidq;
+	struct v4l2_mbus_framefmt ccm_fmt;
+	struct v4l2_mbus_config mbus_cfg;
+	struct isp_size_settings size_settings;
+	enum v4l2_mbus_pixelcode *bus_pix_code;
+	struct sensor_win_size win_cfg;
+	struct isp_fmt_cfg *isp_fmt_cfg = &dev->ccm_cfg[dev->input]->isp_fmt;
   
-  unsigned char ch_num;
-  unsigned int i;
-  int ret;
+	unsigned char ch_num;
+	unsigned int i;
+	int ret;
   
-  vfe_dbg(0,"vidioc_s_fmt_vid_cap\n");  
+	vfe_dbg(0,"vidioc_s_fmt_vid_cap\n");  
 
-  if (vfe_is_generating(dev)) {
-    vfe_err("%s device busy\n", __func__);
-    return -EBUSY;
-  }
+	if (vfe_is_generating(dev)) {
+		vfe_err("%s device busy\n", __func__);
+		return -EBUSY;
+	}
 
-  mutex_lock(&q->vb_lock);
-  memset(isp_fmt_cfg, 0, sizeof(struct isp_fmt_cfg));
+	mutex_lock(&q->vb_lock);
+	memset(isp_fmt_cfg, 0, sizeof(struct isp_fmt_cfg));
 
-  bus_pix_code = try_fmt_internal(dev,f);
-  if(!bus_pix_code) {
-    vfe_err("pixel format (0x%08x) width %d height %d invalid at %s.\n", \
-    f->fmt.pix.pixelformat,f->fmt.pix.width,f->fmt.pix.height,__func__);
-    ret = -EINVAL;
-    goto out;
-  }
-  vfe_dbg(0,"bus pixel code = %x at %s\n",*bus_pix_code,__func__);
-  vfe_dbg(0,"pix->width = %d at %s\n",f->fmt.pix.width,__func__);
-  vfe_dbg(0,"pix->height = %d at %s\n",f->fmt.pix.height,__func__);
+	bus_pix_code = try_fmt_internal(dev,f);
+	if(!bus_pix_code) {
+		vfe_err("pixel format (0x%08x) width %d height %d invalid at %s.\n", \
+		f->fmt.pix.pixelformat,f->fmt.pix.width,f->fmt.pix.height,__func__);
+		ret = -EINVAL;
+		goto out;
+	}
+	vfe_dbg(0,"bus pixel code = %x at %s\n",*bus_pix_code,__func__);
+	vfe_dbg(0,"pix->width = %d at %s\n",f->fmt.pix.width,__func__);
+	vfe_dbg(0,"pix->height = %d at %s\n",f->fmt.pix.height,__func__);
 
-  //get current win configs
-  memset(&win_cfg, 0, sizeof(struct sensor_win_size));
-  ret=v4l2_subdev_call(dev->sd,core,ioctl,GET_CURRENT_WIN_CFG,&win_cfg);
+	//get current win configs
+	memset(&win_cfg, 0, sizeof(struct sensor_win_size));
+	ret=v4l2_subdev_call(dev->sd,core,ioctl,GET_CURRENT_WIN_CFG,&win_cfg);
+    
+	ret = get_mbus_config(dev, &mbus_cfg);
+	if (ret < 0) {
+		vfe_err("get_mbus_config failed!\n");
+		goto out;
+	}
+
+	if (mbus_cfg.type == V4L2_MBUS_CSI2) {
+		dev->bus_info.bus_if = CSI2;
+		if(IS_FLAG(mbus_cfg.flags,V4L2_MBUS_CSI2_4_LANE))
+			dev->mipi_para.lane_num = 4;
+		else if(IS_FLAG(mbus_cfg.flags,V4L2_MBUS_CSI2_3_LANE))
+			dev->mipi_para.lane_num = 3;
+		else if(IS_FLAG(mbus_cfg.flags,V4L2_MBUS_CSI2_2_LANE))
+			dev->mipi_para.lane_num = 2;
+		else
+			dev->mipi_para.lane_num = 1;
+
+		ch_num = 0;
+		dev->total_bus_ch = 0;
+		if (IS_FLAG(mbus_cfg.flags,V4L2_MBUS_CSI2_CHANNEL_0)) {
+			dev->mipi_fmt.vc[ch_num] = 0; 
+			dev->mipi_fmt.field[ch_num] = dev->frame_info.ch_field[ch_num];
+			ch_num++;
+			dev->total_bus_ch++;
+		} 
+		if (IS_FLAG(mbus_cfg.flags,V4L2_MBUS_CSI2_CHANNEL_1)) {
+			dev->mipi_fmt.vc[ch_num] = 1; 
+			dev->mipi_fmt.field[ch_num] = dev->frame_info.ch_field[ch_num];
+			ch_num++; 
+			dev->total_bus_ch++;  
+		} 
+		if (IS_FLAG(mbus_cfg.flags,V4L2_MBUS_CSI2_CHANNEL_2)) {
+			dev->mipi_fmt.vc[ch_num] = 2; 
+			dev->mipi_fmt.field[ch_num] = dev->frame_info.ch_field[ch_num];
+			ch_num++; 
+			dev->total_bus_ch++;
+		} 
+		if (IS_FLAG(mbus_cfg.flags,V4L2_MBUS_CSI2_CHANNEL_3)) {
+			dev->mipi_fmt.vc[ch_num] = 3; 
+			dev->mipi_fmt.field[ch_num] = dev->frame_info.ch_field[ch_num];
+			ch_num++; 
+			dev->total_bus_ch++;
+		}
   
-  ret = get_mbus_config(dev, &mbus_cfg);
-  if (ret < 0) {
-    vfe_err("get_mbus_config failed!\n");
-    goto out;
-  }
-
-  if (mbus_cfg.type == V4L2_MBUS_CSI2) {
-    dev->bus_info.bus_if = CSI2;
-    if(IS_FLAG(mbus_cfg.flags,V4L2_MBUS_CSI2_4_LANE))
-      dev->mipi_para.lane_num = 4;
-    else if(IS_FLAG(mbus_cfg.flags,V4L2_MBUS_CSI2_3_LANE))
-      dev->mipi_para.lane_num = 3;
-    else if(IS_FLAG(mbus_cfg.flags,V4L2_MBUS_CSI2_2_LANE))
-      dev->mipi_para.lane_num = 2;
-    else
-      dev->mipi_para.lane_num = 1;
+		dev->total_rx_ch = dev->total_bus_ch; //TODO
+		dev->mipi_para.total_rx_ch = dev->total_rx_ch;
+		vfe_print("V4L2_MBUS_CSI2,%d lane,bus%d channel,rx %d channel\n",dev->mipi_para.lane_num,dev->total_bus_ch,dev->total_rx_ch);
+	} else if (mbus_cfg.type == V4L2_MBUS_PARALLEL) {
+		dev->bus_info.bus_if = PARALLEL;
+		if(IS_FLAG(mbus_cfg.flags,V4L2_MBUS_MASTER)) {
+			if(IS_FLAG(mbus_cfg.flags,V4L2_MBUS_HSYNC_ACTIVE_HIGH)) {
+				dev->bus_info.bus_tmg.href_pol = ACTIVE_HIGH;
+			} else {
+				dev->bus_info.bus_tmg.href_pol = ACTIVE_LOW;
+			}
+			if(IS_FLAG(mbus_cfg.flags,V4L2_MBUS_VSYNC_ACTIVE_HIGH)) {
+				dev->bus_info.bus_tmg.vref_pol = ACTIVE_HIGH;
+			} else {
+				dev->bus_info.bus_tmg.vref_pol = ACTIVE_LOW;
+			}
+			if(IS_FLAG(mbus_cfg.flags,V4L2_MBUS_PCLK_SAMPLE_RISING)) {
+				dev->bus_info.bus_tmg.pclk_sample = RISING;
+			} else {
+				dev->bus_info.bus_tmg.pclk_sample = FALLING;
+			}
+			if(IS_FLAG(mbus_cfg.flags,V4L2_MBUS_FIELD_EVEN_HIGH)) {
+				dev->bus_info.bus_tmg.field_even_pol = ACTIVE_HIGH;
+			} else {
+				dev->bus_info.bus_tmg.field_even_pol = ACTIVE_LOW;
+			}
+		} else {
+			vfe_err("Do not support MBUS SLAVE! get mbus_cfg.type = %d\n",mbus_cfg.type);
+			goto out;
+		}
+	} else if (mbus_cfg.type == V4L2_MBUS_BT656) {
+		dev->bus_info.bus_if = BT656;
+	}
     
-    ch_num = 0;
-    dev->total_bus_ch = 0;
-    if (IS_FLAG(mbus_cfg.flags,V4L2_MBUS_CSI2_CHANNEL_0)) {
-      dev->mipi_fmt.vc[ch_num] = 0; 
-      dev->mipi_fmt.field[ch_num] = dev->frame_info.ch_field[ch_num];
-      ch_num++;
-      dev->total_bus_ch++;
-    } 
-    if (IS_FLAG(mbus_cfg.flags,V4L2_MBUS_CSI2_CHANNEL_1)) {
-      dev->mipi_fmt.vc[ch_num] = 1; 
-      dev->mipi_fmt.field[ch_num] = dev->frame_info.ch_field[ch_num];
-      ch_num++; 
-      dev->total_bus_ch++;  
-    } 
-    if (IS_FLAG(mbus_cfg.flags,V4L2_MBUS_CSI2_CHANNEL_2)) {
-      dev->mipi_fmt.vc[ch_num] = 2; 
-      dev->mipi_fmt.field[ch_num] = dev->frame_info.ch_field[ch_num];
-      ch_num++; 
-      dev->total_bus_ch++;
-    } 
-    if (IS_FLAG(mbus_cfg.flags,V4L2_MBUS_CSI2_CHANNEL_3)) {
-      dev->mipi_fmt.vc[ch_num] = 3; 
-      dev->mipi_fmt.field[ch_num] = dev->frame_info.ch_field[ch_num];
-      ch_num++; 
-      dev->total_bus_ch++;
-    }
+	//get mipi bps from win configs
+	if(mbus_cfg.type == V4L2_MBUS_CSI2) {
+		dev->mipi_para.bps = win_cfg.mipi_bps;
+		dev->mipi_para.auto_check_bps = 0;  //TODO
+		dev->mipi_para.dphy_freq = DPHY_CLK; //TODO
     
-    dev->total_rx_ch = dev->total_bus_ch; //TODO
-    dev->mipi_para.total_rx_ch = dev->total_rx_ch;
-    vfe_print("V4L2_MBUS_CSI2,%d lane,bus%d channel,rx %d channel\n",dev->mipi_para.lane_num,dev->total_bus_ch,dev->total_rx_ch);
-  } else if (mbus_cfg.type == V4L2_MBUS_PARALLEL) {
-    dev->bus_info.bus_if = PARALLEL;
-    if(IS_FLAG(mbus_cfg.flags,V4L2_MBUS_MASTER)) {
-      if(IS_FLAG(mbus_cfg.flags,V4L2_MBUS_HSYNC_ACTIVE_HIGH)) {
-        dev->bus_info.bus_tmg.href_pol = ACTIVE_HIGH;
-      } else {
-        dev->bus_info.bus_tmg.href_pol = ACTIVE_LOW;
-      }
-      if(IS_FLAG(mbus_cfg.flags,V4L2_MBUS_VSYNC_ACTIVE_HIGH)) {
-        dev->bus_info.bus_tmg.vref_pol = ACTIVE_HIGH;
-      } else {
-        dev->bus_info.bus_tmg.vref_pol = ACTIVE_LOW;
-      }
-      if(IS_FLAG(mbus_cfg.flags,V4L2_MBUS_PCLK_SAMPLE_RISING)) {
-        dev->bus_info.bus_tmg.pclk_sample = RISING;
-      } else {
-        dev->bus_info.bus_tmg.pclk_sample = FALLING;
-      }
-      if(IS_FLAG(mbus_cfg.flags,V4L2_MBUS_FIELD_EVEN_HIGH)) {
-        dev->bus_info.bus_tmg.field_even_pol = ACTIVE_HIGH;
-      } else {
-        dev->bus_info.bus_tmg.field_even_pol = ACTIVE_LOW;
-      }
-    } else {
-      vfe_err("Do not support MBUS SLAVE! get mbus_cfg.type = %d\n",mbus_cfg.type);
-      goto out;
-    }
-  } else if (mbus_cfg.type == V4L2_MBUS_BT656) {
-    dev->bus_info.bus_if = BT656;
-  }
-  
-  //get mipi bps from win configs
-  if(mbus_cfg.type == V4L2_MBUS_CSI2) {
-    dev->mipi_para.bps = win_cfg.mipi_bps;
-    dev->mipi_para.auto_check_bps = 0;  //TODO
-    dev->mipi_para.dphy_freq = DPHY_CLK; //TODO
-    
-    for(i=0; i<dev->total_rx_ch; i++) {//TODO 
-      dev->bus_info.bus_ch_fmt[i] = bus_pix_code_v4l2_to_common(*bus_pix_code);
-//      printk("dev->bus_info.bus_ch_fmt[%d] = %x\n",i,dev->bus_info.bus_ch_fmt[i]);
-      dev->mipi_fmt.packet_fmt[i] = get_pkt_fmt(dev->bus_info.bus_ch_fmt[i]);
-//      printk("dev->mipi_fmt.packet_fmt[%d] = %x\n",i,dev->mipi_fmt.packet_fmt[i]);
-    }
-    bsp_mipi_csi_dphy_init(dev->mipi_sel);
-    bsp_mipi_csi_set_para(dev->mipi_sel, &dev->mipi_para);
-    bsp_mipi_csi_set_fmt(dev->mipi_sel, dev->mipi_para.total_rx_ch, &dev->mipi_fmt);
-    
-    //for dphy clock async
-    bsp_mipi_csi_dphy_disable(dev->mipi_sel);
-    usleep_range(1000,2000);
-    
-    if(dev->clock[VFE_MIPI_DPHY_CLK]) {
-      os_clk_disable(dev->clock[VFE_MIPI_DPHY_CLK]);
-    } else {
-      vfe_warn("vfe dphy clock is null\n");
-    }
-    
-    bsp_mipi_csi_dphy_enable(dev->mipi_sel);
-    
-    if(dev->clock[VFE_MIPI_DPHY_CLK]) {
-      if(os_clk_enable(dev->clock[VFE_MIPI_DPHY_CLK]))
-        vfe_err("vfe dphy clock enable error\n");
-    } else {
-      vfe_warn("vfe dphy clock is null\n");
-    }
-    usleep_range(10000,12000);
-  }
+		for(i=0; i<dev->total_rx_ch; i++) {//TODO 
+			dev->bus_info.bus_ch_fmt[i] = bus_pix_code_v4l2_to_common(*bus_pix_code);
+			dev->mipi_fmt.packet_fmt[i] = get_pkt_fmt(dev->bus_info.bus_ch_fmt[i]);
+		}
+		bsp_mipi_csi_dphy_init(dev->mipi_sel);
+		bsp_mipi_csi_set_para(dev->mipi_sel, &dev->mipi_para);
+		bsp_mipi_csi_set_fmt(dev->mipi_sel, dev->mipi_para.total_rx_ch, &dev->mipi_fmt);
  
-  //init device 
-  ccm_fmt.code = *bus_pix_code;
-  ccm_fmt.width = f->fmt.pix.width;
-  ccm_fmt.height = f->fmt.pix.height;
-  ccm_fmt.field = f->fmt.pix.field;
+		//for dphy clock async
+		bsp_mipi_csi_dphy_disable(dev->mipi_sel);
+		usleep_range(1000,2000);
   
-  ret = v4l2_subdev_call(dev->sd,video,s_mbus_fmt,&ccm_fmt);
-  if (ret < 0) {
-    vfe_err("v4l2 sub device s_fmt error!\n");
-    goto out;
-  }
+		if(dev->clock[VFE_MIPI_DPHY_CLK]) {
+			os_clk_disable(dev->clock[VFE_MIPI_DPHY_CLK]);
+		} else {
+			vfe_warn("vfe dphy clock is null\n");
+		}
   
-  //prepare the vfe bsp parameter
-  //assuming using single channel
-  dev->bus_info.ch_total_num = dev->total_rx_ch;
+		bsp_mipi_csi_dphy_enable(dev->mipi_sel);
 
-  //format and size info
-  for(i=0;i<dev->total_bus_ch;i++)
-    dev->bus_info.bus_ch_fmt[i] = bus_pix_code_v4l2_to_common(*bus_pix_code);
-  
-  for(i=0;i<dev->total_rx_ch;i++) {
-    dev->frame_info.pix_ch_fmt[i] = pix_fmt_v4l2_to_common(f->fmt.pix.pixelformat);
-    dev->frame_info.ch_field[i] = field_fmt_v4l2_to_common(ccm_fmt.field);
-    dev->frame_info.ch_size[i].width = ccm_fmt.width;
-    dev->frame_info.ch_size[i].height = ccm_fmt.height; 
-    dev->frame_info.ch_offset[i].hoff = win_cfg.hoffset;
-    dev->frame_info.ch_offset[i].voff = win_cfg.voffset;
-  }
-
-  dev->frame_info.arrange.row = dev->arrange.row;
-  dev->frame_info.arrange.column = dev->arrange.column;
-
-  //set vfe bsp 
-  ret = bsp_csi_set_fmt(dev->vip_sel, &dev->bus_info,&dev->frame_info);
-  if (ret < 0) {
-    vfe_err("bsp_csi_set_fmt error at %s!\n",__func__);
-    goto out;
-  }
-  //return buffer byte size via dev->frame_info.frm_byte_size
-  ret = bsp_csi_set_size(dev->vip_sel, &dev->bus_info,&dev->frame_info);
-  if (ret < 0) {
-    vfe_err("bsp_csi_set_size error at %s!\n",__func__);
-    goto out;
-  }
-  //save the info to the channel info
-  for(i=0;i<dev->total_bus_ch;i++) {
-    dev->ch[i].fmt.bus_pix_code = *bus_pix_code;
-    dev->ch[i].fmt.fourcc = f->fmt.pix.pixelformat;
-    dev->ch[i].fmt.field = ccm_fmt.field;
-    dev->ch[i].size.width = ccm_fmt.width;
-    dev->ch[i].size.height = ccm_fmt.height;
-    dev->ch[i].size.hoffset = ccm_fmt.reserved[0];
-    dev->ch[i].size.voffset = ccm_fmt.reserved[1];    
-  }
-  
-  if(dev->is_isp_used) {
-    isp_fmt_cfg->isp_fmt[MAIN_CH] = pix_fmt_v4l2_to_common(f->fmt.pix.pixelformat);
-    isp_fmt_cfg->isp_size[MAIN_CH].width = ccm_fmt.width;
-    isp_fmt_cfg->isp_size[MAIN_CH].height = ccm_fmt.height;
-    isp_fmt_cfg->isp_fmt[SUB_CH] = PIX_FMT_NONE;
-    isp_fmt_cfg->isp_fmt[ROT_CH] = PIX_FMT_NONE;
-    
-    vfe_dbg(0,"*bus_pix_code = %d, isp_fmt = %p\n",*bus_pix_code,isp_fmt_cfg->isp_fmt);
-    isp_fmt_cfg->bus_code = *bus_pix_code;
-    sunxi_isp_set_fmt(find_bus_type(*bus_pix_code),&isp_fmt_cfg->isp_fmt[0]);
-    
-	if(0 == win_cfg.width || 0 == win_cfg.height)
-	{
-		win_cfg.width = isp_fmt_cfg->isp_size[MAIN_CH].width;
-		win_cfg.height = isp_fmt_cfg->isp_size[MAIN_CH].height;
+		if(dev->clock[VFE_MIPI_DPHY_CLK]) {
+			if(os_clk_enable(dev->clock[VFE_MIPI_DPHY_CLK]))
+				vfe_err("vfe dphy clock enable error\n");
+		} else {
+			vfe_warn("vfe dphy clock is null\n");
+		}
+		usleep_range(10000,12000);
 	}
-	if(0 == win_cfg.width_input || 0 == win_cfg.height_input)
-	{
-		win_cfg.width_input = win_cfg.width;
-		win_cfg.height_input = win_cfg.height;
+
+	//init device 
+	ccm_fmt.code = *bus_pix_code;
+	ccm_fmt.width = f->fmt.pix.width;
+	ccm_fmt.height = f->fmt.pix.height;
+	ccm_fmt.field = f->fmt.pix.field;
+
+	ret = v4l2_subdev_call(dev->sd,video,s_mbus_fmt,&ccm_fmt);
+	if (ret < 0) {
+		vfe_err("v4l2 sub device s_fmt error!\n");
+		goto out;
 	}
-	isp_fmt_cfg->win_cfg = win_cfg;
-	vfe_print("width_input = %d, height_input = %d, width = %d, height = %d\n", win_cfg.width_input,win_cfg.height_input,  win_cfg.width,  win_cfg.height );
-	isp_fmt_cfg->ob_black_size.width= win_cfg.width_input + 2*win_cfg.hoffset; //OK
-	isp_fmt_cfg->ob_black_size.height= win_cfg.height_input + 2*win_cfg.voffset;//OK
-	isp_fmt_cfg->ob_valid_size.width = win_cfg.width_input;
-	isp_fmt_cfg->ob_valid_size.height = win_cfg.height_input;
-	isp_fmt_cfg->ob_start.hor =  win_cfg.hoffset;  //OK
-	isp_fmt_cfg->ob_start.ver =  win_cfg.voffset;  //OK
-	dev->isp_gen_set_pt->double_ch_flag = 0;
   
-	//dev->buf_byte_size = bsp_isp_set_size(isp_fmt,&ob_black_size, &ob_valid_size, &isp_size[MAIN_CH],&isp_size[ROT_CH],&ob_start,&isp_size[SUB_CH]);
-	size_settings.full_size = isp_fmt_cfg->isp_size[MAIN_CH];
-	size_settings.scale_size = isp_fmt_cfg->isp_size[SUB_CH];
-	size_settings.ob_black_size = isp_fmt_cfg->ob_black_size;
-	size_settings.ob_start = isp_fmt_cfg->ob_start;
-	size_settings.ob_valid_size = isp_fmt_cfg->ob_valid_size;
-	size_settings.ob_rot_size = isp_fmt_cfg->isp_size[ROT_CH];
-
-	dev->buf_byte_size = sunxi_isp_set_size(&isp_fmt_cfg->isp_fmt[0],&size_settings);
+	//prepare the vfe bsp parameter
+	//assuming using single channel
+	dev->bus_info.ch_total_num = dev->total_rx_ch;
     
-    vfe_print("dev->buf_byte_size = %d, double_ch_flag = %d\n",dev->buf_byte_size, dev->isp_gen_set_pt->double_ch_flag);
-  } else {
-    dev->buf_byte_size = dev->frame_info.frm_byte_size;
-    dev->thumb_width  = 0;
-    dev->thumb_height = 0;
-  }
+	//format and size info
+	for(i=0;i<dev->total_bus_ch;i++)
+		dev->bus_info.bus_ch_fmt[i] = bus_pix_code_v4l2_to_common(*bus_pix_code);
+    
+	for(i=0;i<dev->total_rx_ch;i++) {
+		dev->frame_info.pix_ch_fmt[i] = pix_fmt_v4l2_to_common(f->fmt.pix.pixelformat);
+		dev->frame_info.ch_field[i] = field_fmt_v4l2_to_common(ccm_fmt.field);
+		dev->frame_info.ch_size[i].width = ccm_fmt.width;
+		dev->frame_info.ch_size[i].height = ccm_fmt.height; 
+		dev->frame_info.ch_offset[i].hoff = win_cfg.hoffset;
+		dev->frame_info.ch_offset[i].voff = win_cfg.voffset;
+	}
+	dev->frame_info.arrange.row = dev->arrange.row;
+	dev->frame_info.arrange.column = dev->arrange.column;
 
-  dev->vb_vidq.field = ccm_fmt.field;
-  dev->width  = ccm_fmt.width;
-  dev->height = ccm_fmt.height;
+	//set vfe bsp 
+	ret = bsp_csi_set_fmt(dev->vip_sel, &dev->bus_info,&dev->frame_info);
+	if (ret < 0) {
+		vfe_err("bsp_csi_set_fmt error at %s!\n",__func__);
+		goto out;
+	}
+	//return buffer byte size via dev->frame_info.frm_byte_size
+	ret = bsp_csi_set_size(dev->vip_sel, &dev->bus_info,&dev->frame_info);
+	if (ret < 0) {
+		vfe_err("bsp_csi_set_size error at %s!\n",__func__);
+		goto out;
+	}
+	//save the info to the channel info
+	for(i=0;i<dev->total_bus_ch;i++) {
+		dev->ch[i].fmt.bus_pix_code = *bus_pix_code;
+		dev->ch[i].fmt.fourcc = f->fmt.pix.pixelformat;
+		dev->ch[i].fmt.field = ccm_fmt.field;
+		dev->ch[i].size.width = ccm_fmt.width;
+		dev->ch[i].size.height = ccm_fmt.height;
+		dev->ch[i].size.hoffset = ccm_fmt.reserved[0];
+		dev->ch[i].size.voffset = ccm_fmt.reserved[1];    
+	}
+    
+	if(dev->is_isp_used) {
+		isp_fmt_cfg->isp_fmt[MAIN_CH] = pix_fmt_v4l2_to_common(f->fmt.pix.pixelformat);
+		isp_fmt_cfg->isp_size[MAIN_CH].width = ccm_fmt.width;
+		isp_fmt_cfg->isp_size[MAIN_CH].height = ccm_fmt.height;
+		isp_fmt_cfg->isp_fmt[SUB_CH] = PIX_FMT_NONE;
+		isp_fmt_cfg->isp_fmt[ROT_CH] = PIX_FMT_NONE;
+
+		vfe_dbg(0,"*bus_pix_code = %d, isp_fmt = %p\n",*bus_pix_code,isp_fmt_cfg->isp_fmt);
+    	isp_fmt_cfg->bus_code = find_bus_type(*bus_pix_code);
+		sunxi_isp_set_fmt(find_bus_type(*bus_pix_code),&isp_fmt_cfg->isp_fmt[0]);
+
+		if(0 == win_cfg.width || 0 == win_cfg.height)
+		{
+			win_cfg.width = isp_fmt_cfg->isp_size[MAIN_CH].width;
+			win_cfg.height = isp_fmt_cfg->isp_size[MAIN_CH].height;
+		}
+		if(0 == win_cfg.width_input || 0 == win_cfg.height_input)
+		{
+			win_cfg.width_input = win_cfg.width;
+			win_cfg.height_input = win_cfg.height;
+		}
+		isp_fmt_cfg->win_cfg = win_cfg;
+		vfe_print("width_input = %d, height_input = %d, width = %d, height = %d\n", win_cfg.width_input,win_cfg.height_input,  win_cfg.width,  win_cfg.height );
+		isp_fmt_cfg->ob_black_size.width= win_cfg.width_input + 2*win_cfg.hoffset; //OK
+		isp_fmt_cfg->ob_black_size.height= win_cfg.height_input + 2*win_cfg.voffset;//OK
+		isp_fmt_cfg->ob_valid_size.width = win_cfg.width_input;
+		isp_fmt_cfg->ob_valid_size.height = win_cfg.height_input;
+		isp_fmt_cfg->ob_start.hor =  win_cfg.hoffset;  //OK
+		isp_fmt_cfg->ob_start.ver =  win_cfg.voffset;  //OK
+		dev->isp_gen_set_pt->double_ch_flag = 0;
+
+		//dev->buf_byte_size = bsp_isp_set_size(isp_fmt,&ob_black_size, &ob_valid_size, &isp_size[MAIN_CH],&isp_size[ROT_CH],&ob_start,&isp_size[SUB_CH]);
+		size_settings.full_size = isp_fmt_cfg->isp_size[MAIN_CH];
+		size_settings.scale_size = isp_fmt_cfg->isp_size[SUB_CH];
+		size_settings.ob_black_size = isp_fmt_cfg->ob_black_size;
+		size_settings.ob_start = isp_fmt_cfg->ob_start;
+		size_settings.ob_valid_size = isp_fmt_cfg->ob_valid_size;
+		size_settings.ob_rot_size = isp_fmt_cfg->isp_size[ROT_CH];
+
+		dev->buf_byte_size = sunxi_isp_set_size(&isp_fmt_cfg->isp_fmt[0],&size_settings);
+		vfe_print("dev->buf_byte_size = %d, double_ch_flag = %d\n",dev->buf_byte_size, dev->isp_gen_set_pt->double_ch_flag);
+	} else {
+		dev->buf_byte_size = dev->frame_info.frm_byte_size;
+		dev->thumb_width  = 0;
+		dev->thumb_height = 0;
+	}
+
+	dev->vb_vidq.field = ccm_fmt.field;
+	dev->width  = ccm_fmt.width;
+	dev->height = ccm_fmt.height;
 
 	dev->mbus_type = mbus_cfg.type;  
 	if(dev->is_isp_used ==1 )
@@ -2286,13 +2282,12 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 		{
 			isp_module_init(dev->isp_gen_set_pt, NULL);
 		}
-    
 		vfe_dbg(0,"isp_module_init end!\n");
 	}
-  ret = 0;
+	ret = 0;
 out:
-  mutex_unlock(&q->vb_lock);
-  return ret;
+	mutex_unlock(&q->vb_lock);
+	return ret;
 }
 
 static int vidioc_reqbufs(struct file *file, void *priv,
@@ -2413,6 +2408,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
                                                   CSI_INT_BUF_2_OVERFLOW | \
                                                   CSI_INT_HBLANK_OVERFLOW);
   }
+#if defined (CONFIG_ARCH_SUN8IW8P1)
   if(dev->mbus_type == V4L2_MBUS_CSI2)
     bsp_mipi_csi_protocol_enable(dev->mipi_sel);
   usleep_range(10000,11000);
@@ -2426,8 +2422,19 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
       bsp_isp_video_capture_start();
     bsp_csi_cap_start(dev->vip_sel, dev->total_rx_ch,CSI_VCAP);
   } 
-//  if(dev->mbus_type == V4L2_MBUS_CSI2)
-//    bsp_mipi_csi_protocol_enable(dev->mipi_sel);
+#else
+	if (dev->capture_mode == V4L2_MODE_IMAGE) {
+		if (dev->is_isp_used)
+			bsp_isp_image_capture_start();
+		bsp_csi_cap_start(dev->vip_sel, dev->total_rx_ch,CSI_SCAP);
+	} else {
+		if (dev->is_isp_used)
+			bsp_isp_video_capture_start();
+		bsp_csi_cap_start(dev->vip_sel, dev->total_rx_ch,CSI_VCAP);
+	}
+	if(dev->mbus_type == V4L2_MBUS_CSI2)
+		bsp_mipi_csi_protocol_enable(dev->mipi_sel);
+#endif
   vfe_start_generating(dev);
 
 streamon_unlock:

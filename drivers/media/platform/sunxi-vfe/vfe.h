@@ -172,7 +172,8 @@ struct isp_fmt_cfg
 {
 	int rot_angle;
 	int rot_ch;
-	enum v4l2_mbus_pixelcode bus_code;
+	//enum v4l2_mbus_pixelcode bus_code;
+	enum bus_pixeltype  bus_code;
 	enum pixel_fmt isp_fmt[ISP_MAX_CH_NUM];
 	struct isp_size isp_size[ISP_MAX_CH_NUM];
 	struct sensor_win_size win_cfg;
