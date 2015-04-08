@@ -38,6 +38,8 @@
 #define DRV_NAME "sunxi-internal-i2s"
 #define SUNXI_PCM_RATES (SNDRV_PCM_RATE_8000_192000 | SNDRV_PCM_RATE_KNOT)
 
+static bool  i2s_suspend 		= false;
+
 static u32 sample_resolution =16;
 static void sunxi_snd_txctrl(struct snd_pcm_substream *substream, int on,struct snd_soc_dai *dai)
 {
@@ -394,7 +396,7 @@ static int sunxi_i2s_suspend(struct snd_soc_dai *cpu_dai)
 {
 	struct sunxi_i2s *sunxi_i2s = snd_soc_dai_get_drvdata(cpu_dai);
 	pr_debug("[internal-i2s] suspend entered. %s\n", __func__);
-
+	i2s_suspend = true;
 	if (sunxi_i2s->moduleclk != NULL)
 		clk_disable(sunxi_i2s->moduleclk);
 
@@ -566,7 +568,7 @@ static struct platform_driver sunxi_internal_i2s_driver = {
 	.remove = sunxi_internal_i2s_platform_remove,
 };
 module_platform_driver(sunxi_internal_i2s_driver);
-
+module_param_named(i2s_suspend, i2s_suspend, bool, S_IRUGO | S_IWUSR);
 /* Module information */
 MODULE_AUTHOR("REUUIMLLA");
 MODULE_DESCRIPTION("sunxi i2s-internal SoC Interface");
