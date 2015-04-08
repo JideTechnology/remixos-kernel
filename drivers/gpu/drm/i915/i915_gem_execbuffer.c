@@ -1787,6 +1787,9 @@ err:
 			i915_gem_context_unreference(params->ctx);
 	}
 
+	if (params->fence_wait)
+		sync_fence_put(params->fence_wait);
+
 	/* Free the OLR again in case the failure occurred after it had been
 	 * allocated. */
 	i915_gem_request_assign(&ring->outstanding_lazy_request, NULL);
