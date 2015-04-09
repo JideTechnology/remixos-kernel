@@ -33,7 +33,7 @@
 #include <linux/ioport.h>
 #include <linux/init-input.h>
 #include <linux/gpio.h>
-
+#include <linux/pm_runtime.h>
 #ifdef CONFIG_PM
 #include <linux/pm.h>
 #endif
@@ -261,6 +261,47 @@ static int ctp_detect(struct i2c_client *client, struct i2c_board_info *info)
 		return -ENODEV;
 	}
 }
+
+static ssize_t gt82x_enable_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct input_dev *input = to_input_dev(dev);
+	struct i2c_client *client = input_get_drvdata(input);
+	return sprintf(buf, "%d\n", !pm_runtime_suspended(&client->dev));
+}
+
+static ssize_t gt82x_enable_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	unsigned long data;
+	int error;
+	struct input_dev *input = to_input_dev(dev);
+	struct i2c_client *client = input_get_drvdata(input);
+
+	error = strict_strtoul(buf, 10, &data);
+	if (error)
+		return error;
+	if (data == 0) {
+		pm_runtime_put(&client->dev);
+	}else if (data == 1){
+		pm_runtime_get_sync(&client->dev);
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR,
+	gt82x_enable_show, gt82x_enable_store);
+
+static struct attribute *gt82x_att_als[] = {
+	&dev_attr_enable.attr,
+	NULL
+};
+
+static struct attribute_group gt82x_als_gr = {
+	.attrs = gt82x_att_als
+};
 
 /**
  * ctp_print_info - sysconfig print function
@@ -612,12 +653,14 @@ static void goodix_resume_events (struct work_struct *work)
 }
 
 //ͣ���豸
-static int goodix_ts_suspend(struct i2c_client *client, pm_message_t mesg)
+static int goodix_ts_suspend(struct device *dev)
 {
 	int ret;
-	struct goodix_ts_data *ts = i2c_get_clientdata(client);
+	struct goodix_ts_data *ts = dev_get_drvdata(dev);
 
 	dprintk(DEBUG_SUSPEND,"CONFIG_PM:enter earlysuspend: goodix_ts_suspend. \n");
+	if (pm_runtime_suspended(dev))
+		return 0;
 
 	if (ts->is_suspended == false) {
 		flush_workqueue(goodix_resume_wq);
@@ -637,11 +680,13 @@ static int goodix_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 }
 
 //���»���
-static int goodix_ts_resume(struct i2c_client *client)
+static int goodix_ts_resume(struct device *dev)
 {
-	struct goodix_ts_data *ts = i2c_get_clientdata(client);
+	struct goodix_ts_data *ts = dev_get_drvdata(dev);
+	dprintk(DEBUG_SUSPEND,"CONFIG_PM:enter laterresume: goodix_ts_resume. \n");
+	if (pm_runtime_suspended(dev))
+		return 0;
 	if (ts->is_suspended == true) {
-		dprintk(DEBUG_SUSPEND,"CONFIG_PM:enter laterresume: goodix_ts_resume. \n");
 		queue_work(goodix_resume_wq, &goodix_resume_work);
 	}
 	return 0;
@@ -753,6 +798,14 @@ static int goodix_ts_probe(struct i2c_client *client, const struct i2c_device_id
 		dev_err(&client->dev,"Unable to register %s input device\n", ts->input_dev->name);
 		goto err_input_register_device_failed;
 	}
+	input_set_drvdata(ts->input_dev, client);
+	ret = sysfs_create_group(&ts->input_dev->dev.kobj,
+						 &gt82x_als_gr);
+	if (ret < 0)
+	{
+		dev_err(&client->dev,"gt82x: sysfs_create_group err\n");
+		goto err_input_register_device_failed;
+	}
 
 	goodix_wq = create_singlethread_workqueue("goodix_wq");
 	if (!goodix_wq) {
@@ -780,6 +833,9 @@ static int goodix_ts_probe(struct i2c_client *client, const struct i2c_device_id
 	queue_work(goodix_init_wq, &goodix_init_work);
 
 	goodix_ts_version(ts);
+	pm_runtime_set_active(&client->dev);
+	pm_runtime_get(&client->dev);
+	pm_runtime_enable(&client->dev);
 
 	dprintk(DEBUG_INIT,"========Probe Ok================\n");
 	return 0;
@@ -819,6 +875,9 @@ static int goodix_ts_remove(struct i2c_client *client)
 		destroy_workqueue(goodix_init_wq);
 	if (goodix_wq)
 		destroy_workqueue(goodix_wq);
+	pm_runtime_disable(&client->dev);
+	pm_runtime_set_suspended(&client->dev);
+	sysfs_remove_group(&ts->input_dev->dev.kobj, &gt82x_als_gr);
 	input_unregister_device(ts->input_dev);
 	i2c_set_clientdata(ts->client, NULL);
 	kfree(ts);
@@ -832,17 +891,21 @@ static const struct i2c_device_id goodix_ts_id[] = {
 	{ }
 };
 
+static UNIVERSAL_DEV_PM_OPS(gt82x_pm_ops, goodix_ts_suspend,
+	goodix_ts_resume, NULL);
+
+#define GT82X_PM_OPS (&gt82x_pm_ops)
+
 //�豸�����ṹ��
 static struct i2c_driver goodix_ts_driver = {
 	.class = I2C_CLASS_HWMON,
 	.probe		= goodix_ts_probe,
 	.remove		= goodix_ts_remove,
 	.id_table	= goodix_ts_id,
-	.suspend        =  goodix_ts_suspend,
-	.resume         =  goodix_ts_resume,
 	.driver = {
 		.name	= CTP_NAME,
 		.owner = THIS_MODULE,
+		.pm = GT82X_PM_OPS,
 	},
 	.detect         = ctp_detect,
 	.address_list	= normal_i2c,
