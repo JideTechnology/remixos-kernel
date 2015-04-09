@@ -122,8 +122,6 @@ static int ctp_fetch_sysconfig_para(enum input_sensor_type *ctp_type)
 	if (!gpio_is_valid(data->key_light_gpio.gpio))
 			pr_err("%s: key_light_gpio is invalid. \n",__func__ );
 #endif	
-
-
 	return 0;
 
 devicetree_get_item_err:
@@ -203,10 +201,6 @@ static int ctp_init_platform_resource(enum input_sensor_type *ctp_type)
 		return ret;
 	}
 #endif
-
-        
-
-
 	ret = 0;
 	return ret;
 }
@@ -269,7 +263,6 @@ static int gsensor_fetch_sysconfig_para(enum input_sensor_type *gsensor_type)
     }
 
     return ret;	
-
 
 devicetree_get_item_err:
 	pr_notice("=========gsensor script_get_err============\n");
@@ -517,515 +510,6 @@ devicetree_get_item_err:
 }
 /**************************** LIGHT SENSOR END *********************************/
 
-
-/********************************** IR *****************************************/
-
-/**
- * gyr_free_platform_resource - free ir related resource
- * return value:
- */
-static void ir_free_platform_resource(enum input_sensor_type *ir_type)
-{
-	struct ir_config_info *data = container_of(ir_type,
-					struct ir_config_info, input_type);
-	if (!IS_ERR_OR_NULL(data->pinctrl))
-		devm_pinctrl_put(data->pinctrl);
-}
-
-/**
- * gyr_init_platform_resource - initialize platform related resource
- * return value: 0 : success
- *               -EIO :  i/o err.
- *
- */
-static int ir_init_platform_resource(enum input_sensor_type *ir_type)
-{
-	struct ir_config_info *data = container_of(ir_type,
-					struct ir_config_info, input_type);
-
-	data->pinctrl = devm_pinctrl_get_select_default(data->dev);
-	if (IS_ERR_OR_NULL(data->pinctrl)) {
-		pr_warn("request pinctrl handle for device [%s] failed\n",
-		dev_name(data->dev));
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-/**
- * gyr_fetch_sysconfig_para - get config info from sysconfig.fex file.
- * return value:  
- *                    = 0; success;
- *                    < 0; err
- */
-static int ir_fetch_sysconfig_para(enum input_sensor_type *ir_type)
-{
-	int ret = -1;
-	struct ir_config_info *data = container_of(ir_type,
-					struct ir_config_info, input_type);
-		
-    struct device_node *np = NULL;
-    np = of_find_node_by_name(NULL,"s_cir0");
-	if (!np) {
-		 pr_err("ERROR! get s_cri0_para failed, func:%s, line:%d\n",__FUNCTION__, __LINE__);
-		 goto devicetree_get_item_err;
-	}
-	
-	if (!of_device_is_available(np)) {
-	    pr_err("%s: s_cir0 is not used\n", __func__);
-	    goto devicetree_get_item_err;
-	}else
-	    data->ir_used = 1;
-
-	
-    if(1 == data->ir_used){
-
-	   data->ir_gpio.gpio = of_get_named_gpio_flags(np, "ir_rx", 0,(enum of_gpio_flags *)(&(data->ir_gpio)));	
-	   if (!gpio_is_valid(data->ir_gpio.gpio))
-			pr_err("%s: ir_rx is invalid. \n",__func__ );
-
-		
-	   ret = of_property_read_u32(np, "ir_power_key_code", &data->power_key);
-	   if (ret) {
-		    pr_err("get ir_power_key_code is fail, %d\n", ret);
-		    goto devicetree_get_item_err;
-	    }
-    }else{
-       pr_err("%s gsensor_unused \n",__func__);
-	   goto devicetree_get_item_err;
-    }
-
-	return ret;
-
-devicetree_get_item_err:
-	pr_notice("=========script_get_err============\n");
-	ret = -1;
-	return ret;
-}
-
-/********************************** IR END *************************************/
-
-/*********************************** THS ***************************************/
-
-/**
- * ths_free_platform_resource - free ths related resource
- * return value:
- */
-static void ths_free_platform_resource(enum input_sensor_type *ths_type)
-{
-}
-
-/**
- * ths_init_platform_resource - initialize platform related resource
- * return value: 0 : success
- *               -EIO :  i/o err.
- *
- */
-static int ths_init_platform_resource(enum input_sensor_type *ths_type)
-{
-	return 0;
-}
-
-/**
- * ths_fetch_sysconfig_para - get config info from sysconfig.fex file.
- * return value:  
- *                    = 0; success;
- *                    < 0; err
- */
-static int ths_fetch_sysconfig_para(enum input_sensor_type *ths_type)
-{
-	int ret = -1;
-	script_item_u	val;
-	script_item_value_type_e  type;
-	struct ths_config_info *data = container_of(ths_type,
-					struct ths_config_info, input_type);
-		
-	type = script_get_item("ths_para", "ths_used", &val);
- 
-	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-		pr_err("%s: type err  device_used = %d. \n", __func__, val.val);
-		goto script_get_err;
-	}
-	data->ths_used = val.val;
-
-	type = script_get_item("ths_para", "ths_trend", &val);
-
-	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-		pr_err("%s: type err  device_used = %d. \n", __func__, val.val);
-	} else
-		data->ths_trend = val.val;
-
-	if (1 == data->ths_used) {
-		type = script_get_item("ths_para", "ths_trip1_count", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err(KERN_INFO"%s: type err ths_trip1_count = %d. \n", __func__, val.val);
-		} else
-			data->trip1_count = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_0", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip1_0 = %d. \n", __func__, val.val);
-		} else
-			data->trip1_0 = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_1", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_tri1p_1 = %d. \n", __func__, val.val);
-		} else
-			data->trip1_1 = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_2", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip1_2 = %d. \n", __func__, val.val);
-		} else
-			data->trip1_2 = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_3", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip1_3 = %d. \n", __func__, val.val);
-		} else
-			data->trip1_3 = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_4", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip1_4 = %d. \n", __func__, val.val);
-		} else
-			data->trip1_4 = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_5", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip1_5 = %d. \n", __func__, val.val);
-		} else
-			data->trip1_5 = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_6", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip1_6 = %d. \n", __func__, val.val);
-		} else
-			data->trip1_6 = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_7", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip1_7 = %d. \n", __func__, val.val);
-		} else
-			data->trip1_7 = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_0_min", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip1_0_min = %d. \n", __func__, val.val);
-		} else
-			data->trip1_0_min = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_0_max", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip1_0_max = %d. \n", __func__, val.val);
-		} else
-			data->trip1_0_max = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_1_min", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip1_1_min = %d. \n", __func__, val.val);
-		} else
-			data->trip1_1_min = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_1_max", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip1_1_max = %d. \n", __func__, val.val);
-		} else
-			data->trip1_1_max = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_2_min", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip1_2_min = %d. \n", __func__, val.val);
-		} else
-			data->trip1_2_min = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_2_max", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip1_2_max = %d. \n", __func__, val.val);
-		} else
-			data->trip1_2_max = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_3_min", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip1_3_min = %d. \n", __func__, val.val);
-		} else
-			data->trip1_3_min = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_3_max", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip1_3_max = %d. \n", __func__, val.val);
-		} else
-			data->trip1_3_max = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_4_min", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip1_4_min = %d. \n", __func__, val.val);
-		} else
-			data->trip1_4_min = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_4_max", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip1_4_max = %d. \n", __func__, val.val);
-		} else
-			data->trip1_4_max = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_5_min", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip1_5_min = %d. \n", __func__, val.val);
-		} else
-			data->trip1_5_min = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_5_max", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip1_5_max = %d. \n", __func__, val.val);
-		} else
-			data->trip1_5_max = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_6_min", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip1_6_min = %d. \n", __func__, val.val);
-		} else
-			data->trip1_6_min = val.val;
-
-		type = script_get_item("ths_para", "ths_trip1_6_max", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip1_6_max = %d. \n", __func__, val.val);
-		} else
-			data->trip1_6_max = val.val;
-
-		type = script_get_item("ths_para", "ths_trip2_count", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip2_count = %d. \n", __func__, val.val);
-		} else
-			data->trip2_count = val.val;
-
-		type = script_get_item("ths_para", "ths_trip2_0", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err ths_trip2_0 = %d. \n", __func__, val.val);
-		} else
-			data->trip2_0 = val.val;
-
-		ret = 0;
-	} else {
-		pr_err("%s: ths_unused. \n",  __func__);
-		ret = -1;
-	}
-
-	return ret;
-
-script_get_err:
-	pr_notice("=========script_get_err============\n");
-	return ret;
-}
-
-/********************************* THS END ************************************/
-
-/*********************************** BAT ***************************************/
-
-/**
- * ths_free_platform_resource - free ths related resource
- * return value:
- */
-static void bat_free_platform_resource(enum input_sensor_type *ths_type)
-{
-}
-
-/**
- * ths_init_platform_resource - initialize platform related resource
- * return value: 0 : success
- *               -EIO :  i/o err.
- *
- */
-static int bat_init_platform_resource(enum input_sensor_type *ths_type)
-{
-	return 0;
-}
-
-/**
- * ths_fetch_sysconfig_para - get config info from sysconfig.fex file.
- * return value:
- *                    = 0; success;
- *                    < 0; err
- */
-static int bat_fetch_sysconfig_para(enum input_sensor_type *ths_type)
-{
-	int ret = -1;
-	script_item_u	val;
-	script_item_value_type_e  type;
-	struct ths_config_info *data = container_of(ths_type,
-					struct ths_config_info, input_type);
-
-	type = script_get_item("bat_ths_para", "bat_ths_used", &val);
-
-	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-		pr_err("%s: type err  device_used = %d. \n", __func__, val.val);
-		goto script_get_err;
-	}
-	data->ths_used = val.val;
-
-	type = script_get_item("bat_ths_para", "bat_ths_trend", &val);
-
-	if (SCIRPT_ITEM_VALUE_TYPE_INT != type) {
-		pr_err("%s: type err  device_used = %d. \n", __func__, val.val);
-	} else
-		data->ths_trend = val.val;
-
-	if (1 == data->ths_used) {
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_count", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_count = %d. \n", __func__, val.val);
-		} else
-			data->trip1_count = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_0", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_0 = %d. \n", __func__, val.val);
-		} else
-			data->trip1_0 = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_1", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_tri1p_1 = %d. \n", __func__, val.val);
-		} else
-			data->trip1_1 = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_2", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_2 = %d. \n", __func__, val.val);
-		} else
-			data->trip1_2 = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_3", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_3 = %d. \n", __func__, val.val);
-		} else
-			data->trip1_3 = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_4", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_4 = %d. \n", __func__, val.val);
-		} else
-			data->trip1_4 = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_5", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_5 = %d. \n", __func__, val.val);
-		} else
-			data->trip1_5 = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_6", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_6 = %d. \n", __func__, val.val);
-		} else
-			data->trip1_6 = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_7", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_7 = %d. \n", __func__, val.val);
-		} else
-			data->trip1_7 = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_0_min", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_0_min = %d. \n", __func__, val.val);
-		} else
-			data->trip1_0_min = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_0_max", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_0_max = %d. \n", __func__, val.val);
-		} else
-			data->trip1_0_max = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_1_min", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_1_min = %d. \n", __func__, val.val);
-		} else
-			data->trip1_1_min = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_1_max", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_1_max = %d. \n", __func__, val.val);
-		} else
-			data->trip1_1_max = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_2_min", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_2_min = %d. \n", __func__, val.val);
-		} else
-			data->trip1_2_min = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_2_max", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_2_max = %d. \n", __func__, val.val);
-		} else
-			data->trip1_2_max = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_3_min", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_3_min = %d. \n", __func__, val.val);
-		} else
-			data->trip1_3_min = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_3_max", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_3_max = %d. \n", __func__, val.val);
-		} else
-			data->trip1_3_max = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_4_min", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_4_min = %d. \n", __func__, val.val);
-		} else
-			data->trip1_4_min = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_4_max", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_4_max = %d. \n", __func__, val.val);
-		} else
-			data->trip1_4_max = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_5_min", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_5_min = %d. \n", __func__, val.val);
-		} else
-			data->trip1_5_min = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_5_max", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_5_max = %d. \n", __func__, val.val);
-		} else
-			data->trip1_5_max = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_6_min", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_6_min = %d. \n", __func__, val.val);
-		} else
-			data->trip1_6_min = val.val;
-
-		type = script_get_item("bat_ths_para", "bat_ths_trip1_6_max", &val);
-		if(SCIRPT_ITEM_VALUE_TYPE_INT != type){
-			pr_err("%s: type err bat_ths_trip1_6_max = %d. \n", __func__, val.val);
-		} else
-			data->trip1_6_max = val.val;
-
-		ret = 0;
-	} else {
-		pr_err("%s: bat_unused. \n",  __func__);
-		ret = -1;
-	}
-
-	return ret;
-
-script_get_err:
-	pr_notice("=========script_get_err============\n");
-	return ret;
-}
-
-/********************************* BAT END ************************************/
-
 /********************************** MOTOR *************************************/
 
 /**
@@ -1127,10 +611,7 @@ static int (* const fetch_sysconfig_para[])(enum input_sensor_type *input_type) 
 	gyr_fetch_sysconfig_para,
 	e_compass_fetch_sysconfig_para,
 	ls_fetch_sysconfig_para,
-	ir_fetch_sysconfig_para,
-	ths_fetch_sysconfig_para,
 	motor_fetch_sysconfig_para,
-	bat_fetch_sysconfig_para
 };
 
 static int (*init_platform_resource[])(enum input_sensor_type *input_type) = {
@@ -1139,10 +620,7 @@ static int (*init_platform_resource[])(enum input_sensor_type *input_type) = {
 	gyr_init_platform_resource,
 	e_compass_init_platform_resource,
 	ls_init_platform_resource,
-	ir_init_platform_resource,
-	ths_init_platform_resource,
 	motor_init_platform_resource,
-	bat_init_platform_resource
 };
 
 static void (*free_platform_resource[])(enum input_sensor_type *input_type) = {
@@ -1151,10 +629,7 @@ static void (*free_platform_resource[])(enum input_sensor_type *input_type) = {
 	gyr_free_platform_resource,
 	e_compass_free_platform_resource,
 	ls_free_platform_resource,
-	ir_free_platform_resource,
-	ths_free_platform_resource,
 	motor_free_platform_resource,
-	bat_free_platform_resource
 };
 
 int input_set_power_enable(enum input_sensor_type *input_type, u32 enable)
@@ -1173,8 +648,6 @@ int input_set_power_enable(enum input_sensor_type *input_type, u32 enable)
 		case GSENSOR_TYPE:
 			break;
 		case LS_TYPE:
-			break;
-		case IR_TYPE:
 			break;
 		default:
 			break;
@@ -1227,8 +700,6 @@ int input_set_int_enable(enum input_sensor_type *input_type, u32 enable)
 					struct sensor_config_info, input_type);
 		irq_number = gpio_to_irq(((struct sensor_config_info *)data)->int_number);
 		break;
-	case IR_TYPE:
-		break;
 	default:
 		break;
 	}
@@ -1276,8 +747,6 @@ int input_free_int(enum input_sensor_type *input_type, void *para)
 
 		dev = ((struct sensor_config_info *)data)->dev;
 		break;
-	case IR_TYPE:
-		break;
 	default:
 		break;
 	}
@@ -1316,7 +785,7 @@ int input_request_int(enum input_sensor_type *input_type, irq_handler_t handle,
 		irq_number = gpio_to_irq(((struct ctp_config_info *)data)->int_number);
 		if (IS_ERR_VALUE(irq_number)) {
 			pr_warn("map gpio [%d] to virq failed, errno = %d\n",
-		         	GPIOA(3), irq_number);
+				GPIOA(3), irq_number);
 			return -EINVAL;
 		}
 
@@ -1330,13 +799,11 @@ int input_request_int(enum input_sensor_type *input_type, irq_handler_t handle,
 		irq_number = gpio_to_irq(((struct sensor_config_info *)data)->int_number);
 		if (IS_ERR_VALUE(irq_number)) {
 			pr_warn("map gpio [%d] to virq failed, errno = %d\n",
-		         	GPIOA(3), irq_number);
+				GPIOA(3), irq_number);
 			return -EINVAL;
 		}
 
 		dev = ((struct sensor_config_info *)data)->dev;
-		break;
-	case IR_TYPE:
 		break;
 	default:
 		break;

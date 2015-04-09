@@ -28,10 +28,7 @@ enum input_sensor_type{
 	GYR_TYPE,
 	COMPASS_TYPE,
 	LS_TYPE,
-	IR_TYPE,
-	THS_TYPE,
 	MOTOR_TYPE,
-	BAT_TYPE
 };
 
 struct sensor_config_info{
@@ -41,15 +38,6 @@ struct sensor_config_info{
 	u32 int_number;
 	struct gpio_config irq_gpio;
 	char* ldo;
-	struct device *dev;
-	struct pinctrl *pinctrl;
-};
-
-struct ir_config_info{
-	enum input_sensor_type input_type;
-	int ir_used;
-	int power_key;
-	struct gpio_config ir_gpio;
 	struct device *dev;
 	struct pinctrl *pinctrl;
 };
@@ -77,37 +65,6 @@ struct ctp_config_info{
 #endif
 	struct device *dev;
 	struct pinctrl *pinctrl;
-};
-
-struct ths_config_info{
-	enum input_sensor_type input_type;
-	int ths_used;
-	int ths_trend;
-	int trip1_count;
-	int trip1_0;
-	int trip1_1;
-	int trip1_2;
-	int trip1_3;
-	int trip1_4;
-	int trip1_5;
-	int trip1_6;
-	int trip1_7;
-	int trip1_0_min;
-	int trip1_0_max;
-	int trip1_1_min;
-	int trip1_1_max;
-	int trip1_2_min;
-	int trip1_2_max;
-	int trip1_3_min;
-	int trip1_3_max;
-	int trip1_4_min;
-	int trip1_4_max;
-	int trip1_5_min;
-	int trip1_5_max;
-	int trip1_6_min;
-	int trip1_6_max;
-	int trip2_count;
-	int trip2_0;
 };
 
 struct motor_config_info{
