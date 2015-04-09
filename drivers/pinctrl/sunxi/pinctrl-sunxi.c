@@ -250,24 +250,31 @@ static int sunxi_pctrl_dt_node_to_map(struct pinctrl_dev *pctldev,
 		}
 
 		if (!of_property_read_u32(node, "allwinner,drive", &val)) {
-			u16 strength = (val + 1) * 10;
-			pinconfig[j++] =
-				pinconf_to_config_packed(PIN_CONFIG_DRIVE_STRENGTH,
+			if (val != 0xFFFFFFFF) {
+				u16 strength = (val + 1) * 10;
+				pinconfig[j++] =
+					pinconf_to_config_packed(PIN_CONFIG_DRIVE_STRENGTH,
 							 strength);
+			}
 		}
+
 		if (!of_property_read_u32(node, "allwinner,data", &val)) {
-			pinconfig[j++] =
+			if (val != 0xFFFFFFFF) {
+				pinconfig[j++] =
 				pinconf_to_config_packed(PIN_CONFIG_OUTPUT,
 							 val);
+			}
 		}
 
 		if (!of_property_read_u32(node, "allwinner,pull", &val)) {
-			enum pin_config_param pull = PIN_CONFIG_END;
-			if (val == 1)
-				pull = PIN_CONFIG_BIAS_PULL_UP;
-			else if (val == 2)
-				pull = PIN_CONFIG_BIAS_PULL_DOWN;
-			pinconfig[j++] = pinconf_to_config_packed(pull, 0);
+			if (val != 0xFFFFFFFF) {
+				enum pin_config_param pull = PIN_CONFIG_END;
+				if (val == 1)
+					pull = PIN_CONFIG_BIAS_PULL_UP;
+				else if (val == 2)
+					pull = PIN_CONFIG_BIAS_PULL_DOWN;
+				pinconfig[j++] = pinconf_to_config_packed(pull, 0);
+			}
 		}
 
 		(*map)[i].data.configs.configs = pinconfig;

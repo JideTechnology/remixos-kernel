@@ -117,17 +117,17 @@ void sunxi_dt_update_gpio_group(struct boot_info *bi,
 	memcpy(string + 3 * sizeof(val32), (char *)&val32,  sizeof(val32));
 
 	/*set gpio pull */
-	temp_val = entry->data[1] < 0 ? 0 : entry->data[1];
+	temp_val = entry->data[1] < 0 ? 0xFFFFFFFF : entry->data[1];
 	val32 = cpu_to_fdt32(temp_val);
 	memcpy(string + 4 * sizeof(val32), (char *)&val32,  sizeof(val32));
 
 	/*set gpio drive */
-	temp_val = entry->data[2] < 0 ? 1 : entry->data[2];
+	temp_val = entry->data[2] < 0 ? 0xFFFFFFFF : entry->data[2];
 	val32 = cpu_to_fdt32(temp_val);
 	memcpy(string + 5 * sizeof(val32),  (char *)&val32,  sizeof(val32));
 
 	/*set gpio data */
-	temp_val = entry->data[3] < 0 ? 0 : entry->data[3];
+	temp_val = entry->data[3] < 0 ? 0xFFFFFFFF : entry->data[3];
 	val32 = cpu_to_fdt32(temp_val);
 	memcpy(string + 6 * sizeof(val32),  (char *)&val32,  sizeof(val32));
 
@@ -312,9 +312,9 @@ int insert_pinconf_node(const char *section_name,
 	entry = container_of(ep, struct script_gpio_entry, entry);
 	ret = sunxi_gpio_to_name(entry->port, entry->port_num, gpio_name);
 	gpio_value[0] = entry->data[0];
-	gpio_value[1] = entry->data[1] < 0 ? 0 : entry->data[1];
-	gpio_value[2] = entry->data[2] < 0 ? 1 : entry->data[2];
-	gpio_value[3] = entry->data[3] < 0 ? 0 : entry->data[3];
+	gpio_value[1] = entry->data[1] < 0 ? 0xFFFFFFFF : entry->data[1];
+	gpio_value[2] = entry->data[2] < 0 ? 0xFFFFFFFF : entry->data[2];
+	gpio_value[3] = entry->data[3] < 0 ? 0xFFFFFFFF : entry->data[3];
 
 
 	prop = get_property(node, prop_name);
@@ -398,9 +398,9 @@ void create_pinconf_node(const char *section_name,
 	entry = container_of(ep, struct script_gpio_entry, entry);
 	sunxi_gpio_to_name(entry->port, entry->port_num, gpio_name);
 	value[0] = entry->data[0];
-	value[1] = entry->data[1] < 0 ? 0 : entry->data[1];
-	value[2] = entry->data[2] < 0 ? 1 : entry->data[2];
-	value[3] = entry->data[3] < 0 ? 0 : entry->data[3];
+	value[1] = entry->data[1] < 0 ? 0xFFFFFFFF : entry->data[1];
+	value[2] = entry->data[2] < 0 ? 0xFFFFFFFF : entry->data[2];
+	value[3] = entry->data[3] < 0 ? 0xFFFFFFFF : entry->data[3];
 
 	if (entry->port * 32 < PL_BASE) {
 		pinctrl = sunxi_get_node(bi->dt, "pio");
