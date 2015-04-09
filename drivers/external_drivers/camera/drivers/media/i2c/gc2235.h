@@ -242,8 +242,8 @@ static struct gc2235_reg const gc2235_init_settings[] = {
 	{ GC2235_8BIT, 0xfa, 0x00 },
 	{ GC2235_8BIT, 0xfe, 0x00 },
 	/* Analog & cisctl */
-	{ GC2235_8BIT, 0x03, 0x01 },
-	{ GC2235_8BIT, 0x04, 0x54 },
+	{ GC2235_8BIT, 0x03, 0x04 },
+	{ GC2235_8BIT, 0x04, 0x9E },
 	{ GC2235_8BIT, 0x05, 0x00 },
 	{ GC2235_8BIT, 0x06, 0xfd },
 	{ GC2235_8BIT, 0x07, 0x00 },
@@ -301,6 +301,100 @@ static struct gc2235_reg const gc2235_init_settings[] = {
 /*
  * Register settings for various resolution
  */
+static struct gc2235_reg const gc2235_1296_736_30fps[] = {
+	{ GC2235_8BIT, 0x8b, 0xa0 },
+	{ GC2235_8BIT, 0x8c, 0x02 },
+
+	{ GC2235_8BIT, 0x07, 0x01 }, /* VBI */
+	{ GC2235_8BIT, 0x08, 0x48 },
+	{ GC2235_8BIT, 0x09, 0x00 }, /* row start */
+	{ GC2235_8BIT, 0x0a, 0xf0 },
+	{ GC2235_8BIT, 0x0b, 0x00 }, /* col start */
+	{ GC2235_8BIT, 0x0c, 0xa0 },
+	{ GC2235_8BIT, 0x0d, 0x02 }, /* win height 736 */
+	{ GC2235_8BIT, 0x0e, 0xf0 },
+	{ GC2235_8BIT, 0x0f, 0x05 }, /* win width: 1296 */
+	{ GC2235_8BIT, 0x10, 0x10 },
+
+	{ GC2235_8BIT, 0x90, 0x01 },
+	{ GC2235_8BIT, 0x92, 0x02 },
+	{ GC2235_8BIT, 0x94, 0x06 },
+	{ GC2235_8BIT, 0x95, 0x02 }, /* crop win height 736 */
+	{ GC2235_8BIT, 0x96, 0xd0 },
+	{ GC2235_8BIT, 0x97, 0x05 }, /* crop win width 1296 */
+	{ GC2235_8BIT, 0x98, 0x00 },
+	/* mimi init */
+	{ GC2235_8BIT, 0xfe, 0x03 }, /* switch to P3 */
+	{ GC2235_8BIT, 0x01, 0x07 },
+	{ GC2235_8BIT, 0x02, 0x11 },
+	{ GC2235_8BIT, 0x03, 0x11 },
+	{ GC2235_8BIT, 0x06, 0x80 },
+	{ GC2235_8BIT, 0x11, 0x2b },
+	/* set mipi buffer */
+	{ GC2235_8BIT, 0x12, 0x40 }, /* val_low = (width * 10 / 8) & 0xFF */
+	{ GC2235_8BIT, 0x13, 0x06 }, /* val_high = (width * 10 / 8) >> 8 */
+
+	{ GC2235_8BIT, 0x15, 0x12 }, /* DPHY mode*/
+	{ GC2235_8BIT, 0x04, 0x20 },
+	{ GC2235_8BIT, 0x05, 0x00 },
+	{ GC2235_8BIT, 0x17, 0x01 },
+	{ GC2235_8BIT, 0x21, 0x01 },
+	{ GC2235_8BIT, 0x22, 0x02 },
+	{ GC2235_8BIT, 0x23, 0x01 },
+	{ GC2235_8BIT, 0x29, 0x02 },
+	{ GC2235_8BIT, 0x2a, 0x09 },
+	{ GC2235_8BIT, 0x10, 0x01 }, /* disable mipi */
+	{ GC2235_8BIT, 0xfe, 0x00 }, /* switch to P0 */
+	{ GC2235_TOK_TERM, 0, 0 }
+};
+
+static struct gc2235_reg const gc2235_960_640_30fps[] = {
+	{ GC2235_8BIT, 0x8b, 0xa0 },
+	{ GC2235_8BIT, 0x8c, 0x02 },
+
+	{ GC2235_8BIT, 0x07, 0x01 }, /* VBI */
+	{ GC2235_8BIT, 0x08, 0xA8 },
+	{ GC2235_8BIT, 0x09, 0x01 }, /* row start */
+	{ GC2235_8BIT, 0x0a, 0x18 },
+	{ GC2235_8BIT, 0x0b, 0x01 }, /* col start */
+	{ GC2235_8BIT, 0x0c, 0x40 },
+	{ GC2235_8BIT, 0x0d, 0x02 }, /* win height 656 */
+	{ GC2235_8BIT, 0x0e, 0x90 },
+	{ GC2235_8BIT, 0x0f, 0x03 }, /* win width: 976 */
+	{ GC2235_8BIT, 0x10, 0xd0 },
+
+	{ GC2235_8BIT, 0x90, 0x01 },
+	{ GC2235_8BIT, 0x92, 0x02 },
+	{ GC2235_8BIT, 0x94, 0x06 },
+	{ GC2235_8BIT, 0x95, 0x02 }, /* crop win height 640 */
+	{ GC2235_8BIT, 0x96, 0x80 },
+	{ GC2235_8BIT, 0x97, 0x03 }, /* crop win width 960 */
+	{ GC2235_8BIT, 0x98, 0xc0 },
+	/* mimp init */
+	{ GC2235_8BIT, 0xfe, 0x03 }, /* switch to P3 */
+	{ GC2235_8BIT, 0x01, 0x07 },
+	{ GC2235_8BIT, 0x02, 0x11 },
+	{ GC2235_8BIT, 0x03, 0x11 },
+	{ GC2235_8BIT, 0x06, 0x80 },
+	{ GC2235_8BIT, 0x11, 0x2b },
+	/* set mipi buffer */
+	{ GC2235_8BIT, 0x12, 0xb0 }, /* val_low = (width * 10 / 8) & 0xFF */
+	{ GC2235_8BIT, 0x13, 0x04 }, /* val_high = (width * 10 / 8) >> 8 */
+
+	{ GC2235_8BIT, 0x15, 0x12 }, /* DPHY mode*/
+	{ GC2235_8BIT, 0x04, 0x20 },
+	{ GC2235_8BIT, 0x05, 0x00 },
+	{ GC2235_8BIT, 0x17, 0x01 },
+	{ GC2235_8BIT, 0x21, 0x01 },
+	{ GC2235_8BIT, 0x22, 0x02 },
+	{ GC2235_8BIT, 0x23, 0x01 },
+	{ GC2235_8BIT, 0x29, 0x02 },
+	{ GC2235_8BIT, 0x2a, 0x09 },
+	{ GC2235_8BIT, 0x10, 0x01 }, /* disable mipi */
+	{ GC2235_8BIT, 0xfe, 0x00 }, /* switch to P0 */
+	{ GC2235_TOK_TERM, 0, 0 }
+};
+
 static struct gc2235_reg const gc2235_1600_900_30fps[] = {
 	{ GC2235_8BIT, 0x8b, 0xa0 },
 	{ GC2235_8BIT, 0x8c, 0x02 },
@@ -425,6 +519,7 @@ static struct gc2235_reg const gc2235_1616_1216_30fps[] = {
 };
 
 struct gc2235_resolution gc2235_res_preview[] = {
+
 	{
 		.desc = "gc2235_1600_900_30fps",
 		.width = 1600,
@@ -440,6 +535,7 @@ struct gc2235_resolution gc2235_res_preview[] = {
 		.skip_frames = 3,
 		.regs = gc2235_1600_900_30fps,
 	},
+
 	{
 		.desc = "gc2235_1600_1066_30fps",
 		.width = 1616,
@@ -470,61 +566,13 @@ struct gc2235_resolution gc2235_res_preview[] = {
 		.skip_frames = 3,
 		.regs = gc2235_1616_1216_30fps,
 	},
+
 };
 #define N_RES_PREVIEW (ARRAY_SIZE(gc2235_res_preview))
 
 struct gc2235_resolution gc2235_res_still[] = {
 	{
 		.desc = "gc2235_1600_900_30fps",
-		.width = 1616,
-		.height = 916,
-		.pix_clk_freq = 60,
-		.fps = 30,
-		.used = 0,
-		.pixels_per_line = 1616,
-		.lines_per_frame = 932,
-		.bin_factor_x = 0,
-		.bin_factor_y = 0,
-		.bin_mode = 0,
-		.skip_frames = 3,
-		.regs = gc2235_1600_900_30fps,
-	},
-	{
-		.desc = "gc2235_1600_1066_30fps",
-		.width = 1616,
-		.height = 1082,
-		.pix_clk_freq = 60,
-		.fps = 30,
-		.used = 0,
-		.pixels_per_line = 1616,
-		.lines_per_frame = 1098,
-		.bin_factor_x = 0,
-		.bin_factor_y = 0,
-		.bin_mode = 0,
-		.skip_frames = 3,
-		.regs = gc2235_1616_1082_30fps,
-	},
-	{
-		.desc = "gc2235_1600_1200_30fps",
-		.width = 1616,
-		.height = 1216,
-		.pix_clk_freq = 60,
-		.fps = 27,
-		.used = 0,
-		.pixels_per_line = 1616,
-		.lines_per_frame = 1232,
-		.bin_factor_x = 0,
-		.bin_factor_y = 0,
-		.bin_mode = 0,
-		.skip_frames = 3,
-		.regs = gc2235_1616_1216_30fps,
-	},
-};
-#define N_RES_STILL (ARRAY_SIZE(gc2235_res_still))
-
-struct gc2235_resolution gc2235_res_video[] = {
-	{
-		.desc = "gc2235_1600_900_30fps",
 		.width = 1600,
 		.height = 900,
 		.pix_clk_freq = 60,
@@ -568,6 +616,42 @@ struct gc2235_resolution gc2235_res_video[] = {
 		.skip_frames = 3,
 		.regs = gc2235_1616_1216_30fps,
 	},
+
+};
+#define N_RES_STILL (ARRAY_SIZE(gc2235_res_still))
+
+struct gc2235_resolution gc2235_res_video[] = {
+	{
+		.desc = "gc2235_1296_736_30fps",
+		.width = 1296,
+		.height = 736,
+		.pix_clk_freq = 60,
+		.fps = 30,
+		.used = 0,
+		.pixels_per_line = 1296,
+		.lines_per_frame = 736,
+		.bin_factor_x = 0,
+		.bin_factor_y = 0,
+		.bin_mode = 0,
+		.skip_frames = 3,
+		.regs = gc2235_1296_736_30fps,
+	},
+	{
+		.desc = "gc2235_960_640_30fps",
+		.width = 960,
+		.height = 640,
+		.pix_clk_freq = 60,
+		.fps = 30,
+		.used = 0,
+		.pixels_per_line = 976,
+		.lines_per_frame = 656,
+		.bin_factor_x = 0,
+		.bin_factor_y = 0,
+		.bin_mode = 0,
+		.skip_frames = 3,
+		.regs = gc2235_960_640_30fps,
+	},
+
 };
 #define N_RES_VIDEO (ARRAY_SIZE(gc2235_res_video))
 

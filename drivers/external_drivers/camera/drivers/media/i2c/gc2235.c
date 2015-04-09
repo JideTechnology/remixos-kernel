@@ -570,13 +570,18 @@ static int gc2235_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 
 	return ret;
 }
+
+static int init_done;
 static int __gc2235_init(struct v4l2_subdev *sd)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 
-	/* restore settings */
-	gc2235_res = gc2235_res_preview;
-	N_RES = N_RES_PREVIEW;
+	if (!init_done) {
+		/* restore settings */
+		gc2235_res = gc2235_res_preview;
+		N_RES = N_RES_PREVIEW;
+		init_done = 1;
+	}
 
 	return gc2235_write_reg_array(client, gc2235_init_settings);
 }
