@@ -19,8 +19,26 @@
 #ifndef _SUNXI_ISP_H_
 #define _SUNXI_ISP_H_
 #include <media/v4l2-ctrls.h>
+#include <linux/videodev2.h>
+#include "vfe.h"
+//for internel driver debug
+#define isp_dbg(l,x,arg...) if(isp_dbg_en && l <= isp_dbg_lv) printk(KERN_DEBUG"[ISP_DEBUG]"x,##arg)
+//print when error happens
+#define isp_err(x,arg...) printk(KERN_ERR"[ISP_ERR]"x,##arg)
+#define isp_warn(x,arg...) printk(KERN_WARNING"[ISP_WARN]"x,##arg)
+//print unconditional, for important info
+#define isp_print(x,arg...) printk(KERN_NOTICE"[ISP]"x,##arg)
 
-#include "vfe_os.h"
+#define VIDIOC_SUNXI_ISP_MAIN_CH_CFG 		1
+#define VIDIOC_SUNXI_ISP_SUB_CH_CFG 		2
+#define VIDIOC_SUNXI_ISP_ROT_CH_CFG 		3
+
+struct main_channel_cfg {
+	enum bus_pixeltype  bus_code;
+	struct sensor_win_size win_cfg;
+	struct v4l2_pix_format pix;
+};
+
 struct isp_platform_data
 {
 	unsigned int isp_sel;
@@ -49,7 +67,19 @@ struct sunxi_isp_ctrls {
 	struct v4l2_ctrl *vflip;
 	struct v4l2_ctrl *rotate;
 };
-
+struct isp_fmt_cfg
+{
+	int rot_angle;
+	int rot_ch;
+	//enum v4l2_mbus_pixelcode bus_code;
+	enum bus_pixeltype  bus_code;
+	enum pixel_fmt isp_fmt[ISP_MAX_CH_NUM];
+	struct isp_size isp_size[ISP_MAX_CH_NUM];
+	//struct sensor_win_size win_cfg;
+	struct isp_size ob_black_size;
+	struct isp_size ob_valid_size;
+	struct coor ob_start;
+};
 struct isp_dev
 {
 	unsigned int  isp_sel;
@@ -70,6 +100,7 @@ struct isp_dev
 	struct vfe_mm isp_load_reg_mm;
 	struct vfe_mm isp_save_reg_mm;
 	int rotation_en;
+	struct isp_fmt_cfg isp_fmt;
 	enum enable_flag flip_en_glb[ISP_MAX_CH_NUM];
 	int plannar_uv_exchange_flag[ISP_MAX_CH_NUM];
 	struct isp_yuv_size_addr_info isp_yuv_size_addr[ISP_MAX_CH_NUM];

@@ -1983,10 +1983,9 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	struct videobuf_queue *q = &dev->vb_vidq;
 	struct v4l2_mbus_framefmt ccm_fmt;
 	struct v4l2_mbus_config mbus_cfg;
-	struct isp_size_settings size_settings;
 	enum v4l2_mbus_pixelcode *bus_pix_code;
 	struct sensor_win_size win_cfg;
-	struct isp_fmt_cfg *isp_fmt_cfg = &dev->ccm_cfg[dev->input]->isp_fmt;
+  struct main_channel_cfg main_cfg;
   
 	unsigned char ch_num;
 	unsigned int i;
@@ -2000,7 +1999,6 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	}
 
 	mutex_lock(&q->vb_lock);
-	memset(isp_fmt_cfg, 0, sizeof(struct isp_fmt_cfg));
 
 	bus_pix_code = try_fmt_internal(dev,f);
 	if(!bus_pix_code) {
@@ -2184,53 +2182,23 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 		dev->ch[i].size.voffset = ccm_fmt.reserved[1];    
 	}
     
-	if(dev->is_isp_used) {
-		isp_fmt_cfg->isp_fmt[MAIN_CH] = pix_fmt_v4l2_to_common(f->fmt.pix.pixelformat);
-		isp_fmt_cfg->isp_size[MAIN_CH].width = ccm_fmt.width;
-		isp_fmt_cfg->isp_size[MAIN_CH].height = ccm_fmt.height;
-		isp_fmt_cfg->isp_fmt[SUB_CH] = PIX_FMT_NONE;
-		isp_fmt_cfg->isp_fmt[ROT_CH] = PIX_FMT_NONE;
-
-		vfe_dbg(0,"*bus_pix_code = %d, isp_fmt = %p\n",*bus_pix_code,isp_fmt_cfg->isp_fmt);
-    	isp_fmt_cfg->bus_code = find_bus_type(*bus_pix_code);
-		sunxi_isp_set_fmt(find_bus_type(*bus_pix_code),&isp_fmt_cfg->isp_fmt[0]);
-
-		if(0 == win_cfg.width || 0 == win_cfg.height)
-		{
-			win_cfg.width = isp_fmt_cfg->isp_size[MAIN_CH].width;
-			win_cfg.height = isp_fmt_cfg->isp_size[MAIN_CH].height;
-		}
-		if(0 == win_cfg.width_input || 0 == win_cfg.height_input)
-		{
-			win_cfg.width_input = win_cfg.width;
-			win_cfg.height_input = win_cfg.height;
-		}
-		isp_fmt_cfg->win_cfg = win_cfg;
-		vfe_print("width_input = %d, height_input = %d, width = %d, height = %d\n", win_cfg.width_input,win_cfg.height_input,  win_cfg.width,  win_cfg.height );
-		isp_fmt_cfg->ob_black_size.width= win_cfg.width_input + 2*win_cfg.hoffset; //OK
-		isp_fmt_cfg->ob_black_size.height= win_cfg.height_input + 2*win_cfg.voffset;//OK
-		isp_fmt_cfg->ob_valid_size.width = win_cfg.width_input;
-		isp_fmt_cfg->ob_valid_size.height = win_cfg.height_input;
-		isp_fmt_cfg->ob_start.hor =  win_cfg.hoffset;  //OK
-		isp_fmt_cfg->ob_start.ver =  win_cfg.voffset;  //OK
-		dev->isp_gen_set_pt->double_ch_flag = 0;
-
-		//dev->buf_byte_size = bsp_isp_set_size(isp_fmt,&ob_black_size, &ob_valid_size, &isp_size[MAIN_CH],&isp_size[ROT_CH],&ob_start,&isp_size[SUB_CH]);
-		size_settings.full_size = isp_fmt_cfg->isp_size[MAIN_CH];
-		size_settings.scale_size = isp_fmt_cfg->isp_size[SUB_CH];
-		size_settings.ob_black_size = isp_fmt_cfg->ob_black_size;
-		size_settings.ob_start = isp_fmt_cfg->ob_start;
-		size_settings.ob_valid_size = isp_fmt_cfg->ob_valid_size;
-		size_settings.ob_rot_size = isp_fmt_cfg->isp_size[ROT_CH];
-
-		dev->buf_byte_size = sunxi_isp_set_size(&isp_fmt_cfg->isp_fmt[0],&size_settings);
-		vfe_print("dev->buf_byte_size = %d, double_ch_flag = %d\n",dev->buf_byte_size, dev->isp_gen_set_pt->double_ch_flag);
-	} else {
-		dev->buf_byte_size = dev->frame_info.frm_byte_size;
-		dev->thumb_width  = 0;
-		dev->thumb_height = 0;
+  if(dev->is_isp_used) {
+  	main_cfg.pix = f->fmt.pix;
+  	main_cfg.win_cfg = win_cfg;
+	main_cfg.bus_code = find_bus_type(*bus_pix_code);
+	ret = v4l2_subdev_call(dev->isp_sd, core, ioctl,VIDIOC_SUNXI_ISP_MAIN_CH_CFG , &main_cfg);
+	if(ret < 0)
+	{
+		vfe_err("vidioc_set_main_channel error! ret = %d\n",ret);
 	}
-
+	dev->isp_gen_set_pt->double_ch_flag = 0;
+	dev->buf_byte_size = main_cfg.pix.sizeimage;
+	vfe_print("dev->buf_byte_size = %d, double_ch_flag = %d\n",dev->buf_byte_size, dev->isp_gen_set_pt->double_ch_flag);
+  } else {
+	dev->buf_byte_size = dev->frame_info.frm_byte_size;
+  }
+	dev->thumb_width  = 0;
+	dev->thumb_height = 0;
 	dev->vb_vidq.field = ccm_fmt.field;
 	dev->width  = ccm_fmt.width;
 	dev->height = ccm_fmt.height;
@@ -2409,19 +2377,19 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
                                                   CSI_INT_HBLANK_OVERFLOW);
   }
 #if defined (CONFIG_ARCH_SUN8IW8P1)
-  if(dev->mbus_type == V4L2_MBUS_CSI2)
-    bsp_mipi_csi_protocol_enable(dev->mipi_sel);
-  usleep_range(10000,11000);
+	if(dev->mbus_type == V4L2_MBUS_CSI2)
+		bsp_mipi_csi_protocol_enable(dev->mipi_sel);
+	usleep_range(10000,11000);
   
-  if (dev->capture_mode == V4L2_MODE_IMAGE) {
-    if (dev->is_isp_used)
-      bsp_isp_image_capture_start();
-    bsp_csi_cap_start(dev->vip_sel, dev->total_rx_ch,CSI_SCAP);
-  } else {
-    if (dev->is_isp_used)
-      bsp_isp_video_capture_start();
-    bsp_csi_cap_start(dev->vip_sel, dev->total_rx_ch,CSI_VCAP);
-  } 
+	if (dev->capture_mode == V4L2_MODE_IMAGE) {
+		if (dev->is_isp_used)
+			bsp_isp_image_capture_start();
+		bsp_csi_cap_start(dev->vip_sel, dev->total_rx_ch,CSI_SCAP);
+	} else {
+		if (dev->is_isp_used)
+			bsp_isp_video_capture_start();
+		bsp_csi_cap_start(dev->vip_sel, dev->total_rx_ch,CSI_VCAP);
+	} 
 #else
 	if (dev->capture_mode == V4L2_MODE_IMAGE) {
 		if (dev->is_isp_used)
@@ -2435,7 +2403,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	if(dev->mbus_type == V4L2_MBUS_CSI2)
 		bsp_mipi_csi_protocol_enable(dev->mipi_sel);
 #endif
-  vfe_start_generating(dev);
+	vfe_start_generating(dev);
 
 streamon_unlock:
 //  spin_unlock(&dev->slock);//debug
@@ -3154,100 +3122,41 @@ int vidioc_hdr_ctrl(struct file *file, struct v4l2_fh *fh, struct isp_hdr_ctrl *
 int vidioc_set_subchannel(struct file *file, struct v4l2_fh *fh, struct v4l2_pix_format *sub)
 {
 	int ret=0;
-	struct isp_size_settings size_settings;
 	struct vfe_dev *dev = video_drvdata(file);
-	struct isp_fmt_cfg *isp_fmt_cfg = &dev->ccm_cfg[dev->input]->isp_fmt;
 	if(!dev->is_isp_used)
 	{
 		vfe_err("isp must be set first when set subchannel\n");
 		return -1;
 	}		
-	isp_fmt_cfg->isp_fmt[SUB_CH] = pix_fmt_v4l2_to_common(sub->pixelformat);
-	isp_fmt_cfg->isp_size[SUB_CH].width = sub->width;
-	isp_fmt_cfg->isp_size[SUB_CH].height = sub->height;
+	ret = v4l2_subdev_call(dev->isp_sd, core, ioctl,VIDIOC_SUNXI_ISP_SUB_CH_CFG , sub);
+	if(ret < 0)
+	{
+		vfe_err("vidioc_set_subchannel error! ret = %d\n",ret);
+		return ret;
+	}
+	dev->buf_byte_size = sub->sizeimage;
+	dev->isp_gen_set_pt->double_ch_flag = 1;
 	dev->thumb_width  = sub->width;
 	dev->thumb_height = sub->height;
-	if(isp_fmt_cfg->isp_size[SUB_CH].height > isp_fmt_cfg->isp_size[MAIN_CH].height || isp_fmt_cfg->isp_size[SUB_CH].width > isp_fmt_cfg->isp_size[MAIN_CH].width)
-	{
-		vfe_err("subchannel size > main channel size,main_height = %d main_width = %d sub_height = %d sub_width= %d\n",
-			isp_fmt_cfg->isp_size[MAIN_CH].width,
-			isp_fmt_cfg->isp_size[MAIN_CH].height,
-			isp_fmt_cfg->isp_size[SUB_CH].width,
-			isp_fmt_cfg->isp_size[SUB_CH].height);
-		return -1;
-	}
-	dev->isp_gen_set_pt->double_ch_flag = 1;
-
-	size_settings.full_size = isp_fmt_cfg->isp_size[MAIN_CH];
-	size_settings.scale_size = isp_fmt_cfg->isp_size[SUB_CH];
-	size_settings.ob_black_size = isp_fmt_cfg->ob_black_size;
-	size_settings.ob_start = isp_fmt_cfg->ob_start;
-	size_settings.ob_valid_size = isp_fmt_cfg->ob_valid_size;
-	size_settings.ob_rot_size = isp_fmt_cfg->isp_size[ROT_CH];
-	sunxi_isp_set_fmt(isp_fmt_cfg->bus_code, &isp_fmt_cfg->isp_fmt[0]);
-	dev->buf_byte_size = sunxi_isp_set_size(&isp_fmt_cfg->isp_fmt[0],&size_settings);
-	vfe_print("dev->buf_byte_size = %d, double_ch_flag = %d\n",dev->buf_byte_size, dev->isp_gen_set_pt->double_ch_flag);
 	return ret;
 }
 
 int vidioc_set_rotchannel(struct file *file, struct v4l2_fh *fh, struct rot_channel_cfg *rot)
 {
 	int ret=0;
-	struct isp_size_settings size_settings;
 	struct vfe_dev *dev = video_drvdata(file);
-	struct isp_fmt_cfg *isp_fmt_cfg = &dev->ccm_cfg[dev->input]->isp_fmt;
 	if(!dev->is_isp_used)
 	{
 		vfe_err("isp must be set first when set rotchannel\n");
 		return -1;
 	}	
-	isp_fmt_cfg->isp_fmt[ROT_CH] = isp_fmt_cfg->isp_fmt[rot->sel_ch];
-	isp_fmt_cfg->rot_angle = rot->rotation;
-	isp_fmt_cfg->rot_ch = rot->sel_ch;
-	if(isp_fmt_cfg->rot_angle == 90 || isp_fmt_cfg->rot_angle ==270)
+	ret = v4l2_subdev_call(dev->isp_sd, core, ioctl,VIDIOC_SUNXI_ISP_ROT_CH_CFG , rot);
+	if(ret < 0)
 	{
-		isp_fmt_cfg->isp_size[ROT_CH].width = isp_fmt_cfg->isp_size[rot->sel_ch].height;
-		isp_fmt_cfg->isp_size[ROT_CH].height = isp_fmt_cfg->isp_size[rot->sel_ch].width;
-	}else{
-		isp_fmt_cfg->isp_size[ROT_CH].width = isp_fmt_cfg->isp_size[rot->sel_ch].width;
-		isp_fmt_cfg->isp_size[ROT_CH].height = isp_fmt_cfg->isp_size[rot->sel_ch].height;
+		vfe_err("vidioc_set_rotchannel error! ret = %d\n",ret);
+		return ret;
 	}
-	if(isp_fmt_cfg->rot_ch == MAIN_CH)
-	{
-		if(isp_fmt_cfg->rot_angle == 0) {
-			bsp_isp_set_rot(MAIN_CH,ANGLE_0);        
-		} else if(isp_fmt_cfg->rot_angle == 90) {
-			bsp_isp_set_rot(MAIN_CH,ANGLE_90);        
-		} else if(isp_fmt_cfg->rot_angle == 180) {
-			bsp_isp_set_rot(MAIN_CH,ANGLE_180);        
-		} else if(isp_fmt_cfg->rot_angle == 270) {
-			bsp_isp_set_rot(MAIN_CH,ANGLE_270);
-		} else {
-			bsp_isp_set_rot(MAIN_CH,ANGLE_0);
-		}
-	}else if(isp_fmt_cfg->rot_ch == SUB_CH){
-		if(isp_fmt_cfg->rot_angle == 0) {
-			bsp_isp_set_rot(SUB_CH,ANGLE_0); 
-		} else if(isp_fmt_cfg->rot_angle == 90) {
-			bsp_isp_set_rot(SUB_CH,ANGLE_90); 
-		} else if(isp_fmt_cfg->rot_angle == 180) {
-			bsp_isp_set_rot(SUB_CH,ANGLE_180); 
-		} else if(isp_fmt_cfg->rot_angle == 270) {
-			bsp_isp_set_rot(SUB_CH,ANGLE_270);
-		} else {
-			bsp_isp_set_rot(SUB_CH,ANGLE_0);
-		}
-	}else{
-		vfe_err("vidioc_set_rotchannel rot_ch = %d is error!!!", isp_fmt_cfg->rot_ch);
-	}
-	size_settings.full_size = isp_fmt_cfg->isp_size[MAIN_CH];
-	size_settings.scale_size = isp_fmt_cfg->isp_size[SUB_CH];
-	size_settings.ob_black_size = isp_fmt_cfg->ob_black_size;
-	size_settings.ob_start = isp_fmt_cfg->ob_start;
-	size_settings.ob_valid_size = isp_fmt_cfg->ob_valid_size;
-	size_settings.ob_rot_size = isp_fmt_cfg->isp_size[ROT_CH];
-	sunxi_isp_set_fmt(isp_fmt_cfg->bus_code, &isp_fmt_cfg->isp_fmt[0]);
-	dev->buf_byte_size = sunxi_isp_set_size(&isp_fmt_cfg->isp_fmt[0],&size_settings);
+	dev->buf_byte_size = rot->pix.sizeimage;
 	return ret;
 }
 static long vfe_param_handler(struct file *file, void *priv,

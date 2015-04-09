@@ -167,20 +167,6 @@ struct sensor_config_init {
 	int sub_power_vol[ENUM_MAX_REGU];
 	struct camera_instance camera_inst[MAX_SENSOR_DETECT_NUM];
 };
-
-struct isp_fmt_cfg
-{
-	int rot_angle;
-	int rot_ch;
-	//enum v4l2_mbus_pixelcode bus_code;
-	enum bus_pixeltype  bus_code;
-	enum pixel_fmt isp_fmt[ISP_MAX_CH_NUM];
-	struct isp_size isp_size[ISP_MAX_CH_NUM];
-	struct sensor_win_size win_cfg;
-	struct isp_size ob_black_size;
-	struct isp_size ob_valid_size;
-	struct coor ob_start;
-};
 struct ccm_config {
 	struct v4l2_subdev      *sd;
 	struct sensor_config_init *sensor_cfg_ini;
@@ -209,7 +195,6 @@ struct ccm_config {
 	struct v4l2_subdev      *sd_act;
 	int                     flash_used;
 	__flash_driver_ic_type  flash_type;
-	struct isp_fmt_cfg isp_fmt;
 };
 
 struct sunxi_vip_platform_data {

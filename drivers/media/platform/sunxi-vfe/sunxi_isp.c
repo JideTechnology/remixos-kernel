@@ -30,6 +30,8 @@
 #define ISP_MODULE_NAME "sunxi_isp"
 #define ISP_HEIGHT_16B_ALIGN 1
 struct isp_dev *isp_gbl;
+static int isp_dbg_en = 0; 
+static int isp_dbg_lv = 1;
 
 static int __isp_set_input_fmt_internal(enum bus_pixeltype type)
 {
@@ -339,6 +341,65 @@ static unsigned int __isp_new_set_size_internal(enum pixel_fmt *fmt, struct isp_
 	return (isp_yuv_size_addr[MAIN_CH].isp_byte_size + isp_yuv_size_addr[SUB_CH].isp_byte_size +
 					isp_yuv_size_addr[ROT_CH].isp_byte_size);
 }
+static enum pixel_fmt pix_fmt_v4l2_to_common(unsigned int pix_fmt)
+{
+	switch(pix_fmt) {
+		case V4L2_PIX_FMT_RGB565:
+			return PIX_FMT_RGB565;
+		case V4L2_PIX_FMT_RGB24:
+			return PIX_FMT_RGB888;
+		case V4L2_PIX_FMT_RGB32:
+			return PIX_FMT_PRGB888;
+		case V4L2_PIX_FMT_YUYV:
+			return PIX_FMT_YUYV;
+		case V4L2_PIX_FMT_YVYU:
+			return PIX_FMT_YVYU;
+		case V4L2_PIX_FMT_UYVY:
+			return PIX_FMT_UYVY;
+		case V4L2_PIX_FMT_VYUY:
+			return PIX_FMT_VYUY;
+		case V4L2_PIX_FMT_YUV422P:
+			return PIX_FMT_YUV422P_8;
+		case V4L2_PIX_FMT_YUV420:
+			return PIX_FMT_YUV420P_8;
+		case V4L2_PIX_FMT_YVU420:
+			return PIX_FMT_YVU420P_8;
+		case V4L2_PIX_FMT_NV12:
+			return PIX_FMT_YUV420SP_8;
+		case V4L2_PIX_FMT_NV21:
+			return PIX_FMT_YVU420SP_8;    
+		case V4L2_PIX_FMT_NV16:
+			return PIX_FMT_YUV422SP_8;      
+		case V4L2_PIX_FMT_NV61:
+			return PIX_FMT_YVU422SP_8;        
+		case V4L2_PIX_FMT_SBGGR8:
+			return PIX_FMT_SBGGR_8;
+		case V4L2_PIX_FMT_SGBRG8:
+			return PIX_FMT_SGBRG_8;
+		case V4L2_PIX_FMT_SGRBG8:
+			return PIX_FMT_SGRBG_8;
+		case V4L2_PIX_FMT_SRGGB8:
+			return PIX_FMT_SRGGB_8;
+		case V4L2_PIX_FMT_SBGGR10:
+			return PIX_FMT_SBGGR_10;
+		case V4L2_PIX_FMT_SGBRG10:
+			return PIX_FMT_SGBRG_10;
+		case V4L2_PIX_FMT_SGRBG10:
+			return PIX_FMT_SGRBG_10;
+		case V4L2_PIX_FMT_SRGGB10:
+			return PIX_FMT_SRGGB_10;    
+		case V4L2_PIX_FMT_SBGGR12:
+			return PIX_FMT_SBGGR_12;
+		case V4L2_PIX_FMT_SGBRG12:
+			return PIX_FMT_SGBRG_12;
+		case V4L2_PIX_FMT_SGRBG12:
+			return PIX_FMT_SGRBG_12;
+		case V4L2_PIX_FMT_SRGGB12:
+			return PIX_FMT_SRGGB_12;
+		default:
+			return PIX_FMT_SBGGR_8;
+	}
+} 
 
 unsigned int sunxi_isp_set_size(enum pixel_fmt *fmt, struct isp_size_settings *size_settings)
 {
@@ -501,6 +562,165 @@ static int sunxi_isp_subdev_cropcap(struct v4l2_subdev *sd,
 {
 	return 0;
 }
+int sunxi_isp_set_mainchannel(struct isp_dev *isp, struct main_channel_cfg *main_cfg)
+{
+	struct isp_size_settings size_settings;
+	struct isp_fmt_cfg *isp_fmt_cfg = &isp->isp_fmt;
+	struct sensor_win_size *win_cfg = &main_cfg->win_cfg;
+	memset(isp_fmt_cfg, 0, sizeof(struct isp_fmt_cfg));
+
+	isp_fmt_cfg->isp_fmt[MAIN_CH] = pix_fmt_v4l2_to_common(main_cfg->pix.pixelformat);
+	isp_fmt_cfg->isp_size[MAIN_CH].width = main_cfg->pix.width;
+	isp_fmt_cfg->isp_size[MAIN_CH].height = main_cfg->pix.height;
+	isp_fmt_cfg->isp_fmt[SUB_CH] = PIX_FMT_NONE;
+	isp_fmt_cfg->isp_fmt[ROT_CH] = PIX_FMT_NONE;
+
+	isp_dbg(0,"bus_code = %d, isp_fmt = %p\n",isp_fmt_cfg->bus_code,isp_fmt_cfg->isp_fmt);
+	isp_fmt_cfg->bus_code = main_cfg->bus_code;
+	sunxi_isp_set_fmt(isp_fmt_cfg->bus_code,&isp_fmt_cfg->isp_fmt[0]);
+    
+	if(0 == win_cfg->width || 0 == win_cfg->height)
+	{
+		win_cfg->width = isp_fmt_cfg->isp_size[MAIN_CH].width;
+		win_cfg->height = isp_fmt_cfg->isp_size[MAIN_CH].height;
+	}
+	if(0 == win_cfg->width_input || 0 == win_cfg->height_input)
+	{
+		win_cfg->width_input = win_cfg->width;
+		win_cfg->height_input = win_cfg->height;
+	}
+	//isp_fmt_cfg->win_cfg = win_cfg;
+	isp_print("width_input = %d, height_input = %d, width = %d, height = %d\n", win_cfg->width_input,win_cfg->height_input,  win_cfg->width,  win_cfg->height );
+	isp_fmt_cfg->ob_black_size.width= win_cfg->width_input + 2*win_cfg->hoffset; //OK
+	isp_fmt_cfg->ob_black_size.height= win_cfg->height_input + 2*win_cfg->voffset;//OK
+	isp_fmt_cfg->ob_valid_size.width = win_cfg->width_input;
+	isp_fmt_cfg->ob_valid_size.height = win_cfg->height_input;
+	isp_fmt_cfg->ob_start.hor =  win_cfg->hoffset;  //OK
+	isp_fmt_cfg->ob_start.ver =  win_cfg->voffset;  //OK
+  
+	//dev->buf_byte_size = bsp_isp_set_size(isp_fmt,&ob_black_size, &ob_valid_size, &isp_size[MAIN_CH],&isp_size[ROT_CH],&ob_start,&isp_size[SUB_CH]);
+	size_settings.full_size = isp_fmt_cfg->isp_size[MAIN_CH];
+	size_settings.scale_size = isp_fmt_cfg->isp_size[SUB_CH];
+	size_settings.ob_black_size = isp_fmt_cfg->ob_black_size;
+	size_settings.ob_start = isp_fmt_cfg->ob_start;
+	size_settings.ob_valid_size = isp_fmt_cfg->ob_valid_size;
+	size_settings.ob_rot_size = isp_fmt_cfg->isp_size[ROT_CH];
+	main_cfg->pix.sizeimage = sunxi_isp_set_size(&isp_fmt_cfg->isp_fmt[0],&size_settings);	
+	isp_print("main_cfg->pix.sizeimage = %d,main_cfg->pix.width = %d ,main_cfg->pix.height = %d\n",main_cfg->pix.sizeimage,main_cfg->pix.width,main_cfg->pix.height);
+	return 0;
+}
+int sunxi_isp_set_subchannel(struct isp_dev *isp, struct v4l2_pix_format *sub)
+{
+	int ret=0;
+	struct isp_size_settings size_settings;
+	struct isp_fmt_cfg *isp_fmt_cfg = &isp->isp_fmt;
+	isp_fmt_cfg->isp_fmt[SUB_CH] = pix_fmt_v4l2_to_common(sub->pixelformat);
+	isp_fmt_cfg->isp_size[SUB_CH].width = sub->width;
+	isp_fmt_cfg->isp_size[SUB_CH].height = sub->height;
+	if(isp_fmt_cfg->isp_size[SUB_CH].height > isp_fmt_cfg->isp_size[MAIN_CH].height || isp_fmt_cfg->isp_size[SUB_CH].width > isp_fmt_cfg->isp_size[MAIN_CH].width)
+	{
+		vfe_err("subchannel size > main channel size!!! MAIN_CH = %d %d,SUB_CH = %d %d\n",
+			isp_fmt_cfg->isp_size[MAIN_CH].width,
+			isp_fmt_cfg->isp_size[MAIN_CH].height,
+			isp_fmt_cfg->isp_size[SUB_CH].width,
+			isp_fmt_cfg->isp_size[SUB_CH].height);
+		return -1;
+	}
+	size_settings.full_size = isp_fmt_cfg->isp_size[MAIN_CH];
+	size_settings.scale_size = isp_fmt_cfg->isp_size[SUB_CH];
+	size_settings.ob_black_size = isp_fmt_cfg->ob_black_size;
+	size_settings.ob_start = isp_fmt_cfg->ob_start;
+	size_settings.ob_valid_size = isp_fmt_cfg->ob_valid_size;
+	size_settings.ob_rot_size = isp_fmt_cfg->isp_size[ROT_CH];
+	sunxi_isp_set_fmt(isp_fmt_cfg->bus_code, &isp_fmt_cfg->isp_fmt[0]);
+	sub->sizeimage= sunxi_isp_set_size(&isp_fmt_cfg->isp_fmt[0],&size_settings);
+	isp_print("sub->sizeimage = %d,sub->width = %d,sub->height = %d\n",sub->sizeimage,sub->width,sub->height);
+	return ret;
+}
+
+int sunxi_isp_set_rotchannel(struct isp_dev *isp, struct rot_channel_cfg *rot)
+{
+	int ret=0;
+	struct isp_size_settings size_settings;
+	struct isp_fmt_cfg *isp_fmt_cfg = &isp->isp_fmt;
+	isp_fmt_cfg->isp_fmt[ROT_CH] = isp_fmt_cfg->isp_fmt[rot->sel_ch];
+	isp_fmt_cfg->rot_angle = rot->rotation;
+	isp_fmt_cfg->rot_ch = rot->sel_ch;
+	if(isp_fmt_cfg->rot_angle == 90 || isp_fmt_cfg->rot_angle ==270)
+	{
+		isp_fmt_cfg->isp_size[ROT_CH].width = isp_fmt_cfg->isp_size[rot->sel_ch].height;
+		isp_fmt_cfg->isp_size[ROT_CH].height = isp_fmt_cfg->isp_size[rot->sel_ch].width;
+	}else{
+		isp_fmt_cfg->isp_size[ROT_CH].width = isp_fmt_cfg->isp_size[rot->sel_ch].width;
+		isp_fmt_cfg->isp_size[ROT_CH].height = isp_fmt_cfg->isp_size[rot->sel_ch].height;
+	}
+	if(isp_fmt_cfg->rot_ch == MAIN_CH)
+	{
+		if(isp_fmt_cfg->rot_angle == 0) {
+			bsp_isp_set_rot(MAIN_CH,ANGLE_0);        
+		} else if(isp_fmt_cfg->rot_angle == 90) {
+			bsp_isp_set_rot(MAIN_CH,ANGLE_90);        
+		} else if(isp_fmt_cfg->rot_angle == 180) {
+			bsp_isp_set_rot(MAIN_CH,ANGLE_180);        
+		} else if(isp_fmt_cfg->rot_angle == 270) {
+			bsp_isp_set_rot(MAIN_CH,ANGLE_270);
+		} else {
+			bsp_isp_set_rot(MAIN_CH,ANGLE_0);
+		}
+	}else if(isp_fmt_cfg->rot_ch == SUB_CH){
+		if(isp_fmt_cfg->rot_angle == 0) {
+			bsp_isp_set_rot(SUB_CH,ANGLE_0); 
+		} else if(isp_fmt_cfg->rot_angle == 90) {
+			bsp_isp_set_rot(SUB_CH,ANGLE_90); 
+		} else if(isp_fmt_cfg->rot_angle == 180) {
+			bsp_isp_set_rot(SUB_CH,ANGLE_180); 
+		} else if(isp_fmt_cfg->rot_angle == 270) {
+			bsp_isp_set_rot(SUB_CH,ANGLE_270);
+		} else {
+			bsp_isp_set_rot(SUB_CH,ANGLE_0);
+		}
+	}else{
+		vfe_err("vidioc_set_rotchannel rot_ch = %d is error!!!", isp_fmt_cfg->rot_ch);
+	}
+	size_settings.full_size = isp_fmt_cfg->isp_size[MAIN_CH];
+	size_settings.scale_size = isp_fmt_cfg->isp_size[SUB_CH];
+	size_settings.ob_black_size = isp_fmt_cfg->ob_black_size;
+	size_settings.ob_start = isp_fmt_cfg->ob_start;
+	size_settings.ob_valid_size = isp_fmt_cfg->ob_valid_size;
+	size_settings.ob_rot_size = isp_fmt_cfg->isp_size[ROT_CH];
+	sunxi_isp_set_fmt(isp_fmt_cfg->bus_code, &isp_fmt_cfg->isp_fmt[0]);
+	rot->pix.sizeimage = sunxi_isp_set_size(&isp_fmt_cfg->isp_fmt[0],&size_settings);
+	isp_print("rot->pix.sizeimage = %d,rot->pix.width = %d ,rot->pix.height = %d\n",rot->pix.sizeimage,rot->pix.width,rot->pix.height);
+	return ret;
+}
+
+static long sunxi_isp_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
+{
+	struct isp_dev *isp = v4l2_get_subdevdata(sd);
+	int ret;
+
+	switch (cmd) {
+	case VIDIOC_SUNXI_ISP_MAIN_CH_CFG:
+		mutex_lock(&isp->subdev_lock);
+		ret = sunxi_isp_set_mainchannel(isp, arg);
+		mutex_unlock(&isp->subdev_lock);
+		break;
+	case VIDIOC_SUNXI_ISP_SUB_CH_CFG:
+		mutex_lock(&isp->subdev_lock);
+		ret = sunxi_isp_set_subchannel(isp, arg);
+		mutex_unlock(&isp->subdev_lock);
+		break;
+	case VIDIOC_SUNXI_ISP_ROT_CH_CFG:
+		mutex_lock(&isp->subdev_lock);
+		ret = sunxi_isp_set_rotchannel(isp, arg);
+		mutex_unlock(&isp->subdev_lock);
+		break;
+	default:
+		return -ENOIOCTLCMD;
+	}
+
+	return ret;
+}
 
 static const struct v4l2_subdev_core_ops sunxi_isp_core_ops = {
 	.s_power = sunxi_isp_subdev_s_power,
@@ -508,6 +728,7 @@ static const struct v4l2_subdev_core_ops sunxi_isp_core_ops = {
 	.queryctrl = v4l2_subdev_queryctrl,
 	.g_ctrl = v4l2_subdev_g_ctrl,
 	.s_ctrl = v4l2_subdev_s_ctrl,
+	.ioctl = sunxi_isp_subdev_ioctl,
 };
 
 static const struct v4l2_subdev_video_ops sunxi_isp_subdev_video_ops = {

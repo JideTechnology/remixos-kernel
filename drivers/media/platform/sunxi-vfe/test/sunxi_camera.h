@@ -137,6 +137,7 @@ struct isp_exif_attribute {
 struct rot_channel_cfg {
 	__u32 sel_ch;
 	__u32 rotation;
+	struct v4l2_pix_format pix;
 };
 #define VIDIOC_ISP_AE_STAT_REQ \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 1, struct isp_stat_buf)
