@@ -1742,6 +1742,9 @@ static const struct file_operations disp_fops = {
 	.write    = disp_write,
 	.read     = disp_read,
 	.unlocked_ioctl = disp_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = disp_ioctl,
+#endif
 	.mmap     = disp_mmap,
 };
 
