@@ -274,7 +274,7 @@ static int axp_pinctrl_gpio_of_xlate(struct gpio_chip *gc,
 				const struct of_phandle_args *gpiospec,
 				u32 *flags)
 {
-	struct gpio_config *config=(struct gpio_config *)flags;
+	struct gpio_config *config = NULL;
 	int pin, base;
 
 	PIN_MSG("%s enter... gpiospec->args[0] = %d, gpiospec->args[1] = %d\n",
@@ -282,13 +282,14 @@ static int axp_pinctrl_gpio_of_xlate(struct gpio_chip *gc,
 
 	base = AXP_PIN_BASE;
 	pin = base + gpiospec->args[1];
-	config->gpio = pin;
 
 	pin = pin-gc->base;
 	if (pin > gc->ngpio)
 		return -EINVAL;
 
 	if (flags){
+		config = (struct gpio_config *)flags;
+		config->gpio = base + gpiospec->args[1];
 		config->mul_sel = gpiospec->args[2];
 		config->drv_level = gpiospec->args[3];
 		config->pull = gpiospec->args[4];
