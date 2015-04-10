@@ -2399,7 +2399,7 @@ static int sunxi_get_udc_base(struct platform_device *pdev, sunxi_udc_io_t *sunx
 		return -EINVAL;
 	}
 
-	DMSG_INFO("usbc base:%p\n", sunxi_udc_io->usb_vbase);
+	//DMSG_INFO("usbc base:%p\n", sunxi_udc_io->usb_vbase);
 	return 0;
 }
 
@@ -2435,7 +2435,7 @@ static int sunxi_get_sram_base(struct platform_device *pdev, sunxi_udc_io_t *sun
 		return -EINVAL;
 	}
 
-	DMSG_INFO("sram_vbase:%p\n", sunxi_udc_io->sram_vbase);
+	//DMSG_INFO("sram_vbase:%p\n", sunxi_udc_io->sram_vbase);
 
 	return 0;
 }
@@ -3200,7 +3200,7 @@ static int udc_init(void)
 {
 	int retval = 0;
 
-	DMSG_INFO_UDC("udc_init: version %s\n", DRIVER_VERSION);
+	//DMSG_INFO_UDC("udc_init: version %s\n", DRIVER_VERSION);
 
 	usb_connect = 0;
 

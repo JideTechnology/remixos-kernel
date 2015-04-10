@@ -134,8 +134,8 @@ __s32 sunxi_udc_bsp_exit(sunxi_udc_io_t *sunxi_udc_io)
 __s32 sunxi_udc_io_init(__u32 usbc_no, sunxi_udc_io_t *sunxi_udc_io)
 {
 
-	DMSG_INFO_UDC("sram_vbase = 0x%p\n", sunxi_udc_io->sram_vbase);
-	DMSG_INFO_UDC("usb_vbase  = 0x%p\n", sunxi_udc_io->usb_vbase);
+	//DMSG_INFO_UDC("sram_vbase = 0x%p\n", sunxi_udc_io->sram_vbase);
+	//DMSG_INFO_UDC("usb_vbase  = 0x%p\n", sunxi_udc_io->usb_vbase);
 
 	sunxi_udc_io->usbc.usbc_info.num = usbc_no;
 	sunxi_udc_io->usbc.usbc_info.base = sunxi_udc_io->usb_vbase;

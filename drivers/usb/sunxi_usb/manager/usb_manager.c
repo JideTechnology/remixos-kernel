@@ -147,7 +147,7 @@ static __s32 usb_script_parse(struct device_node *np, struct usb_cfg *cfg)
 			cfg->port.det_vbus.valid = 0;
 		} else {
 			/*get det vbus gpio*/
-			cfg->port.det_vbus.gpio_set.gpio.gpio = of_get_named_gpio_flags(usbc_np, KEY_USB_DETVBUS_GPIO, 0, &cfg->port.gpio_dev_flags);
+			cfg->port.det_vbus.gpio_set.gpio.gpio = of_get_named_gpio(usbc_np, KEY_USB_DETVBUS_GPIO, 0);
 			if (gpio_is_valid(cfg->port.det_vbus.gpio_set.gpio.gpio)) {
 				cfg->port.det_vbus.valid = 1;
 				cfg->port.det_vbus_type = USB_DET_VBUS_TYPE_GIPO;
@@ -158,7 +158,7 @@ static __s32 usb_script_parse(struct device_node *np, struct usb_cfg *cfg)
 	}
 
 	/* usbc id gpio*/
-	cfg->port.id.gpio_set.gpio.gpio = of_get_named_gpio_flags(usbc_np, KEY_USB_ID_GPIO, 0, &cfg->port.gpio_io_flags);
+	cfg->port.id.gpio_set.gpio.gpio = of_get_named_gpio(usbc_np, KEY_USB_ID_GPIO, 0);
 	if (gpio_is_valid(cfg->port.id.gpio_set.gpio.gpio)) {
 		cfg->port.id.valid = 1;
 	}else{
@@ -174,7 +174,7 @@ static __s32 usb_script_parse(struct device_node *np, struct usb_cfg *cfg)
 	if(type == SCIRPT_ITEM_VALUE_TYPE_INT){
 		cfg->port.enable = item_temp.val;
 	}else{
-		DMSG_PANIC("ERR: get usbc(%d) enable failed\n", i);
+		DMSG_PANIC("ERR: get usbc enable failed\n");
 		cfg->port.enable = 0;
 	}
 
@@ -183,7 +183,7 @@ static __s32 usb_script_parse(struct device_node *np, struct usb_cfg *cfg)
 	if(type == SCIRPT_ITEM_VALUE_TYPE_INT){
 		cfg->port.port_type = item_temp.val;
 	}else{
-		DMSG_PANIC("ERR: get usbc(%d) port type failed\n", i);
+		DMSG_PANIC("ERR: get usbc port type failed\n");
 		cfg->port.port_type = 0;
 	}
 
@@ -193,7 +193,7 @@ static __s32 usb_script_parse(struct device_node *np, struct usb_cfg *cfg)
 		cfg->port.id.valid = 1;
 	}else{
 		cfg->port.id.valid = 0;
-		DMSG_PANIC("ERR: get usbc(%d) id failed\n", i);
+		DMSG_PANIC("ERR: get usbc id failed\n");
 	}
 
 	/* usbc det_vbus */
@@ -204,7 +204,7 @@ static __s32 usb_script_parse(struct device_node *np, struct usb_cfg *cfg)
 	}else{
 		cfg->port.det_vbus.valid = 0;
 		cfg->port.det_vbus_type = USB_DET_VBUS_TYPE_NULL;
-		DMSG_PANIC("ERR: get usbc(%d) det_vbus gpio failed\n", i);
+		DMSG_PANIC("ERR: get usbc det_vbus gpio failed\n");
 	}
 
 	if(cfg->port.det_vbus.valid == 0){
@@ -216,7 +216,7 @@ static __s32 usb_script_parse(struct device_node *np, struct usb_cfg *cfg)
 				cfg->port.det_vbus_type = USB_DET_VBUS_TYPE_NULL;
 			}
 		}else{
-				DMSG_PANIC("ERR: get usbc(%d) det_vbus axp failed\n", i);
+				DMSG_PANIC("ERR: get usbc det_vbus axp failed\n");
 				cfg->port.det_vbus_type = USB_DET_VBUS_TYPE_NULL;
 		}
 	}
@@ -227,7 +227,7 @@ static __s32 usb_script_parse(struct device_node *np, struct usb_cfg *cfg)
 		cfg->port.drv_vbus.valid = 1;
 	}else{
 		cfg->port.drv_vbus.valid = 0;
-		DMSG_PANIC("ERR: get usbc(%d) det_vbus failed\n", i);
+		DMSG_PANIC("ERR: get usbc det_vbus failed\n");
 	}
 
 #endif
@@ -251,7 +251,6 @@ int usb_otg_id_status(void)
 	if(cfg->port.port_type == USB_PORT_TYPE_OTG) {
 		if(cfg->port.id.valid){
 			id_status = __gpio_get_value(cfg->port.id.gpio_set.gpio.gpio);
-			printk("%s, %d, id_status: %d\n", __func__, __LINE__, id_status);
 		}
 	}
 

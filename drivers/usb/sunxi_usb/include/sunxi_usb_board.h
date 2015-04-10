@@ -81,9 +81,7 @@ typedef struct usb_port_info{
 	enum usb_det_vbus_type det_vbus_type;
 	const char *det_vbus_name;
 	usb_gpio_t id;				/* usb id pin info 		*/
-	enum of_gpio_flags gpio_io_flags;
 	usb_gpio_t det_vbus;			/* usb vbus pin info 		*/
-	enum of_gpio_flags gpio_dev_flags;
 	usb_gpio_t drv_vbus;			/* usb drv_vbus pin info	*/
 	usb_gpio_t restrict_gpio_set;		/* usb drv_vbus pin info	*/
 	__u32 usb_restrict_flag;		/* usb port number(?)		*/

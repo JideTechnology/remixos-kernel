@@ -175,7 +175,7 @@ static void USBC_Clean_SIDDP(struct sunxi_hci_hcd *sunxi_hci)
 
 static int open_clock(struct sunxi_hci_hcd *sunxi_hci, u32 ohci)
 {
-	DMSG_INFO("[%s]: open clock, is_open: %d\n", sunxi_hci->hci_name, sunxi_hci->clk_is_open);
+	//DMSG_INFO("[%s]: open clock, is_open: %d\n", sunxi_hci->hci_name, sunxi_hci->clk_is_open);
 
 #ifdef  SUNXI_USB_FPGA
 	fpga_config_use_hci(sunxi_hci);
@@ -248,7 +248,7 @@ static int open_clock(struct sunxi_hci_hcd *sunxi_hci, u32 ohci)
 
 static int close_clock(struct sunxi_hci_hcd *sunxi_hci, u32 ohci)
 {
-	DMSG_INFO("[%s]: close clock, is_open: %d\n", sunxi_hci->hci_name, sunxi_hci->clk_is_open);
+	//DMSG_INFO("[%s]: close clock, is_open: %d\n", sunxi_hci->hci_name, sunxi_hci->clk_is_open);
 
 	if(sunxi_hci->ahb && sunxi_hci->mod_usbphy && sunxi_hci->clk_is_open){
 		sunxi_hci->clk_is_open = 0;
@@ -445,7 +445,7 @@ void sunxi_set_host_vbus(struct sunxi_hci_hcd *sunxi_hci, int is_on)
 static void __sunxi_set_vbus(struct sunxi_hci_hcd *sunxi_hci, int is_on)
 {
 
-	DMSG_INFO("[%s]: Set USB Power %s\n", sunxi_hci->hci_name, (is_on ? "ON" : "OFF"));
+	//DMSG_INFO("[%s]: Set USB Power %s\n", sunxi_hci->hci_name, (is_on ? "ON" : "OFF"));
 
 	/* set power flag */
 	sunxi_hci->power_flag = is_on;
@@ -537,7 +537,7 @@ static int sunxi_get_hci_base(struct platform_device *pdev, struct sunxi_hci_hcd
 			return -EINVAL;
 		}
 
-		DMSG_INFO("OTG,Vbase:0x%p\n", sunxi_hci->otg_vbase);
+		//DMSG_INFO("OTG,Vbase:0x%p\n", sunxi_hci->otg_vbase);
 	}
 
 	ret = of_address_to_resource(np, 0, &res);
@@ -547,7 +547,7 @@ static int sunxi_get_hci_base(struct platform_device *pdev, struct sunxi_hci_hcd
 
 	sunxi_hci->usb_base_res = &res;
 
-	DMSG_INFO("%s,Vbase:0x%p, base res:0x%p\n", sunxi_hci->hci_name, sunxi_hci->usb_vbase, sunxi_hci->usb_base_res);
+	//DMSG_INFO("%s,Vbase:0x%p, base res:0x%p\n", sunxi_hci->hci_name, sunxi_hci->usb_vbase, sunxi_hci->usb_base_res);
 
 	return 0;
 }
@@ -635,7 +635,7 @@ static int get_usb_cfg(struct platform_device *pdev, struct sunxi_hci_hcd *sunxi
 				sunxi_hci->hsic_ctrl_flag = 0;
 			}
 			if(sunxi_hci->hsic_ctrl_flag){
-				sunxi_hci->hsic_rdy_gpio_set.gpio.gpio = of_get_named_gpio_flags(usbc_np, KEY_USB_HSIC_RDY_GPIO, 0, &sunxi_hci->gpio_flags);
+				sunxi_hci->hsic_rdy_gpio_set.gpio.gpio = of_get_named_gpio(usbc_np, KEY_USB_HSIC_RDY_GPIO, 0);
 				if(gpio_is_valid(sunxi_hci->hsic_rdy_gpio_set.gpio.gpio)){
 					sunxi_hci->hsic_rdy_gpio_valid = 1;
 				}else{
@@ -657,7 +657,7 @@ static int get_usb_cfg(struct platform_device *pdev, struct sunxi_hci_hcd *sunxi
 		 DMSG_PRINT("get %s wakeup_suspend is fail, %d\n", sunxi_hci->hci_name, -ret);
 	}
 
-	sunxi_hci->drv_vbus_gpio_set.gpio.gpio = of_get_named_gpio_flags(usbc_np, KEY_USB_DRVVBUS_GPIO, 0, &sunxi_hci->gpio_flags);
+	sunxi_hci->drv_vbus_gpio_set.gpio.gpio = of_get_named_gpio(usbc_np, KEY_USB_DRVVBUS_GPIO, 0);
 	if(gpio_is_valid(sunxi_hci->drv_vbus_gpio_set.gpio.gpio)){
 		sunxi_hci->drv_vbus_gpio_valid = 1;
 	}else{
@@ -779,7 +779,7 @@ static int sunxi_get_hci_irq_no(struct platform_device *pdev, struct sunxi_hci_h
 {
 	sunxi_hci->irq_no = platform_get_irq(pdev, 0);
 
-	DMSG_INFO("%s,irq_no:%d\n", sunxi_hci->hci_name, sunxi_hci->irq_no);
+	//DMSG_INFO("%s,irq_no:%d\n", sunxi_hci->hci_name, sunxi_hci->irq_no);
 	return 0;
 }
 
@@ -796,7 +796,7 @@ static int sunxi_get_sram_base(struct platform_device *pdev, struct sunxi_hci_hc
 			return -EINVAL;
 		}
 
-		DMSG_INFO("%s sram_vbase: %p\n", sunxi_hci->hci_name, sunxi_hci->sram_vbase);
+		//DMSG_INFO("%s sram_vbase: %p\n", sunxi_hci->hci_name, sunxi_hci->sram_vbase);
 	}
 
 	return 0;

@@ -429,8 +429,8 @@ int sunxi_insmod_ehci(struct platform_device *pdev)
 	sunxi_ehci->pdev = pdev;
 	g_sunxi_ehci[sunxi_ehci->usbc_no] = sunxi_ehci;
 
-	DMSG_INFO("[%s%d]: probe, pdev->name: %s, pdev->id: %d, sunxi_ehci: 0x%p, 0x:%p, irq_no:%x\n",
-		ehci_name, sunxi_ehci->usbc_no, pdev->name, pdev->id, sunxi_ehci,sunxi_ehci->usb_vbase, sunxi_ehci->irq_no);
+	DMSG_INFO("[%s%d]: probe, pdev->name: %s, sunxi_ehci: 0x%p, 0x:%p, irq_no:%x\n",
+		ehci_name, sunxi_ehci->usbc_no, pdev->name, sunxi_ehci,sunxi_ehci->usb_vbase, sunxi_ehci->irq_no);
 
 	/* get io resource */
 	sunxi_ehci->ehci_base		= sunxi_ehci->usb_vbase;
@@ -525,8 +525,8 @@ int sunxi_rmmod_ehci(struct platform_device *pdev)
 		return -1;
 	}
 
-	DMSG_INFO("[%s%d]: remove, pdev->name: %s, pdev->id: %d, sunxi_ehci: 0x%p\n",
-		ehci_name, sunxi_ehci->usbc_no, pdev->name, pdev->id, sunxi_ehci);
+	DMSG_INFO("[%s%d]: remove, pdev->name: %s, sunxi_ehci: 0x%p\n",
+		ehci_name, sunxi_ehci->usbc_no, pdev->name, sunxi_ehci);
 
 	device_remove_file(&pdev->dev, &dev_attr_ed_test);
 #ifdef CONFIG_PM

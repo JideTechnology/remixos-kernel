@@ -231,8 +231,8 @@ static int sunxi_insmod_ohci(struct platform_device *pdev)
 	sunxi_ohci->pdev = pdev;
 	g_sunxi_ohci[sunxi_ohci->usbc_no] = sunxi_ohci;
 
-	DMSG_INFO("[%s%d]: probe, pdev->name: %s, pdev->id: %d, sunxi_ohci: 0x%p\n",
-		ohci_name, sunxi_ohci->usbc_no, pdev->name, pdev->id, sunxi_ohci);
+	DMSG_INFO("[%s%d]: probe, pdev->name: %s, sunxi_ohci: 0x%p\n",
+		ohci_name, sunxi_ohci->usbc_no, pdev->name, sunxi_ohci);
 
 	sunxi_ohci->ohci_base = sunxi_ohci->usb_vbase + SUNXI_USB_OHCI_BASE_OFFSET;
 
@@ -319,8 +319,8 @@ static int sunxi_rmmod_ohci(struct platform_device *pdev)
 		return -1;
 	}
 
-	DMSG_INFO("[%s%d]: remove, pdev->name: %s, pdev->id: %d, sunxi_ohci: 0x%p\n",
-		ohci_name, sunxi_ohci->usbc_no, pdev->name, pdev->id, sunxi_ohci);
+	DMSG_INFO("[%s%d]: remove, pdev->name: %s, sunxi_ohci: 0x%p\n",
+		ohci_name, sunxi_ohci->usbc_no, pdev->name, sunxi_ohci);
 #ifdef	CONFIG_PM
 	if(sunxi_ohci->wakeup_suspend){
 		scene_lock_destroy(&ohci_standby_lock[sunxi_ohci->usbc_no]);
