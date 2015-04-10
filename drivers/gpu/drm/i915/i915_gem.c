@@ -2736,15 +2736,7 @@ int __i915_add_request(struct intel_engine_cs *ring,
 	 */
 	request->batch_obj = obj;
 
-	if (!i915.enable_execlists) {
-		/* Hold a reference to the current context so that we can inspect
-		 * it later in case a hangcheck error event fires.
-		 */
-		WARN_ON(request->ctx && (request->ctx != ring->last_context));
-		request->ctx = ring->last_context;
-		if (request->ctx)
-			i915_gem_context_reference(request->ctx);
-	}
+	WARN_ON(!i915.enable_execlists && (request->ctx != ring->last_context));
 
 	request->emitted_jiffies = jiffies;
 	list_add_tail(&request->list, &ring->request_list);

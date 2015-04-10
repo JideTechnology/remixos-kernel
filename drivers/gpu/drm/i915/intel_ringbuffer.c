@@ -2493,6 +2493,8 @@ intel_ring_alloc_request(struct intel_engine_cs *ring, struct intel_context *ctx
 	struct drm_i915_gem_request *request;
 	struct drm_i915_private *dev_private = ring->dev->dev_private;
 
+	WARN_ON(ctx == NULL);
+
 	if (ring->outstanding_lazy_request)
 		return 0;
 
@@ -2504,6 +2506,7 @@ intel_ring_alloc_request(struct intel_engine_cs *ring, struct intel_context *ctx
 	request->ring = ring;
 	request->ringbuf = ring->buffer;
 	request->ctx = ctx;
+	i915_gem_context_reference(request->ctx);
 	request->uniq = dev_private->request_uniq++;
 
 	ring->outstanding_lazy_request = request;
@@ -2548,7 +2551,7 @@ int intel_ring_begin(struct intel_engine_cs *ring,
 		return ret;
 
 	/* Preallocate the olr before touching the ring */
-	ret = intel_ring_alloc_request(ring, NULL);
+	ret = intel_ring_alloc_request(ring, ring->default_context);
 	if (ret)
 		return ret;
 
