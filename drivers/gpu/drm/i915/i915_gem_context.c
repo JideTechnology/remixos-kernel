@@ -819,7 +819,11 @@ static int do_switch(struct intel_engine_cs *ring,
 		i915_gem_context_unreference(from);
 	}
 
-	uninitialized = !to->legacy_hw_ctx.initialized;
+	if (INTEL_INFO(ring->dev)->gen < 8)
+		uninitialized = !to->legacy_hw_ctx.initialized && from == NULL;
+	else
+		uninitialized = !to->legacy_hw_ctx.initialized;
+
 	to->legacy_hw_ctx.initialized = true;
 
 done:
