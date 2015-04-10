@@ -672,8 +672,13 @@ static void sunxi_dramfreq_masters_state_update(struct sunxi_dramfreq *dramfreq,
 			dramfreq->key_masters[i] = 1;
 			value |= (0x1 << key_masters_int_idx[i][1]);
 		} else {
-			dramfreq->key_masters[i] = 0;
-			value &= (~(0x1 << key_masters_int_idx[i][1]));
+			if (i == MASTER_DE) {
+				dramfreq->key_masters[i] = 1;
+				value |= (0x1 << key_masters_int_idx[i][1]);
+			} else {
+				dramfreq->key_masters[i] = 0;
+				value &= (~(0x1 << key_masters_int_idx[i][1]));
+			}
 		}
 	}
 	writel(value, dramfreq->dramcom_base + MASTER_ACCESS_ENABLE);
