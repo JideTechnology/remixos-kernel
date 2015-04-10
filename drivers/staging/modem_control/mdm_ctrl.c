@@ -449,11 +449,16 @@ out:
 long mdm_ctrl_dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {
 	unsigned int minor = iminor(file_inode(filep));
-	struct mdm_info *mdm = &mdm_drv->mdm[minor];
+	struct mdm_info *mdm;
 	long ret = 0;
 	unsigned int mdm_state;
 	unsigned int param;
 	struct mdm_ctrl_cfg cfg;
+
+	if (!mdm_drv)
+		return -ENODEV;
+
+	mdm = &mdm_drv->mdm[minor];
 
 	pr_info(DRVNAME ": ioctl request 0x%x received on %d\n", cmd, minor);
 
@@ -696,11 +701,21 @@ static unsigned int mdm_ctrl_dev_poll(struct file *filep,
 				      struct poll_table_struct *pt)
 {
 	unsigned int minor = iminor(file_inode(filep));
-	struct mdm_info *mdm = &mdm_drv->mdm[minor];
+	struct mdm_info *mdm;
 	unsigned int ret = 0;
+
+	if (!mdm_drv)
+		return -ENODEV;
+
+	mdm = &mdm_drv->mdm[minor];
+	if (!mdm)
+		return -ENODEV;
 
 	/* Wait event change */
 	poll_wait(filep, &mdm->wait_wq, pt);
+
+	if (!mdm)
+		return -ENODEV;
 
 	/* State notify */
 	if (mdm->polled_state_reached ||
@@ -912,24 +927,49 @@ static int mdm_ctrl_module_probe(struct platform_device *pdev)
 static int mdm_ctrl_module_remove(struct platform_device *pdev)
 {
 	int i = 0;
+	int irq_to_be_freed = INVALID_GPIO;
 
 	if (!mdm_drv)
 		return 0;
+
+	/* Unregister the device */
+	device_destroy(mdm_drv->class, mdm_drv->tdev);
+	class_destroy(mdm_drv->class);
+	cdev_del(&mdm_drv->cdev);
+	unregister_chrdev_region(mdm_drv->tdev, 1);
 
 	for (i = 0; i < mdm_drv->nb_mdms; i++) {
 		struct mdm_info *mdm = &mdm_drv->mdm[i];
 
 		if (mdm->is_mdm_ctrl_disabled)
 			continue;
+		/*
+		 * Free the irqs that will not be used anymore
+		 * Core dump IRQ first
+		 */
+		irq_to_be_freed =
+			mdm->pdata->cpu.get_irq_cdump(mdm->pdata->cpu_data);
+		if (irq_to_be_freed != INVALID_GPIO) {
+			disable_irq_nosync(irq_to_be_freed);
+			free_irq(irq_to_be_freed, NULL);
+		}
+		/*
+		 * Then modem reset
+		 */
+		irq_to_be_freed =
+			mdm->pdata->cpu.get_irq_rst(mdm->pdata->cpu_data);
+		if (irq_to_be_freed != INVALID_GPIO) {
+			disable_irq_nosync(irq_to_be_freed);
+			free_irq(irq_to_be_freed, NULL);
+		}
+
+		/*
+		 * swith off the modem
+		 */
+		if (mdm_ctrl_get_state(mdm) != MDM_CTRL_STATE_OFF)
+			mdm_ctrl_power_off(mdm);
 
 		mdm_cleanup(mdm);
-
-		if (mdm->pdata->cpu.get_irq_cdump(mdm->pdata->cpu_data) > 0)
-			free_irq(mdm->pdata->cpu.
-				 get_irq_cdump(mdm->pdata->cpu_data), NULL);
-		if (mdm->pdata->cpu.get_irq_rst(mdm->pdata->cpu_data) > 0)
-			free_irq(mdm->pdata->cpu.
-				 get_irq_rst(mdm->pdata->cpu_data), NULL);
 
 		mdm->pdata->mdm.cleanup(mdm->pdata->modem_data);
 		mdm->pdata->cpu.cleanup(mdm->pdata->cpu_data);
@@ -940,18 +980,22 @@ static int mdm_ctrl_module_remove(struct platform_device *pdev)
 		kfree(mdm->pdata);
 	}
 
-	/* Unregister the device */
-	device_destroy(mdm_drv->class, mdm_drv->tdev);
-	class_destroy(mdm_drv->class);
-	cdev_del(&mdm_drv->cdev);
-	unregister_chrdev_region(mdm_drv->tdev, 1);
-
 	/* Free the driver context */
 	kfree(mdm_drv->all_pdata);
 	kfree(mdm_drv->mdm);
 	kfree(mdm_drv);
 
 	mdm_drv = NULL;
+
+	return 0;
+}
+
+static int mdm_ctrl_module_shutdown(struct platform_device *pdev)
+{
+	if (!mdm_drv)
+		return 0;
+
+	mdm_ctrl_module_remove(pdev);
 
 	return 0;
 }
@@ -975,6 +1019,7 @@ MODULE_DEVICE_TABLE(platform, mdm_ctrl_id_table);
 static struct platform_driver mcd_driver = {
 	.probe = mdm_ctrl_module_probe,
 	.remove = mdm_ctrl_module_remove,
+	.shutdown = mdm_ctrl_module_shutdown,
 	.driver = {
 		   .name = DRVNAME,
 		   .owner = THIS_MODULE,
