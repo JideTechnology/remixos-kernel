@@ -2472,9 +2472,16 @@ static int __exit sunxi_internal_codec_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static void sunxi_internal_codec_shutdown(struct platform_device *devptr)
+static void sunxi_internal_codec_shutdown(struct platform_device *pdev)
 {
+	struct sunxi_codec * sunxi_internal_codec = dev_get_drvdata(&pdev->dev);
 
+	snd_soc_update_bits(sunxi_internal_codec->codec, HP_CTRL, (0x1<<HPPA_EN), (0x0<<HPPA_EN));
+	snd_soc_update_bits(sunxi_internal_codec->codec, HP_PA_CTRL, (0xf<<HPOUTPUTENABLE), (0x0<<HPOUTPUTENABLE));
+	snd_soc_update_bits(sunxi_internal_codec->codec, MIX_DAC_CTRL, (0x3<<LHPPAMUTE), (0x0<<LHPPAMUTE));
+	snd_soc_update_bits(sunxi_internal_codec->codec, JACK_MIC_CTRL, (0x1<<HMICBIASEN), (0x0<<HMICBIASEN));
+	if (spk_gpio.cfg)
+		gpio_set_value(spk_gpio.gpio, 0);
 }
 
 static struct platform_driver sunxi_internal_codec_driver = {
