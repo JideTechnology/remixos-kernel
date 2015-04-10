@@ -226,6 +226,13 @@ int i915_scheduler_queue_execbuffer(struct i915_scheduler_queue_entry *qe)
 		scheduler->stats[qe->params.ring->id].submitted++;
 		scheduler->flags[qe->params.ring->id] &= ~i915_sf_submitting;
 
+		/*
+		 * Don't do any clean up on failure because the caller will
+		 * do it all anyway.
+		 */
+		if (ret)
+			return ret;
+
 		/* Need to release the objects: */
 		for (i = 0; i < qe->num_objs; i++) {
 			if (!qe->saved_objects[i].obj)
