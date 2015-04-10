@@ -1183,14 +1183,15 @@
 			compatible = "allwinner,budget_cooling";
 			#cooling-cells = <2>;
 			status = "okay";
-			state_cnt = <6>;
+			state_cnt = <7>;
 			cluster_num = <1>;
 			state0 = <1152000 4>;
-			state1 = <1008000 4>;
-			state2 = <816000 4>;
-			state3 = <648000 4>;
-			state4 = <648000 2>;
-			state5 = <648000 1>;
+			state1 = <1104000 4>;
+			state2 = <1008000 4>;
+			state3 = <816000 4>;
+			state4 = <648000 4>;
+			state5 = <648000 2>;
+			state6 = <648000 1>;
 		};
 
 		thermal-zones{
@@ -1202,7 +1203,7 @@
 
 				trips{
 					trip0:t0{
-						temperature = <70>;
+						temperature = <65>;
 						type = "passive";
 						hysteresis = <0>;
 					};
@@ -1217,7 +1218,12 @@
 						hysteresis = <0>;
 					};
 					trip3:t3{
-						temperature = <105>;
+						temperature = <100>;
+						type = "passive";
+						hysteresis = <0>;
+					};
+					trip4:t4{
+						temperature = <110>;
 						type = "critical";
 						hysteresis = <0>;
 					};
@@ -1232,12 +1238,17 @@
 					bind1{
 						contribution = <0>;
 						trip = <&trip1>;
-						cooling-device = <&sunxi_budget_cooling 2 3>;
+						cooling-device = <&sunxi_budget_cooling 2 2>;
 					};
 					bind2{
 						contribution = <0>;
 						trip = <&trip2>;
-						cooling-device = <&sunxi_budget_cooling 4 5>;
+						cooling-device = <&sunxi_budget_cooling 3 4>;
+					};
+					bind3{
+						contribution = <0>;
+						trip = <&trip3>;
+						cooling-device = <&sunxi_budget_cooling 5 6>;
 					};
 				};
 			};
