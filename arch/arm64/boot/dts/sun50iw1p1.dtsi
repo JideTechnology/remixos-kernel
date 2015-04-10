@@ -460,7 +460,7 @@
 			pinctrl-1 = <&uart1_pins_b>;
 			uart1_port = <1>;
 			uart1_type = <4>;
-			status = "disabled";
+			status = "okay";
 		};
 
 		uart2: uart@01c28800 {
