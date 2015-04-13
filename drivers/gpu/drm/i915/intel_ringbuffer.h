@@ -55,11 +55,10 @@ struct  intel_hw_status_page {
  *     Head
  *     Tail
  *     Ring buffer control
- *     Hardware Status page address
  *
  * The remaining registers are reinitialized, not restored.
  */
-#define GEN8_RING_CONTEXT_SIZE 4
+#define GEN8_RING_CONTEXT_SIZE 3
 
 #define I915_RING_CONTEXT_SIZE \
 		MAX_CTX(GEN7_RING_CONTEXT_SIZE, \
