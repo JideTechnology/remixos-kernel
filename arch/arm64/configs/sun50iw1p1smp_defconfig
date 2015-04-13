@@ -600,6 +600,7 @@ CONFIG_OF_RESERVED_MEM=y
 # Altera FPGA firmware download module
 #
 # CONFIG_ALTERA_STAPL is not set
+# CONFIG_SUNXI_RFKILL is not set
 
 #
 # SCSI device support
