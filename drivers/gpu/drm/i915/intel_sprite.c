@@ -512,12 +512,6 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 
 	sprctl |= SP_ENABLE;
 
-	/*
-	 * disable current DRRS work scheduled and restart
-	 * to push work by another x seconds
-	 */
-	intel_update_drrs(dev);
-
 	if (!dev_priv->atomic_update) {
 		intel_update_sprite_watermarks(dplane, crtc, src_w, pixel_size,
 				true, src_w != crtc_w || src_h != crtc_h);
@@ -1296,7 +1290,6 @@ intel_post_enable_primary(struct drm_crtc *crtc)
 
 	mutex_lock(&dev->struct_mutex);
 	intel_update_fbc(dev);
-	intel_update_drrs(dev);
 	mutex_unlock(&dev->struct_mutex);
 }
 
