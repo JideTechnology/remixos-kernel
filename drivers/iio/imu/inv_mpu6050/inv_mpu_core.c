@@ -821,7 +821,7 @@ static int inv_mpu_probe(struct i2c_client *client,
 	st->mux_adapter = i2c_add_mux_adapter(client->adapter,
 					      &client->dev,
 					      indio_dev,
-					      0, 0, 0,
+					      0, 0, I2C_CLASS_HWMON,
 					      inv_mpu6050_select_bypass,
 					      inv_mpu6050_deselect_bypass);
 	if (!st->mux_adapter) {
