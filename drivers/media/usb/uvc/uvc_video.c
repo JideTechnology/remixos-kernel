@@ -1710,6 +1710,13 @@ int uvc_video_suspend(struct uvc_streaming *stream)
 	return 0;
 }
 
+int uvc_video_shutdown(struct uvc_streaming *stream)
+{
+	uvc_uninit_video(stream, 0);
+	usb_set_interface(stream->dev->udev, stream->intfnum, 0);
+	return 0;
+}
+
 /*
  * Reconfigure the video interface and restart streaming if it was enabled
  * before suspend.

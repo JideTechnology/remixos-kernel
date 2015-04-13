@@ -16,6 +16,7 @@
 #include <media/v4l2-event.h>
 #include <media/v4l2-fh.h>
 #include <media/videobuf2-core.h>
+#include <linux/reboot.h>
 
 /* --------------------------------------------------------------------------
  * UVC constants
@@ -524,6 +525,7 @@ enum uvc_device_state {
 struct uvc_device {
 	struct usb_device *udev;
 	struct usb_interface *intf;
+	struct notifier_block uvc_notifier;
 	unsigned long warnings;
 	__u32 quirks;
 	int intfnum;
@@ -669,6 +671,7 @@ extern void uvc_mc_cleanup_entity(struct uvc_entity *entity);
 /* Video */
 extern int uvc_video_init(struct uvc_streaming *stream);
 extern int uvc_video_suspend(struct uvc_streaming *stream);
+extern int uvc_video_shutdown(struct uvc_streaming *stream);
 extern int uvc_video_resume(struct uvc_streaming *stream, int reset);
 extern int uvc_video_enable(struct uvc_streaming *stream, int enable);
 extern int uvc_probe_video(struct uvc_streaming *stream,

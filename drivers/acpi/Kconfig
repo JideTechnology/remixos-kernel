@@ -375,6 +375,16 @@ config ACPI_REDUCED_HARDWARE_ONLY
 
 	  If you are unsure what to do, do not enable this option.
 
+config ACPI_RESUME_POWER_BUTTON_EVENT
+	bool "Power Button Event on Resume"
+	depends on ACPI_BUTTON
+	depends on ACPI_SLEEP
+	default n
+	help
+	  This enable power button notification after system resume because
+	  of user action through a power/sleep button. Some user mode system
+	  has hard dependency on this event for system suspend and resume.
+
 source "drivers/acpi/apei/Kconfig"
 
 config ACPI_EXTLOG
