@@ -1034,12 +1034,16 @@ static int aw_pm_enter(suspend_state_t state)
 
     aw_super_standby(state);
 
+#ifdef CONFIG_SUNXI_ARISC
+    arisc_query_wakeup_source(&mem_para_info.axp_event);
+    PM_DBG("platform wakeup, super standby wakesource is:0x%x\n", mem_para_info.axp_event);	
+#endif
+
     if (mem_para_info.axp_event & (CPUS_WAKEUP_LONG_KEY)) {
 #ifdef	CONFIG_AW_AXP
 	axp_powerkey_set(0);
 #endif
     }
-    PM_DBG("platform wakeup, super standby wakesource is:0x%x\n", mem_para_info.axp_event);	
     parse_wakeup_event(NULL, 0, mem_para_info.axp_event, CPUS_ID);
 
     /* show device: cpux_io, cpus_io, ccu status */
