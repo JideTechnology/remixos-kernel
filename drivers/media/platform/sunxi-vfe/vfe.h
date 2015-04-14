@@ -33,16 +33,8 @@ struct vfe_fmt {
 	enum v4l2_mbus_pixelcode    bus_pix_code;
 	unsigned int                fourcc;          /* v4l2 format id */
 	enum v4l2_field             field;
-//  enum pkt_fmt                mipi_pkt_fmt;
 	unsigned char               depth;
 	unsigned char               planes_cnt;
-};
-
-struct vfe_size {
-	unsigned int    width;
-	unsigned int    height;
-	unsigned int    hoffset;
-	unsigned int    voffset;
 };
 
 struct vfe_coor {
@@ -50,11 +42,6 @@ struct vfe_coor {
 	unsigned int    y1;
 	unsigned int    x2;
 	unsigned int    y2;
-};
-
-struct vfe_channel {
-	struct vfe_fmt    fmt;
-	struct vfe_size   size;
 };
 
 /* buffer for one video frame */
@@ -208,6 +195,8 @@ struct vfe_dev {
 	struct v4l2_subdev      *sd;
 	struct v4l2_subdev	  	*sd_act;
 	struct v4l2_subdev 		*isp_sd;
+	struct v4l2_subdev 		*csi_sd;
+	struct v4l2_subdev 		*mipi_sd;
 	int                     flash_used;
 	__flash_driver_ic_type 	flash_type;
 	int                     vip_define_sensor_list;
@@ -246,11 +235,7 @@ struct vfe_dev {
 	struct clk			  	*clock[CLK_NUM];
 	struct clk			  	*clock_src[CLK_SRC_NUM];
 	/* about vfe channel */ 
-	unsigned char           total_bus_ch;
-	unsigned char           total_rx_ch;  
 	unsigned int            cur_ch;
-	struct frame_arrange    arrange;
-	struct vfe_channel      ch[MAX_CH_NUM];
 	/* about some global info*/
 	unsigned int            first_flag;       /* indicate the first time triggering irq */
 	long unsigned int       sec,usec;
@@ -268,15 +253,13 @@ struct vfe_dev {
 	unsigned int   	   		device_valid_flag[MAX_INPUT_NUM];
 	unsigned int            is_isp_used;
 	unsigned int            is_bayer_raw;
-	struct vfe_fmt          *fmt;
+	struct vfe_fmt          fmt;
 	unsigned int            width;
 	unsigned int            height;
 	unsigned int            thumb_width;
 	unsigned int            thumb_height;
 	unsigned int            buf_byte_size;    /* including main and thumb buffer */
 	unsigned int            buf_addr;         /* including main and thumb buffer */
-	struct bus_info         bus_info;
-	struct frame_info       frame_info;
 	struct isp_frame_info   isp_frame_info;
 	struct isp_init_para    isp_init_para;
 	struct isp_table_addr   isp_tbl_addr[MAX_INPUT_NUM];
@@ -291,8 +274,6 @@ struct vfe_dev {
 	//struct tasklet_struct   isp_isr_bh_task;
 	struct work_struct      isp_isr_bh_task;
 	struct work_struct      isp_isr_set_sensor_task;
-	struct mipi_para        mipi_para;
-	struct mipi_fmt         mipi_fmt;
 	struct vfe_ctrl_para    ctrl_para;
 	struct flash_dev_info	*fl_dev_info;
 	unsigned int			platform_id;

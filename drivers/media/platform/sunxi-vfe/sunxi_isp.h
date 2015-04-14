@@ -18,8 +18,9 @@
 
 #ifndef _SUNXI_ISP_H_
 #define _SUNXI_ISP_H_
-#include <media/v4l2-ctrls.h>
 #include <linux/videodev2.h>
+#include <media/v4l2-ctrls.h>
+#include <media/v4l2-subdev.h>
 #include "vfe.h"
 //for internel driver debug
 #define isp_dbg(l,x,arg...) if(isp_dbg_en && l <= isp_dbg_lv) printk(KERN_DEBUG"[ISP_DEBUG]"x,##arg)
@@ -38,6 +39,19 @@ struct main_channel_cfg {
 	struct sensor_win_size win_cfg;
 	struct v4l2_pix_format pix;
 };
+
+struct isp_pix_fmt {
+	enum v4l2_mbus_pixelcode mbus_code;
+	char	*name;
+	u32	fourcc;
+	u32	color;
+	u16	memplanes;
+	u16	colplanes;
+	u32	depth[VIDEO_MAX_PLANES];
+	u16	mdataplanes;
+	u16	flags;
+};
+
 
 struct isp_platform_data
 {
@@ -101,6 +115,7 @@ struct isp_dev
 	struct vfe_mm isp_save_reg_mm;
 	int rotation_en;
 	struct isp_fmt_cfg isp_fmt;
+	struct v4l2_mbus_framefmt format;
 	enum enable_flag flip_en_glb[ISP_MAX_CH_NUM];
 	int plannar_uv_exchange_flag[ISP_MAX_CH_NUM];
 	struct isp_yuv_size_addr_info isp_yuv_size_addr[ISP_MAX_CH_NUM];
@@ -111,8 +126,6 @@ void sunxi_isp_set_mirror(enum isp_channel ch, enum enable_flag on_off);
 
 unsigned int sunxi_isp_set_size(enum pixel_fmt *fmt, struct isp_size_settings *size_settings);
 void sunxi_isp_set_output_addr(unsigned long buf_base_addr);
-
-
 
 int sunxi_isp_get_subdev(struct v4l2_subdev **sd, int sel);
 int sunxi_isp_put_subdev(struct v4l2_subdev **sd, int sel);

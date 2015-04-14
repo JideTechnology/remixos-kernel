@@ -33,6 +33,30 @@ struct isp_dev *isp_gbl;
 static int isp_dbg_en = 0; 
 static int isp_dbg_lv = 1;
 
+static const struct isp_pix_fmt sunxi_isp_formats[] = {
+	{
+		.name		= "RAW8 (GRBG)",
+		.fourcc		= V4L2_PIX_FMT_SGRBG8,
+		.depth		= { 8 },
+		.color		= 0,
+		.memplanes	= 1,
+		.mbus_code	= V4L2_MBUS_FMT_SGRBG8_1X8,
+	}, {
+		.name		= "RAW10 (GRBG)",
+		.fourcc		= V4L2_PIX_FMT_SGRBG10,
+		.depth		= { 10 },
+		.color		= 0,
+		.memplanes	= 1,
+		.mbus_code	= V4L2_MBUS_FMT_SGRBG10_1X10,
+	}, {
+		.name		= "RAW12 (GRBG)",
+		.fourcc		= V4L2_PIX_FMT_SGRBG12,
+		.depth		= { 12 },
+		.color		= 0,
+		.memplanes	= 1,
+		.mbus_code	= V4L2_MBUS_FMT_SGRBG12_1X12,
+	},
+};
 static int __isp_set_input_fmt_internal(enum bus_pixeltype type)
 {
 	enum isp_input_fmt fmt;
@@ -341,65 +365,6 @@ static unsigned int __isp_new_set_size_internal(enum pixel_fmt *fmt, struct isp_
 	return (isp_yuv_size_addr[MAIN_CH].isp_byte_size + isp_yuv_size_addr[SUB_CH].isp_byte_size +
 					isp_yuv_size_addr[ROT_CH].isp_byte_size);
 }
-static enum pixel_fmt pix_fmt_v4l2_to_common(unsigned int pix_fmt)
-{
-	switch(pix_fmt) {
-		case V4L2_PIX_FMT_RGB565:
-			return PIX_FMT_RGB565;
-		case V4L2_PIX_FMT_RGB24:
-			return PIX_FMT_RGB888;
-		case V4L2_PIX_FMT_RGB32:
-			return PIX_FMT_PRGB888;
-		case V4L2_PIX_FMT_YUYV:
-			return PIX_FMT_YUYV;
-		case V4L2_PIX_FMT_YVYU:
-			return PIX_FMT_YVYU;
-		case V4L2_PIX_FMT_UYVY:
-			return PIX_FMT_UYVY;
-		case V4L2_PIX_FMT_VYUY:
-			return PIX_FMT_VYUY;
-		case V4L2_PIX_FMT_YUV422P:
-			return PIX_FMT_YUV422P_8;
-		case V4L2_PIX_FMT_YUV420:
-			return PIX_FMT_YUV420P_8;
-		case V4L2_PIX_FMT_YVU420:
-			return PIX_FMT_YVU420P_8;
-		case V4L2_PIX_FMT_NV12:
-			return PIX_FMT_YUV420SP_8;
-		case V4L2_PIX_FMT_NV21:
-			return PIX_FMT_YVU420SP_8;    
-		case V4L2_PIX_FMT_NV16:
-			return PIX_FMT_YUV422SP_8;      
-		case V4L2_PIX_FMT_NV61:
-			return PIX_FMT_YVU422SP_8;        
-		case V4L2_PIX_FMT_SBGGR8:
-			return PIX_FMT_SBGGR_8;
-		case V4L2_PIX_FMT_SGBRG8:
-			return PIX_FMT_SGBRG_8;
-		case V4L2_PIX_FMT_SGRBG8:
-			return PIX_FMT_SGRBG_8;
-		case V4L2_PIX_FMT_SRGGB8:
-			return PIX_FMT_SRGGB_8;
-		case V4L2_PIX_FMT_SBGGR10:
-			return PIX_FMT_SBGGR_10;
-		case V4L2_PIX_FMT_SGBRG10:
-			return PIX_FMT_SGBRG_10;
-		case V4L2_PIX_FMT_SGRBG10:
-			return PIX_FMT_SGRBG_10;
-		case V4L2_PIX_FMT_SRGGB10:
-			return PIX_FMT_SRGGB_10;    
-		case V4L2_PIX_FMT_SBGGR12:
-			return PIX_FMT_SBGGR_12;
-		case V4L2_PIX_FMT_SGBRG12:
-			return PIX_FMT_SGBRG_12;
-		case V4L2_PIX_FMT_SGRBG12:
-			return PIX_FMT_SGRBG_12;
-		case V4L2_PIX_FMT_SRGGB12:
-			return PIX_FMT_SRGGB_12;
-		default:
-			return PIX_FMT_SBGGR_8;
-	}
-} 
 
 unsigned int sunxi_isp_set_size(enum pixel_fmt *fmt, struct isp_size_settings *size_settings)
 {
@@ -533,21 +498,97 @@ static int sunxi_isp_subdev_s_stream(struct v4l2_subdev *sd, int enable)
 	return 0;
 }
 
+static const struct isp_pix_fmt *__sunxi_isp_find_format(const u32 *pixelformat,
+					const u32 *mbus_code, int index)
+{
+	const struct isp_pix_fmt *fmt, *def_fmt = NULL;
+	unsigned int i;
+	int id = 0;
+
+	if (index >= (int)ARRAY_SIZE(sunxi_isp_formats))
+		return NULL;
+
+	for (i = 0; i < ARRAY_SIZE(sunxi_isp_formats); ++i) {
+		fmt = &sunxi_isp_formats[i];
+		if (pixelformat && fmt->fourcc == *pixelformat)
+			return fmt;
+		if (mbus_code && fmt->mbus_code == *mbus_code)
+			return fmt;
+		if (index == id)
+			def_fmt = fmt;
+		id++;
+	}
+	return def_fmt;
+}
+
+
+static struct v4l2_mbus_framefmt *__sunxi_isp_get_format(
+		struct isp_dev *isp, struct v4l2_subdev_fh *fh,
+		u32 pad, enum v4l2_subdev_format_whence which)
+{
+	//if (which == V4L2_SUBDEV_FORMAT_TRY)
+	//	return fh ? v4l2_subdev_get_try_format(fh, pad) : NULL;
+
+	return &isp->format;
+}
+
 static int sunxi_isp_enum_mbus_code(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 		      struct v4l2_subdev_mbus_code_enum *code)
 {
+	const struct isp_pix_fmt *fmt;
+
+	fmt = __sunxi_isp_find_format(NULL, NULL, code->index);
+	if (!fmt)
+		return -EINVAL;
+	code->code = fmt->mbus_code;
 	return 0;
 }
+
 
 static int sunxi_isp_subdev_get_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 				   struct v4l2_subdev_format *fmt)
 {
+	struct isp_dev *isp = v4l2_get_subdevdata(sd);
+	struct v4l2_mbus_framefmt *mf;
+
+	mf = __sunxi_isp_get_format(isp, fh, fmt->pad, fmt->which);
+	if (!mf)
+		return -EINVAL;
+
+	mutex_lock(&isp->subdev_lock);
+	fmt->format = *mf;
+	mutex_unlock(&isp->subdev_lock);
 	return 0;
 }
 
+static const struct isp_pix_fmt *__sunxi_isp_try_format(struct isp_dev *isp,
+				u32 *width, u32 *height,
+				u32 *code, u32 *fourcc, int pad)
+{
+	const struct isp_pix_fmt *fmt;
+	fmt = __sunxi_isp_find_format(fourcc, code, ARRAY_SIZE(sunxi_isp_formats)-1);
+	if (WARN_ON(!fmt))
+		return NULL;
+	v4l_bound_align_image(width, 16 + 8,4096, 0,
+	      height, 12 + 8, 4096, 0, 0);
+	return fmt;
+}
 static int sunxi_isp_subdev_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 				   struct v4l2_subdev_format *fmt)
 {
+	struct isp_dev *isp = v4l2_get_subdevdata(sd);
+	struct v4l2_mbus_framefmt *mf;
+	const struct isp_pix_fmt *isp_fmt;
+	v4l2_info(sd, "%s: w: %d, h: %d\n", __func__,
+					fmt->format.width, fmt->format.height);
+	mf = __sunxi_isp_get_format(isp, fh, fmt->pad, fmt->which);
+	isp_fmt = __sunxi_isp_try_format(isp, &fmt->format.width, 
+						&fmt->format.height, &fmt->format.code, NULL, 0);
+	if (mf) {
+		mutex_lock(&isp->subdev_lock);
+		*mf = fmt->format;
+		mutex_unlock(&isp->subdev_lock);
+	}
 	return 0;
 }
 

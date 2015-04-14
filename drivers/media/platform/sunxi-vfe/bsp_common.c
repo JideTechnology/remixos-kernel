@@ -250,3 +250,74 @@ enum pixel_fmt_type find_pixel_fmt_type(enum pixel_fmt code)
       return BAYER_RGB;
   }
 }
+
+enum pixel_fmt pix_fmt_v4l2_to_common(unsigned int pix_fmt)
+{
+	switch(pix_fmt) {
+		case V4L2_PIX_FMT_RGB565:
+			return PIX_FMT_RGB565;
+		case V4L2_PIX_FMT_RGB24:
+			return PIX_FMT_RGB888;
+		case V4L2_PIX_FMT_RGB32:
+			return PIX_FMT_PRGB888;
+		case V4L2_PIX_FMT_YUYV:
+			return PIX_FMT_YUYV;
+		case V4L2_PIX_FMT_YVYU:
+			return PIX_FMT_YVYU;
+		case V4L2_PIX_FMT_UYVY:
+			return PIX_FMT_UYVY;
+		case V4L2_PIX_FMT_VYUY:
+			return PIX_FMT_VYUY;
+		case V4L2_PIX_FMT_YUV422P:
+			return PIX_FMT_YUV422P_8;
+		case V4L2_PIX_FMT_YUV420:
+			return PIX_FMT_YUV420P_8;
+		case V4L2_PIX_FMT_YVU420:
+			return PIX_FMT_YVU420P_8;
+		case V4L2_PIX_FMT_NV12:
+			return PIX_FMT_YUV420SP_8;
+		case V4L2_PIX_FMT_NV21:
+			return PIX_FMT_YVU420SP_8;    
+		case V4L2_PIX_FMT_NV16:
+			return PIX_FMT_YUV422SP_8;      
+		case V4L2_PIX_FMT_NV61:
+			return PIX_FMT_YVU422SP_8;        
+		case V4L2_PIX_FMT_SBGGR8:
+			return PIX_FMT_SBGGR_8;
+		case V4L2_PIX_FMT_SGBRG8:
+			return PIX_FMT_SGBRG_8;
+		case V4L2_PIX_FMT_SGRBG8:
+			return PIX_FMT_SGRBG_8;
+		case V4L2_PIX_FMT_SRGGB8:
+			return PIX_FMT_SRGGB_8;
+		case V4L2_PIX_FMT_SBGGR10:
+			return PIX_FMT_SBGGR_10;
+		case V4L2_PIX_FMT_SGBRG10:
+			return PIX_FMT_SGBRG_10;
+		case V4L2_PIX_FMT_SGRBG10:
+			return PIX_FMT_SGRBG_10;
+		case V4L2_PIX_FMT_SRGGB10:
+			return PIX_FMT_SRGGB_10;    
+		case V4L2_PIX_FMT_SBGGR12:
+			return PIX_FMT_SBGGR_12;
+		case V4L2_PIX_FMT_SGBRG12:
+			return PIX_FMT_SGBRG_12;
+		case V4L2_PIX_FMT_SGRBG12:
+			return PIX_FMT_SGRBG_12;
+		case V4L2_PIX_FMT_SRGGB12:
+			return PIX_FMT_SRGGB_12;
+		default:
+			return PIX_FMT_SBGGR_8;
+	}
+} 
+
+enum bus_pixelcode bus_pix_code_v4l2_to_common(enum v4l2_mbus_pixelcode pix_code)
+{
+	return (enum bus_pixelcode)pix_code;
+} 
+
+enum field field_fmt_v4l2_to_common(enum v4l2_field field)
+{
+	return (enum field)field;
+}
+
