@@ -139,26 +139,16 @@ void i915_gem_context_free(struct kref *ctx_ref)
 	int i;
 	struct intel_context *ctx = container_of(ctx_ref,
 						 typeof(*ctx), ref);
+	struct drm_i915_private *dev_priv = ctx->dev_priv;
 
 	for (i = 0; i < I915_NUM_RINGS; i++) {
-		struct intel_ringbuffer *ringbuf;
-		struct intel_engine_cs *ring;
+		struct intel_engine_cs *ring = &dev_priv->ring[i];
 
 		if (ctx->engine[i].sync_timeline == NULL)
 			continue;
 
-		ringbuf = ctx->engine[i].ringbuf;
-		WARN_ON(ringbuf == NULL);
-		if (ringbuf == NULL)
-			continue;
-
-		ring = ringbuf->ring;
-
 		i915_sync_timeline_destroy(ctx, ring);
 	}
-
-	if (ctx->legacy_hw_ctx.sync_timeline)
-		i915_sync_timeline_destroy(ctx, NULL);
 
 	if (i915.enable_execlists)
 		intel_lr_context_free(ctx);
@@ -264,7 +254,7 @@ i915_gem_create_context(struct drm_device *dev,
 {
 	const bool is_global_default_ctx = file_priv == NULL;
 	struct intel_context *ctx;
-	int ret = 0;
+	int i, ret = 0;
 
 	BUG_ON(!mutex_is_locked(&dev->struct_mutex));
 
@@ -272,12 +262,18 @@ i915_gem_create_context(struct drm_device *dev,
 	if (IS_ERR(ctx))
 		return ctx;
 
+	ctx->dev_priv = dev->dev_private;
+
 	if (!i915.enable_execlists) {
-		/* Create a timeline for HW Native Sync support*/
-		ret = i915_sync_timeline_create(dev, "legacy", ctx, NULL);
-		if (ret) {
-			DRM_ERROR("Sync timeline creation failed for legacy context: %p\n", ctx);
-			goto err_destroy;
+		struct intel_engine_cs *ring;
+
+		/* Create timelines for HW Native Sync support*/
+		for_each_ring(ring, ctx->dev_priv, i) {
+			ret = i915_sync_timeline_create(dev, ctx, ring);
+			if (ret) {
+				DRM_ERROR("Sync timeline creation failed for legacy %s: %p\n", ring->name, ctx);
+				goto err_destroy;
+			}
 		}
 	}
 
@@ -319,6 +315,15 @@ err_unpin:
 	if (is_global_default_ctx && ctx->legacy_hw_ctx.rcs_state)
 		i915_gem_object_ggtt_unpin(ctx->legacy_hw_ctx.rcs_state);
 err_destroy:
+	if (!i915.enable_execlists) {
+		for (i = 0; i < I915_NUM_RINGS; i++) {
+			if (ctx->engine[i].sync_timeline == NULL)
+				continue;
+
+			i915_sync_timeline_destroy(ctx, ctx->dev_priv->ring + i);
+		}
+	}
+
 	if (ctx->file_priv)
 		idr_remove(&ctx->file_priv->context_idr, ctx->user_handle);
 	i915_gem_context_unreference(ctx);

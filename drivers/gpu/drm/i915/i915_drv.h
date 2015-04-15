@@ -678,14 +678,12 @@ struct intel_context {
 	struct drm_i915_file_private *file_priv;
 	struct i915_ctx_hang_stats hang_stats;
 	struct i915_hw_ppgtt *ppgtt;
+	struct drm_i915_private *dev_priv;
 
 	/* Legacy ring buffer submission */
 	struct {
 		struct drm_i915_gem_object *rcs_state;
 		bool initialized;
-#ifdef CONFIG_DRM_I915_SYNC
-		struct i915_sync_timeline *sync_timeline;
-#endif
 	} legacy_hw_ctx;
 
 	/* Execlists */

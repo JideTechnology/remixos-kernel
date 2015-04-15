@@ -3457,7 +3457,7 @@ int intel_lr_context_deferred_create(struct intel_context *ctx,
 	}
 
 	/* Create a timeline for HW Native Sync support*/
-	ret = i915_sync_timeline_create(dev, ring->name, ctx, ring);
+	ret = i915_sync_timeline_create(dev, ctx, ring);
 	if (ret) {
 		DRM_ERROR("Sync timeline creation failed for ring %s, ctx %p\n",
 			ring->name, ctx);
