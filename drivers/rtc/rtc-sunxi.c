@@ -41,12 +41,20 @@
 #define REG_CLK32K_AUTO_SWT_EN			BIT(14)
 #define RTC_SOURCE_EXTERNAL			0x00000001
 #define EXT_LOSC_GSM				0x00000008
+#define SUNXI_ALARM_CONFIG                      0x0050
+#define SUNXI_ALRM_WAKEUP_OUTPUT_EN             BIT(0)
+
+/* alarm0 which based on seconds can power on system,
+ * while alarm1 can't, so alarm1 is not used.
+ */
+//#define SUNXI_ALARM1_USED
 
 #if CONFIG_ARCH_SUN50IW1P1
 #define SUNXI_RTC_YMD				0x0010
 
 #define SUNXI_RTC_HMS				0x0014
 
+#ifdef SUNXI_ALARM1_USED
 #define SUNXI_ALRM_DHMS				0x0040
 
 #define SUNXI_ALRM_EN				0x0044
@@ -57,6 +65,19 @@
 
 #define SUNXI_ALRM_IRQ_STA			0x004c
 #define SUNXI_ALRM_IRQ_STA_CNT_IRQ_PEND		BIT(0)
+#else
+#define SUNXI_ALRM_COUNTER                      0x0020
+#define SUNXI_ALRM_CURRENT                      0x0024
+
+#define SUNXI_ALRM_EN                           0x0028
+#define SUNXI_ALRM_EN_CNT_EN                    BIT(0)
+
+#define SUNXI_ALRM_IRQ_EN                       0x002c
+#define SUNXI_ALRM_IRQ_EN_CNT_IRQ_EN            BIT(0)
+
+#define SUNXI_ALRM_IRQ_STA                      0x0030
+#define SUNXI_ALRM_IRQ_STA_CNT_IRQ_PEND         BIT(0)
+#endif
 #else
 #define SUNXI_RTC_YMD				0x0004
 
@@ -200,6 +221,7 @@ static void sunxi_rtc_setaie(int to, struct sunxi_rtc_dev *chip)
 {
 	u32 alrm_val = 0;
 	u32 alrm_irq_val = 0;
+	u32 alrm_config = 0;
 
 	if (to) {
 		alrm_val = readl(chip->base + SUNXI_ALRM_EN);
@@ -207,6 +229,8 @@ static void sunxi_rtc_setaie(int to, struct sunxi_rtc_dev *chip)
 
 		alrm_irq_val = readl(chip->base + SUNXI_ALRM_IRQ_EN);
 		alrm_irq_val |= SUNXI_ALRM_IRQ_EN_CNT_IRQ_EN;
+
+		alrm_config = SUNXI_ALRM_WAKEUP_OUTPUT_EN;
 	} else {
 		writel(SUNXI_ALRM_IRQ_STA_CNT_IRQ_PEND,
 				chip->base + SUNXI_ALRM_IRQ_STA);
@@ -214,16 +238,26 @@ static void sunxi_rtc_setaie(int to, struct sunxi_rtc_dev *chip)
 
 	writel(alrm_val, chip->base + SUNXI_ALRM_EN);
 	writel(alrm_irq_val, chip->base + SUNXI_ALRM_IRQ_EN);
+	writel(alrm_config, chip->base + SUNXI_ALARM_CONFIG);
 }
+
+static int sunxi_rtc_gettime(struct device *dev, struct rtc_time *rtc_tm);
 
 static int sunxi_rtc_getalarm(struct device *dev, struct rtc_wkalrm *wkalrm)
 {
 	struct sunxi_rtc_dev *chip = dev_get_drvdata(dev);
 	struct rtc_time *alrm_tm = &wkalrm->time;
-	u32 alrm;
 	u32 alrm_en;
+#ifdef SUNXI_ALARM1_USED
+	u32 alrm;
 	u32 date;
+#else
+	u32 alarm_cur = 0, alarm_cnt = 0;
+	unsigned long alarm_seconds = 0;
+#endif
+	int ret;
 
+#ifdef SUNXI_ALARM1_USED
 	alrm = readl(chip->base + SUNXI_ALRM_DHMS);
 	date = readl(chip->base + SUNXI_RTC_YMD);
 
@@ -243,6 +277,35 @@ static int sunxi_rtc_getalarm(struct device *dev, struct rtc_wkalrm *wkalrm)
 	 * a (1900)-relative one
 	 */
 	alrm_tm->tm_year += SUNXI_YEAR_OFF(chip->data_year);
+#else
+	alarm_cnt = readl(chip->base + SUNXI_ALRM_COUNTER);
+	alarm_cur = readl(chip->base + SUNXI_ALRM_CURRENT);
+
+	dev_dbg(dev, "alarm_cnt: %d, alarm_cur: %d\n", alarm_cnt, alarm_cur);
+	if (alarm_cur > alarm_cnt) {
+		/* alarm is disabled. */
+		wkalrm->enabled = 0;
+		alrm_tm->tm_mon = -1;
+		alrm_tm->tm_mday = -1;
+		alrm_tm->tm_year = -1;
+		alrm_tm->tm_hour = -1;
+		alrm_tm->tm_min = -1;
+		alrm_tm->tm_sec = -1;
+		return 0;
+	}
+
+	ret = sunxi_rtc_gettime(dev, alrm_tm);
+	if (ret)
+		return -EINVAL;
+
+	rtc_tm_to_time(alrm_tm, &alarm_seconds);
+	alarm_cnt = (alarm_cnt - alarm_cur);
+	alarm_cur = 0;
+	alarm_seconds += alarm_cnt;
+
+	rtc_time_to_tm(alarm_seconds, alrm_tm);
+	dev_dbg(dev, "alarm_seconds: %ld\n", alarm_seconds);
+#endif
 
 	alrm_en = readl(chip->base + SUNXI_ALRM_IRQ_EN);
 	if (alrm_en & SUNXI_ALRM_EN_CNT_EN)
@@ -295,8 +358,10 @@ static int sunxi_rtc_setalarm(struct device *dev, struct rtc_wkalrm *wkalrm)
 	unsigned long time_set = 0;
 	unsigned long time_gap = 0;
 	unsigned long time_gap_day = 0;
+#ifdef SUNXI_ALARM1_USED
 	unsigned long time_gap_hour = 0;
 	unsigned long time_gap_min = 0;
+#endif
 	int ret = 0;
 
 	ret = sunxi_rtc_gettime(dev, &tm_now);
@@ -314,11 +379,13 @@ static int sunxi_rtc_setalarm(struct device *dev, struct rtc_wkalrm *wkalrm)
 
 	time_gap = time_set - time_now;
 	time_gap_day = time_gap / SEC_IN_DAY;
+#ifdef SUNXI_ALARM1_USED
 	time_gap -= time_gap_day * SEC_IN_DAY;
 	time_gap_hour = time_gap / SEC_IN_HOUR;
 	time_gap -= time_gap_hour * SEC_IN_HOUR;
 	time_gap_min = time_gap / SEC_IN_MIN;
 	time_gap -= time_gap_min * SEC_IN_MIN;
+#endif
 
 	if (time_gap_day > 255) {
 		dev_err(dev, "Day must be in the range 0 - 255\n");
@@ -326,6 +393,7 @@ static int sunxi_rtc_setalarm(struct device *dev, struct rtc_wkalrm *wkalrm)
 	}
 
 	sunxi_rtc_setaie(0, chip);
+#ifdef SUNXI_ALARM1_USED
 	writel(0, chip->base + SUNXI_ALRM_DHMS);
 	usleep_range(100, 300);
 
@@ -333,7 +401,15 @@ static int sunxi_rtc_setalarm(struct device *dev, struct rtc_wkalrm *wkalrm)
 		SUNXI_ALRM_SET_MIN_VALUE(time_gap_min) |
 		SUNXI_ALRM_SET_HOUR_VALUE(time_gap_hour) |
 		SUNXI_ALRM_SET_DAY_VALUE(time_gap_day);
+
 	writel(alrm, chip->base + SUNXI_ALRM_DHMS);
+#else
+	writel(0, chip->base + SUNXI_ALRM_COUNTER);
+	alrm = time_gap;
+
+	dev_dbg(dev, "set alarm seconds:%d enable:%d\n", alrm, wkalrm->enabled);
+	writel(alrm, chip->base + SUNXI_ALRM_COUNTER);
+#endif
 
 	writel(0, chip->base + SUNXI_ALRM_IRQ_EN);
 	writel(SUNXI_ALRM_IRQ_EN_CNT_IRQ_EN, chip->base + SUNXI_ALRM_IRQ_EN);
@@ -489,7 +565,11 @@ static int sunxi_rtc_probe(struct platform_device *pdev)
 	chip->data_year = (struct sunxi_rtc_data_year *) of_id->data;
 
 	/* clear the alarm count value */
+#ifdef SUNXI_ALARM1_USED
 	writel(0, chip->base + SUNXI_ALRM_DHMS);
+#else
+	writel(0, chip->base + SUNXI_ALRM_COUNTER);
+#endif
 
 	/* disable alarm, not generate irq pending */
 	writel(0, chip->base + SUNXI_ALRM_EN);
@@ -500,6 +580,9 @@ static int sunxi_rtc_probe(struct platform_device *pdev)
 	/* clear alarm week/cnt irq pending */
 	writel(SUNXI_ALRM_IRQ_STA_CNT_IRQ_PEND, chip->base +
 			SUNXI_ALRM_IRQ_STA);
+	/* clear alarm wakeup output */
+	writel(SUNXI_ALRM_WAKEUP_OUTPUT_EN, chip->base +
+	       SUNXI_ALARM_CONFIG);
 	/*
 	 * Step1: select RTC clock source
 	 */
