@@ -61,6 +61,33 @@ static int edev_state_to_id(struct extcon_dev *evdev)
 	return !evdev->state;
 }
 
+/* If this watchdog timeout and executed, that means DCP is connected.
+ * Just notify USB_EVENT_NONE, to make sure USB disconnect and stay in
+ * low power state */
+static void cht_otg_device_watchdog(struct work_struct *work)
+{
+	if (!cht_otg_dev)
+		return;
+
+	dev_info(cht_otg_dev->phy.dev, "not enumerated, so DCP connected?\n");
+	atomic_notifier_call_chain(&cht_otg_dev->phy.notifier,
+				USB_EVENT_NONE, NULL);
+}
+
+static void cht_otg_device_start_watchdog(struct cht_otg *otg_dev)
+{
+	if (schedule_delayed_work(&otg_dev->watchdog, msecs_to_jiffies(300000)))
+		dev_info(otg_dev->phy.dev, "watchdog started\n");
+	else
+		dev_info(otg_dev->phy.dev, "watchdog already started\n");
+}
+
+static void cht_otg_device_stop_watchdog(struct cht_otg *otg_dev)
+{
+	if (cancel_delayed_work(&cht_otg_dev->watchdog))
+		dev_info(otg_dev->phy.dev, "watchdog stopped\n");
+}
+
 static int cht_otg_set_id_mux(struct cht_otg *otg_dev, int id)
 {
 	struct usb_bus *host = otg_dev->phy.otg->host;
@@ -145,6 +172,11 @@ static int cht_otg_start_gadget(struct otg_fsm *fsm, int on)
 	if (!otg->gadget)
 		return -ENODEV;
 
+	if (on)
+		cht_otg_device_start_watchdog(otg_dev);
+	else
+		cht_otg_device_stop_watchdog(otg_dev);
+
 	retval = cht_otg_set_vbus_valid(otg_dev, on);
 
 	dev_dbg(otg->phy->dev, "%s <---\n", __func__);
@@ -180,6 +212,12 @@ static int cht_otg_set_power(struct usb_phy *phy, unsigned mA)
 	if (phy->state != OTG_STATE_B_PERIPHERAL)
 		dev_err(phy->dev, "ERR: Draw %d mA in state %s\n",
 			mA, usb_otg_state_string(cht_otg_dev->phy.state));
+
+	/* If it is not staying at suspended state (<=2.5mA), then it is not
+	 * a DCP. stop the watchdog.
+	 */
+	if (mA >= 3)
+		cht_otg_device_stop_watchdog(cht_otg_dev);
 
 	/* For none-compliance mode, ignore the given value
 	 * and always draw maxium. */
@@ -622,6 +660,7 @@ static int cht_otg_probe(struct platform_device *pdev)
 
 
 	INIT_WORK(&cht_otg->fsm_work, cht_otg_fsm_work);
+	INIT_DELAYED_WORK(&cht_otg->watchdog, cht_otg_device_watchdog);
 
 	cht_otg_dev = cht_otg;
 

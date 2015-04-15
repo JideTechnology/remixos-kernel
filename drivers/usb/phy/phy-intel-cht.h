@@ -28,6 +28,7 @@ struct cht_otg {
 	struct extcon_specific_cable_nb cable_nb;
 	struct notifier_block id_nb;
 	struct work_struct fsm_work;
+	struct delayed_work watchdog;
 	void __iomem *regs;
 	int compliance:1;
 	struct dentry *root;
