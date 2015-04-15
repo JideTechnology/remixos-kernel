@@ -46,18 +46,15 @@ static unsigned int hotplug_sample_us = 20000;
 static unsigned int cpu_up_lastcpu    = INVALID_CPU;
 static unsigned int total_nr_cpus     = CONFIG_NR_CPUS;
 
-static unsigned int  cpu_up_last_hold_us    = 1500000;
-static unsigned int  cpu_boost_last_hold_us = 3000000;
+static unsigned int cpu_up_last_hold_us = 1500000;
 
 unsigned int load_try_down          = 30;
 unsigned int load_try_up            = 70;
 
-unsigned int load_last_big_min_freq = 300000;
 unsigned int load_up_stable_us      = 50000;
 unsigned int load_down_stable_us    = 1000000;
-unsigned int load_boost_stable_us   = 200000;
 
-unsigned long cpu_boost_lasttime    = 0;
+unsigned int load_last_big_min_freq = 300000;
 unsigned long cpu_up_lasttime       = 0;
 
 #ifdef CONFIG_CPU_AUTOHOTPLUG_STATS
@@ -153,10 +150,6 @@ int do_cpu_down(unsigned int cpu)
 
 	if (cpu == cpu_up_lastcpu && time_before(jiffies,
 				cpu_up_lasttime + usecs_to_jiffies(cpu_up_last_hold_us)))
-		return 0;
-
-	if (time_before(jiffies,
-				cpu_boost_lasttime + usecs_to_jiffies(cpu_boost_last_hold_us)))
 		return 0;
 
 	if (cpu_down(cpu))
@@ -709,7 +702,6 @@ static int autohotplug_timer_start(void)
 	}
 
 	cpu_up_lasttime = jiffies;
-	cpu_boost_lasttime = jiffies;
 
 	/* init hotplug timer */
 	init_timer(&hotplug_task_timer);
@@ -960,11 +952,7 @@ static int autohotplug_attr_init(void)
 							NULL, NULL);
 	autohotplug_attr_add("try_down_load",      &load_try_down,          0644,
 							NULL, NULL);
-	autohotplug_attr_add("hold_last_boost_us", &cpu_boost_last_hold_us, 0644,
-							NULL, NULL);
 	autohotplug_attr_add("hold_last_up_us",    &cpu_up_last_hold_us,    0644,
-							NULL, NULL);
-	autohotplug_attr_add("stable_boost_us",    &load_boost_stable_us,   0644,
 							NULL, NULL);
 	autohotplug_attr_add("stable_up_us",       &load_up_stable_us,      0644,
 							NULL, NULL);
