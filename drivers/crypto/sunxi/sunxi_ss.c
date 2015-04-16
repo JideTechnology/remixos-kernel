@@ -684,12 +684,10 @@ static ssize_t sunxi_ss_info_show(struct device *dev,
 		"pdev->id   = %d \n"
 		"pdev->name = %s \n"
 		"pdev->num_resources = %u \n"
-		"pdev->resource.mem = [0x%llx, 0x%llx] \n"
 		"pdev->resource.irq = %d \n"
 		"SS module clk rate = %ld Mhz \n"
 		"IO membase = 0x%p \n",
 		pdev->id, pdev->name, pdev->num_resources,
-		pdev->resource[0].start, pdev->resource[0].end, 
 		sss->irq,
 		(clk_get_rate(sss->mclk)/1000000), sss->base_addr);
 }

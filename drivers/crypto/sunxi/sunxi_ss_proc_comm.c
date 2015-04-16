@@ -194,10 +194,6 @@ static int ss_hash_one_req(sunxi_ss_t *sss, struct ahash_request *req)
 		SS_ERR("ss_hash_start fail(%d)\n", ret);
 
 	ss_dev_unlock();
-
-	if (req->base.complete)
-		req->base.complete(&req->base, ret);
-
 	return ret;
 }
 

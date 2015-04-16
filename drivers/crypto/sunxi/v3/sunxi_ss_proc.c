@@ -641,9 +641,6 @@ int ss_aes_one_req(sunxi_ss_t *sss, struct ablkcipher_request *req)
 #endif
 
 	ctx->cnt += req->nbytes;
-	if (req->base.complete)
-		req->base.complete(&req->base, ret);
-
 	return ret;
 }
 
