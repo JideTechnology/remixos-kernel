@@ -166,7 +166,7 @@ static int mdfs_cfs(unsigned int freq_jump, struct sunxi_dramfreq *dramfreq,
 
 	/* change ODT status for power save  */
 	if (!((para->dram_tpr13>>12) & 0x1)) {
-		if (para->dram_clk > 400) {
+		if (freq > 400) {
 			if ((para->dram_odt_en & 0x1)) {
 				for (i = 0; i < n; i++) {
 					//byte 0/byte 1
@@ -281,7 +281,7 @@ static int mdfs_dfs(unsigned int freq_jump, struct sunxi_dramfreq *dramfreq,
 
 	/* change ODT status for power save */
 	if (!((para->dram_tpr13 >> 12) & 0x1)) {
-		if (para->dram_clk > 400) {
+		if (freq > 400) {
 			if ((para->dram_odt_en & 0x1)) {
 				for (i = 0; i < n; i++) {
 					/* byte 0/byte 1 */
