@@ -258,15 +258,9 @@ int ss_flow_err(int flow)
 
 void ss_wait_idle(void)
 {
-	s32 cnt = 1000; // 10 ms
-
 	while ((ss_readl(CE_REG_TSR) & CE_REG_TSR_BUSY_MASK) == CE_REG_TSR_BUSY) {
-		cnt--;
-		if (cnt < 0) {
-			SS_ERR("Wait for the IDLE state timeout!\n");
-			return;
-		}
-		ndelay(10);
+//		SS_DBG("Need wait for the hardware.\n");
+		msleep(10);
 	}
 }
 
