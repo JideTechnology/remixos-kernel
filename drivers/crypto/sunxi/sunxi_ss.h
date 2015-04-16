@@ -99,7 +99,7 @@
 
 #define SS_RES_NS_INDEX	0
 #define SS_RES_S_INDEX	1
-#define SS_RES_INDEX	SS_RES_S_INDEX
+#define SS_RES_INDEX	SS_RES_NS_INDEX
 
 #ifdef SS_SCATTER_ENABLE
 
