@@ -38,13 +38,17 @@
 #endif /* CONFIG_OF */
 #include "mali_kernel_common.h"
 
+#ifdef CONFIG_CPU_BUDGET_THERMAL
+#include <linux/export.h>
+#include <linux/cpu_budget_cooling.h>
+#endif /* CONFIG_CPU_BUDGET_THERMAL */
+
 struct aw_clk_data
 {
 	const char   *clk_name;    /* Clock name */
 #ifndef CONFIG_OF
 	const char   *clk_id;      /* Clock ID, which is in the system configuration head file */
 #endif
-	char clk_parent_num; /* The number is the number in clk_data array, -1 is just for pll */
 
 	struct clk   *clk_handle;
 
@@ -59,42 +63,36 @@ struct aw_clk_data
 struct aw_vf_table
 {
 	u32 vol;
-	u32 max_freq;
+	u32 freq;
 };
 
-/* The struct is for temperature-level table */
-struct aw_tl_table
+#ifdef CONFIG_CPU_BUDGET_THERMAL
+/* The struct is for temperature-frequency table */
+struct aw_tf_table
 {
-	u8 temp;
-	u8 level;
+	u8  temp;
+	u32 freq;
 };
-
-struct aw_dvfs_data
-{
-	u8   max_level;
-	bool dvfs_status;
-	struct mutex lock;
-};
+#endif /* CONFIG_CPU_BUDGET_THERMAL */
 
 struct aw_tempctrl_data
 {
 	bool temp_ctrl_status;
-	char temp_ctrl_flag;
-	u8 level;
-	u8 count;     /* The data in tl_table to use */
+	u8   count;     /* The data in tf_table to use */
 };
 
 struct aw_private_data
 {
 	bool   clk_status;
 	u8     normal_level;
+	u8     max_level;
 	u8     sensor_num;
 #ifdef CONFIG_MALI_DT
 	struct device_node *np_gpu;
 #endif
 	struct regulator *regulator;
 	char   *regulator_id;
-	struct aw_dvfs_data dvfs_data;
+	struct mutex lock;
 	struct aw_tempctrl_data tempctrl_data;
 };
 

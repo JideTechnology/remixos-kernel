@@ -23,18 +23,15 @@ extern int ths_read_data(int value);
 extern int sunxi_get_sensor_temp(u32 sensor_num, long *temperature);
 #endif
 
-static void mali_change_freq(struct work_struct *work);
-static void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data);
-
-static struct work_struct wq_work;
-
-static struct mali_gpu_device_data mali_gpu_data =
-{
-	.control_interval     = 250,
-    .utilization_callback = mali_gpu_utilization_callback,
-};
+static struct mali_gpu_device_data mali_gpu_data;
+static struct mali_gpu_device_data mali_gpu_data;
 
 #ifndef CONFIG_MALI_DT
+static struct resource mali_gpu_resources[]=
+{
+    MALI_GPU_RESOURCES_MALI400_MP2_PMU(GPU_PBASE, IRQ_GPU_GP, IRQ_GPU_GPMMU, IRQ_GPU_PP0, IRQ_GPU_PPMMU0, IRQ_GPU_PP1, IRQ_GPU_PPMMU1)
+};
+
 static struct platform_device mali_gpu_device =
 {
     .name = MALI_GPU_NAME_UTGARD,
@@ -99,7 +96,7 @@ static int get_current_freq(void)
 {
 	return clk_get_rate(clk_data[0].clk_handle)/(1000*1000);
 }
- 
+
 /*
 ***************************************************************
  @Function   :set_clk_freq
@@ -107,20 +104,19 @@ static int get_current_freq(void)
 ***************************************************************
 */
 static bool set_clk_freq(int freq /* MHz */)
-{	
+{
 	int i;
 
-	if(freq <= vf_table[private_data.dvfs_data.max_level].max_freq)
+	for(i = 0; i < sizeof(clk_data)/sizeof(clk_data[0]); i++)
 	{
-		for(i = 0; i < sizeof(clk_data)/sizeof(clk_data[0]); i++)
+		if(clk_set_rate(clk_data[i].clk_handle, freq*1000*1000))
 		{
-			if(clk_set_rate(clk_data[i].clk_handle, freq*1000*1000))
-			{
-				MALI_PRINT_ERROR(("Failed to set the frequency of gpu %s clock: Current frequency is %ld MHz, the frequency to be is %d MHz\n", clk_data[i].clk_name, clk_get_rate(clk_data[i].clk_handle)/(1000*1000), freq));
-				return 0;
-			}
+			MALI_PRINT_ERROR(("Failed to set the frequency of gpu %s clock: Current frequency is %ld MHz, the frequency to be is %d MHz\n", clk_data[i].clk_name, clk_get_rate(clk_data[i].clk_handle)/(1000*1000), freq));
+			return 0;
 		}
 	}
+
+	MALI_PRINT(("Set gpu frequency to %d MHz\n", freq));
 
 	return 1;
 }
@@ -133,21 +129,36 @@ static bool set_clk_freq(int freq /* MHz */)
 */
 static void set_gpu_freq(int freq /* MHz */)
 {
-	if(freq > vf_table[private_data.dvfs_data.max_level].max_freq)
+	mutex_lock(&private_data.lock);
+	mali_dev_pause();
+	(void)set_clk_freq(freq);
+	mali_dev_resume();
+	mutex_unlock(&private_data.lock);
+}
+
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(3,10,0))
+/*
+***************************************************************
+ @Function   :gpu_thermal_cool
+ @Description:Called by thermal cooling system to change gpu
+			  frequency according to gpu temperature
+***************************************************************
+*/
+int gpu_thermal_cool(int freq /* MHz */)
+{
+	if(private_data.tempctrl_data.temp_ctrl_status)
 	{
-		MALI_PRINT_ERROR(("Failed to set the frequency of gpu: The frequency to be is %d MHz, it is beyond the permitted frequency boundary %d MHz\n", freq, vf_table[private_data.dvfs_data.max_level].max_freq));
-		return;
+		mutex_lock(&private_data.lock);
+		mali_dev_pause();
+		(void)set_clk_freq(freq);
+		mali_dev_resume();
+		mutex_unlock(&private_data.lock);
 	}
 
-	mutex_lock(&private_data.dvfs_data.lock);
-	mali_dev_pause();
-	if(set_clk_freq(freq))
-	{
-		MALI_PRINT(("Set gpu frequency to %d MHz\n", freq));
-	}
-	mali_dev_resume();
-	mutex_unlock(&private_data.dvfs_data.lock);
+	return 0;
 }
+EXPORT_SYMBOL(gpu_thermal_cool);
+#endif
 
 /*
 ***************************************************************
@@ -215,7 +226,7 @@ void disable_gpu_clk(void)
 /*
 ***************************************************************
  @Function   :mali_platform_device_deinit
- @Description:Remove the resource gpu used, called when mali 
+ @Description:Remove the resource gpu used, called when mali
 			  driver is removed
 ***************************************************************
 */
@@ -247,7 +258,7 @@ static ssize_t dvfs_manual_show(struct device *dev, struct device_attribute *att
 static ssize_t dvfs_manual_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
     int err;
-	unsigned long freq;	
+	unsigned long freq;
 
 	err = strict_strtoul(buf, 10, &freq);
 	if (err)
@@ -264,114 +275,30 @@ err_out:
 
 /*
 ***************************************************************
- @Function   :dvfs_manual_show
- @Description:Show the gpu frequency for android
-***************************************************************
-*/
-static ssize_t dvfs_android_show(struct device *dev, struct device_attribute *attr, char *buf)
-{
-    u32 level = 0,bufercnt = 0,ret = 0;
-    char str[2];
-    ret = sprintf(buf + bufercnt, "  level frequency\n");
-    while(level <= private_data.dvfs_data.max_level)
-    {
-        if(get_current_freq() == vf_table[level].max_freq)
-        {
-           sprintf(str, "->");
-        }
-		else
-		{
-            sprintf(str, "  ");
-        }
-        bufercnt += ret;
-        ret = sprintf(buf+bufercnt, "%s  %1d    %3dMHz\n", str, level, vf_table[level].max_freq);
-        level++;
-    }
-
-    return bufercnt+ret;
-}
-
-/*
-***************************************************************
- @Function   :dvfs_android_store
- @Description:Change gpu frequency for android
-***************************************************************
-*/
-static ssize_t dvfs_android_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
-{
-    if(private_data.dvfs_data.dvfs_status)
-	{
-		int err;
-		unsigned long cmd;
-		err = strict_strtoul(buf, 10, &cmd);
-		if (err)
-		{
-			MALI_PRINT_ERROR(("Invalid parameter!\n"));
-			goto out;
-		}
-
-		if(cmd == 0 || cmd == 1)
-		{
-			set_gpu_freq(vf_table[private_data.dvfs_data.max_level].max_freq);
-		}
-	}
-
-out:
-	return count;
-}
-
-/*
-***************************************************************
- @Function   :scene_ctrl_status_show
- @Description:Show the dvfs status
-***************************************************************
-*/
-static ssize_t scene_ctrl_status_show(struct device *dev, struct device_attribute *attr, char *buf)
-{
-    return sprintf(buf, "%d\n", private_data.dvfs_data.dvfs_status);
-}
-
-/*
-***************************************************************
- @Function   :scene_ctrl_status_store
- @Description:Change the dvfs status
-***************************************************************
-*/
-static ssize_t scene_ctrl_status_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
-{
-    int err;
-	unsigned long status;
-	err = strict_strtoul(buf, 10, &status);
-	if (err)
-	{
-		MALI_PRINT_ERROR(("Invalid parameter!\n"));
-		goto out;
-	}
-
-	private_data.dvfs_data.dvfs_status = status;
-
-out:
-	return count;
-}
-
-/*
-***************************************************************
  @Function   :status_tempctrl_show
  @Description:Show the temperature control status
 ***************************************************************
 */
 static ssize_t status_tempctrl_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	u32 i = 0,bufercnt = 0,ret = 0;
+	u32 bufercnt = 0, ret = 0;
+#ifdef CONFIG_CPU_BUDGET_THERMAL
+	u32 i = 0;
+#endif /* CONFIG_CPU_BUDGET_THERMAL */
+
     ret = sprintf(buf, "sensor: %d, status: %d, temperature: %ld\n", private_data.sensor_num, private_data.tempctrl_data.temp_ctrl_status, get_temperature());
+
+#ifdef CONFIG_CPU_BUDGET_THERMAL
 	bufercnt = ret;
-    ret = sprintf(buf + bufercnt, "num temperature level\n");
+    ret = sprintf(buf + bufercnt, "num temperature frequency\n");
     while(i < private_data.tempctrl_data.count)
     {
 		bufercnt += ret;
-        ret = sprintf(buf+bufercnt, " %d     %3d        %d\n", i, tl_table[i].temp, tl_table[i].level);
+        ret = sprintf(buf+bufercnt, " %d     %3d         %d\n", i, tf_table[i].temp, tf_table[i].freq);
         i++;
     }
+#endif /* CONFIG_CPU_BUDGET_THERMAL */
+
 	return bufercnt+ret;
 }
 
@@ -440,11 +367,11 @@ static ssize_t change_voltage_store(struct device *dev, struct device_attribute 
 
 	if(vol <= 1300)
 	{
-		mutex_lock(&private_data.dvfs_data.lock);
+		mutex_lock(&private_data.lock);
 		mali_dev_pause();
 		set_voltage(vol);
 		mali_dev_resume();
-		mutex_unlock(&private_data.dvfs_data.lock);
+		mutex_unlock(&private_data.lock);
 	}
 	else
 	{
@@ -456,16 +383,12 @@ out:
 }
 
 static DEVICE_ATTR(manual, S_IRUGO|S_IWUGO, dvfs_manual_show, dvfs_manual_store);
-static DEVICE_ATTR(android, S_IRUGO|S_IWUGO, dvfs_android_show, dvfs_android_store);
-static DEVICE_ATTR(scene_ctrl_status, S_IRUGO|S_IWUGO, scene_ctrl_status_show, scene_ctrl_status_store);
 static DEVICE_ATTR(tempctrl, S_IRUGO|S_IWUGO, status_tempctrl_show, status_tempctrl_store);
 static DEVICE_ATTR(voltage, S_IRUGO|S_IWUGO, change_voltage_show, change_voltage_store);
 
 static struct attribute *gpu_attributes[] =
 {
     &dev_attr_manual.attr,
-	&dev_attr_android.attr,
-	&dev_attr_scene_ctrl_status.attr,
 	&dev_attr_tempctrl.attr,
 	&dev_attr_voltage.attr,
 
@@ -477,6 +400,50 @@ struct attribute_group gpu_attribute_group =
 	.name = "dvfs",
 	.attrs = gpu_attributes,
 };
+
+#ifdef CONFIG_CPU_BUDGET_THERMAL
+static int gpu_throttle_notifier_call(struct notifier_block *nfb, unsigned long mode, void *cmd)
+{
+    int retval = NOTIFY_DONE;
+	int i = 0;
+	int cur_freq = get_current_freq();
+
+	if(private_data.tempctrl_data.temp_ctrl_status)
+	{
+		long temperature = get_temperature();
+		if(temperature > 0)
+		{
+			if(temperature < tf_table[0].temp)
+			{
+				if(cur_freq != vf_table[private_data.normal_level].freq)
+				{
+					set_gpu_freq(vf_table[private_data.normal_level].freq);
+				}
+			}
+			else
+			{
+				for(i = private_data.tempctrl_data.count - 1; i >= 0; i--)
+				{
+					if(temperature >= tf_table[i].temp)
+					{
+						if(cur_freq != tf_table[i].freq)
+						{
+							set_gpu_freq(tf_table[i].freq);
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return retval;
+}
+
+static struct notifier_block gpu_throttle_notifier = {
+.notifier_call = gpu_throttle_notifier_call,
+};
+#endif /* CONFIG_CPU_BUDGET_THERMAL */
 
 /*
 ***************************************************************
@@ -529,19 +496,16 @@ static int get_para_from_fex(char *main_key, char *second_key, int max_value)
 static void parse_sysconfig_fex(void)
 {
 	char fx_name[8] = {0};
+	int ft_count=0, i, value;
+#ifdef CONFIG_CPU_BUDGET_THERMAL
+	int tlt_count=0;
 	char tlx_name[10] = {0};
-	int ft_count, tlt_count, i, value;
+#endif /* CONFIG_CPU_BUDGET_THERMAL */
 
 	value = get_para_from_fex("gpu_mali400_0", "normal_level", 0);
 	if(value != -1)
 	{
 		private_data.normal_level = value;
-	}
-
-	value = get_para_from_fex("gpu_mali400_0", "scene_ctrl_status", 1);
-	if(value != -1)
-	{
-		private_data.dvfs_data.dvfs_status = value;
 	}
 
 	value = get_para_from_fex("gpu_mali400_0", "temp_ctrl_status", 1);
@@ -554,18 +518,15 @@ static void parse_sysconfig_fex(void)
 	if(value != -1)
 	{
 		ft_count = value;
-		private_data.dvfs_data.max_level = value - 1;
+		private_data.max_level = value - 1;
 		if(private_data.normal_level > value -1)
 		{
 			private_data.normal_level = value -1;
 		}
 	}
-
-	value = get_para_from_fex("gpu_mali400_0", "tlt_count", sizeof(tl_table)/sizeof(tl_table[0]));
-	if(value != -1)
+	else
 	{
-		tlt_count = value;
-		private_data.tempctrl_data.count = value;
+		ft_count = private_data.max_level + 1;
 	}
 
 	for(i = 0; i < ft_count; i++)
@@ -574,8 +535,20 @@ static void parse_sysconfig_fex(void)
 		value = get_para_from_fex("gpu_mali400_0", fx_name, 0);
 		if(value != -1)
 		{
-			vf_table[i].max_freq = value;
+			vf_table[i].freq = value;
 		}
+	}
+
+#ifdef CONFIG_CPU_BUDGET_THERMAL
+	value = get_para_from_fex("gpu_mali400_0", "tlt_count", sizeof(tf_table)/sizeof(tf_table[0]));
+	if(value != -1)
+	{
+		tlt_count = value;
+		private_data.tempctrl_data.count = value;
+	}
+	else
+	{
+		tlt_count = private_data.tempctrl_data.count;
 	}
 
 	for(i = 0; i < tlt_count; i++)
@@ -584,16 +557,17 @@ static void parse_sysconfig_fex(void)
 		value = get_para_from_fex("gpu_mali400_0", tlx_name, 0);
 		if(value != -1)
 		{
-			tl_table[i].temp = value;
+			tf_table[i].temp = value;
 		}
 
 		sprintf(tlx_name, "tl%d_level",i);
 		value = get_para_from_fex("gpu_mali400_0", tlx_name, 0);
 		if(value != -1)
 		{
-			tl_table[i].level = value;
+			tf_table[i].freq = value;
 		}
 	}
+#endif /* CONFIG_CPU_BUDGET_THERMAL */
 }
 
 /*
@@ -606,7 +580,11 @@ static int mali_platform_init(struct platform_device *device)
 {
 	bool err = 0;
 
-	private_data.dvfs_data.max_level = sizeof(vf_table)/sizeof(vf_table[0]) - 1;
+	private_data.max_level = sizeof(vf_table)/sizeof(vf_table[0]) - 1;
+
+#ifdef CONFIG_CPU_BUDGET_THERMAL
+	private_data.tempctrl_data.count = sizeof(tf_table)/sizeof(tf_table[0]);
+#endif /* CONFIG_CPU_BUDGET_THERMAL */
 
 #ifdef CONFIG_MALI_DT
 	private_data.np_gpu = of_find_compatible_node(NULL, NULL, "arm,mali-400");
@@ -614,15 +592,18 @@ static int mali_platform_init(struct platform_device *device)
 
 	parse_sysconfig_fex();
 
-	private_data.regulator = regulator_get(NULL, private_data.regulator_id);
-	if (IS_ERR_OR_NULL(private_data.regulator))
+	if(NULL != private_data.regulator_id)
 	{
-		MALI_PRINT_ERROR(("Failed to get regulator!\n"));
-        private_data.regulator = NULL;
+		private_data.regulator = regulator_get(NULL, private_data.regulator_id);
+		if (IS_ERR_OR_NULL(private_data.regulator))
+		{
+			MALI_PRINT_ERROR(("Failed to get regulator!\n"));
+			private_data.regulator = NULL;
+		}
 	}
 
 	err = get_gpu_clk();
-	err &= set_clk_freq(vf_table[private_data.normal_level].max_freq);
+	err &= set_clk_freq(vf_table[private_data.normal_level].freq);
 	err &= enable_gpu_clk();
 
 	if(!err)
@@ -665,105 +646,56 @@ int aw_mali_platform_device_register(void)
 
 	mali_gpu_data.shared_mem_size = totalram_pages * PAGE_SIZE; /* B */
 
-	err = platform_device_add_data(pdev, &mali_gpu_data, sizeof(mali_gpu_data));
-
-	if(0 == err)
+#ifndef CONFIG_MALI_DT
+	err = platform_device_add_resources(&mali_gpu_device, mali_gpu_resources, sizeof(mali_gpu_resources) / sizeof(mali_gpu_resources[0]));
+	if(err)
 	{
-		err = mali_platform_init(pdev);
+		MALI_PRINT_ERROR(("platform_device_add_resources failed!\n"));
+		return err;
+	}
+#endif
 
-		if(0 != err)
-		{
-			return -1;
-		}
+	err = platform_device_add_data(pdev, &mali_gpu_data, sizeof(mali_gpu_data));
+	if(err)
+	{
+		MALI_PRINT_ERROR(("platform_device_add_data failed!\n"));
+		return err;
+	}
+
+#ifndef CONFIG_MALI_DT
+	err = platform_device_register(&mali_gpu_device);
+	if(err)
+	{
+		MALI_PRINT_ERROR(("platform_device_register failed!\n"));
+		return err;
+	}
+#endif
+
+	err = mali_platform_init(pdev);
+	if(err)
+	{
+		return err;
+	}
 
 #if defined(CONFIG_PM_RUNTIME)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37))
-		pm_runtime_set_autosuspend_delay(&(pdev->dev), 1000);
-		pm_runtime_use_autosuspend(&(pdev->dev));
+	pm_runtime_set_autosuspend_delay(&(pdev->dev), 0);
+	pm_runtime_use_autosuspend(&(pdev->dev));
 #endif
-		pm_runtime_enable(&(pdev->dev));
+	pm_runtime_enable(&(pdev->dev));
 #endif /* CONFIG_PM_RUNTIME */
 
-		mutex_init(&private_data.dvfs_data.lock);
+	mutex_init(&private_data.lock);
 
-		INIT_WORK(&wq_work, mali_change_freq);
-
-		err = sysfs_create_group(&pdev->dev.kobj, &gpu_attribute_group);
-		if (err)
-		{
-			kobject_put(&pdev->dev.kobj);
-		}
+	err = sysfs_create_group(&pdev->dev.kobj, &gpu_attribute_group);
+	if (err)
+	{
+		kobject_put(&pdev->dev.kobj);
 	}
+
+#ifdef CONFIG_CPU_BUDGET_THERMAL
+	register_budget_cooling_notifier(&gpu_throttle_notifier);
+#endif /* CONFIG_CPU_BUDGET_THERMAL */
 
     return err;
-}
-
-/*
-***************************************************************
- @Function   :mali_change_freq
- @Description:Change gpu frequency
-***************************************************************
-*/
-static void mali_change_freq(struct work_struct *work)
-{
-	if(private_data.tempctrl_data.temp_ctrl_flag)
-	{
-		set_gpu_freq(vf_table[private_data.tempctrl_data.level].max_freq);
-		private_data.tempctrl_data.temp_ctrl_flag = 0;
-	}
-}
-
-/*
-***************************************************************
- @Function   :mali_gpu_utilization_callback
- @Description:Determine whether to change the gpu frequency
-***************************************************************
-*/
-static void mali_gpu_utilization_callback(struct mali_gpu_utilization_data *data)
-{
-	int i = 0;
-	int cur_freq = get_current_freq();
-
-	if(private_data.tempctrl_data.temp_ctrl_status)
-	{
-		long temperature = get_temperature();
-		if(temperature > 0)
-		{
-			if(temperature < tl_table[0].temp)
-			{
-				if(cur_freq > vf_table[tl_table[0].level].max_freq)
-				{
-					private_data.tempctrl_data.temp_ctrl_flag = 1;
-					private_data.tempctrl_data.level = tl_table[0].level;
-				}
-			}
-			else
-			{
-				for(i = private_data.tempctrl_data.count - 1; i >= 0; i--)
-				{
-					if(temperature >= tl_table[i].temp)
-					{
-						if(cur_freq > vf_table[tl_table[i].level].max_freq)
-						{
-							private_data.tempctrl_data.temp_ctrl_flag = 1;
-							private_data.tempctrl_data.level = tl_table[i].level;
-							break;
-						}
-					}
-				}
-			}
-		}
-	}
-
-	if(!private_data.tempctrl_data.temp_ctrl_status)
-	{
-		return;
-	}
-
-	if(!private_data.tempctrl_data.temp_ctrl_flag)
-	{
-		return;
-	}
-
-	schedule_work(&wq_work);
 }

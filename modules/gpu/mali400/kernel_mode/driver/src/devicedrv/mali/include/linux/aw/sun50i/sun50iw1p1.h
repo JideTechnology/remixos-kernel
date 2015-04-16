@@ -19,20 +19,20 @@
 static struct aw_vf_table vf_table[] =
 {
 	{
-		.vol      = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.max_freq = 144, /* MHz */
+		.vol  = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
+		.freq = 144, /* MHz */
 	},
 	{
-		.vol      = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.max_freq = 240, /* MHz */
+		.vol  = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
+		.freq = 240, /* MHz */
 	},
 	{
-		.vol      = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.max_freq = 336, /* MHz */
+		.vol  = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
+		.freq = 336, /* MHz */
 	},
 	{
-		.vol      = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.max_freq = 456, /* MHz */
+		.vol  = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
+		.freq = 432, /* MHz */
 	},
 };
 
@@ -46,16 +46,9 @@ static struct aw_private_data private_data =
 #endif
 	.regulator     = NULL,
 	.regulator_id  = "vdd-sys",
-	.dvfs_data     =
-	{
-		.max_level   = 3,
-		.dvfs_status = 0,
-	},
 	.tempctrl_data =
 	{
 		.temp_ctrl_status = 1,
-		.temp_ctrl_flag   = 0,
-		.count            = 3,
 	},
 };
 
@@ -68,23 +61,6 @@ static struct aw_clk_data clk_data[] =
 	{
 		.clk_name   = "mali",
 		.clk_handle = NULL,
-	},
-};
-
-/* This data is for sensor, but the data of gpu may be about 5 degress Centigrade higher */
-static struct aw_tl_table tl_table[] =
-{
-	{
-		.temp  = 70,
-		.level = 3,
-	},
-	{
-		.temp  = 80,
-		.level = 2,
-	},
-	{
-		.temp  = 90,
-		.level = 0,
 	},
 };
 

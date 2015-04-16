@@ -27,36 +27,29 @@
 static struct aw_vf_table vf_table[] =
 {
 	{
-		.vol      = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.max_freq = 144, /* MHz */
+		.vol  = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
+		.freq = 144, /* MHz */
 	},
 	{
-		.vol      = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.max_freq = 240, /* MHz */
+		.vol  = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
+		.freq = 240, /* MHz */
 	},
 	{
-		.vol      = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.max_freq = 384, /* MHz */
+		.vol  = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
+		.freq = 384, /* MHz */
 	},
 };
 
 static struct aw_private_data private_data =
 {
-	.clk_status       = 0,
-	.normal_level     = 2,
-	.sensor_num       = 0,
-	.regulator        = NULL,
-	.regulator_id     = "vdd-sys",
-	.dvfs_data        =
-	{
-		.max_level   = 2,
-		.dvfs_status = 0,
-	},
+	.clk_status    = 0,
+	.normal_level  = 2,
+	.sensor_num    = 0,
+	.regulator     = NULL,
+	.regulator_id  = "axp22_dcdc2",
 	.tempctrl_data =
 	{
 		.temp_ctrl_status = 1,
-		.temp_ctrl_flag   = 0,
-		.count            = 1,
 	},
 };
 
@@ -74,13 +67,18 @@ static struct aw_clk_data clk_data[] =
 	},
 };
 
-/* This data is for sensor, but the data of gpu may be about 5 degress Centigrade higher */
-static struct aw_tl_table tl_table[] =
+#ifdef CONFIG_CPU_BUDGET_THERMAL
+static struct aw_tf_table tf_table[] =
 {
 	{
-		.temp  = 70,
-		.level = 1,
+		.temp = 85,
+		.freq = 240,
+	},
+	{
+		.temp = 95,
+		.freq = 144,
 	},
 };
+#endif /* CONFIG_CPU_BUDGET_THERMAL */
 
 #endif
