@@ -628,7 +628,7 @@
 			hci_ctrl_no         = <1>;
 			status              = "okay";
 		};
-		sun50codec:ac_codec@0x01c22c00 {
+		codec:codec@0x01c22c00 {
 			compatible = "allwinner,sunxi-internal-codec";
 			reg = <0x0 0x01c22c00 0x0 0x478>,/*digital baseadress*/
 			      <0x0 0x01f015c0 0x0 0x0>;/*analog baseadress*/
@@ -660,21 +660,10 @@
 			status = "okay";
 		};
 
-		sun50i2s:ac_plat@0x01c22c00 {
+		i2s:i2s0-controller@0x01c22c00 {
 			compatible = "allwinner,sunxi-internal-i2s";
 			reg = <0x0 0x01c22c00 0x0 0x478>;/*digital baseadress*/
 			clocks = <&clk_pll_audio>,<&clk_adda>;
-			status = "okay";
-		};
-
-		audiocodec_machine:ac_mach{
-			compatible = "allwinner,sunxi-codec-machine";
-			interrupts = <GIC_SPI 28 4>;
-			sunxi,i2s-controller = <&sun50i2s>;
-			sunxi,audio-codec = <&sun50codec>;
-			aif2fmt = <3>;
-			aif3fmt = <3>;
-			aif2master = <1>;
 			status = "okay";
 		};
 
@@ -699,11 +688,6 @@
 			tdm_num = <0x0>;
 			status = "okay";
 		};
-		daudio0_machine:daudio0mach{
-			compatible = "allwinner,sunxi-duaio0-machine";
-			sunxi,daudio0-controller = <&daudio0>;
-			status = "okay";
-		};
 		daudio1:daudio@0x01c22400 {
 			compatible = "allwinner,sunxi-daudio";
 			reg = <0x0 0x01c22400 0x0 0x58>;
@@ -725,23 +709,13 @@
 			tdm_num = <0x1>;
 			status = "okay";
 		};
-		daudio1_machine:daudio1mach{
-			compatible = "allwinner,sunxi-duaio1-machine";
-			sunxi,daudio1-controller = <&daudio1>;
-			status = "okay";
-		};
-		audiohdmi:hdmi_platform@0x01c22800{
+		daudio2:daudio@0x01c22800{
 			compatible = "allwinner,sunxi-tdmhdmi";
 			reg = <0x0 0x01c22800 0x0 0x58>;
 			clocks = <&clk_pll_audio>,<&clk_i2s2>;
 			status = "okay";
 		};
-		hdmi_machine:hdmimach{
-			compatible = "allwinner,sunxi-hdmi-machine";
-			sunxi,hdmi-controller = <&audiohdmi>;
-			status = "okay";
-		};
-		audiospdif:spdif_platform@0x01c21000{
+		spdif:spdif-controller@0x01c21000{
 			compatible = "allwinner,sunxi-spdif";
 			reg = <0x0 0x01c21000 0x0 0x38>;
 			clocks = <&clk_pll_audio>,<&clk_spdif>;
@@ -750,9 +724,36 @@
 			pinctrl-1 = <&spdif_pins_b>;
 			status = "okay";
 		};
-		spdif_machine:spdifmach{
+		sndcodec:sound@0 {
+			compatible = "allwinner,sunxi-codec-machine";
+			interrupts = <GIC_SPI 28 4>;
+			sunxi,i2s-controller = <&i2s>;
+			sunxi,audio-codec = <&codec>;
+			aif2fmt = <3>;
+			aif3fmt = <3>;
+			aif2master = <1>;
+			status = "okay";
+		};
+
+		snddaudio0:sound@1{
+			compatible = "allwinner,sunxi-duaio0-machine";
+			sunxi,daudio0-controller = <&daudio0>;
+			status = "okay";
+		};
+		snddaudio1:sound@2{
+			compatible = "allwinner,sunxi-duaio1-machine";
+			sunxi,daudio1-controller = <&daudio1>;
+			status = "okay";
+		};
+		sndhdmi:sound@3{
+			compatible = "allwinner,sunxi-hdmi-machine";
+			sunxi,hdmi-controller = <&daudio2>;
+			status = "okay";
+		};
+
+		sndspdif:sound@4{
 			compatible = "allwinner,sunxi-spdif-machine";
-			sunxi,spdif-controller = <&audiospdif>;
+			sunxi,spdif-controller = <&spdif>;
 			status = "okay";
 		};
 

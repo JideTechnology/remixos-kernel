@@ -33,7 +33,7 @@
 #include <linux/dma/sunxi-dma.h>
 #include "sunxi_i2s.h"
 #include "sunxi_rw_func.h"
-#include "sunxi_sun50iw1codec.h"
+#include "sunxi_codec.h"
 
 #define DRV_NAME "sunxi-internal-i2s"
 #define SUNXI_PCM_RATES (SNDRV_PCM_RATE_8000_192000 | SNDRV_PCM_RATE_KNOT)

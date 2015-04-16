@@ -12,9 +12,9 @@ obj-y += snd-sunxi-soc.o
 
 #audiocodec
 
-obj-$(CONFIG_SND_SOC_INTERNAL_AUDIOCODEC) += sunxi_sun50iw1codec.o
+obj-$(CONFIG_SND_SOC_INTERNAL_AUDIOCODEC) += sunxi_codec.o
 obj-$(CONFIG_SND_SOC_INTERNAL_I2S) += sunxi_i2s.o
-obj-$(CONFIG_SND_SOC_AUDIO_CODEC_MACHINE) += sunxi_sndsun50iw1.o
+obj-$(CONFIG_SND_SOC_AUDIO_CODEC_MACHINE) += sunxi_sndcodec.o
 
 
 #daudio0

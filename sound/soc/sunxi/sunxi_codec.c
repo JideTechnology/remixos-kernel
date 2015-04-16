@@ -32,7 +32,7 @@
 #include <linux/pm.h>
 #include <linux/of_gpio.h>
 #include <linux/sys_config.h>
-#include "sunxi_sun50iw1codec.h"
+#include "sunxi_codec.h"
 #include "sunxi_rw_func.h"
 
 
