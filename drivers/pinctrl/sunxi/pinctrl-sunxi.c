@@ -611,27 +611,6 @@ sunxi_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
-static int
-sunxi_pmx_gpio_disable_free(struct pinctrl_dev *pctldev,
-			struct pinctrl_gpio_range *range,
-			unsigned offset)
-{
-	struct sunxi_pinctrl *pctl = pinctrl_dev_get_drvdata(pctldev);
-	struct sunxi_desc_function *desc;
-	const char *func;
-
-	func = "io_disabled";
-
-	desc = sunxi_pinctrl_desc_find_function_by_pin(pctl, offset, func);
-	if (!desc)
-		return -EINVAL;
-
-	sunxi_pmx_set(pctldev, offset, desc->muxval, false);
-
-	return 0;
-}
-
-
 static const struct pinmux_ops sunxi_pmx_ops = {
 	.get_functions_count	= sunxi_pmx_get_funcs_cnt,
 	.get_function_name	= sunxi_pmx_get_func_name,
@@ -639,7 +618,6 @@ static const struct pinmux_ops sunxi_pmx_ops = {
 	.enable			= sunxi_pmx_set_mux_enable,
 	.disable		= sunxi_pmx_set_mux_disable,
 	.gpio_set_direction	= sunxi_pmx_gpio_set_direction,
-	.gpio_disable_free      = sunxi_pmx_gpio_disable_free,
 };
 
 static int sunxi_pinctrl_gpio_request(struct gpio_chip *chip, unsigned offset)
