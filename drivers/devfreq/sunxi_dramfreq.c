@@ -871,11 +871,14 @@ static int sunxi_dramfreq_opp_init(struct platform_device *pdev,
 	for (i = 0; i < 3; i++)
 		tmp_table[i] = dramfreq->dram_para.dram_clk * 1000 / (i + 1);
 
-	if (dramfreq->dram_para.dram_clk / (i + 1) >= SUNXI_DRAMFREQ_MIN)
-		tmp_table[i-1] = dramfreq->dram_para.dram_clk * 1000 / (i + 1);
-
-	for (j = 0; i < LV_END; i++, j++)
-		tmp_table[i] = dramfreq->dram_para.dram_tpr9 * 1000 / (j + 1);
+	for (j = 0; i < LV_END; i++, j++) {
+		if ((dramfreq->dram_para.dram_tpr9 / (j + 1))
+				> dramfreq->dram_para.dram_clk) {
+			tmp_table[i] = 0;
+		} else {
+			tmp_table[i] = dramfreq->dram_para.dram_tpr9 * 1000 / (j + 1);
+		}
+	}
 
 	if (dramfreq->mode == CFS_MODE) {
 		for (i = 0; i < LV_END; i++) {
@@ -883,6 +886,11 @@ static int sunxi_dramfreq_opp_init(struct platform_device *pdev,
 				tmp_table[i] = ((tmp_table[i] / 1000) / 12) * 12 * 1000;
 			}
 		}
+	}
+
+	for (i = 0; i < LV_END; i++) {
+		if (tmp_table[i] < SUNXI_DRAMFREQ_IDLE)
+			tmp_table[i] = 0;
 	}
 
 	__array_insert_sort(tmp_table, LV_END);
