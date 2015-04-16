@@ -425,9 +425,12 @@ static int functionfs_ready_callback(struct ffs_data *ffs)
 {
 	struct android_dev *dev = _android_dev;
 	struct functionfs_config *config = ffs_function.config;
+	struct usb_composite_dev *cdev = dev->cdev;
 	int ret = 0;
 
 	mutex_lock(&dev->mutex);
+
+	cdev->next_string_id = dev->reset_string_id;
 
 	config->instances++;
 	config->data = ffs;
