@@ -441,7 +441,7 @@ static struct gc2235_reg const gc2235_1616_1082_30fps[] = {
 	{ GC2235_8BIT, 0x0d, 0x04 }, /* win height 1232 */
 	{ GC2235_8BIT, 0x0e, 0xd0 },
 	{ GC2235_8BIT, 0x0f, 0x06 }, /* win width: 1616 */
-	{ GC2235_8BIT, 0x10, 0x60 },
+	{ GC2235_8BIT, 0x10, 0x50 },
 
 	{ GC2235_8BIT, 0x90, 0x01 },
 	{ GC2235_8BIT, 0x92, 0x4a },
@@ -482,7 +482,7 @@ static struct gc2235_reg const gc2235_1616_1216_30fps[] = {
 	{ GC2235_8BIT, 0x0d, 0x04 }, /* win height 1232 */
 	{ GC2235_8BIT, 0x0e, 0xd0 },
 	{ GC2235_8BIT, 0x0f, 0x06 }, /* win width: 1616 */
-	{ GC2235_8BIT, 0x10, 0x60 },
+	{ GC2235_8BIT, 0x10, 0x50 },
 
 	{ GC2235_8BIT, 0x90, 0x01 },
 	{ GC2235_8BIT, 0x92, 0x02 },
