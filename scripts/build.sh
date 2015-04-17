@@ -99,7 +99,7 @@ clean_gpu_sun8iw6()
 
 clean_gpu()
 {
-    echo "$0"
+    echo "Nothing to do."
 }
 
 
@@ -293,13 +293,17 @@ gen_output()
 
 clean_kernel()
 {
-    echo "$0"
+	echo "Cleaning kernel ..."
+	make ARCH=${ARCH} clean
+	rm -rf output/*
+	echo
 }
 
 clean_modules()
 {
-    echo "Cleaning modules"
+    echo "Cleaning modules ..."
     clean_gpu
+	echo
 }
 
 #####################################################################
