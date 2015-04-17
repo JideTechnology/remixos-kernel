@@ -57,6 +57,7 @@
 #define CV_INV_RX_DATA		BIT(6)
 #define CV_INV_TX_DATA		BIT(7)
 
+#define CV_INT_SEL_SHIFT	28
 #define CV_INT_SEL_MASK		(0xF << 28)
 #define CV_PAD_MODE_MASK	(0xF << 16)
 #define CV_GPIO_PULL_MODE	(0xF << 20)
@@ -1308,6 +1309,21 @@ static void chv_irq_init_hw(struct chv_gpio *cg)
 
 	reg = chv_gpio_reg(&cg->chip, 0, CV_INT_STAT_REG);
 	chv_writel(0xffff, reg);
+
+	/*workaround, make sw-17 nad sw-91 select different interrupt line.
+	* set sw-91 interrupt line to 2 to avoid the conflict*/
+	if (cg->chip.ngpio == 98) {
+		u32 val;
+		void __iomem *ctrl0_reg =
+			chv_gpio_reg(&cg->chip, 91, CV_PADCTRL0_REG);
+
+		val = chv_readl(ctrl0_reg) & ~CV_INT_SEL_MASK;
+		val |= 2 << CV_INT_SEL_SHIFT;
+		chv_writel(val, ctrl0_reg);
+
+		dev_info(&cg->pdev->dev,
+			"workaround to set SW-91 interrupt line as 2\n");
+	}
 }
 
 
