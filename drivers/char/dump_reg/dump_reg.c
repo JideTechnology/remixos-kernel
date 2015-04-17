@@ -26,6 +26,7 @@
 #include <linux/miscdevice.h>
 #include "dump_reg.h"
 
+
 #define SUNXI_IO_PHYS_BASE      0x01000000UL
 #define SUNXI_IO_SIZE           SZ_16M          /* 16MB(Max) */
 #define SUNXI_MEM_PHYS_BASE     0x01000000UL
@@ -53,24 +54,28 @@ typedef struct dump_struct {
 	void (*write)(u32 val, void __iomem *addr);
 } dump_struct_t;
 
+/* for read and write in byte/word mode */
+static unsigned int rw_byte_mode = 0;
+
 /* for dump_reg class */
 static struct dump_reg dump_para;
 static struct write_group *wt_group;
 static struct compare_group *cmp_group;
 
-/* for dump_reg misc driver */
-static struct dump_reg misc_dump_para;
-static struct write_group *misc_wt_group;
-static struct compare_group *misc_cmp_group;
-
 static u32 READ(void __iomem *addr)
 {
-	return readl(addr);
+	if (rw_byte_mode)
+		return readb(addr);
+	else
+		return readl(addr);
 }
 
 static void WRITE(u32 val, void __iomem *addr)
 {
-	writel(val, addr);
+	if (rw_byte_mode)
+		writeb(val, addr);
+	else
+		writel(val, addr);
 }
 
 static void __iomem *REMAPIO(phys_addr_t phys_addr, size_t size)
@@ -735,10 +740,34 @@ compare_store(struct class *class, struct class_attribute *attr, \
 	return count;
 }
 
+static ssize_t
+rw_byte_show(struct class *class, struct class_attribute *attr, char *buf)
+{
+	return sprintf(buf, "read/write mode: %d(%s)\n", rw_byte_mode, \
+	                      rw_byte_mode ? "byte" : "word");
+}
+
+static ssize_t
+rw_byte_store(struct class *class, struct class_attribute *attr, \
+              const char *buf, size_t count)
+{
+	unsigned long value;
+
+	strict_strtoul(buf, 10, &value);
+	if (value > 1) {
+		pr_err("%s,%d err, invalid para!\n", __func__, __LINE__);
+		goto out;
+	}
+	rw_byte_mode = value;
+out:
+	return count;
+}
+
 static struct class_attribute dump_class_attrs[] = {
 	__ATTR(dump,    S_IWUSR | S_IRUGO,      dump_show,      dump_store),
 	__ATTR(write,   S_IWUSR | S_IRUGO,      write_show,     write_store),
 	__ATTR(compare, S_IWUSR | S_IRUGO,      compare_show,   compare_store),
+	__ATTR(rw_byte, S_IWUSR | S_IRUGO,      rw_byte_show,   rw_byte_store),
 	__ATTR_NULL,
 };
 
@@ -763,6 +792,11 @@ static int __init dump_class_init(void)
 postcore_initcall(dump_class_init);
 
 #ifdef CONFIG_DUMP_REG_MISC
+/* for dump_reg misc driver */
+static struct dump_reg misc_dump_para;
+static struct write_group *misc_wt_group;
+static struct compare_group *misc_cmp_group;
+
 static ssize_t
 misc_dump_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -933,10 +967,10 @@ static void __exit misc_dump_reg_exit(void)
 
 module_init(misc_dump_reg_init);
 module_exit(misc_dump_reg_exit);
+#endif
 
 MODULE_ALIAS("dump reg driver");
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("xiafeng <xiafeng@allwinnertech.com>");
 MODULE_ALIAS("platform:dump reg");
-MODULE_DESCRIPTION("dump driver driver");
-#endif
+MODULE_DESCRIPTION("dump registers driver");
