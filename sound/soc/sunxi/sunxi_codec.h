@@ -2084,6 +2084,8 @@ struct sunxi_codec {
 	u32 aif3_clken;
 	u32 aif1_lrlk_div;
 	u32 aif2_lrlk_div;
+	u32 pa_sleep_time;
+	bool spkenable;
 	//u8 sysconfig:1;
 };
 #endif

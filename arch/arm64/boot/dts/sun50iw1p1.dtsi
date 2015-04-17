@@ -657,6 +657,7 @@
  			aif2_lrlk_div = <0x40>;
 			aif2config = <0x0>;
 			aif3config = <0x0>;
+			pa_sleep_time = <0x15e>;
 			status = "okay";
 		};
 

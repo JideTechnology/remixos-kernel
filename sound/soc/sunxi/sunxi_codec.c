@@ -604,15 +604,19 @@ static int ac_speaker_event(struct snd_soc_dapm_widget *w,
 				struct snd_kcontrol *k,
 				int event)
 {
+	struct snd_soc_codec *codec = w->codec;
+	struct sunxi_codec *sunxi_internal_codec = snd_soc_codec_get_drvdata(codec);
 	pr_debug("..speaker power state change.\n");
 	switch (event) {
 		case SND_SOC_DAPM_POST_PMU:
+			sunxi_internal_codec->spkenable = true;
 			msleep(50);
 			if (spk_gpio.cfg)
 				gpio_set_value(spk_gpio.gpio, 1);
 
 			break;
 		case SND_SOC_DAPM_PRE_PMD :
+			sunxi_internal_codec->spkenable = false;
 			if (spk_gpio.cfg)
 				gpio_set_value(spk_gpio.gpio, 0);
 
@@ -1567,12 +1571,14 @@ static int codec_start(struct snd_pcm_substream *substream, struct snd_soc_dai *
 static int codec_aif_mute(struct snd_soc_dai *codec_dai, int mute)
 {
 	struct snd_soc_codec *codec = codec_dai->codec;
+	struct sunxi_codec *sunxi_internal_codec = snd_soc_codec_get_drvdata(codec);
 	if (mute) {
 		snd_soc_write(codec, SUNXI_DAC_VOL_CTRL, 0);
 	} else {
 		snd_soc_write(codec, SUNXI_DAC_VOL_CTRL, 0xa0a0);
 	}
-	msleep(100);
+	if(sunxi_internal_codec->spkenable == true)
+		msleep(sunxi_internal_codec->pa_sleep_time);
 	return 0;
 }
 
@@ -2432,10 +2438,18 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 	} else {
 		sunxi_internal_codec->aif2_lrlk_div = temp_val;
 	}
+	ret = of_property_read_u32(node, "pa_sleep_time",&temp_val);
+	if (ret < 0) {
+		pr_err("[audio-codec]pa_sleep_time configurations missing or invalid.\n");
+		ret = -EINVAL;
+		goto err1;
+	} else {
+		sunxi_internal_codec->pa_sleep_time = temp_val;
+	}
 
 	pr_debug("headphonevol:%d,spkervol:%d, earpiecevol:%d maingain:%d headsetmicgain:%d \
 			adcagc_cfg:%d, adcdrc_cfg:%d, adchpf_cfg:%d, dacdrc_cfg:%d \
-			dachpf_cfg:%d,aif2config:%d,aif3config:%d,aif1_lrlk_div:%d,aif2_lrlk_div:%d\n",
+			dachpf_cfg:%d,aif2config:%d,aif3config:%d,aif1_lrlk_div:%d,aif2_lrlk_div:%d,pa_sleep_time:%d\n",
 		sunxi_internal_codec->gain_config.headphonevol,
 		sunxi_internal_codec->gain_config.spkervol,
 		sunxi_internal_codec->gain_config.earpiecevol,
@@ -2449,7 +2463,8 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		sunxi_internal_codec->aif_config.aif2config,
 		sunxi_internal_codec->aif_config.aif3config,
 		sunxi_internal_codec->aif1_lrlk_div,
-		sunxi_internal_codec->aif2_lrlk_div
+		sunxi_internal_codec->aif2_lrlk_div,
+		sunxi_internal_codec->pa_sleep_time
 	);
 
 	snd_soc_register_codec(&pdev->dev, &soc_codec_dev_codec, codec_dai, ARRAY_SIZE(codec_dai));
