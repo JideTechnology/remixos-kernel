@@ -3793,20 +3793,19 @@ void atomisp_css_set_zoom_factor(struct atomisp_sub_device *asd,
 {
 	struct atomisp_device *isp = asd->isp;
 
-	if (zoom == asd->params.css_param.dz_config.dx &&
-		 zoom == asd->params.css_param.dz_config.dy) {
+	if (!asd->params.config.dz_config)
+		asd->params.config.dz_config = &asd->params.dz_config;
+
+	if (zoom == asd->params.config.dz_config->dx &&
+		 zoom == asd->params.config.dz_config->dy) {
 		dev_dbg(isp->dev, "same zoom scale. skipped.\n");
 		return;
 	}
 
-	memset(&asd->params.css_param.dz_config, 0,
+	memset(asd->params.config.dz_config, 0,
 		sizeof(struct ia_css_dz_config));
-	asd->params.css_param.dz_config.dx = zoom;
-	asd->params.css_param.dz_config.dy = zoom;
-
-	asd->params.css_param.update_flag.dz_config =
-		(struct atomisp_dz_config *) &asd->params.css_param.dz_config;
-	asd->params.css_update_params_needed = true;
+	asd->params.dz_config.dx = zoom;
+	asd->params.dz_config.dy = zoom;
 }
 
 void atomisp_css_set_formats_config(struct atomisp_sub_device *asd,
