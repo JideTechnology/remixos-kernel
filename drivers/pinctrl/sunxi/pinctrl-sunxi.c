@@ -29,7 +29,8 @@
 #include <linux/platform_device.h>
 #include <linux/sys_config.h>
 #include <linux/slab.h>
-
+#include <linux/power/aw_pm.h>
+#include <linux/power/scenelock.h>
 #include "../core.h"
 #include "pinctrl-sunxi.h"
 
@@ -895,16 +896,26 @@ static void sunxi_pinctrl_irq_ack_unmask(struct irq_data *d)
 	sunxi_pinctrl_irq_unmask(d);
 }
 
+static int sunxi_pinctrl_irq_set_wake(struct irq_data *d, unsigned int state)
+{
+	struct sunxi_pinctrl *pctl = irq_data_get_irq_chip_data(d);
+	if (state) {
+		enable_wakeup_src(CPUS_WAKEUP_GPIO, pctl->irq_array[d->hwirq]);
+	} else {
+		disable_wakeup_src(CPUS_WAKEUP_GPIO, pctl->irq_array[d->hwirq]);
+	}
+
+	return 0;
+	
+
+}
+
 static struct irq_chip sunxi_pinctrl_edge_irq_chip = {
 	.irq_ack	= sunxi_pinctrl_irq_ack,
 	.irq_mask	= sunxi_pinctrl_irq_mask,
 	.irq_unmask	= sunxi_pinctrl_irq_unmask,
-#if 0
-	.irq_request_resources = sunxi_pinctrl_irq_request_resources,
-	.irq_release_resources = sunxi_pinctrl_irq_release_resources,
-#endif
 	.irq_set_type	= sunxi_pinctrl_irq_set_type,
-	.flags		= IRQCHIP_SKIP_SET_WAKE,
+	.irq_set_wake	= sunxi_pinctrl_irq_set_wake,
 };
 
 static struct irq_chip sunxi_pinctrl_level_irq_chip = {
@@ -916,14 +927,8 @@ static struct irq_chip sunxi_pinctrl_level_irq_chip = {
 	.irq_enable	= sunxi_pinctrl_irq_ack_unmask,
 	.irq_disable	= sunxi_pinctrl_irq_mask,
 	.irq_set_type	= sunxi_pinctrl_irq_set_type,
-	.flags		= IRQCHIP_SKIP_SET_WAKE | IRQCHIP_EOI_IF_HANDLED ,
-#if 0
-	.irq_request_resources = sunxi_pinctrl_irq_request_resources,
-	.irq_release_resources = sunxi_pinctrl_irq_release_resources,
-	.irq_set_type	= sunxi_pinctrl_irq_set_type,
-	.flags		= IRQCHIP_SKIP_SET_WAKE | IRQCHIP_EOI_THREADED |
-			  IRQCHIP_EOI_IF_HANDLED,
-#endif
+	.flags		= IRQCHIP_EOI_IF_HANDLED ,
+	.irq_set_wake	= sunxi_pinctrl_irq_set_wake,
 };
 
 static void sunxi_pinctrl_irq_handler(unsigned irq, struct irq_desc *desc)
