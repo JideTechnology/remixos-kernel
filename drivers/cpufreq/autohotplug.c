@@ -41,7 +41,7 @@ static atomic_t g_hotplug_lock = ATOMIC_INIT(0);
 
 static unsigned int hotplug_enable    = 0;
 static unsigned int boost_all_online  = 0;
-static unsigned int hotplug_period_us = 50000;
+static unsigned int hotplug_period_us = 200000;
 static unsigned int hotplug_sample_us = 20000;
 static unsigned int cpu_up_lastcpu    = INVALID_CPU;
 static unsigned int total_nr_cpus     = CONFIG_NR_CPUS;
@@ -49,9 +49,9 @@ static unsigned int total_nr_cpus     = CONFIG_NR_CPUS;
 static unsigned int cpu_up_last_hold_us = 1500000;
 
 unsigned int load_try_down          = 30;
-unsigned int load_try_up            = 70;
+unsigned int load_try_up            = 80;
 
-unsigned int load_up_stable_us      = 50000;
+unsigned int load_up_stable_us      = 200000;
 unsigned int load_down_stable_us    = 1000000;
 
 unsigned int load_last_big_min_freq = 300000;
