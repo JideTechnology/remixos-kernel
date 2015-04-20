@@ -1109,10 +1109,19 @@ static int sunxi_dramfreq_suspend(struct platform_device *pdev,
 								pm_message_t state)
 {
 	struct sunxi_dramfreq *dramfreq = platform_get_drvdata(pdev);
+	unsigned long cur_freq, target = dramfreq->max;
+	int err = -1;
 	sunxi_dramfreq_cur_pause = dramfreq->pause;
 
-	if (!sunxi_dramfreq_cur_pause)
+	if (!sunxi_dramfreq_cur_pause) {
 		dramfreq->pause = 1;
+		sunxi_dramfreq_get_cur_freq(&pdev->dev, &cur_freq);
+		if (cur_freq != target) {
+			err = sunxi_dramfreq_target(&pdev->dev, &target, 0);
+			if (!err)
+				dramfreq->devfreq->previous_freq = target;
+		}
+	}
 
 	printk("%s:%d\n", __func__, __LINE__);
 	return 0;
