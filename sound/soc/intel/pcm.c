@@ -647,6 +647,24 @@ static struct snd_soc_dai_driver sst_platform_dai[] = {
 	},
 },
 {
+	.name = SST_LOWLATENCY_DAI,
+	.ops = &sst_media_dai_ops,
+	.playback = {
+		.stream_name = "Low Latency Playback",
+		.channels_min = SST_STEREO,
+		.channels_max = SST_STEREO,
+		.rates = SNDRV_PCM_RATE_48000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+	},
+	.capture = {
+		.stream_name = "Low Latency Capture",
+		.channels_min = SST_STEREO,
+		.channels_max = SST_STEREO,
+		.rates = SNDRV_PCM_RATE_48000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+	},
+},
+{
 	.name = SST_SPEAKER_DAI,
 	.ops = &sst_media_dai_ops,
 	.playback = {
