@@ -188,7 +188,7 @@ static int sunxi_mipi_subdev_init(struct mipi_dev *mipi)
 
 	v4l2_subdev_init(sd, &sunxi_mipi_subdev_ops);
 	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
-	snprintf(sd->name, sizeof(sd->name), "sunxi_mipi.%d", mipi->mipi_sel);
+	snprintf(sd->name, sizeof(sd->name), "sunxi_mipi.%u", mipi->mipi_sel);
 
 	v4l2_set_subdevdata(sd, mipi);
 	return 0;

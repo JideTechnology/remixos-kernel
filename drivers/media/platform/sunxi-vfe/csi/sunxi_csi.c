@@ -232,7 +232,7 @@ static int sunxi_csi_subdev_init(struct csi_dev *csi)
 	csi->bus_info.ch_total_num = 1;	
 	v4l2_subdev_init(sd, &sunxi_csi_subdev_ops);
 	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
-	snprintf(sd->name, sizeof(sd->name), "sunxi_csi.%d", csi->csi_sel);
+	snprintf(sd->name, sizeof(sd->name), "sunxi_csi.%u", csi->csi_sel);
 
 	v4l2_set_subdevdata(sd, csi);
 	return 0;
