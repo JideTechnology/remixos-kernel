@@ -2358,6 +2358,12 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 	 */
 	if (dwc->ulpi_phy)
 		dwc3_gadget_kick_dog(dwc);
+
+	if (dwc->gadget_driver && dwc->gadget_driver->reset) {
+		spin_unlock(&dwc->lock);
+		dwc->gadget_driver->reset(&dwc->gadget);
+		spin_lock(&dwc->lock);
+	}
 }
 
 static void dwc3_update_ram_clk_sel(struct dwc3 *dwc, u32 speed)
