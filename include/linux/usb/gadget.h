@@ -800,6 +800,7 @@ static inline int usb_gadget_disconnect(struct usb_gadget *gadget)
  * struct usb_gadget_driver - driver for usb 'slave' devices
  * @function: String describing the gadget's function
  * @max_speed: Highest speed the driver handles.
+ * @reset: Invoked when host reset device.
  * @setup: Invoked for ep0 control requests that aren't handled by
  *	the hardware level driver. Most calls must be handled by
  *	the gadget driver, including descriptor and configuration
@@ -868,6 +869,7 @@ struct usb_gadget_driver {
 	int			(*bind)(struct usb_gadget *gadget,
 					struct usb_gadget_driver *driver);
 	void			(*unbind)(struct usb_gadget *);
+	void			(*reset)(struct usb_gadget *);
 	int			(*setup)(struct usb_gadget *,
 					const struct usb_ctrlrequest *);
 	void			(*disconnect)(struct usb_gadget *);

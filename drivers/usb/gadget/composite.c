@@ -1239,6 +1239,15 @@ void composite_setup_complete(struct usb_ep *ep, struct usb_request *req)
 }
 EXPORT_SYMBOL_GPL(composite_setup_complete);
 
+void
+composite_reset(struct usb_gadget *gadget)
+{
+	struct usb_composite_dev *cdev = get_gadget_data(gadget);
+
+	DBG(cdev, "reset\n");
+	usb_gadget_vbus_draw(gadget, unconfigured_vbus_draw(cdev));
+}
+
 /*
  * The setup() callback implements all the ep0 functionality that's
  * not handled lower down, in hardware or the hardware driver(like
@@ -1798,6 +1807,7 @@ static const struct usb_gadget_driver composite_driver_template = {
 	.bind		= composite_bind,
 	.unbind		= composite_unbind,
 
+	.reset		= composite_reset,
 	.setup		= composite_setup,
 	.disconnect	= composite_disconnect,
 
