@@ -116,6 +116,7 @@ static void LCD_bl_open(u32 sel)
 static void LCD_bl_close(u32 sel)
 {
 	sunxi_lcd_backlight_disable(sel);//config lcd_bl_en pin to close lcd backlight
+	sunxi_lcd_pwm_disable(sel);
 }
 
 static void LCD_panel_init(u32 sel)

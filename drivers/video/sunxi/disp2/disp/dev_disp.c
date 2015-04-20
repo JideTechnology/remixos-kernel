@@ -32,7 +32,7 @@ static struct device *display_dev;
 
 static unsigned int g_disp = 0, g_enhance_mode = 0, g_cvbs_enhance_mode = 0;
 static u32 DISP_print = 0xffff;   //print cmd which eq DISP_print
-
+static bool g_pm_runtime_enable = 0; //when open the CONFIG_PM_RUNTIME,this bool can also control if use the PM_RUNTIME.
 #ifndef CONFIG_OF
 static struct sunxi_disp_mod disp_mod[] = {
 	{DISP_MOD_DE      ,    "de"   },
@@ -249,11 +249,41 @@ static ssize_t disp_cvbs_enhance_store(struct device *dev,
 static DEVICE_ATTR(cvbs_enhacne_mode, S_IRUGO|S_IWUSR|S_IWGRP,
     disp_cvbs_enhance_show, disp_cvbs_enhance_store);
 
+
+
+static ssize_t disp_runtime_enable_show(struct device *dev,
+    struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", g_pm_runtime_enable);
+}
+
+static ssize_t disp_runtime_enable_store(struct device *dev,
+    struct device_attribute *attr, const char *buf, size_t count)
+{
+	int err;
+	unsigned long val;
+
+	err = strict_strtoul(buf, 10, &val);
+	if (val>1)
+		printk("Invalid value, 0/1 is expected!\n");
+	else{
+		printk("g_pm_runtime_enable = %d\n",val);
+		g_pm_runtime_enable = val;
+	}
+
+	return count;
+}
+
+
+static DEVICE_ATTR(runtime_enable, S_IRUGO|S_IWUSR|S_IWGRP,//S_IRUGO|S_IWUGO,
+    disp_runtime_enable_show, disp_runtime_enable_store);
+
 static struct attribute *disp_attributes[] = {
     &dev_attr_sys.attr,
     &dev_attr_disp.attr,
     &dev_attr_enhance_mode.attr,
     &dev_attr_cvbs_enhacne_mode.attr,
+    &dev_attr_runtime_enable.attr,
     NULL
 };
 
@@ -1120,6 +1150,9 @@ static int disp_runtime_suspend(struct device *dev)
 
 	pr_info("%s\n", __func__);
 
+	if (!g_pm_runtime_enable)
+		return 0;
+
 	num_screens = bsp_disp_feat_get_num_screens();
 
 	disp_suspend_cb();
@@ -1160,6 +1193,10 @@ static int disp_runtime_resume(struct device *dev)
 	struct list_head* disp_list= NULL;
 
 	pr_info("%s\n", __func__);
+
+	if (!g_pm_runtime_enable)
+		return 0;
+
 	num_screens = bsp_disp_feat_get_num_screens();
 
 	disp_list = disp_device_get_list_head();
@@ -1240,19 +1277,32 @@ static int disp_suspend(struct device *dev)
 #endif
 	{
 		num_screens = bsp_disp_feat_get_num_screens();
-
 		disp_suspend_cb();
+		if (g_pm_runtime_enable) {
 
-		for (screen_id=0; screen_id<num_screens; screen_id++) {
-			mgr = g_disp_drv.mgr[screen_id];
-			if (!mgr || !mgr->device)
-				continue;
+			for (screen_id=0; screen_id<num_screens; screen_id++) {
+				mgr = g_disp_drv.mgr[screen_id];
+				if (!mgr || !mgr->device)
+					continue;
 
-			if (suspend_output_type[screen_id] == DISP_OUTPUT_TYPE_LCD)
-				flush_work(&g_disp_drv.resume_work[screen_id]);
-			if (suspend_output_type[screen_id] != DISP_OUTPUT_TYPE_NONE) {
-				if (mgr->device->is_enabled(mgr->device))
-					mgr->device->disable(mgr->device);
+				if (suspend_output_type[screen_id] == DISP_OUTPUT_TYPE_LCD)
+					flush_work(&g_disp_drv.resume_work[screen_id]);
+				if (suspend_output_type[screen_id] != DISP_OUTPUT_TYPE_NONE) {
+						if (mgr->device->is_enabled(mgr->device))
+							mgr->device->disable(mgr->device);
+				}
+			}
+		}
+		else {
+			for (screen_id=0; screen_id<num_screens; screen_id++) {
+				mgr = g_disp_drv.mgr[screen_id];
+				if (!mgr || !mgr->device)
+					continue;
+
+				if (suspend_output_type[screen_id] != DISP_OUTPUT_TYPE_NONE) {
+					if (mgr->device->is_enabled(mgr->device))
+						mgr->device->disable(mgr->device);
+				}
 			}
 		}
 
@@ -1269,9 +1319,11 @@ static int disp_suspend(struct device *dev)
 	suspend_status |= DISPLAY_DEEP_SLEEP;
 	suspend_prestep = 1;
 #if defined(CONFIG_PM_RUNTIME)
-	pm_runtime_disable(g_disp_drv.dev);
-	pm_runtime_set_suspended(g_disp_drv.dev);
-	pm_runtime_enable(g_disp_drv.dev);
+	if (g_pm_runtime_enable) {
+		pm_runtime_disable(g_disp_drv.dev);
+		pm_runtime_set_suspended(g_disp_drv.dev);
+		pm_runtime_enable(g_disp_drv.dev);
+	}
 #endif
 	pr_info("%s finish\n", __func__);
 
@@ -1284,23 +1336,53 @@ static int disp_resume(struct device *dev)
 	int num_screens = bsp_disp_feat_get_num_screens();
 	struct disp_manager *mgr = NULL;
 #if defined(CONFIG_PM_RUNTIME)
+	struct disp_device* dispdev = NULL;
+	struct list_head* disp_list= NULL;
 
-	for (screen_id=0; screen_id<num_screens; screen_id++) {
-		mgr = g_disp_drv.mgr[screen_id];
-		if (!mgr || !mgr->device)
-			continue;
-
-		if (suspend_output_type[screen_id] == DISP_OUTPUT_TYPE_LCD) {
-			schedule_work(&g_disp_drv.resume_work[screen_id]);
+	disp_list = disp_device_get_list_head();
+	list_for_each_entry(dispdev, disp_list, list) {
+		if (dispdev->resume) {
+			dispdev->resume(dispdev);
 		}
 	}
+	if (g_pm_runtime_enable) {
+		for (screen_id=0; screen_id<num_screens; screen_id++) {
+			mgr = g_disp_drv.mgr[screen_id];
+			if (!mgr || !mgr->device)
+				continue;
 
-	if (g_disp_drv.dev) {
-		pm_runtime_disable(g_disp_drv.dev);
-		pm_runtime_set_active(g_disp_drv.dev);
-		pm_runtime_enable(g_disp_drv.dev);
-	} else {
-		pr_warn("%s, display device is null\n", __func__);
+			if (suspend_output_type[screen_id] == DISP_OUTPUT_TYPE_LCD) {
+				schedule_work(&g_disp_drv.resume_work[screen_id]);
+			}
+		}
+		if (g_pm_runtime_enable) {
+			if (g_disp_drv.dev) {
+				pm_runtime_disable(g_disp_drv.dev);
+				pm_runtime_set_active(g_disp_drv.dev);
+				pm_runtime_enable(g_disp_drv.dev);
+			} else {
+				pr_warn("%s, display device is null\n", __func__);
+			}
+		}
+	}
+	else {
+		for (screen_id=0; screen_id<num_screens; screen_id++) {
+			mgr = g_disp_drv.mgr[screen_id];
+			if (!mgr || !mgr->device)
+				continue;
+
+			if (suspend_output_type[screen_id] != DISP_OUTPUT_TYPE_NONE) {
+				if (mgr->device->set_mode && mgr->device->get_mode) {
+						u32 mode = mgr->device->get_mode(mgr->device);
+
+						mgr->device->set_mode(mgr->device, mode);
+				}
+				if (!mgr->device->is_enabled(mgr->device)) {
+					mgr->device->enable(mgr->device);
+				}
+			}
+		}
+		disp_resume_cb();
 	}
 #else
 	struct disp_device* dispdev = NULL;
@@ -1474,6 +1556,10 @@ long disp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case DISP_BLANK:
 	{
 		/* only response main device' blank request */
+
+		if (!g_pm_runtime_enable)
+			break;
+
 		if (0 != ubuffer[0])
 			break;
 
