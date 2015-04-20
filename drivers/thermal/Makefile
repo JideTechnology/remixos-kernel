@@ -29,4 +29,5 @@ obj-$(CONFIG_DB8500_CPUFREQ_COOLING)	+= db8500_cpufreq_cooling.o
 obj-$(CONFIG_INTEL_POWERCLAMP)	+= intel_powerclamp.o
 obj-$(CONFIG_SUNXI_BUDGET_COOLING)	+= sunxi_budget_cooling/
 obj-$(CONFIG_SUNXI_THERMAL)		+= sunxi_thermal/
+obj-$(CONFIG_SUNXI_GPU_COOLING)	+= sunxi_gpu_cooling.o
 

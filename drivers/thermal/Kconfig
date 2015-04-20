@@ -226,4 +226,13 @@ config BUDGET_HOTPLUG_CPU
 	help
 	  sunxi budget cooling use autoplug limit
 
+config SUNXI_GPU_COOLING
+	tristate "sunxi gpu cooling"
+	depends on ARCH_SUNXI
+	depends on THERMAL_OF
+	help
+	  Adds sunxi gpu cooling devices, and these cooling devices can be
+	  bound to thermal zone trip points. When a trip point reached, the
+	  gpu cooling device turns active to set gpu frequency low to
+	  cool down the CPU.
 endif

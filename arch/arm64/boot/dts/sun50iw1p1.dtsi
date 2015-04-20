@@ -1181,7 +1181,7 @@
 			};
 		};
 
-		sunxi_budget_cooling:cpu_budget_cool{
+		cpu_budget_cooling:cpu_budget_cool{
 			compatible = "allwinner,budget_cooling";
 			#cooling-cells = <2>;
 			status = "okay";
@@ -1196,6 +1196,17 @@
 			state6 = <648000 1>;
 		};
 
+		gpu_cooling:gpu_cooling{
+			compatible = "allwinner,gpu_cooling";
+			reg = <0x0 0x0 0x0 0x0>;
+			#cooling-cells = <2>;
+			status = "okay";
+			state_cnt = <3>;
+			state0 = <432>;
+			state1 = <360>;
+			state2 = <144>;
+		};
+
 		thermal-zones{
 			soc_thermal{
 
@@ -1204,27 +1215,37 @@
 				thermal-sensors = <&combine0 0>;
 
 				trips{
-					trip0:t0{
+					cpu_trip0:t0{
 						temperature = <65>;
 						type = "passive";
 						hysteresis = <0>;
 					};
-					trip1:t1{
+					cpu_trip1:t1{
 						temperature = <80>;
 						type = "passive";
 						hysteresis = <0>;
 					};
-					trip2:t2{
+					cpu_trip2:t2{
 						temperature = <90>;
 						type = "passive";
 						hysteresis = <0>;
 					};
-					trip3:t3{
+					cpu_trip3:t3{
 						temperature = <100>;
 						type = "passive";
 						hysteresis = <0>;
 					};
-					trip4:t4{
+					gpu_trip0:t4{
+						temperature = <85>;
+						type = "passive";
+						hysteresis = <0>;
+					};
+					gpu_trip1:t5{
+						temperature = <95>;
+						type = "passive";
+						hysteresis = <0>;
+					};
+					crt_trip:t6{
 						temperature = <110>;
 						type = "critical";
 						hysteresis = <0>;
@@ -1234,23 +1255,33 @@
 				cooling-maps{
 					bind0{
 						contribution = <0>;
-						trip = <&trip0>;
-						cooling-device = <&sunxi_budget_cooling 1 1>;
+						trip = <&cpu_trip0>;
+						cooling-device = <&cpu_budget_cooling 1 1>;
 					};
 					bind1{
 						contribution = <0>;
-						trip = <&trip1>;
-						cooling-device = <&sunxi_budget_cooling 2 2>;
+						trip = <&cpu_trip1>;
+						cooling-device = <&cpu_budget_cooling 2 2>;
 					};
 					bind2{
 						contribution = <0>;
-						trip = <&trip2>;
-						cooling-device = <&sunxi_budget_cooling 3 4>;
+						trip = <&cpu_trip2>;
+						cooling-device = <&cpu_budget_cooling 3 4>;
 					};
 					bind3{
 						contribution = <0>;
-						trip = <&trip3>;
-						cooling-device = <&sunxi_budget_cooling 5 6>;
+						trip = <&cpu_trip3>;
+						cooling-device = <&cpu_budget_cooling 5 6>;
+					};
+					bind4{
+						contribution = <0>;
+						trip = <&gpu_trip0>;
+						cooling-device = <&gpu_cooling 1 1>;
+					};
+					bind5{
+						contribution = <0>;
+						trip = <&gpu_trip1>;
+						cooling-device = <&gpu_cooling 2 2>;
 					};
 				};
 			};
