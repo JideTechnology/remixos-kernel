@@ -434,6 +434,7 @@ static int mmc_wait_for_data_req_done(struct mmc_host *host,
 							    host->areq);
 				break; /* return err */
 			} else {
+				mmc_retune_recheck(host);
 				pr_info("%s: req failed (CMD%u): %d, retrying...\n",
 					mmc_hostname(host),
 					cmd->opcode, cmd->error);
@@ -482,6 +483,8 @@ static void mmc_wait_for_req_done(struct mmc_host *host,
 		if (!cmd->error || !cmd->retries ||
 		    mmc_card_removed(host->card))
 			break;
+
+		mmc_retune_recheck(host);
 
 		pr_debug("%s: req failed (CMD%u): %d, retrying...\n",
 			 mmc_hostname(host), cmd->opcode, cmd->error);
