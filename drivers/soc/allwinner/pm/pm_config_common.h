@@ -1,7 +1,6 @@
 #ifndef _PM_CONFIG_COMMON_H
 #define _PM_CONFIG_COMMON_H
 
-
 /*
 * Copyright (c) 2011-2015 yanggq.young@allwinnertech.com
 *
@@ -82,25 +81,23 @@
 #define AW_IRQ_GPIOJ			(0)
 #endif
 
-
-#define SUNXI_BANK_SIZE	(0)
-#define SUNXI_PA_BASE   (0)
-#define SUNXI_PB_BASE   (0)
-#define SUNXI_PC_BASE   (0)
-#define SUNXI_PD_BASE   (0)
-#define SUNXI_PE_BASE   (0)
-#define SUNXI_PF_BASE   (0)
-#define SUNXI_PG_BASE   (0)
-#define SUNXI_PH_BASE   (0)
-#define SUNXI_PI_BASE   (0)
-#define SUNXI_PJ_BASE   (0)
-#define SUNXI_PK_BASE   (0)
-#define SUNXI_PL_BASE   (0)
-#define SUNXI_PM_BASE   (0)
-#define SUNXI_PN_BASE   (0)
-#define SUNXI_PO_BASE   (0)
-#define AXP_PIN_BASE    (0)
-
+#define SUNXI_BANK_SIZE 32
+#define SUNXI_PA_BASE	0
+#define SUNXI_PB_BASE	32
+#define SUNXI_PC_BASE	64
+#define SUNXI_PD_BASE	96
+#define SUNXI_PE_BASE	128
+#define SUNXI_PF_BASE	160
+#define SUNXI_PG_BASE	192
+#define SUNXI_PH_BASE	224
+#define SUNXI_PI_BASE	256
+#define SUNXI_PJ_BASE	288
+#define SUNXI_PK_BASE	320
+#define SUNXI_PL_BASE	352
+#define SUNXI_PM_BASE	384
+#define SUNXI_PN_BASE	416
+#define SUNXI_PO_BASE	448
+#define AXP_PIN_BASE	1024
 
 #endif /*_PM_CONFIG_COMMON_H*/
 
