@@ -38,39 +38,39 @@ enum axp_regls{
 	axp81x_vcc_dc1sw,
 };
 
-#define AXP81X_LDO(_id, min, max, step1, vreg, shift, nbits, ereg, ebit, switch_vol, step2,new_level, mode_addr, freq_addr)	\
-	 AXP_LDO(AXP81X, _id, min, max, step1, vreg, shift, nbits, ereg, ebit, switch_vol, step2, new_level, mode_addr, freq_addr)
+#define AXP81X_LDO(_id, min, max, step1, vreg, shift, nbits, ereg, ebit, switch_vol, step2,new_level, mode_addr, freq_addr, dvm_ereg, dvm_ebit) \
+	 AXP_LDO(AXP81X, _id, min, max, step1, vreg, shift, nbits, ereg, ebit, switch_vol, step2, new_level, mode_addr, freq_addr, dvm_ereg, dvm_ebit)
 
-#define AXP81X_DCDC(_id, min, max, step1, vreg, shift, nbits, ereg, ebit, switch_vol, step2, new_level, mode_addr, freq_addr)	\
-	 AXP_DCDC(AXP81X, _id, min, max, step1, vreg, shift, nbits, ereg, ebit, switch_vol, step2, new_level, mode_addr, freq_addr)
+#define AXP81X_DCDC(_id, min, max, step1, vreg, shift, nbits, ereg, ebit, switch_vol, step2, new_level, mode_addr, freq_addr, dvm_ereg, dvm_ebit) \
+	 AXP_DCDC(AXP81X, _id, min, max, step1, vreg, shift, nbits, ereg, ebit, switch_vol, step2, new_level, mode_addr, freq_addr, dvm_ereg, dvm_ebit)
 
-#define AXP81X_SW(_id, min, max, step1, vreg, shift, nbits, ereg, ebit, switch_vol, step2, new_level, mode_addr, freq_addr)	\
-	AXP_SW(AXP81X, _id, min, max, step1, vreg, shift, nbits, ereg, ebit, switch_vol, step2, new_level, mode_addr, freq_addr)
+#define AXP81X_SW(_id, min, max, step1, vreg, shift, nbits, ereg, ebit, switch_vol, step2, new_level, mode_addr, freq_addr, dvm_ereg, dvm_ebit) \
+	AXP_SW(AXP81X, _id, min, max, step1, vreg, shift, nbits, ereg, ebit, switch_vol, step2, new_level, mode_addr, freq_addr, dvm_ereg, dvm_ebit)
 
 static struct axp_regulator_info axp81x_regulator_info[] = {
-	AXP81X_DCDC(1,	 1600,	 3400,	 100,	 DCDC1,  0,	 5,	 DCDC1EN,0, 0, 0, 0, AXP81X_DCDC_MODESET, AXP81X_DCDC_FREQSET),
-	AXP81X_DCDC(2,	 500,	 1300,	 10,	 DCDC2,  0,	 7,	 DCDC2EN,1, 1200, 20, 0, AXP81X_DCDC_MODESET, AXP81X_DCDC_FREQSET),
-	AXP81X_DCDC(3,	 500,	 1300,	 10,	 DCDC3,  0,	 7,	 DCDC3EN,2, 1200, 20, 0, AXP81X_DCDC_MODESET, AXP81X_DCDC_FREQSET),
-	AXP81X_DCDC(4,	 500,	 1300,	 10,	 DCDC4,  0,	 7,	 DCDC4EN,3, 1200, 20, 0, AXP81X_DCDC_MODESET, AXP81X_DCDC_FREQSET),
-	AXP81X_DCDC(5,	 800,	 1840,	 10,	 DCDC5,  0,	 7,	 DCDC5EN,4, 1120, 20, 0, AXP81X_DCDC_MODESET, AXP81X_DCDC_FREQSET),
-	AXP81X_DCDC(6,	 600,	 1520,	 10,	 DCDC6,  0,	 7,	 DCDC4EN,5, 1100, 20, 0, AXP81X_DCDC_MODESET, AXP81X_DCDC_FREQSET),
-	AXP81X_DCDC(7,	 600,	 1520,	 10,	 DCDC7,  0,	 7,	 DCDC5EN,6, 1100, 20, 0, AXP81X_DCDC_MODESET, AXP81X_DCDC_FREQSET),
-	AXP81X_LDO(1,	 3000,	 3000,	 0,	 LDO1,	 0,	 0,	 LDO1EN, 5, 0, 0, 0, 0, 0),	   //ldo1 for rtc
-	AXP81X_LDO(2,	 700,	 3300,	 100,	 LDO2,	 0,	 5,	 LDO2EN, 5, 0, 0, 0, 0, 0),	   //ldo2 for aldo1
-	AXP81X_LDO(3,	 700,	 3300,	 100,	 LDO3,	 0,	 5,	 LDO3EN, 6, 0, 0, 0, 0, 0),	   //ldo3 for aldo2
-	AXP81X_LDO(4,	 700,	 3300,	 100,	 LDO4,	 0,	 5,	 LDO4EN, 7, 0, 0, 0, 0, 0),	   //ldo4 for aldo3
-	AXP81X_LDO(5,	 700,	 3300,	 100,	 LDO5,	 0,	 5,	 LDO5EN, 3, 0, 0, 0, 0, 0),	   //ldo5 for dldo1
-	AXP81X_LDO(6,	 700,	 4200,	 100,	 LDO6,	 0,	 5,	 LDO6EN, 4, 3400, 200, 0, 0, 0),   //ldo6 for dldo2
-	AXP81X_LDO(7,	 700,	 3300,	 100,	 LDO7,	 0,	 5,	 LDO7EN, 5, 0, 0, 0, 0, 0),	   //ldo7 for dldo3
-	AXP81X_LDO(8,	 700,	 3300,	 100,	 LDO8,	 0,	 5,	 LDO8EN, 6, 0, 0, 0, 0, 0),	   //ldo8 for dldo4
-	AXP81X_LDO(9,	 700,	 1900,	 50,	 LDO9,	 0,	 5,	 LDO9EN, 0, 0, 0, 0, 0, 0),	   //ldo9 for eldo1
-	AXP81X_LDO(10,	 700,	 1900,	 50,	 LDO10,  0,	 5,	 LDO10EN, 1, 0, 0, 0, 0, 0),	   //ldo10 for eldo2
-	AXP81X_LDO(11,	 700,	 1900,	 50,	 LDO11,  0,	 5,	 LDO11EN,2, 0, 0, 0, 0, 0),	   //ldo11 for eldo3
-	AXP81X_LDO(12,	 700,	 1450,	 50,	 LDO12,  0,	 4,	 LDO12EN,2, 0, 0, 0, 0, 0),	   //ldo12 for fldo1
-	AXP81X_LDO(13,	 700,	 1450,	 50,	 LDO13,  0,	 4,	 LDO13EN,3, 0, 0, 0, 0, 0),	   //ldo13 for fldo2
-	AXP81X_LDO(IO0,  700,	 3300,	 100,	 LDOIO0, 0,	 5,	 LDOIO0EN,0, 0, 0, 0, 0, 0),	   //ldoio0
-	AXP81X_LDO(IO1,  700,	 3300,	 100,	 LDOIO1, 0,	 5,	 LDOIO1EN,0, 0, 0, 0, 0, 0),	   //ldoio1
-	AXP81X_SW(0,	1600,	3400,	100,	 DC1SW,	0,	0,	 DC1SWEN,7, 0, 0, 0, 0, 0),//DC1SW
+	AXP81X_DCDC(1,	 1600,	 3400,	 100,	 DCDC1,  0,	 5,	 DCDC1EN,0, 0, 0, 0, AXP81X_DCDC_MODESET, AXP81X_DCDC_FREQSET, 0, 0),
+	AXP81X_DCDC(2,	 500,	 1300,	 10,	 DCDC2,  0,	 7,	 DCDC2EN,1, 1200, 20, 0, AXP81X_DCDC_MODESET, AXP81X_DCDC_FREQSET, AXP81X_DC_DVM_EN, 2),
+	AXP81X_DCDC(3,	 500,	 1300,	 10,	 DCDC3,  0,	 7,	 DCDC3EN,2, 1200, 20, 0, AXP81X_DCDC_MODESET, AXP81X_DCDC_FREQSET, AXP81X_DC_DVM_EN, 3),
+	AXP81X_DCDC(4,	 500,	 1300,	 10,	 DCDC4,  0,	 7,	 DCDC4EN,3, 1200, 20, 0, AXP81X_DCDC_MODESET, AXP81X_DCDC_FREQSET, AXP81X_DC_DVM_EN, 4),
+	AXP81X_DCDC(5,	 800,	 1840,	 10,	 DCDC5,  0,	 7,	 DCDC5EN,4, 1120, 20, 0, AXP81X_DCDC_MODESET, AXP81X_DCDC_FREQSET, AXP81X_DC_DVM_EN, 5),
+	AXP81X_DCDC(6,	 600,	 1520,	 10,	 DCDC6,  0,	 7,	 DCDC4EN,5, 1100, 20, 0, AXP81X_DCDC_MODESET, AXP81X_DCDC_FREQSET, AXP81X_DC_DVM_EN, 6),
+	AXP81X_DCDC(7,	 600,	 1520,	 10,	 DCDC7,  0,	 7,	 DCDC5EN,6, 1100, 20, 0, AXP81X_DCDC_MODESET, AXP81X_DCDC_FREQSET, AXP81X_DC_DVM_EN, 7),
+	AXP81X_LDO(1,	 3000,	 3000,	 0,	 LDO1,	 0,	 0,	 LDO1EN, 5, 0, 0, 0, 0, 0, 0, 0),	   //ldo1 for rtc
+	AXP81X_LDO(2,	 700,	 3300,	 100,	 LDO2,	 0,	 5,	 LDO2EN, 5, 0, 0, 0, 0, 0, 0, 0),	   //ldo2 for aldo1
+	AXP81X_LDO(3,	 700,	 3300,	 100,	 LDO3,	 0,	 5,	 LDO3EN, 6, 0, 0, 0, 0, 0, 0, 0),	   //ldo3 for aldo2
+	AXP81X_LDO(4,	 700,	 3300,	 100,	 LDO4,	 0,	 5,	 LDO4EN, 7, 0, 0, 0, 0, 0, 0, 0),	   //ldo4 for aldo3
+	AXP81X_LDO(5,	 700,	 3300,	 100,	 LDO5,	 0,	 5,	 LDO5EN, 3, 0, 0, 0, 0, 0, 0, 0),	   //ldo5 for dldo1
+	AXP81X_LDO(6,	 700,	 4200,	 100,	 LDO6,	 0,	 5,	 LDO6EN, 4, 3400, 200, 0, 0, 0, 0, 0),   //ldo6 for dldo2
+	AXP81X_LDO(7,	 700,	 3300,	 100,	 LDO7,	 0,	 5,	 LDO7EN, 5, 0, 0, 0, 0, 0, 0, 0),	   //ldo7 for dldo3
+	AXP81X_LDO(8,	 700,	 3300,	 100,	 LDO8,	 0,	 5,	 LDO8EN, 6, 0, 0, 0, 0, 0, 0, 0),	   //ldo8 for dldo4
+	AXP81X_LDO(9,	 700,	 1900,	 50,	 LDO9,	 0,	 5,	 LDO9EN, 0, 0, 0, 0, 0, 0, 0, 0),	   //ldo9 for eldo1
+	AXP81X_LDO(10,	 700,	 1900,	 50,	 LDO10,  0,	 5,	 LDO10EN, 1, 0, 0, 0, 0, 0, 0, 0),	   //ldo10 for eldo2
+	AXP81X_LDO(11,	 700,	 1900,	 50,	 LDO11,  0,	 5,	 LDO11EN,2, 0, 0, 0, 0, 0, 0, 0),	   //ldo11 for eldo3
+	AXP81X_LDO(12,	 700,	 1450,	 50,	 LDO12,  0,	 4,	 LDO12EN,2, 0, 0, 0, 0, 0, 0, 0),	   //ldo12 for fldo1
+	AXP81X_LDO(13,	 700,	 1450,	 50,	 LDO13,  0,	 4,	 LDO13EN,3, 0, 0, 0, 0, 0, 0, 0),	   //ldo13 for fldo2
+	AXP81X_LDO(IO0,  700,	 3300,	 100,	 LDOIO0, 0,	 5,	 LDOIO0EN,0, 0, 0, 0, 0, 0, 0, 0),	   //ldoio0
+	AXP81X_LDO(IO1,  700,	 3300,	 100,	 LDOIO1, 0,	 5,	 LDOIO1EN,0, 0, 0, 0, 0, 0, 0, 0),	   //ldoio1
+	AXP81X_SW(0,	1600,	3400,	100,	 DC1SW,	0,	0,	 DC1SWEN,7, 0, 0, 0, 0, 0, 0, 0),//DC1SW
 };
 
 static struct axp_reg_init axp_regl_init_data[] = {

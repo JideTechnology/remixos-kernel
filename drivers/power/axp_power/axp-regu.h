@@ -24,7 +24,7 @@ struct axp_consumer_supply {
 	char supply[20];	/* consumer supply - e.g. "vcc" */
 };
 
-#define AXP_LDO(_pmic, _id, min, max, step1, vreg, shift, nbits, ereg, ebit, switch_vol, step2, new_level, mode_addr, freq_addr) \
+#define AXP_LDO(_pmic, _id, min, max, step1, vreg, shift, nbits, ereg, ebit, switch_vol, step2, new_level, mode_addr, freq_addr, dvm_ereg, dvm_ebit) \
 {									\
 	.desc	= {							\
 		.name	= #_pmic"_LDO" #_id,					\
@@ -46,9 +46,13 @@ struct axp_consumer_supply {
 	.switch_uV	= (switch_vol)*1000,				\
 	.step2_uV	= (step2)*1000,					\
 	.new_level_uV	= (new_level)*1000,				\
+	.mode_reg	= mode_addr,					\
+	.freq_reg	= freq_addr,					\
+	.dvm_enable_reg	= dvm_ereg,					\
+	.dvm_enable_bit	= dvm_ebit,					\
 }
 
-#define AXP_BUCK(_pmic, _id, min, max, step1, vreg, shift, nbits, ereg, ebit, switch_vol, step2, new_level, mode_addr, freq_addr) \
+#define AXP_BUCK(_pmic, _id, min, max, step1, vreg, shift, nbits, ereg, ebit, switch_vol, step2, new_level, mode_addr, freq_addr, dvm_ereg, dvm_ebit) \
 {									\
 	.desc	= {							\
 		.name	= #_pmic"_BUCK" #_id,					\
@@ -72,9 +76,11 @@ struct axp_consumer_supply {
 	.new_level_uV	= (new_level)*1000,				\
 	.mode_reg	= mode_addr,					\
 	.freq_reg	= freq_addr,					\
+	.dvm_enable_reg	= dvm_ereg,					\
+	.dvm_enable_bit	= dvm_ebit,					\
 }
 
-#define AXP_DCDC(_pmic, _id, min, max, step1, vreg, shift, nbits, ereg, ebit, switch_vol, step2, new_level, mode_addr, freq_addr) \
+#define AXP_DCDC(_pmic, _id, min, max, step1, vreg, shift, nbits, ereg, ebit, switch_vol, step2, new_level, mode_addr, freq_addr, dvm_ereg, dvm_ebit) \
 {									\
 	.desc	= {							\
 		.name	= #_pmic"_DCDC" #_id,					\
@@ -99,9 +105,11 @@ struct axp_consumer_supply {
 	.new_level_uV	= (new_level)*1000,				\
 	.mode_reg	= mode_addr,					\
 	.freq_reg	= freq_addr,					\
+	.dvm_enable_reg	= dvm_ereg,					\
+	.dvm_enable_bit	= dvm_ebit,					\
 }
 
-#define AXP_SW(_pmic, _id, min, max, step1, vreg, shift, nbits, ereg, ebit, switch_vol, step2, new_level, mode_addr, freq_addr) \
+#define AXP_SW(_pmic, _id, min, max, step1, vreg, shift, nbits, ereg, ebit, switch_vol, step2, new_level, mode_addr, freq_addr, dvm_ereg, dvm_ebit) \
 {									\
 	.desc	= {							\
 		.name	= #_pmic"_SW" #_id,					\
@@ -126,6 +134,8 @@ struct axp_consumer_supply {
 	.new_level_uV	= (new_level)*1000,				\
 	.mode_reg	= mode_addr,					\
 	.freq_reg	= freq_addr,					\
+	.dvm_enable_reg	= dvm_ereg,					\
+	.dvm_enable_bit	= dvm_ebit,					\
 }
 
 #define AXP_REGU_ATTR(_name)						\
@@ -151,6 +161,8 @@ struct axp_regulator_info {
 	s32	new_level_uV;
 	s32	mode_reg;
 	s32	freq_reg;
+	s32	dvm_enable_reg;
+	s32	dvm_enable_bit;
 };
 extern int axp_regu_fetch_sysconfig_para(char * pmu_type, struct axp_reg_init *axp_init_data);
 extern s32  axp_regu_device_tree_parse(char * pmu_type, struct axp_reg_init *axp_init_data);

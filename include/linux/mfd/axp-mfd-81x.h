@@ -63,6 +63,7 @@
 #define AXP81X_DC5OUT_VOL          (0x24)
 #define AXP81X_DC6OUT_VOL          (0x25)
 #define AXP81X_DC7OUT_VOL          (0x26)
+#define AXP81X_DC_DVM_EN           (0x27)
 #define AXP81X_GPIO0LDOOUT_VOL     (0x91)
 #define AXP81X_GPIO1LDOOUT_VOL     (0x93)
 #define AXP81X_ALDO1OUT_VOL        (0x28)

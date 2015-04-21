@@ -15,6 +15,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/module.h>
+#include <linux/delay.h>
 #include "axp-regu.h"
 
 static inline struct device *to_axp_dev(struct regulator_dev *rdev)
@@ -39,6 +40,7 @@ static s32 axp_set_voltage(struct regulator_dev *rdev,
 	struct axp_regulator_info *info = rdev_get_drvdata(rdev);
 	struct device *axp_dev = to_axp_dev(rdev);
 	u8 val, mask;
+	s32 ret = -1;
 
 	if (check_range(info, min_uV, max_uV)) {
 		pr_err("invalid voltage range (%d, %d) uV\n", min_uV, max_uV);
@@ -65,7 +67,31 @@ static s32 axp_set_voltage(struct regulator_dev *rdev,
 		mask = ((1 << info->vol_nbits) - 1)  << info->vol_shift;
 	}
 
-	return axp_update(axp_dev, info->vol_reg, val, mask);
+	ret = axp_update(axp_dev, info->vol_reg, val, mask);
+	if (ret)
+		return ret;
+
+	if (0 != info->dvm_enable_reg) {
+		ret = axp_read(axp_dev, info->dvm_enable_reg, &val);
+		if (ret) {
+			printk("read dvm enable reg failed!\n");
+			return ret;
+		}
+
+		if (val & info->dvm_enable_bit) {
+			/* wait dvm status update */
+			udelay(100);
+			do {
+				ret = axp_read(axp_dev, info->vol_reg, &val);
+				if (ret) {
+					printk("read dvm status failed!\n");
+					break;
+				}
+			} while (!(val & (0x1<<7)));
+		}
+	}
+
+	return ret;
 }
 
 static s32 axp_get_voltage(struct regulator_dev *rdev)
