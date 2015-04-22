@@ -270,18 +270,54 @@ static void adchpf_enable(struct snd_soc_codec *codec,bool on)
 	}
 
 }
+
 /*
 *enable the codec function which should be enable during system init.
 */
 static int codec_init(struct sunxi_codec *sunxi_internal_codec)
 {
 	int ret = 0;
+
+	{/*add by zl begin
+	 * avoid pops.
+	 */
+	unsigned int hpr_cdat,hpl_cdat = 0;
+	snd_soc_write(sunxi_internal_codec->codec, HP_PA_CTRL, 0x61);
+	snd_soc_update_bits(sunxi_internal_codec->codec, HP_CTRL, (0x1<<HPPA_EN), (0x1<<HPPA_EN));
+	snd_soc_update_bits(sunxi_internal_codec->codec, HP_CTRL, (0x1<<HPPA_EN), (0x0<<HPPA_EN));
+
+	snd_soc_write(sunxi_internal_codec->codec, HP_PA_CTRL, 0x61);
+	hpr_cdat = snd_soc_read(sunxi_internal_codec->codec, RHP_CAL_DAT);
+	hpl_cdat = snd_soc_read(sunxi_internal_codec->codec, LHP_CAL_DAT);
+
+	if(hpr_cdat>0x80)
+		hpr_cdat = hpr_cdat -14 ;
+	else
+		hpr_cdat = (~hpr_cdat & 0x7f)-14 ;
+
+	if(hpl_cdat>0x80)
+		hpl_cdat = hpl_cdat -14 ;
+	else
+		hpl_cdat = (~hpl_cdat & 0x7f)-14 ;
+
+	snd_soc_write(sunxi_internal_codec->codec, RHP_CAL_SET, hpr_cdat);
+	snd_soc_write(sunxi_internal_codec->codec, LHP_CAL_SET, hpl_cdat);
+
+	snd_soc_write(sunxi_internal_codec->codec, HP_CAL_CTRL, 0x94);
+
+	snd_soc_update_bits(sunxi_internal_codec->codec, HP_CTRL, (0x1<<HPPA_EN), (0x1<<HPPA_EN));
+	snd_soc_update_bits(sunxi_internal_codec->codec, HP_CTRL, (0x1<<HPPA_EN), (0x0<<HPPA_EN));
+
+	snd_soc_write(sunxi_internal_codec->codec, HP_PA_CTRL, 0xF1);
+	//snd_soc_write(sunxi_internal_codec->codec, HP_CAL_CTRL, 0x14);
+	}/*add by zl end*/
+
 	snd_soc_update_bits(sunxi_internal_codec->codec, SPKOUT_CTRL1, (0x1f<<SPKOUT_VOL), (sunxi_internal_codec->gain_config.spkervol<<SPKOUT_VOL));
 	snd_soc_update_bits(sunxi_internal_codec->codec, HP_CTRL, (0x3f<<HPVOL), (sunxi_internal_codec->gain_config.headphonevol<<HPVOL));
 	snd_soc_update_bits(sunxi_internal_codec->codec, EARPIECE_CTRL1, (0x1f<<ESP_VOL), (sunxi_internal_codec->gain_config.earpiecevol<<ESP_VOL));
 	snd_soc_update_bits(sunxi_internal_codec->codec, MIC1_CTRL, (0x7<<MIC1BOOST), (sunxi_internal_codec->gain_config.maingain<<MIC1BOOST));
 	snd_soc_update_bits(sunxi_internal_codec->codec, MIC2_CTRL, (0x7<<MIC2BOOST), (sunxi_internal_codec->gain_config.headsetmicgain<<MIC2BOOST));
-	snd_soc_update_bits(sunxi_internal_codec->codec, HP_CAL_CTRL, (0x7<<HPCALICKS), (0x7<<HPCALICKS));
+	//snd_soc_update_bits(sunxi_internal_codec->codec, HP_CAL_CTRL, (0x7<<HPCALICKS), (0x7<<HPCALICKS));
 	if (sunxi_internal_codec->hwconfig.adcagc_cfg)
 		adcagc_config(sunxi_internal_codec->codec);
 
