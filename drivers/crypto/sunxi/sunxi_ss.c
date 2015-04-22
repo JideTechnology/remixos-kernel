@@ -633,7 +633,7 @@ static int sunxi_ss_alg_register(void)
 	for (i=0; i<ARRAY_SIZE(sunxi_ss_algs); i++) {
 		INIT_LIST_HEAD(&sunxi_ss_algs[i].cra_list);
 
-		sunxi_ss_algs[i].cra_priority = 300;
+		sunxi_ss_algs[i].cra_priority = SS_ALG_PRIORITY;
 		sunxi_ss_algs[i].cra_ctxsize = sizeof(ss_aes_ctx_t);
 		sunxi_ss_algs[i].cra_module = THIS_MODULE;
 		sunxi_ss_algs[i].cra_exit = sunxi_ss_cra_exit;
@@ -651,7 +651,7 @@ static int sunxi_ss_alg_register(void)
 	}
 
 	for (i=0; i<ARRAY_SIZE(sunxi_ss_algs_hash); i++) {
-		sunxi_ss_algs_hash[i].halg.base.cra_priority = 300;
+		sunxi_ss_algs_hash[i].halg.base.cra_priority = SS_ALG_PRIORITY;
 		ret = crypto_register_ahash(&sunxi_ss_algs_hash[i]);
 		if (ret != 0) {
 			SS_ERR("crypto_register_ahash(%s) failed! return %d \n",

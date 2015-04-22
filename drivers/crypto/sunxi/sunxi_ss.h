@@ -88,6 +88,8 @@
 #define SS_WAIT_TIME		40000 /* 40s, used in wait_for_completion_timeout() */
 #endif
 
+#define SS_ALG_PRIORITY		260
+
 /* For debug */
 #define SS_DBG(fmt, arg...)	pr_debug("%s()%d - "fmt, __func__, __LINE__, ##arg)
 #define SS_ERR(fmt, arg...)	pr_err("%s()%d - "fmt, __func__, __LINE__, ##arg)

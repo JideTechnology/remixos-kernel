@@ -277,7 +277,7 @@ void ss_trng_postprocess(u8 *out, u32 outlen, u8 *in, u32 inlen)
 	struct hash_desc desc = {0};
 
 	tfm = crypto_alloc_hash("sha256", 0, CRYPTO_ALG_ASYNC);
-	WARN(IS_ERR(tfm), "Failed to alloc sha256 trm. %p\n", tfm);
+	WARN(IS_ERR(tfm), "Failed to alloc sha256 tfm. %p\n", tfm);
 
 	desc.tfm = tfm;
 	desc.flags = 0;
