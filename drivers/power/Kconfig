@@ -469,8 +469,17 @@ config INTEL_FUEL_GAUGE
 	help
 	  SW fuel gauge has a daemon running in user space to read
 	  Coulomb counnter and calculate battery capacity and level.
-
 	  Say Y here to enable support for Intel SW Fuel Gauge driver.
+
+config BLE_GPIO
+	bool "Wireless BLE GPIO Driver"
+	help
+	  This handles the GPIOs of wireless charging a4wp chip during
+	  Charging OS. GPIOs for charge complete. Enable/Disable the
+	  the controller.
+
+          Say Y here to enable Wireless BLE GPIO
+          driver.
 
 config INTEL_FG_UIFACE
 	bool "Intel Fuel Gauge User Interface"
