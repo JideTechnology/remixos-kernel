@@ -383,6 +383,7 @@ struct pmic_chrgr_drv_context {
 	bool tt_lock;
 	unsigned int irq[PMIC_CCSM_IRQ_MAX];		/* GPE_ID or IRQ# */
 	int vbus_state;
+	bool vdcin_det;
 	int irq_cnt;
 	int batt_health;
 	int pmic_model;
