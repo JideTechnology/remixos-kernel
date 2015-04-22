@@ -173,9 +173,9 @@ struct fusb300_chip {
 	/* wait_queue_head_t wait_queue; */
 	struct completion int_complete;
 	spinlock_t irqlock;
-	/* TODO: Revert me */
-	struct wake_lock wakelock;
 };
+
+static int fusb300_wake_on_cc_change(struct fusb300_chip *chip);
 
 static int fusb300_get_negotiated_cur(int val)
 {
@@ -320,13 +320,7 @@ static int fusb300_switch_mode(struct typec_phy *phy, enum typec_mode mode)
 		mutex_unlock(&chip->lock);
 		fusb300_en_pu(chip, false, cur);
 	} else if (mode == TYPEC_MODE_DRP) {
-		fusb300_en_pd(chip, false);
-		fusb300_en_pu(chip, false, 0);
-		mutex_lock(&chip->lock);
-		regmap_read(chip->map, FUSB300_SWITCH0_REG, &val);
-		val |= (FUSB300_SWITCH0_MEASURE_CC1 |
-				FUSB300_SWITCH0_MEASURE_CC2);
-		regmap_write(chip->map, FUSB300_SWITCH0_REG, val);
+		fusb300_wake_on_cc_change(chip);
 		mutex_unlock(&chip->lock);
 	}
 	return 0;
@@ -541,12 +535,32 @@ static irqreturn_t fusb300_interrupt(int id, void *dev)
 					FUSB300_INT_REG, ret);
 		return IRQ_HANDLED;
 	}
-#if 0
-	regmap_read(chip->map, FUSB300_INT_REG, &int_reg);
-#endif
 	regmap_read(chip->map, FUSB300_STAT0_REG, &stat_reg);
 
 	dev_dbg(chip->dev, "int %x stat %x", int_reg, stat_reg);
+
+
+	if (int_reg & FUSB300_INT_WAKE &&
+		((phy->state == TYPEC_STATE_UNATTACHED_UFP ||
+			phy->state == TYPEC_STATE_UNATTACHED_DFP)))  {
+		unsigned int val;
+
+		regmap_read(chip->map, FUSB300_SWITCH0_REG, &val);
+		dev_dbg(chip->dev, "%s: switch 0 val - %x", __func__, val);
+		if (((val & FUSB300_SWITCH0_PD_EN) == 0) &&
+			((val & FUSB300_SWITCH0_PU_EN) == 0)) {
+			atomic_notifier_call_chain(&phy->notifier,
+				TYPEC_EVENT_DRP, phy);
+		}
+		/* something is trying to attach. if measurement is */
+		/* happening finish it */
+		/* TODO: change to completion instead of wait event */
+		mutex_lock(&chip->lock);
+		chip->i_comp = true;
+		mutex_unlock(&chip->lock);
+		complete(&chip->int_complete);
+		/* wake_up(&chip->wait_queue); */
+	}
 
 	if (int_reg & FUSB300_INT_VBUS_OK) {
 		if (stat_reg & FUSB300_STAT0_VBUS_OK) {
@@ -562,22 +576,12 @@ static irqreturn_t fusb300_interrupt(int id, void *dev)
 				 TYPEC_EVENT_VBUS, phy);
 		} else {
 			chip->i_vbus = false;
-			atomic_notifier_call_chain(&phy->notifier,
-				 TYPEC_EVENT_NONE, phy);
+			if (chip->phy.state != TYPEC_STATE_UNATTACHED_UFP) {
+				atomic_notifier_call_chain(&phy->notifier,
+					 TYPEC_EVENT_NONE, phy);
+				fusb300_wake_on_cc_change(chip);
+			}
 		}
-	}
-
-	if (int_reg & FUSB300_INT_WAKE &&
-				(phy->state == TYPEC_STATE_UNATTACHED_UFP ||
-				phy->state == TYPEC_STATE_UNATTACHED_DFP)) {
-		/* something is trying to attach. if measurement is */
-		/* happening finish it */
-		/* TODO: change to completion instead of wait event */
-		mutex_lock(&chip->lock);
-		chip->i_comp = true;
-		mutex_unlock(&chip->lock);
-		complete(&chip->int_complete);
-		/* wake_up(&chip->wait_queue); */
 	}
 
 	if (int_reg & (FUSB300_INT_COMP | FUSB300_INT_BC_LVL)) {
@@ -595,6 +599,7 @@ static irqreturn_t fusb300_interrupt(int id, void *dev)
 			(phy->state == TYPEC_STATE_ATTACHED_DFP)) {
 			atomic_notifier_call_chain(&phy->notifier,
 				 TYPEC_EVENT_NONE, phy);
+			fusb300_wake_on_cc_change(chip);
 		}
 	}
 
@@ -754,6 +759,18 @@ static int fusb300_get_irq(struct i2c_client *client)
 	return irq;
 }
 
+static int fusb300_wake_on_cc_change(struct fusb300_chip *chip)
+{
+	int val;
+
+	val = FUSB300_SWITCH0_MEASURE_CC1 | FUSB300_SWITCH0_MEASURE_CC2;
+
+	mutex_lock(&chip->lock);
+	regmap_write(chip->map, FUSB300_SWITCH0_REG, val);
+	chip->phy.state = TYPEC_STATE_UNATTACHED_UFP;
+	mutex_unlock(&chip->lock);
+}
+
 static struct regmap_config fusb300_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
@@ -803,12 +820,9 @@ static int fusb300_probe(struct i2c_client *client,
 		client->irq = fusb300_get_irq(client);
 
 	mutex_init(&chip->lock);
-	wake_lock_init(&chip->wakelock, WAKE_LOCK_SUSPEND, "typc_wakelock");
-	/* init_waitqueue_head(&chip->wait_queue);*/
 	init_completion(&chip->int_complete);
 	i2c_set_clientdata(client, chip);
 
-	wake_lock(&chip->wakelock);
 
 	typec_add_phy(&chip->phy);
 	typec_bind_detect(&chip->phy);
@@ -825,7 +839,6 @@ static int fusb300_probe(struct i2c_client *client,
 		if (ret < 0) {
 			dev_err(&client->dev,
 				"error registering interrupt %d", ret);
-			wake_lock_destroy(&chip->wakelock);
 			return -EIO;
 		}
 		regmap_write(chip->map, FUSB300_INT_MASK_REG, 0);
@@ -836,8 +849,7 @@ static int fusb300_probe(struct i2c_client *client,
 	regmap_write(chip->map, FUSB300_CONTROL0_REG, val);
 
 	if (!chip->i_vbus)
-		atomic_notifier_call_chain(&chip->phy.notifier,
-					TYPEC_EVENT_DRP, &chip->phy);
+		fusb300_wake_on_cc_change(chip);
 	else
 		atomic_notifier_call_chain(&chip->phy.notifier,
 					TYPEC_EVENT_VBUS, &chip->phy);
@@ -854,50 +866,16 @@ static int fusb300_remove(struct i2c_client *client)
 	typec_remove_phy(phy);
 	if (client->irq)
 		free_irq(client->irq, chip);
-	wake_lock_destroy(&chip->wakelock);
 	return 0;
 }
 
 static int fusb300_suspend(struct device *dev)
 {
-	struct fusb300_chip *chip;
-	struct typec_phy *phy;
-	unsigned int val;
-
-	dev_info(dev, "going to suspend %s", __func__);
-	chip = dev_get_drvdata(dev);
-	phy = &chip->phy;
-
-	atomic_notifier_call_chain(&phy->notifier,
-			TYPEC_EVENT_DEV_SUSPEND, phy);
-	if (phy->state == TYPEC_STATE_UNKNOWN ||
-		phy->state == TYPEC_STATE_UNATTACHED_UFP ||
-		phy->state == TYPEC_STATE_UNATTACHED_DFP) { /* unattached */
-		fusb300_en_pd(chip, false);
-		fusb300_en_pu(chip, false, 0);
-		mutex_lock(&chip->lock);
-		regmap_read(chip->map, FUSB300_SWITCH0_REG, &val);
-		val |= (FUSB300_SWITCH0_MEASURE_CC1 |
-				FUSB300_SWITCH0_MEASURE_CC2);
-		regmap_write(chip->map, FUSB300_SWITCH0_REG, val);
-		mutex_unlock(&chip->lock);
-	}
 	return 0;
 }
 
 static int fusb300_resume(struct device *dev)
 {
-	struct fusb300_chip *chip;
-	struct typec_phy *phy;
-	unsigned int stat_reg;
-
-	chip = dev_get_drvdata(dev);
-	phy = &chip->phy;
-	regmap_read(chip->map, FUSB300_STAT0_REG, &stat_reg);
-	dev_info(phy->dev, "%s: stat = %x", stat_reg);
-	if (!(stat_reg & FUSB300_STAT0_WAKE))
-		atomic_notifier_call_chain(&phy->notifier,
-			TYPEC_EVENT_DEV_RESUME, phy);
 	return 0;
 }
 

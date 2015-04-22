@@ -854,13 +854,14 @@ static int get_charger_type(void)
 		i++;
 		dev_dbg(chc.dev, "Read USBSRCDETSTATUS val: %x\n", val);
 
-		if (val & USBSRCDET_SUSBHWDET_DETSUCC)
+		if ((val & USBSRCDET_SUSBHWDET_MASK) ==
+				USBSRCDET_SUSBHWDET_DETSUCC)
 			break;
 		else
 			msleep(USBSRCDET_SLEEP_TIME);
 	} while (i < USBSRCDET_RETRY_CNT);
 
-	if (!(val & USBSRCDET_SUSBHWDET_DETSUCC)) {
+	if ((val & USBSRCDET_SUSBHWDET_MASK) != USBSRCDET_SUSBHWDET_DETSUCC) {
 		dev_err(chc.dev, "Charger detection unsuccessful after %dms\n",
 			i * USBSRCDET_SLEEP_TIME);
 		return 0;
@@ -904,7 +905,7 @@ static void handle_internal_usbphy_notifications(int mask)
 		cap.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
 		cap.chrg_type = get_charger_type();
 		chc.charger_type = cap.chrg_type;
-
+		pr_err("%s: got charger type %d", __func__, cap.chrg_type);
 		if (cap.chrg_type == 0)
 			return;
 	} else {
@@ -1662,9 +1663,12 @@ static void pmic_set_battery_alerts(void)
 static void pmic_ccsm_extcon_host_work(struct work_struct *work)
 {
 	mutex_lock(&pmic_lock);
-	chc.otg_mode_enabled = chc.cable_state;
-	intel_pmic_handle_otgmode(chc.otg_mode_enabled);
-	pmic_write_reg(chc.reg_map->pmic_usbphyctrl, chc.otg_mode_enabled);
+	if (chc.cable_state) {
+		chc.otg_mode_enabled = chc.cable_state;
+		intel_pmic_handle_otgmode(chc.otg_mode_enabled);
+	}
+	pmic_write_reg(chc.reg_map->pmic_usbphyctrl,
+					chc.cable_state);
 	mutex_unlock(&pmic_lock);
 }
 
