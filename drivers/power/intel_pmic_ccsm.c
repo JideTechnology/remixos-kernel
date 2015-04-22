@@ -1010,6 +1010,7 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 {
 	int mask;
 	u16 id_mask;
+	struct power_supply_cable_props dcin_cable;
 
 	id_mask = BIT_POS(PMIC_INT_USBIDFLTDET) |
 				 BIT_POS(PMIC_INT_USBIDGNDDET);
@@ -1091,6 +1092,39 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 		mutex_lock(&pmic_lock);
 		intel_pmic_handle_otgmode(chc.otg_mode_enabled);
 		mutex_unlock(&pmic_lock);
+	}
+
+	if (int_reg & BIT_POS(PMIC_INT_DCIN)) {
+		mask = !!(stat_reg & BIT_POS(PMIC_INT_DCIN));
+		if (mask) {
+			if (!chc.vdcin_det) {
+				dev_info(chc.dev,
+				"VDCIN Detected. Notifying charger framework\n");
+				dcin_cable.chrg_evt =
+					POWER_SUPPLY_CHARGER_EVENT_CONNECT;
+				dcin_cable.chrg_type =
+				POWER_SUPPLY_CHARGER_TYPE_WIRELESS;
+				dcin_cable.ma = 900;
+				atomic_notifier_call_chain(
+					&power_supply_notifier,
+					PSY_CABLE_EVENT, &dcin_cable);
+				chc.vdcin_det = true;
+			}
+		} else {
+			if (chc.vdcin_det) {
+				dev_info(chc.dev,
+				"VDCIN Removed.Notifying charger framework\n");
+				dcin_cable.chrg_evt =
+					POWER_SUPPLY_CHARGER_EVENT_DISCONNECT;
+				dcin_cable.chrg_type =
+				POWER_SUPPLY_CHARGER_TYPE_WIRELESS;
+				dcin_cable.ma = 900;
+				atomic_notifier_call_chain(
+					&power_supply_notifier,
+				  PSY_CABLE_EVENT, &dcin_cable);
+				chc.vdcin_det = false;
+			}
+		}
 	}
 }
 
