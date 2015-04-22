@@ -25,7 +25,7 @@
 
 //
 #define   SELECT_DRV_TYPE	EXT_CSD_DRIVER_STRENGTH_TYPE1
-#define   CHECK_HSTIIMING
+//#define   CHECK_HSTIIMING
 
 
 static const unsigned int tran_exp[] = {
