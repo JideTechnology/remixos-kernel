@@ -3082,11 +3082,6 @@ static int sunxi_udc_suspend(struct device *dev)
 	/* soft disconnect */
 	cfg_udc_command(SW_UDC_P_DISABLE);
 
-	/* disable usb controller */
-	if (udc->driver && udc->driver->disconnect) {
-		udc->driver->disconnect(&udc->gadget);
-	}
-
 	sunxi_udc_disable(udc);
 
 	/* close USB clock */
@@ -3114,9 +3109,6 @@ static int sunxi_udc_resume(struct device *dev)
 		DMSG_INFO_UDC("udc is disable, need not enter to resume\n");
 		return 0;
 	}
-
-	/* open USB clock */
-	open_usb_clock(&g_sunxi_udc_io);
 
 	sunxi_udc_bsp_init(&g_sunxi_udc_io);
 	if(is_udc_enable){
