@@ -78,7 +78,7 @@ static s32 axp_set_voltage(struct regulator_dev *rdev,
 			return ret;
 		}
 
-		if (val & info->dvm_enable_bit) {
+		if (val & (0x1<<info->dvm_enable_bit)) {
 			/* wait dvm status update */
 			udelay(100);
 			do {
