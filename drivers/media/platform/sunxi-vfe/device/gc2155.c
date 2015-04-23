@@ -14,6 +14,7 @@
 #include <media/v4l2-mediabus.h>
 #include <linux/io.h>
 #include "camera.h"
+#include "sensor_helper.h"
 
 MODULE_AUTHOR("raymonxiu");
 MODULE_DESCRIPTION("A low-level driver for GalaxyCore gc2155 sensors");
@@ -54,11 +55,6 @@ MODULE_LICENSE("GPL");
 #define CSI_RST_OFF			1
 #define CSI_PWR_ON			1
 #define CSI_PWR_OFF			0
-
-#define regval_list reg_list_a8_d8
-#define REG_TERM 0xff
-#define VAL_TERM 0xff
-#define REG_DLY  0xff
 
 /*
  * Our nominal (default) frame rate.
@@ -1783,89 +1779,12 @@ static struct regval_list sensor_fmt_raw[] = {
 //};
 
 
-
-/*
- * Low-level register I/O.
- *
- */
-
-
-/*
- * On most platforms, we'd rather do straight i2c I/O.
- */
-static int sensor_read(struct v4l2_subdev *sd, unsigned char reg,
-    unsigned char *value) //!!!!be careful of the para type!!!
-{
-	int ret=0;
-	int cnt=0;
-
-
-  ret = cci_read_a8_d8(sd,reg,value);
-  while(ret!=0&&cnt<2)
-  {
-  	ret = cci_read_a8_d8(sd,reg,value);
-  	cnt++;
-  }
-  if(cnt>0)
-  	vfe_dev_dbg("sensor read retry=%d\n",cnt);
-
-  return ret;
-}
-
-static int sensor_write(struct v4l2_subdev *sd, unsigned char reg,
-    unsigned char value)
-{
-	int ret=0;
-	int cnt=0;
-
-  
-  
-  ret = cci_write_a8_d8(sd,reg,value);
-  while(ret!=0&&cnt<2)
-  {
-  	ret = cci_write_a8_d8(sd,reg,value);
-  	cnt++;
-  }
-  if(cnt>0)
-  	vfe_dev_dbg("sensor write retry=%d\n",cnt);
-
-  return ret;
-}
-
-
-
-/*
- * Write a list of register settings;
- */
-static int sensor_write_array(struct v4l2_subdev *sd, struct regval_list *regs, int array_size)
-{
-	int i=0;
-
-  if(!regs)
-  	return -EINVAL;
-
-  while(i<array_size)
-  {
-    if(regs->addr == REG_DLY) {
-      msleep(regs->data);
-    }
-    else {
-    	//printk("write 0x%x=0x%x\n", regs->addr, regs->data);
-      LOG_ERR_RET(sensor_write(sd, regs->addr, regs->data))
-    }
-    i++;
-    regs++;
-  }
-  return 0;
-}
-
-
 static int sensor_g_hflip(struct v4l2_subdev *sd, __s32 *value)
 {
 	int ret;
 	struct sensor_info *info = to_state(sd);
 //	struct regval_list regs;
-	unsigned char val;
+	data_type val;
 	ret = sensor_write(sd, 0xfe, 0x00);
 	if (ret < 0) {
 		vfe_dev_err("sensor_write err at sensor_g_hflip!\n");
@@ -1892,7 +1811,7 @@ static int sensor_s_hflip(struct v4l2_subdev *sd, int value)
 	int ret;
 	struct sensor_info *info = to_state(sd);
 //	struct regval_list regs;
-	unsigned char val;
+	data_type val;
 
 	ret = sensor_write(sd, 0xfe, 0);
 	if (ret < 0) {
@@ -1932,7 +1851,7 @@ static int sensor_g_vflip(struct v4l2_subdev *sd, __s32 *value)
 	int ret;
 	struct sensor_info *info = to_state(sd);
 //	struct regval_list regs;
-	unsigned char val;
+	data_type val;
 
 	ret = sensor_write(sd, 0xfe, 0x00);
 	if (ret < 0) {
@@ -1960,7 +1879,7 @@ static int sensor_s_vflip(struct v4l2_subdev *sd, int value)
 	int ret;
 	struct sensor_info *info = to_state(sd);
 //	struct regval_list regs;
-	unsigned char val;
+	data_type val;
 
 	ret = sensor_write(sd, 0xfe, 0x00);
 	if (ret < 0) {
@@ -2011,7 +1930,7 @@ static int sensor_g_autoexp(struct v4l2_subdev *sd, __s32 *value)
 	int ret;
 	struct sensor_info *info = to_state(sd);
 //	struct regval_list regs;
-	unsigned char val;
+	data_type val;
 
 	ret = sensor_write(sd, 0xfe, 0x00);
 	if (ret < 0) {
@@ -2044,7 +1963,7 @@ static int sensor_s_autoexp(struct v4l2_subdev *sd,
 	int ret;
 	struct sensor_info *info = to_state(sd);
 //	struct regval_list regs;
-	unsigned char val;
+	data_type val;
 
 	ret = sensor_write(sd, 0xfe, 0x00);
 	if (ret < 0) {
@@ -2090,7 +2009,7 @@ static int sensor_g_autowb(struct v4l2_subdev *sd, int *value)
 	int ret;
 	struct sensor_info *info = to_state(sd);
 //	struct regval_list regs;
-	unsigned char val;
+	data_type val;
 
 	ret = sensor_write(sd, 0xfe, 0x00);
 	if (ret < 0) {
@@ -2118,7 +2037,7 @@ static int sensor_s_autowb(struct v4l2_subdev *sd, int value)
 	int ret;
 	struct sensor_info *info = to_state(sd);
 //	struct regval_list regs;
-	unsigned char val;
+	data_type val;
 
 	ret = sensor_write_array(sd, sensor_wb_auto_regs, ARRAY_SIZE(sensor_wb_auto_regs));
 	if (ret < 0) {
@@ -2375,7 +2294,7 @@ static int sensor_s_flash_mode(struct v4l2_subdev *sd,
 //static int sensor_s_sw_stby(struct v4l2_subdev *sd, int on_off)
 //{
 //	int ret=0;
-//	unsigned char rdval;
+//	data_type rdval;
 //	
 //	ret=sensor_read(sd, 0x00, &rdval);
 //	if(ret!=0)
@@ -2486,7 +2405,7 @@ static int sensor_detect(struct v4l2_subdev *sd)
 {
 	int ret;
 	unsigned   int SENSOR_ID=0;
-	unsigned char val;
+	data_type val;
 
 	//ret = sensor_write(sd, 0xfe, 0x00);
 	//if (ret < 0) {
@@ -2534,7 +2453,7 @@ static int sensor_g_exif(struct v4l2_subdev *sd, struct sensor_exif_attribute *e
 {
 	int ret = 0;//, gain_val, exp_val;
 	unsigned  int  temp=0,shutter=0, gain = 0;
-	unsigned char val;
+	data_type val;
 
 	sensor_write(sd, 0xfe, 0x00);
 	//sensor_write(sd, 0xb6, 0x02);
@@ -2773,7 +2692,7 @@ static int sensor_s_fmt(struct v4l2_subdev *sd,
 {
 	int ret;
 	unsigned  int  temp=0,shutter=0;
-	unsigned char val;
+	data_type val;
 
 	struct sensor_format_struct *sensor_fmt;
 	struct sensor_win_size *wsize;

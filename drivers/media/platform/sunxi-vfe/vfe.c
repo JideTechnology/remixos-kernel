@@ -4400,8 +4400,7 @@ static void probe_work_handle(struct work_struct *work)
 			vfe_err("vfe sensor register check error at input_num = %d\n",input_num);
 			dev->device_valid_flag[input_num] = 0;
 			//goto snesor_register_end;
-		}
-		else{
+		}else{
 			dev->device_valid_flag[input_num] = 1;
 		}
 		if(dev->ccm_cfg[input_num]->is_isp_used && dev->ccm_cfg[input_num]->is_bayer_raw)
@@ -4416,8 +4415,7 @@ static void probe_work_handle(struct work_struct *work)
 		{
 			dev->dev_act[input_num].addr = (unsigned short)(dev->ccm_cfg[input_num]->act_slave>>1);
 			strcpy(dev->dev_act[input_num].type,dev->ccm_cfg[input_num]->act_name);
-			if(vfe_actuator_subdev_register(dev,dev->ccm_cfg[input_num], &dev->dev_act[input_num]) != 0)
-				;//goto probe_hdl_free_dev;
+			vfe_actuator_subdev_register(dev,dev->ccm_cfg[input_num], &dev->dev_act[input_num]);
 		}
 snesor_register_end:
 		vfe_dbg(0,"dev->ccm_cfg[%d] = %p\n",input_num,dev->ccm_cfg[input_num]);
@@ -4432,14 +4430,15 @@ snesor_register_end:
 	vfd = video_device_alloc();
 	if (!vfd) 
 	{
-		ret = -ENOMEM;
-		goto probe_hdl_unreg_dev;
+		vfe_err("Error video_device_alloc!!\n");
+		goto close_clk_pin_power;
 	}
 	*vfd = vfe_template[dev->id];
 	vfd->v4l2_dev = &dev->v4l2_dev;
 	ret = video_register_device(vfd, VFL_TYPE_GRABBER, dev->id);
 	if (ret < 0)
 	{
+		vfe_err("Error video_register_device!!\n");		
 		goto probe_hdl_rel_vdev;
 	} 
 	video_set_drvdata(vfd, dev);
@@ -4455,10 +4454,8 @@ snesor_register_end:
 				V4L2_BUF_TYPE_VIDEO_CAPTURE,
 				V4L2_FIELD_NONE,//default format, can be changed by s_fmt
 				sizeof(struct vfe_buffer), dev,NULL);
-	//vfe_print("videobuf_queue_dma_contig_init @ probe handle!\n");
 	
 	ret = sysfs_create_group(&dev->pdev->dev.kobj, &vfe_attribute_group);
-	//vfe_print("sysfs_create_group @ probe handle!\n");
 
 	vfe_suspend_trip(dev);
 	vfe_print("probe_work_handle end!\n");
@@ -4467,18 +4464,14 @@ snesor_register_end:
 probe_hdl_rel_vdev:
 	video_device_release(vfd);
 	vfe_print("video_device_release @ probe_hdl!\n");
+close_clk_pin_power:
+	vfe_suspend_trip(dev);	
 probe_hdl_unreg_dev:
 	vfe_print("v4l2_device_unregister @ probe_hdl!\n");
 	v4l2_device_unregister(&dev->v4l2_dev); 
 probe_hdl_free_dev: 
 	vfe_print("vfe_resource_release @ probe_hdl!\n");
-#ifdef USE_SPECIFIC_CCI
-	csi_cci_exit_helper(dev->vip_sel);
-	vfe_clk_close(dev);
-#endif
 	vfe_resource_release(dev);
-	vfe_print("vfe_exit @ probe_hdl!\n");
-	//vfe_exit();
 	vfe_err("Failed to install at probe handle\n");
 	mutex_unlock(&probe_hdl_lock);
 	return ;

@@ -69,6 +69,8 @@ struct reg_list_w_a16_d16 {
   unsigned short data;
 };
 
+typedef unsigned short addr_type;
+typedef unsigned short data_type;
 
 extern void csi_cci_init_helper(unsigned int sel);
 extern void csi_cci_exit_helper(unsigned int sel);
@@ -83,8 +85,8 @@ extern int cci_read_a16_d16(struct v4l2_subdev *sd, unsigned short addr,unsigned
 extern int cci_write_a16_d16(struct v4l2_subdev *sd, unsigned short addr,unsigned short value);
 extern int cci_write_a0_d16(struct v4l2_subdev *sd, unsigned short value);
 extern int cci_write_a16_d8_continuous_helper(struct v4l2_subdev *sd, unsigned short addr, unsigned char *vals , uint size);
-extern int cci_read(struct v4l2_subdev *sd, unsigned short addr, unsigned short *value, int addr_width, int data_width);
-extern int  cci_write(struct v4l2_subdev *sd, unsigned short addr, unsigned short value, int addr_width, int data_width);
+extern int cci_read(struct v4l2_subdev *sd, addr_type addr, data_type *value);
+extern int cci_write(struct v4l2_subdev *sd, addr_type addr, data_type value);
 
 extern struct cci_driver *to_cci_drv(struct v4l2_subdev *sd);
 extern void cci_subdev_init(struct v4l2_subdev *sd, struct cci_driver *drv_data, const struct v4l2_subdev_ops *ops);

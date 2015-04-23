@@ -16,6 +16,7 @@
 
 
 #include "camera.h"
+#include "sensor_helper.h"
 
 
 MODULE_AUTHOR("raymonxiu");
@@ -74,11 +75,6 @@ static int A80_VERSION = 0 ;
 #define CSI_AF_PWR_OFF  0
 
 #define SENSOR_NAME "ov5640"
-#define regval_list reg_list_a16_d8
-
-#define REG_TERM 0xfffe
-#define VAL_TERM 0xfe
-#define REG_DLY  0xffff
 
 #define FLASH_EN_POL 1
 #define FLASH_MODE_POL 1
@@ -2580,73 +2576,8 @@ static struct regval_list ae_centerweight_tbl[] = {
  *
  */
 
-
-/*
- * On most platforms, we'd rather do straight i2c I/O.
- */
-static int sensor_read(struct v4l2_subdev *sd, unsigned short reg,
-    unsigned char *value)
-{
-	int ret=0;
-	int cnt=0;
-	
-  ret = cci_read_a16_d8(sd,reg,value);
-  while(ret!=0&&cnt<2)
-  {
-  	ret = cci_read_a16_d8(sd,reg,value);
-  	cnt++;
-  }
-  if(cnt>0)
-  	vfe_dev_dbg("sensor read retry=%d\n",cnt);
-  
-  return ret;
-}
-
-static int sensor_write(struct v4l2_subdev *sd, unsigned short reg,
-    unsigned char value)
-{
-	int ret=0;
-	int cnt=0;
-  
-  ret = cci_write_a16_d8(sd,reg,value);
-  while(ret!=0&&cnt<2)
-  {
-  	ret = cci_write_a16_d8(sd,reg,value);
-  	cnt++;
-  }
-  if(cnt>0)
-  	vfe_dev_dbg("sensor write retry=%d\n",cnt);
-  
-  return ret;
-}
-
-/*
- * Write a list of register settings;
- */
-static int sensor_write_array(struct v4l2_subdev *sd, struct regval_list *regs, int array_size)
-{
-	int i=0;
-	
-  if(!regs)
-  	return -EINVAL;
-  
-  while(i<array_size)
-  {
-    if(regs->addr == REG_DLY) {
-      msleep(regs->data);
-    } 
-    else {  
-    	//printk("write 0x%x=0x%x\n", regs->addr, regs->data);
-      LOG_ERR_RET(sensor_write(sd, regs->addr, regs->data))
-    }
-    i++;
-    regs++;
-  }
-  return 0;
-}
-
-static unsigned char current_lum=0xff;
-static unsigned char sensor_get_lum(struct v4l2_subdev *sd)
+static data_type current_lum=0xff;
+static data_type sensor_get_lum(struct v4l2_subdev *sd)
 {
   sensor_read(sd, 0x56a1, &current_lum);
   vfe_dev_cap_dbg("check luminance=0x%x\n",current_lum);
@@ -2654,12 +2585,12 @@ static unsigned char sensor_get_lum(struct v4l2_subdev *sd)
 }
 
 /* stuff about exposure when capturing image and video*/
-static int sensor_s_denoise_value(struct v4l2_subdev *sd, unsigned char value);
-unsigned char ogain,oexposurelow,oexposuremid,oexposurehigh;
+static int sensor_s_denoise_value(struct v4l2_subdev *sd, data_type value);
+data_type ogain,oexposurelow,oexposuremid,oexposurehigh;
 unsigned int preview_exp_line,preview_fps;
 unsigned long preview_pclk;
 
-static unsigned int cal_cap_gain(unsigned char prv_gain, unsigned char lum)
+static unsigned int cal_cap_gain(data_type prv_gain, data_type lum)
 {
   unsigned int gain_ret=0x18;
 	
@@ -2746,12 +2677,12 @@ static int sensor_set_capture_exposure(struct v4l2_subdev *sd)
 	unsigned long capture_Exposure;
 	unsigned long capture_exposure_gain;
 	unsigned long capture_gain;
-	unsigned char gain,exposurelow,exposuremid,exposurehigh;
+	data_type gain,exposurelow,exposuremid,exposurehigh;
 	unsigned int cap_vts=0;
 	unsigned int cap_vts_diff=0;
 	unsigned int bd_step=1;
 	unsigned int capture_fps;
-	unsigned char rdval;
+	data_type rdval;
 	struct sensor_info *info = to_state(sd);
 
 #ifndef FPGA_VER
@@ -2883,10 +2814,10 @@ static int sensor_set_capture_exposure(struct v4l2_subdev *sd)
 	  cap_vts_diff=0;
 	}
 //	capture_Exposure=1968;
-	exposurelow = ((unsigned char)capture_Exposure)<<4;
-	exposuremid = (unsigned char)(capture_Exposure >> 4) & 0xff;
-	exposurehigh = (unsigned char)(capture_Exposure >> 12);
-	gain =(unsigned char) capture_gain;
+	exposurelow = ((data_type)capture_Exposure)<<4;
+	exposuremid = (data_type)(capture_Exposure >> 4) & 0xff;
+	exposurehigh = (data_type)(capture_Exposure >> 12);
+	gain =(data_type) capture_gain;
 	
   sensor_read(sd, 0x3503, &rdval);
   vfe_dev_dbg("capture:agc/aec:0x%x,gain:0x%x,exposurelow:0x%x,exposuremid:0x%x,exposurehigh:0x%x\n",\
@@ -2900,10 +2831,10 @@ static int sensor_set_capture_exposure(struct v4l2_subdev *sd)
 	
 //	cap_vts=0x1fff;
 //	cap_vts_diff=0x1000;
-  sensor_write(sd, 0x380e, (unsigned char)(cap_vts>>8) );
-  sensor_write(sd, 0x380f, (unsigned char)(cap_vts)  );
-  sensor_write(sd, 0x350c, (unsigned char)((cap_vts_diff)>>8) );
-  sensor_write(sd, 0x350d, (unsigned char)( cap_vts_diff)  );
+  sensor_write(sd, 0x380e, (data_type)(cap_vts>>8) );
+  sensor_write(sd, 0x380f, (data_type)(cap_vts)  );
+  sensor_write(sd, 0x350c, (data_type)((cap_vts_diff)>>8) );
+  sensor_write(sd, 0x350d, (data_type)( cap_vts_diff)  );
   
   sensor_write(sd, 0x350b, gain);
   sensor_write(sd, 0x3502, exposurelow);
@@ -2919,7 +2850,7 @@ static int sensor_set_capture_exposure(struct v4l2_subdev *sd)
 static int sensor_get_pclk(struct v4l2_subdev *sd)
 {
   unsigned long pclk;
-  unsigned char pre_div,mul,sys_div,pll_rdiv,bit_div,sclk_rdiv;
+  data_type pre_div,mul,sys_div,pll_rdiv,bit_div,sclk_rdiv;
   
   sensor_read(sd, 0x3037, &pre_div);
   pre_div = pre_div & 0x0f;
@@ -2966,7 +2897,7 @@ static int sensor_get_pclk(struct v4l2_subdev *sd)
 
 static int sensor_get_fps(struct v4l2_subdev *sd)
 {
-  unsigned char vts_low,vts_high,hts_low,hts_high,vts_extra_high,vts_extra_low;
+  data_type vts_low,vts_high,hts_low,hts_high,vts_extra_high,vts_extra_low;
   unsigned long vts,hts,vts_extra;
   
   sensor_read(sd, 0x380c, &hts_high);
@@ -2994,7 +2925,7 @@ static int sensor_get_fps(struct v4l2_subdev *sd)
 
 static int sensor_get_preview_exposure(struct v4l2_subdev *sd)
 {
-	unsigned char vts_low,vts_high,vts_extra_high,vts_extra_low;
+	data_type vts_low,vts_high,vts_extra_high,vts_extra_low;
 	unsigned long vts,vts_extra;
   sensor_read(sd, 0x350b, &ogain);
   sensor_read(sd, 0x3502, &oexposurelow);
@@ -3024,7 +2955,7 @@ static int sensor_get_preview_exposure(struct v4l2_subdev *sd)
 
 static int sensor_set_preview_exposure(struct v4l2_subdev *sd)
 { 
-  unsigned char rdval;
+  data_type rdval;
   sensor_read(sd, 0x3503, &rdval);
   vfe_dev_dbg("preview:agc/aec:0x%x,gain:0x%x,exposurelow:0x%x,exposuremid:0x%x,exposurehigh:0x%x\n",
                   rdval,ogain,oexposurelow,oexposuremid,oexposurehigh);
@@ -3079,7 +3010,7 @@ void check_to_flash(struct v4l2_subdev *sd)
 static int sensor_download_af_fw(struct v4l2_subdev *sd)
 {
   int ret,cnt;
-  unsigned char rdval;
+  data_type rdval;
 	int reload_cnt = 0;
 //	struct csi_dev *dev=(struct csi_dev *)dev_get_drvdata(sd->v4l2_dev->dev);
 	
@@ -3157,7 +3088,7 @@ recheck_af_fw:
 
 static int sensor_g_single_af(struct v4l2_subdev *sd)
 {
-  unsigned char rdval;
+  data_type rdval;
   struct sensor_info *info = to_state(sd);
   
 //  vfe_dev_dbg("sensor_g_single_af\n");
@@ -3220,7 +3151,7 @@ static int sensor_g_single_af(struct v4l2_subdev *sd)
 
 static int sensor_g_contin_af(struct v4l2_subdev *sd)
 {
-  unsigned char rdval;
+  data_type rdval;
   struct sensor_info *info = to_state(sd);
   
 //  vfe_dev_dbg("sensor_g_contin_af\n");
@@ -3303,7 +3234,7 @@ static int sensor_s_single_af(struct v4l2_subdev *sd)
 {
   int ret;
   struct sensor_info *info = to_state(sd);
-  unsigned char rdval=0xff;
+  data_type rdval=0xff;
   unsigned int cnt=0;
   
   vfe_dev_print("sensor_s_single_af\n");
@@ -3514,16 +3445,16 @@ static int sensor_s_3a_lock(struct v4l2_subdev *sd, int value)
 #if 1
 static int sensor_s_sharpness_auto(struct v4l2_subdev *sd)
 {
-	unsigned char rdval;
+	data_type rdval;
 	sensor_read(sd,0x5308,&rdval);
 	sensor_write(sd,0x5308,rdval&0xbf); //bit6 is sharpness manual enable
 	return sensor_write_array(sd, sensor_sharpness_auto_regs ,ARRAY_SIZE(sensor_sharpness_auto_regs));
 }
 #endif
 
-static int sensor_s_sharpness_value(struct v4l2_subdev *sd, unsigned char value)
+static int sensor_s_sharpness_value(struct v4l2_subdev *sd, data_type value)
 {
-	unsigned char rdval;
+	data_type rdval;
 	sensor_read(sd,0x5308,&rdval);
 	sensor_write(sd,0x5308,rdval|0x40); //bit6 is sharpness manual enable
   return sensor_write(sd,0x5302,value); 
@@ -3532,16 +3463,16 @@ static int sensor_s_sharpness_value(struct v4l2_subdev *sd, unsigned char value)
 #if 1
 static int sensor_s_denoise_auto(struct v4l2_subdev *sd)
 {
-	unsigned char rdval;
+	data_type rdval;
 	sensor_read(sd,0x5308,&rdval);
 	sensor_write(sd,0x5308,rdval&0xef); //bit4 is denoise manual enable
 	return sensor_write_array(sd, sensor_denoise_auto_regs ,ARRAY_SIZE(sensor_denoise_auto_regs));
 }
 #endif
 
-static int sensor_s_denoise_value(struct v4l2_subdev *sd, unsigned char value)
+static int sensor_s_denoise_value(struct v4l2_subdev *sd, data_type value)
 {
-	unsigned char rdval;
+	data_type rdval;
 	sensor_read(sd,0x5308,&rdval);
 	sensor_write(sd,0x5308,rdval|0x10); //bit4 is denoise manual enable
 	return sensor_write(sd,0x5306,value); 
@@ -3555,7 +3486,7 @@ static int sensor_s_denoise_value(struct v4l2_subdev *sd, unsigned char value)
 static int sensor_g_hflip(struct v4l2_subdev *sd, __s32 *value)
 {
   struct sensor_info *info = to_state(sd);
-  unsigned char rdval;
+  data_type rdval;
     
   LOG_ERR_RET(sensor_read(sd, 0x3821, &rdval))
   
@@ -3571,7 +3502,7 @@ static int sensor_g_hflip(struct v4l2_subdev *sd, __s32 *value)
 static int sensor_s_hflip(struct v4l2_subdev *sd, int value)
 {
   struct sensor_info *info = to_state(sd);
-  unsigned char rdval;
+  data_type rdval;
   
   if(info->hflip == value)
     return 0;
@@ -3599,7 +3530,7 @@ static int sensor_s_hflip(struct v4l2_subdev *sd, int value)
 static int sensor_g_vflip(struct v4l2_subdev *sd, __s32 *value)
 {
   struct sensor_info *info = to_state(sd);
-  unsigned char rdval;
+  data_type rdval;
   
   LOG_ERR_RET(sensor_read(sd, 0x3820, &rdval))
   
@@ -3614,7 +3545,7 @@ static int sensor_g_vflip(struct v4l2_subdev *sd, __s32 *value)
 static int sensor_s_vflip(struct v4l2_subdev *sd, int value)
 {
   struct sensor_info *info = to_state(sd);
-  unsigned char rdval;
+  data_type rdval;
   
   if(info->vflip == value)
     return 0;
@@ -3642,7 +3573,7 @@ static int sensor_s_vflip(struct v4l2_subdev *sd, int value)
 static int sensor_g_autogain(struct v4l2_subdev *sd, __s32 *value)
 {
   struct sensor_info *info = to_state(sd);
-  unsigned char rdval;
+  data_type rdval;
   
   LOG_ERR_RET(sensor_read(sd, 0x3503, &rdval))
 
@@ -3661,7 +3592,7 @@ static int sensor_g_autogain(struct v4l2_subdev *sd, __s32 *value)
 static int sensor_s_autogain(struct v4l2_subdev *sd, int value)
 {
   struct sensor_info *info = to_state(sd);
-  unsigned char rdval;
+  data_type rdval;
   
   LOG_ERR_RET(sensor_read(sd, 0x3503, &rdval))
   
@@ -3685,7 +3616,7 @@ static int sensor_s_autogain(struct v4l2_subdev *sd, int value)
 static int sensor_g_autoexp(struct v4l2_subdev *sd, __s32 *value)
 {
   struct sensor_info *info = to_state(sd);
-  unsigned char rdval;
+  data_type rdval;
   
   LOG_ERR_RET(sensor_read(sd, 0x3503, &rdval))
 
@@ -3705,7 +3636,7 @@ static int sensor_s_autoexp(struct v4l2_subdev *sd,
     enum v4l2_exposure_auto_type value)
 {
   struct sensor_info *info = to_state(sd);
-  unsigned char rdval;
+  data_type rdval;
   
   LOG_ERR_RET(sensor_read(sd, 0x3503, &rdval))
   
@@ -3734,7 +3665,7 @@ static int sensor_s_autoexp(struct v4l2_subdev *sd,
 static int sensor_g_autowb(struct v4l2_subdev *sd, int *value)
 {
   struct sensor_info *info = to_state(sd);
-  unsigned char rdval;
+  data_type rdval;
   
   LOG_ERR_RET(sensor_read(sd, 0x3406, &rdval))
 
@@ -3749,7 +3680,7 @@ static int sensor_g_autowb(struct v4l2_subdev *sd, int *value)
 static int sensor_s_autowb(struct v4l2_subdev *sd, int value)
 {
   struct sensor_info *info = to_state(sd);
-  unsigned char rdval;
+  data_type rdval;
 
   if(info->autowb == value)
     return 0;
@@ -3799,7 +3730,7 @@ static int sensor_g_band_filter(struct v4l2_subdev *sd,
     __s32 *value)
 {
   struct sensor_info *info = to_state(sd);
-  unsigned char rdval;
+  data_type rdval;
   
   LOG_ERR_RET(sensor_read(sd, 0x3a00, &rdval))
   
@@ -3819,7 +3750,7 @@ static int sensor_s_band_filter(struct v4l2_subdev *sd,
     enum v4l2_power_line_frequency value)
 {
   struct sensor_info *info = to_state(sd);
-  unsigned char rdval;
+  data_type rdval;
 
   if(info->band_filter == value)
     return 0;
@@ -3956,7 +3887,7 @@ static int sensor_s_exp_bias(struct v4l2_subdev *sd, int value)
 //  }
 //  else
 //  {
-//    unsigned char lum;
+//    data_type lum;
 //    night_mode=0;
 //    //Nfrms=1;
 //    sensor_get_lum(sd);
@@ -4196,7 +4127,7 @@ static int sensor_reset(struct v4l2_subdev *sd, u32 val)
 
 static int sensor_detect(struct v4l2_subdev *sd)
 {
-  unsigned char rdval;
+  data_type rdval;
   
   LOG_ERR_RET(sensor_read(sd, 0x300a, &rdval))
   
@@ -4587,9 +4518,9 @@ static int sensor_g_mbus_config(struct v4l2_subdev *sd,
 //static int sensor_s_fps(struct v4l2_subdev *sd)
 //{
 //  struct sensor_info *info = to_state(sd);
-//  unsigned char div,sys_div;
-//  unsigned char band_50_high,band_50_low,band_60_high,band_60_low;
-//  unsigned char band_50_step,band_60_step,vts_high,vts_low;
+//  data_type div,sys_div;
+//  data_type band_50_high,band_50_low,band_60_high,band_60_low;
+//  data_type band_50_step,band_60_step,vts_high,vts_low;
 //  int band_50,band_60,vts;
 //
 //  struct regval_list regs_fr[] = {
@@ -4869,7 +4800,7 @@ static int sensor_s_fmt(struct v4l2_subdev *sd,
 		//sensor_s_sharpness_auto(sd); //sharpness auto
     
 		if(info->low_speed == 1) {
-			unsigned char rdval;
+			data_type rdval;
 			sensor_read(sd,0x3035,&rdval);
 			sensor_write(sd,0x3035,(rdval&0x0f)|((rdval&0xf0)*2));
 			//sensor_write(sd,0x3037,0x14);
@@ -4916,7 +4847,7 @@ static int sensor_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *parms)
   struct v4l2_captureparm *cp = &parms->parm.capture;
   struct v4l2_fract *tpf = &cp->timeperframe;
   struct sensor_info *info = to_state(sd);
-  unsigned char div;
+  data_type div;
   
   vfe_dev_dbg("sensor_s_parm\n");
   
