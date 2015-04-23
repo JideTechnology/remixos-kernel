@@ -841,7 +841,7 @@ static int mmc_select_hs400(struct mmc_card *card)
 	 * it is required to convert from HS200 mode to HS mode.
 	 */
 	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
-			   EXT_CSD_HS_TIMING, 1|drv_str,
+			   EXT_CSD_HS_TIMING, 1,
 			   card->ext_csd.generic_cmd6_time,
 			   true, true, true);
 	if (err) {
