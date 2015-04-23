@@ -565,17 +565,19 @@ static void i915_scheduler_seqno_complete(struct intel_engine_cs *ring, uint32_t
 			break;
 	}
 
-	trace_i915_scheduler_landing(ring, seqno, node);
-
 	/*
 	 * NB: Lots of extra seqnos get added to the ring to track things
 	 * like cache flushes and page flips. So don't complain about if
 	 * no node was found.
 	 */
-	if (&node->link == &scheduler->node_queue[ring->id])
+	if (&node->link == &scheduler->node_queue[ring->id]) {
+		trace_i915_scheduler_landing(ring, seqno, NULL);
 		return;
+	}
 
-	BUG_ON(!I915_SQS_IS_FLYING(node));
+	trace_i915_scheduler_landing(ring, seqno, node);
+
+	WARN_ON(!I915_SQS_IS_FLYING(node));
 
 	/* Everything from here can be marked as done: */
 	list_for_each_entry_from(node, &scheduler->node_queue[ring->id], link) {
