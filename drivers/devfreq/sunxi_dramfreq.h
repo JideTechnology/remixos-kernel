@@ -15,7 +15,7 @@
 #define __SUNXI_DRAMFREQ_H__
 
 #define SUNXI_DRAMFREQ_NORMAL       (300000)
-#define SUNXI_DRAMFREQ_IDLE         (200000)
+#define SUNXI_DRAMFREQ_IDLE         (168000)
 
 /* register define */
 #define MC_WORK_MODE                (0x000)

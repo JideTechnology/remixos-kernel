@@ -84,6 +84,60 @@ int dramfreq_set_vb_time_ops(struct dramfreq_vb_time_ops *ops)
 EXPORT_SYMBOL(dramfreq_set_vb_time_ops);
 #endif
 
+#ifdef CONFIG_DEVFREQ_DRAM_FREQ_BUSFREQ
+static DEFINE_MUTEX(busfreq_lock);
+
+struct busfreq_table {
+	char *name;
+	struct clk *bus_clk;
+	unsigned long normal_freq;
+	unsigned long idle_freq;
+};
+
+static struct busfreq_table busfreq_tbl[] = {
+	{ .name = "ahb1",   .normal_freq = 200000000, .idle_freq =  50000000 },
+};
+
+static struct clk *clk_ahb1;
+
+static int sunxi_dramfreq_busfreq_target(const char *name, struct clk *clk,
+					unsigned long target_freq)
+{
+	unsigned long cur_freq;
+
+	mutex_lock(&busfreq_lock);
+
+	if (clk_prepare_enable(clk)) {
+		DRAMFREQ_ERR("try to enable %s output failed!\n", name);
+		goto err;
+	}
+
+	cur_freq = clk_get_rate(clk);
+	if (cur_freq == target_freq) {
+		mutex_unlock(&busfreq_lock);
+		return 0;
+	}
+
+	if (clk_set_rate(clk, target_freq)) {
+		DRAMFREQ_ERR("try to set %s rate to %lu failed!\n", name, target_freq);
+		goto err;
+	}
+
+	cur_freq = clk_get_rate(clk);
+	if (cur_freq != target_freq) {
+		DRAMFREQ_ERR("%s: %lu != %lu\n", name, cur_freq, target_freq);
+		goto err;
+	}
+
+	mutex_unlock(&busfreq_lock);
+	return 0;
+
+err:
+	mutex_unlock(&busfreq_lock);
+	return -1;
+}
+#endif /* CONFIG_DEVFREQ_DRAM_FREQ_BUSFREQ */
+
 #ifdef CONFIG_SMP
 struct cpumask dramfreq_ipi_mask;
 static volatile bool cpu_pause[NR_CPUS];
@@ -534,6 +588,17 @@ static int sunxi_dramfreq_target(struct device *dev,
 	DRAMFREQ_DBG(DEBUG_FREQ, "%luKHz->%luKHz start\n",
 						dramfreq->devfreq->previous_freq, valid_freq);
 
+#ifdef CONFIG_DEVFREQ_DRAM_FREQ_BUSFREQ
+	if ((dramfreq->devfreq->previous_freq == dramfreq->devfreq->min_freq) &&
+			(jump == FREQ_UP)) {
+		for (i = ARRAY_SIZE(busfreq_tbl) - 1; i >= 0; i--) {
+			sunxi_dramfreq_busfreq_target(busfreq_tbl[i].name,
+					busfreq_tbl[i].bus_clk, busfreq_tbl[i].normal_freq);
+		}
+		DRAMFREQ_DBG(DEBUG_FREQ, "AHB1:%lu\n", clk_get_rate(clk_ahb1) / 1000000);
+	}
+#endif
+
 	if (dramfreq->mode == DFS_MODE) {
 #ifdef CONFIG_DEVFREQ_DRAM_FREQ_IN_VSYNC
 		if (!(dramfreq_vbtime_ops.get_next_vb_time
@@ -600,8 +665,18 @@ static int sunxi_dramfreq_target(struct device *dev,
 	if (*freq != cur_freq)
 		*freq = cur_freq;
 
-	DRAMFREQ_DBG(DEBUG_FREQ, "%luKHz->%luKHz ok\n\n",
+	DRAMFREQ_DBG(DEBUG_FREQ, "%luKHz->%luKHz ok\n",
 					dramfreq->devfreq->previous_freq, cur_freq);
+
+#ifdef CONFIG_DEVFREQ_DRAM_FREQ_BUSFREQ
+	if ((cur_freq == dramfreq->devfreq->min_freq) && (jump == FREQ_DOWN)) {
+		for (i = 0; i < ARRAY_SIZE(busfreq_tbl); i++) {
+			sunxi_dramfreq_busfreq_target(busfreq_tbl[i].name,
+					busfreq_tbl[i].bus_clk, busfreq_tbl[i].idle_freq);
+		}
+		DRAMFREQ_DBG(DEBUG_FREQ, "AHB1:%lu\n", clk_get_rate(clk_ahb1) / 1000000);
+	}
+#endif
 
 unlock:
 	put_online_cpus();
@@ -825,6 +900,17 @@ static int sunxi_dramfreq_resource_init(struct platform_device *pdev,
 		goto out;
 	}
 
+#ifdef CONFIG_DEVFREQ_DRAM_FREQ_BUSFREQ
+	clk_ahb1 = of_clk_get(pdev->dev.of_node, 2);
+	if (IS_ERR(clk_ahb1)) {
+		DRAMFREQ_ERR("Get clk_ahb1 failed!\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	busfreq_tbl[0].bus_clk = clk_ahb1;
+#endif
+
 out:
 	return ret;
 }
@@ -870,6 +956,9 @@ static int sunxi_dramfreq_opp_init(struct platform_device *pdev,
 
 	for (i = 0; i < 3; i++)
 		tmp_table[i] = dramfreq->dram_para.dram_clk * 1000 / (i + 1);
+
+	if ((dramfreq->dram_para.dram_clk * 1000 / (i + 1)) >= SUNXI_DRAMFREQ_IDLE)
+		tmp_table[i-1] = dramfreq->dram_para.dram_clk * 1000 / (i + 1);
 
 	for (j = 0; i < LV_END; i++, j++) {
 		if ((dramfreq->dram_para.dram_tpr9 / (j + 1))
@@ -1085,6 +1174,13 @@ static int sunxi_dramfreq_remove(struct platform_device *pdev)
 		clk_put(dramfreq->clk_pll_ddr0);
 		dramfreq->clk_pll_ddr0 = NULL;
 	}
+
+#ifdef CONFIG_DEVFREQ_DRAM_FREQ_BUSFREQ
+	if (clk_ahb1) {
+		clk_put(clk_ahb1);
+		clk_ahb1 = NULL;
+	}
+#endif
 
 	kfree(dramfreq);
 
