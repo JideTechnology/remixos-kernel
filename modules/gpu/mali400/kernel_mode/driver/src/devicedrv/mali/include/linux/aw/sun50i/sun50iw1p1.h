@@ -16,37 +16,23 @@
 #ifndef _MALI_SUN50I_W1P1_H_
 #define _MALI_SUN50I_W1P1_H_
 
-static struct aw_vf_table vf_table[] =
+static struct aw_freq_data freq_data =
 {
-	{
-		.vol  = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.freq = 144, /* MHz */
-	},
-	{
-		.vol  = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.freq = 240, /* MHz */
-	},
-	{
-		.vol  = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.freq = 336, /* MHz */
-	},
-	{
-		.vol  = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.freq = 432, /* MHz */
-	},
+	.normal_freq  = 432,
+	.extreme_freq = 432,
 };
 
 static struct aw_private_data private_data =
 {
-	.clk_status    = 0,
-	.normal_level  = 3,
-	.sensor_num    = 2,
+	.clk_status        = 0,
+	.scene_ctrl_status = 0,
+	.sensor_num        = 2,
 #ifdef CONFIG_MALI_DT
-	.np_gpu        = NULL,
+	.np_gpu            = NULL,
 #endif
-	.regulator     = NULL,
-	.regulator_id  = "vdd-sys",
-	.tempctrl_data =
+	.regulator         = NULL,
+	.regulator_id      = "vdd-sys",
+	.tempctrl_data     =
 	{
 		.temp_ctrl_status = 1,
 	},

@@ -24,30 +24,20 @@
 #define IRQ_GPU_PP1         SUNXI_IRQ_GPUPP1
 #define IRQ_GPU_PPMMU1      SUNXI_IRQ_GPUPPMMU1
 
-static struct aw_vf_table vf_table[] =
+static struct aw_freq_data freq_data =
 {
-	{
-		.vol  = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.freq = 144, /* MHz */
-	},
-	{
-		.vol  = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.freq = 240, /* MHz */
-	},
-	{
-		.vol  = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.freq = 384, /* MHz */
-	},
+	.normal_freq  = 384,
+	.extreme_freq = 384,
 };
 
 static struct aw_private_data private_data =
 {
-	.clk_status    = 0,
-	.normal_level  = 2,
-	.sensor_num    = 0,
-	.regulator     = NULL,
-	.regulator_id  = "axp22_dcdc2",
-	.tempctrl_data =
+	.clk_status        = 0,
+	.scene_ctrl_status = 0,
+	.sensor_num        = 0,
+	.regulator         = NULL,
+	.regulator_id      = "axp22_dcdc2",
+	.tempctrl_data     =
 	{
 		.temp_ctrl_status = 1,
 	},

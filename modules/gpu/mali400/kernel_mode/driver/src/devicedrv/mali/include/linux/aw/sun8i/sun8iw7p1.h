@@ -24,38 +24,20 @@
 #define IRQ_GPU_PP1         SUNXI_IRQ_GPU_PP1
 #define IRQ_GPU_PPMMU1      SUNXI_IRQ_GPU_PPMMU1
 
-static struct aw_vf_table vf_table[] =
+static struct aw_freq_data freq_data =
 {
-	{
-		.vol  = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.freq = 144, /* MHz */
-	},
-	{
-		.vol  = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.freq = 240, /* MHz */
-	},
-	{
-		.vol  = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.freq = 312, /* MHz */
-	},
-	{
-		.vol  = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.freq = 432, /* MHz */
-	},
-	{
-		.vol  = 0,   /* mV, zero means the power isn't independent, and it's controlled by system */
-		.freq = 576, /* MHz */
-	},
+	.normal_freq  = 576,
+	.extreme_freq = 600,
 };
 
 static struct aw_private_data private_data =
 {
-	.clk_status       = 0,
-	.normal_level     = 4,
-	.sensor_num       = 0,
-	.regulator        = NULL,
-	.regulator_id     = NULL,
-	.tempctrl_data =
+	.clk_status        = 0,
+	.scene_ctrl_status = 1,
+	.sensor_num        = 0,
+	.regulator         = NULL,
+	.regulator_id      = NULL,
+	.tempctrl_data     =
 	{
 		.temp_ctrl_status = 1,
 	},
@@ -84,11 +66,11 @@ static struct aw_tf_table tf_table[] =
 	},
 	{
 		.temp  = 80,
-		.level = 312,
+		.freq = 312,
 	},
 	{
 		.temp  = 90,
-		.level = 144,
+		.freq = 144,
 	},
 };
 #endif /* CONFIG_CPU_BUDGET_THERMAL */

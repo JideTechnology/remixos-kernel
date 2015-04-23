@@ -23,6 +23,11 @@ extern int ths_read_data(int value);
 extern int sunxi_get_sensor_temp(u32 sensor_num, long *temperature);
 #endif
 
+#ifndef CONFIG_CPU_BUDGET_THERMAL
+extern int gpu_thermal_cool_register(int (*cool) (int));
+extern int gpu_thermal_cool_unregister(void);
+#endif /* CONFIG_CPU_BUDGET_THERMAL */
+
 static struct mali_gpu_device_data mali_gpu_data;
 static struct mali_gpu_device_data mali_gpu_data;
 
@@ -233,7 +238,9 @@ void disable_gpu_clk(void)
 int mali_platform_device_deinit(struct platform_device *device)
 {
 	disable_gpu_clk();
-
+#ifndef CONFIG_CPU_BUDGET_THERMAL
+	gpu_thermal_cool_unregister();
+#endif /* CONFIG_CPU_BUDGET_THERMAL */
 	return 0;
 }
 #endif /* CONFIG_MALI_DT */
@@ -263,13 +270,59 @@ static ssize_t dvfs_manual_store(struct device *dev, struct device_attribute *at
 	err = strict_strtoul(buf, 10, &freq);
 	if (err)
 	{
-		MALI_PRINT_ERROR(("Invalid parameter!\n"));
+		MALI_PRINT(("Invalid parameter!\n"));
 		goto err_out;
 	}
 
 	set_gpu_freq(freq);
 
 err_out:
+	return count;
+}
+
+/*
+***************************************************************
+ @Function   :dvfs_android_show
+ @Description:Show the gpu frequency for android
+***************************************************************
+*/
+static ssize_t dvfs_android_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    return dvfs_manual_show(dev, attr, buf);
+}
+
+/*
+***************************************************************
+ @Function   :dvfs_android_store
+ @Description:Change gpu frequency for android
+***************************************************************
+*/
+static ssize_t dvfs_android_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    if(private_data.scene_ctrl_status)
+	{
+		int err;
+		unsigned long cmd;
+		err = strict_strtoul(buf, 10, &cmd);
+		if (err)
+		{
+			MALI_PRINT(("Invalid parameter!\n"));
+			goto out;
+		}
+
+		if(cmd == 0)
+		{
+			/* Recover to normal frequency */
+			set_gpu_freq(freq_data.normal_freq);
+		}
+		else if(cmd == 1)
+		{
+			/* Run in extreme mode */
+			set_gpu_freq(freq_data.extreme_freq);
+		}
+	}
+
+out:
 	return count;
 }
 
@@ -291,6 +344,7 @@ static ssize_t status_tempctrl_show(struct device *dev, struct device_attribute 
 #ifdef CONFIG_CPU_BUDGET_THERMAL
 	bufercnt = ret;
     ret = sprintf(buf + bufercnt, "num temperature frequency\n");
+
     while(i < private_data.tempctrl_data.count)
     {
 		bufercnt += ret;
@@ -315,7 +369,7 @@ static ssize_t status_tempctrl_store(struct device *dev, struct device_attribute
 	err = strict_strtoul(buf, 10, &status);
 	if (err)
 	{
-		MALI_PRINT_ERROR(("Invalid parameter!\n"));
+		MALI_PRINT(("Invalid parameter!\n"));
 		goto out;
 	}
 
@@ -325,7 +379,48 @@ static ssize_t status_tempctrl_store(struct device *dev, struct device_attribute
 	}
 	else
 	{
-		MALI_PRINT_ERROR(("The parameter is too large!\n"));
+		MALI_PRINT(("The parameter is too large!\n"));
+	}
+
+out:
+	return count;
+}
+
+/*
+***************************************************************
+ @Function   :status_scenectrl_show
+ @Description:Show the temperature control status
+***************************************************************
+*/
+static ssize_t status_scenectrl_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", private_data.scene_ctrl_status);
+}
+
+/*
+***************************************************************
+ @Function   :status_tempctrl_store
+ @Description:Change the temperature control status
+***************************************************************
+*/
+static ssize_t status_scenectrl_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    int err;
+	unsigned long status;
+	err = strict_strtoul(buf, 10, &status);
+	if (err)
+	{
+		MALI_PRINT(("Invalid parameter!\n"));
+		goto out;
+	}
+
+	if(status <= 1)
+	{
+		private_data.scene_ctrl_status = status;
+	}
+	else
+	{
+		MALI_PRINT(("The parameter is too large!\n"));
 	}
 
 out:
@@ -383,13 +478,17 @@ out:
 }
 
 static DEVICE_ATTR(manual, S_IRUGO|S_IWUGO, dvfs_manual_show, dvfs_manual_store);
+static DEVICE_ATTR(android, S_IRUGO|S_IWUGO, dvfs_android_show, dvfs_android_store);
 static DEVICE_ATTR(tempctrl, S_IRUGO|S_IWUGO, status_tempctrl_show, status_tempctrl_store);
+static DEVICE_ATTR(scenectrl, S_IRUGO|S_IWUGO, status_scenectrl_show, status_scenectrl_store);
 static DEVICE_ATTR(voltage, S_IRUGO|S_IWUGO, change_voltage_show, change_voltage_store);
 
 static struct attribute *gpu_attributes[] =
 {
     &dev_attr_manual.attr,
+	&dev_attr_android.attr,
 	&dev_attr_tempctrl.attr,
+	&dev_attr_scenectrl.attr,
 	&dev_attr_voltage.attr,
 
     NULL,
@@ -415,9 +514,9 @@ static int gpu_throttle_notifier_call(struct notifier_block *nfb, unsigned long 
 		{
 			if(temperature < tf_table[0].temp)
 			{
-				if(cur_freq != vf_table[private_data.normal_level].freq)
+				if(cur_freq != freq_data.normal_freq)
 				{
-					set_gpu_freq(vf_table[private_data.normal_level].freq);
+					set_gpu_freq(freq_data.normal_freq);
 				}
 			}
 			else
@@ -460,7 +559,7 @@ static int get_para_from_fex(char *main_key, char *second_key, int max_value)
 	type = script_get_item(main_key, second_key, &val);
 	if (SCIRPT_ITEM_VALUE_TYPE_INT != type)
     {
-		MALI_PRINT_ERROR(("%s: %s in sys_config.fex is invalid!\n", main_key, second_key));
+		MALI_PRINT(("%s: %s in sys_config.fex is invalid!\n", main_key, second_key));
 		return -1;
 	}
 	value = val.val;
@@ -495,17 +594,22 @@ static int get_para_from_fex(char *main_key, char *second_key, int max_value)
 */
 static void parse_sysconfig_fex(void)
 {
-	char fx_name[8] = {0};
-	int ft_count=0, i, value;
+	int value;
 #ifdef CONFIG_CPU_BUDGET_THERMAL
-	int tlt_count=0;
-	char tlx_name[10] = {0};
+	int i;
+	char tfx_name[10] = {0};
 #endif /* CONFIG_CPU_BUDGET_THERMAL */
 
-	value = get_para_from_fex("gpu_mali400_0", "normal_level", 0);
+	value = get_para_from_fex("gpu_mali400_0", "normal_freq", 0);
+	if(value > 0)
+	{
+		freq_data.normal_freq = value;
+	}
+
+	value = get_para_from_fex("gpu_mali400_0", "scene_ctrl_status", 1);
 	if(value != -1)
 	{
-		private_data.normal_level = value;
+		private_data.scene_ctrl_status = value;
 	}
 
 	value = get_para_from_fex("gpu_mali400_0", "temp_ctrl_status", 1);
@@ -514,57 +618,26 @@ static void parse_sysconfig_fex(void)
 		private_data.tempctrl_data.temp_ctrl_status = value;
 	}
 
-	value = get_para_from_fex("gpu_mali400_0", "ft_count", sizeof(vf_table)/sizeof(vf_table[0]));
-	if(value != -1)
-	{
-		ft_count = value;
-		private_data.max_level = value - 1;
-		if(private_data.normal_level > value -1)
-		{
-			private_data.normal_level = value -1;
-		}
-	}
-	else
-	{
-		ft_count = private_data.max_level + 1;
-	}
-
-	for(i = 0; i < ft_count; i++)
-	{
-		sprintf(fx_name, "f%d_freq",i);
-		value = get_para_from_fex("gpu_mali400_0", fx_name, 0);
-		if(value != -1)
-		{
-			vf_table[i].freq = value;
-		}
-	}
-
 #ifdef CONFIG_CPU_BUDGET_THERMAL
-	value = get_para_from_fex("gpu_mali400_0", "tlt_count", sizeof(tf_table)/sizeof(tf_table[0]));
-	if(value != -1)
+	value = get_para_from_fex("gpu_mali400_0", "tft_count", sizeof(tf_table)/sizeof(tf_table[0]));
+	if(value > 0)
 	{
-		tlt_count = value;
 		private_data.tempctrl_data.count = value;
-	}
-	else
-	{
-		tlt_count = private_data.tempctrl_data.count;
-	}
-
-	for(i = 0; i < tlt_count; i++)
-	{
-		sprintf(tlx_name, "tl%d_temp",i);
-		value = get_para_from_fex("gpu_mali400_0", tlx_name, 0);
-		if(value != -1)
+		for(i = 0; i < value; i++)
 		{
-			tf_table[i].temp = value;
-		}
+			sprintf(tfx_name, "tf%d_temp",i);
+			value = get_para_from_fex("gpu_mali400_0", tfx_name, 0);
+			if(value != -1)
+			{
+				tf_table[i].temp = value;
+			}
 
-		sprintf(tlx_name, "tl%d_level",i);
-		value = get_para_from_fex("gpu_mali400_0", tlx_name, 0);
-		if(value != -1)
-		{
-			tf_table[i].freq = value;
+			sprintf(tfx_name, "tf%d_freq",i);
+			value = get_para_from_fex("gpu_mali400_0", tfx_name, 0);
+			if(value != -1)
+			{
+				tf_table[i].freq = value;
+			}
 		}
 	}
 #endif /* CONFIG_CPU_BUDGET_THERMAL */
@@ -579,8 +652,6 @@ static void parse_sysconfig_fex(void)
 static int mali_platform_init(struct platform_device *device)
 {
 	bool err = 0;
-
-	private_data.max_level = sizeof(vf_table)/sizeof(vf_table[0]) - 1;
 
 #ifdef CONFIG_CPU_BUDGET_THERMAL
 	private_data.tempctrl_data.count = sizeof(tf_table)/sizeof(tf_table[0]);
@@ -603,7 +674,7 @@ static int mali_platform_init(struct platform_device *device)
 	}
 
 	err = get_gpu_clk();
-	err &= set_clk_freq(vf_table[private_data.normal_level].freq);
+	err &= set_clk_freq(freq_data.normal_freq);
 	err &= enable_gpu_clk();
 
 	if(!err)
@@ -695,7 +766,9 @@ int aw_mali_platform_device_register(void)
 
 #ifdef CONFIG_CPU_BUDGET_THERMAL
 	register_budget_cooling_notifier(&gpu_throttle_notifier);
-#endif /* CONFIG_CPU_BUDGET_THERMAL */
+#else /* CONFIG_CPU_BUDGET_THERMAL */
+	gpu_thermal_cool_register(gpu_thermal_cool);
+#endif
 
     return err;
 }

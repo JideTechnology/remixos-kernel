@@ -60,10 +60,10 @@ struct aw_clk_data
 	u32 freq;
 };
 
-struct aw_vf_table
+struct aw_freq_data
 {
-	u32 vol;
-	u32 freq;
+	u32 normal_freq;  /* MHz */
+	u32 extreme_freq; /* MHz */
 };
 
 #ifdef CONFIG_CPU_BUDGET_THERMAL
@@ -84,8 +84,7 @@ struct aw_tempctrl_data
 struct aw_private_data
 {
 	bool   clk_status;
-	u8     normal_level;
-	u8     max_level;
+	bool   scene_ctrl_status;
 	u8     sensor_num;
 #ifdef CONFIG_MALI_DT
 	struct device_node *np_gpu;
