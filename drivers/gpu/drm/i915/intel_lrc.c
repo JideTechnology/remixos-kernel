@@ -869,19 +869,16 @@ intel_execlists_TDR_get_submitted_context(struct intel_engine_cs *ring,
 	req = list_first_entry_or_null(&ring->execlist_queue,
 		struct intel_ctx_submit_request, execlist_link);
 
-	if (req) {
-		if (req->ctx) {
-			tmpctx = req->ctx;
+	if (req && req->ctx) {
+		tmpctx = req->ctx;
+
+		if (ctx)
 			i915_gem_context_reference(tmpctx);
-		} else {
-			WARN(1, "No context in request %p", req);
-		}
 	}
 
 	if (tmpctx) {
 		unsigned sw_context =
-			intel_execlists_ctx_id(
-					(tmpctx)->engine[ring->id].state);
+			intel_execlists_ctx_id((tmpctx)->engine[ring->id].state);
 
 		status = ((hw_context == sw_context) && (0 != hw_context)) ?
 			CONTEXT_SUBMISSION_STATUS_OK :
@@ -899,8 +896,6 @@ intel_execlists_TDR_get_submitted_context(struct intel_engine_cs *ring,
 
 	if (ctx)
 		*ctx = tmpctx;
-	else if (tmpctx)
-		i915_gem_context_unreference(tmpctx);
 
 	spin_unlock_irqrestore(&ring->execlist_lock, flags);
 	gen8_gt_force_wake_put(dev_priv);
