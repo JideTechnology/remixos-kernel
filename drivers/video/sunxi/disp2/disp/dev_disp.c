@@ -246,7 +246,7 @@ static ssize_t disp_cvbs_enhance_store(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(cvbs_enhacne_mode, S_IRUGO|S_IWUSR|S_IWGRP,
+static DEVICE_ATTR(cvbs_enhacne_mode, S_IRUGO|S_IWUGO,
     disp_cvbs_enhance_show, disp_cvbs_enhance_store);
 
 
@@ -267,7 +267,6 @@ static ssize_t disp_runtime_enable_store(struct device *dev,
 	if (val>1)
 		printk("Invalid value, 0/1 is expected!\n");
 	else{
-		printk("g_pm_runtime_enable = %d\n",val);
 		g_pm_runtime_enable = val;
 	}
 
