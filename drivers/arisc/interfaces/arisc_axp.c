@@ -96,6 +96,28 @@ int arisc_enable_nmi_irq(void)
 }
 EXPORT_SYMBOL(arisc_enable_nmi_irq);
 
+int arisc_clear_nmi_status(void)
+{
+	int result;
+
+	/* send message use hwmsgbox */
+	result = invoke_scp_fn_smc(ARM_SVC_ARISC_CLR_NMI_STATUS, 0, 0, 0);
+
+	return result;
+}
+EXPORT_SYMBOL(arisc_clear_nmi_status);
+
+int arisc_set_nmi_trigger(u32 type)
+{
+	int result;
+
+	/* send message use hwmsgbox */
+	result = invoke_scp_fn_smc(ARM_SVC_ARISC_SET_NMI_TRIGGER, type, 0, 0);
+
+	return result;
+}
+EXPORT_SYMBOL(arisc_set_nmi_trigger);
+
 int arisc_axp_get_chip_id(unsigned char *chip_id)
 {
 	int result;

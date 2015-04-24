@@ -52,6 +52,8 @@
 #define ARISC_SET_LED_BLN                (ARISC_MESSAGE_BASE + 0x47)  /* set led bln (ac327 to arisc)            */
 #define ARISC_AXP_REBOOT                 (ARISC_MESSAGE_BASE + 0x48)  /* reboot system for no pmu protocols      */
 #define ARISC_SET_PWR_TREE               (ARISC_MESSAGE_BASE + 0x49)  /* set power tree (ac327 to arisc)         */
+#define ARISC_CLR_NMI_STATUS             (ARISC_MESSAGE_BASE + 0x4a)  /* clear nmi status (ac327 to arisc)       */
+#define ARISC_SET_NMI_TRIGGER            (ARISC_MESSAGE_BASE + 0x4b)  /* set nmi trigger (ac327 to arisc)         */
 
 /* set arisc debug commands */
 #define ARISC_SET_DEBUG_LEVEL            (ARISC_MESSAGE_BASE + 0x50)  /* set arisc debug level  (ac327 to arisc)     */
@@ -98,7 +100,7 @@
 #define ARM_SVC_ARISC_FAKE_POWER_OFF_REQ        (ARM_SVC_ARISC_BASE + ARISC_FAKE_POWER_OFF_REQ)        /* request to enter       (ac327 to arisc) */
 #define ARM_SVC_ARISC_CPUIDLE_ENTER_REQ         (ARM_SVC_ARISC_BASE + ARISC_CPUIDLE_ENTER_REQ)         /* request to enter       (ac327 to arisc) */
 #define ARM_SVC_ARISC_STANDBY_INFO_REQ          (ARM_SVC_ARISC_BASE + ARISC_STANDBY_INFO_REQ)          /* request sst info       (ac327 to arisc) */
-#define ARM_SVC_ARISC_CPUIDLE_CFG_REQ           (ARISC_MESSAGE_BASE + ARISC_CPUIDLE_CFG_REQ)           /* request to config      (ac327 to arisc) */
+#define ARM_SVC_ARISC_CPUIDLE_CFG_REQ           (ARM_SVC_ARISC_BASE + ARISC_CPUIDLE_CFG_REQ)           /* request to config      (ac327 to arisc) */
 #define ARM_SVC_ARISC_CPU_OP_REQ                (ARM_SVC_ARISC_BASE + ARISC_CPU_OP_REQ)                /* cpu operations         (ac327 to arisc) */
 #define ARM_SVC_ARISC_QUERY_WAKEUP_SRC_REQ      (ARM_SVC_ARISC_BASE + ARISC_QUERY_WAKEUP_SRC_REQ)      /* query wakeup source    (ac327 to arisc) */
 #define ARM_SVC_ARISC_SYS_OP_REQ                (ARM_SVC_ARISC_BASE + ARISC_SYS_OP_REQ)                /* system operations      (ac327 to arisc) */
@@ -118,6 +120,8 @@
 #define ARM_SVC_ARISC_SET_LED_BLN                (ARM_SVC_ARISC_BASE + ARISC_SET_LED_BLN)              /* set led bln (ac327 to arisc)            */
 #define ARM_SVC_ARISC_AXP_REBOOT                 (ARM_SVC_ARISC_BASE + ARISC_AXP_REBOOT)               /* reboot system for no pmu protocols      */
 #define ARM_SVC_ARISC_SET_PWR_TREE               (ARM_SVC_ARISC_BASE + ARISC_SET_PWR_TREE)             /* set power tree (ac327 to arisc)         */
+#define ARM_SVC_ARISC_CLR_NMI_STATUS             (ARM_SVC_ARISC_BASE + ARISC_CLR_NMI_STATUS)           /* clear nmi status (ac327 to arisc)       */
+#define ARM_SVC_ARISC_SET_NMI_TRIGGER            (ARM_SVC_ARISC_BASE + ARISC_SET_NMI_TRIGGER)          /* set nmi trigger (ac327 to arisc)         */
 
 /* set arisc debug commands */
 #define ARM_SVC_ARISC_SET_DEBUG_LEVEL            (ARM_SVC_ARISC_BASE + ARISC_SET_DEBUG_LEVEL)          /* set arisc debug level  (ac327 to arisc)     */
@@ -405,6 +409,8 @@ void arisc_nmi_cb_unregister(u32 type, arisc_cb_t func);
 
 int arisc_disable_nmi_irq(void);
 int arisc_enable_nmi_irq(void);
+int arisc_clear_nmi_status(void);
+int arisc_set_nmi_trigger(u32 type);
 
 int arisc_axp_get_chip_id(unsigned char *chip_id);
 #if (defined CONFIG_ARCH_SUN8IW5P1) || (defined CONFIG_ARCH_SUN50IW1P1)
