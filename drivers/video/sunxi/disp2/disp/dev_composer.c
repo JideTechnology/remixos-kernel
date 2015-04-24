@@ -32,12 +32,16 @@ struct hwc_ioctl_arg {
     enum HWC_IOCTL   cmd;
     void            *arg;
 };
+
+struct hwc_compat_ioctl_arg {
+    enum HWC_IOCTL   cmd;
+    compat_uptr_t    arg;
+};
+
 struct hwc_commit_layer{
     int                 aquirefencefd;
     struct disp_layer_config   hwc_layer_info;
 };
-
-struct write_back_data;
 
 struct hwc_dispc_data {
     struct disp_layer_config       *hwc_layer_info[DISP_NUMS_SCREEN];
@@ -46,6 +50,12 @@ struct hwc_dispc_data {
     bool                    force_flip[DISP_NUMS_SCREEN];
 };
 
+struct hwc_compat_dispc_data {
+    compat_uptr_t           hwc_layer_info[DISP_NUMS_SCREEN];
+    int                     releasefencefd[CNOUTDISPSYNC];
+    compat_uptr_t           data;
+    bool                    force_flip[DISP_NUMS_SCREEN];
+};
 struct display_sync {
     unsigned int            timeline_count;
     struct sw_sync_timeline *timeline;
@@ -300,27 +310,63 @@ fecne_ret:
 	return 0;
 }
 
-static int hwc_commit(void * user_display)
+static int hwc_commit(void * user_display, bool compat)
 {
     struct hwc_dispc_data disp_data;
+    struct hwc_compat_dispc_data disp_compat_data;
     struct disp_capture_info wb_data;
     bool   need_wb = 0;
     int ret = 0, i = 0;
     unsigned int sync[CNOUTDISPSYNC];
+    unsigned long   hwc_layer_info[DISP_NUMS_SCREEN];
+    int     releasefencefd[CNOUTDISPSYNC];
+    unsigned long wb_ptr_data;
+    bool     force_flip[DISP_NUMS_SCREEN];
 
     composer_frame_checkin(0);
-    if(copy_from_user(&disp_data, (void __user *)user_display, sizeof(struct hwc_dispc_data)))
+    if(compat)
     {
-        printk(KERN_ERR"hwc copy_from_user hwc_dispc_data err.\n");
-        ret = -1;
-        goto commit_ok;
+        ret = copy_from_user(&disp_compat_data, (void __user *)user_display, sizeof(struct hwc_compat_dispc_data));
+        if(ret)
+        {
+            printk(KERN_ERR"hwc copy_from_user hwc_compat_dispc_data err.\n");
+            goto commit_ok;
+        }
+        for(i = 0; i<DISP_NUMS_SCREEN; i++)
+        {
+            hwc_layer_info[i] = disp_compat_data.hwc_layer_info[i];
+            force_flip[i] = disp_compat_data.force_flip[i];
+        }
+        for(i = 0; i<CNOUTDISPSYNC; i++)
+        {
+            releasefencefd[i] = disp_compat_data.releasefencefd[i];
+        }
+        wb_ptr_data = ((unsigned long)disp_compat_data.data);
+    }else{
+        ret = copy_from_user(&disp_data, (void __user *)user_display, sizeof(struct hwc_dispc_data));
+        if(ret)
+        {
+            printk(KERN_ERR"hwc copy_from_user hwc_dispc_data err.\n");
+            goto commit_ok;
+        }
+        for(i = 0; i<DISP_NUMS_SCREEN; i++)
+        {
+            hwc_layer_info[i] = (unsigned long)disp_data.hwc_layer_info[i];
+            force_flip[i] = disp_data.force_flip[i];
+        }
+        for(i = 0; i<CNOUTDISPSYNC; i++)
+        {
+            releasefencefd[i] = disp_data.releasefencefd[i];
+        }
+        wb_ptr_data = (unsigned long)disp_data.data;
     }
+
     for(i = 0; i < CNOUTDISPSYNC; i++)
     {
-        if(disp_data.releasefencefd[i] >= 0)
+        if(releasefencefd[i] >= 0)
         {
-            sync[i] = hwc_get_sync(i,disp_data.releasefencefd[i]);
-            if(disp_data.force_flip[i])
+            sync[i] = hwc_get_sync(i,releasefencefd[i]);
+            if(force_flip[i])
             {
                 printk(KERN_INFO"hwc force flip disp[%d]:%d \n",i,sync[i]);
                 if(composer_priv.display_sync[i] != NULL
@@ -333,7 +379,7 @@ static int hwc_commit(void * user_display)
             }
         }
     }
-    if(disp_data.releasefencefd[composer_priv.primary_disp] >= 0 && !hwc_pridisp_sync())
+    if(releasefencefd[composer_priv.primary_disp] >= 0 && !hwc_pridisp_sync())
     {
 	    wait_event_interruptible_timeout(composer_priv.commit_wq,
 			    			   hwc_pridisp_sync(),
@@ -341,9 +387,9 @@ static int hwc_commit(void * user_display)
         /*for vsync shadow protected*/
         //usleep_range(100,200);
     }
-    if(disp_data.data != NULL && !disp_data.force_flip[0])
+    if(NULL != (void *)wb_ptr_data && !force_flip[0])
     {
-         if(copy_from_user(&wb_data, (void __user *)disp_data.data, sizeof(struct disp_capture_info)))
+         if(copy_from_user(&wb_data, (void __user *)wb_ptr_data, sizeof(struct disp_capture_info)))
         {
             printk(KERN_ERR"hwc copy_from_user write back data err.\n");
         }
@@ -351,9 +397,9 @@ static int hwc_commit(void * user_display)
     }
     for(i = 0; i < DISP_NUMS_SCREEN; i++)
     {
-		if(disp_data.releasefencefd[i] >= 0 && !disp_data.force_flip[i])
+		if(releasefencefd[i] >= 0 && !force_flip[i])
 		{
-            if(copy_from_user(composer_priv.tmp_hw_lyr, (void __user *)disp_data.hwc_layer_info[i], sizeof(struct disp_layer_config)*(i?8:16)))
+            if(copy_from_user(composer_priv.tmp_hw_lyr, (void __user *)hwc_layer_info[i], sizeof(struct disp_layer_config)*(i?8:16)))
             {
                 printk(KERN_ERR"hwc copy_from_user disp_layer_config err.\n");
                 ret = -1;
@@ -380,6 +426,49 @@ static int hwc_check_wb(int disp,int fd)
     }
     return 0;
 }
+
+static int hwc_compat_ioctl(unsigned int cmd, unsigned long arg)
+{
+    int ret = -EFAULT;
+	if(DISP_HWC_COMMIT == cmd)
+    {
+        unsigned long *ubuffer;
+        struct hwc_compat_ioctl_arg hwc_ctl;
+        unsigned long addr_cmd;
+
+        ubuffer = (unsigned long *)arg;
+        if(copy_from_user(&hwc_ctl, (void __user *)ubuffer[1], sizeof(struct hwc_compat_ioctl_arg)))
+        {
+            printk(KERN_ERR"copy_from_user fail\n");
+            return  -EFAULT;
+		}
+        addr_cmd = (unsigned long)hwc_ctl.arg;
+        switch(hwc_ctl.cmd)
+        {
+            case HWC_IOCTL_FENCEFD:
+                ret = hwc_fence_get((void*)addr_cmd);
+            break;
+            case HWC_IOCTL_COMMIT:
+                ret = hwc_commit((void*)addr_cmd,1);
+            break;
+            case HWC_IOCTL_CKWB:
+                get_user(ret,(int *)(addr_cmd));
+                ret = hwc_check_wb(0,ret);
+            break;
+            case HWC_IOCTL_SETPRIDIP:
+                get_user(ret,(int *)(addr_cmd));
+                if(ret < DISP_NUMS_SCREEN)
+                {
+                    composer_priv.primary_disp = ret;
+                }
+            break;
+            default:
+                printk(KERN_ERR"hwc give a err iotcl.\n");
+        }
+	}
+	return ret;
+}
+
 static int hwc_ioctl(unsigned int cmd, unsigned long arg)
 {
     int ret = -EFAULT;
@@ -399,7 +488,7 @@ static int hwc_ioctl(unsigned int cmd, unsigned long arg)
                 ret = hwc_fence_get(hwc_ctl.arg);
             break;
             case HWC_IOCTL_COMMIT:
-                ret = hwc_commit(hwc_ctl.arg);
+                ret = hwc_commit(hwc_ctl.arg,0);
             break;
             case HWC_IOCTL_CKWB:
                 get_user(ret,(int *)(hwc_ctl.arg));
@@ -472,6 +561,7 @@ s32 composer_init(disp_drv_info *psg_disp_drv)
     init_waitqueue_head(&composer_priv.commit_wq);
 
 	disp_register_ioctl_func(DISP_HWC_COMMIT, hwc_ioctl);
+    disp_register_compat_ioctl_func(DISP_HWC_COMMIT, hwc_compat_ioctl);
     disp_register_sync_finish_proc(disp_composer_proc);
 	disp_register_standby_func(hwc_suspend, hwc_resume);
     composer_priv.tmp_hw_lyr = kzalloc(sizeof(struct disp_layer_config)*16,GFP_KERNEL);
