@@ -76,6 +76,7 @@ typedef struct
 	struct proc_list        sync_proc_list;
 	struct proc_list        sync_finish_proc_list;
 	struct ioctl_list       ioctl_extend_list;
+	struct ioctl_list       compat_ioctl_extend_list;
 	struct standby_cb_list  stb_cb_list;
 	struct mutex            mlock;
 	struct work_struct      resume_work[3];
@@ -192,6 +193,7 @@ extern s32 disp_register_sync_finish_proc(void (*proc)(u32));
 extern s32 disp_unregister_sync_finish_proc(void (*proc)(u32));
 extern s32 disp_register_ioctl_func(unsigned int cmd, int (*proc)(unsigned int cmd, unsigned long arg));
 extern s32 disp_unregister_ioctl_func(unsigned int cmd);
+extern s32 disp_register_compat_ioctl_func(unsigned int cmd, int (*proc)(unsigned int cmd, unsigned long arg));
 extern s32 disp_register_standby_func(int (*suspend)(void), int (*resume)(void));
 extern s32 disp_unregister_standby_func(int (*suspend)(void), int (*resume)(void));
 extern s32 composer_init(disp_drv_info *psg_disp_drv);

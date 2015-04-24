@@ -746,6 +746,50 @@ static s32 disp_ioctl_extend(unsigned int cmd, unsigned long arg)
 	return -1;
 }
 
+s32 disp_register_compat_ioctl_func(unsigned int cmd, int (*proc)(unsigned int cmd, unsigned long arg))
+{
+	struct ioctl_list *new_proc;
+
+	new_proc = (struct ioctl_list*)kmalloc(sizeof(struct ioctl_list), GFP_KERNEL | __GFP_ZERO);
+	if (new_proc) {
+		new_proc->cmd = cmd;
+		new_proc->func = proc;
+		list_add_tail(&(new_proc->list), &(g_disp_drv.compat_ioctl_extend_list.list));
+	} else {
+		pr_warn("malloc fail in %s\n", __func__);
+	}
+
+	return 0;
+}
+
+s32 disp_unregister_compat_ioctl_func(unsigned int cmd)
+{
+	struct ioctl_list *ptr;
+
+	list_for_each_entry(ptr, &g_disp_drv.compat_ioctl_extend_list.list, list) {
+		if (ptr->cmd == cmd) {
+			list_del(&ptr->list);
+			kfree((void*)ptr);
+			return 0;
+		}
+	}
+
+	pr_warn("no ioctl found(cmd:0x%x) in %s\n", cmd, __func__);
+	return -1;
+}
+
+static s32 disp_compat_ioctl_extend(unsigned int cmd, unsigned long arg)
+{
+	struct ioctl_list *ptr;
+
+	list_for_each_entry(ptr, &g_disp_drv.compat_ioctl_extend_list.list, list) {
+		if (cmd == ptr->cmd)
+			return ptr->func(cmd, arg);
+	}
+
+	return -1;
+}
+
 s32 disp_register_standby_func(int (*suspend)(void), int (*resume)(void))
 {
 	struct standby_cb_list *new_proc;
@@ -816,6 +860,7 @@ static s32 disp_init(struct platform_device *pdev)
 	INIT_LIST_HEAD(&g_disp_drv.sync_proc_list.list);
 	INIT_LIST_HEAD(&g_disp_drv.sync_finish_proc_list.list);
 	INIT_LIST_HEAD(&g_disp_drv.ioctl_extend_list.list);
+	INIT_LIST_HEAD(&g_disp_drv.compat_ioctl_extend_list.list);
 	INIT_LIST_HEAD(&g_disp_drv.stb_cb_list.list);
 	mutex_init(&g_disp_drv.mlock);
 	parser_disp_init_para(pdev->dev.of_node, &g_disp_drv.disp_init);
@@ -1519,6 +1564,7 @@ long disp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			ret = suspend_output_type[ubuffer[0]];
 		else
 			ret = bsp_disp_get_output_type(ubuffer[0]);
+
 		break;
 	}
 
@@ -1820,6 +1866,36 @@ long disp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
   return ret;
 }
 
+#ifdef CONFIG_COMPAT
+static long disp_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	compat_uptr_t karg[4];
+	unsigned long __user *ubuffer;
+
+	if (copy_from_user((void*)karg,(void __user*)arg,4*sizeof(compat_uptr_t))) {
+		__wrn("copy_from_user fail\n");
+		return -EFAULT;
+	}
+
+	ubuffer = compat_alloc_user_space(4*sizeof(unsigned long));
+	if (!access_ok(VERIFY_WRITE, ubuffer, 4*sizeof(unsigned long)))
+		return -EFAULT;
+
+	if (put_user(karg[0], &ubuffer[0]) ||
+			put_user(karg[1], &ubuffer[1]) ||
+			put_user(karg[2], &ubuffer[2]) ||
+			put_user(karg[3], &ubuffer[3])) {
+				__wrn("put_user fail\n");
+		return -EFAULT;
+	}
+
+	if (DISP_HWC_COMMIT == cmd)
+		return disp_compat_ioctl_extend(cmd, (unsigned long)ubuffer);
+
+	return disp_ioctl(file, cmd, (unsigned long)ubuffer);
+}
+#endif
+
 static const struct file_operations disp_fops = {
 	.owner    = THIS_MODULE,
 	.open     = disp_open,
@@ -1828,7 +1904,7 @@ static const struct file_operations disp_fops = {
 	.read     = disp_read,
 	.unlocked_ioctl = disp_ioctl,
 #ifdef CONFIG_COMPAT
-	.compat_ioctl = disp_ioctl,
+	.compat_ioctl = disp_compat_ioctl,
 #endif
 	.mmap     = disp_mmap,
 };

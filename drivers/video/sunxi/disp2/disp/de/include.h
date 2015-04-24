@@ -43,6 +43,7 @@
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
 #include <linux/of_gpio.h>
+#include <linux/compat.h>
 
 #include <video/sunxi_display2.h>
 #include "../disp_sys_intf.h"
