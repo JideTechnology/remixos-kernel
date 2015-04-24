@@ -867,7 +867,6 @@ CONFIG_INPUT_UINPUT=y
 # CONFIG_INPUT_ADXL34X is not set
 # CONFIG_INPUT_CMA3000 is not set
 # CONFIG_INPUT_SENSOR is not set
-# CONFIG_SENSORS_BMA250 is not set
 
 #
 # Hardware I/O ports
