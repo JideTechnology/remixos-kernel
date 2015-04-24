@@ -23,6 +23,7 @@ typedef struct {
 	void *out_flag_phy;
 	size_t  flag_size;
 	u32  irq_number;
+	u32  time_value;
 #ifdef CONFIG_PM
 	struct dev_pm_domain di_pm_domain;
 #endif

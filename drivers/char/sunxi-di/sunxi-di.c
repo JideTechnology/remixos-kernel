@@ -42,6 +42,46 @@ static struct clk *di_clk_source;
 
 static u32 debug_mask = 0x0;
 
+static ssize_t di_timeout_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	unsigned long data;
+	int error;
+
+	error = strict_strtoul(buf, 10, &data);
+
+	if(error) {
+		pr_err("%s strict_strtoul error\n", __FUNCTION__);
+		goto exit;
+	}
+
+	dprintk(DEBUG_DATA_INFO, "%s data = %ld \n", __func__, data);
+
+	if(data) {
+		di_data->time_value = data;
+	} else {
+		di_data->time_value = DI_TIMEOUT;
+	}
+
+	return count;
+
+exit:
+	return error;
+}
+
+static DEVICE_ATTR(timeout, 0664,
+		NULL, di_timeout_store);
+
+static struct attribute *di_attributes[] = {
+	&dev_attr_timeout.attr,
+	NULL
+};
+
+static struct attribute_group di_attribute_group = {
+	.attrs = di_attributes
+};
+
 #ifdef DI_RESERVED_MEM
 #define MY_BYTE_ALIGN(x) ( ( (x + (4*1024-1)) >> 12) << 12)             /* alloc based on 4K byte */
 void *sunxi_di_alloc(u32 num_bytes, unsigned long phys_addr)
@@ -164,7 +204,7 @@ static void di_timer_handle(unsigned long arg)
 	di_reset();
 	memset(di_data->mem_in_params.v_addr, 0, flag_size);
 	memset(di_data->mem_out_params.v_addr, 0, flag_size);
-	dprintk(DEBUG_INT, "di_timer_handle: timeout \n");
+	printk(KERN_ERR "di_timer_handle: timeout \n");
 }
 
 static void di_work_func(struct work_struct *work)
@@ -424,7 +464,7 @@ static long sunxi_di_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 			} else {
 				di_irq_enable(1);
 				di_start();
-				mod_timer(s_timer, jiffies + msecs_to_jiffies(DI_TIMEOUT));
+				mod_timer(s_timer, jiffies + msecs_to_jiffies(di_data->time_value));
 			}
 
 			if (!(filp->f_flags & O_NONBLOCK)) {
@@ -543,6 +583,7 @@ static int sunxi_di_probe(struct platform_device *pdev)
 	}
 	init_timer(s_timer);
 	s_timer->function = &di_timer_handle;
+	di_data->time_value = DI_TIMEOUT;
 
 	di_wq = create_singlethread_workqueue("di_wq");
 	if (!di_wq) {
@@ -579,6 +620,12 @@ static int sunxi_di_probe(struct platform_device *pdev)
 	di_device->pm_domain = &(di_data->di_pm_domain);
 #endif
 
+	ret = sysfs_create_group(&di_device->kobj, &di_attribute_group);
+	if (ret) {
+		printk(KERN_ERR "%s di_attribute_group create failed!\n", __func__);
+		return ret;
+	}
+
 	return 0;
 
 init_para_err:
@@ -603,6 +650,7 @@ create_work_err:
 
 static int sunxi_di_remove(struct platform_device *pdev)
 {
+	sysfs_remove_group(&di_device->kobj, &di_attribute_group);
 	sunxi_di_params_exit();
 	if (sunxi_di_major > 0) {
 		device_destroy(di_dev_class, MKDEV(sunxi_di_major, 0));
