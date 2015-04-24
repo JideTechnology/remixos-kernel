@@ -88,11 +88,4 @@ int config_flash_mode(struct v4l2_subdev *sd, enum v4l2_flash_led_mode mode,
 int io_set_flash_ctrl(struct v4l2_subdev *sd, enum sunxi_flash_ctrl ctrl,
                       struct flash_dev_info *fls_info);
 
-extern int vfe_set_pmu_channel(struct v4l2_subdev *sd, enum pmic_channel pmic_ch, enum on_off on_off);
-extern int vfe_set_mclk(struct v4l2_subdev *sd, enum on_off on_off);
-extern int vfe_set_mclk_freq(struct v4l2_subdev *sd, unsigned long freq);
-extern int vfe_gpio_write(struct v4l2_subdev *sd, enum gpio_type gpio_type, unsigned int status);
-extern int vfe_gpio_set_status(struct v4l2_subdev *sd, enum gpio_type gpio_type, unsigned int status);
-extern void vfe_get_standby_mode(struct v4l2_subdev *sd, enum standby_mode *stby_mode);
-
 #endif  /* __FLASH_H__ */

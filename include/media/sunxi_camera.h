@@ -40,6 +40,9 @@ struct v4l2_win_coordinate {
 
 #define V4L2_MAX_WIN_NUM	10
 
+#define V4L2_FLASH_LED_MODE_AUTO				(V4L2_FLASH_LED_MODE_TORCH+1)
+#define V4L2_FLASH_LED_MODE_RED_EYE				(V4L2_FLASH_LED_MODE_TORCH+2)
+
 struct v4l2_win_setting {
 	__s32 win_num;
 	struct v4l2_win_coordinate coor[V4L2_MAX_WIN_NUM];
@@ -53,6 +56,9 @@ enum v4l2_gain_shift {
 };
 
 #define MAX_EXP_FRAMES     5
+
+/* The base for the sunxi-vfe controls. Total of 64 controls is reserved for this driver, add by yangfeng */
+#define V4L2_CID_USER_SUNXI_CAMERA_BASE		(V4L2_CID_USER_BASE + 0x1050)
 
 #define V4L2_CID_HFLIP_THUMB					(V4L2_CID_USER_SUNXI_CAMERA_BASE+0)
 #define V4L2_CID_VFLIP_THUMB					(V4L2_CID_USER_SUNXI_CAMERA_BASE+1)

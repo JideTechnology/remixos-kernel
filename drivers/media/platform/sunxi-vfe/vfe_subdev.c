@@ -233,8 +233,8 @@ int io_set_flash_ctrl(struct v4l2_subdev *sd, enum sunxi_flash_ctrl ctrl,
 	flash_mode=(fls_info->fl_mode_pol!=0)?1:0;
 	torch_mode=!flash_mode;                   
   
-	//  fl_dbg("flash_en=%d\n",flash_en);
-	//  fl_dbg("flash_mode=%d\n",flash_mode);
+	//fl_dbg("flash_en=%d\n",flash_en);
+	//fl_dbg("flash_mode=%d\n",flash_mode);
   
 	if(FLASH_RELATING == fls_info->flash_driver_ic)
 	{
@@ -245,8 +245,8 @@ int io_set_flash_ctrl(struct v4l2_subdev *sd, enum sunxi_flash_ctrl ctrl,
 				vfe_gpio_set_status(sd,FLASH_MODE,1);//set the gpio to output
 				ret|=vfe_gpio_write(sd, FLASH_EN, flash_dis);
 				ret|=vfe_gpio_write(sd, FLASH_MODE, torch_mode);
-				//      vfe_gpio_set_status(sd,FLASH_EN,0);//set the gpio to hi-z
-				//      vfe_gpio_set_status(sd,FLASH_MODE,0);//set the gpio to hi-z
+				//vfe_gpio_set_status(sd,FLASH_EN,0);//set the gpio to hi-z
+				//vfe_gpio_set_status(sd,FLASH_MODE,0);//set the gpio to hi-z
 				break;
 			case SW_CTRL_FLASH_ON:
 				fl_dbg("FLASH_RELATING SW_CTRL_FLASH_ON\n");
@@ -268,7 +268,6 @@ int io_set_flash_ctrl(struct v4l2_subdev *sd, enum sunxi_flash_ctrl ctrl,
 	}
 	else 
 	{
-	
 		switch(ctrl) {
 			case SW_CTRL_FLASH_OFF:
 				fl_dbg("FLASH_EN_INDEPEND SW_CTRL_FLASH_OFF\n");
@@ -276,8 +275,8 @@ int io_set_flash_ctrl(struct v4l2_subdev *sd, enum sunxi_flash_ctrl ctrl,
 				vfe_gpio_set_status(sd,FLASH_MODE,1);//set the gpio to output
 				ret|=vfe_gpio_write(sd, FLASH_EN, 0);
 				ret|=vfe_gpio_write(sd, FLASH_MODE, 0);
-				//      vfe_gpio_set_status(sd,FLASH_EN,0);//set the gpio to hi-z
-				//      vfe_gpio_set_status(sd,FLASH_MODE,0);//set the gpio to hi-z
+				//vfe_gpio_set_status(sd,FLASH_EN,0);//set the gpio to hi-z
+				//vfe_gpio_set_status(sd,FLASH_MODE,0);//set the gpio to hi-z
 				break;
 			case SW_CTRL_FLASH_ON:
 				fl_dbg("FLASH_EN_INDEPEND SW_CTRL_FLASH_ON\n");
@@ -325,26 +324,7 @@ int config_flash_mode(struct v4l2_subdev *sd, enum v4l2_flash_led_mode mode,
 		fl_err("unsupported light source, force LEDx1\n");
 		fls_info->light_src=0x01;
 	}
-  
-	switch (mode) {
-		case V4L2_FLASH_LED_MODE_NONE:
-			fls_info->flash_mode = (enum sunxi_flash_mode)MODE_FLASH_NONE;
-			break;
-		case V4L2_FLASH_LED_MODE_FLASH:
-			fls_info->flash_mode = (enum sunxi_flash_mode)MODE_FLASH_ON;
-			break;
-		case V4L2_FLASH_LED_MODE_TORCH:
-			fls_info->flash_mode = (enum sunxi_flash_mode)MODE_TORCH_ON;
-			break;
-		case V4L2_FLASH_LED_MODE_AUTO:
-			fls_info->flash_mode = (enum sunxi_flash_mode)MODE_FLASH_AUTO;
-			break;
-		case V4L2_FLASH_LED_MODE_RED_EYE:
-			fls_info->flash_mode = (enum sunxi_flash_mode)MODE_FLASH_RED_EYE;
-			break;
-		default:
-			return -EINVAL;
-	}
+	fls_info->flash_mode = (enum sunxi_flash_mode)mode;
 	return 0;
 }
 EXPORT_SYMBOL_GPL(config_flash_mode);
