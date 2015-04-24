@@ -14,28 +14,15 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/slab.h>
-#include <linux/hwspinlock.h>
+#include <linux/arisc/arisc.h>
 #include "sunxi-nmi.h"
-
-#define INTC_HWSPINLOCK_TIMEOUT      (4000)
 
 static u32 debug_mask = 0x0;
 static nmi_struct *nmi_data;
-static struct hwspinlock *intc_mgr_hwlock;
 
 void clear_nmi_status(void)
 {
-	u32 tmp = 0;
-	unsigned long hwflags;
-
-	if (0xffffffff==nmi_data->nmi_irq_status)
-		return;
-
-	hwspin_lock_timeout_irqsave(intc_mgr_hwlock, INTC_HWSPINLOCK_TIMEOUT, &hwflags);
-	tmp = readl(nmi_data->base_addr + nmi_data->nmi_irq_status);
-	tmp |= NMI_IRQ_PENDING;
-	writel(tmp, nmi_data->base_addr + nmi_data->nmi_irq_status);
-	hwspin_unlock_irqrestore(intc_mgr_hwlock, &hwflags);
+	arisc_clear_nmi_status();
 
 	return;
 }
@@ -44,17 +31,7 @@ EXPORT_SYMBOL(clear_nmi_status);
 
 void enable_nmi(void)
 {
-	u32 tmp = 0;
-	unsigned long hwflags;
-
-	if (0xffffffff==nmi_data->nmi_irq_en)
-		return;
-
-	hwspin_lock_timeout_irqsave(intc_mgr_hwlock, INTC_HWSPINLOCK_TIMEOUT, &hwflags);
-	tmp = readl(nmi_data->base_addr + nmi_data->nmi_irq_en);
-	tmp |= NMI_IRQ_ENABLE;
-	writel(tmp, nmi_data->base_addr + nmi_data->nmi_irq_en);
-	hwspin_unlock_irqrestore(intc_mgr_hwlock, &hwflags);
+	arisc_enable_nmi_irq();
 
 	return;
 }
@@ -62,18 +39,7 @@ EXPORT_SYMBOL(enable_nmi);
 
 void disable_nmi(void)
 {
-	u32 tmp = 0;
-	unsigned long hwflags;
-
-	if (0xffffffff==nmi_data->nmi_irq_en)
-		return;
-
-	hwspin_lock_timeout_irqsave(intc_mgr_hwlock, INTC_HWSPINLOCK_TIMEOUT, &hwflags);
-	tmp = readl(nmi_data->base_addr + nmi_data->nmi_irq_en);
-	tmp &= (~NMI_IRQ_ENABLE);
-
-	writel(tmp, nmi_data->base_addr + nmi_data->nmi_irq_en);
-	hwspin_unlock_irqrestore(intc_mgr_hwlock, &hwflags);
+	arisc_disable_nmi_irq();
 
 	return;
 }
@@ -82,10 +48,6 @@ EXPORT_SYMBOL(disable_nmi);
 void set_nmi_trigger(u32 trigger)
 {
 	u32 tmp = 0;
-	unsigned long hwflags;
-
-	if (0xffffffff==nmi_data->nmi_irq_ctrl)
-		return;
 
 	if (IRQF_TRIGGER_LOW==trigger)
 		tmp = NMI_IRQ_LOW_LEVEL;
@@ -94,16 +56,9 @@ void set_nmi_trigger(u32 trigger)
 	else if (IRQF_TRIGGER_HIGH==trigger)
 		tmp = NMI_IRQ_HIGH_LEVEL;
 	else if (IRQF_TRIGGER_RISING==trigger)
-		tmp = NMI_IRQ_PO_EdGE;
+		tmp = NMI_IRQ_PO_EDGE;
 
-	writel(tmp, nmi_data->base_addr + nmi_data->nmi_irq_ctrl);
-
-	/* mask cpus nmi irq*/
-	hwspin_lock_timeout_irqsave(intc_mgr_hwlock, INTC_HWSPINLOCK_TIMEOUT, &hwflags);
-	tmp = readl(nmi_data->base_addr + nmi_data->nmi_irq_mask);
-	tmp |= NMI_IRQ_MASK;
-	writel(tmp, nmi_data->base_addr + nmi_data->nmi_irq_mask);
-	hwspin_unlock_irqrestore(intc_mgr_hwlock, &hwflags);
+	arisc_set_nmi_trigger(tmp);
 
 	return;
 }
@@ -160,10 +115,6 @@ static int sunxi_nmi_probe(struct platform_device *pdev)
 	if (of_property_read_u32(node, "nmi_irq_mask", &nmi_data->nmi_irq_mask))
 		nmi_data->nmi_irq_mask = 0xffffffff;
 
-	intc_mgr_hwlock = hwspin_lock_request_specific(SUNXI_INTC_HWSPINLOCK);
-	if (!intc_mgr_hwlock)
-		printk(KERN_ERR "%s,%d request hwspinlock faild!\n", __func__, __LINE__);
-
 	return 0;
 
 mem_io_err:
@@ -174,12 +125,7 @@ mem_io_err:
 
 static int sunxi_nmi_remove(struct platform_device *pdev)
 {
-	int ret;
 	printk(KERN_INFO "%s: module unloaded\n", __func__);
-
-	ret = hwspin_lock_free(intc_mgr_hwlock);
-	if (ret)
-		printk(KERN_ERR "%s,%d free hwlock faild!\n", __func__, __LINE__);
 
 	return 0;
 }
