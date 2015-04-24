@@ -253,6 +253,78 @@ static ssize_t ehci_ed_test(struct device *dev, struct device_attribute *attr,
 }
 static DEVICE_ATTR(ed_test, 0644, show_ed_test, ehci_ed_test);
 
+static ssize_t show_phy_threshold(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct sunxi_hci_hcd *sunxi_ehci = NULL;
+	sunxi_ehci = dev->platform_data;
+
+	return sprintf(buf, "threshold:0x%x\n", usb_phyx_tp_read(sunxi_ehci, 0x2a, 2));
+}
+
+static ssize_t ehci_phy_threshold(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct sunxi_hci_hcd *sunxi_ehci = NULL;
+	int val = 0;
+
+	sscanf(buf, "%x", &val);
+
+	if(dev == NULL){
+		DMSG_PANIC("ERR: Argment is invalid\n");
+		return 0;
+	}
+	sunxi_ehci = dev->platform_data;
+
+	if((0 <= val) && (val <= 0x3)){
+		usb_phyx_tp_write(sunxi_ehci, 0x2a, val, 2);
+	}else{
+		printk("adjust disconnect threshold 0x%x is fail, value:0x0~0x3\n", val);
+		return count;
+	}
+
+	printk("adjust succeed: threshold val:0x%x, no:%x\n", usb_phyx_tp_read(sunxi_ehci, 0x2a, 2), sunxi_ehci->usbc_no);
+
+	return count;
+}
+static DEVICE_ATTR(phy_threshold, 0644, show_phy_threshold, ehci_phy_threshold);
+
+static ssize_t show_phy_range(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct sunxi_hci_hcd *sunxi_ehci = NULL;
+	sunxi_ehci = dev->platform_data;
+
+	return sprintf(buf, "rate:0x%x\n", usb_phyx_tp_read(sunxi_ehci, 0x20, 5));
+}
+
+static ssize_t ehci_phy_range(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct sunxi_hci_hcd *sunxi_ehci = NULL;
+	int val = 0;
+
+	if(dev == NULL){
+		DMSG_PANIC("ERR: Argment is invalid\n");
+		return 0;
+	}
+
+	sscanf(buf, "%x", &val);
+
+	sunxi_ehci = dev->platform_data;
+
+	printk("adjust PHY's rate and range:0x0~0x1f\n");
+
+	if((0 <= val) && (val <= 0x1f)){
+		usb_phyx_tp_write(sunxi_ehci, 0x20, val, 5);
+	}else{
+		printk("adjust PHY's rate and range 0x%x is fail, value:0x0~0x1f\n" ,val);
+		return count;
+	}
+
+	printk("adjust succeed:,rate val:0x%x, no:%d\n", usb_phyx_tp_read(sunxi_ehci, 0x20, 5), sunxi_ehci->usbc_no);
+
+	return count;
+}
+static DEVICE_ATTR(phy_range, 0644, show_phy_range, ehci_phy_range);
 static ssize_t ehci_enable_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct sunxi_hci_hcd *sunxi_ehci = NULL;
@@ -469,6 +541,8 @@ int sunxi_insmod_ehci(struct platform_device *pdev)
 	platform_set_drvdata(pdev, hcd);
 
 	device_create_file(&pdev->dev, &dev_attr_ed_test);
+	device_create_file(&pdev->dev, &dev_attr_phy_threshold);
+	device_create_file(&pdev->dev, &dev_attr_phy_range);
 
 #ifndef USB_SYNC_SUSPEND
 	device_enable_async_suspend(&pdev->dev);
@@ -529,6 +603,8 @@ int sunxi_rmmod_ehci(struct platform_device *pdev)
 		ehci_name, sunxi_ehci->usbc_no, pdev->name, sunxi_ehci);
 
 	device_remove_file(&pdev->dev, &dev_attr_ed_test);
+	device_remove_file(&pdev->dev, &dev_attr_phy_threshold);
+	device_remove_file(&pdev->dev, &dev_attr_phy_range);
 #ifdef CONFIG_PM
 	if(sunxi_ehci->wakeup_suspend){
 		scene_lock_destroy(&ehci_standby_lock[sunxi_ehci->usbc_no]);

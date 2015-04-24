@@ -79,8 +79,12 @@
 
 #define SUNXI_USB_PMU_IRQ_ENABLE                0x800
 #define SUNXI_HCI_PHY_CTRL                      0x810
+#define SUNXI_HCI_UTMI_PHY_STATUS               0x824
 #define SUNXI_HCI_PHY_CTRL_DISENABLE               3
 
+#define SUNXI_OTG_PHY_CTRL                      0x410
+#define SUNXI_OTG_PHY_CFG                       0x420
+#define SUNXI_OTG_PHY_STATUS                    0x424
 
 #define EHCI_CAP_OFFSET		(0x00)
 #define EHCI_CAP_LEN		(0x10)
@@ -262,6 +266,8 @@ int exit_sunxi_hci(struct sunxi_hci_hcd *sunxi_hci);
 int sunxi_get_hci_num(struct platform_device *pdev);
 void sunxi_set_host_hisc_rdy(struct sunxi_hci_hcd *sunxi_hci, int is_on);
 void sunxi_set_host_vbus(struct sunxi_hci_hcd *sunxi_hci, int is_on);
+int usb_phyx_tp_write(struct sunxi_hci_hcd *sunxi_hci, int addr, int data, int len);
+int usb_phyx_tp_read(struct sunxi_hci_hcd *sunxi_hci, int addr, int len);
 
 #endif   //__SUNXI_HCI_SUNXI_H__
 

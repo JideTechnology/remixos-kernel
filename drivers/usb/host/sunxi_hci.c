@@ -92,73 +92,167 @@ static s32 release_usb_regulator_io(struct sunxi_hci_hcd *sunxi_hci)
 	return 0;
 }
 
-static __u32 USBC_Phy_TpWrite(struct sunxi_hci_hcd *sunxi_hci, __u32 addr, __u32 data, __u32 len)
+void __iomem *usb_phy_csr_add(struct sunxi_hci_hcd *sunxi_hci)
 {
-	void __iomem *phyctl_val = NULL;
-	__u32 temp = 0, dtmp = 0;
-	__u32 j=0;
+	return (sunxi_hci->otg_vbase + SUNXI_OTG_PHY_CTRL);
+}
 
-	if(sunxi_hci->otg_vbase == NULL){
-		return 0;
+void __iomem *usb_phy_csr_read(struct sunxi_hci_hcd *sunxi_hci)
+{
+
+	switch(sunxi_hci->usbc_no)
+	{
+		case 0:
+			return (sunxi_hci->otg_vbase + SUNXI_OTG_PHY_STATUS);
+		break;
+
+		case 1:
+			return (sunxi_hci->usb_vbase + SUNXI_HCI_UTMI_PHY_STATUS);
+		break;
+
+		default:
+
+			DMSG_PANIC("usb_phy_csr_write is fial in %d index\n", sunxi_hci->usbc_no);
+		break;
 	}
 
-	phyctl_val = sunxi_hci->otg_vbase + USBPHYC_REG_o_PHYCTL;
+	return NULL;
+}
+
+void __iomem *usb_phy_csr_write(struct sunxi_hci_hcd *sunxi_hci)
+{
+	switch(sunxi_hci->usbc_no)
+	{
+		case 0:
+			return sunxi_hci->otg_vbase + SUNXI_OTG_PHY_CTRL;
+		break;
+
+		case 1:
+			return sunxi_hci->usb_vbase + SUNXI_HCI_PHY_CTRL;
+		break;
+
+		default:
+			DMSG_PANIC("usb_phy_csr_write is fial in %d index\n", sunxi_hci->usbc_no);
+		break;
+	}
+
+	return NULL;
+}
+
+int usb_phyx_tp_write(struct sunxi_hci_hcd *sunxi_hci, int addr, int data, int len)
+{
+	int temp = 0;
+	int j = 0;
+	int reg_value = 0;
+	int reg_temp = 0;
+	int dtmp = 0;
+
+	if(sunxi_hci->otg_vbase == NULL){
+		printk("%s,otg_vbase is null\n", __func__);
+		return -1;
+	}
+
+	if(usb_phy_csr_add(sunxi_hci) == NULL){
+		printk("%s,phy_csr_add is null\n", __func__);
+		return -1;
+	}
+
+	if(usb_phy_csr_write(sunxi_hci) == NULL){
+
+		printk("%s,phy_csr_write is null\n", __func__);
+		return -1;
+	}
+
+
+	reg_value = USBC_Readl(sunxi_hci->otg_vbase + SUNXI_OTG_PHY_CFG);
+	reg_temp = reg_value;
+	reg_value |= 0x01;
+	USBC_Writel(reg_value, (sunxi_hci->otg_vbase + SUNXI_OTG_PHY_CFG));
 
 	dtmp = data;
 	for(j = 0; j < len; j++)
 	{
-		/* set the bit address to be write */
-		temp = USBC_Readl(phyctl_val);
-		temp &= ~(0xff << 8);
-		temp |= ((addr + j) << 8);
-		USBC_Writel(temp, phyctl_val);
 
-		temp = USBC_Readb(phyctl_val);
+		USBC_Writeb(addr + j, usb_phy_csr_add(sunxi_hci) + 1);
+
+		temp = USBC_Readb(usb_phy_csr_write(sunxi_hci));
+		temp &= ~(0x1 << 0);
+		USBC_Writeb(temp, usb_phy_csr_write(sunxi_hci));
+
+		temp = USBC_Readb(usb_phy_csr_add(sunxi_hci));
 		temp &= ~(0x1 << 7);
 		temp |= (dtmp & 0x1) << 7;
-		temp &= ~(0x1 << (sunxi_hci->usbc_no << 1));
-		USBC_Writeb(temp, phyctl_val);
+		USBC_Writeb(temp, usb_phy_csr_add(sunxi_hci));
 
-		temp = USBC_Readb(phyctl_val);
-		temp |= (0x1 << (sunxi_hci->usbc_no << 1));
-		USBC_Writeb( temp, phyctl_val);
+		temp = USBC_Readb(usb_phy_csr_write(sunxi_hci));
+		temp |= (0x1 << 0);
+		USBC_Writeb(temp, usb_phy_csr_write(sunxi_hci));
 
-		temp = USBC_Readb(phyctl_val);
-		temp &= ~(0x1 << (sunxi_hci->usbc_no <<1 ));
-		USBC_Writeb(temp, phyctl_val);
+		temp = USBC_Readb(usb_phy_csr_write(sunxi_hci));
+		temp &= ~(0x1 << 0);
+		USBC_Writeb(temp, usb_phy_csr_write(sunxi_hci));
+
 		dtmp >>= 1;
 	}
 
-	return data;
+	USBC_Writel(reg_temp, (sunxi_hci->otg_vbase + SUNXI_OTG_PHY_CFG));
+	return 0;
 }
 
-static __u32 USBC_Phy_Write(struct sunxi_hci_hcd *sunxi_hci, __u32 addr, __u32 data, __u32 len)
+int usb_phyx_tp_read(struct sunxi_hci_hcd *sunxi_hci, int addr, int len)
 {
-	return USBC_Phy_TpWrite(sunxi_hci, addr, data, len);
-}
+	int temp = 0;
+	int i = 0;
+	int j = 0;
+	int ret = 0;
+	int reg_value = 0;
+	int reg_temp = 0;
 
-static void UsbPhyInit(struct sunxi_hci_hcd *sunxi_hci)
-{
-
-	if(sunxi_hci->usbc_no == 0){
-		USBC_Phy_Write(sunxi_hci, 0x0c, 0x01, 1);
+	if(sunxi_hci->otg_vbase== NULL){
+		printk("%s,otg_vbase is null\n", __func__);
+		return -1;
 	}
 
-	/* adjust USB0 PHY's rate and range */
-	USBC_Phy_Write(sunxi_hci, 0x20, 0x14, 5);
+	if(usb_phy_csr_add(sunxi_hci) == NULL){
 
-	/* adjust disconnect threshold value */
-	USBC_Phy_Write(sunxi_hci, 0x2a, 3, 2); /*by wangjx*/
+		printk("%s,phy_csr_add is null\n", __func__);
+		return -1;
+	}
 
-	return;
+	if(usb_phy_csr_read(sunxi_hci) == NULL){
+
+		printk("%s,phy_csr_read is null\n", __func__);
+		return -1;
+	}
+
+	reg_value = USBC_Readl(sunxi_hci->otg_vbase + SUNXI_OTG_PHY_CFG);
+	reg_temp = reg_value;
+	reg_value |= 0x01;
+	USBC_Writel(reg_value, (sunxi_hci->otg_vbase + SUNXI_OTG_PHY_CFG));
+
+	for(j = len; j > 0; j--)
+	{
+
+		USBC_Writeb((addr + j - 1), usb_phy_csr_add(sunxi_hci) + 1);
+
+		for(i = 0;i < 0x4;i++);
+
+		temp = USBC_Readb(usb_phy_csr_read(sunxi_hci));
+		ret <<= 1;
+		ret |= (temp & 0x1);
+	}
+
+	USBC_Writel(reg_temp, (sunxi_hci->otg_vbase + SUNXI_OTG_PHY_CFG));
+
+	return ret;
 }
 
 static void USBC_SelectPhyToHci(struct sunxi_hci_hcd *sunxi_hci)
 {
 	int reg_value = 0;
-	reg_value = USBC_Readl(sunxi_hci->otg_vbase + 0x420);
+	reg_value = USBC_Readl(sunxi_hci->otg_vbase + SUNXI_OTG_PHY_CFG);
 	reg_value &= ~(0x01);
-	USBC_Writel(reg_value, (sunxi_hci->otg_vbase + 0x420));
+	USBC_Writel(reg_value, (sunxi_hci->otg_vbase + SUNXI_OTG_PHY_CFG));
 
 	return;
 }
@@ -166,9 +260,9 @@ static void USBC_SelectPhyToHci(struct sunxi_hci_hcd *sunxi_hci)
 static void USBC_Clean_SIDDP(struct sunxi_hci_hcd *sunxi_hci)
 {
 	int reg_value = 0;
-	reg_value = USBC_Readl(sunxi_hci->usb_vbase + 0x810);
+	reg_value = USBC_Readl(sunxi_hci->usb_vbase + SUNXI_HCI_PHY_CTRL);
 	reg_value &= ~(0x01 << 1);
-	USBC_Writel(reg_value, (sunxi_hci->usb_vbase + 0x810));
+	USBC_Writel(reg_value, (sunxi_hci->usb_vbase + SUNXI_HCI_PHY_CTRL));
 
 	return;
 }
@@ -188,7 +282,7 @@ static int open_clock(struct sunxi_hci_hcd *sunxi_hci, u32 ohci)
 
 	USBC_Clean_SIDDP(sunxi_hci);
 
-	UsbPhyInit(sunxi_hci);
+	usb_phyx_tp_write(sunxi_hci, 0x2a, 3, 2);
 
 	if(sunxi_hci->ahb && sunxi_hci->mod_usbphy && !sunxi_hci->clk_is_open){
 		sunxi_hci->clk_is_open = 1;
@@ -242,7 +336,7 @@ static int open_clock(struct sunxi_hci_hcd *sunxi_hci, u32 ohci)
 			sunxi_hci->mod_usb);
 	}
 
-	DMSG_INFO("[%s]: open clock end\n", sunxi_hci->hci_name);
+	//DMSG_INFO("[%s]: open clock end\n", sunxi_hci->hci_name);
 	return 0;
 }
 
@@ -530,15 +624,13 @@ static int sunxi_get_hci_base(struct platform_device *pdev, struct sunxi_hci_hcd
 		return -EINVAL;
 	}
 
-	if(sunxi_hci->usbc_no == HCI0_USBC_NO){
-		sunxi_hci->otg_vbase  = of_iomap(np, 2);
-		if (sunxi_hci->otg_vbase == NULL) {
-			dev_err(&pdev->dev, "%s, can't get otg_vbase resource\n", sunxi_hci->hci_name);
-			return -EINVAL;
-		}
+	sunxi_hci->otg_vbase  = of_iomap(np, 2);
+	if (sunxi_hci->otg_vbase == NULL) {
+		dev_err(&pdev->dev, "%s, can't get otg_vbase resource\n", sunxi_hci->hci_name);
+		return -EINVAL;
+	}
 
 		//DMSG_INFO("OTG,Vbase:0x%p\n", sunxi_hci->otg_vbase);
-	}
 
 	ret = of_address_to_resource(np, 0, &res);
 	if (ret) {

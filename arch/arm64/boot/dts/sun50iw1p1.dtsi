@@ -613,7 +613,9 @@
 
 		ehci1:ehci1-controller@0x01c1b000 {
 			compatible          = "allwinner,sun50i-ehci1";
-			reg                 = <0x0 0x01c1b000 0x0 0xFFF>;/*hci1 base*/
+			reg                 = <0x0 0x01c1b000 0x0 0xFFF>,/*hci1 base*/
+			                      <0x0 0x01c00000 0x0 0x100>, /*sram base*/
+			                      <0x0 0x01c19000 0x0 0x1000>; /*otg base*/
 			interrupts          = <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>;
 			clocks              = <&clk_usbphy1>, <&clk_usbehci1>, <&clk_usbhsic>, <&clk_usbhsic12m>, <&clk_pll_hsic>;
 			hci_ctrl_no         = <1>;
@@ -622,7 +624,9 @@
 
 		ohci1:ohci1-controller@0x01c1b400 {
 			compatible          = "allwinner,sun50i-ohci1";
-			reg                 = <0x0 0x01c1b000 0x0 0xFFF>;/*hci1 base*/
+			reg                 = <0x0 0x01c1b000 0x0 0xFFF>, /*hci1 base*/
+			                      <0x0 0x01c00000 0x0 0x100>, /*sram base*/
+			                      <0x0 0x01c19000 0x0 0x1000>; /*otg base*/
 			interrupts          = <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH>;
 			clocks              = <&clk_usbphy1>, <&clk_usbohci1>;
 			hci_ctrl_no         = <1>;
