@@ -2404,14 +2404,22 @@ int atomisp_set_array_res(struct atomisp_sub_device *asd,
 int atomisp_get_dvs2_bq_resolutions(struct atomisp_sub_device *asd,
 			 struct atomisp_dvs2_bq_resolutions *bq_res)
 {
-	struct ia_css_pipe_config *pipe_cfg =
-		&asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL]
+	struct ia_css_pipe_config *pipe_cfg = NULL;
+	struct ia_css_stream_config *stream_cfg = NULL;
+	struct ia_css_stream_input_config *input_config = NULL;
+
+	struct ia_css_stream *stream =
+		asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL].stream;
+	if (!stream) {
+		dev_warn(asd->isp->dev, "stream is not created");
+		return -EAGAIN;
+	}
+
+	pipe_cfg = &asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL]
 		.pipe_configs[CSS_PIPE_ID_VIDEO];
-	struct ia_css_stream_config *stream_cfg =
-		&asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL]
+	stream_cfg = &asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL]
 		.stream_config;
-	struct ia_css_stream_input_config *input_config =
-		&stream_cfg->input_config;
+	input_config = &stream_cfg->input_config;
 
 	if (!bq_res)
 		return -EINVAL;
