@@ -383,13 +383,17 @@ struct pcm_cfg {
 		u8 format:3;
 } __packed;
 
+struct pcm_cfg_speech {
+		u16 bwx:8;
+		u16 s_length:2;
+		u16 rate:3;
+		u16 format:3;
+} __packed;
+
 struct sst_cmd_set_speech_path {
 	struct sst_dsp_header header;
 	u16    switch_state;
-	struct {
-		u16 rsvd:8;
-		struct pcm_cfg cfg;
-	} config;
+	struct pcm_cfg_speech cfg;
 } __packed;
 
 struct gain_cell {

@@ -1149,11 +1149,11 @@ void send_ssp_cmd(struct snd_soc_platform *platform, const char *id, bool enable
 				- sizeof(struct sst_dsp_header);
 	mux_shift = sst->pdata->mux_shift[ssp_no];
 	mux = (mux_shift == -1) ? 0 : sst_reg_read(sst, SST_MUX_REG,
-						mux_shift, 1);
+						mux_shift, SST_MODE_LEN);
 
 	domain_shift = sst->pdata->domain_shift[ssp_no][mux];
 	domain = (domain_shift == -1) ? 0 : sst_reg_read(sst, SST_MUX_REG,
-							domain_shift, 1);
+						domain_shift, SST_DOMAIN_LEN);
 
 	config = &(sst->pdata->ssp_config)[ssp_no][mux][domain];
 	pr_debug("%s: ssp_id: %u, mux: %d, domain: %d\n", __func__,
@@ -1204,10 +1204,14 @@ static int sst_set_be_modules(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+#define NARROWBAND		0
+#define WIDEBAND		1
+#define NARROWBAND_WITH_BWX	2
+
 static int sst_send_speech_path(struct sst_data *sst, u16 switch_state)
 {
 	struct sst_cmd_set_speech_path cmd;
-	bool is_wideband;
+	u8 is_wideband;
 
 	SST_FILL_DEFAULT_DESTINATION(cmd.header.dst);
 
@@ -1215,13 +1219,25 @@ static int sst_send_speech_path(struct sst_data *sst, u16 switch_state)
 	cmd.header.length = sizeof(struct sst_cmd_set_speech_path)
 				- sizeof(struct sst_dsp_header);
 	cmd.switch_state = switch_state;
-	cmd.config.cfg.s_length = 0;
-	cmd.config.cfg.format = 0;
-	cmd.config.cfg.rate = 0;
+	cmd.cfg.s_length = 0;
+	cmd.cfg.format = 0;
+	cmd.cfg.bwx = 0;
 
-	is_wideband = sst_reg_read(sst, SST_MUX_REG, SST_VOICE_MODE_SHIFT, 1);
-	if (is_wideband)
-		cmd.config.cfg.rate = 1;
+	is_wideband = sst_reg_read(sst, SST_MUX_REG,
+				SST_VOICE_MODE_SHIFT, SST_DOMAIN_LEN);
+	pr_debug("SST_VOICE_MODE %d\n", is_wideband);
+	switch (is_wideband) {
+	case NARROWBAND:
+		cmd.cfg.rate = 0;
+		break;
+	case WIDEBAND:
+		cmd.cfg.rate = 1;
+		break;
+	case NARROWBAND_WITH_BWX:
+		cmd.cfg.rate = 0;
+		cmd.cfg.bwx = 1;
+		break;
+	}
 	return sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
 				     SST_TASK_SBA, 0, &cmd,
 				     sizeof(cmd.header) + cmd.header.length);
@@ -1902,8 +1918,8 @@ static const char * const sst_nb_wb_texts[] = {
 static const struct snd_kcontrol_new sst_mux_controls[] = {
 	SST_SSP_MUX_CTL("domain voice mode", 0, SST_MUX_REG, SST_VOICE_MODE_SHIFT, sst_nb_wb_texts,
 			sst_mode_get, sst_voice_mode_put),
-	SST_SSP_MUX_CTL("domain bt mode", 0, SST_MUX_REG, SST_BT_MODE_SHIFT, sst_nb_wb_texts,
-			sst_mode_get, sst_mode_put),
+	SST_SSP_MUX_CTL("domain bt mode", 0, SST_MUX_REG, SST_BT_SHIFT,
+			sst_nb_wb_texts, sst_mode_get, sst_mode_put),
 };
 
 static const char * const slot_names[] = {
