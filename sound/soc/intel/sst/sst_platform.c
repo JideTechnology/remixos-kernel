@@ -119,6 +119,15 @@ static const int sst_ssp_domain_shift[SST_NUM_SSPS][SST_MAX_SSP_MUX] = {
 	[SST_SSP2][0] = -1,
 };
 
+static const int sst_byt_ssp_domain_shift[SST_NUM_SSPS][SST_MAX_SSP_MUX] = {
+	[SST_SSP0][0] = -1,	/* no domain shift, i.e. single domain */
+	[SST_SSP1] = {
+		[SST_SSP_FM_MUX] = -1,
+		[SST_SSP_BT_MUX] = SST_BT_SHIFT,
+	},
+	[SST_SSP2][0] = -1,
+};
+
 #define SST_SSP_CODEC_MUX		0
 #define SST_SSP_CODEC_DOMAIN		0
 #define SST_SSP_MODEM_MUX		0
@@ -357,7 +366,9 @@ static void set_cht_cr_platform_config(void)
 	sst_platform_pdata.dfw_enable = 0;
 	memcpy(sst_platform_pdata.ssp_config, sst_ssp_configs_cht_cr, sizeof(sst_ssp_configs_cht_cr));
 	memcpy(sst_platform_pdata.mux_shift, sst_ssp_mux_shift, sizeof(sst_ssp_mux_shift));
-	memcpy(sst_platform_pdata.domain_shift, sst_ssp_domain_shift, sizeof(sst_ssp_domain_shift));
+
+	memcpy(sst_platform_pdata.domain_shift, sst_byt_ssp_domain_shift,
+					sizeof(sst_byt_ssp_domain_shift));
 	pr_info("audio:%s\n", __func__);
 }
 
