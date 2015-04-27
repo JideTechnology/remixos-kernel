@@ -283,7 +283,7 @@ static ssize_t gt82x_enable_store(struct device *dev,
 	if (error)
 		return error;
 	if (data == 0) {
-		pm_runtime_put(&client->dev);
+		pm_runtime_put_sync(&client->dev);
 	}else if (data == 1){
 		pm_runtime_get_sync(&client->dev);
 	}
