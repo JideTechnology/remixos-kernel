@@ -68,10 +68,13 @@ static int devfreq_adaptive_func(struct devfreq *df, unsigned long *freq)
 	}
 
 	if (!dramfreq->pause) {
-		if (dramfreq->key_masters[MASTER_DE] == 0) {
+		if (dramfreq->key_masters[MASTER_DE] == 0 &&
+			dramfreq->key_masters[MASTER_GPU] == 0 &&
+			dramfreq->key_masters[MASTER_CSI] == 0) {
 			*freq = SUNXI_DRAMFREQ_IDLE;
-		} else if (dramfreq->key_masters[MASTER_GPU] == 0 &&
-					dramfreq->key_masters[MASTER_CSI] == 0) {
+		} else if (dramfreq->key_masters[MASTER_DE] == 1 &&
+			dramfreq->key_masters[MASTER_GPU] == 0 &&
+			dramfreq->key_masters[MASTER_CSI] == 0) {
 			*freq = SUNXI_DRAMFREQ_NORMAL;
 		} else {
 			*freq = df->max_freq;

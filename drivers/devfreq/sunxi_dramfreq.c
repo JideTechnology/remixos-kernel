@@ -734,7 +734,7 @@ static void sunxi_dramfreq_irq_state_update(struct sunxi_dramfreq *dramfreq,
 }
 
 static void sunxi_dramfreq_masters_state_update(struct sunxi_dramfreq *dramfreq,
-						bool access)
+						bool access, bool care_de)
 {
 	int i;
 	volatile unsigned int value;
@@ -747,7 +747,7 @@ static void sunxi_dramfreq_masters_state_update(struct sunxi_dramfreq *dramfreq,
 			dramfreq->key_masters[i] = 1;
 			value |= (0x1 << key_masters_int_idx[i][1]);
 		} else {
-			if (i == MASTER_DE) {
+			if (care_de && (i == MASTER_DE)) {
 				dramfreq->key_masters[i] = 1;
 				value |= (0x1 << key_masters_int_idx[i][1]);
 			} else {
@@ -1013,7 +1013,7 @@ static int sunxi_dramfreq_reboot(struct notifier_block *this,
 	/* set master irq disable */
 	sunxi_dramfreq_irq_state_update(dramfreq, false);
 	/* set master access enable */
-	sunxi_dramfreq_masters_state_update(dramfreq, true);
+	sunxi_dramfreq_masters_state_update(dramfreq, true, false);
 
 	printk("%s:%s: stop dramfreq done\n", __FILE__, __func__);
 	return NOTIFY_OK;
@@ -1065,6 +1065,19 @@ static irqreturn_t sunxi_dramfreq_irq_handler(int irq, void *data)
 static struct notifier_block reboot_notifier = {
 	.notifier_call = sunxi_dramfreq_reboot,
 };
+
+static void sunxi_dramfreq_hw_init(struct sunxi_dramfreq *dramfreq)
+{
+	if (dramfreq->mode == DFS_MODE)
+		writel(0xFFFFFFFF, dramfreq->dramcom_base + MC_MDFSMRMR);
+
+	/* clear irq flag */
+	writel(0xffffffff, dramfreq->dramcom_base + MDFS_IRQ_STATUS0);
+	writel(0xffffffff, dramfreq->dramcom_base + MDFS_IRQ_STATUS1);
+
+	/* set master idle period: 255ms */
+	writel(0xfe, dramfreq->dramcom_base + MDFS_BWC_PRD);
+}
 
 static int sunxi_dramfreq_probe(struct platform_device *pdev)
 {
@@ -1121,18 +1134,11 @@ static int sunxi_dramfreq_probe(struct platform_device *pdev)
 
 	register_reboot_notifier(&reboot_notifier);
 
-	if (dramfreq->mode == DFS_MODE)
-		writel(0xFFFFFFFF, dramfreq->dramcom_base + MC_MDFSMRMR);
-
-	/* clear irq flag */
-	writel(0xffffffff, dramfreq->dramcom_base + MDFS_IRQ_STATUS0);
-	writel(0xffffffff, dramfreq->dramcom_base + MDFS_IRQ_STATUS1);
-
-	/* set master idle period: 255ms */
-	writel(0xfe, dramfreq->dramcom_base + MDFS_BWC_PRD);
+	/* init some hardware paras*/
+	sunxi_dramfreq_hw_init(dramfreq);
 
 	/* set master access disable */
-	sunxi_dramfreq_masters_state_update(dramfreq, false);
+	sunxi_dramfreq_masters_state_update(dramfreq, false, true);
 
 	if (request_irq(dramfreq->irq, sunxi_dramfreq_irq_handler, IRQF_DISABLED,
 				"mdfs", dramfreq)) {
@@ -1207,8 +1213,8 @@ static int sunxi_dramfreq_suspend(struct platform_device *pdev,
 	struct sunxi_dramfreq *dramfreq = platform_get_drvdata(pdev);
 	unsigned long cur_freq, target = dramfreq->max;
 	int err = -1;
-	sunxi_dramfreq_cur_pause = dramfreq->pause;
 
+	sunxi_dramfreq_cur_pause = dramfreq->pause;
 	if (!sunxi_dramfreq_cur_pause) {
 		dramfreq->pause = 1;
 		sunxi_dramfreq_get_cur_freq(&pdev->dev, &cur_freq);
@@ -1226,9 +1232,18 @@ static int sunxi_dramfreq_suspend(struct platform_device *pdev,
 static int sunxi_dramfreq_resume(struct platform_device *pdev)
 {
 	struct sunxi_dramfreq *dramfreq = platform_get_drvdata(pdev);
+	unsigned long cur_freq;
 
-	if (!sunxi_dramfreq_cur_pause)
+	sunxi_dramfreq_get_cur_freq(&pdev->dev, &cur_freq);
+	if (dramfreq->devfreq->previous_freq != cur_freq)
+		dramfreq->devfreq->previous_freq = cur_freq;
+
+	if (!sunxi_dramfreq_cur_pause) {
 		dramfreq->pause = 0;
+		sunxi_dramfreq_hw_init(dramfreq);
+		sunxi_dramfreq_masters_state_update(dramfreq, false, false);
+		sunxi_dramfreq_irq_state_update(dramfreq, true);
+	}
 
 	printk("%s:%d\n", __func__, __LINE__);
 	return 0;
