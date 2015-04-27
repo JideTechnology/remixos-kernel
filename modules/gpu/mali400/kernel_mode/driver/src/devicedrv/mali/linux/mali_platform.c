@@ -750,7 +750,7 @@ int aw_mali_platform_device_register(void)
 
 #if defined(CONFIG_PM_RUNTIME)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37))
-	pm_runtime_set_autosuspend_delay(&(pdev->dev), 0);
+	pm_runtime_set_autosuspend_delay(&(pdev->dev), 1000);
 	pm_runtime_use_autosuspend(&(pdev->dev));
 #endif
 	pm_runtime_enable(&(pdev->dev));
