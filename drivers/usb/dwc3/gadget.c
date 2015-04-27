@@ -2585,11 +2585,6 @@ static void dwc3_gadget_linksts_change_interrupt(struct dwc3 *dwc,
 	}
 
 	switch (next) {
-	case DWC3_LINK_STATE_U1:
-		if (dwc->speed == USB_SPEED_SUPER)
-			dwc3_suspend_gadget(dwc);
-		break;
-	case DWC3_LINK_STATE_U2:
 	case DWC3_LINK_STATE_U3:
 		dwc3_suspend_gadget(dwc);
 		break;
