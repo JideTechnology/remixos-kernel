@@ -274,7 +274,7 @@ static ssize_t disp_runtime_enable_store(struct device *dev,
 }
 
 
-static DEVICE_ATTR(runtime_enable, S_IRUGO|S_IWUSR|S_IWGRP,//S_IRUGO|S_IWUGO,
+static DEVICE_ATTR(runtime_enable, S_IRUGO|S_IWUGO,
     disp_runtime_enable_show, disp_runtime_enable_store);
 
 static struct attribute *disp_attributes[] = {
