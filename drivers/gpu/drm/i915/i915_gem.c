@@ -3352,8 +3352,9 @@ out:
  *
  * @obj: object which may be in use on another ring.
  * @to: ring we wish to use the object on. May be NULL.
- * @add_request: do we need to add a request to track operations
- *    submitted on ring with sync_to function
+ * @to_batch: is the sync request on behalf of batch buffer submission?
+ * If so then the scheduler can (potentially) manage the synchronisation
+ * but if not then the flush is not required.
  *
  * This code is meant to abstract object synchronization with the GPU.
  * Calling with NULL implies synchronizing the object with the CPU
@@ -3363,7 +3364,7 @@ out:
  */
 int
 i915_gem_object_sync(struct drm_i915_gem_object *obj,
-		     struct intel_engine_cs *to, bool add_request)
+		     struct intel_engine_cs *to, bool to_batch)
 {
 	struct intel_engine_cs *from;
 	u32 seqno;
@@ -3374,8 +3375,20 @@ i915_gem_object_sync(struct drm_i915_gem_object *obj,
 	if (from == NULL || to == from)
 		return 0;
 
-	if (to == NULL || !i915_semaphore_is_enabled(obj->base.dev))
-		return i915_gem_object_wait_rendering(obj, false);
+	if (to == NULL)
+		goto wait;
+
+	/*
+	 * The scheduler will manage inter-ring object dependencies
+	 * as long as both to and from requests are scheduler managed
+	 * (i.e. batch buffers).
+	 */
+	if (to_batch &&
+	    i915_scheduler_is_request_tracked(obj->last_read_req, NULL, NULL))
+		return 0;
+
+	if (!i915_semaphore_is_enabled(obj->base.dev))
+		goto wait;
 
 	idx = intel_ring_sync_index(from, to);
 
@@ -3396,11 +3409,14 @@ i915_gem_object_sync(struct drm_i915_gem_object *obj,
 		 */
 		from->semaphore.sync_seqno[idx] =
 				i915_gem_request_get_seqno(obj->last_read_req);
-		if (add_request)
+		if (!to_batch)
 			i915_add_request_no_flush(to);
 	}
 
 	return ret;
+
+wait:
+	return i915_gem_object_wait_rendering(obj, false);
 }
 
 static void i915_gem_object_finish_gtt(struct drm_i915_gem_object *obj)
@@ -4386,7 +4402,7 @@ i915_gem_object_pin_to_display_plane(struct drm_i915_gem_object *obj,
 	struct drm_device *dev = obj->base.dev;
 
 	if (pipelined != i915_gem_request_get_ring(obj->last_read_req)) {
-		ret = i915_gem_object_sync(obj, pipelined, true);
+		ret = i915_gem_object_sync(obj, pipelined, false);
 		if (ret)
 			return ret;
 	}

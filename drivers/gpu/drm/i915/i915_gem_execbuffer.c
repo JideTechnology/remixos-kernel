@@ -847,7 +847,7 @@ i915_gem_execbuffer_move_to_gpu(struct intel_engine_cs *ring,
 
 	list_for_each_entry(vma, vmas, exec_list) {
 		struct drm_i915_gem_object *obj = vma->obj;
-		ret = i915_gem_object_sync(obj, ring, false);
+		ret = i915_gem_object_sync(obj, ring, true);
 		if (ret)
 			return ret;
 
