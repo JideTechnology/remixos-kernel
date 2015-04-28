@@ -29,6 +29,9 @@
 #include <drm/drm_mipi_dsi.h>
 #include "intel_drv.h"
 
+#define PPS_BLC_PMIC   0
+#define PPS_BLC_SOC    1
+
 /* Dual Link support */
 #define DSI_DUAL_LINK_NONE		0
 #define DSI_DUAL_LINK_FRONT_BACK	1
@@ -41,6 +44,9 @@ struct intel_dsi {
 
 	struct drm_panel *panel;
 	struct intel_dsi_host *dsi_hosts[I915_MAX_PORTS];
+
+	/* GPIO Desc for CRC based Panel control */
+	struct gpio_desc *gpio_panel;
 
 	struct intel_connector *attached_connector;
 

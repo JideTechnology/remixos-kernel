@@ -28,6 +28,7 @@
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
+#include <linux/mmc/sdio.h>
 #include <linux/mmc/slot-gpio.h>
 
 #include "sdhci.h"
@@ -51,11 +52,11 @@ static void sdhci_finish_data(struct sdhci_host *);
 
 static void sdhci_finish_command(struct sdhci_host *);
 static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode);
-static void sdhci_tuning_timer(unsigned long data);
 static void sdhci_enable_preset_value(struct sdhci_host *host, bool enable);
 static int sdhci_pre_dma_transfer(struct sdhci_host *host,
 					struct mmc_data *data,
 					struct sdhci_host_next *next);
+static int sdhci_do_get_cd(struct sdhci_host *host);
 
 #ifdef CONFIG_PM
 static int sdhci_runtime_pm_get(struct sdhci_host *host);
@@ -252,17 +253,6 @@ static void sdhci_init(struct sdhci_host *host, int soft)
 static void sdhci_reinit(struct sdhci_host *host)
 {
 	sdhci_init(host, 0);
-	/*
-	 * Retuning stuffs are affected by different cards inserted and only
-	 * applicable to UHS-I cards. So reset these fields to their initial
-	 * value when card is removed.
-	 */
-	if (host->flags & SDHCI_USING_RETUNING_TIMER) {
-		host->flags &= ~SDHCI_USING_RETUNING_TIMER;
-
-		del_timer_sync(&host->tuning_timer);
-		host->flags &= ~SDHCI_NEEDS_RETUNING;
-	}
 	sdhci_enable_card_detection(host);
 }
 
@@ -734,6 +724,45 @@ static void sdhci_set_timeout(struct sdhci_host *host, struct mmc_command *cmd)
 	}
 }
 
+static bool sdhci_pm_qos_use_dma_latency(struct sdhci_host *host)
+{
+	return host->dma_latency != PM_QOS_DEFAULT_VALUE;
+}
+
+static void sdhci_pm_qos_set_dma_latency(struct sdhci_host *host,
+					 struct mmc_request *mrq)
+{
+	if (sdhci_pm_qos_use_dma_latency(host) && mrq->data &&
+	    (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA))) {
+		pm_qos_update_request(&host->pm_qos_req, host->dma_latency);
+		host->pm_qos_set = true;
+	}
+}
+
+static void sdhci_pm_qos_unset(struct sdhci_host *host)
+{
+	unsigned int delay;
+
+	if (host->pm_qos_set) {
+		host->pm_qos_set = false;
+		delay = host->consecutive_req ? host->lat_cancel_delay : 0;
+		pm_qos_cancel_request_lazy(&host->pm_qos_req, delay);
+	}
+}
+
+static void sdhci_pm_qos_add(struct sdhci_host *host)
+{
+	if (sdhci_pm_qos_use_dma_latency(host))
+		pm_qos_add_request(&host->pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
+				   PM_QOS_DEFAULT_VALUE);
+}
+
+static void sdhci_pm_qos_remove(struct sdhci_host *host)
+{
+	if (pm_qos_request_active(&host->pm_qos_req))
+		pm_qos_remove_request(&host->pm_qos_req);
+}
+
 static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 {
 	u8 ctrl;
@@ -931,7 +960,8 @@ static void sdhci_set_transfer_mode(struct sdhci_host *host,
 		 * If we are sending CMD23, CMD12 never gets sent
 		 * on successful completion (so no Auto-CMD12).
 		 */
-		if (!host->mrq->sbc && (host->flags & SDHCI_AUTO_CMD12))
+		if (!host->mrq->sbc && (host->flags & SDHCI_AUTO_CMD12) &&
+		    (cmd->opcode != SD_IO_RW_EXTENDED))
 			mode |= SDHCI_TRNS_AUTO_CMD12;
 		else if (host->mrq->sbc && (host->flags & SDHCI_AUTO_CMD23)) {
 			mode |= SDHCI_TRNS_AUTO_CMD23;
@@ -1350,13 +1380,15 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	struct sdhci_host *host;
 	int present;
 	unsigned long flags;
-	u32 tuning_opcode;
 
 	host = mmc_priv(mmc);
 
 	sdhci_runtime_pm_get(host);
 
-	present = mmc_gpio_get_cd(host->mmc);
+	sdhci_pm_qos_set_dma_latency(host, mrq);
+
+	/* Firstly check card presence */
+	present = sdhci_do_get_cd(host);
 
 	spin_lock_irqsave(&host->lock, flags);
 
@@ -1378,60 +1410,12 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	}
 
 	host->mrq = mrq;
-
-	/*
-	 * Firstly check card presence from cd-gpio.  The return could
-	 * be one of the following possibilities:
-	 *     negative: cd-gpio is not available
-	 *     zero: cd-gpio is used, and card is removed
-	 *     one: cd-gpio is used, and card is present
-	 */
-	if (present < 0) {
-		/* If polling, assume that the card is always present. */
-		if (host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION)
-			present = 1;
-		else
-			present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
-					SDHCI_CARD_PRESENT;
-	}
+	host->consecutive_req = 0;
 
 	if (!present || host->flags & SDHCI_DEVICE_DEAD) {
 		host->mrq->cmd->error = -ENOMEDIUM;
 		tasklet_schedule(&host->finish_tasklet);
 	} else {
-		u32 present_state;
-
-		present_state = sdhci_readl(host, SDHCI_PRESENT_STATE);
-		/*
-		 * Check if the re-tuning timer has already expired and there
-		 * is no on-going data transfer and DAT0 is not busy. If so,
-		 * we need to execute tuning procedure before sending command.
-		 */
-		if ((host->flags & SDHCI_NEEDS_RETUNING) &&
-		    !(present_state & (SDHCI_DOING_WRITE | SDHCI_DOING_READ)) &&
-		    (present_state & SDHCI_DATA_0_LVL_MASK)) {
-			if (mmc->card) {
-				/* eMMC uses cmd21 but sd and sdio use cmd19 */
-				tuning_opcode =
-					mmc->card->type == MMC_TYPE_MMC ?
-					MMC_SEND_TUNING_BLOCK_HS200 :
-					MMC_SEND_TUNING_BLOCK;
-
-				/* Here we need to set the host->mrq to NULL,
-				 * in case the pending finish_tasklet
-				 * finishes it incorrectly.
-				 */
-				host->mrq = NULL;
-
-				spin_unlock_irqrestore(&host->lock, flags);
-				sdhci_execute_tuning(mmc, tuning_opcode);
-				spin_lock_irqsave(&host->lock, flags);
-
-				/* Restore original mmc_request structure */
-				host->mrq = mrq;
-			}
-		}
-
 		if (mrq->sbc && !(host->flags & SDHCI_AUTO_CMD23))
 			sdhci_send_command(host, mrq->sbc);
 		else
@@ -2079,23 +2063,18 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	}
 
 out:
-	host->flags &= ~SDHCI_NEEDS_RETUNING;
-
 	if (tuning_count) {
-		host->flags |= SDHCI_USING_RETUNING_TIMER;
-		mod_timer(&host->tuning_timer, jiffies + tuning_count * HZ);
+		/*
+		 * In case tuning fails, host controllers which support
+		 * re-tuning can try tuning again at a later time, when the
+		 * re-tuning timer expires.  So for these controllers, we
+		 * return 0. Since there might be other controllers who do not
+		 * have this capability, we return error for them.
+		 */
+		err = 0;
 	}
 
-	/*
-	 * In case tuning fails, host controllers which support re-tuning can
-	 * try tuning again at a later time, when the re-tuning timer expires.
-	 * So for these controllers, we return 0. Since there might be other
-	 * controllers who do not have this capability, we return error for
-	 * them. SDHCI_USING_RETUNING_TIMER means the host is currently using
-	 * a retuning timer to do the retuning for the card.
-	 */
-	if (err && (host->flags & SDHCI_USING_RETUNING_TIMER))
-		err = 0;
+	host->mmc->retune_period = err ? 0 : tuning_count;
 
 	sdhci_writel(host, host->ier, SDHCI_INT_ENABLE);
 	sdhci_writel(host, host->ier, SDHCI_SIGNAL_ENABLE);
@@ -2106,6 +2085,18 @@ out_unlock:
 	return err;
 }
 
+static int sdhci_select_drive_strength(struct mmc_card *card,
+				       unsigned int max_dtr, int host_drv,
+				       int card_drv, int *drv_type)
+{
+	struct sdhci_host *host = mmc_priv(card->host);
+
+	if (!host->ops->select_drive_strength)
+		return 0;
+
+	return host->ops->select_drive_strength(host, card, max_dtr, host_drv,
+						card_drv, drv_type);
+}
 
 static void sdhci_enable_preset_value(struct sdhci_host *host, bool enable)
 {
@@ -2195,6 +2186,8 @@ static void sdhci_pre_req(struct mmc_host *mmc, struct mmc_request *mrq,
 {
 	struct sdhci_host *host = mmc_priv(mmc);
 
+	host->consecutive_req = 1;
+
 	if (mrq->data->host_cookie) {
 		mrq->data->host_cookie = 0;
 		return;
@@ -2250,6 +2243,7 @@ static const struct mmc_host_ops sdhci_ops = {
 	.start_signal_voltage_switch	= sdhci_start_signal_voltage_switch,
 	.prepare_hs400_tuning		= sdhci_prepare_hs400_tuning,
 	.execute_tuning			= sdhci_execute_tuning,
+	.select_drive_strength		= sdhci_select_drive_strength,
 	.card_event			= sdhci_card_event,
 	.card_busy	= sdhci_card_busy,
 };
@@ -2267,6 +2261,8 @@ static void sdhci_tasklet_finish(unsigned long param)
 	struct mmc_request *mrq;
 
 	host = (struct sdhci_host*)param;
+
+	sdhci_pm_qos_unset(host);
 
 	spin_lock_irqsave(&host->lock, flags);
 
@@ -2351,20 +2347,6 @@ static void sdhci_timeout_timer(unsigned long data)
 	spin_unlock_irqrestore(&host->lock, flags);
 }
 
-static void sdhci_tuning_timer(unsigned long data)
-{
-	struct sdhci_host *host;
-	unsigned long flags;
-
-	host = (struct sdhci_host *)data;
-
-	spin_lock_irqsave(&host->lock, flags);
-
-	host->flags |= SDHCI_NEEDS_RETUNING;
-
-	spin_unlock_irqrestore(&host->lock, flags);
-}
-
 /*****************************************************************************\
  *                                                                           *
  * Interrupt handling                                                        *
@@ -2386,8 +2368,10 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask, u32 *mask)
 	if (intmask & SDHCI_INT_TIMEOUT)
 		host->cmd->error = -ETIMEDOUT;
 	else if (intmask & (SDHCI_INT_CRC | SDHCI_INT_END_BIT |
-			SDHCI_INT_INDEX))
+			SDHCI_INT_INDEX)) {
 		host->cmd->error = -EILSEQ;
+		mmc_retune_needed(host->mmc);
+	}
 
 	if (host->cmd->error) {
 		tasklet_schedule(&host->finish_tasklet);
@@ -2512,13 +2496,15 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 
 	if (intmask & SDHCI_INT_DATA_TIMEOUT)
 		host->data->error = -ETIMEDOUT;
-	else if (intmask & SDHCI_INT_DATA_END_BIT)
+	else if (intmask & SDHCI_INT_DATA_END_BIT) {
 		host->data->error = -EILSEQ;
-	else if ((intmask & SDHCI_INT_DATA_CRC) &&
+		mmc_retune_needed(host->mmc);
+	} else if ((intmask & SDHCI_INT_DATA_CRC) &&
 		SDHCI_GET_CMD(sdhci_readw(host, SDHCI_COMMAND))
-			!= MMC_BUS_TEST_R)
+			!= MMC_BUS_TEST_R) {
 		host->data->error = -EILSEQ;
-	else if (intmask & SDHCI_INT_ADMA_ERROR) {
+		mmc_retune_needed(host->mmc);
+	} else if (intmask & SDHCI_INT_ADMA_ERROR) {
 		pr_err("%s: ADMA error\n", mmc_hostname(host->mmc));
 		sdhci_adma_show_error(host);
 		host->data->error = -EIO;
@@ -2742,11 +2728,8 @@ int sdhci_suspend_host(struct sdhci_host *host)
 {
 	sdhci_disable_card_detection(host);
 
-	/* Disable tuning since we are suspending */
-	if (host->flags & SDHCI_USING_RETUNING_TIMER) {
-		del_timer_sync(&host->tuning_timer);
-		host->flags &= ~SDHCI_NEEDS_RETUNING;
-	}
+	mmc_retune_timer_stop(host->mmc);
+	mmc_retune_needed(host->mmc);
 
 	if (!device_may_wakeup(mmc_dev(host->mmc))) {
 		host->ier = 0;
@@ -2796,10 +2779,6 @@ int sdhci_resume_host(struct sdhci_host *host)
 
 	sdhci_enable_card_detection(host);
 
-	/* Set the re-tuning expiration flag */
-	if (host->flags & SDHCI_USING_RETUNING_TIMER)
-		host->flags |= SDHCI_NEEDS_RETUNING;
-
 	return ret;
 }
 
@@ -2836,11 +2815,8 @@ int sdhci_runtime_suspend_host(struct sdhci_host *host)
 {
 	unsigned long flags;
 
-	/* Disable tuning since we are suspending */
-	if (host->flags & SDHCI_USING_RETUNING_TIMER) {
-		del_timer_sync(&host->tuning_timer);
-		host->flags &= ~SDHCI_NEEDS_RETUNING;
-	}
+	mmc_retune_timer_stop(host->mmc);
+	mmc_retune_needed(host->mmc);
 
 	spin_lock_irqsave(&host->lock, flags);
 	host->ier &= SDHCI_INT_CARD_INT;
@@ -2883,10 +2859,6 @@ int sdhci_runtime_resume_host(struct sdhci_host *host)
 		spin_unlock_irqrestore(&host->lock, flags);
 	}
 
-	/* Set the re-tuning expiration flag */
-	if (host->flags & SDHCI_USING_RETUNING_TIMER)
-		host->flags |= SDHCI_NEEDS_RETUNING;
-
 	spin_lock_irqsave(&host->lock, flags);
 
 	host->runtime_suspended = false;
@@ -2926,6 +2898,7 @@ struct sdhci_host *sdhci_alloc_host(struct device *dev,
 
 	host = mmc_priv(mmc);
 	host->mmc = mmc;
+	host->dma_latency = PM_QOS_DEFAULT_VALUE;
 
 	return host;
 }
@@ -3166,7 +3139,8 @@ int sdhci_add_host(struct sdhci_host *host)
 	/* Auto-CMD23 stuff only works in ADMA or PIO. */
 	if ((host->version >= SDHCI_SPEC_300) &&
 	    ((host->flags & SDHCI_USE_ADMA) ||
-	     !(host->flags & SDHCI_USE_SDMA))) {
+	     !(host->flags & SDHCI_USE_SDMA)) &&
+	     !(host->quirks2 & SDHCI_QUIRK2_ACMD23_BROKEN)) {
 		host->flags |= SDHCI_AUTO_CMD23;
 		DBG("%s: Auto-CMD23 available\n", mmc_hostname(mmc));
 	} else {
@@ -3411,6 +3385,8 @@ int sdhci_add_host(struct sdhci_host *host)
 	 */
 	mmc->max_blk_count = (host->quirks & SDHCI_QUIRK_NO_MULTIBLOCK) ? 1 : 65535;
 
+	sdhci_pm_qos_add(host);
+
 	/*
 	 * Init tasklets.
 	 */
@@ -3420,13 +3396,6 @@ int sdhci_add_host(struct sdhci_host *host)
 	setup_timer(&host->timer, sdhci_timeout_timer, (unsigned long)host);
 
 	init_waitqueue_head(&host->buf_ready_int);
-
-	if (host->version >= SDHCI_SPEC_300) {
-		/* Initialize re-tuning timer */
-		init_timer(&host->tuning_timer);
-		host->tuning_timer.data = (unsigned long)host;
-		host->tuning_timer.function = sdhci_tuning_timer;
-	}
 
 	sdhci_init(host, 0);
 
@@ -3481,6 +3450,7 @@ reset:
 #endif
 untasklet:
 	tasklet_kill(&host->finish_tasklet);
+	sdhci_pm_qos_remove(host);
 
 	return ret;
 }
@@ -3537,6 +3507,8 @@ void sdhci_remove_host(struct sdhci_host *host, int dead)
 
 	host->adma_table = NULL;
 	host->align_buffer = NULL;
+
+	sdhci_pm_qos_remove(host);
 }
 
 EXPORT_SYMBOL_GPL(sdhci_remove_host);

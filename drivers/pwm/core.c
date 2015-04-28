@@ -573,12 +573,29 @@ EXPORT_SYMBOL_GPL(of_pwm_get);
  * @table: array of consumers to register
  * @num: number of consumers in table
  */
-void __init pwm_add_table(struct pwm_lookup *table, size_t num)
+void pwm_add_table(struct pwm_lookup *table, size_t num)
 {
 	mutex_lock(&pwm_lookup_lock);
 
 	while (num--) {
 		list_add_tail(&table->list, &pwm_lookup_list);
+		table++;
+	}
+
+	mutex_unlock(&pwm_lookup_lock);
+}
+
+/**
+ * pwm_remove_table() - un-register PWM device consumers
+ * @table: array of consumers to un-register
+ * @num: number of consumers in table
+ */
+void pwm_remove_table(struct pwm_lookup *table, size_t num)
+{
+	mutex_lock(&pwm_lookup_lock);
+
+	while (num--) {
+		list_del(&table->list);
 		table++;
 	}
 

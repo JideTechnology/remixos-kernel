@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/device.h>
 #include <linux/mmc/host.h>
+#include <linux/mmc/mmc.h>
 #include <linux/scatterlist.h>
 #include <linux/io.h>
 #include <linux/gpio.h>
@@ -266,6 +267,75 @@ static void sdhci_pci_int_hw_reset(struct sdhci_host *host)
 	usleep_range(300, 1000);
 }
 
+static int spt_select_drive_strength(struct sdhci_host *host,
+				     struct mmc_card *card,
+				     unsigned int max_dtr,
+				     int host_drv, int card_drv, int *drv_type)
+{
+	int drive_strength;
+
+	if (sdhci_pci_spt_drive_strength > 0)
+		drive_strength = sdhci_pci_spt_drive_strength & 0xf;
+	else
+		drive_strength = 1; /* 33-ohm */
+
+	if ((mmc_driver_type_mask(drive_strength) & card_drv) == 0)
+		drive_strength = 0; /* Default 50-ohm */
+
+	return drive_strength;
+}
+
+/* Try to read the drive strength from the card */
+static void spt_read_drive_strength(struct sdhci_host *host)
+{
+	u32 val, i, t;
+	u16 m;
+
+	if (sdhci_pci_spt_drive_strength)
+		return;
+
+	sdhci_pci_spt_drive_strength = -1;
+
+	m = sdhci_readw(host, SDHCI_HOST_CONTROL2) & 0x7;
+	if (m != 3 && m != 5)
+		return;
+	val = sdhci_readl(host, SDHCI_PRESENT_STATE);
+	if (val & 0x3)
+		return;
+	sdhci_writel(host, 0x007f0023, SDHCI_INT_ENABLE);
+	sdhci_writel(host, 0, SDHCI_SIGNAL_ENABLE);
+	sdhci_writew(host, 0x10, SDHCI_TRANSFER_MODE);
+	sdhci_writeb(host, 0xe, SDHCI_TIMEOUT_CONTROL);
+	sdhci_writew(host, 512, SDHCI_BLOCK_SIZE);
+	sdhci_writew(host, 1, SDHCI_BLOCK_COUNT);
+	sdhci_writel(host, 0, SDHCI_ARGUMENT);
+	sdhci_writew(host, 0x83b, SDHCI_COMMAND);
+	for (i = 0; i < 1000; i++) {
+		val = sdhci_readl(host, SDHCI_INT_STATUS);
+		if (val & 0xffff8000)
+			return;
+		if (val & 0x20)
+			break;
+		udelay(1);
+	}
+	val = sdhci_readl(host, SDHCI_PRESENT_STATE);
+	if (!(val & 0x800))
+		return;
+	for (i = 0; i < 47; i++)
+		val = sdhci_readl(host, SDHCI_BUFFER);
+	t = val & 0xf00;
+	if (t != 0x200 && t != 0x300)
+		return;
+
+	sdhci_pci_spt_drive_strength = 0x10 | ((val >> 12) & 0xf);
+}
+
+static void byt_set_dma_latency(struct sdhci_host *host)
+{
+	host->dma_latency = 20;
+	host->lat_cancel_delay = 275;
+}
+
 static int byt_emmc_probe_slot(struct sdhci_pci_slot *slot)
 {
 	slot->host->mmc->caps |= MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE |
@@ -274,8 +344,15 @@ static int byt_emmc_probe_slot(struct sdhci_pci_slot *slot)
 				 MMC_CAP_WAIT_WHILE_BUSY;
 	slot->host->mmc->caps2 |= MMC_CAP2_HC_ERASE_SZ;
 	slot->hw_reset = sdhci_pci_int_hw_reset;
+	if (slot->chip->pdev->device == PCI_DEVICE_ID_INTEL_BYT_EMMC ||
+	    slot->chip->pdev->device == PCI_DEVICE_ID_INTEL_BYT_EMMC2)
+		byt_set_dma_latency(slot->host);
 	if (slot->chip->pdev->device == PCI_DEVICE_ID_INTEL_BSW_EMMC)
 		slot->host->timeout_clk = 1000; /* 1000 kHz i.e. 1 MHz */
+	if (slot->chip->pdev->device == PCI_DEVICE_ID_INTEL_SPT_EMMC) {
+		spt_read_drive_strength(slot->host);
+		slot->select_drive_strength = spt_select_drive_strength;
+	}
 	return 0;
 }
 
@@ -284,6 +361,8 @@ static int byt_sdio_probe_slot(struct sdhci_pci_slot *slot)
 	slot->host->mmc->caps |= MMC_CAP_POWER_OFF_CARD | MMC_CAP_NONREMOVABLE |
 				 MMC_CAP_BUS_WIDTH_TEST |
 				 MMC_CAP_WAIT_WHILE_BUSY;
+	if (slot->chip->pdev->device == PCI_DEVICE_ID_INTEL_BYT_SDIO)
+		byt_set_dma_latency(slot->host);
 	return 0;
 }
 
@@ -294,6 +373,8 @@ static int byt_sd_probe_slot(struct sdhci_pci_slot *slot)
 	slot->cd_con_id = NULL;
 	slot->cd_idx = 0;
 	slot->cd_override_level = true;
+	if (slot->chip->pdev->device == PCI_DEVICE_ID_INTEL_BYT_SD)
+		byt_set_dma_latency(slot->host);
 	return 0;
 }
 
@@ -302,6 +383,7 @@ static const struct sdhci_pci_fixes sdhci_intel_byt_emmc = {
 	.probe_slot	= byt_emmc_probe_slot,
 	.quirks		= SDHCI_QUIRK_NO_ENDATTR_IN_NOPDESC,
 	.quirks2	= SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
+			  SDHCI_QUIRK2_CAPS_BIT63_FOR_HS400 |
 			  SDHCI_QUIRK2_STOP_WITH_TC,
 };
 
@@ -650,6 +732,7 @@ static int rtsx_probe_slot(struct sdhci_pci_slot *slot)
 
 static const struct sdhci_pci_fixes sdhci_rtsx = {
 	.quirks2	= SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
+			SDHCI_QUIRK2_BROKEN_64_BIT_DMA |
 			SDHCI_QUIRK2_BROKEN_DDR50,
 	.probe_slot	= rtsx_probe_slot,
 };
@@ -1202,6 +1285,20 @@ static void sdhci_pci_hw_reset(struct sdhci_host *host)
 		slot->hw_reset(host);
 }
 
+static int sdhci_pci_select_drive_strength(struct sdhci_host *host,
+					   struct mmc_card *card,
+					   unsigned int max_dtr, int host_drv,
+					   int card_drv, int *drv_type)
+{
+	struct sdhci_pci_slot *slot = sdhci_priv(host);
+
+	if (!slot->select_drive_strength)
+		return 0;
+
+	return slot->select_drive_strength(host, card, max_dtr, host_drv,
+					   card_drv, drv_type);
+}
+
 static const struct sdhci_ops sdhci_pci_ops = {
 	.set_clock	= sdhci_set_clock,
 	.enable_dma	= sdhci_pci_enable_dma,
@@ -1209,6 +1306,7 @@ static const struct sdhci_ops sdhci_pci_ops = {
 	.reset		= sdhci_reset,
 	.set_uhs_signaling = sdhci_set_uhs_signaling,
 	.hw_reset		= sdhci_pci_hw_reset,
+	.select_drive_strength	= sdhci_pci_select_drive_strength,
 };
 
 /*****************************************************************************\

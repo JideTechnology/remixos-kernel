@@ -31,6 +31,7 @@
 #include <drm/drm_panel.h>
 #include <drm/drm_mipi_dsi.h>
 #include <linux/slab.h>
+#include <linux/gpio/consumer.h>
 #include "i915_drv.h"
 #include "intel_drv.h"
 #include "intel_dsi.h"
@@ -401,6 +402,8 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 
 		intel_dsi_port_enable(encoder);
 	}
+
+	intel_panel_enable_backlight(intel_dsi->attached_connector);
 }
 
 static void intel_dsi_pre_enable(struct intel_encoder *encoder)
@@ -414,6 +417,12 @@ static void intel_dsi_pre_enable(struct intel_encoder *encoder)
 	u32 tmp;
 
 	DRM_DEBUG_KMS("\n");
+
+	/* Panel Enable over CRC PMIC */
+	if (intel_dsi->gpio_panel)
+		gpiod_set_value_cansleep(intel_dsi->gpio_panel, 1);
+
+	msleep(intel_dsi->panel_on_delay);
 
 	/* Disable DPOunit clock gating, can stall pipe
 	 * and we need DPLL REFA always enabled */
@@ -431,8 +440,6 @@ static void intel_dsi_pre_enable(struct intel_encoder *encoder)
 
 	/* put device in ready state */
 	intel_dsi_device_ready(encoder);
-
-	msleep(intel_dsi->panel_on_delay);
 
 	drm_panel_prepare(intel_dsi->panel);
 
@@ -460,6 +467,8 @@ static void intel_dsi_pre_disable(struct intel_encoder *encoder)
 	enum port port;
 
 	DRM_DEBUG_KMS("\n");
+
+	intel_panel_disable_backlight(intel_dsi->attached_connector);
 
 	if (is_vid_mode(intel_dsi)) {
 		/* Send Shutdown command to the panel in LP mode */
@@ -576,6 +585,10 @@ static void intel_dsi_post_disable(struct intel_encoder *encoder)
 
 	msleep(intel_dsi->panel_off_delay);
 	msleep(intel_dsi->panel_pwr_cycle_delay);
+
+	/* Panel Disable over CRC PMIC */
+	if (intel_dsi->gpio_panel)
+		gpiod_set_value_cansleep(intel_dsi->gpio_panel, 0);
 }
 
 static bool intel_dsi_get_hw_state(struct intel_encoder *encoder,
@@ -955,6 +968,11 @@ static void intel_dsi_encoder_destroy(struct drm_encoder *encoder)
 		/* XXX: Logically this call belongs in the panel driver. */
 		drm_panel_remove(intel_dsi->panel);
 	}
+
+	/* dispose of the gpios */
+	if (intel_dsi->gpio_panel)
+		gpiod_put(intel_dsi->gpio_panel);
+
 	intel_encoder_destroy(encoder);
 }
 
@@ -1070,6 +1088,20 @@ void intel_dsi_init(struct drm_device *dev)
 		goto err;
 	}
 
+	/*
+	 * In case of BYT with CRC PMIC, we need to use GPIO for
+	 * Panel control.
+	 */
+	if (dev_priv->vbt.dsi.config->pwm_blc == PPS_BLC_PMIC) {
+		intel_dsi->gpio_panel =
+			gpiod_get(dev->dev, "panel", GPIOD_OUT_HIGH);
+
+		if (IS_ERR(intel_dsi->gpio_panel)) {
+			DRM_ERROR("Failed to own gpio for panel control\n");
+			intel_dsi->gpio_panel = NULL;
+		}
+	}
+
 	intel_encoder->type = INTEL_OUTPUT_DSI;
 	intel_encoder->cloneable = 0;
 	drm_connector_init(dev, connector, &intel_dsi_connector_funcs,
@@ -1103,6 +1135,8 @@ void intel_dsi_init(struct drm_device *dev)
 	}
 
 	intel_panel_init(&intel_connector->panel, fixed_mode, NULL);
+	intel_panel_setup_backlight(connector,
+		(intel_encoder->crtc_mask = (1 << PIPE_A)) ? PIPE_A: PIPE_B);
 
 	return;
 
