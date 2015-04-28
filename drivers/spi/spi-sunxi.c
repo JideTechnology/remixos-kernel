@@ -1455,7 +1455,9 @@ static int sunxi_spi_clk_exit(struct sunxi_spi *sspi)
 static int sunxi_spi_hw_init(struct sunxi_spi *sspi, struct sunxi_spi_platform_data *pdata)
 {
 	void __iomem *base_addr = sspi->base_addr;
+	u32 sclk_freq_def = 0;
 	int sclk_freq = 0;
+	int ret;
 
 	if (spi_regulator_request(pdata) < 0) {
 		SPI_ERR("[spi-%d] request regulator failed!\n", sspi->master->bus_num);
@@ -1468,7 +1470,13 @@ static int sunxi_spi_hw_init(struct sunxi_spi *sspi, struct sunxi_spi_platform_d
         	return -1;
 	}
 	
-	sclk_freq = sunxi_spi_clk_init(sspi, 100000000);
+	ret = of_property_read_u32(sspi->pdev->dev.of_node, "clock-frequency", &sclk_freq_def);
+	if (ret) {
+		SPI_ERR("[spi-%d] Get clock-frequency property failed\n", sspi->master->bus_num);
+		return -1;
+	}
+
+	sclk_freq = sunxi_spi_clk_init(sspi, sclk_freq_def);
 	if (sclk_freq < 0) {
 		SPI_ERR("[spi-%d] sunxi_spi_clk_init(%s) failed!\n", sspi->master->bus_num, sspi->dev_name);
 		return -1;

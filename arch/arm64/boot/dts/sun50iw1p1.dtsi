@@ -770,6 +770,7 @@
 			reg = <0x0 0x01c68000 0x0 0x1000>;
 			interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_pll_periph0>, <&clk_spi0>;
+			clock-frequency = <100000000>;
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&spi0_pins_a &spi0_pins_b>;
 			pinctrl-1 = <&spi0_pins_c>;
@@ -786,6 +787,7 @@
 			reg = <0x0 0x01c69000 0x0 0x1000>;
 			interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_pll_periph0>, <&clk_spi1>;
+			clock-frequency = <100000000>;
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&spi1_pins_a &spi1_pins_b>;
 			pinctrl-1 = <&spi1_pins_c>;
