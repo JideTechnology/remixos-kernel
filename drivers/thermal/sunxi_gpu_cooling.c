@@ -183,7 +183,7 @@ static int sunxi_gpu_cooling_probe(struct platform_device *pdev)
 	spin_lock_init(&gpu_cool_dev->lock);
 	main_cooling = gpu_cool_dev;
 
-	gpu_cool_dev->cooling_state = 0;
+	gpu_cool_dev->cooling_state = -1;
 	dev_set_drvdata(&pdev->dev, gpu_cool_dev);
 
 	pr_info("CPU gpu cooling register Success\n");
