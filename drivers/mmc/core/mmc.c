@@ -24,7 +24,7 @@
 #include "sd_ops.h"
 
 //
-#define   SELECT_DRV_TYPE	EXT_CSD_DRIVER_STRENGTH_TYPE1
+#define   SELECT_DRV_TYPE	EXT_CSD_DRIVER_STRENGTH_TYPE0
 //#define   CHECK_HSTIIMING
 
 
