@@ -1189,7 +1189,8 @@ static irqreturn_t pmic_thread_handler(int id, void *data)
 			evt->battemp_int_stat, evt->misc_int,
 			evt->misc_int_stat);
 
-	schedule_work(&chc.evt_work);
+
+	schedule_delayed_work(&chc.evt_work, msecs_to_jiffies(100));
 	return IRQ_HANDLED;
 }
 
@@ -1532,7 +1533,7 @@ static int pmic_check_initial_events(void)
 	mutex_lock(&chc.evt_queue_lock);
 	list_add_tail(&evt->node, &chc.evt_queue);
 	mutex_unlock(&chc.evt_queue_lock);
-	schedule_work(&chc.evt_work);
+	schedule_delayed_work(&chc.evt_work, 0);
 
 	pmic_bat_zone_changed();
 
@@ -1787,7 +1788,7 @@ static int pmic_chrgr_probe(struct platform_device *pdev)
 		goto otg_req_failed;
 	}
 
-	INIT_WORK(&chc.evt_work, pmic_event_worker);
+	INIT_DELAYED_WORK(&chc.evt_work, pmic_event_worker);
 	INIT_LIST_HEAD(&chc.evt_queue);
 	mutex_init(&chc.evt_queue_lock);
 
