@@ -339,7 +339,9 @@ static void do_vbus1_id1(struct usb_scan_info *info)
 			}
 
 			device_insmod_delay = 0;
+#if defined(CONFIG_USB_G_ANDROID) || defined (CONFIG_USB_MASS_STORAGE)
 			if(get_usb_gadget_functions())
+#endif
 				hw_insmod_usb_device();
 		}
 #else
