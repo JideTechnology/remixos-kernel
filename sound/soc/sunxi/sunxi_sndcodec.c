@@ -53,7 +53,7 @@ struct mc_private {
 };
 
 static int  switch_state 		= 0;
-
+static struct snd_soc_dai *card0_device0_interface;
 /* Identify the jack type as Headset/Headphone/None */
 static int sunxi_check_jack_type(struct snd_soc_jack *jack)
 {
@@ -70,6 +70,14 @@ static int sunxi_check_jack_type(struct snd_soc_jack *jack)
 		tempdata = tempdata>>8;
 		flag++;
 	}
+	if (flag == 20 ) {
+		snd_soc_update_bits(ctx->codec, JACK_MIC_CTRL, (0x1<<HMICBIASEN), (0x0<<HMICBIASEN));
+		snd_soc_update_bits(ctx->codec, JACK_MIC_CTRL, (0x1<<MICADCEN), (0x0<<MICADCEN));
+		snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0x1<<JACK_IN_IRQ_EN), (0x1<<JACK_IN_IRQ_EN));
+		jack_type = 0;
+		return jack_type;
+	}
+
 	pr_debug("tempdata:%x,ctx->HEADSET_DATA:%x,reg_val:%x\n",tempdata,ctx->HEADSET_DATA,reg_val);
 
 	ctx->headset_basedata = tempdata;
@@ -261,7 +269,7 @@ static const struct snd_kcontrol_new ac_pin_controls[] = {
 	SOC_DAPM_PIN_SWITCH("External Speaker"),
 	SOC_DAPM_PIN_SWITCH("Headphone"),
 	SOC_DAPM_PIN_SWITCH("Earpiece"),
-	SOC_DAPM_PIN_SWITCH("src clk"),
+	//SOC_DAPM_PIN_SWITCH("src clk"),
 };
 
 static const struct snd_soc_dapm_widget sunxi_ac_dapm_widgets[] = {
@@ -290,6 +298,7 @@ static int sunxi_audio_init(struct snd_soc_pcm_runtime *runtime)
 	struct snd_soc_codec *codec = runtime->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct mc_private *ctx = snd_soc_card_get_drvdata(runtime->card);
+	card0_device0_interface = runtime->cpu_dai;
 	ctx->codec = runtime->codec;
 
 	ret = snd_soc_jack_new(ctx->codec, "sunxi Audio Jack",
@@ -313,7 +322,7 @@ static int sunxi_audio_init(struct snd_soc_pcm_runtime *runtime)
 	snd_soc_dapm_disable_pin(&runtime->card->dapm,	"External Speaker");
 	snd_soc_dapm_disable_pin(&runtime->card->dapm,	"Headphone");
 	snd_soc_dapm_disable_pin(&runtime->card->dapm,	"Earpiece");
-	snd_soc_dapm_disable_pin(&runtime->card->dapm,	"src clk");
+	//snd_soc_dapm_disable_pin(&runtime->card->dapm,	"src clk");
 	snd_soc_dapm_sync(dapm);
 	return 0;
 }
@@ -400,12 +409,21 @@ static int bb_voice_hw_params(struct snd_pcm_substream *substream,
 	int ret = 0;
 	int freq_in = 24576000;
 	if (params_rate(params) != 8000)
-		return -EINVAL;
+		pr_warning("%s,line:%d,params_rate(params):%d\n",__func__,__LINE__,params_rate(params));
+
 	ctx = snd_soc_card_get_drvdata(card);
 	if (ctx == NULL ){
 		pr_err("err:%s,get ctx failed.\n",__func__);
 		return -EINVAL;
 	}
+
+	/*set system clock source freq */
+	ret = snd_soc_dai_set_sysclk(card0_device0_interface, 0, freq_in, 0);
+	if (ret < 0) {
+		pr_err("err:%s,set cpu dai sysclk failed.\n", __func__);
+		return ret;
+	}
+
 	/* set the codec aif1clk/aif2clk from pllclk */
 	ret = snd_soc_dai_set_pll(codec_dai, PLLCLK, 0, freq_in,freq_in);
 	if (ret < 0) {
@@ -440,11 +458,18 @@ static int bb_clk_hw_params(struct snd_pcm_substream *substream,
 	int ret = 0;
 	int freq_in = 24576000;
 	if (params_rate(params) != 8000)
-		return -EINVAL;
+		pr_warning("%s,line:%d,params_rate(params):%d\n",__func__,__LINE__,params_rate(params));
+
 	ctx = snd_soc_card_get_drvdata(card);
 	if (ctx == NULL ){
 		pr_err("err:%s,get ctx failed.\n",__func__);
 		return -EINVAL;
+	}
+	/*set system clock source freq */
+	ret = snd_soc_dai_set_sysclk(card0_device0_interface, 0, freq_in, 0);
+	if (ret < 0) {
+		pr_err("err:%s,set cpu dai sysclk failed.\n", __func__);
+		return ret;
 	}
 	/* set the codec aif1clk/aif2clk from pllclk */
 	ret = snd_soc_dai_set_pll(codec_dai, PLLCLK, 0, freq_in,freq_in);
@@ -477,7 +502,7 @@ static int bt_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_card *card = rtd->card;
 	int ret = 0;
 	if (params_rate(params) != 8000)
-		return -EINVAL;
+		pr_warning("%s,line:%d,params_rate(params):%d\n",__func__,__LINE__,params_rate(params));
 	ctx = snd_soc_card_get_drvdata(card);
 	if (ctx == NULL ){
 		pr_err("err:%s,get ctx failed.\n",__func__);
@@ -604,12 +629,12 @@ static struct snd_soc_dai_driver voice_dai[] = {
 		.playback = {
 			.channels_min = 1,
 			.channels_max = 2,
-			.rates = SNDRV_PCM_RATE_8000,
+			.rates = SNDRV_PCM_RATE_8000_48000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE,},
 		.capture = {
 			.channels_min = 1,
 			.channels_max = 2,
-			.rates = SNDRV_PCM_RATE_8000,
+			.rates = SNDRV_PCM_RATE_8000_48000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE,},
 	},
 	{
