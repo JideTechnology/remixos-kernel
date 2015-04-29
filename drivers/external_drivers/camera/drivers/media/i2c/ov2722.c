@@ -293,7 +293,7 @@ static int ov2722_get_intg_factor(struct i2c_client *client,
 				const struct ov2722_resolution *res)
 {
 	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct ov2722_device *dev = to_ov2722_sensor(sd);
+	struct ov2722_device *dev = NULL;
 	struct atomisp_sensor_mode_data *buf = &info->data;
 	const unsigned int ext_clk_freq_hz = 19200000;
 	const unsigned int pll_invariant_div = 10;
@@ -306,6 +306,8 @@ static int ov2722_get_intg_factor(struct i2c_client *client,
 
 	if (info == NULL)
 		return -EINVAL;
+
+	dev = to_ov2722_sensor(sd);
 
 	/* pixel clock calculattion */
 	ret =  ov2722_read_reg(client, OV2722_8BIT,
