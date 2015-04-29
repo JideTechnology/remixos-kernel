@@ -504,9 +504,10 @@ int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 		timeout_ms = MMC_OPS_TIMEOUT_MS;
 
 #ifdef CONFIG_ARCH_SUNXI
-	/*Here we multi the timemout for that we will used mmc_set_clock to reset timing before send status*/
+	/*Here we limit timemout over 1 minute for that we will used mmc_set_clock to reset timing before send status*/
 	/*mmc_set_clock will use some time,which wll cause timeout and "Card stuck in programming state" err*/
-	timeout_ms*=2;
+	if(timeout_ms<(1*60*1000))
+		timeout_ms = (1*60*1000);
 #endif
 
 	/* Must check status to be sure of no errors. */
