@@ -235,6 +235,7 @@ struct atomisp_subdev_params {
 	uint32_t metadata_width_size;
 
 	struct ia_css_dvs2_statistics *dvs_stat;
+	struct atomisp_css_dvs_6axis *dvs_6axis;
 	uint32_t exp_id;
 	int  dvs_hor_coef_bytes;
 	int  dvs_ver_coef_bytes;
