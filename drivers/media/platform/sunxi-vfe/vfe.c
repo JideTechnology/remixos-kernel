@@ -28,7 +28,7 @@
 #include <media/v4l2-common.h>
 #include <media/v4l2-mediabus.h>
 #include <media/v4l2-subdev.h>
-#include <media/videobuf-dma-contig.h>
+#include <media/videobuf2-dma-contig.h>
 
 #include <linux/regulator/consumer.h>
 
@@ -56,7 +56,6 @@
 #define VFE_VERSION \
   KERNEL_VERSION(VFE_MAJOR_VERSION, VFE_MINOR_VERSION, VFE_RELEASE)
 #define VFE_MODULE_NAME "sunxi_vfe"
-//#define REG_DBG_EN
 
 #define MCLK_OUT_RATE   (24*1000*1000)
 #define MAX_FRAME_MEM   (150*1024*1024)
@@ -843,14 +842,14 @@ static inline void vfe_set_addr(struct vfe_dev *dev,struct vfe_buffer *buffer)
 {
 	struct vfe_buffer *buf = buffer;  
 	dma_addr_t addr_org;
-	struct videobuf_buffer *vb_buf = &buf->vb;
-	if(vb_buf == NULL || vb_buf->priv == NULL)
+	struct vb2_buffer *vb_buf = &buf->vb;
+	if(vb_buf == NULL || vb_buf->planes[0].mem_priv == NULL)
 	{
-		vfe_err("videobuf_buffer->priv is NULL!\n");
+		vfe_err("vb_buf->priv is NULL!\n");
 		return;
 	}
 	//vfe_dbg(3,"buf ptr=%p\n",buf);
-	addr_org = videobuf_to_dma_contig(vb_buf) - CPU_DRAM_PADDR_ORG + HW_DMA_OFFSET;
+	addr_org = vb2_dma_contig_plane_dma_addr(vb_buf, 0) - CPU_DRAM_PADDR_ORG + HW_DMA_OFFSET;
 	//isp_addr_curr = vfe_reg_readl((volatile void __iomem*)(0xf1cb8210));
 	//if(isp_addr_pst != isp_addr_curr)
 	//{
@@ -862,7 +861,6 @@ static inline void vfe_set_addr(struct vfe_dev *dev,struct vfe_buffer *buffer)
 	} else {
 		bsp_csi_set_addr(dev->vip_sel, addr_org);
 	}
-	buf->image_quality = dev->isp_3a_result_pt->image_quality.dwval;
 	vfe_dbg(3,"csi_buf_addr_orginal=%llx\n", addr_org);
 }
 
@@ -1308,7 +1306,6 @@ static irqreturn_t vfe_isr(int irq, void *priv)
 	frame_cnt++;
 
 	FUNCTION_LOG;
-	//spin_lock(&dev->slock);    
 	spin_lock_irqsave(&dev->slock, flags);
 	FUNCTION_LOG;
     
@@ -1347,10 +1344,9 @@ isp_exp_handle:
 		else
 			bsp_csi_int_disable(dev->vip_sel, dev->cur_ch,CSI_INT_CAPTURE_DONE);
 		vfe_print("capture image mode!\n"); 
-		buf = list_entry(dma_q->active.next,struct vfe_buffer, vb.queue);
-		list_del(&buf->vb.queue);
-		buf->vb.state = VIDEOBUF_DONE;
-		wake_up(&buf->vb.done);
+		buf = list_entry(dma_q->active.next,struct vfe_buffer, list);
+		list_del(&buf->list);
+		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_DONE);
 		goto unlock;  
 	} else {
 		if(dev->is_isp_used)
@@ -1373,27 +1369,24 @@ isp_exp_handle:
 			dev->first_flag=0;
 			goto unlock;  
 		}
-		buf = list_entry(dma_q->active.next,struct vfe_buffer, vb.queue);
+		buf = list_entry(dma_q->active.next,struct vfe_buffer, list);
 
 		/* Nobody is waiting on this buffer*/ 
-		if (!waitqueue_active(&buf->vb.done)) {
+		if (!waitqueue_active(&buf->vb.vb2_queue->done_wq)) {
 			vfe_warn(" Nobody is waiting on this video buffer,buf = 0x%p\n",buf);		   
 		}
-		list_del(&buf->vb.queue);
-		do_gettimeofday(&buf->vb.ts);
-		buf->vb.field_count++;
+		list_del(&buf->list);
+		v4l2_get_timestamp(&buf->vb.v4l2_buf.timestamp);
 
-		vfe_dbg(2,"video buffer frame interval = %ld\n",buf->vb.ts.tv_sec*1000000+buf->vb.ts.tv_usec - (dev->sec*1000000+dev->usec));
-		dev->sec = buf->vb.ts.tv_sec;
-		dev->usec = buf->vb.ts.tv_usec;
+		vfe_dbg(2,"video buffer frame interval = %ld\n",buf->vb.v4l2_buf.timestamp.tv_sec*1000000+buf->vb.v4l2_buf.timestamp.tv_usec 
+			- (dev->sec*1000000+dev->usec));
+		dev->sec = buf->vb.v4l2_buf.timestamp.tv_sec;
+		dev->usec = buf->vb.v4l2_buf.timestamp.tv_usec;
 		dev->ms += jiffies_to_msecs(jiffies - dev->jiffies);
 		dev->jiffies = jiffies;
  		buf->vb.image_quality = dev->isp_3a_result_pt->image_quality.dwval;
 
-		buf->vb.state = VIDEOBUF_DONE;
-		buf->image_quality = dev->isp_3a_result_pt->image_quality.dwval;
-		wake_up(&buf->vb.done);
-
+		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_DONE);
 		//isp_stat_handle:
 
 		if(dev->is_isp_used && dev->is_bayer_raw) {
@@ -1458,16 +1451,14 @@ set_isp_stat_addr:
 		bsp_isp_set_statistics_addr((unsigned long)(stat_buf_pt->dma_addr));
 	}
 set_next_output_addr:
-	//buf = list_entry(dma_q->active.next->next,struct vfe_buffer, vb.queue);  
 	if (list_empty(&dma_q->active) || dma_q->active.next->next == (&dma_q->active) ) {
 		vfe_print("No active queue to serve\n");
 		goto unlock;
 	}
-	buf = list_entry(dma_q->active.next->next,struct vfe_buffer, vb.queue);
+	buf = list_entry(dma_q->active.next->next,struct vfe_buffer, list);
 	vfe_set_addr(dev,buf);
   
 unlock:
-	//spin_unlock(&dev->slock);
 	spin_unlock_irqrestore(&dev->slock, flags);
 
 	if ( ( (dev->capture_mode == V4L2_MODE_VIDEO)||(dev->capture_mode == V4L2_MODE_PREVIEW) )
@@ -1497,119 +1488,143 @@ unlock:
 /*
  * Videobuf operations
  */
-static int buffer_setup(struct videobuf_queue *vq, unsigned int *count, unsigned int *size)
+static int queue_setup(struct vb2_queue *vq, const struct v4l2_format *fmt,
+				unsigned int *nbuffers, unsigned int *nplanes,
+				unsigned int sizes[], void *alloc_ctxs[])
 {
-	struct vfe_dev *dev = vq->priv_data;
+	struct vfe_dev *dev = vb2_get_drv_priv(vq);
+	unsigned int size;
 	int buf_max_flag = 0;
   
-	vfe_dbg(1,"buffer_setup\n");
+	vfe_dbg(1,"queue_setup\n");
   
-	*size = dev->buf_byte_size;
+	size = dev->buf_byte_size;
+
+	if (size == 0)
+		return -EINVAL;
   
-	while (*size * *count > MAX_FRAME_MEM) {
-		(*count)--;
+	if (0 == *nbuffers)
+		*nbuffers = 8;
+  
+	while (size * *nbuffers > MAX_FRAME_MEM) {
+		(*nbuffers)--;
 		buf_max_flag = 1;
-		if(*count == 0)
-			vfe_err("one buffer size larger than max frame memory! buffer count = %d\n,",*count);
+		if(*nbuffers == 0)
+			vfe_err("one buffer size larger than max frame memory! buffer count = %d\n,",*nbuffers);
 	} 
   
 	if(buf_max_flag == 0) {
 		if(dev->capture_mode == V4L2_MODE_IMAGE) {
-			if (*count != 1) {
-				*count = 1;
+			if (*nbuffers != 1) {
+				*nbuffers = 1;
 				vfe_err("buffer count is set to 1 in image capture mode\n");
 			}
 		} else {
-			if (*count < 3) {
-				*count = 3;
+			if (*nbuffers < 3) {
+				*nbuffers = 3;
 				vfe_err("buffer count is invalid, set to 3 in video capture\n");
 			}
 		}
 	}
 
-	vfe_print("%s, buffer count=%d, size=%d\n", __func__,*count, *size);
+ 	*nplanes = 1;
+	sizes[0] = size; 
+	alloc_ctxs[0] = dev->alloc_ctx;
+
+	vfe_print("%s, buffer count=%d, size=%d\n", __func__,*nbuffers, size);
 
 	return 0;
 }
 
-static void free_buffer(struct videobuf_queue *vq, struct vfe_buffer *buf)
+static int buffer_prepare(struct vb2_buffer *vb)
 {
-	vfe_dbg(1,"%s, state: %i\n", __func__, buf->vb.state);
-	videobuf_waiton(vq, &buf->vb, 0, 0);	
-	videobuf_dma_contig_free(vq, &buf->vb);
-	vfe_dbg(1,"free_buffer: freed\n");
-	buf->vb.state = VIDEOBUF_NEEDS_INIT;
-}
-
-static int buffer_prepare(struct videobuf_queue *vq, struct videobuf_buffer *vb,
-              enum v4l2_field field)
-{
-	struct vfe_dev *dev = vq->priv_data;
+	struct vfe_dev *dev = vb2_get_drv_priv(vb->vb2_queue);
 	struct vfe_buffer *buf = container_of(vb, struct vfe_buffer, vb);
-	int rc;
+	unsigned long size;
 
 	vfe_dbg(1,"buffer_prepare\n");
-
-	//BUG_ON(NULL == dev->fmt);
 
 	if (dev->width < MIN_WIDTH || dev->width  > MAX_WIDTH ||
 						dev->height < MIN_HEIGHT || dev->height > MAX_HEIGHT) {
 		return -EINVAL;
 	}
   
-	buf->vb.size = dev->buf_byte_size;      
+	size = dev->buf_byte_size;      
   
-	if (0 != buf->vb.baddr && buf->vb.bsize < buf->vb.size) {
+	if (vb2_plane_size(vb, 0) < size) {
+		vfe_err("%s data will not fit into plane (%lu < %lu)\n",
+				__func__, vb2_plane_size(vb, 0), size);
 		return -EINVAL;
 	}
 
-	/* These properties only change when queue is idle, see s_fmt */
-	//buf->fmt       = dev->fmt;
-	buf->vb.width  = dev->width;
-	buf->vb.height = dev->height;
-	buf->vb.field  = field;
+	vb2_set_plane_payload(&buf->vb, 0, size);
 
-	if (VIDEOBUF_NEEDS_INIT == buf->vb.state) {
-		rc = videobuf_iolock(vq, &buf->vb, NULL);
-		if (rc < 0) {
-			goto fail;
-		}
-	}
-
-	vb->boff = videobuf_to_dma_contig(vb);
-	buf->vb.state = VIDEOBUF_PREPARED;
+	vb->v4l2_planes[0].m.mem_offset = vb2_dma_contig_plane_dma_addr(vb, 0);
 
 	return 0;
-
-	fail:
-	free_buffer(vq, buf);
-	return rc;
 }
 
-static void buffer_queue(struct videobuf_queue *vq, struct videobuf_buffer *vb)
+static void buffer_queue(struct vb2_buffer *vb)
 {
-	struct vfe_dev *dev = vq->priv_data;
+	struct vfe_dev *dev = vb2_get_drv_priv(vb->vb2_queue);
 	struct vfe_buffer *buf = container_of(vb, struct vfe_buffer, vb);
 	struct vfe_dmaqueue *vidq = &dev->vidq;
+	unsigned long flags = 0;
 
 	vfe_dbg(1,"buffer_queue\n");
-	buf->vb.state = VIDEOBUF_QUEUED;
-	list_add_tail(&buf->vb.queue, &vidq->active);
+	spin_lock_irqsave(&dev->slock, flags);
+	list_add_tail(&buf->list, &vidq->active);
+	spin_unlock_irqrestore(&dev->slock, flags);
 }
 
-static void buffer_release(struct videobuf_queue *vq,
-         struct videobuf_buffer *vb)
+static int start_streaming(struct vb2_queue *vq, unsigned int count)
 {
-	struct vfe_buffer *buf  = container_of(vb, struct vfe_buffer, vb);
-	vfe_dbg(1,"buffer_release\n");
-	free_buffer(vq, buf);
+	struct vfe_dev *dev = vb2_get_drv_priv(vq);
+	vfe_dbg(1, "%s\n", __func__);
+	vfe_start_generating(dev);
+	return 0;
 }
 
-static struct videobuf_queue_ops vfe_video_qops = {
-	.buf_setup    = buffer_setup,
-	.buf_prepare  = buffer_prepare,
-	.buf_queue    = buffer_queue,
-	.buf_release  = buffer_release,
+/* abort streaming and wait for last buffer */
+static int stop_streaming(struct vb2_queue *vq)
+{
+	struct vfe_dev *dev = vb2_get_drv_priv(vq);
+	struct vfe_dmaqueue *dma_q = &dev->vidq;
+	
+	vfe_dbg(1, "%s\n", __func__);
+	vfe_stop_generating(dev);
+
+	/* Release all active buffers */
+	while (!list_empty(&dma_q->active)) {
+		struct vfe_buffer *buf;
+		buf = list_entry(dma_q->active.next, struct vfe_buffer, list);
+		list_del(&buf->list);
+		vb2_buffer_done(&buf->vb, VB2_BUF_STATE_ERROR);
+		vfe_dbg(2, "[%p/%d] done\n", buf, buf->vb.v4l2_buf.index);
+	}
+	return 0;
+}
+
+static void vfe_lock(struct vb2_queue *vq)
+{
+	struct vfe_dev *dev = vb2_get_drv_priv(vq);
+	mutex_lock(&dev->buf_lock);
+}
+
+static void vfe_unlock(struct vb2_queue *vq)
+{
+	struct vfe_dev *dev = vb2_get_drv_priv(vq);
+	mutex_unlock(&dev->buf_lock);
+}
+
+static const struct vb2_ops vfe_video_qops = {
+	.queue_setup		= queue_setup,
+	.buf_prepare		= buffer_prepare,
+	.buf_queue			= buffer_queue,
+	.start_streaming	= start_streaming,
+	.stop_streaming 	= stop_streaming,
+	.wait_prepare		= vfe_unlock,
+	.wait_finish		= vfe_lock,
 };
 
 /*
@@ -1669,7 +1684,7 @@ static int vidioc_g_fmt_vid_cap(struct file *file, void *priv,
 
 	f->fmt.pix.width        = dev->width;
 	f->fmt.pix.height       = dev->height;
-	f->fmt.pix.field        = dev->vb_vidq.field;
+	f->fmt.pix.field		= dev->fmt.field;	
 	f->fmt.pix.pixelformat  = dev->fmt.bus_pix_code;
 
 	return 0;
@@ -1787,7 +1802,6 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
           struct v4l2_format *f)
 {
 	struct vfe_dev *dev = video_drvdata(file);
-	struct videobuf_queue *q = &dev->vb_vidq;
 	struct v4l2_mbus_framefmt ccm_fmt;
 	struct v4l2_mbus_config mbus_cfg;
 	enum v4l2_mbus_pixelcode *bus_pix_code;
@@ -1795,7 +1809,6 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	struct main_channel_cfg main_cfg;
  	struct v4l2_subdev_format csi_fmt;
 	struct v4l2_subdev_format mipi_fmt;
-  
 	int ret;
   
 	vfe_dbg(0,"vidioc_s_fmt_vid_cap\n");  
@@ -1804,8 +1817,6 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 		vfe_err("%s device busy\n", __func__);
 		return -EBUSY;
 	}
-
-	mutex_lock(&q->vb_lock);
 
 	bus_pix_code = try_fmt_internal(dev,f);
 	if(!bus_pix_code) {
@@ -1896,6 +1907,7 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	}
 
 	dev->fmt.bus_pix_code = *bus_pix_code;
+	dev->fmt.field= ccm_fmt.field;
     
 	if(dev->is_isp_used) {
 		main_cfg.pix = f->fmt.pix;
@@ -1914,7 +1926,6 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	}
 	dev->thumb_width  = 0;
 	dev->thumb_height = 0;
-	dev->vb_vidq.field = ccm_fmt.field;
 	dev->width  = ccm_fmt.width;
 	dev->height = ccm_fmt.height;
 
@@ -1969,7 +1980,6 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	}
 	ret = 0;
 out:
-	mutex_unlock(&q->vb_lock);
 	return ret;
 }
 
@@ -1980,21 +1990,21 @@ static int vidioc_reqbufs(struct file *file, void *priv,
   
 	vfe_dbg(0,"vidioc_reqbufs\n");
   
-	return videobuf_reqbufs(&dev->vb_vidq, p);
+	return vb2_reqbufs(&dev->vb_vidq, p);
 }
 
 static int vidioc_querybuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct vfe_dev *dev = video_drvdata(file);
   
-	return videobuf_querybuf(&dev->vb_vidq, p);
+	return vb2_querybuf(&dev->vb_vidq, p);
 }
 
 static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct vfe_dev *dev = video_drvdata(file);
   
-	return videobuf_qbuf(&dev->vb_vidq, p);
+	return vb2_qbuf(&dev->vb_vidq, p);
 }
 
 static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
@@ -2002,7 +2012,7 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	int ret = 0;  
 	struct vfe_dev *dev = video_drvdata(file);
 	vfe_dbg(2,"vidioc dqbuf\n");
-	ret = videobuf_dqbuf(&dev->vb_vidq, p, file->f_flags & O_NONBLOCK);  
+	ret = vb2_dqbuf(&dev->vb_vidq, p, file->f_flags & O_NONBLOCK);  
   
 	return ret;
 }
@@ -2026,7 +2036,6 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 
 	int ret = 0;
 	mutex_lock(&dev->stream_lock);
-	//spin_lock(&dev->slock);//debug
 	vfe_dbg(0,"video stream on\n");
 	if (i != V4L2_BUF_TYPE_VIDEO_CAPTURE) {
 		ret = -EINVAL;
@@ -2061,11 +2070,11 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		}
 	}
  
-	ret = videobuf_streamon(&dev->vb_vidq);
+	ret = vb2_streamon(&dev->vb_vidq, i);
 	if (ret)
-	goto streamon_unlock;
+		goto streamon_unlock;
 
-	buf = list_entry(dma_q->active.next,struct vfe_buffer, vb.queue);
+	buf = list_entry(dma_q->active.next,struct vfe_buffer, list);
 	vfe_set_addr(dev,buf);
 	if (dev->is_isp_used && dev->is_bayer_raw) {
 		stat_buf_pt = list_entry(isp_stat_bq->active.next, struct vfe_isp_stat_buf, queue);
@@ -2119,7 +2128,6 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	vfe_start_generating(dev);
 
 streamon_unlock:
-	//spin_unlock(&dev->slock);//debug
 	mutex_unlock(&dev->stream_lock);
 
 	return ret;
@@ -2175,20 +2183,15 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	if(dev->mbus_type == V4L2_MBUS_CSI2)
 		bsp_mipi_csi_protocol_disable(dev->mipi_sel);
 
-	ret = videobuf_streamoff(&dev->vb_vidq);
+	ret = vb2_streamoff(&dev->vb_vidq, i);
 	if (ret!=0) {
 		vfe_err("videobu_streamoff error!\n");
 		goto streamoff_unlock;
-	}
-	/* Release all active buffers */
-	while (!list_empty(&dma_q->active)) {
-		vfe_err("dma_q->active is not empty!\n");
 	}
 	if(dev->is_isp_used)
 		bsp_isp_disable();
 	bsp_csi_disable(dev->vip_sel);
 streamoff_unlock:
-	//spin_unlock(&dev->slock);//debug
 	mutex_unlock(&dev->stream_lock);
 
 	return ret;
@@ -2203,7 +2206,8 @@ static int vidioc_enum_input(struct file *file, void *priv,
 		return -EINVAL;
 	}
 	if (0 == dev->device_valid_flag[inp->index]) {
-		vfe_err("input index(%d) > dev->dev_qty(%d)-1 invalid!, device_valid_flag[%d] = %d\n", inp->index, dev->dev_qty,inp->index, dev->device_valid_flag[inp->index]);
+		vfe_err("input index(%d) > dev->dev_qty(%d)-1 invalid!, device_valid_flag[%d] = %d\n", 
+			inp->index, dev->dev_qty,inp->index, dev->device_valid_flag[inp->index]);
 		return -EINVAL;
 	}
 	inp->type = V4L2_INPUT_TYPE_CAMERA;
@@ -2923,7 +2927,7 @@ static ssize_t vfe_read(struct file *file, char __user *data, size_t count, loff
 	struct vfe_dev *dev = video_drvdata(file);
 
 	if(vfe_is_generating(dev)) {
-		return videobuf_read_stream(&dev->vb_vidq, data, count, ppos, 0,
+		return vb2_read(&dev->vb_vidq, data, count, ppos,
 					file->f_flags & O_NONBLOCK);
 	} else {
 		vfe_err("csi is not generating!\n");
@@ -2934,10 +2938,10 @@ static ssize_t vfe_read(struct file *file, char __user *data, size_t count, loff
 static unsigned int vfe_poll(struct file *file, struct poll_table_struct *wait)
 {
 	struct vfe_dev *dev = video_drvdata(file);
-	struct videobuf_queue *q = &dev->vb_vidq;
+	struct vb2_queue *q = &dev->vb_vidq;
 
 	if(vfe_is_generating(dev)) {
-		return videobuf_poll_stream(file, q, wait);
+		return vb2_poll(q, file, wait);
 	} else {
 		vfe_err("csi is not generating!\n");
 		return -EINVAL;
@@ -3053,15 +3057,13 @@ static int vfe_close(struct file *file)
 	if(dev->ccm_cfg[0]->is_isp_used || dev->ccm_cfg[1]->is_isp_used) {
 		flush_work(&dev->isp_isr_bh_task);
 		flush_work(&dev->isp_isr_set_sensor_task);
-		//tasklet_kill(&dev->isp_isr_bh_task);
 		//resource
 		isp_resource_release(dev);
 	}
 	if(dev->is_bayer_raw) 
 		mutex_destroy(&dev->isp_3a_result_mutex);
 	//software
-	videobuf_stop(&dev->vb_vidq);
-	videobuf_mmap_free(&dev->vb_vidq);
+	vb2_queue_release(&dev->vb_vidq);	
 	vfe_stop_opened(dev);
 	dev->ctrl_para.prev_exp_line = 0;
 	dev->ctrl_para.prev_ana_gain = 1;
@@ -3076,7 +3078,7 @@ static int vfe_mmap(struct file *file, struct vm_area_struct *vma)
 	struct vfe_dev *dev = video_drvdata(file);
 	int ret;
 	vfe_dbg(0,"mmap called, vma=0x%08lx\n", (unsigned long)vma);
-	ret = videobuf_mmap_mapper(&dev->vb_vidq, vma);
+	ret = vb2_mmap(&dev->vb_vidq, vma);
 	vfe_dbg(0,"vma start=0x%08lx, size=%ld, ret=%d\n", (unsigned long)vma->vm_start,
 			(unsigned long)vma->vm_end - (unsigned long)vma->vm_start, ret);
 	return ret;
@@ -4322,6 +4324,7 @@ static void probe_work_handle(struct work_struct *work)
 	int ret = 0;
 	int input_num;
 	struct video_device *vfd;
+	struct vb2_queue *q;
     
 	mutex_lock(&probe_hdl_lock);
 	vfe_print("probe_work_handle start!\n");
@@ -4441,6 +4444,8 @@ snesor_register_end:
 		vfe_err("Error video_register_device!!\n");		
 		goto probe_hdl_rel_vdev;
 	} 
+	//Provide a mutex to v4l2 core. It will be used to protect all fops and v4l2 ioctls.
+	//vfd->lock = &dev->buf_lock;
 	video_set_drvdata(vfd, dev);
 	/*add device list*/
 	/* Now that everything is fine, let's add it to device list */
@@ -4449,14 +4454,30 @@ snesor_register_end:
 	dev->vfd = vfd;
 	vfe_print("V4L2 device registered as %s\n",video_device_node_name(vfd));
 
-	/*initial video buffer queue*/
-	videobuf_queue_dma_contig_init(&dev->vb_vidq, &vfe_video_qops, NULL, &dev->slock, 
-				V4L2_BUF_TYPE_VIDEO_CAPTURE,
-				V4L2_FIELD_NONE,//default format, can be changed by s_fmt
-				sizeof(struct vfe_buffer), dev,NULL);
-	
-	ret = sysfs_create_group(&dev->pdev->dev.kobj, &vfe_attribute_group);
+	/* Initialize videobuf2 queue as per the buffer type */
+	dev->alloc_ctx = vb2_dma_contig_init_ctx(&dev->pdev->dev);
+	if (IS_ERR(dev->alloc_ctx)) {
+		vfe_err("Failed to get the context\n");
+		goto probe_hdl_rel_vdev;	
+	}
+	/* initialize queue */
+	q = &dev->vb_vidq;
+	q->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	q->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF | VB2_READ;
+	q->drv_priv = dev;
+	q->buf_struct_size = sizeof(struct vfe_buffer);
+	q->ops = &vfe_video_qops;
+	q->mem_ops = &vb2_dma_contig_memops;
+	q->timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 
+	ret = vb2_queue_init(q);
+	if (ret) {		
+		vfe_err("vb2_queue_init() failed\n");
+		vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
+		goto probe_hdl_rel_vdev;	
+	}
+
+	sysfs_create_group(&dev->pdev->dev.kobj, &vfe_attribute_group);
 	vfe_suspend_trip(dev);
 	vfe_print("probe_work_handle end!\n");
 	mutex_unlock(&probe_hdl_lock);
@@ -4564,9 +4585,11 @@ static int vfe_probe(struct platform_device *pdev)
 	//=======================================
 	/* init video dma queues */
 	INIT_LIST_HEAD(&dev->vidq.active);
+	//init_waitqueue_head(&dev->vidq.wq);
 	INIT_DELAYED_WORK(&dev->probe_work, probe_work_handle);
 	mutex_init(&dev->stream_lock);
 	mutex_init(&dev->opened_lock);
+	mutex_init(&dev->buf_lock);
 	schedule_delayed_work(&dev->probe_work,msecs_to_jiffies(1));
 	/* initial state */
 	dev->capture_mode = V4L2_MODE_PREVIEW;
@@ -4613,6 +4636,7 @@ static int vfe_remove(struct platform_device *pdev)
 	sunxi_mipi_put_subdev(&dev->mipi_sd, dev->id);	
 	mutex_destroy(&dev->stream_lock);
 	mutex_destroy(&dev->opened_lock);
+	mutex_destroy(&dev->buf_lock);
 	sysfs_remove_group(&dev->pdev->dev.kobj, &vfe_attribute_group);
 #ifdef USE_SPECIFIC_CCI
 	csi_cci_bus_unmatch_helper(dev->vip_sel);
@@ -4638,7 +4662,8 @@ static int vfe_remove(struct platform_device *pdev)
 	video_unregister_device(dev->vfd);  
 	v4l2_device_unregister(&dev->v4l2_dev);
 	v4l2_ctrl_handler_free(&dev->ctrl_handler);
-	//  kfree(dev);
+	vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
+	//kfree(dev);
 	vfe_print("vfe_remove ok!\n");
 	return 0;
 }

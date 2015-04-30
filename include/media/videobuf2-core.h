@@ -201,6 +201,8 @@ struct vb2_buffer {
 	struct list_head	done_entry;
 
 	struct vb2_plane	planes[VIDEO_MAX_PLANES];
+/*add by yangfeng*/
+	int                    image_quality;
 };
 
 /**

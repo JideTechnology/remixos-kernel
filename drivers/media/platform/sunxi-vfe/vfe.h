@@ -12,7 +12,7 @@
 #include <linux/workqueue.h>
 #include <linux/pm_runtime.h>
 
-#include <media/videobuf-core.h>
+#include <media/videobuf2-core.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-mediabus.h>
 #include <media/v4l2-ctrls.h>
@@ -46,9 +46,9 @@ struct vfe_coor {
 
 /* buffer for one video frame */
 struct vfe_buffer {
-	struct videobuf_buffer    vb;
-	struct vfe_fmt            *fmt;
-	int image_quality;
+	struct vb2_buffer	vb;	
+	struct list_head	list;
+	struct vfe_fmt		*fmt;
 };
 
 struct vfe_dmaqueue {
@@ -213,7 +213,9 @@ struct vfe_dev {
 	unsigned                ms;
 	unsigned long           jiffies;
 	/* video capture */
-	struct videobuf_queue   vb_vidq;
+	struct vb2_queue		vb_vidq;	
+	struct mutex            buf_lock;	
+	struct vb2_alloc_ctx 	*alloc_ctx;
 	unsigned int            capture_mode;
 	/*working state*/
 	unsigned long           generating;
