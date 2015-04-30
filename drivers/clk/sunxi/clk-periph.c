@@ -640,6 +640,7 @@ int sunxi_periph_reset_deassert(struct clk *c)
     struct sunxi_clk_periph *periph = to_clk_periph(hw);
     struct sunxi_clk_periph_gate *gate = &periph->gate;
     unsigned long reg, flag = 0;
+    unsigned long flags = 0;
     
     if(periph->flags & CLK_READONLY)
         return 0;
@@ -648,6 +649,9 @@ int sunxi_periph_reset_deassert(struct clk *c)
        && (periph->com_gate->val & periph->com_gate->mask) != (1 << periph->com_gate_off))
        return 1;
        
+    if(periph->lock)
+        spin_lock_irqsave(periph->lock, flags);
+
     if(gate->dram) {
         reg = periph_readl(periph,gate->dram);
         flag = GET_BITS(gate->ddr_shift, 1, reg);
@@ -668,6 +672,10 @@ int sunxi_periph_reset_deassert(struct clk *c)
         reg = SET_BITS(gate->ddr_shift, 1, reg, 1);
         periph_writel(periph,reg, gate->dram);
     }
+
+    if(periph->lock)
+        spin_unlock_irqrestore(periph->lock, flags);
+
     return 0;
 }
 /*
@@ -690,6 +698,7 @@ int sunxi_periph_reset_assert(struct clk *c)
     struct sunxi_clk_periph *periph = to_clk_periph(hw);
     struct sunxi_clk_periph_gate *gate = &periph->gate;
     unsigned long reg, flag = 0;
+    unsigned long flags = 0;
 
 	if(periph->flags & CLK_READONLY)
         return 0;
@@ -698,6 +707,9 @@ int sunxi_periph_reset_assert(struct clk *c)
        && (periph->com_gate->val & periph->com_gate->mask) != (1 << periph->com_gate_off))
        return 1;    
     
+    if(periph->lock)
+        spin_lock_irqsave(periph->lock, flags);
+
     /* disable dram access */
     if(gate->dram) {
         reg = periph_readl(periph,gate->dram);
@@ -718,6 +730,10 @@ int sunxi_periph_reset_assert(struct clk *c)
         reg = SET_BITS(gate->ddr_shift, 1, reg, 1);
         periph_writel(periph,reg, gate->dram);
     }
+
+    if(periph->lock)
+        spin_unlock_irqrestore(periph->lock, flags);
+
     return 0;
 }
 EXPORT_SYMBOL(sunxi_periph_reset_assert);
