@@ -1806,6 +1806,7 @@ static int atomisp_streamon(struct file *file, void *fh,
 		memset(&asd->params.css_param.update_flag, 0,
 		       sizeof(struct atomisp_parameters));
 	}
+	asd->params.dvs_6axis = NULL;
 
 	ret = atomisp_css_start(asd, css_pipe_id, false);
 	if (ret)
