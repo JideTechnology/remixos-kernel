@@ -815,7 +815,7 @@ static int mdm_ctrl_module_probe(struct platform_device *pdev)
 			MDM_BOOT_DEVNAME);
 	if (ret) {
 		pr_err(DRVNAME ": alloc_chrdev_region failed (err: %d)\n", ret);
-		goto free_drv;
+		goto put_device_info;
 	}
 
 	new_drv->major = MAJOR(new_drv->tdev);
@@ -920,8 +920,10 @@ static int mdm_ctrl_module_probe(struct platform_device *pdev)
  unreg_reg:
 	unregister_chrdev_region(new_drv->tdev, 1);
 
+ put_device_info:
+	mdm_ctrl_put_device_info(new_drv, pdev);
+
  free_drv:
-	kfree(new_drv->all_pdata);
 	kfree(new_drv);
 
  out:
@@ -965,7 +967,7 @@ static int mdm_ctrl_module_remove(struct platform_device *pdev)
 					mdm->pdata->cpu_data);
 			if (irq_to_be_freed != INVALID_GPIO) {
 				disable_irq_nosync(irq_to_be_freed);
-				free_irq(irq_to_be_freed, NULL);
+				free_irq(irq_to_be_freed, mdm);
 			}
 		}
 		/*
@@ -977,7 +979,7 @@ static int mdm_ctrl_module_remove(struct platform_device *pdev)
 					mdm->pdata->cpu_data);
 			if (irq_to_be_freed != INVALID_GPIO) {
 				disable_irq_nosync(irq_to_be_freed);
-				free_irq(irq_to_be_freed, NULL);
+				free_irq(irq_to_be_freed, mdm);
 			}
 		}
 
@@ -998,23 +1000,21 @@ static int mdm_ctrl_module_remove(struct platform_device *pdev)
 
 		kfree(mdm->pdata->cpu_data);
 		kfree(mdm->pdata->pmic_data);
-		kfree(mdm->pdata);
 	}
 
 	/* Free the driver context */
-	pr_err(DRVNAME": Modem control device free memory");
-	kfree(driver_data->all_pdata);
+	mdm_ctrl_put_device_info(driver_data, pdev);
 	kfree(driver_data->mdm);
 	kfree(driver_data);
 
 	return 0;
 }
 
-static int mdm_ctrl_module_shutdown(struct platform_device *pdev)
+static void mdm_ctrl_module_shutdown(struct platform_device *pdev)
 {
 	mdm_ctrl_module_remove(pdev);
 
-	return 0;
+	return;
 }
 
 /* FOR ACPI HANDLING */
