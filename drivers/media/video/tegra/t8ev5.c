@@ -621,7 +621,7 @@ static int sensor_set_sensor_flag(struct sensor_info *info, u8 flag)
 	int i;
 	u8 sensor_type = SENSOR_T8EV5,change = 0;
 
-	for(i = 0;i<MAX_SENSOR_COUNT;i++){
+	for(i = 1;i<MAX_SENSOR_COUNT;i++){
 		if (mt9p111_sensor_info->pdata && mt9p111_sensor_info->pdata->power_on){
 			
 			if(!(flag & T8EV5_FRONT_ID)){
@@ -1005,6 +1005,155 @@ static int t8ev5_get_windows_position(struct sensor_info *info,u8* pos){
 		else
 			 dev_err(&info->i2c_client->dev,"fRegions.win_y = %d unfound!!\n",point_y);
 	}
+		  if(selected_x<=1)
+	  {
+		  if(selected_y<=1)
+		  {
+			  //A1
+			  sensor_write_reg8(info->i2c_client, 0x030C,0xD0);//A1WEIGHT[1:0]/A2WEIGHT[1:0]/A3WEIGHT[1:0]/A4WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030D,0x10);//A5WEIGHT[1:0]/B1WEIGHT[1:0]/B2WEIGHT[1:0]/B3WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030E,0x00);//B4WEIGHT[1:0]/B5WEIGHT[1:0]/C1WEIGHT[1:0]/C2WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030F,0x00);//C3WEIGHT[1:0]/C4WEIGHT[1:0]/C5WEIGHT[1:0]/-/-
+		  }
+		  else if(selected_y<=4)
+		  {
+			  //B1
+			  
+			  sensor_write_reg8(info->i2c_client, 0x030C,0x40);//A1WEIGHT[1:0]/A2WEIGHT[1:0]/A3WEIGHT[1:0]/A4WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030D,0x34);//A5WEIGHT[1:0]/B1WEIGHT[1:0]/B2WEIGHT[1:0]/B3WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030E,0x04);//B4WEIGHT[1:0]/B5WEIGHT[1:0]/C1WEIGHT[1:0]/C2WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030F,0x00);//C3WEIGHT[1:0]/C4WEIGHT[1:0]/C5WEIGHT[1:0]/-/-
+		  }
+		  else 
+		  {
+			  //C1
+			  sensor_write_reg8(info->i2c_client, 0x030C,0x00);//A1WEIGHT[1:0]/A2WEIGHT[1:0]/A3WEIGHT[1:0]/A4WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030D,0x10);//A5WEIGHT[1:0]/B1WEIGHT[1:0]/B2WEIGHT[1:0]/B3WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030E,0x0D);//B4WEIGHT[1:0]/B5WEIGHT[1:0]/C1WEIGHT[1:0]/C2WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030F,0x00);//C3WEIGHT[1:0]/C4WEIGHT[1:0]/C5WEIGHT[1:0]/-/-
+		  }
+	  }
+	  else if(selected_x==2)
+	  {
+		  if(selected_y<=1)
+		  {
+			  //A2
+			  
+			  sensor_write_reg8(info->i2c_client, 0x030C,0x74);//A1WEIGHT[1:0]/A2WEIGHT[1:0]/A3WEIGHT[1:0]/A4WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030D,0x04);//A5WEIGHT[1:0]/B1WEIGHT[1:0]/B2WEIGHT[1:0]/B3WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030E,0x00);//B4WEIGHT[1:0]/B5WEIGHT[1:0]/C1WEIGHT[1:0]/C2WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030F,0x00);//C3WEIGHT[1:0]/C4WEIGHT[1:0]/C5WEIGHT[1:0]/-/-
+		  }
+		  else if(selected_y<=4)
+		  {
+			  //B2
+			  
+			  sensor_write_reg8(info->i2c_client, 0x030C,0x10);//A1WEIGHT[1:0]/A2WEIGHT[1:0]/A3WEIGHT[1:0]/A4WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030D,0x1D);//A5WEIGHT[1:0]/B1WEIGHT[1:0]/B2WEIGHT[1:0]/B3WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030E,0x01);//B4WEIGHT[1:0]/B5WEIGHT[1:0]/C1WEIGHT[1:0]/C2WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030F,0x00);//C3WEIGHT[1:0]/C4WEIGHT[1:0]/C5WEIGHT[1:0]/-/-
+		  }
+		  else 
+		  {
+			  //C2
+			  
+			  sensor_write_reg8(info->i2c_client, 0x030C,0x00);//A1WEIGHT[1:0]/A2WEIGHT[1:0]/A3WEIGHT[1:0]/A4WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030D,0x04);//A5WEIGHT[1:0]/B1WEIGHT[1:0]/B2WEIGHT[1:0]/B3WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030E,0x07);//B4WEIGHT[1:0]/B5WEIGHT[1:0]/C1WEIGHT[1:0]/C2WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030F,0x40);//C3WEIGHT[1:0]/C4WEIGHT[1:0]/C5WEIGHT[1:0]/-/-
+		  }
+	  }
+	  else if(selected_x==3)
+	  {
+		  if(selected_y<=1)
+		  {
+			  //A3
+			  
+			  sensor_write_reg8(info->i2c_client, 0x030C,0x1D);//A1WEIGHT[1:0]/A2WEIGHT[1:0]/A3WEIGHT[1:0]/A4WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030D,0x01);//A5WEIGHT[1:0]/B1WEIGHT[1:0]/B2WEIGHT[1:0]/B3WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030E,0x00);//B4WEIGHT[1:0]/B5WEIGHT[1:0]/C1WEIGHT[1:0]/C2WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030F,0x00);//C3WEIGHT[1:0]/C4WEIGHT[1:0]/C5WEIGHT[1:0]/-/-
+		  }
+		  else if(selected_y<=4)
+		  {
+			  //B3
+			  
+			  sensor_write_reg8(info->i2c_client, 0x030C,0x04);//A1WEIGHT[1:0]/A2WEIGHT[1:0]/A3WEIGHT[1:0]/A4WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030D,0x07);//A5WEIGHT[1:0]/B1WEIGHT[1:0]/B2WEIGHT[1:0]/B3WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030E,0x40);//B4WEIGHT[1:0]/B5WEIGHT[1:0]/C1WEIGHT[1:0]/C2WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030F,0x40);//C3WEIGHT[1:0]/C4WEIGHT[1:0]/C5WEIGHT[1:0]/-/-
+		  }
+		  else 
+		  {
+			  //C3
+			  
+			  sensor_write_reg8(info->i2c_client, 0x030C,0x00);//A1WEIGHT[1:0]/A2WEIGHT[1:0]/A3WEIGHT[1:0]/A4WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030D,0x01);//A5WEIGHT[1:0]/B1WEIGHT[1:0]/B2WEIGHT[1:0]/B3WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030E,0x01);//B4WEIGHT[1:0]/B5WEIGHT[1:0]/C1WEIGHT[1:0]/C2WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030F,0xD0);//C3WEIGHT[1:0]/C4WEIGHT[1:0]/C5WEIGHT[1:0]/-/-
+		  }
+	  }
+	  else if(selected_x==4)
+	  {   
+		  if(selected_y<=1)
+		  {
+			  //A4
+			  
+			  sensor_write_reg8(info->i2c_client, 0x030C,0x07);//A1WEIGHT[1:0]/A2WEIGHT[1:0]/A3WEIGHT[1:0]/A4WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030D,0x40);//A5WEIGHT[1:0]/B1WEIGHT[1:0]/B2WEIGHT[1:0]/B3WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030E,0x40);//B4WEIGHT[1:0]/B5WEIGHT[1:0]/C1WEIGHT[1:0]/C2WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030F,0x00);//C3WEIGHT[1:0]/C4WEIGHT[1:0]/C5WEIGHT[1:0]/-/-
+		  }
+		  else if(selected_y<=4)
+		  {
+			  //B4
+			  
+			  sensor_write_reg8(info->i2c_client, 0x030C,0x01);//A1WEIGHT[1:0]/A2WEIGHT[1:0]/A3WEIGHT[1:0]/A4WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030D,0x01);//A5WEIGHT[1:0]/B1WEIGHT[1:0]/B2WEIGHT[1:0]/B3WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030E,0xD0);//B4WEIGHT[1:0]/B5WEIGHT[1:0]/C1WEIGHT[1:0]/C2WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030F,0x54);//C3WEIGHT[1:0]/C4WEIGHT[1:0]/C5WEIGHT[1:0]/-/-
+		  }
+		  else 
+		  {
+			  //C4
+			  
+			  sensor_write_reg8(info->i2c_client, 0x030C,0x00);//A1WEIGHT[1:0]/A2WEIGHT[1:0]/A3WEIGHT[1:0]/A4WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030D,0x00);//A5WEIGHT[1:0]/B1WEIGHT[1:0]/B2WEIGHT[1:0]/B3WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030E,0x40);//B4WEIGHT[1:0]/B5WEIGHT[1:0]/C1WEIGHT[1:0]/C2WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030F,0x74);//C3WEIGHT[1:0]/C4WEIGHT[1:0]/C5WEIGHT[1:0]/-/-
+		  }
+		  
+	  }
+	  else
+	  {
+		  if(selected_y<=1)
+		  {
+			  //A5
+			  
+			  sensor_write_reg8(info->i2c_client, 0x030C,0x01);//A1WEIGHT[1:0]/A2WEIGHT[1:0]/A3WEIGHT[1:0]/A4WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030D,0xC0);//A5WEIGHT[1:0]/B1WEIGHT[1:0]/B2WEIGHT[1:0]/B3WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030E,0x10);//B4WEIGHT[1:0]/B5WEIGHT[1:0]/C1WEIGHT[1:0]/C2WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030F,0x00);//C3WEIGHT[1:0]/C4WEIGHT[1:0]/C5WEIGHT[1:0]/-/-
+		  }
+		  else if(selected_y<=4)
+		  {
+			  //B5
+			  
+			  sensor_write_reg8(info->i2c_client, 0x030C,0x00);//A1WEIGHT[1:0]/A2WEIGHT[1:0]/A3WEIGHT[1:0]/A4WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030D,0x40);//A5WEIGHT[1:0]/B1WEIGHT[1:0]/B2WEIGHT[1:0]/B3WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030E,0x70);//B4WEIGHT[1:0]/B5WEIGHT[1:0]/C1WEIGHT[1:0]/C2WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030F,0x04);//C3WEIGHT[1:0]/C4WEIGHT[1:0]/C5WEIGHT[1:0]/-/-
+		  }
+		  else 
+		  {
+			  //C5
+			  
+			  sensor_write_reg8(info->i2c_client, 0x030C,0x00);//A1WEIGHT[1:0]/A2WEIGHT[1:0]/A3WEIGHT[1:0]/A4WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030D,0x00);//A5WEIGHT[1:0]/B1WEIGHT[1:0]/B2WEIGHT[1:0]/B3WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030E,0x10);//B4WEIGHT[1:0]/B5WEIGHT[1:0]/C1WEIGHT[1:0]/C2WEIGHT[1:0]
+			  sensor_write_reg8(info->i2c_client, 0x030F,0x1C);//C3WEIGHT[1:0]/C4WEIGHT[1:0]/C5WEIGHT[1:0]/-/-
+		  }
+	   }
 	*pos=((selected_x << 4) |selected_y);
 	info->win_pos_old = info->win_pos;
 	debug_print("t8ev5_get_windows_position:select_pos=0x%02x\n",*pos);
@@ -1173,124 +1322,124 @@ fail:
     	return err;
 }
 static long sensor_ioctl(struct file *file,
-			 unsigned int cmd, unsigned long arg)
+		unsigned int cmd, unsigned long arg)
 {
 	struct sensor_info *info = file->private_data;
 
-    
+
 	switch (cmd) 
-    {
-    	case SENSOR_IOCTL_SET_MODE:
-    	{
-    		struct sensor_mode mode;
-    		if (copy_from_user(&mode,
-    				   (const void __user *)arg,
-    				   sizeof(struct sensor_mode))) {
-    			return -EFAULT;
-    		}
-		
-    		return sensor_set_mode(info, &mode);
-    	}
-	case T8EV5_IOCTL_SET_WINDOWS_POS:
-    	{
-    		if (copy_from_user(&info->win_pos,
-    				   (const void __user *)arg,
-    				   sizeof(struct t8ev5_win_pos))) {
-    			return -EFAULT;
-    		}
-		
-    		return set_sensor_windows_position(info);
-    	}
-	case SENSOR_IOCTL_SET_OP_MODE:
-    	{
-    		KhOperationalMode mode;
-    		if (copy_from_user(&mode,
-    				   (const void __user *)arg,
-    				   sizeof(KhOperationalMode))) {
-    			return -EFAULT;
-    		}
-		
-    		sensor_set_op_mode(info, &mode);
-    	}
-	case SENSOR_IOCTL_SET_SENSOR_ID:
-    	{
-		u8 flag;
-		
-    		if (copy_from_user(&flag,
-        			   (const void __user *)arg,
-        			   sizeof(flag))) {
-    			return -EFAULT;
-    		}
-    		return sensor_set_sensor_flag(info, flag);
-    	}
-	case SENSOR_IOCTL_SET_FLASH_MODE:
 	{
-		u8 flash_mode;
-		
-    		if (copy_from_user(&flash_mode,
-        			   (const void __user *)arg,
-        			   sizeof(flash_mode))) {
-    			return -EFAULT;
-    		}
-		sensor_start_flash_handler(info,flash_mode);
-	}
-    	case SENSOR_IOCTL_GET_AF_STATUS:
-    	{
-	    int err;
-	    u8 val;
+		case SENSOR_IOCTL_SET_MODE:
+			{
+				struct sensor_mode mode;
+				if (copy_from_user(&mode,
+							(const void __user *)arg,
+							sizeof(struct sensor_mode))) {
+					return -EFAULT;
+				}
 
-	    err = sensor_get_af_status(info, &val);
-	    if (err)
-		return err;
+				return sensor_set_mode(info, &mode);
+			}
+		case T8EV5_IOCTL_SET_WINDOWS_POS:
+			{
+				if (copy_from_user(&info->win_pos,
+							(const void __user *)arg,
+							sizeof(struct t8ev5_win_pos))) {
+					return -EFAULT;
+				}
 
-	    if (copy_to_user((void __user *) arg,
-			 &val, sizeof(val))) {
-		pr_err("%s: 0x%x\n", __func__, __LINE__);
-		return -EFAULT;
-	    }
-	    break;
-    	}
-	case SENSOR_IOCTL_GET_SENSOR_TYPE:
-    	{
-	    u8 val;
+				return set_sensor_windows_position(info);
+			}
+		case SENSOR_IOCTL_SET_OP_MODE:
+			{
+				KhOperationalMode mode;
+				if (copy_from_user(&mode,
+							(const void __user *)arg,
+							sizeof(KhOperationalMode))) {
+					return -EFAULT;
+				}
 
-	   val = info->sensor_type;
+				sensor_set_op_mode(info, &mode);
+			}
+		case SENSOR_IOCTL_SET_SENSOR_ID:
+			{
+				u8 flag;
 
-	    if (copy_to_user((void __user *) arg,
-			 &val, sizeof(val))) {
-		pr_err("%s: 0x%x\n", __func__, __LINE__);
-		return -EFAULT;
-	    }
-	    break;
-    	}
-    	case SENSOR_IOCTL_SET_AF_MODE:
-    	{
-	     return sensor_set_af_mode(info, (u8)arg);
-    	}break;
-        case SENSOR_IOCTL_SET_WHITE_BALANCE:
-	 case SENSOR_IOCTL_SET_YUV_EXPOSURE:
-        {
-	      u8 effec_val;
-	      int type;
+				if (copy_from_user(&flag,
+							(const void __user *)arg,
+							sizeof(flag))) {
+					return -EFAULT;
+				}
+				return sensor_set_sensor_flag(info, flag);
+			}
+		case SENSOR_IOCTL_SET_FLASH_MODE:
+			{
+				u8 flash_mode;
 
-        	if (copy_from_user(&effec_val,
-        			   (const void __user *)arg,
-        			   sizeof(effec_val))) {
-        		return -EFAULT;
-        	}
+				if (copy_from_user(&flash_mode,
+							(const void __user *)arg,
+							sizeof(flash_mode))) {
+					return -EFAULT;
+				}
+				sensor_start_flash_handler(info,flash_mode);
+			}
+		case SENSOR_IOCTL_GET_AF_STATUS:
+			{
+				int err;
+				u8 val;
 
-	     if(cmd == SENSOR_IOCTL_SET_WHITE_BALANCE){
-	     	info->current_wb= effec_val;
-		type = UPDATE_AWB;
-	    } else{
-           	 info->current_exposure= effec_val;
-		 type = UPDATE_EXP;
-	    }
-            return set_sensor_effect(info,type);
-        }
+				err = sensor_get_af_status(info, &val);
+				if (err)
+					return err;
 
-    	default:
-    		return -EINVAL;
+				if (copy_to_user((void __user *) arg,
+							&val, sizeof(val))) {
+					pr_err("%s: 0x%x\n", __func__, __LINE__);
+					return -EFAULT;
+				}
+				break;
+			}
+		case SENSOR_IOCTL_GET_SENSOR_TYPE:
+			{
+				u8 val;
+
+				val = info->sensor_type;
+
+				if (copy_to_user((void __user *) arg,
+							&val, sizeof(val))) {
+					pr_err("%s: 0x%x\n", __func__, __LINE__);
+					return -EFAULT;
+				}
+				break;
+			}
+		case SENSOR_IOCTL_SET_AF_MODE:
+			{
+				return sensor_set_af_mode(info, (u8)arg);
+			}break;
+		case SENSOR_IOCTL_SET_WHITE_BALANCE:
+		case SENSOR_IOCTL_SET_YUV_EXPOSURE:
+			{
+				u8 effec_val;
+				int type;
+
+				if (copy_from_user(&effec_val,
+							(const void __user *)arg,
+							sizeof(effec_val))) {
+					return -EFAULT;
+				}
+
+				if(cmd == SENSOR_IOCTL_SET_WHITE_BALANCE){
+					info->current_wb= effec_val;
+					type = UPDATE_AWB;
+				} else{
+					info->current_exposure= effec_val;
+					type = UPDATE_EXP;
+				}
+				return set_sensor_effect(info,type);
+			}
+
+		default:
+			return -EINVAL;
 	}
 	return 0;
 }

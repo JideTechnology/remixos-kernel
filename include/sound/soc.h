@@ -503,7 +503,6 @@ struct snd_soc_jack_zone {
  */
 #ifdef CONFIG_GPIOLIB
 struct snd_soc_jack_gpio {
-	unsigned int id;
 	unsigned int gpio;
 	const char *name;
 	int report;
@@ -523,10 +522,8 @@ struct snd_soc_jack {
 	struct snd_soc_codec *codec;
 	struct list_head pins;
 	int status;
-	int gpio[2];
 	struct blocking_notifier_head notifier;
 	struct list_head jack_zones;
-	
 };
 
 /* SoC PCM stream information */

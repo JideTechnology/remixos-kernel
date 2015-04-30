@@ -65,7 +65,6 @@
 #define GPIO_INT_MIC_EN BIT(3)
 #define GPIO_EXT_MIC_EN BIT(4)
 #define GPIO_RESET_EN BIT(5)
-#define GPIO_HP_DOC_DET BIT(6)
 
 #define DAI_LINK_HIFI		0
 #define DAI_LINK_SPDIF		1
@@ -74,8 +73,6 @@
 #define DAI_LINK_BT_VOICE_CALL	4
 #define NUM_DAI_LINKS	5
 #define __TEGRA_GPIO_DET__
-#define __AUDIO_DOCK__     0
-
 #ifndef CONFIG_ARCH_TEGRA_2x_SOC
 const char *tegra_aic325x_i2s_dai_name[TEGRA30_NR_I2S_IFC] = {
 	"tegra30-i2s.0",
@@ -85,8 +82,7 @@ const char *tegra_aic325x_i2s_dai_name[TEGRA30_NR_I2S_IFC] = {
 	"tegra30-i2s.4",
 };
 #endif
-int sound_flag=0;
-int audio_flag=0;
+
 struct tegra_aic325x {
 	struct tegra_asoc_utils_data util_data;
 	struct tegra_aic325x_platform_data *pdata;
@@ -593,7 +589,6 @@ static struct snd_soc_ops tegra_aic325x_hifi_ops = {
 };
 static struct snd_soc_jack tegra_aic325x_hp_jack;
 static struct snd_soc_jack_gpio tegra_aic325x_hp_jack_gpio = {
-	.id=1,
 	.name = "headphone detect",
 	.report = SND_JACK_HEADPHONE,
 	.debounce_time = 150,
@@ -625,54 +620,10 @@ static int aic325x_headset_switch_notify(struct notifier_block *self,
 	default:
 		state |= BIT_NO_HEADSET;
 	}
-
-#if   __AUDIO_DOCK__
-	if (gpio_is_valid(gpio->gpio)) {
-		val = gpio_get_value(gpio->gpio);
-	}
-	if (gpio_is_valid(gpio_doc->gpio)) {
-		val1 = gpio_get_value(gpio_doc->gpio);
-	}
-	if(val  && val1){
-		state |= BIT_NO_HEADSET;
-	}else{
-		state |= BIT_HEADSET;
-	}
-#endif
-	if(sound_flag)
-		return NOTIFY_OK;
 	switch_set_state(&aic325x_wired_switch_dev, state);
 	return NOTIFY_OK;
 }
-void aic325x_headset_switch(unsigned int flag)
-{
-	int state = 0;
-	int val=0;
-	struct snd_soc_jack_gpio *gpio = &tegra_aic325x_hp_jack_gpio;
-	printk("flag============%d\n",flag);
-	switch (flag) {
-	case 1:
-		state |= BIT_HEADSET;
-		break;
-	default:
-		state |= BIT_NO_HEADSET;
-	}
-	sound_flag = flag;
-	if(!audio_flag)
-		return;
-	if (gpio_is_valid(gpio->gpio)) {
-		val = gpio_get_value(gpio->gpio);
-		val = gpio->invert ? !val : val;
-		
-	}
 
-	printk("val============%d\n",val);
-	if(val)
-		return;
-	else
-		switch_set_state(&aic325x_wired_switch_dev, state);
-}
-EXPORT_SYMBOL(aic325x_headset_switch);
 static struct notifier_block aic325x_headset_switch_nb = {
 	.notifier_call = aic325x_headset_switch_notify,
 };
@@ -692,7 +643,6 @@ static int tegra_aic325x_event_int_spk(struct snd_soc_dapm_widget *w,
 	struct snd_soc_card *card = dapm->card;
 	struct tegra_aic325x *machine = snd_soc_card_get_drvdata(card);
 	struct tegra_aic325x_platform_data *pdata = machine->pdata;
-
 	if (!(machine->gpio_requested & GPIO_SPKR_EN))
 		return 0;
 	printk("show speaker state %d\n",event);
@@ -826,7 +776,7 @@ static int tegra_aic325x_init(struct snd_soc_pcm_runtime *rtd)
 		}
 		machine->gpio_requested |= GPIO_SPKR_EN;
 
-		gpio_direction_output(pdata->gpio_spkr_en, 1);
+		gpio_direction_output(pdata->gpio_spkr_en, 0);
 	}
 #endif
 	if (gpio_is_valid(pdata->gpio_hp_mute)) {
@@ -838,17 +788,6 @@ static int tegra_aic325x_init(struct snd_soc_pcm_runtime *rtd)
 		machine->gpio_requested |= GPIO_HP_MUTE;
 
 		gpio_direction_output(pdata->gpio_hp_mute, 0);
-	}
-	
-	if (gpio_is_valid(pdata->gpio_hp_doc_det)) {
-		ret = gpio_request(pdata->gpio_hp_doc_det, "dock_det");
-		if (ret) {
-			dev_err(card->dev, "cannot get dock_det gpio\n");
-			return ret;
-		}
-		machine->gpio_requested |= GPIO_HP_DOC_DET;
-
-		gpio_direction_output(pdata->gpio_hp_doc_det, 0);
 	}
 
 	if (gpio_is_valid(pdata->gpio_int_mic_en)) {
@@ -893,25 +832,19 @@ static int tegra_aic325x_init(struct snd_soc_pcm_runtime *rtd)
 	#endif
 
 #ifdef __TEGRA_GPIO_DET__
-
+#if defined(CONFIG_MACH_T8400N_11_6CM)
+	tegra_aic325x_hp_jack_gpio.invert =0; 
+#else
 	tegra_aic325x_hp_jack_gpio.invert =1; 
-
+#endif
 	tegra_aic325x_hp_jack_gpio.gpio = pdata->gpio_hp_det;
 #endif
-
-#if  __AUDIO_DOCK__ 
-		tegra_aic325x_hp_doc_gpio.invert =1;
-		tegra_aic325x_hp_doc_gpio.gpio = pdata->gpio_hp_doc_det;
-#endif
-	
 	ret = snd_soc_jack_new(codec, "Headset Jack", SND_JACK_HEADSET,
 			&tegra_aic325x_hp_jack);
 	if (ret < 0) {
 		printk("**Err snd_soc_jack_new\n");
 		return ret;
 	}
-	tegra_aic325x_hp_jack.gpio[0] = -1;
-	tegra_aic325x_hp_jack.gpio[1] = -1;
 #ifdef CONFIG_SWITCH
 	snd_soc_jack_notifier_register(&tegra_aic325x_hp_jack,
 		&aic325x_headset_switch_nb);
@@ -920,14 +853,11 @@ static int tegra_aic325x_init(struct snd_soc_pcm_runtime *rtd)
 		ARRAY_SIZE(tegra_aic325x_hp_jack_pins),
 		tegra_aic325x_hp_jack_pins);
 #endif
-	
 #ifdef __TEGRA_GPIO_DET__
 	snd_soc_jack_add_gpios(&tegra_aic325x_hp_jack,1,&tegra_aic325x_hp_jack_gpio);
 	machine->gpio_requested |= GPIO_HP_DET;
 #endif
-#if  __AUDIO_DOCK__ 
 
-#endif
 	 ret = tegra_asoc_utils_register_ctls(&machine->util_data);
       if (ret < 0)
               return ret;
@@ -1094,7 +1024,7 @@ static __devinit int tegra_aic325x_driver_probe(struct platform_device *pdev)
 		goto err_unregister_card;
 	}
 #endif
-	audio_flag =1;
+
 	return 0;
 
 err_unregister_card:
@@ -1120,9 +1050,6 @@ static int __devexit tegra_aic325x_driver_remove(struct platform_device *pdev)
 	
 	if(machine->gpio_requested & GPIO_HP_DET)
 		snd_soc_jack_free_gpios(&tegra_aic325x_hp_jack,1,&tegra_aic325x_hp_jack_gpio);
-#if   __AUDIO_DOCK__
-
-#endif
 	tegra_asoc_utils_fini(&machine->util_data);
 
 	if (machine->gpio_requested & GPIO_EXT_MIC_EN)
@@ -1133,8 +1060,6 @@ static int __devexit tegra_aic325x_driver_remove(struct platform_device *pdev)
 		gpio_free(pdata->gpio_hp_mute);
 	if (machine->gpio_requested & GPIO_SPKR_EN)
 		gpio_free(pdata->gpio_spkr_en);
-	if (machine->gpio_requested & GPIO_HP_DOC_DET)
-		gpio_free(pdata->gpio_hp_doc_det);
 	if (machine->gpio_requested & GPIO_RESET_EN)
 		gpio_free(pdata->gpio_aic325x_reset);
 	kfree(machine);

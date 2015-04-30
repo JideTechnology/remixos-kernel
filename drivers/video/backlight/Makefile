@@ -28,6 +28,7 @@ obj-$(CONFIG_BACKLIGHT_PANDORA)	+= pandora_bl.o
 obj-$(CONFIG_BACKLIGHT_PROGEAR) += progear_bl.o
 obj-$(CONFIG_BACKLIGHT_CARILLO_RANCH) += cr_bllcd.o
 obj-$(CONFIG_BACKLIGHT_PWM)	+= pwm_bl.o
+obj-$(CONFIG_BACKLIGHT_MACALLAN)	+= macallan_pwm_bl.o
 CFLAGS_tegra_pwm_bl.o	= -Werror
 obj-$(CONFIG_BACKLIGHT_TEGRA_PWM) += tegra_pwm_bl.o
 obj-$(CONFIG_BACKLIGHT_DA903X)	+= da903x_bl.o

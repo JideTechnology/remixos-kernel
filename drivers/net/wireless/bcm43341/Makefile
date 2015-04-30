@@ -1,4 +1,4 @@
-# bcmdhd
+#bcmdhd
 
 DHDCFLAGS = -Wall -Wstrict-prototypes -Dlinux -DBCMDRIVER                 \
 	-DBCMDONGLEHOST -DUNRELEASEDCHIP -DBCMDMA32 -DBCMFILEIMAGE            \
@@ -131,11 +131,10 @@ endif
 ifneq ($(wildcard $(DHD_SRC)/dhd_nvram.obj),)
 include $(src)/makefile.my
 endif
-
-obj-$(CONFIG_BCM43341) += bcm43341.o
+obj-$(CONFIG_BCMDHD) += bcm43341.o
 bcm43341-objs += $(DHDOFILES)
 
 EXTRA_CFLAGS = $(DHDCFLAGS)
-ifeq ($(CONFIG_BCM43341),m)
+ifeq ($(CONFIG_BCMDHD),m)
  EXTRA_LDFLAGS += --strip-debug
 endif

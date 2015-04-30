@@ -31,6 +31,9 @@
 #include <linux/slab.h>
 #include <linux/edp.h>
 
+#define LCD_VERSION_3_1_MAX_BL 200
+extern int u_1080p_dc_lcm_dect_val;
+
 struct pwm_bl_data {
 	struct pwm_device	*pwm;
 	struct device		*dev;
@@ -45,33 +48,6 @@ struct pwm_bl_data {
 					int brightness);
 	int			(*check_fb)(struct device *, struct fb_info *);
 	int (*display_init)(struct device *);
-};
-
-atomic_t __maybe_unused video_bl_status = ATOMIC_INIT(0);
-EXPORT_SYMBOL(video_bl_status);
-
-static ssize_t video_bl_status_store(struct device *dev,
-						struct device_attribute *attr,
-						const char *buf, size_t count)
-{
-	if(buf==NULL)
-		return -1;
-	if(buf[0]=='0')
-	{
-		printk("video bl stop or pause\n");
-		atomic_set(&video_bl_status, 0);
-	}
-	else if(buf[0]=='1')
-	{
-		printk("video bl enter start\n");
-		atomic_set(&video_bl_status, 1);
-	}
-	return count;
-}
-
-static struct device_attribute video_bl_status_attributes[] = {
-	__ATTR(video_bl_status_control, (S_IWUSR|S_IWGRP|S_IROTH), NULL, video_bl_status_store),
-	__ATTR_NULL,
 };
 
 static int pwm_backlight_update_status(struct backlight_device *bl)
@@ -95,6 +71,9 @@ static int pwm_backlight_update_status(struct backlight_device *bl)
 
 	if (pb->notify)
 		brightness = pb->notify(pb->dev, brightness);
+
+	if (u_1080p_dc_lcm_dect_val == 0x02)
+		brightness = (int)(brightness*LCD_VERSION_3_1_MAX_BL/max);
 
 	if (pb->tegra_pwm_bl_edp_client) {
 		for (i = 0; i < TEGRA_PWM_BL_EDP_NUM_STATES; i++) {
@@ -273,10 +252,10 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 
 edp_success:
 #endif
-
-	device_create_file(&pdev->dev,video_bl_status_attributes);
-
-	bl->props.brightness = data->dft_brightness;
+	if (u_1080p_dc_lcm_dect_val == 0x02)
+		bl->props.brightness = 30;
+	else
+		bl->props.brightness = data->dft_brightness;
 	backlight_update_status(bl);
 
 	if (gpio_is_valid(pb->pwm_gpio))

@@ -26,38 +26,14 @@ config MPU_SENSORS_MPU3050
 	  If you say yes here you get support for the MPU3050 Gyroscope driver
 	  This driver can also be built as a module.  If so, the module
 	  will be called mpu3050.
-
-config MPU_SENSORS_MPU6050A2
-	tristate "MPU6050A2"
-	depends on I2C
-	select MPU_SENSORS_MPU6050_GYRO
-	help
-	  If you say yes here you get support for the MPU6050A2 Gyroscope driver
-	  This driver can also be built as a module.  If so, the module
-	  will be called mpu6050a2.
-
-config MPU_SENSORS_MPU6050B1
-	tristate "MPU6050B1"
-	depends on I2C
-	select MPU_SENSORS_MPU6050_GYRO
-	help
-	  If you say yes here you get support for the MPU6050 Gyroscope driver
-	  This driver can also be built as a module.  If so, the module
-	  will be called mpu6050b1.
-
 endchoice
 
 config MPU_SENSORS_MPU3050_GYRO
 	bool "MPU3050 built in gyroscope"
 	depends on MPU_SENSORS_MPU3050
 
-config MPU_SENSORS_MPU6050_GYRO
-	bool "MPU6050 built in gyroscope"
-	depends on MPU_SENSORS_MPU6050B1 || MPU_SENSORS_MPU6050A2
-
 source "drivers/misc/inv_mpu/accel/Kconfig"
 source "drivers/misc/inv_mpu/compass/Kconfig"
-source "drivers/misc/inv_mpu/pressure/Kconfig"
 
 config MPU_USERSPACE_DEBUG
 	bool "MPU Userspace debugging ioctls"

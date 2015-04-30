@@ -123,8 +123,6 @@ EXPORT_SYMBOL(cad_pid);
 
 void (*pm_power_off_prepare)(void);
 
-extern int get_current_charge_status(void);
-
 /*
  * Returns true if current's euid is same as p's uid or euid,
  * or has CAP_SYS_NICE to p's user_ns.
@@ -400,28 +398,6 @@ void kernel_restart(char *cmd)
 }
 EXPORT_SYMBOL_GPL(kernel_restart);
 
-/**
- *	kernel_charging_restart - reboot the system if adaptor plug-in
- *	@cmd: pointer to buffer containing command to execute for restart
- *		or %NULL
- *
- *	Shutdown everything and perform a clean reboot.
- *	This is not safe to call in interrupt context.
- */
-void kernel_charging_restart(char *cmd)
-{
-	kernel_restart_prepare(NULL);
-	migrate_to_reboot_cpu();
-	syscore_shutdown();
-	if (!cmd)
-		printk(KERN_EMERG "Restarting system.\n");
-	else
-		printk(KERN_EMERG "Restarting system with command '%s'.\n", cmd);
-	kmsg_dump(KMSG_DUMP_RESTART);
-	machine_restart(cmd);
-}
-
-
 static void kernel_shutdown_prepare(enum system_states state)
 {
 	blocking_notifier_call_chain(&reboot_notifier_list,
@@ -528,15 +504,8 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
 		panic("cannot halt");
 
 	case LINUX_REBOOT_CMD_POWER_OFF:
-	#ifdef CONFIG_MACH_TB610N
-		if(get_current_charge_status() > 0)
-			kernel_charging_restart("charging-reboot");
-		else
-	#endif
-		{
-		    kernel_power_off();
-		    do_exit(0);
-		}
+		kernel_power_off();
+		do_exit(0);
 		break;
 
 	case LINUX_REBOOT_CMD_RESTART2:

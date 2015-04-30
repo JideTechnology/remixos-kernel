@@ -22,8 +22,10 @@
 #include <linux/regulator/driver.h>
 #include <linux/iio/machine.h>
 #include <linux/thermal.h>
+#include <linux/gpio_keys.h>
 
 #define PALMAS_NUM_CLIENTS		3
+#define PALMAS_REBOOT_POWEROFF	1
 
 struct palmas_pmic;
 struct palmas_rtc;
@@ -59,6 +61,9 @@ struct palmas {
 	int sw_otp_version;
 	int es_minor_version;
 	int es_major_version;
+#ifdef PALMAS_REBOOT_POWEROFF
+	struct delayed_work	work;
+#endif
 };
 
 struct palmas_reg_init {
@@ -242,6 +247,32 @@ struct palmas_extcon_platform_data {
 	bool enable_vbus_detection;
 	bool enable_id_pin_detection;
 	bool enable_vac_detection;	
+	int vac_ts_detecton_gpio;
+	int usb_vbus_detecton_gpio;
+};
+
+struct supply_hid_device {
+	int id;
+	char *name;
+	int volt2adc;
+	int det_id_status;
+	void (*init_switch_gpio)(void);
+	int adc_limit;
+	struct gpio_keys_button *buttons;
+};
+
+struct palmas_autoadc_platform_data {
+	int det_id;
+	int switch_gpio;
+	int adc_channel;
+	int conversion_0_threshold;
+	int delay_time;
+	int hid_dev_num;
+	unsigned int code;
+	int wakeup;
+	int (*usb5v_enable)(int);
+
+	struct supply_hid_device *hid_dev;
 };
 
 struct palmas_platform_data {
@@ -256,6 +287,7 @@ struct palmas_platform_data {
 	struct palmas_rtc_platform_data *rtc_pdata;
 	struct palmas_gpadc_platform_data *adc_pdata;
 	struct palmas_pwrbutton_platform_data *pwrbutton_pdata;
+	struct palmas_autoadc_platform_data *autoadc_pdata;
 
 	struct palmas_clk32k_init_data  *clk32k_init_data;
 	int clk32k_init_data_size;

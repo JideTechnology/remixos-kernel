@@ -29,6 +29,7 @@
 #include <linux/slab.h>
 #include <linux/kernel.h>
 
+#include <linux/gpio.h>
 #include <linux/hid.h>
 #include <linux/hid-debug.h>
 
@@ -935,12 +936,20 @@ ignore:
 
 }
 
+#define TEGRA_GPIO_PK6		86
+static int jide_keyboard_vid = 0x1017;
+static int jide_keyboard_pid = 0x1006;
 void hidinput_hid_event(struct hid_device *hid, struct hid_field *field, struct hid_usage *usage, __s32 value)
 {
 	struct input_dev *input;
 	unsigned *quirks = &hid->quirks;
 
 	if (!field->hidinput)
+		return;
+
+	if (hid->vendor == jide_keyboard_vid &&
+			hid->product == jide_keyboard_pid &&
+			!gpio_get_value(TEGRA_GPIO_PK6))
 		return;
 
 	input = field->hidinput->input;
@@ -1267,3 +1276,4 @@ void hidinput_disconnect(struct hid_device *hid)
 }
 EXPORT_SYMBOL_GPL(hidinput_disconnect);
 
+

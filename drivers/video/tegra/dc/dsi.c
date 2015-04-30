@@ -103,7 +103,8 @@
 	DSI_PAD_CONTROL_PAD_PULLDN_ENAB			\
 		(TEGRA_DSI_PAD_DISABLE))
 
-#define AUO_LCD 3
+#define TEGRA_DSI_CSI_EN 0
+
 static atomic_t dsi_syncpt_rst = ATOMIC_INIT(0);
 
 static bool enable_read_debug;
@@ -2323,10 +2324,11 @@ static int tegra_dsi_init_hw(struct tegra_dc *dc,
 				struct tegra_dc_dsi_data *dsi)
 {
 	u32 i;
-
+#ifdef TEGRA_DSI_CSI_EN
 	regulator_enable(dsi->avdd_dsi_csi);
 	/* stablization delay */
 	mdelay(50);
+#endif
 
 	tegra_dsi_set_dsi_clk(dc, dsi, dsi->target_lp_clk_khz);
 
@@ -3519,7 +3521,9 @@ static void tegra_dsi_send_dc_frames(struct tegra_dc *dc,
 
 static void tegra_dsi_setup_initialized_panel(struct tegra_dc_dsi_data *dsi)
 {
+#ifdef TEGRA_DSI_CSI_EN
 	regulator_enable(dsi->avdd_dsi_csi);
+#endif
 
 	dsi->status.init = DSI_MODULE_INIT;
 	dsi->status.lphs = DSI_LPHS_IN_HS_MODE;
@@ -4307,10 +4311,12 @@ fail:
 
 static void tegra_dc_dsi_postpoweroff(struct tegra_dc *dc)
 {
+#ifdef TEGRA_DSI_CSI_EN
 	struct tegra_dc_dsi_data *dsi = tegra_dc_get_outdata(dc);
 
 	if (!dsi->enabled)
 		regulator_disable(dsi->avdd_dsi_csi);
+#endif
 }
 
 static int tegra_dsi_host_resume(struct tegra_dc *dc)
@@ -4462,12 +4468,14 @@ static int tegra_dc_dsi_init(struct tegra_dc *dc)
 
 	dsi = tegra_dc_get_outdata(dc);
 
+#ifdef TEGRA_DSI_CSI_EN
 	dsi->avdd_dsi_csi =  regulator_get(&dc->ndev->dev, "avdd_dsi_csi");
 	if (IS_ERR_OR_NULL(dsi->avdd_dsi_csi)) {
 		dev_err(&dc->ndev->dev, "dsi: avdd_dsi_csi reg get failed\n");
 		err = PTR_ERR(dsi->avdd_dsi_csi);
 		goto err_reg;
 	}
+#endif
 
 	dsi->mipi_cal = tegra_mipi_cal_init_sw(dc);
 	if (IS_ERR(dsi->mipi_cal)) {
@@ -4477,8 +4485,10 @@ static int tegra_dc_dsi_init(struct tegra_dc *dc)
 	}
 	return 0;
 err_mipi:
+#ifdef TEGRA_DSI_CSI_EN
 	regulator_put(dsi->avdd_dsi_csi);
 err_reg:
+#endif
 	_tegra_dc_dsi_destroy(dc);
 err:
 	return err;
@@ -4486,13 +4496,17 @@ err:
 
 static void tegra_dc_dsi_destroy(struct tegra_dc *dc)
 {
+#ifdef TEGRA_DSI_CSI_EN
 	struct regulator *avdd_dsi_csi;
 	struct tegra_dc_dsi_data *dsi = tegra_dc_get_outdata(dc);
 
 	avdd_dsi_csi = dsi->avdd_dsi_csi;
+#endif
 
 	_tegra_dc_dsi_destroy(dc);
+#ifdef TEGRA_DSI_CSI_EN
 	regulator_put(avdd_dsi_csi);
+#endif
 	tegra_mipi_cal_destroy(dc);
 }
 

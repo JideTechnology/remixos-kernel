@@ -48,7 +48,9 @@
 	while(0){}
 #endif
 
-//#define DRV8601_HRTIMER
+#ifdef CONFIG_DRV8601_HRTIMER
+#define DRV8601_HRTIMER
+#endif
 
 struct drv8601_vibrator_data {
 	struct timed_output_dev dev;
@@ -110,8 +112,6 @@ static void drv8601_vibrator_start(void)
 
 static void drv8601_vibrator_stop(void)
 {
-	int ret;
-
 	drv8601_dbg("=======================%s\n",__func__);
 	if (data->vibrator_on) {
 		gpio_direction_output(DRV8601_VIBRATOR_EN, 0);
@@ -141,7 +141,6 @@ static enum hrtimer_restart drv8601_vibrator_timer_func(struct hrtimer *timer)
 static void drv8601_vibrator_enable(struct timed_output_dev *dev, int value)
 {
 	drv8601_dbg("=======================%s value =%d\n",__func__,value);
-
 #ifdef DRV8601_HRTIMER
 	hrtimer_cancel(&data->timer);
 #endif
@@ -240,8 +239,8 @@ static int drv8601_vibrator_probe(struct platform_device *pdev)
 err_pwm:
 #ifdef DRV8601_PWM_EN
 	pwm_free(data->pwm);
-#endif
 err_gpio:
+#endif
 	gpio_free(data->enable_gpio);
 err:
 	kfree(data);
@@ -262,6 +261,24 @@ static int drv8601_vibrator_remove(struct platform_device *pdev)
 
 	return 0;
 }
+static int tegra_drv8601_suspend(struct device *dev)
+{
+	drv8601_vibrator_power_supply(false);
+	return 0;
+}
+
+static int tegra_drv8601_kbc_resume(struct device *dev)
+{
+	drv8601_vibrator_power_supply(true);
+	return 0;
+}
+
+static const struct dev_pm_ops tegra_drv8601_pm_ops = {
+#ifdef CONFIG_PM_SLEEP
+	.suspend = tegra_drv8601_suspend,
+	.resume = tegra_drv8601_kbc_resume,
+#endif
+};
 
 static struct platform_driver drv8601_vibrator_driver = {
 	.probe = drv8601_vibrator_probe,
@@ -269,6 +286,7 @@ static struct platform_driver drv8601_vibrator_driver = {
 	.driver = {
 		.name = "tegra-vibrator",
 		.owner = THIS_MODULE,
+		.pm	= &tegra_drv8601_pm_ops,
 	},
 };
 

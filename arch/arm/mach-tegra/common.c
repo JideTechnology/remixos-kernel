@@ -79,7 +79,6 @@
 
 #define   RECOVERY_MODE	BIT(31)
 #define   BOOTLOADER_MODE	BIT(30)
-#define   CHARGING_REBOOT_MODE	BIT(29)
 #define   FORCED_RECOVERY_MODE	BIT(1)
 
 #define AHB_GIZMO_USB		0x1c
@@ -184,30 +183,19 @@ void tegra_assert_system_reset(char mode, const char *cmd)
 
 	reg = readl_relaxed(reset + PMC_SCRATCH0);
 	/* Writing recovery kernel or Bootloader mode in SCRATCH0 31:30:1 */
-	if (cmd) 
-	{
-		if (!strcmp(cmd, "recovery"))		
-			reg |= RECOVERY_MODE;			
-		else if (!strcmp(cmd, "bootloader"))			
-			reg |= BOOTLOADER_MODE;			
-		else if (!strcmp(cmd, "forced-recovery"))			
+	if (cmd) {
+		if (!strcmp(cmd, "recovery"))
+			reg |= RECOVERY_MODE;
+		else if (!strcmp(cmd, "bootloader"))
+			reg |= BOOTLOADER_MODE;
+		else if (!strcmp(cmd, "forced-recovery"))
 			reg |= FORCED_RECOVERY_MODE;
-		else if (!strcmp(cmd, "charging-reboot"))
-			reg |= CHARGING_REBOOT_MODE;
 		else
-			{
-			  //reg &= ~(BOOTLOADER_MODE | RECOVERY_MODE | FORCED_RECOVERY_MODE);
-			  reg &= ~(FORCED_RECOVERY_MODE);
-			  reg |= (BOOTLOADER_MODE|RECOVERY_MODE);			  
-			}
+			reg &= ~(BOOTLOADER_MODE | RECOVERY_MODE | FORCED_RECOVERY_MODE);
 	}
-	else 
-	{
+	else {
 		/* Clearing SCRATCH0 31:30:1 on default reboot */
-		//reg &= ~(BOOTLOADER_MODE | RECOVERY_MODE | FORCED_RECOVERY_MODE);
-		reg &= ~(FORCED_RECOVERY_MODE);
-		reg |= (BOOTLOADER_MODE|RECOVERY_MODE);
-		pr_info("tegra_assert_system_reset() none with nocmd .....ivan");
+		reg &= ~(BOOTLOADER_MODE | RECOVERY_MODE | FORCED_RECOVERY_MODE);
 	}
 	writel_relaxed(reg, reset + PMC_SCRATCH0);
 	reg = readl_relaxed(reset);
@@ -601,10 +589,12 @@ static void __init tegra_perf_init(void)
 #ifdef CONFIG_ARCH_TEGRA_11x_SOC
 static void __init tegra_ramrepair_init(void)
 {
-	u32 reg;
-	reg = readl(FLOW_CTRL_RAM_REPAIR);
-	reg &= ~FLOW_CTRL_RAM_REPAIR_BYPASS_EN;
-	writel(reg, FLOW_CTRL_RAM_REPAIR);
+	if (tegra_spare_fuse(10)  | tegra_spare_fuse(11)) {
+		u32 reg;
+		reg = readl(FLOW_CTRL_RAM_REPAIR);
+		reg &= ~FLOW_CTRL_RAM_REPAIR_BYPASS_EN;
+		writel(reg, FLOW_CTRL_RAM_REPAIR);
+	}
 }
 #endif
 
@@ -1775,7 +1765,7 @@ int __init tegra_release_bootloader_fb(void)
 	}
 	return 0;
 }
-//late_initcall(tegra_release_bootloader_fb);
+late_initcall(tegra_release_bootloader_fb);
 
 static struct platform_device *pinmux_devices[] = {
 	&tegra_gpio_device,

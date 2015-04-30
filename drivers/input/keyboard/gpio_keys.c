@@ -32,6 +32,7 @@
 #include <linux/of_gpio.h>
 #include <linux/spinlock.h>
 
+#define HALL_SENSOR_GPIO  86  //TEGRA_GPIO_PK6
 struct gpio_button_data {
 	const struct gpio_keys_button *button;
 	struct input_dev *input;
@@ -52,7 +53,7 @@ struct gpio_keys_drvdata {
 	void (*disable)(struct device *dev);
 	struct gpio_button_data data[0];
 };
-
+static struct input_dev *wakeup_input;
 /*
  * SYSFS interface for enabling/disabling keys and switches:
  *
@@ -326,6 +327,15 @@ static struct attribute_group gpio_keys_attr_group = {
 	.attrs = gpio_keys_attrs,
 };
 
+void nv_send_wakeup_key(void)
+{
+	if (!wakeup_input)
+		return;
+	input_report_key(wakeup_input, KEY_WAKEUP, 1);
+	input_sync(wakeup_input);
+	input_report_key(wakeup_input, KEY_WAKEUP, 0);
+	input_sync(wakeup_input);
+}
 static void gpio_keys_gpio_report_wake(struct gpio_button_data *bdata)
 {
 	const struct gpio_keys_button *button = bdata->button;
@@ -334,6 +344,9 @@ static void gpio_keys_gpio_report_wake(struct gpio_button_data *bdata)
 	/* Report 1 for all keys except SW_LID which reports 0 as wake */
 	unsigned int report_val = !(button->type == EV_SW
 				&& button->code == SW_LID);
+
+	if (button->code == KEY_POWER && !gpio_get_value(HALL_SENSOR_GPIO))
+		return;
 
 	input_event(input, type, button->code, report_val);
 	input_sync(input);
@@ -345,6 +358,9 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 	struct input_dev *input = bdata->input;
 	unsigned int type = button->type ?: EV_KEY;
 	int state = (gpio_get_value_cansleep(button->gpio) ? 1 : 0) ^ button->active_low;
+
+	if (button->code == KEY_POWER && !gpio_get_value(HALL_SENSOR_GPIO))
+		return;
 
 	if (type == EV_ABS) {
 		if (state)
@@ -511,6 +527,7 @@ static int __devinit gpio_keys_setup_key(struct platform_device *pdev,
 	}
 
 	input_set_capability(input, button->type ?: EV_KEY, button->code);
+	input_set_capability(input, EV_KEY, KEY_WAKEUP);
 
 	/*
 	 * If platform has specified that the button can be disabled,
@@ -687,6 +704,7 @@ static int __devinit gpio_keys_probe(struct platform_device *pdev)
 	}
 
 	ddata->input = input;
+	wakeup_input = input;
 	ddata->n_buttons = pdata->nbuttons;
 	ddata->enable = pdata->enable;
 	ddata->disable = pdata->disable;
@@ -709,6 +727,7 @@ static int __devinit gpio_keys_probe(struct platform_device *pdev)
 	/* Enable auto repeat feature of Linux input subsystem */
 	if (pdata->rep)
 		__set_bit(EV_REP, input->evbit);
+	input_set_capability(input, EV_KEY, KEY_WAKEUP);
 
 	for (i = 0; i < pdata->nbuttons; i++) {
 		const struct gpio_keys_button *button = &pdata->buttons[i];

@@ -72,7 +72,7 @@ static struct power_supply_cables psy_cables[] = {
 		.name	= "Charge-downstream",
 	},
 };
-struct power_supply_extcon *g_psy_extcon =NULL;
+
 static enum power_supply_property power_supply_extcon_props[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 };
@@ -103,17 +103,7 @@ static int power_supply_extcon_get_property(struct power_supply *psy,
 	}
 	return ret;
 }
-void charge_ic_state(int enable)
-{	
-	if(g_psy_extcon!=NULL)
-	{
-		g_psy_extcon->ac_online = 0;
-		g_psy_extcon->usb_online = 0;
-		power_supply_changed(&g_psy_extcon->usb);	
-		power_supply_changed(&g_psy_extcon->ac);
-	}
-}
-EXPORT_SYMBOL(charge_ic_state);
+
 static int power_supply_extcon_remove_cable(
 		struct power_supply_extcon *psy_extcon,
 		struct extcon_dev *edev)
@@ -122,25 +112,17 @@ static int power_supply_extcon_remove_cable(
 
 	psy_extcon->ac_online = 0;
 	psy_extcon->usb_online = 0;
-if(machine_is_tb610n())
-{
-	if(gpio_get_value(TEGRA_GPIO_PK0)==0)
-	{
 
-	if(gpio_get_value(TEGRA_GPIO_PV0)==0)
-	{
-		psy_extcon->usb_online = 0;
+	if (true == extcon_get_cable_state(edev, "USB"))
+		if (!gpio_get_value(TEGRA_GPIO_PP2))
+			psy_extcon->usb_online = 1;
+
+	if (true == extcon_get_cable_state(edev, "TA"))
 		psy_extcon->ac_online = 1;
-	}
-	else
-		{
-		psy_extcon->usb_online = 1;
-		psy_extcon->ac_online = 0;
-		}
-	}
-}
+
 	power_supply_changed(&psy_extcon->usb);
 	power_supply_changed(&psy_extcon->ac);
+
 	return 0;
 }
 
@@ -148,18 +130,15 @@ static int power_supply_extcon_attach_cable(
 		struct power_supply_extcon *psy_extcon,
 		struct extcon_dev *edev)
 {
-	psy_extcon->usb_online = 0;
-	psy_extcon->ac_online = 0;
-if (true == extcon_get_cable_state(edev, "USB")) {
+	if (true == extcon_get_cable_state(edev, "USB")) {
 		psy_extcon->usb_online = 1;
-		psy_extcon->ac_online = 0;
-	if(machine_is_tb610n())
+		if(machine_is_macallan())
 		{	
-			if(gpio_get_value(TEGRA_GPIO_PP2)==1)
-			psy_extcon->usb_online = 0;
+			if(gpio_get_value(TEGRA_GPIO_PP2)==1) {
+				psy_extcon->usb_online = 0;
+			}
 			if(gpio_get_value(TEGRA_GPIO_PV0)==0)
 			{
-				psy_extcon->usb_online = 0;
 				psy_extcon->ac_online = 1;
 			}
 		}
@@ -168,7 +147,7 @@ if (true == extcon_get_cable_state(edev, "USB")) {
 	} else if (true == extcon_get_cable_state(edev, "Charge-downstream")) {
 		psy_extcon->usb_online = 1;
 		dev_info(psy_extcon->dev,
-			"USB charger downstream cable detected\n");
+				"USB charger downstream cable detected\n");
 	} else if (true == extcon_get_cable_state(edev, "TA")) {
 		psy_extcon->ac_online = 1;
 		printk("psy_extcon->ac_online=%d\n",psy_extcon->ac_online);
@@ -194,7 +173,6 @@ static void psy_extcon_extcon_handle_notifier(struct work_struct *w)
 			struct power_supply_cables, extcon_notifier_work);
 	struct power_supply_extcon *psy_extcon = cable->psy_extcon;
 	struct extcon_dev *edev = cable->extcon_dev->edev;
-
 	if (cable->event == 0)
 		power_supply_extcon_remove_cable(psy_extcon, edev);
 	else if (cable->event == 1)
@@ -286,7 +264,6 @@ static __devinit int psy_extcon_probe(struct platform_device *pdev)
 			goto econ_err;
 
 	power_supply_extcon_attach_cable(psy_extcon, psy_extcon->edev);
-	g_psy_extcon = psy_extcon;
 	dev_info(&pdev->dev, "%s() get success\n", __func__);
 	return 0;
 

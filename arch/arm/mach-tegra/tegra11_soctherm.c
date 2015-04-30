@@ -573,7 +573,7 @@ static const struct soctherm_sensor sensor_defaults = {
 
 /* SOC- OCx to theirt GPIO which is wakeup capable. This is T114 specific */
 static int soctherm_ocx_to_wake_gpio[TEGRA_SOC_OC_IRQ_MAX] = {
-	TEGRA_GPIO_INVALID,	/* TEGRA_SOC_OC_IRQ_1 */
+	TEGRA_GPIO_PEE3,	/* TEGRA_SOC_OC_IRQ_1 */
 	TEGRA_GPIO_INVALID,	/* TEGRA_SOC_OC_IRQ_2 */
 	TEGRA_GPIO_INVALID,	/* TEGRA_SOC_OC_IRQ_3 */
 	TEGRA_GPIO_PJ2,		/* TEGRA_SOC_OC_IRQ_4 */

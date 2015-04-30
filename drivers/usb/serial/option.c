@@ -457,6 +457,15 @@ static void option_instat_callback(struct urb *urb);
 #define CHANGHONG_VENDOR_ID			0x2077
 #define CHANGHONG_PRODUCT_CH690			0x7001
 
+
+/*THINKWILL PRODUCTS*/
+#define THINKWILL_VENDOR_ID            		0X19F5
+#define THINKWILL_PRODUCT_EVDO        		0X9909   //for EVDO module
+#define THINKWILL_PRODUCT_WCDMA      		0X9013   //for WCDMA module
+
+#define THINKWILL_SC_VENDOR_ID         		0X1782
+#define THINKWILL_SC_PRODUCT_MW720   		0X0002   //for thinkwill MW720 module
+
 /* some devices interfaces need special handling due to a number of reasons */
 enum option_blacklist_reason {
 		OPTION_BLACKLIST_NONE = 0,
@@ -545,6 +554,9 @@ static const struct option_blacklist_info telit_le920_blacklist = {
 };
 
 static const struct usb_device_id option_ids[] = {
+	{ USB_DEVICE(THINKWILL_VENDOR_ID,THINKWILL_PRODUCT_EVDO)},
+	{ USB_DEVICE(THINKWILL_VENDOR_ID,THINKWILL_PRODUCT_WCDMA)},
+	{ USB_DEVICE(THINKWILL_SC_VENDOR_ID,THINKWILL_SC_PRODUCT_MW720)},
 	{ USB_DEVICE(OPTION_VENDOR_ID, OPTION_PRODUCT_COLT) },
 	{ USB_DEVICE(OPTION_VENDOR_ID, OPTION_PRODUCT_RICOLA) },
 	{ USB_DEVICE(OPTION_VENDOR_ID, OPTION_PRODUCT_RICOLA_LIGHT) },

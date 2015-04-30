@@ -15,5 +15,5 @@ struct bq27000_platform_data {
 	const char *name;
 	int (*read)(struct device *dev, unsigned int);
 };
-int bq27x00_battery_status(int status, int chrg_type);
+
 #endif

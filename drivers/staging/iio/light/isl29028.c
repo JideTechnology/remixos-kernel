@@ -44,7 +44,9 @@
 #define CONFIGURE_PROX_SLP_SH		4
 #define CONFIGURE_PROX_SLP_MASK		(7 << CONFIGURE_PROX_SLP_SH)
 
-#define CONFIGURE_PROX_DRIVE		(1 << 3)
+
+#define CONFIGURE_PROX_DRIVE	3	
+#define CONFIGURE_PROX_DRIVE_MASK		(1 << 3)
 
 #define CONFIGURE_ALS_EN		1
 #define CONFIGURE_ALS_DIS		0
@@ -96,6 +98,8 @@
 #define ISL29028_REG_ADD_TEST2_MODE		0x0F
 
 #define ISL29028_MAX_REGS		ISL29028_REG_ADD_TEST2_MODE
+
+//#define ISL29028_MAX_DISTANCE_FEATURE
 
 enum {
 	MODE_NONE = 0,
@@ -183,6 +187,13 @@ static bool isl29028_set_proxim_period(struct i2c_client *client,
 		dev_dbg(&client->dev, "Disabling proximity sensing\n");
 		st = isl29028_write_data(client, ISL29028_REG_ADD_CONFIGURE,
 			0, CONFIGURE_PROX_EN_MASK, CONFIGURE_PROX_EN_SH);
+	#ifdef ISL29028_MAX_DISTANCE_FEATURE
+	if(st)
+       	st = isl29028_write_data(client,
+			ISL29028_REG_ADD_CONFIGURE, 0,
+			CONFIGURE_PROX_DRIVE_MASK, CONFIGURE_PROX_DRIVE);
+	#endif
+		
 	} else {
 		dev_dbg(&client->dev, "Enabling proximity sensing with period "
 			"of %d ms sel %d period %d\n", prox_period[7 - sel],
@@ -193,6 +204,12 @@ static bool isl29028_set_proxim_period(struct i2c_client *client,
 			st = isl29028_write_data(client,
 				ISL29028_REG_ADD_CONFIGURE, 1,
 				CONFIGURE_PROX_EN_MASK, CONFIGURE_PROX_EN_SH);
+	#ifdef ISL29028_MAX_DISTANCE_FEATURE
+		if(st)
+        	st = isl29028_write_data(client,
+				ISL29028_REG_ADD_CONFIGURE, 1,
+				CONFIGURE_PROX_DRIVE_MASK, CONFIGURE_PROX_DRIVE);
+	#endif		
 	}
 	return st;
 }
@@ -406,6 +423,7 @@ static bool isl29028_read_proxim(struct i2c_client *client, int *prox)
 		return false;
 	}
 	*prox = (int)data;
+
 	return true;
 }
 
@@ -504,8 +522,15 @@ static ssize_t store_prox_enable(struct device *dev,
 							chip->prox_period);
 			break;
 		case MODE_NONE:
+        	if(chip->is_prox_enable)
+			{
+                st = isl29028_set_proxim_period(client, false,
+							chip->prox_period);
+			
+			}
 			if (chip->isl_reg)
 				regulator_disable(chip->isl_reg);
+		
 		}
 	}
 	if (st)

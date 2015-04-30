@@ -72,7 +72,7 @@ static int tegra_gpio_wakes[] = {
 	-EINVAL,				/* wake31 */
 	-EINVAL,				/* wake32 */
 	TEGRA_GPIO_PJ0,				/* wake33 */
-	-EINVAL,				/* wake34 */
+	TEGRA_GPIO_PK2,				/* wake34 */
 	TEGRA_GPIO_PI6,				/* wake35 */
 	-EINVAL,				/* wake36 */
 	-EINVAL,				/* wake37 */
@@ -90,12 +90,12 @@ static int tegra_gpio_wakes[] = {
 	TEGRA_GPIO_PR7,				/* wake49 */
 	TEGRA_GPIO_PR4,				/* wake50 */
 	TEGRA_GPIO_PQ0,				/* wake51 */
-	-EINVAL,			/* wake52 */
+	TEGRA_GPIO_PEE3,			/* wake52 */
 	-EINVAL,				/* wake53 */
 	TEGRA_GPIO_PQ5,				/* wake54 */
 	-EINVAL,				/* wake55 */
 	TEGRA_GPIO_PV2,				/* wake56 */
-	TEGRA_GPIO_PK6,				/* wake57 */
+	-EINVAL,				/* wake57 */
 	-EINVAL,				/* wake58 */
 };
 
@@ -141,9 +141,9 @@ static int tegra_wake_event_irq[] = {
 	-EINVAL, /* usb_iddig[2] not on t35 */	/* wake38 */
 	INT_USB, /* utmip0 line wakeup event - USB1 */	/* wake39 */
 	-EINVAL, /* utmip1 line wakeup - USB2 , not on t35 */	/* wake40 */
-	-EINVAL, /* utmip2 line wakeup event - USB3 */	/* wake41 */
+	INT_USB3, /* utmip2 line wakeup event - USB3 */	/* wake41 */
 	INT_USB2, /* uhsic line wakeup event - USB2 */	/* wake42 */
-	INT_USB3, /* uhsic2 line wakeup event - USB3 */	/* wake43 */
+	-EINVAL, /* uhsic2 line wakeup event - USB3 */	/* wake43 */
 	-EINVAL, /* I2C1 DAT */			/* wake44 */
 	-EAGAIN,				/* wake45 */
 	-EINVAL, /* PWR I2C DAT */		/* wake46 */
@@ -157,7 +157,7 @@ static int tegra_wake_event_irq[] = {
 	-EAGAIN,				/* wake54 */
 	-EINVAL, /* UART3 CTS */		/* wake55 */
 	-EAGAIN, /* SDMMC3 CD */		/* wake56 */
-	-EINVAL, /* spdif_in */			/* wake57 */
+	-EAGAIN, /* spdif_in */			/* wake57 */
 	INT_XUSB_PADCTL, /* XUSB superspeed wake */	/* wake58 */
 };
 

@@ -34,6 +34,7 @@ struct tegra_panel {
 	void (*init_resources)(struct resource *, int n_resources);
 	int (*register_bl_dev)(void);
 	int (*register_i2c_bridge)(void);
+	void (*select_dc_24bit)(struct tegra_dc_out *);
 
 };
 
@@ -50,7 +51,7 @@ extern struct tegra_panel dsi_p_wuxga_10_1;
 extern struct tegra_panel dsi_a_1080p_11_6;
 extern struct tegra_panel dsi_s_wqxga_10_1;
 extern struct tegra_panel dsi_lgd_wxga_7_0;
-
+extern struct tegra_panel dsi_a_1080p_11_1;
 extern struct tegra_panel dsi_u_1080p_11_6;
 int tegra_init_hdmi(struct platform_device *pdev,
 		     struct platform_device *phost1x);

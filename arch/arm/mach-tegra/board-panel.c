@@ -21,7 +21,7 @@
 
 #include "board.h"
 
-#ifdef CONFIG_TEGRA_DC
+#if 0 //def CONFIG_TEGRA_DC
 /**
  * tegra_init_hdmi - initialize and add HDMI device if not disabled by DT
  */

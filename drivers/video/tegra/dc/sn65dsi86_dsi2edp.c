@@ -22,17 +22,21 @@
 #include <linux/swab.h>
 #include <linux/module.h>
 #include <mach/dc.h>
+#include <linux/gpio.h>
 #include "dc_priv.h"
 #include "sn65dsi86_dsi2edp.h"
 #include "dsi.h"
 
 static struct tegra_dc_dsi2edp_data *sn65dsi86_dsi2edp;
 static struct i2c_client *sn65dsi86_i2c_client;
+extern void gpio_keys_send_event(void);
+
 #define DEBUG 0
 #define BRIDGE_TABLE_END 0xFF
 
-#ifdef CONFIG_MACH_TB610N
-extern int keenhi_lcm_version_dect(void);
+#ifdef CONFIG_MACH_MACALLAN
+extern int u_1080p_dc_lcm_dect_val;
+extern int screen_power_on;
 
 #define LCD_VERSION_3_0 0x1
 #define LCD_VERSION_3_1 0x2
@@ -86,17 +90,20 @@ static u8 dsi2edp_disable_config_clk[][2] = {
 };
 
 static u8 dsi2edp_config_init1[][2] = {
-	DSI2EDP_REG_VAL(0x0a,0x06), 
+	DSI2EDP_REG_VAL(0x0a,0x04), 
 	DSI2EDP_REG_VAL(0x10,0x26), // Single 4 DSI lanes
 	DSI2EDP_REG_VAL(0x12,0x54), //DSIA CLK FREQ 422.5MHz
-	DSI2EDP_REG_VAL(0x5a, 0x05),//enhanced framing and ASSR
+	DSI2EDP_REG_VAL(0x5a, 0x0f),//enhanced framing and ASSR
+	DSI2EDP_REG_VAL(0x5c, 0x01), //disable HPD
 	DSI2EDP_REG_VAL(0x93,0x20),// 2 DP lanes no SSC
 	DSI2EDP_REG_VAL(0x94,0x80),//HBR bit rate 2.7Gbps
 	DSI2EDP_REG_VAL(0x0d, 0x01), /* pLL enable */
+	DSI2EDP_REG_VAL(0xE9, 0x3e),  // enable interrupt
+	DSI2EDP_REG_VAL(0xE0, 0x01),  // enable interrupt
 };
 static u8 dsi2edp_config_init2[][2] = {
 	//read 0x0a Verify PLL is locked
-	DSI2EDP_REG_VAL(0x95, 0x00), //POST-Cursor2 0dB
+	//DSI2EDP_REG_VAL(0x95, 0x00), //POST-Cursor2 0dB
 	//======Write DPCD Register 0x0010A in Sink to Enable ASSR======
 	DSI2EDP_REG_VAL(0x64, 0x01), 
 	DSI2EDP_REG_VAL(0x74, 0x00),
@@ -105,7 +112,6 @@ static u8 dsi2edp_config_init2[][2] = {
 	DSI2EDP_REG_VAL(0x77, 0x01), 
 	DSI2EDP_REG_VAL(0x78, 0x81), 
 	
-	DSI2EDP_REG_VAL(0x96, 0x0a), //Semi-Auto TRAIN 
 };
 
 
@@ -126,8 +132,9 @@ static u8 dsi2edp_config_init3[][2] = {
 	DSI2EDP_REG_VAL(0x38, 0x0c),// HFP = 16
 	DSI2EDP_REG_VAL(0x3a, 0x0a),//VFP = 3
 	DSI2EDP_REG_VAL(0x5b,0x00),//DP- 24bpp
-	DSI2EDP_REG_VAL(0x3c, 0x00),//COLOR BAR disabled
-	DSI2EDP_REG_VAL(0x5a, 0x0d),//enhanced framing, ASSR, and Vstream enable
+//	DSI2EDP_REG_VAL(0x3c, 0x00),//COLOR BAR disabled
+//	DSI2EDP_REG_VAL(0x5a, 0x0d),//enhanced framing, ASSR, and Vstream enable
+
 };
 
 static inline void sn65dsi86_reg_write(struct tegra_dc_dsi2edp_data *dsi2edp,
@@ -205,6 +212,63 @@ static int bridge_read_table(struct tegra_dc_dsi2edp_data *dsi2edp,
 	}
 	return 0;
 }
+
+static ssize_t train_state_show(struct device *dev, struct device_attribute *attr, char *buf)
+{  
+	return sprintf(buf, "link training failed, write 0x%02x to 0x%02x total:\nirq:%d\nresume:%d\n",
+			0x0a,0x96,sn65dsi86_dsi2edp->irq_failed_count,
+			sn65dsi86_dsi2edp->resume_failed_count); 
+} 
+
+static int sn65dsi86_dsi2edp_retrain(struct tegra_dc_dsi2edp_data *dsi2edp)
+{
+	unsigned int reg_st, reg_ml; 
+	int count = 0;
+	sn65dsi86_reg_read(dsi2edp, 0x96, &reg_ml);
+	sn65dsi86_reg_read(dsi2edp, 0xf8, &reg_st);
+	printk("%s, reg_ml:0x%02x, reg_st:0x%02x, count:%d\n", __func__, reg_ml, reg_st, count);
+	if (reg_ml != 0x01) {
+		sn65dsi86_reg_write(dsi2edp, 0xf8, reg_st);
+		sn65dsi86_reg_write(dsi2edp, 0x96, 0x0a);
+		count=1;
+	}
+
+	return count;
+}
+
+static irqreturn_t edp_irq_work(int irq, void *data)
+{
+	int ret;
+	struct tegra_dc_dsi2edp_data *sn65dsi86_dsi2edp = data;
+	
+	//if (sn65dsi86_dsi2edp->dsi2edp_enabled) {
+		ret = sn65dsi86_dsi2edp_retrain(sn65dsi86_dsi2edp);
+		sn65dsi86_dsi2edp->resume_failed_count += ret;
+		sn65dsi86_dsi2edp->irq_failed_count += 1;
+	//}
+
+	return IRQ_HANDLED;
+}
+
+static ssize_t dsireg_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	unsigned int reg;
+
+	sn65dsi86_reg_read(sn65dsi86_dsi2edp, sn65dsi86_dsi2edp->read_reg, &reg);
+
+	return sprintf(buf, "0x%02x\n", reg);
+}
+
+static ssize_t dsireg_store(struct device *dev, struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	if (sscanf(buf, "%x", &sn65dsi86_dsi2edp->read_reg) != 1)
+		return -EINVAL;
+	return strnlen(buf, count);
+}
+
+static DEVICE_ATTR(link_training, S_IRUGO, train_state_show, NULL);
+static DEVICE_ATTR(dsi_status, S_IRUGO|S_IWUGO, dsireg_show, dsireg_store);
 static int sn65dsi86_dsi2edp_init(struct tegra_dc_dsi_data *dsi)
 {
 	int err = 0;
@@ -223,7 +287,20 @@ static int sn65dsi86_dsi2edp_init(struct tegra_dc_dsi_data *dsi)
 	sn65dsi86_dsi2edp->dsi = dsi;
 
 	sn65dsi86_dsi2edp->client_i2c = sn65dsi86_i2c_client;
+	sn65dsi86_dsi2edp->irq = gpio_to_irq(sn65dsi86_i2c_client->irq);
+	err = gpio_request(sn65dsi86_i2c_client->irq, "EDP_IRQ");
+	if (err)
+		printk(KERN_INFO "Failed gpio_request EDP_IRQ\n");
+	else
+		gpio_direction_input(sn65dsi86_i2c_client->irq);
 
+	err = request_threaded_irq(sn65dsi86_dsi2edp->irq, NULL,
+			edp_irq_work, IRQF_ONESHOT | IRQF_TRIGGER_RISING,
+			"edp_irq", sn65dsi86_dsi2edp);
+	if (err < 0) {
+		dev_err(&dsi->dc->ndev->dev, "request irq %d failed: %d\n",
+				sn65dsi86_dsi2edp->irq, err);
+	}
 	sn65dsi86_dsi2edp->regmap = devm_regmap_init_i2c(sn65dsi86_i2c_client,
 						&sn65dsi86_regmap_config);
 	if (IS_ERR(sn65dsi86_dsi2edp->regmap)) {
@@ -236,6 +313,8 @@ static int sn65dsi86_dsi2edp_init(struct tegra_dc_dsi_data *dsi)
 	sn65dsi86_dsi2edp->mode = &dsi->dc->mode;
 
 	tegra_dsi_set_outdata(dsi, sn65dsi86_dsi2edp);
+	device_create_file(&dsi->dc->ndev->dev, &dev_attr_link_training);
+	device_create_file(&dsi->dc->ndev->dev, &dev_attr_dsi_status);
 
 	mutex_init(&sn65dsi86_dsi2edp->lock);
 
@@ -261,18 +340,13 @@ static void sn65dsi86_dsi2edp_enable(struct tegra_dc_dsi_data *dsi)
 	unsigned int val=0;
 	int err = 0;
 
-#ifdef CONFIG_MACH_TB610N
-	int lcm_dect_val;
-#endif
-
 	if (dsi2edp && dsi2edp->dsi2edp_enabled)
 		return;
 	mutex_lock(&dsi2edp->lock);
+	gpio_keys_send_event();
+#ifdef CONFIG_MACH_MACALLAN
 
-#ifdef CONFIG_MACH_TB610N
-	lcm_dect_val = keenhi_lcm_version_dect();
-
-    if (lcm_dect_val == LCD_VERSION_3_0){
+    if (u_1080p_dc_lcm_dect_val == LCD_VERSION_3_0){
 		dsi2edp_config_init1[0][1]  = 0x04; //addr 0x0a
 		dsi2edp_config_init1[1][1]  = 0x2e; //addr 0x10
 		dsi2edp_config_init1[2][1]  = 0x53; //addr 0x12
@@ -292,16 +366,48 @@ static void sn65dsi86_dsi2edp_enable(struct tegra_dc_dsi_data *dsi)
 	
 	sn65dsi86_reg_read(dsi2edp,0x0a,&val);//Verify PLL is locked
 	dev_info(&dsi->dc->ndev->dev,"%s:=========>Verify PLL is locked state=%x\n",__func__,val);
-	 
+
+	if (val&=0x80)
+		printk(" dsi86 clock PLL locked ");
 	err = dsi2ledp_i2c_transfer(dsi2edp, dsi2edp_config_init2,
 			ARRAY_SIZE(dsi2edp_config_init2), I2C_WRITE);
 	if (err < 0) {
 		dev_err(&dsi->dc->ndev->dev, "dsi2edp: Init 2 failed\n");
 		goto fail;
 	}
-	sn65dsi86_reg_read(dsi2edp,0x96,&val);//Verify PLL is locked
+
+	{
+		int count=0;
+		unsigned int reg_send=0,aux_st=0;
+		//sn65dsi86_reg_read(dsi2edp,0x0a,&val);		
+		while (count < 20) {
+			msleep(10);
+			sn65dsi86_reg_read(dsi2edp,0x78,&reg_send);
+			
+			if (reg_send == 0x80) {	
+				sn65dsi86_reg_read(dsi2edp,0xf4,&aux_st);
+				if (aux_st&0xf8) {                    
+					sn65dsi86_reg_write(dsi2edp, 0xf4, aux_st);
+					sn65dsi86_reg_write(dsi2edp, 0x64, 0x01);
+					sn65dsi86_reg_write(dsi2edp, 0x74, 0x00);
+					sn65dsi86_reg_write(dsi2edp, 0x75, 0x01);
+					sn65dsi86_reg_write(dsi2edp, 0x76, 0x0a);
+					sn65dsi86_reg_write(dsi2edp, 0x77, 0x01);
+					sn65dsi86_reg_write(dsi2edp, 0x78, 0x81);
+					printk("ASSR write error !!!!");
+				} else
+					break;
+							
+			}
+			count++;
+		}
+	}
+	screen_power_on = 1;
+	sn65dsi86_reg_write(dsi2edp, 0x96, 0x0a);
+
+
 	dev_info(&dsi->dc->ndev->dev,"%s:=========>Verify Training state=%x\n",__func__,val);
-	
+
 	err = dsi2ledp_i2c_transfer(dsi2edp, dsi2edp_config_init3,
 			ARRAY_SIZE(dsi2edp_config_init3), I2C_WRITE);
 	if (err < 0) {
@@ -309,6 +415,9 @@ static void sn65dsi86_dsi2edp_enable(struct tegra_dc_dsi_data *dsi)
 		goto fail;
 	}
 
+	sn65dsi86_reg_read(dsi2edp,0x96,&val);//Verify PLL is locked
+	if (val != 0x01)
+		printk("link training write error !!!!");
 	dsi2edp->dsi2edp_enabled = true;
 	if(DEBUG)
 	bridge_read_table(dsi2edp,mode_common);
@@ -321,12 +430,11 @@ static void sn65dsi86_dsi2edp_disable(struct tegra_dc_dsi_data *dsi)
 {
 	struct tegra_dc_dsi2edp_data *dsi2edp = tegra_dsi_get_outdata(dsi);
 	int err = 0;
-
 	if (dsi2edp && !dsi2edp->dsi2edp_enabled){
 		dev_info(&dsi->dc->ndev->dev,"dsi2edp: dsi have disable!\n"); 
-		return;
+		goto dsiout;
 	}
-
+	screen_power_on = 0;
 	mutex_lock(&dsi2edp->lock);
 	err = dsi2ledp_i2c_transfer(dsi2edp, dsi2edp_disable_config_clk,
 			ARRAY_SIZE(dsi2edp_disable_config_clk), I2C_WRITE);
@@ -335,6 +443,8 @@ static void sn65dsi86_dsi2edp_disable(struct tegra_dc_dsi_data *dsi)
 	}
 	dsi2edp->dsi2edp_enabled = false;
 	mutex_unlock(&dsi2edp->lock);
+dsiout:
+	screen_power_on = 0;
 }
 
 #ifdef CONFIG_PM
@@ -373,6 +483,8 @@ static int sn65dsi86_i2c_probe(struct i2c_client *client,
 
 static int sn65dsi86_i2c_remove(struct i2c_client *client)
 {
+
+	device_remove_file(&sn65dsi86_dsi2edp->dsi->dc->ndev->dev,&dev_attr_link_training);
 	sn65dsi86_i2c_client = NULL;
 
 	return 0;

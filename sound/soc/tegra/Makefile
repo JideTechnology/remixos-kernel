@@ -3,6 +3,7 @@ GCOV_PROFILE := y
 subdir-ccflags-y := -Werror
 
 # Tegra platform Support
+
 snd-soc-tegra-pcm-objs := tegra_pcm.o
 snd-soc-tegra-tdm-pcm-objs := tegra_tdm_pcm.o
 snd-soc-tegra20-spdif-objs := tegra20_spdif.o

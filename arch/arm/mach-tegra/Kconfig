@@ -318,23 +318,12 @@ config MACH_DALMORE
 config MACH_MACALLAN
        bool "Macallan board"
        depends on ARCH_TEGRA_11x_SOC
-       select MACH_HAS_SND_SOC_TEGRA_RT5639 if SND_SOC
-       select MACH_HAS_SND_SOC_TEGRA_RT5640 if SND_SOC
+#       select MACH_HAS_SND_SOC_TEGRA_RT5639 if SND_SOC
+#       select MACH_HAS_SND_SOC_TEGRA_RT5640 if SND_SOC
+	    select MACH_HAS_SND_SOC_TEGRA_TLV320AIC325X if SND_SOC
        select EDP_FRAMEWORK
        help
          Support for NVIDIA MACALLAN development platform
-
-config MACH_TB610N
-       bool "tb610n based on Macallan board"
-       depends on ARCH_TEGRA_11x_SOC
-       select MACH_HAS_SND_SOC_TEGRA_TLV320AIC325X if SND_SOC
-       select KEENHI_T40
-       help
-         Support for NVIDIA tb610n development platform
-          
-config KEENHI_T40
-       select EDP_FRAMEWORK
-       bool "None"   
 
 config MACH_TEGRA_PLUTO
        bool "Pluto board"

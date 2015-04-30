@@ -257,6 +257,7 @@ config SND_SOC_TEGRA_CS42L73
 	  Say Y or M here if you want to add support for SoC audio on Tegra
 	  boards using the CS42L73 codec. Currently, only supported board is
 	  Pluto.
+
 config MACH_HAS_SND_SOC_TEGRA_TLV320AIC325X
 #	bool
 	tristate "SoC Audio support for Tegra boards using 325x"
@@ -264,6 +265,7 @@ config MACH_HAS_SND_SOC_TEGRA_TLV320AIC325X
 	  Machines that use the SND_SOC_TEGRA_TLV320AIC325X driver should select
 	  this config option, in order to allow the user to enable
 	  SND_SOC_TEGRA_TLV320AIC325X.
+
 config SND_SOC_TEGRA_SOC_TLV320AIC325X
 	tristate "SoC Audio support for Tegra boards using a TI AIC325x codec"
 	depends on SND_SOC_TEGRA && I2C && TEGRA_DC

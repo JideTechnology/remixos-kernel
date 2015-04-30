@@ -100,4 +100,4 @@ static int __init tegra_mc_timing_init(void)
 	tegra_mc_timing_save();
 	return 0;
 }
-arch_initcall_sync(tegra_mc_timing_init);
+arch_initcall(tegra_mc_timing_init);

@@ -17,6 +17,7 @@
 #include <linux/delay.h>
 #include <linux/pm.h>
 #include <linux/i2c.h>
+#include <linux/gpio.h>
 #include <linux/platform_device.h>
 #include <linux/spi/spi.h>
 #include <sound/core.h>
@@ -53,7 +54,7 @@ static struct rt5639_init_reg init_list[] = {
 					     fa[8~11]=1; fa[0]=1 */
 	{RT5639_ADDA_CLK1	, 0x1114},/* 73[2] = 1'b */
 	{RT5639_MICBIAS		, 0x3030},/* 93[5:4] = 11'b */
-	{RT5639_CLS_D_OUT	, 0xa000},/* 8d[11] = 0'b */
+	{RT5639_CLS_D_OUT	, 0x8000},/* 8d[11] = 0'b */
 	{RT5639_CLS_D_OVCD	, 0x0334},/* 8c[8] = 1'b */
 	{RT5639_PRIV_INDEX	, 0x001d},/* PR1d[8] = 1'b; */
 	{RT5639_PRIV_DATA	, 0x0347},
@@ -86,16 +87,16 @@ static struct rt5639_init_reg init_list[] = {
 	{RT5639_SPK_L_MIXER	, 0x0036},/* DACL1 -> SPKMIXL */
 	{RT5639_SPK_R_MIXER	, 0x0036},/* DACR1 -> SPKMIXR */
 	{RT5639_SPK_VOL		, 0x8b8b},/* SPKMIX -> SPKVOL */
-	{RT5639_SPO_CLSD_RATIO	, 0x0004},
-	{RT5639_SPO_L_MIXER	, 0xe800},/* SPKVOLL -> SPOLMIX */
-	{RT5639_SPO_R_MIXER	, 0x2800},/* SPKVOLR -> SPORMIX */
+	{RT5639_SPO_CLSD_RATIO	, 0x0000},/* 4->7->0 -6b*/
+	{RT5639_SPO_L_MIXER	, 0xc800},/* e800 SPKVOLL -> SPOLMIX */
+	{RT5639_SPO_R_MIXER	, 0x3800},/* 2800 SPKVOLR -> SPORMIX */
 	/*{RT5639_SPO_L_MIXER	, 0xb800},*//* DAC -> SPOLMIX */
 	/*{RT5639_SPO_R_MIXER	, 0x1800},*//* DAC -> SPORMIX */
 	/*{RT5639_I2S1_SDP	, 0xD000},*//* change IIS1 and IIS2 */
 	/*record*/
-	{RT5639_IN1_IN2		, 0x5080},/* IN1 boost 40db and
+	{RT5639_IN1_IN2		, 0x0080},/* IN1 boost 40db and 0x5080
 					     differential mode */
-	{RT5639_IN3_IN4		, 0x0500},/* IN2 boost 40db and
+	{RT5639_IN3_IN4		, 0x0000},/* IN2 boost 40db and
 					     signal ended mode */
 	{RT5639_REC_L2_MIXER	, 0x007d},/* Mic1 -> RECMIXL */
 	{RT5639_REC_R2_MIXER	, 0x007d},/* Mic1 -> RECMIXR */
@@ -110,13 +111,14 @@ static struct rt5639_init_reg init_list[] = {
 					/*( if sticky set regBE : 8800 ) */
 #endif
 	{RT5639_JD_CTRL		, 0x6000},/* JD2 as jack detection source */
+	{RT5639_ADC_BST_VOL	, 0xf000},/* ADC Channel Digital Boost Gain 36db*/
 };
 #define RT5639_INIT_REG_LEN ARRAY_SIZE(init_list)
 
 static struct rt5639_init_reg irq_jd_init_list[] = {
    {RT5639_GPIO_CTRL1  , 0x8400},/* set GPIO1 to IRQ */
    {RT5639_GPIO_CTRL3  , 0x0004},/* set GPIO1 output */
-   {RT5639_IRQ_CTRL1   , 0x8000},/* enable JD IRQ and set active low */
+   {RT5639_IRQ_CTRL1   , 0x8800},/* enable JD IRQ and set active high */
 };
 #define RT5639_IRQ_JD_INIT_REG_LEN ARRAY_SIZE(irq_jd_init_list)
 
@@ -192,7 +194,7 @@ static const u16 rt5639_reg[RT5639_VENDOR_ID2 + 1] = {
 	[RT5639_ASRC_3] = 0x0008,
 	[RT5639_HP_OVCD] = 0x0600,
 	[RT5639_CLS_D_OVCD] = 0x0228,
-	[RT5639_CLS_D_OUT] = 0xa800,
+	[RT5639_CLS_D_OUT] = 0x8800,
 	[RT5639_DEPOP_M1] = 0x0004,
 	[RT5639_DEPOP_M2] = 0x1100,
 	[RT5639_DEPOP_M3] = 0x0646,
@@ -510,7 +512,21 @@ int rt5639_headset_detect(struct snd_soc_codec *codec, int jack_insert)
 	int sclk_src;
 	int reg63, reg64;
 
+//	dev_info(codec->dev, "%s RT5639_INT_IRQ_ST(0x%x) = 0x%x\n",
+//			__func__, RT5639_INT_IRQ_ST,
+//			snd_soc_read(codec, RT5639_INT_IRQ_ST));
+//	dev_info(codec->dev, "%s RT5639_GEN_CTRL2(0x%x) = 0x%x\n",
+//			__func__, RT5639_GEN_CTRL2,
+//			snd_soc_read(codec, RT5639_GEN_CTRL2));
 	if (jack_insert) {
+//		msleep(500);
+//		if(gpio_get_value(143)){
+//			dev_info(codec->dev,"----------fail hp---------");
+//			return RT5639_NO_JACK;
+//		}
+		snd_soc_update_bits(codec, RT5639_SPK_VOL,
+			RT5639_L_MUTE | RT5639_R_MUTE,
+			RT5639_L_MUTE | RT5639_R_MUTE);
 		reg63 = snd_soc_read(codec, RT5639_PWR_ANLG1);
 		reg64 = snd_soc_read(codec, RT5639_PWR_ANLG2);
 		if (SND_SOC_BIAS_OFF == codec->dapm.bias_level) {
@@ -553,10 +569,12 @@ int rt5639_headset_detect(struct snd_soc_codec *codec, int jack_insert)
 		snd_soc_write(codec, RT5639_PWR_ANLG1, reg63);
 		snd_soc_write(codec, RT5639_PWR_ANLG2, reg64);
 	} else {
+
 		snd_soc_update_bits(codec, RT5639_MICBIAS,
 			RT5639_MIC1_OVCD_MASK,
 			RT5639_MIC1_OVCD_DIS);
-
+		snd_soc_update_bits(codec, RT5639_SPK_VOL,
+			RT5639_L_MUTE | RT5639_R_MUTE,0);
 		jack_type = RT5639_NO_JACK;
 	}
 	dev_info(codec->dev, "%s jack_type = %d\n", __func__, jack_type);
@@ -2874,7 +2892,7 @@ static int rt5639_probe(struct snd_soc_codec *codec)
 	int ret;
 
 	pr_info("Codec driver version %s\n", VERSION);
-
+	printk("*******1************************Codec driver version************************************ %s\n", VERSION);
 	ret = snd_soc_codec_set_cache_io(codec, 8, 16, SND_SOC_I2C);
 	if (ret != 0) {
 		dev_err(codec->dev, "Failed to set cache I/O: %d\n", ret);
@@ -2910,6 +2928,7 @@ static int rt5639_probe(struct snd_soc_codec *codec)
 	snd_soc_write(codec, RT5639_GEN_CTRL2, 0x4140);
 	ret = snd_soc_read(codec, RT5639_VENDOR_ID);
 	dev_info(codec->dev, "read 0x%x=0x%x\n", RT5639_VENDOR_ID, ret);
+	printk("read 0x%x=0x%x\n", RT5639_VENDOR_ID, ret);
 	if (0x5 == ret) {
 		snd_soc_update_bits(codec, RT5639_JD_CTRL,
 			RT5639_JD1_IN4P_MASK | RT5639_JD2_IN4N_MASK,

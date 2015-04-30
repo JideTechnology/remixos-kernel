@@ -33,4 +33,9 @@ obj-$(CONFIG_VIDEO_OV5693)	+= ov5693.o
 obj-$(CONFIG_VIDEO_AD5823)	+= ad5823.o
 obj-$(CONFIG_VIDEO_MT9M114)	+= mt9m114.o
 obj-$(CONFIG_VIDEO_OV7695)	+= ov7695.o
+#hw_leo add
+obj-$(CONFIG_VIDEO_OV5645)	+= ov5645.o
+obj-$(CONFIG_VIDEO_GC2155)	+= gc2155.o
+#obj-$(CONFIG_VIDEO_GC2035)	+= gc2035.o
 obj-$(CONFIG_VIDEO_T8EV5)	+= t8ev5.o
+obj-$(CONFIG_VIDEO_MT9P111)	+= mt9p111.o

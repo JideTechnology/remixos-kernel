@@ -864,6 +864,17 @@ config TOUCHSCREEN_TPS6507X
 	  To compile this driver as a module, choose M here: the
 	  module will be called tps6507x_ts.
 
+config TOUCHSCREEN_GOODIXTS
+	tristate "Goodix-ts based touchscreens"
+	depends on I2C
+	help
+	  Goodx-ts based touchscreens
+
+config TOUCHSCREEN_HANVON_0868
+	tristate "HANVON 0868 based touchscreens"
+	depends on I2C
+	help
+	  HANVON 0868
 config TOUCHSCREEN_RM31080A
 	tristate "RAYDIUM_31080A based touchscreens"
 	depends on SPI_MASTER
@@ -901,7 +912,6 @@ config TOUCHSCREEN_MAXIM_STI
           To compile this driver as a module, choose M here: the
           module will be called maxim_sti.
 
-
 config TOUCHSCREEN_HIMAX
 	tristate "HIMAX I2C touchscreen driver"
 	depends on I2C
@@ -913,4 +923,5 @@ config TOUCHSCREEN_HIMAX
 
 	  To compile this driver as a module, choose M here: the module will
 	  be called Himax_touch.			  
+
 endif

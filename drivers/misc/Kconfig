@@ -552,12 +552,23 @@ config MAX1749_VIBRATOR
 	---help---
 	Adds a timed output vibrator device node for MAX1749 vibrator motor
 
+config F0101_SYSFS
+	bool "F0101 SYSFS device "
+	default n
+	---help---
+	Adds a F0101 SYSFS device node for NV T40
+
 config DRV8601_VIBRATOR
 	bool "DRV8601 vibrator device driver"
 	depends on ANDROID_TIMED_OUTPUT
 	default n
 	---help---
 	Adds a timed output vibrator device node for DRV8601 vibrator motor
+
+config DRV8601_HRTIMER
+	bool "OPEN DRV8601 HRTIMER"
+	---help---
+	open drv8601 hrtimer
 
 config APANIC
 	bool "Android kernel panic diagnostics driver"
@@ -613,9 +624,10 @@ config CPULOAD_MONITOR
 	Publish cpu load measured in sysfs, to be used by user space cpu
 	frequency controllers.
 
-config  GPIO_SWITCH_SERAIL
-	tristate "serial port enable"
+config  INPUT_KIONIX_ACCEL
+	tristate "gsensor for kxtik-1004"
 	default n
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

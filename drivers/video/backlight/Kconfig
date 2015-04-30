@@ -238,6 +238,13 @@ config BACKLIGHT_PWM
 	  If you have a LCD backlight adjustable by PWM, say Y to enable
 	  this driver.
 
+config BACKLIGHT_MACALLAN
+	tristate "Macallan f0101 based PWM Backlight Driver"
+	depends on HAVE_PWM
+	help
+	  If you have a LCD backlight adjustable by PWM, say Y to enable
+	  this driver.
+
 config BACKLIGHT_TEGRA_PWM
 	bool "Tegra PMx based PWM Backlight Driver"
 	depends on TEGRA_DC

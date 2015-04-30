@@ -37,7 +37,6 @@
 #include "tegra_usb_phy.h"
 #include "gpio-names.h"
 #include "fuse.h"
-#include <linux/module.h>
 
 #define USB_USBCMD		0x130
 #define   USB_USBCMD_RS		(1 << 0)
@@ -2313,7 +2312,6 @@ static void ulpi_null_phy_obs_read(void)
 }
 
 static const struct gpio ulpi_gpios[] = {
-	{ULPI_STP, GPIOF_IN, "ULPI_STP"},
 	{ULPI_DIR, GPIOF_OUT_INIT_LOW, "ULPI_DIR"},
 	{ULPI_D0, GPIOF_OUT_INIT_LOW, "ULPI_D0"},
 	{ULPI_D1, GPIOF_OUT_INIT_LOW, "ULPI_D1"},

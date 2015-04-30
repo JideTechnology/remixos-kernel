@@ -34,6 +34,7 @@
 enum nct_id_type {
 	NCT_ID_START = 0,
 	NCT_ID_SERIAL_NUMBER = NCT_ID_START,
+	NCT_ID_PCB_NUMBER,
 	NCT_ID_WIFI_MAC_ADDR,
 	NCT_ID_BT_ADDR,
 	NCT_ID_CM_ID,
@@ -47,6 +48,10 @@ enum nct_id_type {
 };
 
 struct nct_serial_number_type {
+	char sn[30];
+};
+
+struct nct_pcb_number_type {
 	char sn[30];
 };
 
@@ -76,6 +81,7 @@ struct nct_ramdump_type {
 
 union nct_item_type {
 	struct nct_serial_number_type	serial_number;
+	struct nct_pcb_number_type	pcb_number;
 	struct nct_wifi_mac_addr_type	wifi_mac_addr;
 	struct nct_bt_addr_type		bt_addr;
 	struct nct_cm_id_type		cm_id;

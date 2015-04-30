@@ -66,28 +66,22 @@ void snd_soc_jack_report(struct snd_soc_jack *jack, int status, int mask)
 	struct snd_soc_jack_pin *pin;
 	int enable;
 	int oldstatus;
-	int val,val1;
+
 	trace_snd_soc_jack_report(jack, mask, status);
 
 	if (!jack)
 		return;
-	if (gpio_is_valid(jack->gpio[0]) && gpio_is_valid(jack->gpio[1])) {
-		val = gpio_get_value(jack->gpio[0]);
-		val1 = gpio_get_value(jack->gpio[1]);
-		if((!val || !val1) && status == 0){
-			printk("ENTER\n");
-			return;
-		}
-	}
+
 	codec = jack->codec;
 	dapm =  &codec->dapm;
 
 	mutex_lock(&codec->mutex);
 
 	oldstatus = jack->status;
+
 	jack->status &= ~mask;
 	jack->status |= status & mask;
-	
+
 	/* The DAPM sync is expensive enough to be worth skipping.
 	 * However, empty mask means pin synchronization is desired. */
 	if (mask && (jack->status == oldstatus))
@@ -106,7 +100,7 @@ void snd_soc_jack_report(struct snd_soc_jack *jack, int status, int mask)
 		else
 			snd_soc_dapm_disable_pin(dapm, pin->pin);
 	}
-	
+
 	/* Report before the DAPM sync to help users updating micbias status */
 	blocking_notifier_call_chain(&jack->notifier, status, jack);
 
@@ -248,7 +242,7 @@ static void snd_soc_jack_gpio_detect(struct snd_soc_jack_gpio *gpio)
 	struct snd_soc_jack *jack = gpio->jack;
 	int enable;
 	int report;
-	
+
 	enable = gpio_get_value_cansleep(gpio->gpio);
 	if (gpio->invert)
 		enable = !enable;
@@ -260,6 +254,7 @@ static void snd_soc_jack_gpio_detect(struct snd_soc_jack_gpio *gpio)
 
 	if (gpio->jack_status_check)
 		report = gpio->jack_status_check();
+
 	snd_soc_jack_report(jack, report, gpio->report);
 }
 
@@ -284,9 +279,8 @@ static irqreturn_t gpio_handler(int irq, void *data)
 static void gpio_work(struct work_struct *work)
 {
 	struct snd_soc_jack_gpio *gpio;
-	
-	gpio = container_of(work, struct snd_soc_jack_gpio, work.work);
 
+	gpio = container_of(work, struct snd_soc_jack_gpio, work.work);
 	snd_soc_jack_gpio_detect(gpio);
 }
 
@@ -329,10 +323,7 @@ int snd_soc_jack_add_gpios(struct snd_soc_jack *jack, int count,
 
 		INIT_DELAYED_WORK(&gpios[i].work, gpio_work);
 		gpios[i].jack = jack;
-		if(gpios[i].id == 1)
-			jack->gpio[0] = gpios[i].gpio;
-		else if(gpios[i].id == 2)
-			jack->gpio[1] = gpios[i].gpio;
+
 		ret = request_any_context_irq(gpio_to_irq(gpios[i].gpio),
 					      gpio_handler,
 					      IRQF_TRIGGER_RISING |

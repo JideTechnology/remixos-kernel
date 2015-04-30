@@ -42,6 +42,8 @@ struct regs_info {
 	int	sleep_id;
 };
 
+static unsigned int suspend_smps10_val;
+
 static const struct regs_info palmas_regs_info[] = {
 	{
 		.name		= "SMPS12",
@@ -1103,6 +1105,38 @@ static void palmas_disable_smps10_boost(struct palmas *palmas)
 
 }
 
+static void palmas_write_smps10_suspend(struct palmas *palmas)
+{
+	unsigned int addr;
+	int ret;
+
+	addr = palmas_regs_info[PALMAS_REG_SMPS10].ctrl_addr;
+
+	ret = palmas_smps_read(palmas, addr, &suspend_smps10_val);
+
+	ret = palmas_smps_write(palmas, addr, 0x00);
+	if (ret < 0) {
+		dev_err(palmas->dev, "Error in palmas_write_smps10 suspend\n");
+		return;
+	}
+
+}
+
+static void palmas_write_smps10_resume(struct palmas *palmas)
+{
+	unsigned int addr;
+	int ret;
+
+	addr = palmas_regs_info[PALMAS_REG_SMPS10].ctrl_addr;
+
+	ret = palmas_smps_write(palmas, addr, suspend_smps10_val);
+	if (ret < 0) {
+		dev_err(palmas->dev, "Error in palmas_write_smps10 resume\n");
+		return;
+	}
+
+}
+
 static void palmas_enable_smps10_boost(struct palmas *palmas)
 {
 	unsigned int reg;
@@ -1424,11 +1458,6 @@ static __devinit int palmas_probe(struct platform_device *pdev)
 			pmic->desc[id].vsel_mask = SMPS10_VSEL;
 			pmic->desc[id].enable_reg = PALMAS_SMPS10_STATUS;
 			pmic->desc[id].enable_mask = SMPS10_BOOST_EN;
-
-			if(pmic->desc[id].ops->is_enabled){
-			    pmic->smps10_regulator_enabled =pmic->desc[id].ops->is_enabled(rdev);
-			    printk("fix bug: pmic->smps10_regulator_enabled=%d",pmic->smps10_regulator_enabled);
-			}
 		}
 
 		pmic->desc[id].type = REGULATOR_VOLTAGE;
@@ -1596,6 +1625,8 @@ static int palmas_suspend(struct device *dev)
 			pmic->smps10_boost_disable_deferred = true;
 	}
 
+	palmas_write_smps10_suspend(palmas);
+
 	for (id = 0; id < PALMAS_NUM_REGS; id++) {
 		if (pmic->config_flags[id] &
 			PALMAS_REGULATOR_CONFIG_SUSPEND_FORCE_OFF) {
@@ -1616,6 +1647,8 @@ static int palmas_resume(struct device *dev)
 	/* Check if LDO8 is in tracking mode disable in suspend or not */
 	if (pdata->enable_ldo8_tracking && pdata->disabe_ldo8_tracking_suspend)
 		palmas_enable_ldo8_track(palmas);
+
+	palmas_write_smps10_resume(palmas);
 
 	if (pdata->disable_smps10_boost_suspend &&
 			!pmic->smps10_regulator_enabled)

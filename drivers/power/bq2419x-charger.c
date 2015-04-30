@@ -48,14 +48,11 @@ static const unsigned int iinlim[] = {
 };
 
 static atomic_t mChargeEnable = ATOMIC_INIT(1);
-extern int get_statu_value(void);
-extern void charge_ic_state(int enable);
+
 #ifdef CONFIG_CHARGE_CURRENT_3A
 #define  CURRENT_LIMIT 3000
 #elif defined(CONFIG_CHARGE_CURRENT_1_5)
 #define  CURRENT_LIMIT 1500
-#elif defined(CONFIG_CHARGE_CURRENT_1_2)
-#define  CURRENT_LIMIT 1200
 #else
 #define  CURRENT_LIMIT 2000
 #endif
@@ -64,7 +61,7 @@ extern void charge_ic_state(int enable);
 struct sched_param bq2419x_param = {
 	.sched_priority = MAX_RT_PRIO - 1,
 };
-static int Chagresuspend=0;
+
 static const struct regmap_config bq2419x_regmap_config = {
 	.reg_bits		= 8,
 	.val_bits		= 8,
@@ -118,17 +115,6 @@ static int current_to_reg(const unsigned int *tbl,
 	return i > 0 ? i - 1 : -EINVAL;
 }
 
-int chagre_suspend()
-{
-	return Chagresuspend;
-}
-EXPORT_SYMBOL(chagre_suspend);
-void set_chagre_suspend()
-{
-	Chagresuspend=0;
-}
-EXPORT_SYMBOL(set_chagre_suspend);
-
 static int bq2419x_charger_enable(struct bq2419x_chip *bq2419x)
 {
 	int ret;
@@ -165,7 +151,7 @@ static int bq2419x_vbus_enable(struct regulator_dev *rdev)
 {
 	struct bq2419x_chip *bq2419x = rdev_get_drvdata(rdev);
 	int ret;
-if(machine_is_tb610n())
+if(machine_is_macallan())
 {
 	printk("VBUS enabled,TEGRA_GPIO_PP2\n");
     gpio_direction_output(bq2419x->otg_usb_vbus, 1);
@@ -187,7 +173,7 @@ static int bq2419x_vbus_disable(struct regulator_dev *rdev)
 {
 	struct bq2419x_chip *bq2419x = rdev_get_drvdata(rdev);
 	int ret;
-if(machine_is_tb610n())
+if(machine_is_macallan())
 {
 	printk("VBUS disabled, TEGRA_GPIO_PP2\n");
 	gpio_direction_output(bq2419x->otg_usb_vbus, 0);
@@ -273,7 +259,7 @@ static int bq2419x_charger_init(struct bq2419x_chip *bq2419x)
 	/*Configure Output Charge Voltage Control to 4.208*/
 	if(atomic_read(&mChargeEnable)!=0)
 	  {
-		if(machine_is_tb610n())
+		if(machine_is_macallan())
 	 		ret = regmap_write(bq2419x->regmap,BQ2419X_VOLT_CTRL_REG, 0xda);
 		else
 			ret = regmap_write(bq2419x->regmap,BQ2419X_VOLT_CTRL_REG, 0xb2);
@@ -343,14 +329,14 @@ static int bq2419x_set_charging_current(struct regulator_dev *rdev,
 	struct bq2419x_chip *bq_charger = rdev_get_drvdata(rdev);
 	int ret = 0;
 	int val;
-if(machine_is_tb610n())
-{
-	if(gpio_get_value(TEGRA_GPIO_PV0)==0)
+	if(machine_is_macallan())
 	{
-		return bq_charger->status;
-			
+		if(gpio_get_value(TEGRA_GPIO_PV0)==0)
+		{
+			return bq_charger->status;
+
+		}
 	}
-}
 	dev_info(bq_charger->dev, "Setting charging current %d\n", max_uA/1000);
 	msleep(200);
 	//bq_charger->status = 0;
@@ -381,21 +367,21 @@ if(machine_is_tb610n())
 	if (ret < 0)
 		goto error;
 	if (bq_charger->update_status)
+	{
+		//		if(atomic_read(&mChargeEnable)==0)
+		//			{
+		//			bq_charger->status = 0;
+		//			}
+#if defined(CONFIG_MACH_TERRA10)
 		{
-//		if(atomic_read(&mChargeEnable)==0)
-//			{
-	//			bq_charger->status = 0;
-//			}
-		#if defined(CONFIG_MACH_TERRA10)
-		{
-		#if defined(CONFIG_TOUCHSCREEN_NT11003_2)
+#if defined(CONFIG_TOUCHSCREEN_NT11003_2)
 			extern void set_touch_pannel_charge_in(int status);
 			set_touch_pannel_charge_in(bq_charger->status);
-		#endif
+#endif
 		}
-		#endif
+#endif
 
-		}
+	}
 	return bq_charger->status;
 error:
 	dev_err(bq_charger->dev, "Charger enable failed, err = %d\n", ret);
@@ -945,33 +931,15 @@ static int enable_charge(struct bq2419x_chip *bq2419x)
 			if (bq2419x->update_status)
 				bq2419x->update_status(bq2419x->status, (val & BQ2419x_VBUS_STAT));
 #endif	
-	if(machine_is_tb610n())
-		ret = regmap_write(bq2419x->regmap,BQ2419X_VOLT_CTRL_REG, 0xda);
+	if(machine_is_macallan())
+		ret = regmap_write(bq2419x->regmap,BQ2419X_VOLT_CTRL_REG,  0xb2);
 	else
-		ret = regmap_write(bq2419x->regmap,BQ2419X_VOLT_CTRL_REG, 0xb2);
+		ret = regmap_write(bq2419x->regmap,BQ2419X_VOLT_CTRL_REG, 0xda);
 			if (ret < 0)
 			dev_err(bq2419x->dev,
 				"INPUT_SRC_REG write failed %d\n", ret);			
 	return ret;		
 }
-/*
-static ssize_t bq24193_charge_state_show(struct device *dev, struct kobj_attribute *attr,char *buf )
-{  
-	int Termination,bq24193_current,vol,sys_state;
-	struct i2c_client *client = to_i2c_client(dev);
-	struct bq2419x_chip *bq2419x=i2c_get_clientdata(client);
-	 regmap_read(bq2419x->regmap, BQ2419X_CHRG_TERM_REG, &Termination);
-	 regmap_read(bq2419x->regmap, BQ2419X_INPUT_SRC_REG, &bq24193_current);
-	 regmap_read(bq2419x->regmap, BQ2419X_VOLT_CTRL_REG, &vol);
-	 regmap_read(bq2419x->regmap, BQ2419X_SYS_STAT_REG, &sys_state);
-	  return sprintf(buf, "Termination====%d,current =====%d,vol===%d sys_state ====%d\n", Termination,bq24193_current,vol,sys_state);
-}  
-static ssize_t bq24193_charge_state_store(struct device *dev,struct kobj_attribute *attr,const char* buf, size_t count)  
-{ 
-
-              return count;    
-} 
-*/
 
 static ssize_t charge_state_show(struct device *dev, struct kobj_attribute *attr,char *buf )  
 {  
@@ -1073,12 +1041,12 @@ static ssize_t charge_led_store(struct device *dev,struct kobj_attribute *attr,c
 			goto error1;
 		}
 
-		ret = regmap_update_bits(bq2419x->regmap, BQ2419X_TIME_CTRL_REG,
-				 BQ2419X_CHAGRE_TIMER_STAT, BQ2419X_CHAGRE_TIMER_STAT_HIGH);
-		if (ret < 0) {
-			printk("BQ2419X_TIME_CTRL_REG update failed: %d\n", ret);
-			goto error1;
-		}
+		/*ret = regmap_update_bits(bq2419x->regmap, BQ2419X_TIME_CTRL_REG,*/
+				 /*BQ2419X_CHAGRE_TIMER_STAT, BQ2419X_CHAGRE_TIMER_STAT_HIGH);*/
+		/*if (ret < 0) {*/
+			/*printk("BQ2419X_TIME_CTRL_REG update failed: %d\n", ret);*/
+			/*goto error1;*/
+		/*}*/
 	}
 	else if (strncmp(buf, "0", 1) == 0)
 	{
@@ -1091,45 +1059,25 @@ static ssize_t charge_led_store(struct device *dev,struct kobj_attribute *attr,c
 			goto error1;
 		}
 
-		ret = regmap_update_bits(bq2419x->regmap, BQ2419X_TIME_CTRL_REG,
-				 BQ2419X_CHAGRE_TIMER_STAT, BQ2419X_CHAGRE_TIMER_STAT_LOW);
-		if (ret < 0) {
-			printk("BQ2419X_TIME_CTRL_REG update failed: %d\n", ret);
-			goto error1;
-		}
+		/*ret = regmap_update_bits(bq2419x->regmap, BQ2419X_TIME_CTRL_REG,*/
+				 /*BQ2419X_CHAGRE_TIMER_STAT, BQ2419X_CHAGRE_TIMER_STAT_LOW);*/
+		/*if (ret < 0) {*/
+			/*printk("BQ2419X_TIME_CTRL_REG update failed: %d\n", ret);*/
+			/*goto error1;*/
+		/*}*/
 	}
 
 error1:
 	return count;    
 } 
-#if defined(CONFIG_BOOL_SUPPORT_KARAOKE)
-static ssize_t karaoke_state_show(struct device *dev, struct kobj_attribute *attr,char *buf )
-{  
-	   return sprintf(buf, "%d\n", get_statu_value()); 
 
-}  
-static ssize_t karaoke_state_store(struct device *dev,struct kobj_attribute *attr,const char* buf, size_t count)  
-{
-             return count;    
-}
-#endif
-/*
-static struct device_attribute bq24193_attributes[] = {	
-	__ATTR(bq24193_charge_battery_state, 0666, bq24193_charge_state_show, bq24193_charge_state_store),	
-	__ATTR_NULL,
-};
 
-*/
-static struct device_attribute CHR_attributes[] = {
+
+static struct device_attribute CHR_attributes[] = {	
 	__ATTR(charge_battery_state, 0666, charge_state_show, charge_state_store),	
 	__ATTR_NULL,
 };
-#if defined(CONFIG_BOOL_SUPPORT_KARAOKE)
-static struct device_attribute IS_KARAOKE_attributes[] = {
-	__ATTR(is_karaoke, 0666, karaoke_state_show, karaoke_state_store),	
-	__ATTR_NULL,
-};
-#endif
+
 static struct device_attribute LED_attributes[] = {
 	__ATTR(charge_led_state, 0666, charge_led_show, charge_led_store),
 	__ATTR_NULL,
@@ -1211,12 +1159,11 @@ static int __devinit bq2419x_probe(struct i2c_client *client,
 			"VBUS regualtor init failed %d\n", ret);
 		goto scrub_chg_reg;
 	}
-	// device_create_file(bq2419x->dev, bq24193_attributes);
+	
 	 device_create_file(bq2419x->dev, CHR_attributes);
 	 device_create_file(bq2419x->dev, LED_attributes);
-#if defined(CONFIG_BOOL_SUPPORT_KARAOKE)
-	 device_create_file(bq2419x->dev, IS_KARAOKE_attributes);
-#endif
+
+
 	if(pdata->enable_watchdog){
 
 	init_kthread_worker(&bq2419x->bq_kworker);
@@ -1291,9 +1238,6 @@ static int __devexit bq2419x_remove(struct i2c_client *client)
 	mutex_destroy(&bq2419x->mutex);
 	device_remove_file(bq2419x->dev, CHR_attributes);
 	device_remove_file(bq2419x->dev, LED_attributes);
-#if defined(CONFIG_BOOL_SUPPORT_KARAOKE)
-	device_remove_file(bq2419x->dev, IS_KARAOKE_attributes);
-#endif
 	return 0;
 }
 
@@ -1382,7 +1326,7 @@ static int bq2419x_resume(struct device *dev)
 	int ret = 0;
 	struct bq2419x_chip *bq2419x = dev_get_drvdata(dev);
 	unsigned int val;
-	unsigned int state;
+
 	ret = regmap_read(bq2419x->regmap, BQ2419X_FAULT_REG, &val);
 	if (ret < 0) {
 		dev_err(bq2419x->dev, "FAULT_REG read failed %d\n", ret);
@@ -1420,21 +1364,6 @@ static int bq2419x_resume(struct device *dev)
 	}
 
 	mutex_lock(&bq2419x->mutex);
-	ret = regmap_read(bq2419x->regmap, BQ2419X_SYS_STAT_REG, &state);
-	if (ret < 0) {
-		dev_err(bq2419x->dev, "SYS_STAT_REG read failed %d\n", ret);
-		return ret;
-	}
-#ifdef CONFIG_EXTCON
-	if ((state & BQ2419x_CHRG_STATE_MASK) ==
-			BQ2419x_CHRG_STATE_NOTCHARGING) {
-		bq2419x->status = 0;
-		charge_ic_state(0);
-		Chagresuspend =1;
-		if (bq2419x->update_status)
-			bq2419x->update_status(bq2419x->status, (state & BQ2419x_VBUS_STAT));
-	}
-#endif
 	bq2419x->suspended = 0;
 	mutex_unlock(&bq2419x->mutex);
 	if (gpio_is_valid(bq2419x->gpio_otg_iusb))

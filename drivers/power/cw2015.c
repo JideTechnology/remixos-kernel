@@ -875,10 +875,12 @@ static void cw2015_work(struct work_struct *work)
 
 	schedule_delayed_work(&chip->work, CW2015_DELAY);
 }
-
+int g_charge_status = 0;
 void cw2015_battery_status(int status,
 				int chrg_type)
 {
+	printk("charge_status======%d\n",status);
+	g_charge_status = status;
 	if (!cw2015_data)
 		return;
 
@@ -913,15 +915,12 @@ void cw2015_battery_status(int status,
 	//	power_supply_changed(&cw2015_data->ac);
 }
 EXPORT_SYMBOL_GPL(cw2015_battery_status);
-
 int get_current_charge_status(void)
 {
-	//printk("=======%s = %d\n",__func__,g_charge_status);
-	return Battery_status;
+	/*printk("=======%s = %d\n",__func__,g_charge_status);*/
+	return g_charge_status;
 }
 EXPORT_S_GPL(get_current_charge_status);
-
-
 static enum power_supply_property cw2015_battery_props[] = {
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_STATUS,
@@ -930,7 +929,7 @@ static enum power_supply_property cw2015_battery_props[] = {
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW,
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_CAPACITY_LEVEL,
-	POWER_SUPPLY_PROP_TEMP,
+	//POWER_SUPPLY_PROP_TEMP,
 };
 
 static enum power_supply_property cw2015_ac_props[] = {
@@ -1103,7 +1102,8 @@ int cw2015_check_battery()
 		return -ENODEV;
 
 	version = cw2015_get_version(cw2015_data->client);
-	dev_info(&cw2015_data->client->dev,"%s:version=0x%x\n",__func__,version);
+	dev_info(&cw2015_data->client->dev,
+"%s:version=0x%x\n",__func__,version);
 #if 0	
 	if (version != MAX17048_VERSION_NO) {
 		return -ENODEV;

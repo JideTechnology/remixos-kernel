@@ -88,15 +88,16 @@ static void otgwl_handle_event(unsigned long event)
 		spin_unlock_irqrestore(&otgwl_spinlock, irqflags);
 		return;
 	}
-	switch (event) {	
+
+	switch (event) {
+	case USB_EVENT_ID:
+	case USB_EVENT_VBUS:
 	case USB_EVENT_ENUMERATED:
 		otgwl_hold(&vbus_lock);
 		break;
-		
-    case USB_EVENT_VBUS:	
-	//case USB_EVENT_NONE:		
-	case USB_EVENT_ID:	
-	case USB_EVENT_CHARGER:	
+
+	case USB_EVENT_NONE:
+	case USB_EVENT_CHARGER:
 		otgwl_temporary_hold(&vbus_lock);
 		break;
 

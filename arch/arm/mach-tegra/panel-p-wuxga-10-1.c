@@ -35,29 +35,24 @@
 
 #define TEGRA_DSI_GANGED_MODE	0
 
-#define DSI_PANEL_RESET		1
+#define DSI_PANEL_RESET		0
 #define DSI_PANEL_DALMORE_RST_GPIO	TEGRA_GPIO_PH3
 #define DSI_PANEL_MACALLAN_RST_GPIO	TEGRA_GPIO_PH5
 #define DSI_PANEL_BL_PWM	TEGRA_GPIO_PH1
-
-#define DC_CTRL_MODE	TEGRA_DC_OUT_CONTINUOUS_MODE
+#define DSI_PANEL_BL_EN	TEGRA_GPIO_PH2
+//#define DC_CTRL_MODE	TEGRA_DC_OUT_CONTINUOUS_MODE 
+#define DC_CTRL_MODE	(TEGRA_DC_OUT_CONTINUOUS_MODE | TEGRA_DC_OUT_INITIALIZED_MODE | TEGRA_DC_OUT_INITIALIZED_ANIMAL_MODE)
 
 #define en_vdd_bl	TEGRA_GPIO_PG0
-#define lvds_en		TEGRA_GPIO_PG3
-
+#define lvds_en		TEGRA_GPIO_PH3
 
 static bool reg_requested;
-static bool gpio_requested;
-static int gpio_lcd_rst;
 static struct platform_device *disp_device;
-static struct regulator *avdd_lcd_3v3;
-static struct regulator *vdd_lcd_bl;
-static struct regulator *vdd_lcd_bl_en;
-static struct regulator *dvdd_lcd_1v8;
-static struct regulator *vdd_ds_1v8;
+static struct regulator *avdd_lcd_3v3=NULL;
+static struct regulator *dsi2lvds_1v8=NULL;
 
 #define en_vdd_bl	TEGRA_GPIO_PG0
-#define lvds_en		TEGRA_GPIO_PG3
+#define lvds_en		TEGRA_GPIO_PH3
 
 static tegra_dc_bl_output dsi_p_wuxga_10_1_bl_output_measured = {
 	0, 0, 1, 2, 3, 4, 5, 6,
@@ -94,43 +89,28 @@ static tegra_dc_bl_output dsi_p_wuxga_10_1_bl_output_measured = {
 	247, 248, 249, 250, 251, 252, 253, 255
 };
 
-static struct tegra_dsi_cmd dsi_p_wuxga_10_1_init_cmd[] = {
+static struct tegra_dsi_cmd dsi_p_1280x800_8_0_init_cmd[] = {
 	/* no init command required */
-};
 
-const u32 __maybe_unused panasonic_1920_1200_vnb_syne[NUMOF_PKT_SEQ] = {
-	PKT_ID0(CMD_VS) | PKT_LEN0(0) | PKT_ID1(CMD_BLNK) | PKT_LEN1(1) |
-	PKT_ID2(CMD_HE) | PKT_LEN2(0) | PKT_LP,
-	0,
-	PKT_ID0(CMD_VE) | PKT_LEN0(0) | PKT_ID1(CMD_BLNK) | PKT_LEN1(1) |
-	PKT_ID2(CMD_HE) | PKT_LEN2(0) | PKT_LP,
-	0,
-	PKT_ID0(CMD_HS) | PKT_LEN0(0) | PKT_ID1(CMD_BLNK) | PKT_LEN1(1) |
-	PKT_ID2(CMD_HE) | PKT_LEN2(0) | PKT_LP,
-	0,
-	PKT_ID0(CMD_HS) | PKT_LEN0(0) | PKT_ID1(CMD_BLNK) | PKT_LEN1(1) |
-	PKT_ID2(CMD_HE) | PKT_LEN2(0),
-	PKT_ID3(CMD_BLNK) | PKT_LEN3(2) | PKT_ID4(CMD_RGB_24BPP) | PKT_LEN4(3) |
-	PKT_ID5(CMD_BLNK) | PKT_LEN5(4),
-	PKT_ID0(CMD_HS) | PKT_LEN0(0) | PKT_ID1(CMD_BLNK) | PKT_LEN1(1) |
-	PKT_ID2(CMD_HE) | PKT_LEN2(0) | PKT_LP,
-	0,
-	PKT_ID0(CMD_HS) | PKT_LEN0(0) | PKT_ID1(CMD_BLNK) | PKT_LEN1(1) |
-	PKT_ID2(CMD_HE) | PKT_LEN2(0),
-	PKT_ID3(CMD_BLNK) | PKT_LEN3(2) | PKT_ID4(CMD_RGB_24BPP) | PKT_LEN4(3) |
-	PKT_ID5(CMD_BLNK) | PKT_LEN5(4),
+	/*DSI_CMD_SHORT(DSI_DCS_WRITE_0_PARAM, DSI_DCS_EXIT_SLEEP_MODE, 0x0),
+	DSI_DLY_MS(120),
+	DSI_CMD_SHORT(DSI_DCS_WRITE_0_PARAM, DSI_DCS_SET_DISPLAY_ON, 0x0),
+	DSI_DLY_MS(100),*/
+
 };
 
 
 static struct tegra_dsi_out dsi_p_wuxga_10_1_pdata = {
+	
 #ifdef CONFIG_ARCH_TEGRA_3x_SOC
+
 	.n_data_lanes = 2,
 	.controller_vs = DSI_VS_0,
 #else
 	.controller_vs = DSI_VS_1,
 #endif
 
-	.n_data_lanes = 4,
+	.n_data_lanes = 2,
 	.video_burst_mode = TEGRA_DSI_VIDEO_NONE_BURST_MODE_WITH_SYNC_END,
 
 	.pixel_format = TEGRA_DSI_PIXEL_FORMAT_24BIT_P,
@@ -138,15 +118,16 @@ static struct tegra_dsi_out dsi_p_wuxga_10_1_pdata = {
 	.virtual_channel = TEGRA_DSI_VIRTUAL_CHANNEL_0,
 
 	.dsi_instance = DSI_INSTANCE_0,
+	.dsi2lvds_bridge_enable = 1,
 
-	.panel_reset = DSI_PANEL_RESET,
 	.power_saving_suspend = true,
 	.video_data_type = TEGRA_DSI_VIDEO_TYPE_VIDEO_MODE,
-	.video_clock_mode = TEGRA_DSI_VIDEO_CLOCK_TX_ONLY,
-	.dsi_init_cmd = dsi_p_wuxga_10_1_init_cmd,
-	.n_init_cmd = ARRAY_SIZE(dsi_p_wuxga_10_1_init_cmd),
-	.pkt_seq = panasonic_1920_1200_vnb_syne,
+	.video_clock_mode = TEGRA_DSI_VIDEO_CLOCK_CONTINUOUS,
+	.dsi_init_cmd = dsi_p_1280x800_8_0_init_cmd,
+	.n_init_cmd = ARRAY_SIZE(dsi_p_1280x800_8_0_init_cmd),
+
 };
+
 
 static int dalmore_dsi_regulator_get(struct device *dev)
 {
@@ -154,7 +135,7 @@ static int dalmore_dsi_regulator_get(struct device *dev)
 
 	if (reg_requested)
 		return 0;
-	avdd_lcd_3v3 = regulator_get(dev, "avdd_lcd");
+	avdd_lcd_3v3 = regulator_get(dev, "vdd_lcd_hv");
 	if (IS_ERR_OR_NULL(avdd_lcd_3v3)) {
 		pr_err("avdd_lcd regulator get failed\n");
 		err = PTR_ERR(avdd_lcd_3v3);
@@ -162,19 +143,18 @@ static int dalmore_dsi_regulator_get(struct device *dev)
 		goto fail;
 	}
 
-	vdd_lcd_bl = regulator_get(dev, "vdd_lcd_bl");
-	if (IS_ERR_OR_NULL(vdd_lcd_bl)) {
-		pr_err("vdd_lcd_bl regulator get failed\n");
-		err = PTR_ERR(vdd_lcd_bl);
-		vdd_lcd_bl = NULL;
-		goto fail;
-	}
-
-	vdd_lcd_bl_en = regulator_get(dev, "vdd_lcd_bl_en");
+	/*vdd_lcd_bl_en = regulator_get(dev, "vdd_lcd_bl_en");
 	if (IS_ERR_OR_NULL(vdd_lcd_bl_en)) {
 		pr_err("vdd_lcd_bl_en regulator get failed\n");
 		err = PTR_ERR(vdd_lcd_bl_en);
 		vdd_lcd_bl_en = NULL;
+		goto fail;
+	}*/
+	dsi2lvds_1v8 = regulator_get(dev, "dvdd_lcd");
+	if (IS_ERR_OR_NULL(dsi2lvds_1v8)) {
+		pr_err("dsi2lvds_1v8 regulator get failed\n");
+		err = PTR_ERR(dsi2lvds_1v8);
+		dsi2lvds_1v8 = NULL;
 		goto fail;
 	}
 	reg_requested = true;
@@ -183,25 +163,6 @@ fail:
 	return err;
 }
 
-static int dalmore_dsi_gpio_get(void)
-{
-	int err = 0;
-
-	if (gpio_requested)
-		return 0;
-
-	gpio_lcd_rst = DSI_PANEL_DALMORE_RST_GPIO;
-	err = gpio_request(gpio_lcd_rst, "panel rst");
-	if (err < 0) {
-		pr_err("panel reset gpio request failed\n");
-		goto fail;
-	}
-
-	gpio_requested = true;
-	return 0;
-fail:
-	return err;
-}
 
 static int macallan_dsi_regulator_get(struct device *dev)
 {
@@ -209,7 +170,7 @@ static int macallan_dsi_regulator_get(struct device *dev)
 
 	if (reg_requested)
 		return 0;
-	avdd_lcd_3v3 = regulator_get(dev, "avdd_lcd");
+	avdd_lcd_3v3 = regulator_get(dev, "vdd_lcd_hv");
 	if (IS_ERR_OR_NULL(avdd_lcd_3v3)) {
 		pr_err("avdd_lcd regulator get failed\n");
 		err = PTR_ERR(avdd_lcd_3v3);
@@ -217,52 +178,26 @@ static int macallan_dsi_regulator_get(struct device *dev)
 		goto fail;
 	}
 
-	vdd_lcd_bl_en = regulator_get(dev, "vdd_lcd_bl_en");
-	if (IS_ERR_OR_NULL(vdd_lcd_bl_en)) {
-		pr_err("vdd_lcd_bl_en regulator get failed\n");
-		err = PTR_ERR(vdd_lcd_bl_en);
-		vdd_lcd_bl_en = NULL;
-		goto fail;
-	}
-	reg_requested = true;
-	return 0;
+     dsi2lvds_1v8 = regulator_get(dev, "dvdd_lcd");
+        if (IS_ERR_OR_NULL(dsi2lvds_1v8)) {
+                pr_err("dsi2lvds_1v8 regulator get failed\n");
+                err = PTR_ERR(dsi2lvds_1v8);
+                dsi2lvds_1v8 = NULL;
+                goto fail;
+        }
+        reg_requested = true;
+        return 0;
 fail:
 	return err;
 }
 
-static int macallan_dsi_gpio_get(void)
-{
-	int err = 0;
-
-	if (gpio_requested)
-		return 0;
-
-	gpio_lcd_rst = DSI_PANEL_MACALLAN_RST_GPIO;
-	err = gpio_request(gpio_lcd_rst, "panel rst");
-	if (err < 0) {
-		pr_err("panel reset gpio request failed\n");
-		goto fail;
-	}
-
-	/* free pwm GPIO */
-	err = gpio_request(DSI_PANEL_BL_PWM, "panel pwm");
-	if (err < 0) {
-		pr_err("panel pwm gpio request failed\n");
-		goto fail;
-	}
-	gpio_free(DSI_PANEL_BL_PWM);
-	gpio_requested = true;
-	return 0;
-fail:
-	return err;
-}
 
 static int dsi_p_wuxga_10_1_enable(struct device *dev)
 {
 	int err = 0;
 
-	struct tegra_dc_out *pdata = ((struct tegra_dc_platform_data *)
-		(dev->platform_data))->default_out;
+	//struct tegra_dc_out *pdata = ((struct tegra_dc_platform_data *)
+	//	(dev->platform_data))->default_out;
 
 	if (machine_is_dalmore())
 		err = dalmore_dsi_regulator_get(dev);
@@ -272,32 +207,21 @@ static int dsi_p_wuxga_10_1_enable(struct device *dev)
 		pr_err("dsi regulator get failed\n");
 		goto fail;
 	}
-	if (machine_is_dalmore())
-		err = dalmore_dsi_gpio_get();
-	else if (machine_is_macallan())
-		err = macallan_dsi_gpio_get();
-	if (err < 0) {
-		pr_err("dsi gpio request failed\n");
-		goto fail;
-	}
-
-	if (vdd_ds_1v8) {
-		err = regulator_enable(vdd_ds_1v8);
+	
+	printk("liucong check wuga-10-1.c dsi_p_wuxga_10_1_enable\n");
+	//dump_stack();
+    if (dsi2lvds_1v8) {
+		printk("liucong dsi2lvds_1v8 enable \n");
+		err = regulator_enable(dsi2lvds_1v8);
 		if (err < 0) {
-			pr_err("vdd_ds_1v8 regulator enable failed\n");
+			pr_err("liucong dsi2lvds_1v8 regulator enable failed\n");
 			goto fail;
 		}
 	}
-
-	if (dvdd_lcd_1v8) {
-		err = regulator_enable(dvdd_lcd_1v8);
-		if (err < 0) {
-			pr_err("dvdd_lcd regulator enable failed\n");
-			goto fail;
-		}
-	}
+   mdelay(40);
 
 	if (avdd_lcd_3v3) {
+		printk("liucong avdd_lcd_3v3 enable\n");
 		err = regulator_enable(avdd_lcd_3v3);
 		if (err < 0) {
 			pr_err("avdd_lcd regulator enable failed\n");
@@ -305,33 +229,8 @@ static int dsi_p_wuxga_10_1_enable(struct device *dev)
 		}
 	}
 
-	if (vdd_lcd_bl) {
-		err = regulator_enable(vdd_lcd_bl);
-		if (err < 0) {
-			pr_err("vdd_lcd_bl regulator enable failed\n");
-			goto fail;
-		}
-	}
-
-	if (vdd_lcd_bl_en) {
-		err = regulator_enable(vdd_lcd_bl_en);
-		if (err < 0) {
-			pr_err("vdd_lcd_bl_en regulator enable failed\n");
-			goto fail;
-		}
-	}
-if (!(pdata->flags & TEGRA_DC_OUT_INITIALIZED_MODE)) {
-	msleep(100);
-#if DSI_PANEL_RESET
-	gpio_direction_output(gpio_lcd_rst, 1);
-	usleep_range(1000, 5000);
-	gpio_set_value(gpio_lcd_rst, 0);
-	msleep(150);
-	gpio_set_value(gpio_lcd_rst, 1);
-	msleep(20);
-#endif
-}
-
+   // mdelay(10);
+    
 	return 0;
 fail:
 	return err;
@@ -339,21 +238,17 @@ fail:
 
 static int dsi_p_wuxga_10_1_disable(void)
 {
-	if (vdd_lcd_bl)
-		regulator_disable(vdd_lcd_bl);
-
-	if (vdd_lcd_bl_en)
-		regulator_disable(vdd_lcd_bl_en);
-
+        printk("******* zsdds dsi_p_wuxga_10_1_disable  ******\n");
+	gpio_set_value(58,0);
+//	gpio_set_value(58,0);
 	if (avdd_lcd_3v3)
 		regulator_disable(avdd_lcd_3v3);
 
-	if (dvdd_lcd_1v8)
-		regulator_disable(dvdd_lcd_1v8);
-
-	if (vdd_ds_1v8)
-		regulator_disable(vdd_ds_1v8);
-
+    if(dsi2lvds_1v8)
+        regulator_disable(dsi2lvds_1v8);
+	
+//	mdelay(50);
+          printk("******* zsdds dsi_p_wuxga_10_1_disable  12313******\n");
 	return 0;
 }
 
@@ -364,18 +259,20 @@ static int dsi_p_wuxga_10_1_postsuspend(void)
 
 static struct tegra_dc_mode dsi_p_wuxga_10_1_modes[] = {
 	{
-		.pclk = 154700000,
-		.h_ref_to_sync = 4,
-		.v_ref_to_sync = 1,
-		.h_sync_width = 16,
-		.v_sync_width = 2,
-		.h_back_porch = 32,
-		.v_back_porch = 16,
-		.h_active = 1920,
-		.v_active = 1200,
-		.h_front_porch = 120,
-		.v_front_porch = 17,
-	},
+		.pclk = 68900000,
+		.h_ref_to_sync = 10,// 4
+		.v_ref_to_sync = 1,// 1
+		.h_sync_width = 16,// 32
+		.v_sync_width = 2,// 6
+		.h_back_porch = 80,// 32
+		.v_back_porch = 14,// 16
+		.h_active = 1280,// 1920
+		.v_active = 800,// 1200
+		.h_front_porch = 48,// 120 
+		.v_front_porch = 3,// 17
+
+	
+},
 };
 
 #ifdef CONFIG_TEGRA_DC_CMU
@@ -552,7 +449,7 @@ static int dsi_p_wuxga_10_1_bl_notify(struct device *unused, int brightness)
 	int cur_sd_brightness = atomic_read(&sd_brightness);
 
 	/* SD brightness is a percentage */
-	brightness = (brightness * cur_sd_brightness) / 255;
+	brightness = 255 - ((brightness * cur_sd_brightness) / 255);
 
 	/* Apply any backlight response curve */
 	if (brightness > 255)
@@ -579,7 +476,7 @@ static struct platform_pwm_backlight_data dsi_p_wuxga_10_1_bl_data = {
 	.pwm_id		= 1,
 	.max_brightness	= 255,
 	.dft_brightness	= 224,
-	.pwm_period_ns	= 1000000,
+	.pwm_period_ns	= 40000,
 	.pwm_gpio = DSI_PANEL_BL_PWM,
 	.notify		= dsi_p_wuxga_10_1_bl_notify,
 	.edp_states = { 3950, 2950, 1850, 940, 750, 0},

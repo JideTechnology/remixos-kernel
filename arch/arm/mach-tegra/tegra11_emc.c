@@ -49,7 +49,7 @@ static bool emc_enable;
 #endif
 module_param(emc_enable, bool, 0644);
 
-static u32 bw_calc_freqs_lpddr3[] = {
+static u32 bw_calc_freqs[] = {
 	40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240, 260, 280, 300
 };
 
@@ -65,6 +65,12 @@ static u8 iso_share_calc_t114_lpddr3_default(unsigned long iso_bw);
 static u8 iso_share_calc_t114_lpddr3_dc(unsigned long iso_bw);
 
 u8 tegra_emc_bw_efficiency = 80;
+
+static struct emc_iso_usage tegra11_ddr3_emc_iso_usage[] = {
+	{ BIT(EMC_USER_DC),			80},
+	{ BIT(EMC_USER_DC) | BIT(EMC_USER_VI),	45},
+	{ BIT(EMC_USER_DC) | BIT(EMC_USER_VDE),	45},
+};
 
 static struct emc_iso_usage tegra11_lpddr3_emc_iso_usage[] = {
 	{
@@ -89,47 +95,8 @@ static struct emc_iso_usage tegra11_lpddr3_emc_iso_usage[] = {
 	},
 };
 
-static u8 iso_share_calc_t114_ddr3_default(unsigned long iso_bw);
-static u8 iso_share_calc_t114_ddr3_dc(unsigned long iso_bw);
-
-static u32 bw_calc_freqs_ddr3[] = {
-	5, 10, 20, 30, 40, 60, 80, 100, 120, 140, 160, 180
-};
-
-static u32 tegra11_ddr3_emc_usage_share_default[] = {
-	18, 22, 28, 32, 35, 38, 40,  41,  42,  43,  44,  45,  45
-};
-
-static u32 tegra11_ddr3_emc_usage_share_dc[] = {
-	19, 26, 35, 42, 47, 52, 55,  57,  58,  59,  60,  60,  60
-};
-
-static struct emc_iso_usage tegra11_ddr3_emc_iso_usage[] = {
-	{
-		BIT(EMC_USER_DC),
-		80, iso_share_calc_t114_ddr3_dc
-	},
-	{
-		BIT(EMC_USER_DC) | BIT(EMC_USER_VI),
-		45, iso_share_calc_t114_ddr3_default
-	},
-	{
-		BIT(EMC_USER_DC) | BIT(EMC_USER_MSENC),
-		50, iso_share_calc_t114_ddr3_default
-	},
-	{
-		BIT(EMC_USER_DC) | BIT(EMC_USER_3D),
-		50, iso_share_calc_t114_ddr3_default
-	},
-	{
-		BIT(EMC_USER_DC) | BIT(EMC_USER_VDE),
-		45, iso_share_calc_t114_ddr3_default
-	},
-};
-
 #define MHZ 1000000
-#define TEGRA_LPDDR3_EMC_ISO_USE_FREQ_MAX_NUM 14
-#define TEGRA_DDR3_MC_ISO_USE_FREQ_MAX_NUM 12
+#define TEGRA_EMC_ISO_USE_FREQ_MAX_NUM 14
 #define PLL_C_DIRECT_FLOOR		333500000
 #define EMC_STATUS_UPDATE_TIMEOUT	100
 #define TEGRA_EMC_TABLE_MAX_SIZE	16
@@ -1661,16 +1628,15 @@ int tegra_emc_get_dram_temperature(void)
 	return mr4;
 }
 
-static int bw_calc_get_freq_idx(u32 *freqs, int freqs_num,
-	unsigned long bw)
+static inline int bw_calc_get_freq_idx(unsigned long bw)
 {
 	int idx = 0;
 
-	if (bw > freqs[freqs_num-1] * MHZ)
-		idx = freqs_num;
+	if (bw > bw_calc_freqs[TEGRA_EMC_ISO_USE_FREQ_MAX_NUM-1] * MHZ)
+		idx = TEGRA_EMC_ISO_USE_FREQ_MAX_NUM;
 
-	for (; idx < freqs_num; idx++) {
-		u32 freq = freqs[idx] * MHZ;
+	for (; idx < TEGRA_EMC_ISO_USE_FREQ_MAX_NUM; idx++) {
+		u32 freq = bw_calc_freqs[idx] * MHZ;
 		if (bw < freq) {
 			if (idx)
 				idx--;
@@ -1684,30 +1650,14 @@ static int bw_calc_get_freq_idx(u32 *freqs, int freqs_num,
 
 static u8 iso_share_calc_t114_lpddr3_default(unsigned long iso_bw)
 {
-	int freq_idx = bw_calc_get_freq_idx(bw_calc_freqs_lpddr3,
-			TEGRA_LPDDR3_EMC_ISO_USE_FREQ_MAX_NUM, iso_bw);
+	int freq_idx = bw_calc_get_freq_idx(iso_bw);
 	return tegra11_lpddr3_emc_usage_share_default[freq_idx];
 }
 
 static u8 iso_share_calc_t114_lpddr3_dc(unsigned long iso_bw)
 {
-	int freq_idx = bw_calc_get_freq_idx(bw_calc_freqs_lpddr3,
-			TEGRA_LPDDR3_EMC_ISO_USE_FREQ_MAX_NUM, iso_bw);
+	int freq_idx = bw_calc_get_freq_idx(iso_bw);
 	return tegra11_lpddr3_emc_usage_share_dc[freq_idx];
-}
-
-static u8 iso_share_calc_t114_ddr3_default(unsigned long iso_bw)
-{
-	int freq_idx = bw_calc_get_freq_idx(bw_calc_freqs_ddr3,
-			TEGRA_DDR3_MC_ISO_USE_FREQ_MAX_NUM, iso_bw);
-	return tegra11_ddr3_emc_usage_share_default[freq_idx];
-}
-
-static u8 iso_share_calc_t114_ddr3_dc(unsigned long iso_bw)
-{
-	int freq_idx = bw_calc_get_freq_idx(bw_calc_freqs_ddr3,
-			TEGRA_DDR3_MC_ISO_USE_FREQ_MAX_NUM, iso_bw);
-	return tegra11_ddr3_emc_usage_share_dc[freq_idx];
 }
 
 #ifdef CONFIG_DEBUG_FS

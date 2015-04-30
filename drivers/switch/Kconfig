@@ -12,4 +12,11 @@ config SWITCH_GPIO
 	help
 	  Say Y here to enable GPIO based switch support.
 
+config SWITCH_ADC
+        tristate "switch adc support"
+        default y
+	help
+	  Say Y here to support swich_adc
+
+
 endif # SWITCH

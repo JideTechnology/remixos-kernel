@@ -521,7 +521,7 @@ static struct actmon_dev actmon_dev_emc = {
 	.con_id = "emc",
 
 	/* EMC suspend floor to guarantee suspend entry on PLLM */
-	.suspend_freq		= 408000,
+	.suspend_freq		= EMC_PLLP_FREQ_MAX + 2000,
 
 	.boost_freq_step	= 16000,
 	.boost_up_coef		= 200,

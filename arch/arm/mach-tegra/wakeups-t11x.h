@@ -47,6 +47,5 @@
 #define TEGRA_WAKE_GPIO_PQ0	51
 #define TEGRA_WAKE_GPIO_PQ5	54
 #define TEGRA_WAKE_GPIO_PV2	56
-#define TEGRA_WAKE_GPIO_PK6	57
 
 #endif

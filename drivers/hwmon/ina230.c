@@ -512,6 +512,7 @@ static s32 show_power(struct device *dev,
 
 	power_mW =
 		power_mW * data->pdata->power_lsb;
+	power_mW = power_mW * 25;
 	if (data->pdata->precision_multiplier)
 		power_mW /= data->pdata->precision_multiplier;
 
@@ -525,8 +526,10 @@ static int ina230_hotplug_notify(struct notifier_block *nb, unsigned long event,
 						nb);
 	struct i2c_client *client = data->client;
 
-	if (event == CPU_ONLINE || event == CPU_DEAD)
+
+	if (event == CPU_ONLINE || event == CPU_DEAD) {
 		evaluate_state(client);
+	}
 
 	return 0;
 }

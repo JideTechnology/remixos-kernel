@@ -35,47 +35,50 @@
 #define TEGRA_DSI_GANGED_MODE	0
 
 #define DSI_PANEL_RESET		0
+#define CONFIG_MACH_MACALLAN 1
+#define LCD_VERSION_18BIT 0x1
+#define LCD_VERSION_24BIT 0x2
+#define LCD_VERSION_ERROR 0x3
+
 #define DSI_MIPI_RESET		0
 #define DSI_PANEL_LCD_EN_GPIO	TEGRA_GPIO_PH5 // 3.3V
-#define DSI_PANEL_BL_EN_GPIO TEGRA_GPIO_PN4
 #define DSI_PANEL_BL_PWM	TEGRA_GPIO_PH1
 #define DSI_VDD_BL_EN_GPIO TEGRA_GPIO_PH0
 #define DSI_PANEL_BL_VDD_GPIO TEGRA_GPIO_PH2
 #define SN65DSI83_MIPI_EN TEGRA_GPIO_PP0
-
-#ifdef CONFIG_MACH_TB610N
+#ifdef CONFIG_MACH_MACALLAN
 #define DSI_VDD2_BL_EN_GPIO TEGRA_GPIO_PX7
 #define DSI_PANEL_BL_VDD2_GPIO TEGRA_GPIO_PP3
 #define DSI_LCM1_DECT TEGRA_GPIO_PN2 //pull low if panel 3.0 be detected
 #define DSI_LCM2_DECT TEGRA_GPIO_PW2 //pull low if panel 3.1 be detected
-
-#define LCD_VERSION_3_0 0x1
-#define LCD_VERSION_3_1 0x2
-
-int keenhi_lcm_version_dect(void);
 #endif
 
 #define DC_CTRL_MODE	(TEGRA_DC_OUT_CONTINUOUS_MODE | TEGRA_DC_OUT_INITIALIZED_MODE)
 
-static atomic_t tegra_release_bootloader_fb_flag = ATOMIC_INIT(0);
+/*static atomic_t tegra_release_bootloader_fb_flag = ATOMIC_INIT(0);*/
 //static atomic_t dsi2lvds_enabled = ATOMIC_INIT(1);
 
-//static bool reg_requested;
+static bool reg_requested;
+static bool reg_dsi_csi;
 static bool gpio_requested;
+static bool lcm_requested;
 static struct platform_device *disp_device;
+static struct regulator *avdd_lcd_3v3;
+static struct regulator *dvdd_lcd_1v8;
+static struct regulator *avdd_dsi_csi;
 
-//static struct regulator *avdd_lcd_3v3;
-
+static int gpio_lcd_bl_en;
 static int gpio_vdd_bl_en;
 static int gpio_vdd_bl;
-static int gpio_bl_en;
 static int gpio_lcd_rst;
 static int gpio_bridge_mip_en;
-
-#ifdef CONFIG_MACH_TB610N
-static int gpio_lcm1_dect = 0;
-static int gpio_lcm2_dect = 0;
+static int bootloadertimes = 1;   //bootloader step donot set this pin
+#ifdef CONFIG_MACH_MACALLAN
+static int gpio_lcm1_dect;
+static int gpio_lcm2_dect;
 #endif
+int u_1080p_dc_lcm_dect_val;
+int screen_power_on;
 
 static tegra_dc_bl_output dsi_u_1080p_11_6_bl_output_measured = {
 	0, 0, 1, 2, 3, 4, 5, 6,
@@ -141,14 +144,54 @@ static struct tegra_dsi_out dsi_u_1080p_11_6_pdata = {
 	.n_init_cmd = ARRAY_SIZE(dsi_u_1080p_11_6_init_cmd),
 };
 
-#if 0
+static int keenhi_dsi_regulator_dvdd_lcd_get(struct device *dev)
+{
+	int err = 0;
+	
+	if (dvdd_lcd_1v8)
+		return 0;
+
+	dvdd_lcd_1v8 = regulator_get(dev, "dvdd_lcd");
+	if (IS_ERR_OR_NULL(dvdd_lcd_1v8)) {
+		pr_err("dvdd_lcd regulator get failed\n");
+		err = PTR_ERR(dvdd_lcd_1v8);
+		dvdd_lcd_1v8 = NULL;
+		goto fail;
+	}
+
+	return 0;
+fail:
+	return err;
+}
+
+static int keenhi_dsi_csi_regulator_get(struct device *dev)
+{
+	int err = 0;
+
+	if (reg_dsi_csi)
+		return 0;
+	
+	avdd_dsi_csi = regulator_get(NULL, "avdd_dsi_csi");
+	if (IS_ERR_OR_NULL(avdd_dsi_csi)) {
+		pr_err("avdd_lcd regulator get failed\n");
+		err = PTR_ERR(avdd_dsi_csi);
+		avdd_dsi_csi = NULL;
+		goto fail;
+	}
+
+	reg_dsi_csi = true;
+	return 0;
+fail:
+	return err;
+}
+
 static int keenhi_dsi_regulator_get(struct device *dev)
 {
 	int err = 0;
 
 	if (reg_requested)
 		return 0;
-
+	
 	avdd_lcd_3v3 = regulator_get(dev, "avdd_lcd");
 	if (IS_ERR_OR_NULL(avdd_lcd_3v3)) {
 		pr_err("avdd_lcd regulator get failed\n");
@@ -162,82 +205,105 @@ static int keenhi_dsi_regulator_get(struct device *dev)
 fail:
 	return err;
 }
+
+#ifdef CONFIG_MACH_MACALLAN
+static int keenhi_dsi_lcm_dect_get(void)
+{
+	int err;
+	if (lcm_requested)
+		return 0;
+
+	if (!gpio_lcm1_dect) {
+		gpio_lcm1_dect = DSI_LCM1_DECT;
+		err = gpio_request(gpio_lcm1_dect, "lcm1_dect");
+		if (err < 0) {
+			pr_err("lcm1_dect gpio request failed\n");
+			return -1;
+		}
+		gpio_direction_input(gpio_lcm1_dect);
+	}
+
+	if (!gpio_lcm2_dect) {
+		gpio_lcm2_dect = DSI_LCM2_DECT;
+		err = gpio_request(gpio_lcm2_dect, "lcm2_dect");
+		if (err < 0) {
+			pr_err("lcm2_dect gpio request failed\n");
+			return -1;
+		}
+		gpio_direction_input(gpio_lcm2_dect);
+	}
+
+	lcm_requested = true;
+	return 0;
+}
 #endif
 
 static int keenhi_dsi_gpio_get(void)
 {
 	int err = 0;
-#ifdef CONFIG_MACH_TB610N
-	int lcm_dect_val;
+#ifdef CONFIG_MACH_MACALLAN
+	int lcm1_dect_val = 1;
+	int lcm2_dect_val = 1;
 #endif
 
 	if (gpio_requested)
 		return 0;
 
-#ifdef CONFIG_MACH_TB610N
-	lcm_dect_val = keenhi_lcm_version_dect();
+#ifdef CONFIG_MACH_MACALLAN
+	err = keenhi_dsi_lcm_dect_get();
+	if (err < 0)
+		goto fail;
+
+	lcm1_dect_val = gpio_get_value(gpio_lcm1_dect);
+	lcm2_dect_val = gpio_get_value(gpio_lcm2_dect);
+	
+	if(lcm1_dect_val && lcm2_dect_val) {
+		return -1;
+	}
 #endif
 
+	if (dvdd_lcd_1v8) {
+		err = regulator_enable(dvdd_lcd_1v8);
+		if (err < 0) {
+			pr_err("dvdd_lcd regulator enable failed\n");
+			goto fail;
+		}
+	}
+
+	if (avdd_lcd_3v3) {
+		err = regulator_enable(avdd_lcd_3v3);
+		if (err < 0) {
+			pr_err("avdd_lcd regulator enable failed\n");
+			goto fail;
+		}
+	}
+
+	//3.3V en
 	gpio_lcd_rst = DSI_PANEL_LCD_EN_GPIO;
 	err = gpio_request(gpio_lcd_rst, "panel_enable");
 	if (err < 0) {
 		pr_err("panel reset gpio request failed\n");
 		goto fail;
 	}
-	//gpio_direction_output(gpio_lcd_rst, 1);//for test
+	gpio_direction_output(gpio_lcd_rst, 1);//for test
 
+	if (avdd_dsi_csi) {
+		err = regulator_enable(avdd_dsi_csi);
+		if (err < 0) {
+			pr_err("avdd_dsi_csi regulator enable failed\n");
+			goto fail;
+		}
+	}
+	usleep_range(1000, 5000);
 	gpio_bridge_mip_en= SN65DSI83_MIPI_EN;
 	err = gpio_request(gpio_bridge_mip_en, "mipi_enable");
 	if (err < 0) {
 		pr_err("mipi enablegpio request failed\n");
 		goto fail;
 	}
-	//gpio_direction_output(gpio_bridge_mip_en, 1);
+	gpio_direction_output(gpio_bridge_mip_en, 1);
 
-#ifdef CONFIG_MACH_TB610N
-	err = gpio_request(DSI_PANEL_BL_VDD_GPIO, "bl_vdd");
-	if (err < 0) {
-	    pr_err("bl_vdd gpio request failed\n");
-	    goto fail;
-	}
-
-	err = gpio_request(DSI_PANEL_BL_VDD2_GPIO, "bl_vdd2");
-	if (err < 0) {
-	    pr_err("bl_vdd2 gpio request failed\n");
-	    goto fail;
-	}
-
-	if (lcm_dect_val == LCD_VERSION_3_0){
-		gpio_direction_output(DSI_PANEL_BL_VDD_GPIO, 0);
-		//gpio_direction_output(DSI_PANEL_BL_VDD2_GPIO, 1);
-		gpio_vdd_bl= DSI_PANEL_BL_VDD2_GPIO;
-	}
-	else{
-		//gpio_direction_output(DSI_PANEL_BL_VDD_GPIO, 1);
-		gpio_direction_output(DSI_PANEL_BL_VDD2_GPIO, 0);
-		gpio_vdd_bl= DSI_PANEL_BL_VDD_GPIO;
-	}
-#else
-	gpio_vdd_bl= DSI_PANEL_BL_VDD_GPIO;
-	err = gpio_request(gpio_vdd_bl, "bl_vdd");
-	if (err < 0) {
-	    pr_err("bl_vdd gpio request failed\n");
-	    gpio_vdd_bl = 0;
-	    goto fail;
-	}
-	///gpio_direction_output(DSI_PANEL_BL_VDD_GPIO, 1);
-#endif
-
-	gpio_bl_en = DSI_PANEL_BL_EN_GPIO;
-	err = gpio_request(gpio_bl_en, "bl_enable");
-	if (err < 0) {
-		pr_err("bl_enable gpio request failed\n");
-		gpio_bl_en = 0;
-		goto fail;
-	}
-	//gpio_direction_output(gpio_bl_en, 1);
-
-#ifdef CONFIG_MACH_TB610N
+#ifdef CONFIG_MACH_MACALLAN
 	err = gpio_request(DSI_VDD_BL_EN_GPIO, "bl_vdd_enable");
 	if (err < 0) {
 		pr_err("bl_vdd_enable gpio request failed\n");
@@ -250,14 +316,13 @@ static int keenhi_dsi_gpio_get(void)
 		goto fail;
 	}
 
-	if (lcm_dect_val == LCD_VERSION_3_0){
-		//gpio_direction_output(DSI_VDD_BL_EN_GPIO, 0);
-		//gpio_direction_output(DSI_VDD2_BL_EN_GPIO, 1);
+	if (!lcm1_dect_val){
+		gpio_direction_output(DSI_VDD_BL_EN_GPIO, 0);
+		gpio_direction_output(DSI_VDD2_BL_EN_GPIO, 1);
 		gpio_vdd_bl_en = DSI_VDD2_BL_EN_GPIO;
-	}
-	else{
-		//gpio_direction_output(DSI_VDD_BL_EN_GPIO, 1);
-		//gpio_direction_output(DSI_VDD2_BL_EN_GPIO, 0);
+	} else{
+		gpio_direction_output(DSI_VDD_BL_EN_GPIO, 1);
+		gpio_direction_output(DSI_VDD2_BL_EN_GPIO, 0);
 		gpio_vdd_bl_en = DSI_VDD_BL_EN_GPIO;
 	}
 #else
@@ -268,9 +333,42 @@ static int keenhi_dsi_gpio_get(void)
 		gpio_vdd_bl_en = 0;
 		goto fail;
 	}
-	//gpio_direction_output(gpio_vdd_bl_en, 1);
+	gpio_direction_output(gpio_vdd_bl_en, 1);
 #endif
 	
+#ifdef CONFIG_MACH_MACALLAN
+	err = gpio_request(DSI_PANEL_BL_VDD_GPIO, "bl_vdd");
+	if (err < 0) {
+	    pr_err("bl_vdd gpio request failed\n");
+	    goto fail;
+	}
+
+	err = gpio_request(DSI_PANEL_BL_VDD2_GPIO, "bl_vdd2");
+	if (err < 0) {
+	    pr_err("bl_vdd2 gpio request failed\n");
+	    goto fail;
+	}
+
+	if (!lcm1_dect_val){
+		gpio_direction_output(DSI_PANEL_BL_VDD_GPIO, 0);
+		gpio_direction_output(DSI_PANEL_BL_VDD2_GPIO, 1);
+		gpio_vdd_bl= DSI_PANEL_BL_VDD2_GPIO;
+	} else {
+		gpio_direction_output(DSI_PANEL_BL_VDD_GPIO, 1);
+		gpio_direction_output(DSI_PANEL_BL_VDD2_GPIO, 0);
+		gpio_vdd_bl= DSI_PANEL_BL_VDD_GPIO;
+	}
+#else
+	gpio_vdd_bl= DSI_PANEL_BL_VDD_GPIO;
+	err = gpio_request(gpio_vdd_bl, "bl_vdd");
+	if (err < 0) {
+	    pr_err("bl_vdd gpio request failed\n");
+	    gpio_vdd_bl = 0;
+	    goto fail;
+	}
+	gpio_direction_output(DSI_PANEL_BL_VDD_GPIO, 1);
+#endif
+
 	/* free pwm GPIO */
 	err = gpio_request(DSI_PANEL_BL_PWM, "panel_pwm");
 	if (err < 0) {
@@ -284,70 +382,91 @@ fail:
 	return err;
 }
 
-#ifdef CONFIG_MACH_TB610N
-int keenhi_lcm_version_dect(void)
-{
-	int err = 0;
-	int lcm_dect_val = LCD_VERSION_3_0;
-	int lcm1_dect_val = 1;
-	int lcm2_dect_val = 1;
-
-    if(!gpio_lcm1_dect)
-    {
-		gpio_lcm1_dect = DSI_LCM1_DECT;
-		err = gpio_request(gpio_lcm1_dect, "lcm1_dect");
-		if (err < 0) {
-			pr_err("lcm1_dect gpio request failed\n");
-			goto fail;
-		}
-		gpio_direction_input(gpio_lcm1_dect);
-    }
-	lcm1_dect_val = gpio_get_value(gpio_lcm1_dect);
-
-    if(!gpio_lcm2_dect)
-    {
-		gpio_lcm2_dect = DSI_LCM2_DECT;
-		err = gpio_request(gpio_lcm2_dect, "lcm2_dect");
-		if (err < 0) {
-			pr_err("lcm2_dect gpio request failed\n");
-			goto fail;
-		}
-		gpio_direction_input(gpio_lcm2_dect);
-    }
-	lcm2_dect_val = gpio_get_value(gpio_lcm2_dect);
-
-	lcm_dect_val = lcm1_dect_val<<1 | lcm2_dect_val;
-
-fail:
-	return lcm_dect_val;
-}
-
-EXPORT_SYMBOL(keenhi_lcm_version_dect);
-#endif
-
 static int dsi_u_1080p_11_6_enable(struct device *dev)
 {
+	int err = 0;
 	pr_err("%s:=============>\n",__func__);
-	keenhi_dsi_gpio_get();
-
-	if(!atomic_read(&tegra_release_bootloader_fb_flag)) {
-		tegra_release_bootloader_fb();
-		atomic_set(&tegra_release_bootloader_fb_flag, 1);
-		return 0;
+	/*if(!atomic_read(&tegra_release_bootloader_fb_flag)) {*/
+		/*tegra_release_bootloader_fb();*/
+		/*atomic_set(&tegra_release_bootloader_fb_flag, 1);*/
+	/*}*/
+	screen_power_on = 1;
+	err = keenhi_dsi_regulator_dvdd_lcd_get(dev);
+	if (err < 0) {
+		pr_err("dvdd_lcd regulator get failed\n");
+		goto fail;
 	}
 
+	err = keenhi_dsi_regulator_get(dev);
+	if (err < 0) {
+		pr_err("dsi regulator get failed\n");
+		goto fail;
+	}
+
+	err = keenhi_dsi_csi_regulator_get(dev);
+	if (err < 0) {
+		pr_err("dsi csi regulator get failed\n");
+		goto fail;
+	}
+
+	err = keenhi_dsi_gpio_get();
+	if (err < 0) {
+		pr_err("dsi gpio request failed\n");
+		goto fail;
+	}
+//	if(atomic_read(&dsi2lvds_enabled))return 0;
+
+	if (dvdd_lcd_1v8 && !bootloadertimes) {
+		err = regulator_enable(dvdd_lcd_1v8);
+		if (err < 0) {
+			pr_err("dvdd_lcd regulator enable failed\n");
+			goto fail;
+		}
+	}
+
+	if (avdd_lcd_3v3 && !bootloadertimes) {
+		err = regulator_enable(avdd_lcd_3v3);
+		if (err < 0) {
+			pr_err("avdd_lcd regulator enable failed\n");
+			goto fail;
+		}
+	}
 	if(gpio_lcd_rst>0){
 		gpio_set_value(gpio_lcd_rst, 1);
 	}
 
-	gpio_set_value(gpio_bridge_mip_en, 1);
-	msleep(50);
-	gpio_set_value(gpio_bridge_mip_en, 0);
-	msleep(50);
-	gpio_set_value(gpio_bridge_mip_en, 1);
-	msleep(50);
+	if (avdd_dsi_csi && !bootloadertimes) {
+		err = regulator_enable(avdd_dsi_csi);
+		if (err < 0) {
+			pr_err("avdd_dsi_csi regulator enable failed\n");
+			goto fail;
+		}
+	}
 
+	usleep_range(1000, 5000);
+	if (bootloadertimes == 1)
+		bootloadertimes = 0;
+	else {
+		gpio_set_value(gpio_bridge_mip_en, 1);
+		msleep(10);
+		gpio_set_value(gpio_bridge_mip_en, 0);
+		msleep(10);
+		gpio_set_value(gpio_bridge_mip_en, 1);
+		msleep(10);
+	}
+
+#if DSI_PANEL_RESET
+	gpio_direction_output(DSI_PANEL_LCD_EN_GPIO, 1);
+	usleep_range(1000, 5000);
+	gpio_set_value(DSI_PANEL_LCD_EN_GPIO, 0);
+	msleep(150);
+	gpio_set_value(DSI_PANEL_LCD_EN_GPIO, 1);
+	msleep(1500);
+#endif
+//	atomic_set(&dsi2lvds_enabled, 1);
 	return 0;
+fail:
+	return err;
 }
 
 
@@ -355,7 +474,10 @@ static int dsi_u_1080p_11_6_enable(struct device *dev)
 static int dsi_u_1080p_11_6_disable(void)
 {
 pr_err("%s:=============>\n",__func__);
-	//if(!atomic_read(&dsi2lvds_enabled))return 0; //prevent unbalanced disable
+//	if(!atomic_read(&dsi2lvds_enabled))return 0; //prevent unbalanced disable
+
+	if (avdd_lcd_3v3)
+		regulator_disable(avdd_lcd_3v3);
 	
 	if(gpio_lcd_rst>0){
 		gpio_set_value(gpio_lcd_rst, 0);
@@ -365,7 +487,10 @@ pr_err("%s:=============>\n",__func__);
 		gpio_set_value(gpio_bridge_mip_en, 0);
 	}
 
-	//atomic_set(&dsi2lvds_enabled, 0);
+	if (avdd_dsi_csi)
+		regulator_disable(avdd_dsi_csi);
+
+//	atomic_set(&dsi2lvds_enabled, 0);
 	return 0;
 }
 
@@ -379,8 +504,8 @@ static int dsi_u_1080p_11_6_postpoweron(struct device *dev)
 	    gpio_set_value(gpio_vdd_bl, 1);
 	}
 
-	if(gpio_bl_en>0){
-		gpio_set_value(gpio_bl_en, 1);
+	if(gpio_lcd_bl_en>0){
+		gpio_set_value(gpio_lcd_bl_en, 1);
 	}
 
 	return 0;
@@ -388,8 +513,8 @@ static int dsi_u_1080p_11_6_postpoweron(struct device *dev)
 
 static int dsi_u_1080p_11_6_prepoweroff(void)
 {
-	if(gpio_bl_en>0){
-		gpio_set_value(gpio_bl_en, 0);
+	if(gpio_lcd_bl_en>0){
+		gpio_set_value(gpio_lcd_bl_en, 0);
 	}
 
 	if(gpio_vdd_bl>0){
@@ -399,6 +524,10 @@ static int dsi_u_1080p_11_6_prepoweroff(void)
 	if(gpio_vdd_bl_en>0){
 		gpio_set_value(gpio_vdd_bl_en, 0);
 	}
+
+	if (dvdd_lcd_1v8)
+		regulator_disable(dvdd_lcd_1v8);
+
 
 	return 0;
 }
@@ -426,24 +555,24 @@ static int dsi_u_1080p_11_6_bl_notify(struct device *unused, int brightness)
 {
 	int cur_sd_brightness = atomic_read(&sd_brightness);
 
-	/* SD brightness is a percentage */
-#ifdef CONFIG_MACH_TB610N
-	brightness = 255 - (brightness * cur_sd_brightness) / 255;
+	if (u_1080p_dc_lcm_dect_val == LCD_VERSION_24BIT) {
 
-	/* Apply any backlight response curve */
-	if (brightness < 0)
-		brightness = 0;
-	else
-		brightness = dsi_u_1080p_11_6_bl_output_measured[brightness];
-#else
-	brightness = (brightness * cur_sd_brightness) / 255;
+		brightness = (brightness * cur_sd_brightness) / 255;
 
-	/* Apply any backlight response curve */
-	if (brightness > 255)
-		pr_info("Error: Brightness > 255!\n");
-	else
-		brightness = dsi_u_1080p_11_6_bl_output_measured[brightness];
-#endif
+		/* Apply any backlight response curve */
+		if (brightness > 255)
+			pr_info("Error: Brightness > 255!\n");
+		else
+			brightness = dsi_u_1080p_11_6_bl_output_measured[brightness];
+	} else {
+		brightness = 255 - (brightness * cur_sd_brightness) / 255;
+
+		/* Apply any backlight response curve */
+		if (brightness < 0)
+			brightness = 0;
+		else
+			brightness = dsi_u_1080p_11_6_bl_output_measured[brightness];
+	}
 
 	return brightness;
 }
@@ -456,7 +585,7 @@ static int dsi_u_1080p_11_6_check_fb(struct device *dev, struct fb_info *info)
 static struct platform_pwm_backlight_data dsi_u_1080p_11_6_bl_data = {
 	.pwm_id		= 1,
 	.max_brightness	= 255,
-	.dft_brightness	= 224,
+	.dft_brightness	= 0,
 	.pwm_period_ns	= 1000000,
 	.notify		= dsi_u_1080p_11_6_bl_notify,
 	/* Only toggle backlight on fb blank notifications for disp1 */
@@ -512,19 +641,6 @@ resources, int n_resources)
 
 static void dsi_u_1080p_11_6_dc_out_init(struct tegra_dc_out *dc)
 {
-#ifdef CONFIG_MACH_TB610N
-	int lcm_dect_val = keenhi_lcm_version_dect();
-
-	if (lcm_dect_val == LCD_VERSION_3_0){
-		dsi_u_1080p_11_6_pdata.n_data_lanes = 3;
-		dsi_u_1080p_11_6_pdata.pixel_format = TEGRA_DSI_PIXEL_FORMAT_18BIT_P;
-
-		dsi_u_1080p_11_6_modes[0].pclk = 139000000;
-		dsi_u_1080p_11_6_modes[0].h_back_porch = 120;
-		dsi_u_1080p_11_6_modes[0].v_back_porch = 16;
-	}
-#endif
-
 	dc->dsi = &dsi_u_1080p_11_6_pdata;
 	dc->parent_clk = "pll_d_out0";
 	dc->modes = dsi_u_1080p_11_6_modes;
@@ -539,7 +655,34 @@ static void dsi_u_1080p_11_6_dc_out_init(struct tegra_dc_out *dc)
 	dc->align= TEGRA_DC_ALIGN_MSB;
 	dc->order= TEGRA_DC_ORDER_RED_BLUE;
 }
+static void dsi_u_1080p_11_6_dc_select_24bit(struct tegra_dc_out *dc)
+{
+#ifdef CONFIG_MACH_MACALLAN
+	int err;
+	int lcm1_dect_val = 1;
+	int lcm2_dect_val = 1;
+	err = keenhi_dsi_lcm_dect_get();
+	if (err < 0)
+		return;
 
+	lcm1_dect_val = gpio_get_value(gpio_lcm1_dect);
+	lcm2_dect_val = gpio_get_value(gpio_lcm2_dect);
+	u_1080p_dc_lcm_dect_val = lcm1_dect_val<<1 | lcm2_dect_val;
+
+	if(lcm1_dect_val && lcm2_dect_val) {
+		return;
+	}
+	
+	if (!lcm1_dect_val) {
+		dc->dsi->n_data_lanes = 3;
+		dc->dsi->pixel_format = TEGRA_DSI_PIXEL_FORMAT_18BIT_P;
+
+		dc->modes[0].pclk = 139000000;
+		dc->modes[0].h_back_porch = 120;
+		dc->modes[0].v_back_porch = 16;
+	}
+#endif
+}
 static void dsi_u_1080p_11_6_fb_data_init(struct tegra_fb_data *fb)
 {
 	fb->xres = dsi_u_1080p_11_6_modes[0].h_active;
@@ -553,7 +696,10 @@ dsi_u_1080p_11_6_sd_settings_init(struct tegra_dc_sd_settings *settings)
 }
 
 static struct i2c_board_info keenhi_sn65dsi86_dsi2edp_board_info __initdata = {
-		I2C_BOARD_INFO("sn65dsi86_dsi2edp", 0x2C),
+		/*I2C_BOARD_INFO("sn65dsi86_dsi2edp", 0x2C),*/
+		.type = "sn65dsi86_dsi2edp",
+		.addr = 0x2C,
+		.irq = TEGRA_GPIO_PR4,
 };
 
 static int __init dsi_u_1080p_11_6_i2c_bridge_register(void)
@@ -566,6 +712,7 @@ static int __init dsi_u_1080p_11_6_i2c_bridge_register(void)
 struct tegra_panel __initdata dsi_u_1080p_11_6 = {
 	.init_sd_settings = dsi_u_1080p_11_6_sd_settings_init,
 	.init_dc_out = dsi_u_1080p_11_6_dc_out_init,
+	.select_dc_24bit = dsi_u_1080p_11_6_dc_select_24bit,
 	.init_fb_data = dsi_u_1080p_11_6_fb_data_init,
 	.init_resources = dsi_u_1080p_11_6_resources_init,
 	.register_bl_dev = dsi_u_1080p_11_6_register_bl_dev,

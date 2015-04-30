@@ -797,8 +797,8 @@ static int tegra_otg_suspend(struct device *dev)
 	if (from == OTG_STATE_B_PERIPHERAL)
 		tegra_change_otg_state(tegra, OTG_STATE_A_SUSPEND);
 
-	if (from == OTG_STATE_A_HOST && tegra->turn_off_vbus_on_lp0)
-		tegra_otg_vbus_enable(tegra->vbus_reg, 0);
+//	if (from == OTG_STATE_A_HOST && tegra->turn_off_vbus_on_lp0)
+//		tegra_otg_vbus_enable(tegra->vbus_reg, 0);
 
 	tegra->suspended = true;
 
@@ -853,8 +853,8 @@ static void tegra_otg_resume(struct device *dev)
 		mutex_lock(&tegra->irq_work_mutex);
 	}
 
-	if (tegra->turn_off_vbus_on_lp0 && !(tegra->int_status & USB_ID_STATUS))
-		tegra_otg_vbus_enable(tegra->vbus_reg, 1);
+//	if (tegra->turn_off_vbus_on_lp0 && !(tegra->int_status & USB_ID_STATUS))
+//		tegra_otg_vbus_enable(tegra->vbus_reg, 1);
 
 	/* Call work to set appropriate state */
 	schedule_work(&tegra->work);

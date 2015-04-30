@@ -1,0 +1,53 @@
+#!/bin/bash
+
+M=$(pwd -P)
+M="${M%/*}"
+MOUT=out/target/product/macallan
+MKBOOTIMG=$M/out/host/linux-x86/bin/mkbootimg
+CROSS=$M/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin/arm-eabi-
+KERNEL_CONFIG=tegra11_homecare_android_defconfig
+OUT_DIR=
+SRC_DIR=
+
+set -e
+
+case $1 in
+	jpad)
+		name=$1
+		SRC_DIR=$(pwd -P)
+		OUT_DIR=$(pwd -P)/out
+		shift 1
+		;;
+	*)
+		name=obj/KERNEL
+		SRC_DIR=$(pwd -P)
+		OUT_DIR=${M}/${MOUT}
+		;;
+esac
+
+action=$@
+out=${OUT_DIR}/${name}
+image_dir=$M/$MOUT
+mkdir -p ${out}
+[ ! $@ ] && action=zImage
+#if [ ! -e ${out}/.config ]; then
+cp -vf $(pwd -P)/arch/arm/configs/$KERNEL_CONFIG ${out}/.config
+make -C ${SRC_DIR} ARCH=arm CROSS_COMPILE="$CROSS" -j8 O=${out} $KERNEL_CONFIG || exit 1
+$SRC_DIR/scripts/config --file ${out}/.config --enable TRUSTED_FOUNDATIONS
+#fi
+
+echo "making ${action} for ${name}"
+
+make -C ${SRC_DIR} ARCH=arm CROSS_COMPILE="$CROSS" -j8 O=${out} ${action} || exit 1
+
+# copy images
+image="${out}/arch/arm/boot/zImage"
+test -e ${image} && cp -vf ${image} ${image_dir}/kernel
+
+# mkbootimg boot.img
+$MKBOOTIMG --kernel ${image_dir}/kernel --ramdisk ${image_dir}/ramdisk.img --output ${image_dir}/boot.img
+echo "${image_dir}/boot.img created successfully."
+
+# acopy boot.img
+acopy OUT ${image_dir}/boot.img
+

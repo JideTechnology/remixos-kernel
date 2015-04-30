@@ -171,6 +171,10 @@ config KEYBOARD_EP93XX
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called ep93xx_keypad.
+config KEYBOARD_SW
+	tristate "GPIO Buttons sw"
+	depends on GENERIC_GPIO
+	help
 
 config KEYBOARD_GPIO
 	tristate "GPIO Buttons"
@@ -186,22 +190,7 @@ config KEYBOARD_GPIO
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called gpio_keys.
-	  
-config KEYBOARD_MAGNET
-	tristate "GPIO Buttons"
-	depends on GENERIC_GPIO
-	help
-	  This driver implements support for buttons connected
-	  to GPIO pins of various CPUs (and some other chips).
 
-	  Say Y here if your device has buttons connected
-	  directly to such GPIO pins.  Your board-specific
-	  setup logic must also provide a platform device,
-	  with configuration data saying which GPIOs are used.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called magnet_keys.
-	  
 config KEYBOARD_GPIO_POLLED
 	tristate "Polled GPIO buttons"
 	depends on GENERIC_GPIO

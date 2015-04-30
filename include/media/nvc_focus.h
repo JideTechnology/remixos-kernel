@@ -42,8 +42,6 @@
 #define SLEW_RATE_DEFAULT		1
 #define SLEW_RATE_SLOWEST		9
 
-#define NV_FOCUSER_SET_MAX              10
-#define NV_FOCUSER_SET_DISTANCE_PAIR    16
 
 enum nvc_focus_sts {
 	NVC_FOCUS_STS_UNKNOWN		= 1,
@@ -62,6 +60,21 @@ struct nvc_focus_nvc {
 	__u32 max_aperature;
 } __packed;
 
+struct nvc_focus_cap {
+	__u32 version;
+	__s32 actuator_range;
+	__u32 settle_time;
+	__s32 focus_macro;
+	__s32 focus_hyper;
+	__s32 focus_infinity;
+	__u32 slew_rate;
+	__u32 position_translate;
+} __packed;
+
+
+#define NV_FOCUSER_SET_MAX              10
+#define NV_FOCUSER_SET_DISTANCE_PAIR    16
+
 struct nv_focuser_set_dist_pairs {
 	__s32 fdn;
 	__s32 distance;
@@ -79,27 +92,6 @@ struct nv_focuser_set {
 	__u32 num_dist_pairs;
 	struct nv_focuser_set_dist_pairs
 			dist_pair[NV_FOCUSER_SET_DISTANCE_PAIR];
-} __packed;
-
-struct nvc_focus_cap {
-	__u32 version;
-	__s32 actuator_range;
-	__u32 range_ends_reversed;
-	__s32 pos_working_low;
-	__s32 pos_working_high;
-	__s32 pos_actual_low;
-	__s32 pos_actual_high;
-	__u32 slew_rate;
-	__u32 circle_of_confusion;
-
-	__u32 settle_time;
-	__s32 focus_macro;
-	__s32 focus_hyper;
-	__s32 focus_infinity;
-	__u32 position_translate;
-
-	__u32 num_focuser_sets;
-	struct nv_focuser_set focuser_set[NV_FOCUSER_SET_MAX];
 } __packed;
 
 struct nv_focuser_config {

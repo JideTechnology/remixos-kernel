@@ -2420,21 +2420,6 @@ config VFP
 
 	  Say N if your target does not have VFP hardware.
 
-config CHARGE_CURRENT_3A
-  bool "Enable CHARGE_CURRENT_3A"
-  help
-    When enabled, CHARGE CURRENT 3A.
-
-config CHARGE_CURRENT_1_2
-  bool "Enable CHARGE_CURRENT_1_2A"
-  help
-    When enabled, CHARGE CURRENT 1_2A.
-
-config CHARGE_CURRENT_1_5
-  bool "Enable CHARGE_CURRENT_1_5A"
-  help
-    When enabled, CHARGE CURRENT 1_5A.
-
 config VFPv3
 	bool
 	depends on VFP

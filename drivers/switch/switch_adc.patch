@@ -1,0 +1,378 @@
+/*
+ * palmas-vac.c -- TI PALMAS vac.
+ *
+ * Copyright (c) 2013, NVIDIA Corporation. All rights reserved.
+ *
+ * Author: Pradeep Goudagunta <pgoudagunta@nvidia.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation version 2.
+ *
+ * This program is distributed "as is" WITHOUT ANY WARRANTY of any kind,
+ * whether express or implied; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+ * 02111-1307, USA
+ */
+#include <linux/module.h>
+#include <linux/err.h>
+#include <linux/irq.h>
+#include <linux/interrupt.h>
+#include <linux/platform_device.h>
+#include <linux/slab.h>
+#include <linux/device.h>
+#include <linux/delay.h>
+#include <linux/i2c.h>
+#include <linux/pm.h>
+#include <linux/mfd/palmas.h>
+#include <linux/gpio_keys.h>
+#include <linux/switch.h>
+#include <asm/gpio.h>
+#include <linux/workqueue.h>
+#include <linux/fb.h>
+#include <linux/notifier.h>
+#include "../../arch/arm/mach-tegra/gpio-names.h"
+
+#define MOD_NAME "palmas-autoadc"
+
+#define BLANK		1
+#define UNBLANK		0
+
+#define GPADC_ADOVE_THRESHOLD 0
+#define GPADC_BELOW_THRESHOLD 1
+#define LOG(format, arg...) printk(KERN_DEBUG "\e[32m"format"\e[00m", ##arg)
+
+static char usb_name[30] = "null";
+struct palmas_autoadc {
+	int	irq;
+	struct device	*dev;
+	struct palmas	*palmas;
+	struct delayed_work work;
+	struct switch_dev sdev;
+	struct mutex irq_lock;
+	struct notifier_block fb_notif;
+	struct palmas_autoadc_platform_data *pdata;
+};
+
+static int palmas_autoadc_set_threshold(struct palmas_autoadc *autoadc, int gpadc_threshold)
+{
+	unsigned int val[2];
+
+	val[0] = 0xff & autoadc->pdata->conversion_0_threshold;
+	val[1] = (gpadc_threshold << 7) | (autoadc->pdata->conversion_0_threshold >> 8);
+
+	palmas_write(autoadc->palmas, PALMAS_GPADC_BASE,
+				PALMAS_GPADC_THRES_CONV0_LSB, val[0]);
+	palmas_write(autoadc->palmas, PALMAS_GPADC_BASE,
+				PALMAS_GPADC_THRES_CONV0_MSB, val[1]);
+
+	return 0;
+}
+
+static int palmas_autoadc_read(struct palmas_autoadc *autoadc)
+{
+	int ret;
+	unsigned int val;
+	ret = palmas_bulk_read(autoadc->palmas, PALMAS_GPADC_BASE,
+			PALMAS_GPADC_AUTO_CONV0_LSB, &val, 2);
+	if (ret < 0) {
+		dev_err(autoadc->dev, "ADCDATA read failed: %d\n", ret);
+		return ret;
+	}
+
+	ret = (val & 0xFFF);
+	return ret;
+}
+
+static void autoadc_work_func(struct work_struct *work)
+{
+	struct palmas_autoadc *adc =
+		container_of(work, struct palmas_autoadc, work.work);
+	int i, val, volt_min, volt_max;
+	int threshold = GPADC_BELOW_THRESHOLD;
+	int usb5v_enable = false;
+
+	mutex_lock(&adc->irq_lock);
+
+	val = palmas_autoadc_read(adc);
+	if (val < adc->pdata->conversion_0_threshold)
+		threshold = GPADC_ADOVE_THRESHOLD;
+	for (i = 0; i < adc->pdata->hid_dev_num; i++) { 
+		volt_min = adc->pdata->hid_dev[i].volt2adc - adc->pdata->hid_dev[i].adc_limit;
+		volt_max = adc->pdata->hid_dev[i].volt2adc + adc->pdata->hid_dev[i].adc_limit;
+
+		if ((val > volt_min) && (val < volt_max)) {
+			printk("autoadc find device %s\n", adc->pdata->hid_dev[i].name);
+			if (adc->pdata->hid_dev[i].init_switch_gpio)
+				adc->pdata->hid_dev[i].init_switch_gpio();
+			memcpy(usb_name, adc->pdata->hid_dev[i].name, sizeof(usb_name));
+			usb5v_enable = true;
+		}
+	}
+
+	if (!memcmp(usb_name, "mic", 3))
+		switch_set_state(&adc->sdev, usb5v_enable);
+
+	if (adc->pdata->usb5v_enable && (!memcmp(usb_name, "keyboard", 8)))
+		adc->pdata->usb5v_enable(usb5v_enable);
+
+	if (!usb5v_enable) {
+		memset(usb_name, '\0', sizeof(usb_name));
+		memcpy(usb_name, "null", sizeof(usb_name));
+    }
+
+	palmas_autoadc_set_threshold(adc, threshold);
+
+	printk("autoadc_work_func adc val = %d\n", val);
+	mutex_unlock(&adc->irq_lock);
+}
+
+static irqreturn_t palmas_autoadc_irq(int irq, void *data)
+{
+	struct palmas_autoadc *adc = (struct palmas_autoadc *)data;
+
+	schedule_delayed_work(&adc->work, msecs_to_jiffies(150));
+	return IRQ_HANDLED;
+}
+
+static int palmas_autoadc_start(struct palmas_autoadc *autoadc, int enable)
+{
+	unsigned int val, mask;
+	int ret;
+
+	val = (enable ? 0 : 1) << PALMAS_INT3_STATUS_GPADC_AUTO_0_SHIFT;
+	ret = palmas_update_bits(autoadc->palmas, PALMAS_INTERRUPT_BASE,
+				PALMAS_INT3_MASK,
+				PALMAS_INT3_STATUS_GPADC_AUTO_0, val);
+	if (ret < 0) {
+		dev_err(autoadc->dev, "CTRL1 update failed: %d\n", ret);
+		return ret;
+	}
+
+	mask = PALMAS_GPADC_CTRL1_GPADC_FORCE;
+	ret = palmas_update_bits(autoadc->palmas, PALMAS_GPADC_BASE,
+			PALMAS_GPADC_CTRL1, mask, enable);
+	if (ret < 0) {
+		dev_err(autoadc->dev, "CTRL1_GPADC_FORCE update failed: %d\n", ret);
+		return ret;
+	}
+	
+	//channel 1
+	ret = palmas_write(autoadc->palmas, PALMAS_GPADC_BASE,
+				PALMAS_GPADC_AUTO_SELECT, autoadc->pdata->adc_channel);
+	if (ret < 0) {
+		dev_err(autoadc->dev, "PALMAS_GPADC_AUTO_SELECT update failed: %d\n", ret);
+		return ret;
+	}
+
+	mask = PALMAS_GPADC_AUTO_CTRL_AUTO_CONV0_EN | PALMAS_GPADC_AUTO_CTRL_COUNTER_CONV_MASK;
+	val = (enable << PALMAS_GPADC_AUTO_CTRL_AUTO_CONV0_EN_SHIFT) | autoadc->pdata->delay_time;
+	ret = palmas_update_bits(autoadc->palmas, PALMAS_GPADC_BASE,
+				PALMAS_GPADC_AUTO_CTRL, mask, val);
+	if (ret < 0) {
+		dev_err(autoadc->dev, "AUTO_CTRL_AUTO_CONV0_EN update failed: %d\n", ret);
+		return ret;
+	}
+
+	LOG("func:%s, line:%d", __func__, __LINE__);
+	return 0;
+}
+
+#if 0
+static ssize_t switch_gpio_print_state(struct switch_dev *sdev, char *buf)
+{
+	struct palmas_autoadc *switch_data =
+		container_of(sdev, struct palmas_autoadc, sdev);
+	const char *state;
+	if (switch_get_state(sdev))
+		state = switch_data->usb_name;
+	else
+		state = "no device!";
+
+	if (state)
+		return sprintf(buf, "%s\n", state);
+	return -1;
+}
+#endif
+
+static int fb_notifier_callback(struct notifier_block *self,
+				unsigned long event, void *data)
+{
+
+	struct fb_event *fb_event = data;
+	int *blank = fb_event->data;
+	int fb_status = *blank ? BLANK : UNBLANK;
+
+	if (!memcmp(usb_name, "keyboard", 8)) {
+		if (fb_status == BLANK) {
+			gpio_set_value(TEGRA_GPIO_PO3, 0);
+			gpio_set_value(TEGRA_GPIO_PY3, 1);
+		} else {
+			gpio_set_value(TEGRA_GPIO_PO3, 1);
+			gpio_set_value(TEGRA_GPIO_PY3, 0);
+		}
+	}
+
+	return 0;
+}
+static ssize_t palmas_dock_name_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%s\n", usb_name);
+}
+
+static DEVICE_ATTR(dock_name, S_IRUGO, palmas_dock_name_show, NULL); 
+
+static int __devinit palmas_autoadc_probe(struct platform_device *pdev)
+{
+	int ret;
+	struct palmas_autoadc *palmas_autoadc = NULL;
+	struct palmas_platform_data *palmas_pdata;
+	struct palmas_autoadc_platform_data *autoadc_pdata;
+
+	LOG("func:%s, line:%d", __func__, __LINE__);
+
+	palmas_autoadc = devm_kzalloc(&pdev->dev, sizeof(struct palmas_autoadc), GFP_KERNEL);
+    if (!palmas_autoadc) {
+		dev_err(&pdev->dev, "Memory allocation failed.\n");
+		return -ENOMEM;
+	}
+	palmas_pdata = dev_get_platdata(pdev->dev.parent);
+	if (palmas_pdata)
+		autoadc_pdata = palmas_pdata->autoadc_pdata;
+
+	palmas_autoadc->dev = &pdev->dev;
+	palmas_autoadc->pdata = autoadc_pdata;
+	palmas_autoadc->palmas = dev_get_drvdata(pdev->dev.parent);
+	dev_set_drvdata(&pdev->dev, palmas_autoadc);
+
+	palmas_autoadc->sdev.name = "h3w";
+	switch_dev_register(&palmas_autoadc->sdev);
+
+	if (autoadc_pdata && autoadc_pdata->switch_gpio) {
+		ret = gpio_request(autoadc_pdata->switch_gpio, "switch_gpio");
+		if (ret) {
+			printk("failed to request GPIO%d\n", autoadc_pdata->switch_gpio);
+			goto switch_gpio_failed;
+		}
+	}
+
+	INIT_DELAYED_WORK(&palmas_autoadc->work, autoadc_work_func);
+	mutex_init(&palmas_autoadc->irq_lock);
+	palmas_autoadc->irq = platform_get_irq(pdev, 0);
+	ret = request_threaded_irq(palmas_autoadc->irq, NULL,
+		palmas_autoadc_irq,
+		IRQF_ONESHOT | IRQF_EARLY_RESUME, dev_name(palmas_autoadc->dev),
+		palmas_autoadc);
+	if (ret < 0) {
+		dev_err(palmas_autoadc->dev,
+			"request irq %d failed: %dn", palmas_autoadc->irq, ret);
+		goto request_irq_failed;
+	}
+
+	palmas_autoadc_set_threshold(palmas_autoadc, GPADC_BELOW_THRESHOLD);
+	palmas_autoadc_start(palmas_autoadc, true);
+
+	memset(&palmas_autoadc->fb_notif, 0, sizeof(palmas_autoadc->fb_notif));
+	palmas_autoadc->fb_notif.notifier_call = fb_notifier_callback;
+	fb_register_client(&palmas_autoadc->fb_notif);
+
+	device_create_file(palmas_autoadc->sdev.dev, &dev_attr_dock_name);
+
+	if (palmas_autoadc->pdata->wakeup)
+		device_set_wakeup_capable(&pdev->dev, 1);
+
+	LOG("func:%s, ok!", __func__);
+	return 0;
+
+request_irq_failed:
+	gpio_free(palmas_autoadc->pdata->switch_gpio);
+switch_gpio_failed:
+	return ret;
+}
+
+static int __devexit palmas_autoadc_remove(struct platform_device *pdev)
+{
+	struct palmas_autoadc *palmas_autoadc = dev_get_platdata(&pdev->dev);
+
+	gpio_free(palmas_autoadc->pdata->switch_gpio);
+	free_irq(palmas_autoadc->irq, palmas_autoadc);
+	palmas_autoadc_start(palmas_autoadc, false);
+	cancel_delayed_work_sync(&palmas_autoadc->work);
+    switch_dev_unregister(&palmas_autoadc->sdev);
+
+	return 0;
+}
+
+#ifdef CONFIG_PM_SLEEP
+static int palmas_autoadc_suspend(struct device *dev)
+{
+	struct palmas_autoadc *adc = dev_get_platdata(dev);
+	
+	if (!memcmp(usb_name, "keyboard", 8)) {
+		LOG("%s, 5v off\n", __func__);
+		gpio_set_value(TEGRA_GPIO_PO3, 0);
+		gpio_set_value(TEGRA_GPIO_PY3, 1);
+	}
+	
+	if (device_may_wakeup(dev))
+		enable_irq_wake(adc->irq);
+
+	return 0;
+}
+
+static int palmas_autoadc_resume(struct device *dev)
+{
+	struct palmas_autoadc *adc = dev_get_platdata(dev);
+	
+	if (!memcmp(usb_name, "keyboard", 8)) {
+		LOG("%s, 5v on\n", __func__);
+		gpio_set_value(TEGRA_GPIO_PO3, 1);
+		gpio_set_value(TEGRA_GPIO_PY3, 0);
+	}
+	
+	if (device_may_wakeup(dev))
+		disable_irq_wake(adc->irq);
+
+	return 0;
+};
+
+static void palmas_autoadc_shutdown(struct platform_device *pdev)
+{
+	struct palmas_autoadc *adc = dev_get_drvdata(&pdev->dev);
+	palmas_autoadc_start(adc, false);
+}
+#endif
+
+static const struct dev_pm_ops palmas_pm_ops = {
+	.suspend = palmas_autoadc_suspend,
+	.resume = palmas_autoadc_resume,
+};
+
+static struct platform_driver palmas_autoadc_driver = {
+	.probe = palmas_autoadc_probe,
+	.remove = __devexit_p(palmas_autoadc_remove),
+	.shutdown = palmas_autoadc_shutdown,
+	.driver = {
+		.name = MOD_NAME,
+		.owner = THIS_MODULE,
+#ifdef CONFIG_PM_SLEEP
+		.pm = &palmas_pm_ops,
+#endif
+	},
+};
+
+static int __init palmas_init(void)
+{
+	return platform_driver_register(&palmas_autoadc_driver);
+}
+subsys_initcall(palmas_init);
+
+MODULE_DESCRIPTION("palmas autoadc driver");
+MODULE_AUTHOR("Pradeep june<june.cheng@qucii.com>");
+MODULE_ALIAS("platform:palmas-autoadc");
+MODULE_LICENSE("GPL v2");

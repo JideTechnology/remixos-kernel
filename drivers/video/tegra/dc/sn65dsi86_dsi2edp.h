@@ -25,7 +25,10 @@ struct tegra_dc_dsi2edp_data {
 	struct tegra_dc_mode *mode;
 
 	bool dsi2edp_enabled;
-
+	int		irq;
+	int irq_failed_count;
+	int resume_failed_count;
+	int read_reg;
 	struct mutex lock;
 };
 struct bridge_reg {

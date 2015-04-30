@@ -24,7 +24,22 @@ config VIDEO_OV5640
         ---help---
           This is a driver for the Omnivision OV5640 5MP camera sensor
           for use with the tegra isp.
-
+          
+config VIDEO_OV5645
+        tristate "OV5645 camera sensor support"
+        depends on I2C && ARCH_TEGRA
+        ---help---
+          This is a driver for the Omnivision OV5645 5MP camera sensor
+          for use with the tegra isp.
+          
+config VIDEO_GC2155
+        tristate "GC2155 camera sensor support"
+        depends on I2C && ARCH_TEGRA
+        ---help---
+          This is a driver for the GC gc2155 2MP camera sensor
+          for use with the tegra isp.
+          
+          
 config VIDEO_OV14810
         tristate "OV14810 camera sensor support"
         depends on I2C && ARCH_TEGRA
@@ -182,8 +197,12 @@ config VIDEO_DW9718
         ---help---
           This is a driver for the DW9718 focuser
           for use with the tegra isp.
-
 config VIDEO_T8EV5
+        tristate "T8EV5 camera sensor support"
+        depends on I2C && ARCH_TEGRA
+        ---help---
+          This is a driver for the  T8EV5 camera sensor
+config VIDEO_MT9P111
         tristate "T8EV5 camera sensor support"
         depends on I2C && ARCH_TEGRA
         ---help---

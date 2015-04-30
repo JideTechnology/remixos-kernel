@@ -447,7 +447,7 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 			}
 		}
 
-		if (card->ext_csd.rev < 6 || card->ext_csd.rev == 7) {
+		if (card->ext_csd.rev < 6) {
 			card->ext_csd.sec_trim_mult =
 				ext_csd[EXT_CSD_SEC_TRIM_MULT];
 			card->ext_csd.sec_erase_mult =
@@ -638,8 +638,6 @@ MMC_DEV_ATTR(serial, "0x%08x\n", card->cid.serial);
 MMC_DEV_ATTR(enhanced_area_offset, "%llu\n",
 		card->ext_csd.enhanced_area_offset);
 MMC_DEV_ATTR(enhanced_area_size, "%u\n", card->ext_csd.enhanced_area_size);
-MMC_DEV_ATTR(pnm, "0x%2x%2x%2x%2x%2x%2x\n", card->cid.prod_name[0],card->cid.prod_name[1],card->cid.prod_name[2],
-	card->cid.prod_name[3],card->cid.prod_name[4],card->cid.prod_name[5]);
 
 static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_cid.attr,
@@ -656,7 +654,6 @@ static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_serial.attr,
 	&dev_attr_enhanced_area_offset.attr,
 	&dev_attr_enhanced_area_size.attr,
-	&dev_attr_pnm.attr,
 	NULL,
 };
 

@@ -107,8 +107,6 @@ static u32 ep_queue_request_count;
 static u8 boost_cpufreq_work_flag, set_cpufreq_normal_flag;
 static struct timer_list boost_timer;
 static bool boost_enable = true;
-extern int chagre_suspend(void);
-extern void set_chagre_suspend(void);
 static int boost_enable_set(const char *arg, const struct kernel_param *kp)
 {
 	bool old_boost = boost_enable;
@@ -1347,22 +1345,6 @@ static void tegra_udc_set_charger_type(struct tegra_udc *udc,
 	udc->prev_connect_type = udc->connect_type;
 	udc->connect_type = type;
 }
-#ifdef CONFIG_EXTCON
-void tegra_udc_set_extcon_resume(struct tegra_udc *udc)
-{
-	const char **cables;
-	struct extcon_dev *edev;
-
-	if (udc->edev == NULL || udc->edev->supported_cable == NULL)
-		return;
-	edev = udc->edev;
-	cables = udc->edev->supported_cable;
-	extcon_set_cable_state(edev, cables[udc->connect_type],
-					false);
-	set_chagre_suspend();
-}
-EXPORT_SYMBOL(tegra_udc_set_extcon_resume);
-#endif
 
 #ifdef CONFIG_EXTCON
 static void tegra_udc_set_extcon_state(struct tegra_udc *udc, int state)
@@ -1404,9 +1386,7 @@ static int tegra_usb_set_charging_current(struct tegra_udc *udc)
 #ifdef CONFIG_CHARGE_CURRENT_3A
 		max_ua = USB_CHARGING_SDP_CURRENT_LIMIT_UA*6;//charge current to 3A
 #elif defined(CONFIG_CHARGE_CURRENT_1_5)
-		max_ua = USB_CHARGING_SDP_CURRENT_LIMIT_UA*3;//charge current to 1.5A
-#elif defined(CONFIG_CHARGE_CURRENT_1_2)
-		max_ua = USB_CHARGING_CURRENT_JIDE_LIMIT_UA*2;//charge current to 1.2A
+		max_ua = USB_CHARGING_SDP_CURRENT_LIMIT_UA*3//charge current to 1.5A
 #else
 		max_ua = USB_CHARGING_SDP_CURRENT_LIMIT_UA*4;//charge current to 2A
 #endif		
@@ -1437,9 +1417,7 @@ static int tegra_usb_set_charging_current(struct tegra_udc *udc)
 #ifdef CONFIG_CHARGE_CURRENT_3A
 		max_ua = USB_CHARGING_NON_STANDARD_CHARGER_CURRENT_LIMIT_UA*6;//charge current to 3A
 #elif defined(CONFIG_CHARGE_CURRENT_1_5)
-		max_ua = USB_CHARGING_NON_STANDARD_CHARGER_CURRENT_LIMIT_UA*3;//charge current to 1.5A
-#elif defined(CONFIG_CHARGE_CURRENT_1_2)
-		max_ua = USB_CHARGING_CURRENT_JIDE_LIMIT_UA*2;//charge current to 1.2A
+		max_ua = USB_CHARGING_NON_STANDARD_CHARGER_CURRENT_LIMIT_UA*3;//charge current to 1.5A		
 #else
 		max_ua = USB_CHARGING_NON_STANDARD_CHARGER_CURRENT_LIMIT_UA*4;//charge current to 2A
 #endif
@@ -1459,8 +1437,6 @@ static int tegra_usb_set_charging_current(struct tegra_udc *udc)
 		ret = regulator_set_current_limit(udc->vbus_reg, 0, max_ua);
 	pr_warn("%s:================> max_ua=%d,ret = %d\n",__func__,max_ua,ret);
 #ifdef CONFIG_EXTCON
-	if(chagre_suspend())
-	tegra_udc_set_extcon_resume(udc);
 	tegra_udc_set_extcon_state(udc,ret);
 #endif
 	return ret;

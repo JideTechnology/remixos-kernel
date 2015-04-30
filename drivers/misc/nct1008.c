@@ -1075,6 +1075,7 @@ static int __devinit nct1008_probe(struct i2c_client *client,
 		return -ENOMEM;
 
 	data->client = client;
+	nct1008_client = client;
 	data->chip = id->driver_data;
 	memcpy(&data->plat_data, client->dev.platform_data,
 		sizeof(struct nct1008_platform_data));

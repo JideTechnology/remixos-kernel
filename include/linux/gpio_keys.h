@@ -20,8 +20,6 @@ struct gpio_keys_button {
 struct gpio_keys_platform_data {
 	struct gpio_keys_button *buttons;
 	int nbuttons;
-	int display_enable_gpio;
-	unsigned int active_state:1;
 	unsigned int poll_interval;	/* polling interval in msecs -
 					   for polling driver only */
 	unsigned int rep:1;		/* enable input subsystem auto repeat */
@@ -30,5 +28,7 @@ struct gpio_keys_platform_data {
 	int (*wakeup_key)(void);
 	const char *name;		/* input device name */
 };
+/*for wakeup android*/
+void nv_send_wakeup_key(void);
 
 #endif

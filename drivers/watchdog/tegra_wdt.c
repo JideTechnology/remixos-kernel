@@ -37,6 +37,7 @@
 #include <linux/uaccess.h>
 #include <linux/watchdog.h>
 #include <linux/nmi.h>
+#include <linux/kthread.h>
 #ifdef CONFIG_TEGRA_FIQ_DEBUGGER
 #include <mach/irqs.h>
 #include <mach/fiq.h>
@@ -69,13 +70,17 @@ struct tegra_wdt {
 	void __iomem		*wdt_timer;
 	void __iomem		*irq_base;
 	void __iomem		*slow_irq_base;
+	struct task_struct	*watchdog_task;
+	wait_queue_head_t	wdt_wait;
 };
 
 /*
  * For spinlock lockup detection to work, the heartbeat should be 2*lockup
  * for cases where the spinlock disabled irqs.
  */
-static int heartbeat = 120; /* must be greater than MIN_WDT_PERIOD and lower than MAX_WDT_PERIOD */
+//static int heartbeat = 120; /* must be greater than MIN_WDT_PERIOD and lower than MAX_WDT_PERIOD */
+
+static int heartbeat = 40; /* must be greater than MIN_WDT_PERIOD and lower than MAX_WDT_PERIOD */
 
 #if defined(CONFIG_ARCH_TEGRA_2x_SOC)
 
@@ -226,11 +231,16 @@ static irqreturn_t tegra_wdt_interrupt(int irq, void *dev_id)
 		if (tegra_wdt[i] == NULL)
 			continue;
 		status = readl(tegra_wdt[i]->wdt_source + WDT_STATUS);
+
 		if ((tegra_wdt[i]->status & WDT_ENABLED) &&
 		    (status & WDT_INTR_STAT))
-			tegra_wdt_ping(tegra_wdt[i]);
+		//{
+		//	tegra_wdt_ping(tegra_wdt[i]);
+		//}
+			continue;
+	
 	}
-
+			
 	return IRQ_HANDLED;
 }
 
@@ -402,6 +412,30 @@ static void tegra_wdt_log_reset_reason(struct platform_device *pdev,
 #endif
 }
 
+
+#define	WATCHDOG_PING_RATE	6000	//1000 jeffes 6s
+static int watchdog_thread(void *wdtdata)
+{
+	struct tegra_wdt *wdt = (struct tegra_wdt *)wdtdata;
+	struct task_struct *tsk = current;
+	struct sched_param param = { .sched_priority = 1 };
+
+	set_cpus_allowed_ptr(current, cpumask_of(0)); //bind for cpu0
+	/* set this thread to SCHED_FIFO */
+	if (sched_setscheduler(tsk, SCHED_FIFO, &param))
+		printk("set task in SCHED_FIFO failed\n");
+	do{
+		wait_event_interruptible_timeout(wdt->wdt_wait, kthread_should_stop(),WATCHDOG_PING_RATE);
+
+		if (kthread_should_stop())
+			break;
+		tegra_wdt_enable(wdt);
+		tegra_wdt_ping(wdt);
+
+	  }while(1);
+	return 0;
+}
+
 static const struct file_operations tegra_wdt_fops = {
 	.owner		= THIS_MODULE,
 	.llseek		= no_llseek,
@@ -506,9 +540,8 @@ static int tegra_wdt_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto fail;
 	}
-
+	
 	tegra_wdt_log_reset_reason(pdev, wdt);
-
 	tegra_wdt_disable(wdt);
 	writel(TIMER_PCR_INTR, wdt->wdt_timer + TIMER_PCR);
 
@@ -591,6 +624,15 @@ static int tegra_wdt_probe(struct platform_device *pdev)
 #endif
 	tegra_wdt[pdev->id] = wdt;
 #endif
+	 /*creat for watchdog_thread*/
+        wdt->watchdog_task = kthread_run(watchdog_thread,  wdt, "tegra_watchdog");
+        if (IS_ERR(wdt->watchdog_task)) {
+                ret = -ENOMEM;
+                goto fail;
+
+        }
+        init_waitqueue_head(&wdt->wdt_wait);
+
 	pr_info("%s done\n", __func__);
 fail:
 	return ret;

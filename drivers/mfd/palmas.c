@@ -27,12 +27,16 @@
 #include <linux/mfd/palmas.h>
 #include <linux/workqueue.h>
 
+
 #define ID_OTG_IRQ_INDEX   20
 #define ID_IRQ_INDEX       ID_OTG_IRQ_INDEX+1
 #define VBUS_OTG_IRQ_INDEX ID_IRQ_INDEX+1
 #define VBUS_IRQ_INDEX     VBUS_OTG_IRQ_INDEX+1
 
+
+
 static struct palmas_irq_chip_data *g_chip_data;
+
 
 #define EXT_PWR_REQ (PALMAS_EXT_CONTROL_ENABLE1 |	\
 			PALMAS_EXT_CONTROL_ENABLE2 |	\
@@ -100,6 +104,15 @@ static const struct resource palma_extcon_resource[] = {
 		
 };
 
+static const struct resource autoadc_resource[] = {
+	{
+		.name = "GPADC_AUTO_RESOURCE",
+		.start = PALMAS_GPADC_AUTO_0_IRQ,
+		.end = PALMAS_GPADC_AUTO_0_IRQ,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
 static const struct resource rtc_resource[] = {
 	{
 		.name = "RTC_ALARM",
@@ -151,6 +164,7 @@ enum palmas_ids {
 	PALMAS_USB_ID,
 	PALMAS_EXTCON_ID,
 	PALMAS_THERM_ID,
+	PALMAS_AUTOADC_ID,
 };
 
 static const struct mfd_cell palmas_children[] = {
@@ -224,6 +238,12 @@ static const struct mfd_cell palmas_children[] = {
 		.resources = thermal_resource,
 		.id = PALMAS_THERM_ID,
 	},
+	{
+		.name = "palmas-autoadc",
+		.num_resources = ARRAY_SIZE(autoadc_resource),
+		.resources = autoadc_resource,
+		.id = PALMAS_AUTOADC_ID,
+	},
 };
 
 static bool is_volatile_palma_func_reg(struct device *dev, unsigned int reg)
@@ -259,6 +279,10 @@ static const struct regmap_config palmas_regmap_config[PALMAS_NUM_CLIENTS] = {
 
 #define PALMAS_MAX_INTERRUPT_MASK_REG	4
 #define PALMAS_MAX_INTERRUPT_EDGE_REG	8
+
+#ifdef PALMAS_REBOOT_POWEROFF
+#define UNPLUGGED_SHUTDOWN_TIME (1 * HZ)
+#endif
 
 struct palmas_regs {
 	int reg_base;
@@ -416,6 +440,15 @@ static void palmas_irq_lock(struct irq_data *data)
 	mutex_lock(&d->irq_lock);
 }
 
+
+//setup 1 enable irq PALMAS_INT1_MASK 0X11 BIT 7 V=1
+
+//setup 2 PALMAS_VBAT_MON BIT 7  = 1(enable)  Value=(10 011000) = 3.2v
+
+//setup 3 PALMAS_INT1_STATUS BIT 7 =1  interrupt is detected!
+
+//setup 4 PALMAS_INT1_LINE_STATE  BIT 7  v=0 it is low 3.2v so must shutdown device!
+
 static void palmas_irq_sync_unlock(struct irq_data *data)
 {
 	struct palmas_irq_chip_data *d = irq_data_get_irq_chip_data(data);
@@ -522,6 +555,47 @@ static const struct irq_chip palmas_irq_chip = {
 	.irq_set_type		= palmas_irq_set_type,
 	.irq_set_wake		= palmas_irq_set_wake,
 };
+#ifdef PALMAS_REBOOT_POWEROFF
+void kernel_power_off(void);
+void kernel_restart(char *cmd);
+void palmas_power_off(void);
+bool get_androidboot_mode_charger(void);
+static void palmas_poweron_work(struct work_struct *work)
+{
+	unsigned int reg, addr;
+	int slave;
+	char cmd[256];
+	struct palmas *palmas = container_of(work, struct palmas, work.work);
+
+	slave = PALMAS_BASE_TO_SLAVE(PALMAS_INTERRUPT_BASE);
+	addr = PALMAS_BASE_TO_REG(PALMAS_INTERRUPT_BASE, PALMAS_INT1_LINE_STATE);
+	regmap_read(palmas->regmap[slave], addr, &reg);
+	if ((~reg) & 0x02) {
+		kernel_restart(cmd);
+	}
+
+	return;
+}
+
+static void palmas_check_poweroff(struct palmas *palmas)
+{
+	unsigned int reg1, reg2, addr;
+	int slave;
+
+	slave = PALMAS_BASE_TO_SLAVE(PALMAS_INTERRUPT_BASE);
+
+	addr = PALMAS_BASE_TO_REG(PALMAS_INTERRUPT_BASE, PALMAS_INT2_LINE_STATE);
+	regmap_read(palmas->regmap[slave], addr, &reg1);
+
+	addr = PALMAS_BASE_TO_REG(PALMAS_INTERRUPT_BASE, PALMAS_INT3_LINE_STATE);
+	regmap_read(palmas->regmap[slave], addr, &reg2);
+
+	if (!(reg1 & 0x80) && !(reg2 & 0x80)){
+		kernel_power_off();
+		palmas_power_off();
+	}
+}
+#endif
 
 void palmas_disable_irq_work(int mask)
 {
@@ -621,9 +695,9 @@ static void vbus_irq_timer(unsigned long _data)
 static irqreturn_t palmas_irq_thread(int irq, void *data)
 {
 	struct palmas_irq_chip_data *d = data;
-	int ret, i;
+	int ret, i,cancel_id,index = 0;
 	bool handled = false;
-
+	int timeout =500;
 	for (i = 0; i < d->num_mask_regs; i++) {
 		ret = palmas_read(d->palmas,
 				d->irq_regs->status_reg[i].reg_base,
@@ -641,10 +715,51 @@ static irqreturn_t palmas_irq_thread(int irq, void *data)
 	for (i = 0; i < d->num_irqs; i++) {
 		if (d->status_value[d->irqs[i].mask_reg_index] &
 				d->irqs[i].interrupt_mask) {
-			handle_nested_irq(irq_find_mapping(d->domain, i));
+#if defined(CONFIG_MHL_IT6681)
+			if((i>=ID_OTG_IRQ_INDEX)&&(i<=VBUS_IRQ_INDEX)){
+				
+				bool isMhl = it6681_drv_switch_to_mhl();
+				if(isMhl){
+				 	printk("%s:============>is MHL device!\n",__func__);
+					//d->disable_mask = (ID_OTG_IRQ_FLAG|ID_IRQ_FLAG|VBUS_OTG_IRQ_FLAG|VBUS_IRQ_FLAG);
+				 	//return IRQ_HANDLED;
+				 	timeout = 0;
+				}else
+					d->disable_mask = 0;
+				
+				if(i == ID_OTG_IRQ_INDEX)
+					index = ID_OTG_IRQ_FLAG;
+				else if(i == ID_IRQ_INDEX)
+					index = ID_IRQ_FLAG;
+				else if(i == VBUS_OTG_IRQ_INDEX)
+					index = VBUS_OTG_IRQ_FLAG;
+				else if(i == VBUS_IRQ_INDEX)
+					index = VBUS_IRQ_FLAG;
+
+				printk("%s:===========>mask %04x index=%04x\n",__func__,d->disable_mask,index);
+				mod_timer(&d->timer[i-20],jiffies + msecs_to_jiffies(timeout));
+			     
+			}else{
+#endif
+				handle_nested_irq(irq_find_mapping(d->domain, i));
+#if defined(CONFIG_MHL_IT6681)
+			}
+#endif
 			handled = true;
 		}
 	}
+
+#ifdef PALMAS_REBOOT_POWEROFF
+	if (get_androidboot_mode_charger()) {
+		if ((d->status_value[2] & 0x80) || (d->status_value[1] & 0x80)) {
+			palmas_check_poweroff(d->palmas);
+		}
+		
+		if (d->status_value[0] & 0x02) {
+			schedule_delayed_work(&d->palmas->work, UNPLUGGED_SHUTDOWN_TIME);
+		}
+	}
+#endif
 
 	if (handled)
 		return IRQ_HANDLED;
@@ -727,6 +842,10 @@ static int palmas_add_irq_chip(struct palmas *palmas, int irq, int irq_flags,
 	/* Mask all interrupts */
 	for (i = 0; i < d->num_mask_regs; i++) {
 		d->mask_value[i] = d->mask_def_value[i];
+#ifdef PALMAS_REBOOT_POWEROFF
+		if(i == 0)
+			d->mask_value[i] &= (~0x02);
+#endif
 		ret = palmas_update_bits(d->palmas,
 				d->irq_regs->mask_reg[i].reg_base,
 				d->irq_regs->mask_reg[i].reg_add,
@@ -1190,6 +1309,9 @@ static int __devinit palmas_i2c_probe(struct i2c_client *i2c,
 	if (ret < 0)
 		goto err;
 
+#ifdef PALMAS_REBOOT_POWEROFF
+	INIT_DELAYED_WORK(&palmas->work, palmas_poweron_work);
+#endif 
 	/* Change interrupt line output polarity */
 	slave = PALMAS_BASE_TO_SLAVE(PALMAS_PU_PD_OD_BASE);
 	addr = PALMAS_BASE_TO_REG(PALMAS_PU_PD_OD_BASE, PALMAS_POLARITY_CTRL);
@@ -1207,6 +1329,25 @@ static int __devinit palmas_i2c_probe(struct i2c_client *i2c,
 
 	regmap_write(palmas->regmap[slave], addr, reg);
 
+	palmas_dev = palmas;
+
+#ifdef PALMAS_REBOOT_POWEROFF
+	ret = palmas_update_bits(palmas, PALMAS_INTERRUPT_BASE,
+				PALMAS_INT1_MASK,
+				PALMAS_INT1_MASK_PWRON,
+				0 << PALMAS_INT1_MASK_PWRON_SHIFT);
+
+	if (get_androidboot_mode_charger()) {
+		palmas_check_poweroff(palmas);
+	}
+
+	slave = PALMAS_BASE_TO_SLAVE(PALMAS_INTERRUPT_BASE);
+	addr = PALMAS_BASE_TO_REG(PALMAS_INTERRUPT_BASE, PALMAS_INT1_LINE_STATE);
+	regmap_read(palmas->regmap[slave], addr, &reg);
+	if ((~reg) & 0x02)
+		schedule_delayed_work(&palmas->work, UNPLUGGED_SHUTDOWN_TIME);
+#endif 
+
 	irq_flag = pdata->irq_type;
 	irq_flag |= IRQF_ONESHOT;
 	ret = palmas_add_irq_chip(palmas, palmas->irq,
@@ -1222,15 +1363,6 @@ static int __devinit palmas_i2c_probe(struct i2c_client *i2c,
 	ret = regmap_write(palmas->regmap[slave], addr, reg);
 	if (ret)
 		goto err;
-
-#ifdef CONFIG_MACH_TB610N
-    /* Change PALMAS_INT2_MASK_VAC_ACOK to 0 for pluigin dc to poweron*/
-	slave = PALMAS_BASE_TO_SLAVE(PALMAS_INTERRUPT_BASE);
-	addr = PALMAS_BASE_TO_REG(PALMAS_INTERRUPT_BASE, PALMAS_INT2_MASK);
-	ret = regmap_read(palmas->regmap[slave], addr, &reg);
-	reg &= ~PALMAS_INT2_MASK_VAC_ACOK;
-	regmap_write(palmas->regmap[slave], addr, reg);
-#endif
 
 	/*
 	 * Programming the Long-Press shutdown delay register.
@@ -1279,6 +1411,8 @@ static int __devinit palmas_i2c_probe(struct i2c_client *i2c,
 	children[PALMAS_PMIC_ID].pdata_size = sizeof(*pdata->pmic_pdata);
 	children[PALMAS_GPADC_ID].platform_data = pdata->adc_pdata;
 	children[PALMAS_GPADC_ID].pdata_size = sizeof(*pdata->adc_pdata);
+	children[PALMAS_GPADC_ID].platform_data = pdata->autoadc_pdata;
+	children[PALMAS_GPADC_ID].pdata_size = sizeof(*pdata->autoadc_pdata);
 
 	ret = mfd_add_devices(palmas->dev, -1,
 			      children, ARRAY_SIZE(palmas_children),
@@ -1296,7 +1430,6 @@ static int __devinit palmas_i2c_probe(struct i2c_client *i2c,
 		palmas_control_update(palmas, PALMAS_EXT_CHRG_CTRL, 1,
 					PALMAS_EXT_CHRG_CTRL_AUTO_LDOUSB_EN);
 
-	palmas_dev = palmas;
 	return ret;
 
 err:
@@ -1320,7 +1453,9 @@ static int palmas_i2c_remove(struct i2c_client *i2c)
 			del_timer_sync(&palmas->irq_chip_data->timer[i]);
 		}
 	}
-
+#ifdef PALMAS_REBOOT_POWEROFF
+	cancel_delayed_work_sync(&palmas->work);
+#endif
 	return 0;
 }
 

@@ -938,7 +938,6 @@ static bool tegra_dc_hdmi_detect(struct tegra_dc *dc)
 			goto fail;
 		}
 		hdmi->eld_retrieved = true;
-
 		tegra_dc_hdmi_detect_config(dc, &specs);
 	}
 

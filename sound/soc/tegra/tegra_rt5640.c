@@ -376,7 +376,6 @@ static int tegra_rt5640_jack_notifier(struct notifier_block *self,
 	struct tegra_asoc_platform_data *pdata = machine->pdata;
 	enum headset_state state = BIT_NO_HEADSET;
 	unsigned char status_jack = 0;
-
 	if (jack == &tegra_rt5640_hp_jack) {
 		if (action) {
 			/* Enable ext mic; enable signal is active-low */
@@ -504,8 +503,8 @@ static int tegra_rt5640_event_int_spk(struct snd_soc_dapm_widget *w,
 	unsigned int approved = TEGRA_SPK_EDP_NUM_STATES;
 	int *edp_vol = pdata->edp_vol;
 	int ret;
-
-	if (machine->spk_reg) {
+	dev_info(card->dev, ">>>>>>>>>>>>>>%s",__func__);
+/*	if (machine->spk_reg) {
 		if (SND_SOC_DAPM_EVENT_ON(event)) {
 			regulator_enable(machine->spk_reg);
 		}
@@ -527,7 +526,7 @@ static int tegra_rt5640_event_int_spk(struct snd_soc_dapm_widget *w,
 				Tfa9887_Powerdown(1);
 		}
 	}
-
+*/
 	if (machine->spk_edp_client == NULL)
 		goto err_null_spk_edp_client;
 
@@ -566,15 +565,15 @@ static int tegra_rt5640_event_hp(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_dapm_context *dapm = w->dapm;
 	struct snd_soc_card *card = dapm->card;
-	struct tegra_rt5640 *machine = snd_soc_card_get_drvdata(card);
-	struct tegra_asoc_platform_data *pdata = machine->pdata;
-
-	if (!(machine->gpio_requested & GPIO_HP_MUTE))
+//	struct tegra_rt5640 *machine = snd_soc_card_get_drvdata(card);
+//	struct tegra_asoc_platform_data *pdata = machine->pdata;
+	dev_info(card->dev, ">>>>>>>>>>>>>>%s",__func__);
+/*	if (!(machine->gpio_requested & GPIO_HP_MUTE))
 		return 0;
 
 	gpio_set_value_cansleep(pdata->gpio_hp_mute,
 				!SND_SOC_DAPM_EVENT_ON(event));
-
+*/
 	return 0;
 }
 
@@ -583,10 +582,10 @@ static int tegra_rt5640_event_int_mic(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_dapm_context *dapm = w->dapm;
 	struct snd_soc_card *card = dapm->card;
-	struct tegra_rt5640 *machine = snd_soc_card_get_drvdata(card);
-	struct tegra_asoc_platform_data *pdata = machine->pdata;
-
-	if (machine->dmic_reg) {
+//	struct tegra_rt5640 *machine = snd_soc_card_get_drvdata(card);
+//	struct tegra_asoc_platform_data *pdata = machine->pdata;
+	dev_info(card->dev, ">>>>>>>>>>>>>>%s",__func__);
+/*	if (machine->dmic_reg) {
 		if (SND_SOC_DAPM_EVENT_ON(event))
 			regulator_enable(machine->dmic_reg);
 		else
@@ -598,7 +597,7 @@ static int tegra_rt5640_event_int_mic(struct snd_soc_dapm_widget *w,
 
 	gpio_set_value_cansleep(pdata->gpio_int_mic_en,
 				!!SND_SOC_DAPM_EVENT_ON(event));
-
+*/
 	return 0;
 }
 
@@ -607,15 +606,15 @@ static int tegra_rt5640_event_ext_mic(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_dapm_context *dapm = w->dapm;
 	struct snd_soc_card *card = dapm->card;
-	struct tegra_rt5640 *machine = snd_soc_card_get_drvdata(card);
-	struct tegra_asoc_platform_data *pdata = machine->pdata;
-
-	if (!(machine->gpio_requested & GPIO_EXT_MIC_EN))
+//	struct tegra_rt5640 *machine = snd_soc_card_get_drvdata(card);
+//	struct tegra_asoc_platform_data *pdata = machine->pdata;
+	dev_info(card->dev, ">>>>>>>>>>>>>>%s",__func__);
+/*	if (!(machine->gpio_requested & GPIO_EXT_MIC_EN))
 		return 0;
 
 	gpio_set_value_cansleep(pdata->gpio_ext_mic_en,
 				!SND_SOC_DAPM_EVENT_ON(event));
-
+*/
 	return 0;
 }
 

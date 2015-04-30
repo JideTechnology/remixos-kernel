@@ -72,6 +72,8 @@
 #include <linux/kthread.h>
 #include <linux/input.h>
 #include <asm/mach-types.h>
+#include <linux/fb.h>
+#include <linux/notifier.h>
 
 	
 //=============================================================================================================
@@ -214,7 +216,10 @@ static int tpd_keys_array[]	= {KEY_HOME, KEY_BACK, KEY_MENU};	// for Virtual key
 #define MXT_I2C_LPM_LOAD_UA	10
 	//For Dragon Board End
 	
-	
+#define BLANK		1
+#define UNBLANK		0
+static unsigned int resume_status = 1;
+static int fb_status;
 
 #ifdef HX_FLASH_TEST		//0905 paco
 //----------------------------------------------------------------------
@@ -352,6 +357,7 @@ struct himax_ts_data
 		int running_status;
 		#endif
 	//----[ENABLE_CHIP_STATUS_MONITOR]----------------------------------------------------------------------end	
+	struct notifier_block fb_notif;
 };
 
 //=============================================================================================================
@@ -411,7 +417,7 @@ static int himax_unlock_flash(void);
 
 static int himax_hang_shaking(void); 																			// Hand shaking function
 static int himax_ts_poweron(struct himax_ts_data *ts_modify);							// Power on
-
+static void himax_HW_reset(bool poweron);
 
 
 //----[HX_LOADIN_CONFIG]--------------------------------------------------------------------------------start
@@ -704,9 +710,9 @@ int himax_charge_switch(s32 dir_update)
 				printk(KERN_ERR "[TP] %s: i2c access fail!\n", __func__);
 				return -1;
 			}
-			printk("himx charge_buf old= %d\n",charge_buf[0]);
+			//printk("himx charge_buf old= %d\n",charge_buf[0]);
 			charge_buf[0] = (charge_buf[0] & 0xF0) | 0x01 ;
-			printk("himx charge_buf new= %d\n",charge_buf[0]);
+			//printk("himx charge_buf new= %d\n",charge_buf[0]);
 			if( i2c_himax_write(touch_i2c, 0xF0 ,&charge_buf[0], 1, DEFAULT_RETRY_CNT) < 0)
 			{
 				printk(KERN_ERR "[TP] %s: i2c access fail!\n", __func__);
@@ -898,15 +904,7 @@ static int himax_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 	} 
 	msleep(120);
 	
-	buf[0] = HX_CMD_SETDEEPSTB;
-	buf[1] = 0x01;
-	ret = i2c_himax_master_write(ts_modify->client, buf, 2, DEFAULT_RETRY_CNT);
-	if(ret < 0) 
-	{
-		printk(KERN_ERR "[himax] %s: I2C access failed addr = 0x%x\n", __func__, ts_modify->client->addr);
-	} 
-	msleep(120);
-	
+
 	//Mutexlock Protect Start
 	mutex_unlock(&ts_modify->mutex_lock);
 	//Mutexlock Protect End
@@ -924,12 +922,12 @@ static int himax_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 	
 	disable_irq(client->irq);
 	
-	ret = cancel_work_sync(&ts_modify->work);
+/* 	ret = cancel_work_sync(&ts_modify->work);
 	if (ret)
 	{
 		enable_irq(client->irq);
 	}
-
+ */
 	is_suspend = true;
 
 	return 0;
@@ -941,39 +939,27 @@ static int himax_ts_resume(struct i2c_client *client)
 	uint8_t buf[2] = {0};
 	int ret = 0;
 	printk(KERN_INFO "[himax] %s: TS resume\n", __func__);
-	
 	if(!is_suspend)
 	{
 		printk(KERN_INFO "[himax] %s TP never enter suspend , reject the resume action\n",__func__);
 		return 0;
 	}			
 
+	himax_HW_reset(true);		//do it when VCCA power off after suspend
+
 	himax_charge_switch(1);		//for AC
+
 	
-	//Wakelock Protect Start
-	wake_lock(&ts_modify->wake_lock);
-	//Wakelock Protect End
-	
-	buf[0] = HX_CMD_SETDEEPSTB;
-	buf[1] = 0x00;
-	ret = i2c_himax_master_write(ts_modify->client, buf, 2, DEFAULT_RETRY_CNT);//sense on
-	if(ret < 0) 
-	{
-		printk(KERN_ERR "[himax] %s: I2C access failed addr = 0x%x\n", __func__, ts_modify->client->addr);
-	} 
-	udelay(100);
-	
-	//Wakelock Protect Start
-	wake_unlock(&ts_modify->wake_lock);
-	//Wakelock Protect End
-	
+	resume_status = 1;
+
+#if 0	
 	buf[0] = HX_CMD_TSSON;	//0x83
 	ret = i2c_himax_master_write(ts_modify->client, buf, 1, DEFAULT_RETRY_CNT);//sense on
 	if(ret < 0)
 	{
 		printk(KERN_ERR "[himax] %s: I2C access failed addr = 0x%x\n", __func__, ts_modify->client->addr);
 	}
-	msleep(100);
+	msleep(40);
 
 	buf[0] = HX_CMD_TSSLPOUT;	//0x81
 	ret = i2c_himax_master_write(ts_modify->client, buf, 1, DEFAULT_RETRY_CNT);//sleep out
@@ -981,7 +967,7 @@ static int himax_ts_resume(struct i2c_client *client)
 	{
 		printk(KERN_ERR "[himax] %s: I2C access failed addr = 0x%x\n", __func__, ts_modify->client->addr);
 	}
-	msleep(100);
+	msleep(200);
 	
 	//----[HX_ESD_WORKAROUND]---------------------------------------------------------------------------start  
 		#ifdef HX_ESD_WORKAROUND
@@ -998,13 +984,15 @@ static int himax_ts_resume(struct i2c_client *client)
 		}
 		else
 		{
+			enable_irq(client->irq);
 			printk(KERN_INFO "[Himax] %s: MCU Running \n", __func__);
 		}
+		#else
+		enable_irq(client->irq);
 		#endif
 	//----[HX_ESD_WORKAROUND]-----------------------------------------------------------------------------end
-	
-	enable_irq(client->irq);
-	
+#endif
+		enable_irq(client->irq);	
 	//----[ENABLE_CHIP_STATUS_MONITOR]------------------------------------------------------------------start
 		#ifdef ENABLE_CHIP_STATUS_MONITOR
 		queue_delayed_work(ts_modify->himax_wq, &ts_modify->himax_chip_monitor, 5*HZ); //for ESD solution
@@ -1865,7 +1853,8 @@ static int himax_ts_poweron(struct himax_ts_data *ts_modify)
 {
 	uint8_t buf0[11];
 	int ret = 0;
-
+	printk(KERN_INFO "[himax] %s: TS himax_ts_poweron\n", __func__);
+	
 	#ifdef HX_LOADIN_CONFIG
 	int config_fail_retry = 0;
 	#endif
@@ -2325,14 +2314,14 @@ static int himax_ts_poweron(struct himax_ts_data *ts_modify)
 		msleep(100); //100ms
 		#endif
 
-		buf0[0] = 0x83;
+		buf0[0] = HX_CMD_TSSON;
 		ret = i2c_himax_master_write(ts_modify->client, buf0, 1, DEFAULT_RETRY_CNT);
 		if(ret < 0) 
 		{
 			printk(KERN_ERR "i2c_master_send failed addr = 0x%x\n",ts_modify->client->addr);
 			goto send_i2c_msg_fail;
 		} 
-		msleep(120); //120ms
+		msleep(30); //120ms
 
 		buf0[0] = 0x81;	//0x81
 		ret = i2c_himax_master_write(ts_modify->client, buf0, 1, DEFAULT_RETRY_CNT);
@@ -2341,7 +2330,7 @@ static int himax_ts_poweron(struct himax_ts_data *ts_modify)
 			printk(KERN_ERR "i2c_master_send failed addr = 0x%x\n",ts_modify->client->addr);
 			goto send_i2c_msg_fail;
 		} 	
-		msleep(120); //120ms		
+		msleep(100); //120ms		
 	}
 	else if(IC_TYPE == HX_85XX_ES_SERIES_PWON)
 	{
@@ -2436,23 +2425,23 @@ static int himax_ts_poweron(struct himax_ts_data *ts_modify)
         msleep(100); //100ms
         #endif
 
-		buf0[0] = 0xAA;
+/* 		buf0[0] = 0xAA;
         ret = i2c_himax_master_write(ts_modify->client, buf0, 1, DEFAULT_RETRY_CNT);
         if(ret < 0)
         {
             printk(KERN_ERR "i2c_master_send failed addr = 0x%x\n",ts_modify->client->addr);
             goto send_i2c_msg_fail;
         }   
-        msleep(120); //120ms
+        msleep(120); //120ms */
         
-        buf0[0] = 0x83;
+        buf0[0] = HX_CMD_TSSON;
         ret = i2c_himax_master_write(ts_modify->client, buf0, 1, DEFAULT_RETRY_CNT);
         if(ret < 0)
         {
             printk(KERN_ERR "i2c_master_send failed addr = 0x%x\n",ts_modify->client->addr);
             goto send_i2c_msg_fail;
         }
-        msleep(120); //120ms
+        msleep(30); //120ms
 
         buf0[0] = 0x81; //0x81
         ret = i2c_himax_master_write(ts_modify->client, buf0, 1, DEFAULT_RETRY_CNT);
@@ -2461,7 +2450,7 @@ static int himax_ts_poweron(struct himax_ts_data *ts_modify)
             printk(KERN_ERR "i2c_master_send failed addr = 0x%x\n",ts_modify->client->addr);
             goto send_i2c_msg_fail;
         }
-        msleep(120); //120ms
+        msleep(100); //120ms
 	}
 	
 	//Mutexlock Protect Start
@@ -3133,15 +3122,18 @@ void himax_HW_reset(bool poweron)
 		
 	#else
 		gpio_set_value(private_ts->rst_gpio, 0);
-		msleep(100);
+		msleep(5);
 		gpio_set_value(private_ts->rst_gpio, 1);
-		msleep(100);
+		msleep(10);
 	#endif
-
+	
+	printk(KERN_INFO "[himax] %s: TS himax_HW_reset\n", __func__);
+	
 	if(poweron)
 	{
 		himax_ts_poweron(private_ts);
 	}
+	
 }
 #endif	
 //----[HX_RST_PIN_FUNC]---------------------------------------------------------------------------------end
@@ -3240,20 +3232,22 @@ int himax_hang_shaking(void)    //0:Running, 1:Stop, 2:I2C Fail
 			IC_STATUS_CHECK = 0xAA;
 		}
 
+		/*printk("[Himax]: ESD 0xF2 writebuf- 0x%x ,IC_STATUS_CHECK- 0x%x.\n",buf0[1] ,IC_STATUS_CHECK);*/
+		
 		ret = i2c_himax_master_write(private_ts->client, buf0, 2, DEFAULT_RETRY_CNT);
 		if(ret < 0)
 		{
-			printk(KERN_ERR "[Himax]:write 0x92 failed line: %d \n",__LINE__);
+			printk(KERN_ERR "[Himax]:write 0xF2 failed line: %d \n",__LINE__);
 			goto work_func_send_i2c_msg_fail;
 		}
-		msleep(15); //Must more than 1 frame
+		msleep(40); //Must more than 1 frame
 
 		buf0[0] = 0xF2;
 		buf0[1] = 0x00;
 		ret = i2c_himax_master_write(private_ts->client, buf0, 2, DEFAULT_RETRY_CNT);
 		if(ret < 0)
 		{
-			printk(KERN_ERR "[Himax]:write 0x92 failed line: %d \n",__LINE__);
+			printk(KERN_ERR "[Himax]:write 0xF2 failed line: %d \n",__LINE__);
 			goto work_func_send_i2c_msg_fail;
 		}
 		msleep(2);
@@ -3261,21 +3255,22 @@ int himax_hang_shaking(void)    //0:Running, 1:Stop, 2:I2C Fail
 		ret = i2c_himax_read(private_ts->client, 0x90, hw_reset_check, 1, DEFAULT_RETRY_CNT);
 		if(ret < 0)
 		{
-			printk(KERN_ERR "[Himax]:i2c_himax_read 0xDA failed line: %d \n",__LINE__);
+			printk(KERN_ERR "[Himax]:i2c_himax_read 0x90 failed line: %d \n",__LINE__);
 			goto work_func_send_i2c_msg_fail;
 		}
-		printk("[Himax]: ESD 0x90 - 0x%x.\n", hw_reset_check[0]);
+		/*printk("[Himax]: ESD 0x90 - 0x%x.\n", hw_reset_check[0]);*/
 
 		if((IC_STATUS_CHECK != hw_reset_check[0]))
 		{
 			msleep(2);
+			
 			ret = i2c_himax_read(private_ts->client, 0x90, hw_reset_check_2, 1, DEFAULT_RETRY_CNT);
 			if(ret < 0)
 			{
-				printk(KERN_ERR "[Himax]:i2c_himax_read 0xDA failed line: %d \n",__LINE__);
+				printk(KERN_ERR "[Himax]:i2c_himax_read 0x90 failed line: %d \n",__LINE__);
 				goto work_func_send_i2c_msg_fail;
 			}
-			//printk("[Himax]: ESD check 2 0xDA - 0x%x.\n", hw_reset_check_2[0]);
+			printk("[Himax]: ESD check 2 0x90 - 0x%x.\n", hw_reset_check_2[0]);
 
 			if(hw_reset_check[0] == hw_reset_check_2[0])
 			{
@@ -3330,9 +3325,9 @@ void ESD_HW_REST(void)
 		
 	#else
 		gpio_set_value(private_ts->rst_gpio, 0);
-		msleep(30);
+		msleep(5);
 		gpio_set_value(private_ts->rst_gpio, 1);
-		msleep(30);
+		msleep(10);
 	#endif
 	
 	//Mutexlock Protect Start
@@ -3368,7 +3363,7 @@ static int himax_chip_monitor_function(struct work_struct *dat) //for ESD soluti
 			enable_irq(private_ts->client->irq);
 		}
 		
-		ret = himax_hang_shaking(); //0:Running, 1:Stop, 2:I2C Fail
+		ret = himax_hang_shaking(); //0:Running, 1:Stop, 2:I2C Fail		chip monitor function
 		if(ret == 2)
 		{
 			//TODO Check
@@ -5156,7 +5151,7 @@ static ssize_t himax_debug_level_write(struct file *filp, const char __user *buf
 
 		disable_irq(private_ts->client->irq);
 
-		handshaking_result = himax_hang_shaking(); //0:Running, 1:Stop, 2:I2C Fail 
+		handshaking_result = himax_hang_shaking(); //0:Running, 1:Stop, 2:I2C Fail 		echo h manual handshaking
 
 		enable_irq(private_ts->client->irq);
 
@@ -7400,10 +7395,10 @@ static void himax_ts_work_func(struct work_struct *work)
 		//----[HX_TP_PROC_DIAG]--------------------------------------------------------------------------------end
 		{
 			//Mutexlock Protect Start
-			mutex_unlock(&ts->mutex_lock);
+			mutex_unlock(&ts->mutex_lock);		
 			//Mutexlock Protect End
 			
-			ret = himax_hang_shaking(); //0:Running, 1:Stop, 2:I2C Fail
+			ret = himax_hang_shaking(); //0:Running, 1:Stop, 2:I2C Fail		work_func
 			enable_irq(ts->client->irq);
 			
 			if(ret == 2)
@@ -7664,16 +7659,17 @@ static void himax_ts_work_func(struct work_struct *work)
 					{
 						area = (area >> 3);
 					}
-			
-					// kernel call for report point area, pressure and x-y axis
-					input_report_key(ts->input_dev, BTN_TOUCH, 1);             // touch down
-					input_report_abs(ts->input_dev, ABS_MT_TRACKING_ID, i);     //ID of touched point
-					input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, area); //Finger Size
-					input_report_abs(ts->input_dev, ABS_MT_PRESSURE, press);   // Pressure
-					input_report_abs(ts->input_dev, ABS_MT_POSITION_X, x);     // X axis
-					input_report_abs(ts->input_dev, ABS_MT_POSITION_Y, y);     // Y axis
-					
-					input_mt_sync(ts->input_dev);
+					if (fb_status == UNBLANK) {
+						// kernel call for report point area, pressure and x-y axis
+						input_report_key(ts->input_dev, BTN_TOUCH, 1);             // touch down
+						input_report_abs(ts->input_dev, ABS_MT_TRACKING_ID, i);     //ID of touched point
+						input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, area); //Finger Size
+						input_report_abs(ts->input_dev, ABS_MT_PRESSURE, press);   // Pressure
+						input_report_abs(ts->input_dev, ABS_MT_POSITION_X, x);     // X axis
+						input_report_abs(ts->input_dev, ABS_MT_POSITION_Y, y);     // Y axis
+
+						input_mt_sync(ts->input_dev);
+					}
 					
 					#ifdef HX_PORTING_DEB_MSG
 					printk("[HIMAX PORTING MSG]%s Touch DOWN x = %d, y = %d, area = %d, press = %d.\n",__func__, x, y, area, press);                               
@@ -7706,7 +7702,9 @@ static void himax_ts_work_func(struct work_struct *work)
 				//input_mt_sync(ts->input_dev);
 			}
 		} 
-		input_sync(ts->input_dev);   
+		if (fb_status == UNBLANK) {
+			input_sync(ts->input_dev);   
+		}
 	
 		//----[HX_ESD_WORKAROUND]---------------------------------------------------------------------------start
 			#ifdef HX_ESD_WORKAROUND
@@ -7723,10 +7721,12 @@ static void himax_ts_work_func(struct work_struct *work)
 	
 		if( tpd_key < TPD_KEY_NUM)
 		{
-			input_report_key(ts->input_dev, tpd_keys_array[tpd_key-1], 1);
-			input_mt_sync(ts->input_dev);
-			input_sync(ts->input_dev);
-			//printk("Press BT1*** \r\n");	
+			if (fb_status == UNBLANK) {
+				input_report_key(ts->input_dev, tpd_keys_array[tpd_key-1], 1);
+				input_mt_sync(ts->input_dev);
+				input_sync(ts->input_dev);
+				//printk("Press BT1*** \r\n");	
+			}
 		}
 		
 		//----[HX_ESD_WORKAROUND]---------------------------------------------------------------------------start
@@ -7744,16 +7744,20 @@ static void himax_ts_work_func(struct work_struct *work)
 		
 		if (tpd_key_old != 0xFF)
 		{
-			input_report_key(ts->input_dev, tpd_keys_array[tpd_key_old-1], 0);
-			input_mt_sync(ts->input_dev);
-			input_sync(ts->input_dev);
+			if (fb_status == UNBLANK) {
+				input_report_key(ts->input_dev, tpd_keys_array[tpd_key_old-1], 0);
+				input_mt_sync(ts->input_dev);
+				input_sync(ts->input_dev);
+			}
 		}
 		else
 		{
-			// leave event
-			input_report_key(ts->input_dev, BTN_TOUCH, 0);  // touch up
-			input_mt_sync(ts->input_dev);
-			input_sync(ts->input_dev);
+			if (fb_status == UNBLANK) {
+				// leave event
+				input_report_key(ts->input_dev, BTN_TOUCH, 0);  // touch up
+				input_mt_sync(ts->input_dev);
+				input_sync(ts->input_dev);
+			}
 		
 			#ifdef HX_PORTING_DEB_MSG
 			printk("[HIMAX PORTING MSG]%s Touch UP.\n",__func__);                               
@@ -8086,18 +8090,26 @@ static int mxt_parse_dt(struct device *dev, struct hxt_platform_data *pdata)
 }
 //For Dragon Board End
 
-static int himax_tp_enable(struct input_dev *input_dev)
+static int fb_notifier_callback(struct notifier_block *self,
+				unsigned long event, void *data)
 {
-	himax_ts_resume(touch_i2c);
-	return 1;
-}
-static int himax_tp_disable(struct input_dev *input_dev)
-{
-	himax_ts_suspend(touch_i2c, PMSG_SUSPEND);
-	return 1;
-}
+	struct fb_event *fb_event = data;
+	int *blank = fb_event->data;
+	fb_status = *blank ? BLANK : UNBLANK;
+	
+	if (fb_status == BLANK) {
+		resume_status=0;
+	} else {
 
+		if(resume_status==0)
+		{
+		himax_HW_reset(true);		//do it when VCCA power off after suspend
 
+		himax_charge_switch(1);
+		}
+	}
+	return 0;
+}
 //----[ i2c ]---------------------------------------------------------------------------------------------start
 static int himax_ts_probe(struct i2c_client *client,const struct i2c_device_id *id)
 {
@@ -8397,9 +8409,6 @@ static int himax_ts_probe(struct i2c_client *client,const struct i2c_device_id *
 	ts->input_dev->name		= INPUT_DEV_NAME;  
 	ts->abs_x_max 				= HX_X_RES;
 	ts->abs_y_max 				= HX_Y_RES;
-	ts->input_dev->enabled = true;
-	ts->input_dev->enable  = himax_tp_enable;
-	ts->input_dev->disable = himax_tp_disable;
 
 	//----[HX_EN_XXX_BUTTON]----------------------------------------------------------------------------------start	
 	#if defined(HX_EN_SEL_BUTTON) || defined(HX_EN_MUT_BUTTON)
@@ -8461,6 +8470,10 @@ static int himax_ts_probe(struct i2c_client *client,const struct i2c_device_id *
 		queue_delayed_work(ts->himax_wq, &ts->himax_chip_monitor, 60*HZ);   //for ESD solution
 		#endif
 	//----[ENABLE_CHIP_STATUS_MONITOR]----------------------------------------------------------------------end
+	memset(&ts->fb_notif, 0, sizeof(ts->fb_notif));
+	ts->fb_notif.notifier_call = fb_notifier_callback;
+	fb_register_client(&ts->fb_notif);
+
 	device_create_file(&client->dev,touch_attributes);
 #ifdef HX_TP_PROC_SELF_TEST
 	device_create_file(&client->dev,himax_selftest_attributes);
@@ -8559,7 +8572,7 @@ static struct i2c_driver himax_ts_driver =
 	},
 	.probe		= himax_ts_probe,
 	.remove		= __devexit_p(himax_ts_remove) ,
-	#ifdef CONFIG_HAS_EARLYSUSPEND
+	#ifndef CONFIG_HAS_EARLYSUSPEND
 	.suspend	= himax_ts_suspend,
 	.resume		= himax_ts_resume,
 	#endif
@@ -8568,7 +8581,13 @@ static struct i2c_driver himax_ts_driver =
 
 			
 MODULE_DEVICE_TABLE(i2c, himax_ts_match_table);
-module_i2c_driver(himax_ts_driver);
+/*module_i2c_driver(himax_ts_driver);*/
+
+static int __init himax_module_init(void)
+{
+	return i2c_add_driver(&himax_ts_driver);
+}
+fs_initcall(himax_module_init);
 
 	
 MODULE_DESCRIPTION("Himax Touchscreen Driver");

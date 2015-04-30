@@ -43,6 +43,8 @@ static ssize_t nct_item_show(struct kobject *kobj,
 
 static const struct kobj_attribute serial_number_attr =
 	__ATTR(serial_number, 0444, nct_item_show, 0);
+static const struct kobj_attribute pcb_number_attr =
+	__ATTR(pcb_number, 0444, nct_item_show, 0);
 static const struct kobj_attribute wifi_mac_addr_attr =
 	__ATTR(wifi_mac_addr, 0444, nct_item_show, 0);
 static const struct kobj_attribute bt_addr_attr =
@@ -54,6 +56,7 @@ static const struct kobj_attribute lbh_id_attr =
 
 static const struct attribute *nct_item_attrs[] = {
 	&serial_number_attr.attr,
+	&pcb_number_attr.attr,
 	&wifi_mac_addr_attr.attr,
 	&bt_addr_attr.attr,
 	&cm_id_attr.attr,
@@ -73,6 +76,11 @@ static ssize_t nct_item_show(struct kobject *kobj,
 		if (err < 0)
 			return 0;
 		rval = sprintf(buf, "%s\n", item.serial_number.sn);
+	} else if (attr == &pcb_number_attr) {
+		err = tegra_nct_read_item(NCT_ID_PCB_NUMBER, &item);
+		if (err < 0)
+			return 0;
+		rval = sprintf(buf, "%s\n", item.pcb_number.sn);
 	} else if (attr == &wifi_mac_addr_attr) {
 		err = tegra_nct_read_item(NCT_ID_WIFI_MAC_ADDR, &item);
 		if (err < 0)
@@ -110,6 +118,22 @@ static ssize_t nct_item_show(struct kobject *kobj,
 	return rval;
 }
 
+
+int  tegra_get_wifi_mac(unsigned char *buf)
+{
+	union nct_item_type item;
+        int err;
+	
+	 err = tegra_nct_read_item(NCT_ID_WIFI_MAC_ADDR, &item);
+         if (err < 0)
+               return err;
+	 memcpy(buf, item.wifi_mac_addr.addr ,6);
+	 return 0;		
+}
+
+
+EXPORT_SYMBOL(tegra_get_wifi_mac);
+
 static int __init tegra_nct_sysfs_init(void)
 {
 	if (!tegra_nct_is_init()) {
@@ -131,5 +155,6 @@ static int __init tegra_nct_sysfs_init(void)
 
 	return 0;
 }
+
 
 late_initcall(tegra_nct_sysfs_init);

@@ -91,18 +91,22 @@ static int has_hs = 0;
 #define HP_DAC_VOL	 0xFC   //400
 //#define HP_DAC_VOL	 0xEE  //177
 #define SPK_DAC_VOL 0x00
-
-#if  defined(CONFIG_MACH_TB610N)
-#define LO_GAIN		3
-#else
-#define LO_GAIN		0
-#endif
+//#if defined(CONFIG_MACH_T8400N) || defined(CONFIG_MACH_T1160N) || defined(CONFIG_MACH_NV8IA)
+//#define LO_GAIN		6
+//#elif  defined(CONFIG_MACH_TB610N)
+//#define LO_GAIN		8
+//#else
+//#define LO_GAIN		0
+//#endif
+#define LO_GAIN 		6
 
 #if defined(CONFIG_MACH_TB610N)
-#define HP_GAIN		3 //0x3A//6  //0x3B//4
+#define HP_GAIN		0 //0x3A//6  //0x3B//4 
 #else
-#define HP_GAIN		0x3B //0x3A//6  //0x3B//4
+#define HP_GAIN		0x3B //0x3A//6  //0x3B//4 
 #endif
+
+#define HP_GAIN			3
 /*
  * Macros
  */
@@ -162,7 +166,9 @@ static int aic325x_lo_event(struct snd_soc_dapm_widget *w,
 				struct snd_kcontrol *kcontrol, int event);
 //int i2c_verify_book0(struct snd_soc_codec *codec);
 int aic325x_change_page(struct snd_soc_codec *codec, u8 new_page);
-
+int aic325x_wait_bits(struct snd_soc_codec *codec, unsigned int reg, 
+			unsigned char mask, unsigned char val, 
+			int sleep, int counter);
 /*
 *****************************************************************************
 * Global Variable
@@ -1238,7 +1244,47 @@ i*/
 	{99, 110},
 	{100, 110},
 #endif
+#if 0
+	{PAGE_1 + 0x09, 0x00},
 
+	{PAGE_0 + 0x0B, 0x81},
+
+	{PAGE_0 + 0x0C, 0x82},
+
+	{PAGE_0 + 0x1B, 0x00},
+
+	{PAGE_0 + 0x3C, 0x08},
+
+	{PAGE_0 + 0x3D, 0x01},
+
+	{PAGE_1 + 0x7C, 0x06},
+
+	{PAGE_1 + 0x01, 0x0A},
+
+	{PAGE_1 + 0x02, 0x00},
+
+	{PAGE_1 + 0x7B, 0x05},
+
+	{PAGE_1 + 0x0C, 0x08},
+
+	{PAGE_1 + 0x0D, 0x08},
+
+	{PAGE_1 + 0x0E, 0x08},
+
+	{PAGE_1 + 0x0F, 0x08},
+
+	{PAGE_0 + 0x3F, 0xD6},
+
+	{PAGE_1 + 0x7D, 0x12},
+
+	{PAGE_1 + 0x10, 0x00},
+
+	{PAGE_1 + 0x11, 0x00},
+
+	{PAGE_1 + 0x09, 0xF0},
+
+	{PAGE_0 + 0x40, 0x00},
+#endif
 };
 
 // 800/300(2)/230
@@ -1249,28 +1295,36 @@ static void coeff_init(struct snd_soc_codec *codec)
 #if 1
 	unsigned char coeff_0[] = {
 		0,
-		0x7F,0xFF,0xFF,0x00,
-		0x97,0xE5,0xF1,0x00,
-		0x5E,0x25,0xB4,0x00,
-		0x6E,0x7F,0x2C,0x00,
-		0x94,0x34,0xCB,0x00,
+		0x00,0x7f,0xe1,0x00,
+		0x00,0x80,0xa1,0x00,
+		0x00,0x7e,0xee,0x00,
+		0x00,0x7f,0x5f,0x00,
+		0x00,0x81,0x30,0x00,
 		};
 	unsigned char coeff_1[] = { // eq
 		0,
-		0x7F,0xFF,0xFF,0x00,
-		0xAF,0x73,0x31,0x00,
-		0x54,0xDE,0x1B,0x00,
-		0x54,0xB8,0x02,0x00,
-		0xA0,0x1D,0xA0,0x00,
+		0x00,0x7F,0x9d,0x00,
+		0x00,0x83,0x63,0x00,
+		0x00,0x7a,0x41,0x00,
+		0x00,0x7c,0x9d,0x00,
+		0x00,0x86,0x21,0x00,
 
 		};
 	unsigned char coeff_2[] = {
 		0,	
-		0x7F, 0xFF, 0xFF, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x7F, 0x8b, 0x00,
+		0x00, 0x83, 0x82, 0x00,
+		0x00, 0x7b, 0xfe, 0x00,
+		0x00, 0x7c, 0x7e, 0x00,
+		0x00, 0x84, 0x76, 0x00,
+		};
+	unsigned char coeff_3[] = {
+		0,	
+		0x00, 0x7F, 0xFF, 0x00,
+		0x00, 0x80, 0xf0, 0x00,
+		0x00, 0x7e, 0x8b, 0x00,
+		0x00, 0x7f, 0x10, 0x00,
+		0x00, 0x81, 0x75, 0x00,
 		};
 #else
 	unsigned char coeff_0[] = {
@@ -1298,40 +1352,106 @@ static void coeff_init(struct snd_soc_codec *codec)
 		0x00, 0x00, 0x00, 0x00,
 		};
 #endif
-	v[0] = 0;
-	v[1] = 44;
+	/*aic325x_write_reg_cache(codec, 0x00, 0x00);//page 0
+	aic325x_write_reg_cache(codec, 0x3c, 0x01);//reg 60 pbr_p1
+	aic325x_write_reg_cache(codec, 0x00, 0x2c);//page 44
+	aic325x_write_reg_cache(codec, 0x01, 0x04);
+	coeff_init(codec);
+	aic325x_write_reg_cache(codec, 0x00, 0x2c);//page 44
+	aic325x_write_reg_cache(codec, 0x01, 0x05);
+	aic325x_wait_bits(codec,0x01,0x01,0x00,TIME_DELAY,DELAY_COUNTER);
+	coeff_init(codec);*/
+	v[0] = 0x00;
+	v[1] = 0x00; //00<-00
 	i2c_master_send((struct i2c_client *)(codec->control_data),
 		v, 2);
-
-	coeff_1[0] = 12;
+	v[0] = 0x3c;
+	v[1] = 0x01; //60<-01
+	i2c_master_send((struct i2c_client *)(codec->control_data),
+		v, 2);	
+	v[0] = 0x00;
+	v[1] = 0x2c; //00<-44
+	i2c_master_send((struct i2c_client *)(codec->control_data),
+		v, 2);	
+	v[0] = 0x01;
+	v[1] = 0x04; //01<-04
+	i2c_master_send((struct i2c_client *)(codec->control_data),
+		v, 2);
+//	v[0] = 0;
+//	v[1] = 44;
+//	i2c_master_send((struct i2c_client *)(codec->control_data),
+//		v, 2);
+//----------------------------------------------------------------------
+	coeff_0[0] = 12;
 	i2c_master_send((struct i2c_client *)(codec->control_data),
 		coeff_1, 21);
 
-	coeff_2[0] = 32;
+	coeff_1[0] = 32;
 	i2c_master_send((struct i2c_client *)(codec->control_data),
 		coeff_2, 21);
 
-	coeff_0[0] = 52;
+	coeff_2[0] = 52;
 	i2c_master_send((struct i2c_client *)(codec->control_data),
 		coeff_0, 21);
-
+	
+//-------------------------------------------------------------------------
 	v[0] = 0;
 	v[1] = 45;
 	i2c_master_send((struct i2c_client *)(codec->control_data),
 		v, 2);
 
-	coeff_1[0] = 20;
+	coeff_0[0] = 20;
 	i2c_master_send((struct i2c_client *)(codec->control_data),
 		coeff_1, 21);
 
-	coeff_2[0] = 40;
+	coeff_1[0] = 40;
 	i2c_master_send((struct i2c_client *)(codec->control_data),
 		coeff_2, 21);
 
-	coeff_0[0] = 60;
+	coeff_2[0] = 60;
 	i2c_master_send((struct i2c_client *)(codec->control_data),
 		coeff_0, 21);
+//------------------------------------------------------------------
+	v[0] = 0x00;
+	v[1] = 0x2c; //00<-44
+	i2c_master_send((struct i2c_client *)(codec->control_data),
+		v, 2);
+	v[0] = 0x01;
+	v[1] = 0x05; //01<-05
+	i2c_master_send((struct i2c_client *)(codec->control_data),
+		v, 2);	
+	aic325x_wait_bits(codec,0x01,0x01,0x00,TIME_DELAY,DELAY_COUNTER);
+//---------------------------------------------------------------------
+	coeff_0[0] = 12;
+	i2c_master_send((struct i2c_client *)(codec->control_data),
+		coeff_1, 21);
 
+	coeff_1[0] = 32;
+	i2c_master_send((struct i2c_client *)(codec->control_data),
+		coeff_2, 21);
+
+	coeff_2[0] = 52;
+	i2c_master_send((struct i2c_client *)(codec->control_data),
+		coeff_0, 21);
+	
+//-------------------------------------------------------------------------
+	v[0] = 0;
+	v[1] = 45;
+	i2c_master_send((struct i2c_client *)(codec->control_data),
+		v, 2);
+
+	coeff_0[0] = 20;
+	i2c_master_send((struct i2c_client *)(codec->control_data),
+		coeff_1, 21);
+
+	coeff_1[0] = 40;
+	i2c_master_send((struct i2c_client *)(codec->control_data),
+		coeff_2, 21);
+
+	coeff_2[0] = 60;
+	i2c_master_send((struct i2c_client *)(codec->control_data),
+		coeff_0, 21);
+//------------------------------------------------------------------
 	aic325x->page_no = 45;
 }
 static void coeff_init_off(struct snd_soc_codec *codec)
@@ -1368,7 +1488,7 @@ static void coeff_init_off(struct snd_soc_codec *codec)
 #else
 	unsigned char coeff_0[] = {
 		0,
-		0x7F, 0xFF, 0xFF, 0x00,
+		0x00, 0x7F, 0xFF, 0x00,
 		0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
@@ -1376,7 +1496,7 @@ static void coeff_init_off(struct snd_soc_codec *codec)
 		};
 	unsigned char coeff_1[] = {
 		0,
-		0x7F, 0xFF, 0xFF, 0x00,
+		0x00, 0x7F, 0xFF, 0x00,
 		0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
@@ -1384,13 +1504,22 @@ static void coeff_init_off(struct snd_soc_codec *codec)
 		};
 	unsigned char coeff_2[] = {
 		0,
-		0x7F, 0xFF, 0xFF, 0x00,
+		0x00, 0x7F, 0xFF, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		};
+	unsigned char coeff_3[] = {
+		0,
+		0x00, 0x7F, 0xFF, 0x00,
 		0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
 		};
 #endif
+
 	v[0] = 0;
 	v[1] = 44;
 	i2c_master_send((struct i2c_client *)(codec->control_data),
@@ -1407,6 +1536,10 @@ static void coeff_init_off(struct snd_soc_codec *codec)
 	coeff_0[0] = 52;
 	i2c_master_send((struct i2c_client *)(codec->control_data),
 		coeff_0, 21);
+	
+	coeff_3[0] = 72;
+	i2c_master_send((struct i2c_client *)(codec->control_data),
+		coeff_3, 21);
 
 	v[0] = 0;
 	v[1] = 45;
@@ -1424,6 +1557,10 @@ static void coeff_init_off(struct snd_soc_codec *codec)
 	coeff_0[0] = 60;
 	i2c_master_send((struct i2c_client *)(codec->control_data),
 		coeff_0, 21);
+
+	coeff_3[0] = 80;
+	i2c_master_send((struct i2c_client *)(codec->control_data),
+		coeff_3, 21);
 
 	aic325x->page_no = 45;
 }
@@ -1536,8 +1673,8 @@ static int aic325x_dac_power_up_event(struct snd_soc_dapm_widget *w,
 		/* Check for the DAC FLAG register to know if the DAC is really
 		 * powered up
 		 */
-	 	//if(machine_is_tb610n() )
-		//	coeff_init(codec);
+	 	//if(machine_is_tb610n() || machine_is_t8400n())
+		//coeff_init(codec);
 		// printk("*****************************************%s,    ONs\n",__func__);
 		if (w->shift == 7) {
 			reg_mask = 0x80;
@@ -1591,7 +1728,7 @@ static int aic325x_dac_power_up_event(struct snd_soc_dapm_widget *w,
 				return -1;
 			}
 		}
-	//	if( machine_is_tb610n() )
+	//	if(machine_is_t8400n() || machine_is_tb610n() )
 	//		coeff_init_off(codec);
 	}
 	return 0;
@@ -1979,6 +2116,53 @@ static int aic325x_lo_event(struct snd_soc_dapm_widget *w,
 
 	struct snd_soc_codec *codec = w->codec;
 	struct aic325x_priv *aic325x = snd_soc_codec_get_drvdata(codec);
+
+	if(event & SND_SOC_DAPM_PRE_PMD)
+	{
+	//	if(spk_powered)
+	//	{
+	//		spk_powered = 0;
+			//snd_soc_write(codec, 0x92, 0x40|LO_GAIN);
+			//snd_soc_write(codec, 0x93, 0x40|LO_GAIN);
+			//msleep(8);
+			// disable PA
+		//	printk("******************************************aic325x Disable PA\n");
+			// pa todo: disable
+			if(0){//(machine_is_nabi2_xd()){
+				aic325x_dac_power_up_event(w,kcontrol, SND_SOC_DAPM_POST_PMD);
+			}
+	//		if(gpio_is_valid(aic325x->pdata->gpio_spkr_en))
+	//			gpio_direction_output(aic325x->pdata->gpio_spkr_en, 0);
+
+			if(0){//(machine_is_nabi2_xd()){
+				if (w->shift == 7) {
+					reg_mask = 0x80;
+					ret_wbits = aic325x_wait_bits(codec,DAC_FLAG_1,reg_mask,
+						reg_mask,TIME_DELAY,DELAY_COUNTER);
+					if(!ret_wbits) {
+					 	dev_err(w->codec->dev,
+						"Line %d Func %s, LDAC_PMU wait_bits timedout\n",
+						__LINE__,__FUNCTION__);
+						return -1;
+					}
+
+				} else if (w->shift == 6) {
+					reg_mask = 0x08;
+					ret_wbits = aic325x_wait_bits(codec,DAC_FLAG_1,reg_mask,
+						reg_mask,TIME_DELAY,DELAY_COUNTER);
+					if(!ret_wbits) {
+					 	dev_err(w->codec->dev,
+						"Line %d Func %s, RDAC_PMU wait_bits timedout\n",
+						__LINE__,__FUNCTION__);
+						return -1;
+					}
+		}
+				}
+			//msleep(8);
+			//snd_soc_write(codec, 0x92, 0x40);
+			//snd_soc_write(codec, 0x93, 0x40);
+//		}
+	}
 
 	if (event & SND_SOC_DAPM_POST_PMU) {
 		if (w->shift == 3) {

@@ -200,6 +200,7 @@ static int __devinit palmas_gpio_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, gpio);
+	palmas_gpio_write(gpio->palmas, PALMAS_GPIO_DATA_OUT, 0x00);
 
 	return ret;
 

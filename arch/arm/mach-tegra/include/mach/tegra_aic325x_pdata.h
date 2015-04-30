@@ -49,7 +49,6 @@ struct tegra_aic325x_platform_data {
 	int gpio_hp_mute;
 	int gpio_int_mic_en;
 	int gpio_ext_mic_en;
-	int gpio_hp_doc_det;
 	int gpio_aic325x_reset ;
 	int audio_port_id[NUM_I2S_DEVICES];
 	struct baseband_config baseband_param;

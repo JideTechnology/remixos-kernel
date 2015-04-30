@@ -238,6 +238,7 @@ static int palmas_gpadc_set_current_src(struct palmas_gpadc *adc,
 static int palmas_gpadc_start_convertion(struct palmas_gpadc *adc, int adc_chan)
 {
 	unsigned int val;
+	unsigned int sw;
 	int ret;
 
 	INIT_COMPLETION(adc->conv_completion);
@@ -248,6 +249,20 @@ static int palmas_gpadc_start_convertion(struct palmas_gpadc *adc, int adc_chan)
 	if (ret < 0) {
 		dev_err(adc->dev, "ADC_SW_START write failed: %d\n", ret);
 		return ret;
+	}
+	ret = palmas_read(adc->palmas, PALMAS_GPADC_BASE,
+				PALMAS_GPADC_SW_SELECT, &sw);
+	if (ret < 0) {
+		dev_err(adc->dev, "TRIM read failed: %d\n", ret);
+		return ret;
+	} else if (!(sw & PALMAS_GPADC_SW_SELECT_SW_START_CONV0)) {
+		sw |= (PALMAS_GPADC_SW_SELECT_SW_START_CONV0 | adc_chan);
+		ret = palmas_write(adc->palmas, PALMAS_GPADC_BASE,
+				PALMAS_GPADC_SW_SELECT, sw);
+		if (ret < 0) {
+			dev_err(adc->dev, "SW_SELECT write failed: %d\n", ret);
+			return ret;
+		}
 	}
 
 	ret = wait_for_completion_timeout(&adc->conv_completion,
@@ -353,7 +368,7 @@ static int palmas_gpadc_read_raw(struct iio_dev *indio_dev,
 out_mask_interrupt:
 	palmas_gpadc_start_mask_interrupt(adc, 1);
 out_disable:
-	palmas_gpadc_enable(adc, adc_chan, false);
+	palmas_gpadc_enable(adc, adc_chan, false); 
 out_unlock:
 	mutex_unlock(&indio_dev->mlock);
 	return ret;
@@ -399,7 +414,6 @@ static int __devinit palmas_gpadc_probe(struct platform_device *pdev)
 	struct palmas_gpadc_platform_data *adc_pdata;
 	struct iio_dev *iodev;
 	int ret, i;
-
 	pdata = dev_get_platdata(pdev->dev.parent);
 	if (!pdata || !pdata->adc_pdata) {
 		dev_err(&pdev->dev, "No platform data\n");
@@ -552,8 +566,11 @@ static struct platform_driver palmas_gpadc_driver = {
 	},
 };
 
-module_platform_driver(palmas_gpadc_driver);
-
+static int __init palmas_init(void)
+{
+	return platform_driver_register(&palmas_gpadc_driver);
+}
+subsys_initcall(palmas_init);
 MODULE_DESCRIPTION("palmas GPADC driver");
 MODULE_AUTHOR("Pradeep Goudagunta<pgoudagunta@nvidia.com>");
 MODULE_ALIAS("platform:palmas-gpadc");

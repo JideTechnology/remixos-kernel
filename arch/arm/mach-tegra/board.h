@@ -28,14 +28,6 @@
 #include <linux/errno.h>
 #include <linux/power_supply.h>
 #include <linux/memory.h>
-#if defined(CONFIG_MHL_IT6681)
-#define HDMI_SUPPORT  (1)
-#else 
-#define HDMI_SUPPORT  (0)
-#endif
-#ifdef CONFIG_TEGRA_NVDUMPER
-#define NVDUMPER_RESERVED_SIZE 4096UL
-#endif
 
 #define ADD_FIXED_VOLTAGE_REG(_name)	(&_name##_fixed_voltage_device)
 

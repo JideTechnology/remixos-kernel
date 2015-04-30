@@ -2318,6 +2318,8 @@ static long imx091_ioctl(struct file *file,
 	int pwr;
 	int err;
 
+	printk("imx091_ioctl\n");
+
 	switch (cmd) {
 	case NVC_IOCTL_FUSE_ID:
 		err = imx091_get_fuse_id(info);
@@ -2595,7 +2597,7 @@ static int imx091_open(struct inode *inode, struct file *file)
 		return -ENODEV;
 	}
 
-	dev_dbg(&info->i2c_client->dev, "%s +++++\n", __func__);
+	dev_info(&info->i2c_client->dev, "%s +++++\n", __func__);
 	err = imx091_sync_en(info->pdata->num, info->pdata->sync);
 	if (err == -EINVAL)
 		dev_err(&info->i2c_client->dev,
@@ -2828,7 +2830,7 @@ static int imx091_probe(
 	unsigned long clock_probe_rate;
 	int err;
 
-	dev_dbg(&client->dev, "%s +++++\n", __func__);
+	dev_info(&client->dev, "%s +++++\n", __func__);
 	info = devm_kzalloc(&client->dev, sizeof(*info), GFP_KERNEL);
 	if (info == NULL) {
 		dev_err(&client->dev, "%s: kzalloc error\n", __func__);

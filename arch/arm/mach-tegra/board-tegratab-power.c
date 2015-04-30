@@ -59,15 +59,15 @@
 #define PMC_CTRL_INTR_LOW	(1 << 17)
 
 /* BQ2419X VBUS regulator */
-static struct regulator_consumer_supply tegratab_bq2419x_vbus_supply[] = {
+/*static struct regulator_consumer_supply tegratab_bq2419x_vbus_supply[] = {
 	REGULATOR_SUPPLY("usb_vbus", "tegra-ehci.0"),
 	REGULATOR_SUPPLY("usb_vbus", "tegra-otg"),
 };
 
 static struct regulator_consumer_supply tegratab_bq2419x_batt_supply[] = {
 	REGULATOR_SUPPLY("usb_bat_chg", "tegra-udc.0"),
-};
-
+};*/
+/*
 static struct bq2419x_vbus_platform_data tegratab_bq2419x_vbus_pdata = {
 	.gpio_otg_iusb = TEGRA_GPIO_PI4,
 	.num_consumer_supplies = ARRAY_SIZE(tegratab_bq2419x_vbus_supply),
@@ -83,7 +83,7 @@ struct bq2419x_charger_platform_data tegratab_bq2419x_charger_pdata = {
 	.num_consumer_supplies = ARRAY_SIZE(tegratab_bq2419x_batt_supply),
 	.wdt_timeout    = 40,
 };
-
+*/
 #ifndef CONFIG_OF
 struct max17048_battery_model tegratab_max17048_mdata = {
 	.rcomp		= 57,
@@ -121,7 +121,7 @@ static struct i2c_board_info __initdata tegratab_max17048_boardinfo[] = {
 	},
 };
 #endif
-
+/*
 struct bq2419x_platform_data tegratab_bq2419x_pdata = {
 	.vbus_pdata = &tegratab_bq2419x_vbus_pdata,
 	.bcharger_pdata = &tegratab_bq2419x_charger_pdata,
@@ -133,7 +133,7 @@ static struct i2c_board_info __initdata tegratab_bq2419x_boardinfo[] = {
 		.platform_data = &tegratab_bq2419x_pdata,
 	},
 };
-
+*/
 static struct power_supply_extcon_plat_data psy_extcon_pdata = {
 	.extcon_name = "tegra-udc",
 };
@@ -766,10 +766,10 @@ int __init tegratab_regulator_init(void)
 #endif
 	/* Disable charger when adapter is power source. */
 	if (get_power_supply_type() != POWER_SUPPLY_TYPE_BATTERY)
-		tegratab_bq2419x_pdata.bcharger_pdata = NULL;
+//		tegratab_bq2419x_pdata.bcharger_pdata = NULL;
 
-	tegratab_bq2419x_boardinfo[0].irq = gpio_to_irq(TEGRA_GPIO_PJ0);
-	i2c_register_board_info(0, tegratab_bq2419x_boardinfo, 1);
+//	tegratab_bq2419x_boardinfo[0].irq = gpio_to_irq(TEGRA_GPIO_PJ0);
+//	i2c_register_board_info(0, tegratab_bq2419x_boardinfo, 1);
 
 	regulator_has_full_constraints();
 	platform_device_register(&psy_extcon_device);
