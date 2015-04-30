@@ -19,18 +19,18 @@
 #include "clk-sunxi.h"
 #include "clk-factors.h"
 
-
 static int sunxi_clk_fators_enable(struct clk_hw *hw)
 {
 	struct sunxi_clk_factors *factor = to_clk_factor(hw);
-    struct sunxi_clk_factors_config *config = factor->config;
-    unsigned long reg = factor_readl(factor,factor->reg);
+	struct sunxi_clk_factors_config *config = factor->config;
+	unsigned long reg = factor_readl(factor,factor->reg);
 	unsigned int loop = 500;
-    if(config->sdmwidth)
-    {
-        factor_writel(factor,config->sdmval, (void __iomem *)config->sdmpat);
-        reg = SET_BITS(config->sdmshift, config->sdmwidth, reg, 1);
-    }
+
+    	if(config->sdmwidth)
+	{
+		factor_writel(factor,config->sdmval, (void __iomem *)config->sdmpat);
+		reg = SET_BITS(config->sdmshift, config->sdmwidth, reg, 1);
+   	}
 
 	reg = SET_BITS(config->enshift, 1, reg, 1);
 
@@ -39,15 +39,24 @@ static int sunxi_clk_fators_enable(struct clk_hw *hw)
 
 	factor_writel(factor,reg, factor->reg);
 
+    	reg = factor_readl(factor, factor->pll_clk_ctrl_reg);
+	reg = SET_BITS(factor->lock_en_bit, 1, reg, 1);
+	factor_writel(factor, reg, factor->pll_clk_ctrl_reg);
 
-    while(loop--)
-    {
-        reg = factor_readl(factor,factor->lock_reg);
-        if(GET_BITS(factor->lock_bit, 1, reg))
-             break;
-        else
-            udelay(1);
-    }
+	while(loop--)
+	{
+		reg = factor_readl(factor,factor->lock_reg);
+		if(GET_BITS(factor->lock_bit, 1, reg)) {
+	     		udelay(20);
+             		break;
+		} else {
+            		udelay(1);
+		}
+	}
+    	reg = factor_readl(factor,factor->pll_clk_ctrl_reg);
+	reg = SET_BITS(factor->lock_en_bit, 1, reg, 0);
+	factor_writel(factor,reg, factor->pll_clk_ctrl_reg);
+
     if(!loop)
 #if (defined CONFIG_FPGA_V4_PLATFORM) || (defined CONFIG_FPGA_V7_PLATFORM)
     printk("clk %s wait lock timeout\n",hw->clk->name);
@@ -198,14 +207,25 @@ static int sunxi_clk_factors_set_flat_facotrs(struct sunxi_clk_factors *factor ,
 
 	/* 5. wait for PLL state stable */
 #ifdef CONFIG_EVB_PLATFORM
+    	reg = factor_readl(factor,factor->pll_clk_ctrl_reg);
+	reg = SET_BITS(factor->lock_en_bit, 1, reg, 1);
+	factor_writel(factor,reg, factor->pll_clk_ctrl_reg);
+
 	while(loop--)
 	{
-        u32 reg_val = factor_readl(factor,factor->lock_reg);
-        if(GET_BITS(factor->lock_bit, 1, reg_val))
-             break;
-        else
-            udelay(1);
+        	u32 reg_val = factor_readl(factor,factor->lock_reg);
+        	if(GET_BITS(factor->lock_bit, 1, reg_val)) {
+			udelay(20);
+             		break;
+		} else {
+            		udelay(1);
+		}
 	}
+
+	reg = factor_readl(factor,factor->pll_clk_ctrl_reg);
+	reg = SET_BITS(factor->lock_en_bit, 1, reg, 0);
+	factor_writel(factor,reg, factor->pll_clk_ctrl_reg);
+
 #endif
 
 	/*6.do pair things for 1).  decease factor p */
@@ -223,14 +243,14 @@ static int sunxi_clk_factors_set_flat_facotrs(struct sunxi_clk_factors *factor ,
 
 static int sunxi_clk_factors_set_rate(struct clk_hw *hw, unsigned long rate, unsigned long parent_rate)
 {
-    unsigned long reg;
-    struct clk_factors_value factor_val;
-    unsigned int loop = 500;
+	unsigned long reg;
+	struct clk_factors_value factor_val;
+	unsigned int loop = 500;
 	struct sunxi_clk_factors *factor = to_clk_factor(hw);
-    struct sunxi_clk_factors_config *config = factor->config;
+	struct sunxi_clk_factors_config *config = factor->config;
 
-    if(!factor->get_factors)
-        return 0;
+	if(!factor->get_factors)
+		return 0;
 
 	//factor_val is initialized with its original value , it's factors(such as:M,N,K,P,d1,d2...) are Random Value. 
 	//if donot judge the return value of "factor->get_factors" , it may change the original register value.
@@ -281,14 +301,25 @@ static int sunxi_clk_factors_set_rate(struct clk_hw *hw, unsigned long rate, uns
 #ifndef CONFIG_SUNXI_CLK_DUMMY_DEBUG
     if(GET_BITS(config->enshift, 1, reg))
     {
+    	reg = factor_readl(factor,factor->pll_clk_ctrl_reg);
+	reg = SET_BITS(factor->lock_en_bit, 1, reg, 1);
+	factor_writel(factor,reg, factor->pll_clk_ctrl_reg);
+
         while(loop--)
         {
             reg = factor_readl(factor,factor->lock_reg);
-            if(GET_BITS(factor->lock_bit, 1, reg))
+            if(GET_BITS(factor->lock_bit, 1, reg)) {
+	    	udelay(20);
                 break;
-            else
+            } else {
                udelay(1);
+            }
         }
+
+	reg = factor_readl(factor,factor->pll_clk_ctrl_reg);
+	reg = SET_BITS(factor->lock_en_bit, 1, reg, 0);
+	factor_writel(factor,reg, factor->pll_clk_ctrl_reg);
+
         if(!loop)
 #if (defined CONFIG_FPGA_V4_PLATFORM) || (defined CONFIG_FPGA_V7_PLATFORM)
         printk("clk %s wait lock timeout\n",hw->clk->name);
@@ -353,6 +384,8 @@ struct clk *sunxi_clk_register_factors(struct device *dev,void __iomem *base,spi
     factors->reg = base + init_data->reg;
     factors->lock_reg = base + init_data->lock_reg;   
     factors->lock_bit = init_data->lock_bit; 
+    factors->pll_clk_ctrl_reg = base + init_data->pll_clk_ctrl_reg;
+    factors->lock_en_bit = init_data->lock_en_bit;
     factors->config = init_data->config;
     factors->config->sdmpat = (u64 __force)(base + factors->config->sdmpat);
     factors->lock = lock;

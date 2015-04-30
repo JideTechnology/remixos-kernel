@@ -126,9 +126,11 @@ struct factor_init_data {
     const char          **parent_names;
     int                 num_parents;
     unsigned long       flags;
-    u64       			reg;
-    u64       			lock_reg;
+    u64       		reg;
+    u64       		lock_reg;
     unsigned char       lock_bit;    
+    u64                 pll_clk_ctrl_reg;
+    unsigned char       lock_en_bit;
     struct sunxi_clk_factors_config *config;
     int (*get_factors) (u32 rate, u32 parent_rate, struct clk_factors_value *factor);
     unsigned long (*calc_rate) (u32 parent_rate, struct clk_factors_value *factor);
@@ -142,6 +144,8 @@ struct sunxi_clk_factors {
     void __iomem        *reg;
     void __iomem        *lock_reg;
     unsigned char       lock_bit;    
+    void __iomem        *pll_clk_ctrl_reg;
+    unsigned char       lock_en_bit;
     struct sunxi_clk_factors_config *config;
     int (*get_factors) (u32 rate, u32 parent_rate, struct clk_factors_value *factor);
     unsigned long (*calc_rate) (u32 parent_rate, struct clk_factors_value *factor);

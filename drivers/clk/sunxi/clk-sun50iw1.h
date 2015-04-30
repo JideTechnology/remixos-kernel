@@ -87,6 +87,7 @@
 #define PLL_HSICPAT			0x02A4
 #define PLL_DEPAT			0x02A8
 #define PLL_DDR1PAT			0x02AC
+#define PLL_CLK_CTRL			0x0320
 
 #define BUS_RST0           0x02C0
 #define BUS_RST1           0x02C4
