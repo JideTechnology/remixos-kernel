@@ -58,7 +58,7 @@ static bool nomsi;
 module_param_named(nomsi, nomsi, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(nomsi, "don't use msi (default = false)");
 
-/* Currently this driver works as long as there is only a single AMT device. */
+/* Currently this driver works as long as there is only a single HECI device. */
 static struct pci_dev *heci_pci_device;
 
 static const struct pci_device_id ish_pci_tbl[] = {
@@ -148,8 +148,9 @@ static ssize_t ishdbg_write(struct file *file, const char __user *ubuf,
 	char    dbg_req_buf[768];
 	char    cmd[768];
 	int     rv;
-	int     addr, count, sscanf_match, i, cur_index;
-	volatile uint32_t *reg_data;
+	unsigned     addr, count;
+	int	sscanf_match, i, cur_index;
+	uint32_t __iomem *reg_data;
 
 	if (length > sizeof(dbg_req_buf))
 		length = sizeof(dbg_req_buf);
@@ -157,50 +158,49 @@ static ssize_t ishdbg_write(struct file *file, const char __user *ubuf,
 	if (rv)
 		return  -EINVAL;
 	if (sscanf(dbg_req_buf, "%s ", cmd) != 1) {
-		printk(KERN_ERR "[ish-dbg]) sscanf failed\n");
+		dev_err(&heci_pci_device->dev, "[ish-dbg]) sscanf failed\n");
 		return  -EINVAL;
 	}
-	sscanf_match = sscanf(dbg_req_buf + 2, "%x %d", &addr, &count);
+	sscanf_match = sscanf(dbg_req_buf + 2, "%x %u", &addr, &count);
 	if (!strcmp(cmd, "d")) {
 		/* Dump values: d <addr> [count] */
 		if (sscanf_match == 1)
 			count = 1;
 		else if (sscanf_match != 2) {
-			printk(KERN_ERR "[ish-dbg] sscanf failed, sscanf_match = %d\n",
+			dev_err(&heci_pci_device->dev, "[ish-dbg] sscanf failed, sscanf_match = %d\n",
 				sscanf_match);
 			return  -EINVAL;
 		}
-		if (addr < 0 /*|| addr > MAX_RANGE*/ ||
-				count < 0 /*|| count > MAX_RANGE*/)
-			return -EINVAL;
 		if (addr % 4) {
-			printk(KERN_ERR "[ish-dbg] address isn't aligned to 4 bytes\n");
+			dev_err(&heci_pci_device->dev, "[ish-dbg] address isn't aligned to 4 bytes\n");
 			return -EINVAL;
 		}
 		cur_index = 0;
 		for (i = 0; i < count; i++) {
-			reg_data = (volatile uint32_t *)
+			reg_data = (uint32_t __iomem *)
 				((char *)hw_dbg->mem_addr + addr + i*4);
-			cur_index += sprintf(dbg_resp_buf + cur_index, "%08X ",
-				*reg_data);
+			cur_index += scnprintf(dbg_resp_buf + cur_index,
+				sizeof(dbg_resp_buf) - cur_index, "%08X ",
+				readl(reg_data));
 		}
-		cur_index += sprintf(dbg_resp_buf + cur_index, "\n");
+		cur_index += scnprintf(dbg_resp_buf + cur_index,
+			sizeof(dbg_resp_buf) - cur_index, "\n");
 		resp_buf_read = 0;
 	} else if (!strcmp(cmd, "e")) {
 		/* Enter values e <addr> <value> */
 		if (sscanf_match != 2) {
-			printk(KERN_ERR "[ish-dbg] sscanf failed, sscanfMatch = %d\n",
+			dev_err(&heci_pci_device->dev, "[ish-dbg] sscanf failed, sscanfMatch = %d\n",
 				sscanf_match);
 			return  -EINVAL;
 		}
 		if (addr % 4) {
-			printk(KERN_ERR "[ish-dbg] address isn't aligned to 4 bytes\n");
+			dev_err(&heci_pci_device->dev, "[ish-dbg] address isn't aligned to 4 bytes\n");
 			return -EINVAL;
 		}
-		reg_data = (volatile uint32_t *)((char *)hw_dbg->mem_addr
+		reg_data = (uint32_t __iomem *)((char *)hw_dbg->mem_addr
 			+ addr);
-		*reg_data = count;
-		sprintf(dbg_resp_buf, "OK\n");
+		writel(count, reg_data);
+		scnprintf(dbg_resp_buf, sizeof(dbg_resp_buf), "OK\n");
 		resp_buf_read = 0;
 	}
 
@@ -265,7 +265,8 @@ static void ish_print_log(struct heci_device *dev, char *format, ...)
 		return;
 
 	do_gettimeofday(&tv);
-	i = sprintf(tmp_buf, "[%ld.%06ld] ", tv.tv_sec, tv.tv_usec);
+	i = scnprintf(tmp_buf, sizeof(tmp_buf), "[%ld.%06ld] ",
+		tv.tv_sec, tv.tv_usec);
 
 	va_start(args, format);
 	length = vsnprintf(tmp_buf + i, sizeof(tmp_buf)-i, format, args);
@@ -345,7 +346,7 @@ static ssize_t ish_read_log(struct heci_device *dev, char *buf, size_t size)
 {
 	int i, full_space, ret_val;
 
-	if (dev->log_head == dev->log_tail)/* log is empty */
+	if (dev->log_head == dev->log_tail) /* log is empty */
 		return 0;
 
 	/* read size the minimum between full_space and the buffer size */
@@ -526,7 +527,8 @@ ssize_t show_heci_dev_props(struct device *dev,
 				"------------\n");
 		spin_lock_irqsave(&heci_dev->device_lock, flags);
 		list_for_each_entry_safe(cl, next, &heci_dev->cl_list, link) {
-			sprintf(buf + strlen(buf), "id: %d\n",
+			scnprintf(buf + strlen(buf), PAGE_SIZE - strlen(buf),
+				"id: %d\n",
 				cl->host_client_id);
 			scnprintf(buf + strlen(buf), PAGE_SIZE - strlen(buf),
 				"state: %s\n", cl->state < 0 || cl->state >
@@ -568,7 +570,6 @@ ssize_t show_heci_dev_props(struct device *dev,
 					"RX free: %u\n", count);
 
 				count = 0;
-
 				spin_lock_irqsave(&cl->tx_list_spinlock,
 					tx_flags);
 				list_for_each_entry_safe(tx_rb, next_tx_rb,
@@ -679,7 +680,7 @@ static unsigned	num_force_hid_fc;
 ssize_t show_force_hid_fc(struct device *dev, struct device_attribute *dev_attr,
 	char *buf)
 {
-	sprintf(buf, "%u\n", num_force_hid_fc);
+	scnprintf(buf, PAGE_SIZE, "%u\n", num_force_hid_fc);
 	return	 strlen(buf);
 }
 
@@ -787,6 +788,8 @@ struct my_work_t {
 	struct heci_device *dev;
 };
 
+struct my_work_t *work;
+
 void workqueue_init_function(struct work_struct *work)
 {
 	struct heci_device *dev = ((struct my_work_t *)work)->dev;
@@ -817,7 +820,8 @@ void workqueue_init_function(struct work_struct *work)
 
 	spin_lock_init(&dev->log_spinlock);
 
-	dev->print_log(dev, "[heci-ish]: %s():+++ [Build "BUILD_ID "]\n",
+	dev->print_log(dev,
+		"[heci-ish]: %s():+++ [Build "BUILD_ID "]\n",
 		__func__);
 	dev->print_log(dev, "[heci-ish] %s() running on %s revision [%02X]\n",
 		__func__,
@@ -879,9 +883,9 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	struct ish_hw *hw;
 	int err;
 	int	rv;
-	struct my_work_t *work;
 
-	ISH_INFO_PRINT(KERN_ERR "[heci-ish]: %s():+++ [Build "BUILD_ID "]\n",
+	ISH_INFO_PRINT(
+	KERN_ERR "[heci-ish]: %s():+++ [Build "BUILD_ID "]\n",
 		__func__);
 	ISH_INFO_PRINT(KERN_ERR
 		"[heci-ish] %s() running on %s revision [%02X]\n", __func__,
@@ -1006,8 +1010,10 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		return -ENOMEM;
 	work->dev = dev;
 	workqueue_for_init = create_workqueue("workqueue_for_init");
-	if (!workqueue_for_init)
+	if (!workqueue_for_init) {
+		kfree(work);
 		return -ENOMEM;
+	}
 	INIT_WORK(&work->my_work, workqueue_init_function);
 	queue_work(workqueue_for_init, &work->my_work);
 
@@ -1048,6 +1054,7 @@ static void ish_remove(struct pci_dev *pdev)
 	 *** If this case of removal is viable,
 	 * also go through HECI clients removal ***
 	 */
+	kfree(work);
 
 	if (heci_pci_device != pdev) {
 		dev_err(&pdev->dev, "heci: heci_pci_device != pdev\n");

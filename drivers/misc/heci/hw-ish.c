@@ -21,6 +21,7 @@
 #include "heci_dev.h"
 #include "hbm.h"
 #include <linux/spinlock.h>
+#include <linux/jiffies.h>
 
 #ifdef dev_dbg
 #undef dev_dbg
@@ -28,7 +29,7 @@
 static void no_dev_dbg(void *v, char *s, ...)
 {
 }
-/*#define dev_dbg dev_err */
+/*#define dev_dbg dev_err*/
 #define dev_dbg no_dev_dbg
 
 #include <linux/delay.h>
@@ -292,6 +293,20 @@ int write_ipc_from_queue(struct heci_device *dev)
 	doorbell_val = *(u32 *)ipc_link->inline_data;
 	r_buf = (u32 *)(ipc_link->inline_data + sizeof(u32));
 
+	/* If sending MNG_SYNC_FW_CLOCK, update clock again */
+	if (IPC_HEADER_GET_PROTOCOL(doorbell_val) == IPC_PROTOCOL_MNG &&
+		IPC_HEADER_GET_MNG_CMD(doorbell_val) == MNG_SYNC_FW_CLOCK) {
+
+		struct timespec	ts;
+		uint64_t	usec;
+
+		get_monotonic_boottime(&ts);
+		usec = (uint64_t)ts.tv_sec * 1000000 +
+			(uint64_t)ts.tv_nsec / 1000;
+		r_buf[0] = (u32)(usec & 0xFFFFFFFF);
+		r_buf[1] = (u32)(usec >> 32);
+	}
+
 	for (i = 0, reg_addr = IPC_REG_HOST2ISH_MSG; i < length >> 2; i++,
 			reg_addr += 4)
 		ish_reg_write(dev, reg_addr, r_buf[i]);
@@ -335,12 +350,13 @@ int write_ipc_from_queue(struct heci_device *dev)
 	list_del_init(&ipc_link->link);
 	list_add_tail(&ipc_link->link, &dev->wr_free_list_head.link);
 	spin_unlock_irqrestore(&dev->wr_processing_spinlock, flags);
+
 	/*
 	 * callback will be called out of spinlock,
 	 * after ipc_link returned to free list
 	 */
-	if (ipc_link->ipc_send_compl)
-		ipc_link->ipc_send_compl(ipc_link->ipc_send_compl_prm);
+	if (ipc_send_compl)
+		ipc_send_compl(ipc_send_compl_prm);
 	ISH_DBG_PRINT(KERN_ALERT
 		"%s(): --- written %lu bytes [%08X ! %08X %08X %08X %08X...]\n",
 		__func__, length, *(u32 *)ipc_link->inline_data, r_buf[0],
@@ -353,7 +369,8 @@ int write_ipc_from_queue(struct heci_device *dev)
 static int	ish_fw_reset_handler(struct heci_device *dev)
 {
 	uint32_t	reset_id;
-
+	unsigned long	flags;
+	struct wr_msg_ctl_info *processing, *next;
 	/* Read reset ID */
 	reset_id = ish_reg_read(dev, IPC_REG_ISH2HOST_MSG) & 0xFFFF;
 
@@ -362,6 +379,20 @@ static int	ish_fw_reset_handler(struct heci_device *dev)
 
 	/* Clear HOST2ISH.ILUP (what's it?) */
 	/*ish_clr_host_rdy(dev);*/
+
+	/* Clear IPC output queue */
+	spin_lock_irqsave(&dev->wr_processing_spinlock, flags);
+	list_for_each_entry_safe(processing, next,
+			&dev->wr_processing_list_head.link, link) {
+		list_del(&processing->link);
+		list_add_tail(&processing->link, &dev->wr_free_list_head.link);
+	}
+	spin_unlock_irqrestore(&dev->wr_processing_spinlock, flags);
+
+	/* Clear BH processing queue - no further HBMs */
+	spin_lock_irqsave(&dev->rd_msg_spinlock, flags);
+	dev->rd_msg_fifo_head = dev->rd_msg_fifo_tail = 0;
+	spin_unlock_irqrestore(&dev->rd_msg_spinlock, flags);
 
 	/* Handle ISS FW reset against upper layers */
 	heci_bus_remove_all_clients(dev);	/* Remove all client devices */
@@ -408,11 +439,21 @@ struct heci_device	*heci_dev;
 static void	fw_reset_work_fn(struct work_struct *unused)
 {
 	int	rv;
+	static int reset_cnt;
 
 	ISH_DBG_PRINT(KERN_ALERT "%s(): +++\n", __func__);
+	reset_cnt++;
+
 	rv = ish_fw_reset_handler(heci_dev);
 	if (!rv) {
 		/* ISS is ILUP & HECI-ready. Restart HECI */
+	/* bug fix here: when reset flow occurs, sometimes, the sysfs entries
+		which were removed in ish_fw_reset_handler were still up,
+		but the driver tried to create the same entries and failed.
+		so wait some time here and then the sysfs entries removal will
+		be done */
+		if (reset_cnt != 0) /* not the boot flow */
+			schedule_timeout(HZ / 3);
 		heci_dev->recvd_hw_ready = 1;
 		if (waitqueue_active(&heci_dev->wait_hw_ready))
 			wake_up(&heci_dev->wait_hw_ready);
@@ -426,6 +467,23 @@ static void	fw_reset_work_fn(struct work_struct *unused)
 	} else
 		printk(KERN_ERR "[heci-ish]: FW reset failed (%d)\n", rv);
 }
+
+
+static void	sync_fw_clock(struct heci_device *dev)
+{
+	static unsigned long	prev_sync;
+	struct timespec	ts;
+	uint64_t	usec;
+
+	if (prev_sync && jiffies - prev_sync < 120 * HZ)
+		return;
+
+	prev_sync = jiffies;
+	get_monotonic_boottime(&ts);
+	usec = (uint64_t)ts.tv_sec * 1000000 + (uint64_t)ts.tv_nsec / 1000;
+	ipc_send_mng_msg(dev, MNG_SYNC_FW_CLOCK, &usec, sizeof(uint64_t));
+}
+
 
 /*
  *	Receive and process IPC management messages
@@ -475,8 +533,6 @@ static void	recv_ipc(struct heci_device *dev, uint32_t doorbell_val)
 		break;
 	}
 }
-
-
 
 
 /**
@@ -532,7 +588,6 @@ irqreturn_t ish_irq_handler(int irq, void *dev_id)
 
 	/* IPC message */
 	if (IPC_HEADER_GET_PROTOCOL(doorbell_val) == IPC_PROTOCOL_MNG) {
-		g_ish_print_log("%s(): received IPC protocol msg\n", __func__);
 		recv_ipc(dev, doorbell_val);
 		goto	eoi;
 	}
@@ -544,6 +599,8 @@ irqreturn_t ish_irq_handler(int irq, void *dev_id)
 	msg_hdr = ish_read_hdr(dev);
 	if (!msg_hdr)
 		goto	eoi;
+
+	sync_fw_clock(dev);
 
 	heci_hdr = (struct heci_msg_hdr *)&msg_hdr;
 
@@ -558,25 +615,21 @@ irqreturn_t ish_irq_handler(int irq, void *dev_id)
 
 	/* HECI bus message */
 	if (!heci_hdr->host_addr && !heci_hdr->me_addr) {
-		g_ish_print_log("%s(): received HBM\n", __func__);
 		recv_hbm(dev, heci_hdr);
 		goto	eoi;
 
 	/* HECI fixed-client message */
 	} else if (!heci_hdr->host_addr) {
-		g_ish_print_log("%s(): received HECI fixed client message\n",
-			__func__);
 		recv_fixed_cl_msg(dev, heci_hdr);
 		goto	eoi;
 	} else {
 		/* HECI client message */
-		g_ish_print_log(
-			"%s(): received HECI client message\n", __func__);
 		recv_heci_cl_msg(dev, heci_hdr);
 		goto	eoi;
 	}
 
 eoi:
+
 	ISH_DBG_PRINT(KERN_ALERT
 		"%s(): Doorbell cleared, busy reading cleared\n", __func__);
 	/* Update IPC counters */
@@ -829,6 +882,9 @@ struct heci_device *ish_dev_init(struct pci_dev *pdev)
 	spin_lock_init(&dev->out_ipc_spinlock);
 	spin_lock_init(&dev->read_list_spinlock);
 	spin_lock_init(&dev->device_lock);
+	spin_lock_init(&dev->device_list_lock);
+	spin_lock_init(&dev->cl_list_lock);
+	spin_lock_init(&dev->me_clients_lock);
 	INIT_WORK(&dev->bh_hbm_work, bh_hbm_work_fn);
 
 	dev->ops = &ish_hw_ops;

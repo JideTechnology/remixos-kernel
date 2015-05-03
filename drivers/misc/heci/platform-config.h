@@ -17,7 +17,7 @@
 #define PLATFORM_CONFIG__H
 
 /* Build ID string */
-#define	BUILD_ID	"gmin-0001"
+#define	BUILD_ID	"0174-imin-reset-flow-private-prop"
 
 #define	ISH_DEBUG	0
 #if ISH_DEBUG
@@ -106,14 +106,14 @@ static void	do_mutex_unlock(void *m)
 
 #define mutex_lock(a) \
 	do {\
-		printk(KERN_ALERT "%s:%d[%s] -- mutex_lock(%p)\n",	\
+		dev_warn(NULL, "%s:%d[%s] -- mutex_lock(%p)\n",	\
 			__FILE__, __LINE__, __func__, a);	\
 		do_mutex_lock(a);	\
 	} while (0)
 
 #define mutex_unlock(a) \
 	do {\
-		printk(KERN_ALERT "%s:%d[%s] -- mutex_unlock(%p)\n",	\
+		dev_warn(NULL, "%s:%d[%s] -- mutex_unlock(%p)\n",	\
 			__FILE__, __LINE__, __func__, a);	\
 		do_mutex_unlock(a);	\
 	} while (0)
