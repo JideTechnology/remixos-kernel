@@ -163,6 +163,7 @@ ISS FW may not write to them */
 #define MNG_RX_CMPL_INDICATION          2
 #define MNG_RESET_NOTIFY		3
 #define MNG_RESET_NOTIFY_ACK		4
+#define MNG_SYNC_FW_CLOCK		5
 #define MNG_ILLEGAL_CMD			0xFF
 
 #endif /* _HECI_ISH_REGS_H_ */
