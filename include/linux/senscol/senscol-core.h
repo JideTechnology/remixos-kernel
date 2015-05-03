@@ -147,8 +147,7 @@ struct senscol_impl {
 		const struct sens_property *prop, const char *value);
 
 	/* Get sample */
-	int	(*get_sample)(struct sensor_def *sensor, void *sample_buf,
-		size_t sample_buf_size);
+	int	(*get_sample)(struct sensor_def *sensor);
 
 	/* Check if sensor is activated in batch mode */
 	int	(*batch_check)(struct sensor_def *sensor);
@@ -158,6 +157,9 @@ struct senscol_impl {
 
 int	add_senscol_impl(struct senscol_impl *impl);
 int	remove_senscol_impl(struct senscol_impl *impl);
+int	remove_senscol_sensor(uint32_t id);
+void	senscol_send_ready_event(void);
+int	senscol_reset_notify(void);
 
 /*DEBUG*/
 void g_ish_print_log(char *format, ...);
