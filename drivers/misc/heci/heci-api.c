@@ -65,6 +65,7 @@ static int heci_open(struct inode *inode, struct file *file)
 	struct heci_device *dev;
 	int err;
 
+	ISH_DBG_PRINT(KERN_ALERT "%s(): +++\n", __func__);
 	/* Non-blocking semantics are not supported */
 	if (file->f_flags & O_NONBLOCK)
 		return	-EINVAL;
@@ -88,14 +89,12 @@ static int heci_open(struct inode *inode, struct file *file)
 	 * We may have a case of issued open() with
 	 * dev->dev_state == HECI_DEV_DISABLED, as part of re-enabling path
 	 */
-#if 0
 	err = -ENODEV;
 	if (dev->dev_state != HECI_DEV_ENABLED) {
 		dev_dbg(&dev->pdev->dev, "dev_state != HECI_ENABLED  dev_state = %s\n",
 		    heci_dev_state_str(dev->dev_state));
 		goto out_free;
 	}
-#endif
 
 	err = heci_cl_link(cl, HECI_HOST_CLIENT_ID_ANY);
 	if (err)
@@ -108,6 +107,7 @@ static int heci_open(struct inode *inode, struct file *file)
 out_free:
 	kfree(cl);
 out:
+	ISH_DBG_PRINT(KERN_ALERT "%s(): ---\n", __func__);
 	return err;
 }
 
@@ -124,7 +124,9 @@ static int heci_release(struct inode *inode, struct file *file)
 	struct heci_cl *cl = file->private_data;
 	struct heci_device *dev;
 	int rets = 0;
+	unsigned int flags;
 
+	ISH_DBG_PRINT(KERN_ALERT "%s(): +++\n", __func__);
 	if (WARN_ON(!cl || !cl->dev))
 		return -ENODEV;
 
@@ -143,17 +145,21 @@ static int heci_release(struct inode *inode, struct file *file)
 			cl->host_client_id, cl->me_client_id);
 		rets = heci_cl_disconnect(cl);
 	}
-	heci_cl_flush_queues(cl);
+
 	dev_dbg(&dev->pdev->dev, "remove client host client = %d, ME client = %d\n",
 	    cl->host_client_id,
 	    cl->me_client_id);
 
 	heci_cl_unlink(cl);
-
+	heci_cl_flush_queues(cl);
 	file->private_data = NULL;
 
 	/* disband and free all Tx and Rx client-level rings */
+	spin_lock_irqsave(&dev->cl_list_lock, flags);
 	heci_cl_free(cl);
+	spin_unlock_irqrestore(&dev->cl_list_lock, flags);
+
+	ISH_DBG_PRINT(KERN_ALERT "%s(): ---\n", __func__);
 	return rets;
 }
 
@@ -392,6 +398,7 @@ static int heci_ioctl_connect_client(struct file *file,
 	struct heci_cl *cl;
 	int i;
 	int rets;
+	unsigned long flags;
 
 	ISH_DBG_PRINT(KERN_ALERT "%s(): +++\n", __func__);
 	cl = file->private_data;
@@ -413,13 +420,15 @@ static int heci_ioctl_connect_client(struct file *file,
 
 	/* find ME client we're trying to connect to */
 	i = heci_me_cl_by_uuid(dev, &data->in_client_uuid);
+	spin_lock_irqsave(&dev->me_clients_lock, flags);
 	if (i < 0 || dev->me_clients[i].props.fixed_address) {
 		dev_dbg(&dev->pdev->dev, "Cannot connect to FW Client UUID = %pUl\n",
 				&data->in_client_uuid);
+		spin_unlock_irqrestore(&dev->me_clients_lock, flags);
 		rets = -ENODEV;
 		goto end;
 	}
-
+	spin_unlock_irqrestore(&dev->me_clients_lock, flags);
 	/* Check if there's driver attached to this UUID */
 	if (!heci_can_client_connect(dev, &data->in_client_uuid))
 		return	-EBUSY;
@@ -429,17 +438,19 @@ static int heci_ioctl_connect_client(struct file *file,
 
 	dev_dbg(&dev->pdev->dev, "Connect to FW Client ID = %d\n",
 			cl->me_client_id);
+	spin_lock_irqsave(&dev->me_clients_lock, flags);
 	dev_dbg(&dev->pdev->dev, "FW Client - Protocol Version = %d\n",
 			dev->me_clients[i].props.protocol_version);
 	dev_dbg(&dev->pdev->dev, "FW Client - Max Msg Len = %d\n",
 			dev->me_clients[i].props.max_msg_length);
-
+	spin_unlock_irqrestore(&dev->me_clients_lock, flags);
 	/* prepare the output buffer */
 	client = &data->out_client_properties;
+	spin_lock_irqsave(&dev->me_clients_lock, flags);
 	client->max_msg_length = dev->me_clients[i].props.max_msg_length;
 	client->protocol_version = dev->me_clients[i].props.protocol_version;
 	dev_dbg(&dev->pdev->dev, "Can connect?\n");
-
+	spin_unlock_irqrestore(&dev->me_clients_lock, flags);
 	rets = heci_cl_connect(cl);
 
 end:
@@ -535,7 +546,8 @@ err:
 	}
 
 	if (cmd == IOCTL_GET_FW_STATUS) {
-		sprintf(fw_stat_buf, "%08X\n", dev->ops->get_fw_status(dev));
+		scnprintf(fw_stat_buf, sizeof(fw_stat_buf),
+			"%08X\n", dev->ops->get_fw_status(dev));
 		copy_to_user((char __user *)data, fw_stat_buf,
 			strlen(fw_stat_buf));
 		return strlen(fw_stat_buf);
@@ -629,7 +641,6 @@ static struct miscdevice  heci_misc_device = {
 		.fops = &heci_fops,
 		.minor = MISC_DYNAMIC_MINOR,
 };
-
 
 int heci_register(struct heci_device *dev)
 {

@@ -162,6 +162,7 @@ struct heci_device {
 	 * list of heci_cl's (formerly: files)
 	 */
 	struct list_head cl_list;
+	spinlock_t      cl_list_lock;
 	long open_handle_count;			/* Why's this?.. */
 
 	/*
@@ -228,15 +229,16 @@ struct heci_device {
 	spinlock_t	wr_msg_spinlock;
 */
 	struct hbm_version version;
-	struct heci_me_client *me_clients; /*Note: memory has to be allocated*/
+	struct heci_me_client *me_clients; /* Note: memory has to be allocated*/
 	DECLARE_BITMAP(me_clients_map, HECI_CLIENTS_MAX);
 	DECLARE_BITMAP(host_clients_map, HECI_CLIENTS_MAX);
 	u8 me_clients_num;
 	u8 me_client_presentation_num;
 	u8 me_client_index;
-
+	spinlock_t      me_clients_lock;
 	/* List of bus devices */
 	struct list_head device_list;
+	spinlock_t      device_list_lock;
 
 	/* buffer to save prints from driver */
 	unsigned char log_buffer[PRINT_BUFFER_SIZE];

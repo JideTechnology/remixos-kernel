@@ -22,7 +22,6 @@
 #include "hbm.h"
 #include "client.h"
 #include <linux/spinlock.h>
-
 /*
 #define	DEBUG_FW_BOOT_SEQ	1
 #define	DUMP_CL_PROP	1
@@ -63,7 +62,7 @@ static  void no_dev_dbg(void *v, char *s, ...)
 {
 }
 #define dev_dbg no_dev_dbg
-/*#define dev_dbg dev_err*/
+/* #define dev_dbg dev_err */
 
 /**
  * heci_hbm_me_cl_allocate - allocates storage for me clients
@@ -266,7 +265,6 @@ static int heci_hbm_prop_req(struct heci_device *dev)
 				++dev->me_client_presentation_num)
 			/* Add new client device */
 			heci_bus_new_client(dev);
-
 		return 0;
 	}
 
@@ -380,7 +378,6 @@ int heci_hbm_cl_flow_control_req(struct heci_device *dev, struct heci_cl *cl)
 				cl->max_fc_delay_usec = us;
 			}
 		}
-
 	} else {
 		++cl->err_send_fc;
 	}
@@ -432,7 +429,7 @@ static void heci_hbm_cl_disconnect_res(struct heci_device *dev,
 			rs->host_addr,
 			rs->status);
 
-	spin_lock_irqsave(&dev->device_lock, flags);
+	spin_lock_irqsave(&dev->cl_list_lock, flags);
 	list_for_each_entry_safe(cl, next, &dev->cl_list, link) {
 		if (!rs->status && heci_hbm_cl_addr_equal(cl, rs)) {
 			cl->state = HECI_CL_DISCONNECTED;
@@ -441,7 +438,7 @@ static void heci_hbm_cl_disconnect_res(struct heci_device *dev,
 	}
 	if (cl)
 		wake_up(&cl->wait_ctrl_res);
-	spin_unlock_irqrestore(&dev->device_lock, flags);
+	spin_unlock_irqrestore(&dev->cl_list_lock, flags);
 }
 
 /**
@@ -487,7 +484,7 @@ static void heci_hbm_cl_connect_res(struct heci_device *dev,
 			rs->host_addr,
 			rs->status);
 
-	spin_lock_irqsave(&dev->device_lock, flags);
+	spin_lock_irqsave(&dev->cl_list_lock, flags);
 	list_for_each_entry_safe(cl, next, &dev->cl_list, link) {
 		if (heci_hbm_cl_addr_equal(cl, rs)) {
 			if (!rs->status) {
@@ -502,7 +499,7 @@ static void heci_hbm_cl_connect_res(struct heci_device *dev,
 	}
 	if (cl)
 		wake_up(&cl->wait_ctrl_res);
-	spin_unlock_irqrestore(&dev->device_lock, flags);
+	spin_unlock_irqrestore(&dev->cl_list_lock, flags);
 }
 
 
@@ -522,7 +519,7 @@ static void heci_hbm_fw_disconnect_req(struct heci_device *dev,
 	struct heci_msg_hdr hdr;
 	unsigned char data[4];	/* All HBM messages are 4 bytes */
 
-	spin_lock_irqsave(&dev->device_lock, flags);
+	spin_lock_irqsave(&dev->cl_list_lock, flags);
 	list_for_each_entry_safe(cl, next, &dev->cl_list, link) {
 		if (heci_hbm_cl_addr_equal(cl, disconnect_req)) {
 			cl->state = HECI_CL_DISCONNECTED;
@@ -535,7 +532,7 @@ static void heci_hbm_fw_disconnect_req(struct heci_device *dev,
 			break;
 		}
 	}
-	spin_unlock_irqrestore(&dev->device_lock, flags);
+	spin_unlock_irqrestore(&dev->cl_list_lock, flags);
 }
 
 
@@ -630,7 +627,8 @@ void heci_hbm_dispatch(struct heci_device *dev, struct heci_bus_message *hdr)
 		}
 
 		if (me_client->client_id != props_res->address) {
-			dev_err(&dev->pdev->dev, "reset: host properties response address mismatch [%02X %02X]\n",
+			dev_err(&dev->pdev->dev,
+"reset: host properties response address mismatch [%02X %02X]\n",
 				me_client->client_id, props_res->address);
 			heci_reset(dev, 1);
 			return;
@@ -638,30 +636,15 @@ void heci_hbm_dispatch(struct heci_device *dev, struct heci_bus_message *hdr)
 
 		if (dev->dev_state != HECI_DEV_INIT_CLIENTS ||
 		    dev->hbm_state != HECI_HBM_CLIENT_PROPERTIES) {
-			dev_err(&dev->pdev->dev, "reset: unexpected properties response\n");
+			dev_err(&dev->pdev->dev,
+				"reset: unexpected properties response\n");
 			heci_reset(dev, 1);
-
 			return;
 		}
 
 		me_client->props = props_res->client_properties;
 		dev->me_client_index++;
 		dev->me_client_presentation_num++;
-
-#if 0
-		/* DEBUG -- dump received client's GUID */
-		do {
-			int	i;
-
-			ISH_DBG_PRINT(
-				KERN_ALERT "%s(): idx=%d protocol_name = ",
-				__func__, dev->me_client_presentation_num - 1);
-			for (i = 0; i <  16; ++i)
-				ISH_DBG_PRINT(KERN_ALERT "%02X ",
-					(unsigned)me_client->props.protocol_name.b[i]);
-			ISH_DBG_PRINT(KERN_ALERT "\n");
-		} while (0);
-#endif
 
 #if 0
 		/* Add new client device */
@@ -680,6 +663,7 @@ void heci_hbm_dispatch(struct heci_device *dev, struct heci_bus_message *hdr)
 		    dev->hbm_state == HECI_HBM_ENUM_CLIENTS) {
 				dev->me_client_presentation_num = 0;
 				dev->me_client_index = 0;
+
 				heci_hbm_me_cl_allocate(dev);
 				dev->hbm_state = HECI_HBM_CLIENT_PROPERTIES;
 
@@ -742,7 +726,7 @@ void	recv_hbm(struct heci_device *dev, struct heci_msg_hdr *heci_hdr)
 	uint8_t	rd_msg_buf[HECI_RD_MSG_BUF_SIZE];
 	struct heci_bus_message	*heci_msg =
 		(struct heci_bus_message *)rd_msg_buf;
-	unsigned long	flags, tx_flags;
+	unsigned long	flags;
 
 	dev->ops->read(dev, rd_msg_buf, heci_hdr->length);
 
@@ -752,13 +736,13 @@ void	recv_hbm(struct heci_device *dev, struct heci_msg_hdr *heci_hdr)
 			(struct hbm_flow_control *)heci_msg;
 		struct heci_cl *cl = NULL;
 		struct heci_cl *next = NULL;
-		unsigned long	flags;
+		unsigned long	flags, tx_flags;
 
 		ISH_DBG_PRINT(KERN_ALERT
 			"%s(): HECI_FLOW_CONTROL_CMD, checking to whom (host_addr=%d me_addr=%d\n",
 			__func__, flow_control->host_addr,
 			flow_control->me_addr);
-		spin_lock_irqsave(&dev->device_lock, flags);
+		spin_lock_irqsave(&dev->cl_list_lock, flags);
 		list_for_each_entry_safe(cl, next, &dev->cl_list, link) {
 			if (cl->host_client_id == flow_control->host_addr &&
 					cl->me_client_id ==
@@ -774,7 +758,7 @@ void	recv_hbm(struct heci_device *dev, struct heci_msg_hdr *heci_hdr)
 						"recv extra FC from FW client %u (host client %u) (FC count was %u)\n",
 						(unsigned)cl->me_client_id,
 						(unsigned)cl->host_client_id,
-						(unsigned)cl->heci_flow_ctrl_creds);
+					(unsigned)cl->heci_flow_ctrl_creds);
 				else {
 					if (cl->host_client_id == 3 &&
 							cl->me_client_id == 5) {
@@ -804,7 +788,7 @@ void	recv_hbm(struct heci_device *dev, struct heci_msg_hdr *heci_hdr)
 				/*##########################################*/
 			}
 		}
-		spin_unlock_irqrestore(&dev->device_lock, flags);
+		spin_unlock_irqrestore(&dev->cl_list_lock, flags);
 		goto	eoi;
 	}
 
@@ -846,8 +830,6 @@ eoi:
 }
 EXPORT_SYMBOL(recv_hbm);
 
-/* Suspend and resume notification*/
-
 /*
  *      Receive and process HECI fixed client messages
  *
@@ -884,6 +866,8 @@ static inline void fix_cl_hdr(struct heci_msg_hdr *hdr, size_t length,
 	hdr->msg_complete = 1;
 	hdr->reserved = 0;
 }
+
+/* Suspend and resume notification*/
 
 /*Global var for suspend & resume*/
 u32 current_state = 0;

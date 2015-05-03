@@ -32,7 +32,7 @@ static void no_dev_dbg(void *v, char *s, ...)
 {
 }
 #define dev_dbg no_dev_dbg
-/*#define dev_dbg dev_err*/
+/* #define dev_dbg dev_err */
 
 int	host_dma_enabled;
 void	*host_dma_buf;
@@ -67,22 +67,25 @@ void	heci_cl_alloc_dma_buf(void)
 
 
 /**
- * heci_io_list_flush - removes list entry belonging to cl.
+ * heci_read_list_flush - removes list entry belonging to cl.
  *
  * @list:  An instance of our list structure
  * @cl: host client
  */
-void heci_io_list_flush(struct heci_cl_rb *list, struct heci_cl *cl)
+void heci_read_list_flush(struct heci_cl *cl)
 {
 	struct heci_cl_rb *rb;
 	struct heci_cl_rb *next;
 
-	list_for_each_entry_safe(rb, next, &list->list, list) {
+	unsigned long	flags;
+	spin_lock_irqsave(&cl->dev->read_list_spinlock, flags);
+	list_for_each_entry_safe(rb, next, &cl->dev->read_list.list, list) {
 		if (rb->cl && heci_cl_cmp_id(cl, rb->cl)) {
 			list_del(&rb->list);
 			heci_io_rb_free(rb);
 		}
 	}
+	spin_unlock_irqrestore(&cl->dev->read_list_spinlock, flags);
 }
 
 /**
@@ -193,7 +196,7 @@ int heci_cl_flush_queues(struct heci_cl *cl)
 		return -EINVAL;
 
 	dev_dbg(&cl->dev->pdev->dev, "remove list entry belonging to cl\n");
-	heci_io_list_flush(&cl->dev->read_list, cl);
+	heci_read_list_flush(cl);
 
 	return 0;
 }
@@ -232,8 +235,10 @@ void heci_cl_init(struct heci_cl *cl, struct heci_device *dev)
 int	heci_cl_free_rx_ring(struct heci_cl *cl)
 {
 	struct heci_cl_rb *rb;
+	unsigned long	flags;
 
 	/* relese allocated mem- pass over free_rb_list */
+	spin_lock_irqsave(&cl->free_list_spinlock, flags);
 	while (!list_empty(&cl->free_rb_list.list)) {
 		rb = list_entry(cl->free_rb_list.list.next, struct heci_cl_rb,
 			list);
@@ -241,8 +246,9 @@ int	heci_cl_free_rx_ring(struct heci_cl *cl)
 		kfree(rb->buffer.data);
 		kfree(rb);
 	}
-
+	spin_unlock_irqrestore(&cl->free_list_spinlock, flags);
 	/* relese allocated mem- pass over in_process_list */
+	spin_lock_irqsave(&cl->in_process_spinlock, flags);
 	while (!list_empty(&cl->in_process_list.list)) {
 		rb = list_entry(cl->in_process_list.list.next,
 			struct heci_cl_rb, list);
@@ -250,14 +256,16 @@ int	heci_cl_free_rx_ring(struct heci_cl *cl)
 		kfree(rb->buffer.data);
 		kfree(rb);
 	}
-
+	spin_unlock_irqrestore(&cl->in_process_spinlock, flags);
 	return	0;
 }
 
 int	heci_cl_free_tx_ring(struct heci_cl *cl)
 {
 	struct heci_cl_tx_ring  *tx_buf;
+	unsigned long	flags;
 
+	spin_lock_irqsave(&cl->tx_free_list_spinlock, flags);
 	/* relese allocated mem- pass over tx_free_list */
 	while (!list_empty(&cl->tx_free_list.list)) {
 		tx_buf = list_entry(cl->tx_free_list.list.next,
@@ -266,7 +274,9 @@ int	heci_cl_free_tx_ring(struct heci_cl *cl)
 		kfree(tx_buf->send_buf.data);
 		kfree(tx_buf);
 	}
+	spin_unlock_irqrestore(&cl->tx_free_list_spinlock, flags);
 
+	spin_lock_irqsave(&cl->tx_list_spinlock, flags);
 	/* relese allocated mem- pass over tx_list */
 	while (!list_empty(&cl->tx_list.list)) {
 		tx_buf = list_entry(cl->tx_list.list.next,
@@ -275,6 +285,7 @@ int	heci_cl_free_tx_ring(struct heci_cl *cl)
 		kfree(tx_buf->send_buf.data);
 		kfree(tx_buf);
 	}
+	spin_unlock_irqrestore(&cl->tx_list_spinlock, flags);
 
 	return	0;
 }
@@ -286,6 +297,7 @@ int	heci_cl_alloc_rx_ring(struct heci_cl *cl)
 	struct heci_cl_rb *rb;
 	int	ret = 0;
 	struct heci_device *dev = cl->dev;
+	unsigned long	flags;
 
 	for (j = 0; j < cl->rx_ring_size; ++j) {
 		rb = heci_io_rb_init(cl);
@@ -296,7 +308,9 @@ int	heci_cl_alloc_rx_ring(struct heci_cl *cl)
 		ret = heci_io_rb_alloc_buf(rb, len);
 		if (ret)
 			goto out;
+		spin_lock_irqsave(&cl->free_list_spinlock, flags);
 		list_add_tail(&rb->list, &cl->free_rb_list.list);
+		spin_unlock_irqrestore(&cl->free_list_spinlock, flags);
 	}
 
 	ISH_DBG_PRINT(KERN_ALERT "%s() allocated rb pool successfully\n",
@@ -316,6 +330,7 @@ int	heci_cl_alloc_tx_ring(struct heci_cl *cl)
 	size_t	len = cl->device->fw_client->props.max_msg_length;
 	int	j;
 	struct heci_device *dev = cl->dev;
+	unsigned long	flags;
 
 	/*cl->send_fc_flag = 0;*/
 	ISH_DBG_PRINT(KERN_ALERT "%s() allocated rb pool successfully\n",
@@ -339,7 +354,9 @@ int	heci_cl_alloc_tx_ring(struct heci_cl *cl)
 			kfree(tx_buf);
 			goto	out;
 		}
+		spin_lock_irqsave(&cl->tx_free_list_spinlock, flags);
 		list_add_tail(&tx_buf->list, &cl->tx_free_list.list);
+		spin_unlock_irqrestore(&cl->tx_free_list_spinlock, flags);
 	}
 	ISH_DBG_PRINT(KERN_ALERT "%s() allocated Tx  pool successfully\n",
 		__func__);
@@ -421,7 +438,7 @@ EXPORT_SYMBOL(heci_cl_find_read_rb);
 int heci_cl_link(struct heci_cl *cl, int id)
 {
 	struct heci_device *dev;
-	unsigned long	flags;
+	unsigned long	flags, flags_cl;
 
 	if (WARN_ON(!cl || !cl->dev))
 		return -EINVAL;
@@ -448,7 +465,14 @@ int heci_cl_link(struct heci_cl *cl, int id)
 
 	dev->open_handle_count++;
 	cl->host_client_id = id;
+	spin_lock_irqsave(&dev->cl_list_lock, flags_cl);
+	if (dev->dev_state != HECI_DEV_ENABLED) {
+		spin_unlock_irqrestore(&dev->cl_list_lock, flags_cl);
+		spin_unlock_irqrestore(&dev->device_lock, flags);
+		return -ENODEV;
+	}
 	list_add_tail(&cl->link, &dev->cl_list);
+	spin_unlock_irqrestore(&dev->cl_list_lock, flags_cl);
 	set_bit(id, dev->host_clients_map);
 	cl->state = HECI_CL_INITIALIZING;
 	spin_unlock_irqrestore(&dev->device_lock, flags);
@@ -477,23 +501,24 @@ int heci_cl_unlink(struct heci_cl *cl)
 	dev = cl->dev;
 
 	spin_lock_irqsave(&dev->device_lock, flags);
-
 	if (dev->open_handle_count > 0) {
 		clear_bit(cl->host_client_id, dev->host_clients_map);
 		dev->open_handle_count--;
 	}
+	spin_unlock_irqrestore(&dev->device_lock, flags);
 
 	/*
 	 * This checks that 'cl' is actually linked into device's structure,
 	 * before attempting 'list_del'
 	 */
+	spin_lock_irqsave(&dev->cl_list_lock, flags);
 	list_for_each_entry_safe(pos, next, &dev->cl_list, link) {
 		if (cl->host_client_id == pos->host_client_id) {
 			list_del_init(&pos->link);
 			break;
 		}
 	}
-	spin_unlock_irqrestore(&dev->device_lock, flags);
+	spin_unlock_irqrestore(&dev->cl_list_lock, flags);
 
 	return 0;
 }
@@ -536,7 +561,7 @@ int heci_cl_disconnect(struct heci_cl *cl)
 	}
 
 	err = wait_event_timeout(cl->wait_ctrl_res,
-			(dev->dev_state == HECI_DEV_ENABLED &&
+			(dev->dev_state != HECI_DEV_ENABLED ||
 			HECI_CL_DISCONNECTED == cl->state),
 			heci_secs_to_jiffies(HECI_CL_CONNECT_TIMEOUT));
 
@@ -594,16 +619,16 @@ bool heci_cl_is_other_connecting(struct heci_cl *cl)
 
 	dev = cl->dev;
 
-	spin_lock_irqsave(&dev->device_lock, flags);
+	spin_lock_irqsave(&dev->cl_list_lock, flags);
 	list_for_each_entry_safe(pos, next, &dev->cl_list, link) {
 		if ((pos->state == HECI_CL_CONNECTING) && (pos != cl) &&
 				cl->me_client_id == pos->me_client_id) {
-			spin_unlock_irqrestore(&dev->device_lock, flags);
+			spin_unlock_irqrestore(&dev->cl_list_lock, flags);
 			return true;
 		}
 
 	}
-	spin_unlock_irqrestore(&dev->device_lock, flags);
+	spin_unlock_irqrestore(&dev->cl_list_lock, flags);
 
 	return false;
 }
@@ -807,7 +832,7 @@ int heci_cl_send(struct heci_cl *cl, u8 *buf, size_t length)
 	int id;
 	struct heci_cl_tx_ring  *cl_msg;
 	int	have_msg_to_send = 0;
-	unsigned long	tx_flags, tx_free_flags;
+	unsigned long	me_flags, tx_flags, tx_free_flags;
 
 	ISH_DBG_PRINT(KERN_ALERT "%s(): +++\n", __func__);
 	if (WARN_ON(!cl || !cl->dev))
@@ -819,6 +844,7 @@ int heci_cl_send(struct heci_cl *cl, u8 *buf, size_t length)
 		++cl->err_send_msg;
 		return -EPIPE;
 	}
+
 	if (dev->dev_state != HECI_DEV_ENABLED) {
 		++cl->err_send_msg;
 		return -ENODEV;
@@ -831,6 +857,7 @@ int heci_cl_send(struct heci_cl *cl, u8 *buf, size_t length)
 		return -ENOENT;
 	}
 
+	spin_lock_irqsave(&dev->me_clients_lock, me_flags);
 	if (length > dev->me_clients[id].props.max_msg_length) {
 		/* If the client supports DMA, try to use it */
 		if (host_dma_enabled && dev->me_clients[id].props.dma_hdr_len &
@@ -838,9 +865,9 @@ int heci_cl_send(struct heci_cl *cl, u8 *buf, size_t length)
 			struct heci_msg_hdr	hdr;
 			struct hbm_client_dma_request	heci_dma_request_msg;
 			unsigned len = sizeof(struct hbm_client_dma_request);
-			int preview_len =
-				dev->me_clients[id].props.dma_hdr_len &	0x7F;
-
+			int	preview_len =
+				dev->me_clients[id].props.dma_hdr_len & 0x7F;
+			spin_unlock_irqrestore(&dev->me_clients_lock, me_flags);
 			/* DMA max msg size is 1M */
 			if (length > host_dma_buf_size) {
 				++cl->err_send_msg;
@@ -880,9 +907,12 @@ int heci_cl_send(struct heci_cl *cl, u8 *buf, size_t length)
 				(uint8_t *)&heci_dma_request_msg);
 			return 0;
 		} else {
+			spin_unlock_irqrestore(&dev->me_clients_lock, me_flags);
 			++cl->err_send_msg;
 			return -EINVAL;		/* -EMSGSIZE? */
 		}
+	} else {
+		spin_unlock_irqrestore(&dev->me_clients_lock, me_flags);
 	}
 
 	/* No free bufs */
@@ -913,7 +943,7 @@ int heci_cl_send(struct heci_cl *cl, u8 *buf, size_t length)
 	list_add_tail(&cl_msg->list, &cl->tx_list.list);
 	spin_unlock_irqrestore(&cl->tx_list_spinlock, tx_flags);
 
-	if (!have_msg_to_send &&  cl->heci_flow_ctrl_creds > 0)
+	if (!have_msg_to_send && cl->heci_flow_ctrl_creds > 0)
 		heci_cl_send_msg(dev, cl);
 
 	return	0;
@@ -963,13 +993,13 @@ void heci_cl_all_disconnect(struct heci_device *dev)
 	struct heci_cl *cl, *next;
 	unsigned long	flags;
 
-	spin_lock_irqsave(&dev->device_lock, flags);
+	spin_lock_irqsave(&dev->cl_list_lock, flags);
 	list_for_each_entry_safe(cl, next, &dev->cl_list, link) {
 		cl->state = HECI_CL_DISCONNECTED;
 		cl->heci_flow_ctrl_creds = 0;
 		cl->read_rb = NULL;
 	}
-	spin_unlock_irqrestore(&dev->device_lock, flags);
+	spin_unlock_irqrestore(&dev->cl_list_lock, flags);
 }
 
 
@@ -983,14 +1013,14 @@ void heci_cl_all_read_wakeup(struct heci_device *dev)
 	struct heci_cl *cl, *next;
 	unsigned long	flags;
 
-	spin_lock_irqsave(&dev->device_lock, flags);
+	spin_lock_irqsave(&dev->cl_list_lock, flags);
 	list_for_each_entry_safe(cl, next, &dev->cl_list, link) {
 		if (waitqueue_active(&cl->rx_wait)) {
 			dev_dbg(&dev->pdev->dev, "Waking up client!\n");
 			wake_up_interruptible(&cl->rx_wait);
 		}
 	}
-	spin_unlock_irqrestore(&dev->device_lock, flags);
+	spin_unlock_irqrestore(&dev->cl_list_lock, flags);
 }
 
 /*##################################*/
@@ -1051,7 +1081,7 @@ static void	ipc_tx_callback(void *prm)
 		spin_unlock_irqrestore(&cl->tx_free_list_spinlock,
 			tx_free_flags);
 	} else {
-		/* FIXME Send IPC fragment */
+		/* FIXME: Send IPC fragment */
 		spin_unlock_irqrestore(&cl->tx_list_spinlock, tx_flags);
 		cl->tx_offs += dev->mtu;
 		heci_hdr.length = dev->mtu;

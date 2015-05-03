@@ -211,7 +211,7 @@ int	heci_hid_probe(unsigned cur_hid_dev)
 	rv = hid_add_device(hid);
 	if (rv) {
 		if (rv != -ENODEV)
-			printk(KERN_ERR "[hid-heci]: can't add HID device: %d\n",
+			hid_err(hid, "[hid-heci]: can't add HID device: %d\n",
 				rv);
 		kfree(hid);
 		return	rv;

@@ -92,7 +92,7 @@ void heci_device_init(struct heci_device *dev)
 				 * IPC buffers may be limited or not available
 				 * at all - although this shouldn't happen
 				 */
-				printk(KERN_ERR "[heci-ish]: failure in Tx FIFO allocations (%d)\n",
+				dev_err(&dev->pdev->dev, "[heci-ish]: failure in Tx FIFO allocations (%d)\n",
 					i);
 				break;
 			}
@@ -141,7 +141,7 @@ int heci_start(struct heci_device *dev)
 #endif
 	/* DEBUGDEBUGDEBUG: Below code until 'reset_done:' is defunct */
 #else
-#endif /*FORCE_FW_INIT_RESET*/
+#endif
 	/* acknowledge interrupt and stop interupts */
 	dev_dbg(&dev->pdev->dev, "reset in start the heci device.\n");
 	heci_reset(dev, 1);
@@ -213,8 +213,6 @@ void heci_reset(struct heci_device *dev, int interrupts_enabled)
 
 		heci_cl_all_disconnect(dev);
 	}
-
-	dev->me_clients_num = 0;
 
 	if (unexpected)
 		dev_warn(&dev->pdev->dev, "unexpected reset: dev_state = %s\n",

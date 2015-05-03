@@ -78,8 +78,9 @@ void	process_recv(void *recv_buf, size_t data_len)
 		(unsigned)data_len);
 
 	if (data_len < sizeof(struct hostif_msg_hdr)) {
-		printk(KERN_ERR "[hid-ish]: error, received %u which is less than data header %u\n",
-			(unsigned)data_len,
+		dev_err(NULL, "[hid-ish]: error, received %u which is ",
+			(unsigned)data_len);
+		dev_err(NULL, " less than data header %u\n",
 			(unsigned)sizeof(struct hostif_msg_hdr));
 		return;
 	}
@@ -102,9 +103,6 @@ void	process_recv(void *recv_buf, size_t data_len)
 			ISH_DBG_PRINT(KERN_ALERT
 				"[hid-ish]: %s(): received HOSTIF_DM_ENUM_DEVICES\n",
 				__func__);
-			g_ish_print_log(
-				"%s() received HOSTIF_DM_ENUM_DEVICES\n"
-				, __func__);
 			hid_dev_count = (unsigned)*payload;
 			ISH_DBG_PRINT(KERN_ALERT
 				"[hid-ish]: %s(): hid_dev_count=%d\n",
@@ -117,10 +115,16 @@ void	process_recv(void *recv_buf, size_t data_len)
 
 			for (i = 0; i < hid_dev_count; ++i) {
 				if (1 + sizeof(struct device_info) * i >=
-						payload_len)
-					printk(KERN_ERR "[hid-ish]: [HOSTIF_DM_ENUM_DEVICES]: content size %u is bigger than payload_len %u\n",
-						1 + (unsigned)(sizeof(struct device_info) * i),
+						payload_len) {
+					dev_err(NULL,
+						"[hid-ish]: [ENUM_DEVICES]:");
+					dev_err(NULL, " content size %lu ", 1 +
+						sizeof(struct device_info) *
+						i);
+					dev_err(NULL, "is bigger than ");
+					dev_err(NULL, "payload_len %u\n",
 						(unsigned)payload_len);
+				}
 
 				if (1 + sizeof(struct device_info) * i >=
 						data_len)
@@ -148,9 +152,6 @@ void	process_recv(void *recv_buf, size_t data_len)
 			ISH_DBG_PRINT(KERN_ALERT
 				"[hid-ish]: %s(): received HOSTIF_GET_HID_DESCRIPTOR\n",
 				__func__);
-			g_ish_print_log(
-				"%s() received HOSTIF_GET_HID_DESCRIPTOR\n"
-				, __func__);
 			ISH_DBG_PRINT(KERN_ALERT
 				"[hid-ish]: %s(): dump HID descriptor\n",
 				__func__);
@@ -174,9 +175,6 @@ void	process_recv(void *recv_buf, size_t data_len)
 			ISH_DBG_PRINT(KERN_ALERT
 				"[hid-ish]: %s(): received HOSTIF_GET_REPORT_DESCRIPTOR\n",
 				__func__);
-			g_ish_print_log(
-				"%s() received HOSTIF_GET_REPORT_DESCRIPTOR\n"
-				, __func__);
 			ISH_DBG_PRINT(KERN_ALERT
 				"[hid-ish]: %s(): Length of report descriptor is %u\n",
 				__func__, (unsigned)payload_len);
@@ -198,9 +196,6 @@ void	process_recv(void *recv_buf, size_t data_len)
 			ISH_DBG_PRINT(KERN_ALERT
 				"[hid-ish]: %s(): received HOSTIF_GET_FEATURE_REPORT\n",
 				__func__);
-			g_ish_print_log(
-				"%s() received HOSTIF_GET_FEATURE_REPORT\n",
-				__func__);
 			ISH_DBG_PRINT(KERN_ALERT
 				"[hid-ish]: %s(): dump Get Feature Result\n",
 				__func__);
@@ -212,9 +207,6 @@ void	process_recv(void *recv_buf, size_t data_len)
 			ISH_DBG_PRINT(KERN_ALERT
 				"[hid-ish]: %s(): received HOSTIF_GET_INPUT_REPORT\n",
 				__func__);
-			g_ish_print_log(
-				"%s() received HOSTIF_GET_INPUT_REPORT\n"
-				, __func__);
 			ISH_DBG_PRINT(KERN_ALERT
 				"[hid-ish]: %s(): dump Get Input Result\n",
 				__func__);
@@ -247,9 +239,6 @@ do_get_report:
 			ISH_DBG_PRINT(KERN_ALERT
 				"[hid-ish]: %s(): HOSTIF_SET_FEATURE_REPORT returned status=%02X\n",
 				__func__, recv_msg->hdr.status);
-			g_ish_print_log(
-				"%s() HOSTIF_SET_FEATURE_REPORT returned status=%02X\n"
-				, __func__, recv_msg->hdr.status);
 			ISH_DBG_PRINT(KERN_ALERT
 				"%s(): received feature report, upstreaming\n",
 				__func__);
@@ -260,9 +249,6 @@ do_get_report:
 
 		case HOSTIF_PUBLISH_INPUT_REPORT:
 			report_type = HID_INPUT_REPORT;
-			g_ish_print_log(
-				"%s() received ASYNC DATA REPORT\n"
-				, __func__, (unsigned)payload_len);
 			do {
 				ISH_DBG_PRINT(KERN_ALERT
 					"[hid-ish]: %s(): received ASYNC DATA REPORT [payload_len=%u]. Dump data:\n",
@@ -434,6 +420,7 @@ void hid_heci_get_report(struct hid_device *hid, int report_id, int report_type)
 		"[hid-ish]: %s(): heci_cl_send() returned %d\n", __func__, rv);
 }
 
+struct work_struct my_work;
 
 int	hid_heci_cl_probe(struct heci_cl_device *cl_device,
 	const struct heci_cl_device_id *id)
@@ -467,6 +454,12 @@ int	hid_heci_cl_probe(struct heci_cl_device *cl_device,
 	if (waitqueue_active(&init_wait))
 		wake_up(&init_wait);
 
+	schedule_work(&my_work);
+
+	ISH_DBG_PRINT(KERN_ALERT
+		"[ish client driver] %s() enqueue init_work function\n",
+		__func__);
+
 	ISH_DBG_PRINT(KERN_ALERT "%s(): ---\n", __func__);
 	return	0;
 
@@ -479,10 +472,20 @@ int	hid_heci_cl_probe(struct heci_cl_device *cl_device,
 
 int     hid_heci_cl_remove(struct heci_cl_device *dev)
 {
+	int i;
+
 	ISH_DBG_PRINT(KERN_ALERT "%s(): +++\n", __func__);
 	heci_hid_remove();
 	hid_heci_client_found = 0;
 	hid_heci_cl = NULL;
+
+	for (i = 0; i < num_hid_devices ; ++i) {
+		/* kfree(NULL) is safe */
+		kfree(hid_descr[i]);
+		/* kfree(NULL) is safe */
+		kfree(report_descr[i]);
+	}
+	num_hid_devices = 0;
 	ISH_DBG_PRINT(KERN_ALERT "%s(): ---\n", __func__);
 	return  0;
 }
@@ -497,7 +500,7 @@ struct heci_cl_driver	hid_heci_cl_driver = {
 
 /****************************************************************/
 
-struct work_struct my_work;
+
 
 
 void workqueue_init_function(struct work_struct *work)
@@ -571,11 +574,11 @@ void workqueue_init_function(struct work_struct *work)
 	rv = 0;
 
 	retry_count = 0;
-	printk(KERN_ALERT "[hid-ish]: going to send HOSTIF_DM_ENUM_DEVICES\n");
 	while (!enum_devices_done && retry_count < 10) {
 		wait_event_timeout(init_wait, enum_devices_done, 3 * HZ);
 		++retry_count;
-		printk(KERN_ALERT "[hid-ish]: enum_devices_done = %d, retry_count = %d\n",
+		dev_err(&hid_heci_cl->device->dev,
+			"[hid-ish]: enum_devices_done = %d, retry_count = %d\n",
 			enum_devices_done, retry_count);
 		if (!enum_devices_done) {
 			/* Send HOSTIF_DM_ENUM_DEVICES */
@@ -585,16 +588,19 @@ void workqueue_init_function(struct work_struct *work)
 			rv = heci_cl_send(hid_heci_cl, buf, len);
 		}
 	}
-	printk(KERN_ALERT "[hid-ish]: enum_devices_done = %d, retry_count = %d\n",
+	dev_err(&hid_heci_cl->device->dev,
+		"[hid-ish]: enum_devices_done = %d, retry_count = %d\n",
 		enum_devices_done, retry_count);
 
 	if (!enum_devices_done) {
-		printk(KERN_ERR "[ish client driver]: timed out waiting for enum_devices_done\n");
+		dev_err(&hid_heci_cl->device->dev,
+			"[hid-ish]: timed out waiting for enum_devices_done\n");
 		rv = -ETIMEDOUT;
 		goto	ret;
 	}
 	if (!hid_devices) {
-		printk(KERN_ERR "[ish client driver]: failed to allocate sensors devices structures\n");
+		dev_err(&hid_heci_cl->device->dev,
+			"[hid-ish]: failed to allocate HID dev structures\n");
 		rv = -ENOMEM;
 		goto	ret;
 	}
@@ -608,7 +614,8 @@ void workqueue_init_function(struct work_struct *work)
 	 */
 
 	num_hid_devices = hid_dev_count;
-	printk(KERN_ALERT "[hid-ish]: enum_devices_done OK, num_hid_devices=%d\n",
+	dev_err(&hid_heci_cl->device->dev,
+		"[hid-ish]: enum_devices_done OK, num_hid_devices=%d\n",
 		num_hid_devices);
 
 
@@ -668,18 +675,21 @@ void workqueue_init_function(struct work_struct *work)
 				30 * HZ);
 #endif
 		if (!report_descr_done) {
-			printk(KERN_ERR "[hid-ish]: timed out waiting for report_descr_done\n");
+			dev_err(&hid_heci_cl->device->dev,
+				"[hid-ish]: timed out wait for report descr\n");
 			continue;
 		}
 
 		if (!report_descr[i]) {
-			printk(KERN_ERR "[hid-ish]: failed to allocate report descriptor buffer\n");
+			dev_err(&hid_heci_cl->device->dev,
+				"[hid-ish]: failed to alloc report descr\n");
 			continue;
 		}
 
 		rv = heci_hid_probe(i);
 		if (rv) {
-			printk(KERN_ERR "[hid-ish]: HECI-HID probe for device #%u failed: %d\n",
+			dev_err(&hid_heci_cl->device->dev,
+				"[hid-ish]: HID probe for #%u failed: %d\n",
 				i, rv);
 			continue;
 		}
@@ -700,13 +710,15 @@ ret:
 static int __init ish_init(void)
 {
 	int	rv;
-	struct workqueue_struct *workqueue_for_init;
 
-	ISH_INFO_PRINT(KERN_ERR "[hid-ish]: %s():+++ [Build" BUILD_ID "]\n",
+	ISH_INFO_PRINT(KERN_ERR "[hid-ish]: %s():+++ [Build " BUILD_ID "]\n",
 		__func__);
+	g_ish_print_log(
+		"[hid-ish]: %s():+++ [Build " BUILD_ID "]\n",
+		__func__);
+
 	init_waitqueue_head(&init_wait);
 	init_waitqueue_head(&heci_hid_wait);
-
 	/* Register HECI client device driver - ISS */
 	rv = heci_cl_driver_register(&hid_heci_cl_driver);
 
@@ -715,18 +727,9 @@ static int __init ish_init(void)
 	 * needs to run in work queue and here we should return rv
 	 */
 	/****************************************************************/
-	workqueue_for_init = create_workqueue("workqueue_for_init");
-	if (!workqueue_for_init)
-		return -ENOMEM;
 	INIT_WORK(&my_work, workqueue_init_function);
-	queue_work(workqueue_for_init, &my_work);
-
-	ISH_DBG_PRINT(KERN_ALERT
-		"[ish client driver] %s() enqueue init_work function\n",
-		__func__);
-
+	/***************************************************************/
 	return rv;
-	/****************************************************************/
 
 }
 
