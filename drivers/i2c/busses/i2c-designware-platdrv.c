@@ -463,8 +463,12 @@ static int dw_i2c_resume(struct device *dev)
 }
 #endif
 
-static UNIVERSAL_DEV_PM_OPS(dw_i2c_dev_pm_ops, dw_i2c_suspend,
-			    dw_i2c_resume, NULL);
+static const struct dev_pm_ops dw_i2c_dev_pm_ops = {
+	.suspend_late = dw_i2c_suspend,
+	.resume_early = dw_i2c_resume,
+	.runtime_suspend = dw_i2c_suspend,
+	.runtime_resume = dw_i2c_resume,
+};
 
 /* work with hotplug and coldplug */
 MODULE_ALIAS("platform:i2c_designware");
