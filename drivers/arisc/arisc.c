@@ -44,20 +44,7 @@ static u32 datatype = 0;
 /* for save power check configuration */
 struct standby_info_para arisc_powchk_back;
 
-noinline int invoke_scp_fn_smc(u64 function_id, u64 arg0, u64 arg1,
-					 u64 arg2)
-{
-	asm volatile(
-			__asmeq("%0", "x0")
-			__asmeq("%1", "x1")
-			__asmeq("%2", "x2")
-			__asmeq("%3", "x3")
-			"smc	#0\n"
-		: "+r" (function_id)
-		: "r" (arg0), "r" (arg1), "r" (arg2));
-
-	return function_id;
-}
+asmlinkage int invoke_scp_fn_smc(u64, u64, u64, u64);
 
 static ssize_t arisc_version_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
