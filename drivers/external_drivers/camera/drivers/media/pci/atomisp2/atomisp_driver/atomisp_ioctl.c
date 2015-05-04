@@ -2723,6 +2723,7 @@ static long atomisp_vidioc_default(struct file *file, void *fh,
 	case ATOMISP_IOC_S_SENSOR_AE_BRACKETING_MODE:
 	case ATOMISP_IOC_G_SENSOR_AE_BRACKETING_MODE:
 	case ATOMISP_IOC_S_SENSOR_AE_BRACKETING_LUT:
+	case ATOMISP_IOC_S_SENSOR_EE_CONFIG:
 		/* we do not need take isp->mutex for these IOCTLs */
 		break;
 	default:
