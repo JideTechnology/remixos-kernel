@@ -3375,6 +3375,26 @@ i915_gem_object_sync(struct drm_i915_gem_object *obj,
 	if (from == NULL || to == from)
 		return 0;
 
+	if (!to_batch) {
+		/*
+		 * The request is coming from a display path. For Android,
+		 * that means SurfaceFlinger. Our SF/HardwareComposer already
+		 * guarantees that all outstanding rendering has completed
+		 * for the frame being presented. It does not guarantee to
+		 * actually present that frame before any further rendering
+		 * has been queued. With native syncs, that can even include
+		 * rendering that writes to the object.
+		 *
+		 * The driver must therefore trust that SF knows what it is
+		 * doing and simply ignore the apparent synchronisation
+		 * requirement. Otherwise a deadlock can occur where the
+		 * display is waiting for rendering to complete to present
+		 * frame N but in reality the rendering is for frame N+1 and
+		 * is itself stalled waiting for frame N to finish displaying.
+		 */
+		return 0;
+	}
+
 	if (to == NULL)
 		goto wait;
 
