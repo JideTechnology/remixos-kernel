@@ -3395,6 +3395,9 @@ i915_gem_object_sync(struct drm_i915_gem_object *obj,
 		return 0;
 	}
 
+	if (i915_gem_request_completed(obj->last_read_req))
+		return 0;
+
 	if (to == NULL)
 		goto wait;
 
