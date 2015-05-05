@@ -45,6 +45,14 @@
 
 #define CRYSTALCOVE_PMIC_ID_ADDR 		0x6E00
 #define CRYSTALCOVE_PMIC 			0x1F
+/* Whiskey cove GPLED register is on DEV2 (0x4f) */
+#define WHYSKEYCOVE_PMIC_GPLED_EN_REG		0x4fdf /* GPLED control */
+#define WHYSKEYCOVE_PMIC_GPLED_EFFECT_REG	0x4fe0 /* GPLED effect */
+#define WHYSKEYCOVE_PMIC_GPLED_DUTY_C_REG	0x4fe1 /* GPLED duty cycle */
+#define WHYSKEYCOVE_PMIC_GPLED_EN_MASK		0x01
+#define WHYSKEYCOVE_PMIC_GPLED_EFFECT_MASK	(0x3 << 2)
+#define WHYSKEYCOVE_PMIC_GPLED_EFFECT_CONT	0x02   /* 0-off, 2-continous */
+
 /* for CHT CR SOC controlled vibra */
 #define PERIOD_NS   40000
 #define DUTY_NS_ON  20000     /* 50 % */
@@ -150,6 +158,22 @@ static int vibra_pmic_pwm_configure(struct vibra_info *info, bool enable)
 	return 0;
 }
 
+static int vibra_wpmic_pwm_configure(struct vibra_info *info, bool enable)
+{
+	u8 val;
+	val = intel_soc_pmic_readb(WHYSKEYCOVE_PMIC_GPLED_EN_REG);
+	if (enable) {
+		intel_soc_pmic_writeb(WHYSKEYCOVE_PMIC_GPLED_EN_REG,
+				      (val & ~WHYSKEYCOVE_PMIC_GPLED_EN_MASK));
+	} else {
+		intel_soc_pmic_writeb(WHYSKEYCOVE_PMIC_GPLED_EN_REG,
+				      (val | WHYSKEYCOVE_PMIC_GPLED_EN_MASK));
+	}
+	val = intel_soc_pmic_readb(WHYSKEYCOVE_PMIC_GPLED_EN_REG);
+	return 0;
+}
+
+
 #if IS_ENABLED(CONFIG_ACPI)
 
 int intel_mid_plat_vibra_probe(struct platform_device *pdev)
@@ -162,6 +186,7 @@ int intel_mid_plat_vibra_probe(struct platform_device *pdev)
 	struct mid_vibra_pdata *data;
 	struct gpio_desc *gpio_en;
 	int ret;
+	int val;
 	const char *board_name;
 	u8 pmic_id;
 
@@ -179,16 +204,20 @@ int intel_mid_plat_vibra_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 	board_name = dmi_get_system_info(DMI_BOARD_NAME);
-	if (strncmp(board_name, "Cherry Trail Tablet", DMI_STRING_MAX) == 0) {
-		pmic_id = intel_soc_pmic_readb(CRYSTALCOVE_PMIC_ID_ADDR);
-		if (pmic_id < 0)
-			pr_err("Error reading PMIC ID register\n");
-		else
-			pr_debug("PMIC-ID: %x\n", pmic_id);
+	pmic_id = intel_soc_pmic_readb(CRYSTALCOVE_PMIC_ID_ADDR);
+	if (pmic_id < 0)
+		pr_err("Error reading PMIC ID register\n");
+	else
+		pr_debug("PMIC-ID: %x\n", pmic_id);
 
-		if (pmic_id != CRYSTALCOVE_PMIC) {
+	/* Only CR uses GPIO solution.
+	   Correct value needed before vibra setup */
+	if (strncmp(board_name, "Cherry Trail CR", DMI_STRING_MAX))
+		data->use_gpio_en = false;
+
+	if (strncmp(board_name, "Cherry Trail Tablet", DMI_STRING_MAX) == 0) {
+		if (pmic_id != CRYSTALCOVE_PMIC)
 			vibra_pwm_configure(info, false);
-		}
 	}
 
 	if (data->use_gpio_en) {
@@ -205,7 +234,13 @@ int intel_mid_plat_vibra_probe(struct platform_device *pdev)
 	if (strcmp(board_name, "Cherry Trail CR") == 0) {
 		info->pwm_configure = vibra_gpio_configure;
 	} else {
-		info->pwm_configure = vibra_pmic_pwm_configure;
+		if ((pmic_id != CRYSTALCOVE_PMIC) &&
+				(strncmp(board_name, "Cherry Trail Tablet",
+						DMI_STRING_MAX) == 0))
+			info->pwm_configure = vibra_wpmic_pwm_configure;
+		else
+			info->pwm_configure = vibra_pmic_pwm_configure;
+
 		info->max_base_unit = CRYSTALCOVE_PMIC_VIBRA_MAX_BASEUNIT;
 		info->max_duty_cycle = INTEL_VIBRA_MAX_TIMEDIVISOR;
 	}
@@ -231,10 +266,33 @@ int intel_mid_plat_vibra_probe(struct platform_device *pdev)
 				return ret;
 			}
 		}
-		/* Re configure the PWM EN GPIO to have drive type as CMOS
-		 * and pull disable
-		 */
-		if (strncmp(board_name, "Cherry Trail CR", DMI_STRING_MAX)) {
+	}
+
+	/* Re configure the PWM EN GPIO to have drive type as CMOS
+	 * and pull disable
+	 */
+	if (strncmp(board_name, "Cherry Trail CR", DMI_STRING_MAX)) {
+		if ((pmic_id != CRYSTALCOVE_PMIC) &&
+				(strncmp(board_name, "Cherry Trail Tablet",
+						DMI_STRING_MAX) == 0)) {
+			/* Config GPLED pin: continuous, ON */
+			val = intel_soc_pmic_readb(
+					WHYSKEYCOVE_PMIC_GPLED_EN_REG);
+			pr_debug("%s vibra cfg enable 0x%08x\n", __func__, val);
+			intel_soc_pmic_writeb(WHYSKEYCOVE_PMIC_GPLED_EN_REG,
+				      (val | WHYSKEYCOVE_PMIC_GPLED_EN_MASK));
+
+			val = intel_soc_pmic_readb(
+					WHYSKEYCOVE_PMIC_GPLED_EFFECT_REG);
+			val &= ~WHYSKEYCOVE_PMIC_GPLED_EFFECT_MASK;
+			val |= WHYSKEYCOVE_PMIC_GPLED_EFFECT_CONT;
+			pr_debug("%s vibra cfg effect 0x%08x\n", __func__, val);
+			intel_soc_pmic_writeb(WHYSKEYCOVE_PMIC_GPLED_EFFECT_REG,
+					val);
+			val = intel_soc_pmic_readb(
+					WHYSKEYCOVE_PMIC_GPLED_EFFECT_REG);
+			pr_debug("%s vibra cfg effect 0x%08x\n", __func__, val);
+		} else {
 			intel_soc_pmic_writeb(CRYSTALCOVE_PMIC_PWM_EN_GPIO_REG,
 					CRYSTALCOVE_PMIC_PWM_EN_GPIO_VALUE);
 		}
