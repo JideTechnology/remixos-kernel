@@ -458,7 +458,10 @@ static int __power_ctrl(struct v4l2_subdev *sd, int on)
 	struct ov680_device *dev = to_ov680_device(sd);
 	int ret = 0;
 
-	if (!dev || !dev->platform_data)
+	if (!dev)
+		return -ENODEV;
+
+	if (!dev->platform_data)
 		return -ENODEV;
 
 	/* Non-gmin platforms use the legacy callback */
@@ -501,7 +504,10 @@ static int __gpio_ctrl(struct v4l2_subdev *sd, int on)
 #endif
 	struct ov680_device *dev = to_ov680_device(sd);
 	int ret = 0;
-	if (!dev || !dev->platform_data)
+	if (!dev)
+		return -ENODEV;
+
+	if (!dev->platform_data)
 		return -ENODEV;
 
 	/* Non-gmin platforms use the legacy callback */
