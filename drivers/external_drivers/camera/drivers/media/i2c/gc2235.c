@@ -585,7 +585,7 @@ static int __gc2235_init(struct v4l2_subdev *sd)
 
 	return gc2235_write_reg_array(client, gc2235_init_settings);
 }
-
+static int is_init;
 static int gc2235_init(struct v4l2_subdev *sd)
 {
 	int ret = 0;
@@ -673,8 +673,7 @@ static int power_up(struct v4l2_subdev *sd)
 			goto fail_power;
 	}
 
-	msleep(50);
-
+	msleep(5);
 	return 0;
 
 fail_clk:
@@ -726,7 +725,8 @@ static int gc2235_s_power(struct v4l2_subdev *sd, int on)
 	else {
 		ret = power_up(sd);
 		if (!ret)
-			return gc2235_init(sd);
+			ret = gc2235_init(sd);
+		is_init = 1;
 	}
 	return ret;
 }
@@ -828,19 +828,23 @@ static int startup(struct v4l2_subdev *sd)
 	struct gc2235_device *dev = to_gc2235_sensor(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret = 0;
+	if (is_init == 0) {
+		/* force gc2235 to do a reset in res change, otherwise it
+		* can not output normal after switching res. and it is not
+		* necessary for first time run up after power on, for the sack
+		* of performance
+		*/
+		power_down(sd);
+		power_up(sd);
+		gc2235_write_reg_array(client, gc2235_init_settings);
+	}
 
-	/* force gc2235 to do a reset, otherwise it
-	* can not output normal after switching res
-	*/
-	power_down(sd);
-	power_up(sd);
-
-	gc2235_write_reg_array(client, gc2235_init_settings);
 	ret = gc2235_write_reg_array(client, gc2235_res[dev->fmt_idx].regs);
 	if (ret) {
 		dev_err(&client->dev, "gc2235 write register err.\n");
 		return ret;
 	}
+	is_init = 0;
 
 	return ret;
 }
@@ -936,7 +940,6 @@ static int gc2235_s_stream(struct v4l2_subdev *sd, int enable)
 	struct gc2235_device *dev = to_gc2235_sensor(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
-
 	mutex_lock(&dev->input_lock);
 
 	if (enable)
