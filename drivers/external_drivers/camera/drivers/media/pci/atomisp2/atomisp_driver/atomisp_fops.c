@@ -225,7 +225,7 @@ int atomisp_q_video_buffers_to_css(struct atomisp_sub_device *asd,
 	struct atomisp_css_dvs_grid_info *dvs_grid =
 		 atomisp_css_get_dvs_grid_info(&asd->params.curr_grid_info);
 	unsigned long irqflags;
-	int err;
+	int err = 0;
 
 	while (pipe->buffers_in_css < ATOMISP_CSS_Q_DEPTH) {
 		struct videobuf_buffer *vb;
