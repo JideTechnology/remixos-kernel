@@ -1002,8 +1002,30 @@ static int ov2722_s_mbus_fmt(struct v4l2_subdev *sd,
 
 	ret = startup(sd);
 	if (ret) {
-		dev_err(&client->dev, "ov2722 startup err\n");
-		goto err;
+		int i = 0;
+		dev_err(&client->dev, "ov2722 startup err, retry to power up\n");
+		for (i = 0; i < OV2722_POWER_UP_RETRY_NUM; i++) {
+			dev_err(&client->dev,
+				"ov2722 retry to power up %d/%d times, result: ",
+				i+1, OV2722_POWER_UP_RETRY_NUM);
+			power_down(sd);
+			ret = power_up(sd);
+			if (ret) {
+				dev_err(&client->dev, "power up failed, continue\n");
+				continue;
+			}
+			ret = startup(sd);
+			if (ret) {
+				dev_err(&client->dev, " startup FAILED!\n");
+			} else {
+				dev_err(&client->dev, " startup SUCCESS!\n");
+				break;
+			}
+		}
+		if (ret) {
+			dev_err(&client->dev, "ov2722 startup err\n");
+			goto err;
+		}
 	}
 
 	ret = ov2722_get_intg_factor(client, ov2722_info,

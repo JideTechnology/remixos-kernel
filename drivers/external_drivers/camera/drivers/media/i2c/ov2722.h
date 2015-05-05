@@ -40,6 +40,8 @@
 
 #define OV2722_NAME		"ov2722"
 
+#define OV2722_POWER_UP_RETRY_NUM 5
+
 /* Defines for register writes and register array processing */
 #define I2C_MSG_LENGTH		0x2
 #define I2C_RETRY_COUNT		5
