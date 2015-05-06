@@ -1209,6 +1209,9 @@ struct atomisp_sensor_ae_bracketing_lut {
 #define ATOMISP_IOC_G_DEPTH_SYNC_COMP \
 	_IOR('v', BASE_VIDIOC_PRIVATE + 46, unsigned int)
 
+#define ATOMISP_IOC_S_SENSOR_EE_CONFIG \
+	_IOW('v', BASE_VIDIOC_PRIVATE + 47, unsigned int)
+
 /*
  * Reserved ioctls. We have customer implementing it internally.
  * We can't use both numbers to not cause ABI conflict.
