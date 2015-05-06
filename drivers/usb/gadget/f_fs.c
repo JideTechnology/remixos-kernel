@@ -675,22 +675,40 @@ static ssize_t ffs_epfile_io(struct file *file,
 
 		if (unlikely(ret < 0)) {
 			/* nop */
-		} else if (unlikely(wait_for_completion_interruptible(&done))) {
-			ret = -EINTR;
-			usb_ep_dequeue(ep->ep, req);
-		} else {
-			/*
-			 * XXX We may end up silently droping data here.
-			 * Since data_len (i.e. req->length) may be bigger
-			 * than len (after being rounded up to maxpacketsize),
-			 * we may end up with more data then user space has
-			 * space for.
-			 */
+		} else if (!read) {
+			wait_for_completion(&done);
 			ret = ep->status;
-			if (read && ret > 0 &&
-			    unlikely(copy_to_user(buf, data,
-						  min_t(size_t, ret, len))))
-				ret = -EFAULT;
+		} else {
+			ret = wait_for_completion_interruptible(&done);
+			if (ret) {
+				spin_lock_irq(&epfile->ffs->eps_lock);
+				if (!done.done) {
+					ret = -EINTR;
+					pr_info(
+					"%s: not done when INTR. dequeue req\n",
+						__func__);
+					usb_ep_dequeue(ep->ep, req);
+				} else {
+					pr_info("%s: done when INTR\n",
+						__func__);
+					ret = 0;
+				}
+				spin_unlock_irq(&epfile->ffs->eps_lock);
+			}
+			if (!ret) {
+				/*
+				 * XXX We may end up silently droping data
+				 * here. Since data_len (i.e. req->length)
+				 * may be bigger than len (after being
+				 * rounded up to maxpacketsize), we may end
+				 * up with more data then user space has
+				 * space for.
+				 */
+				ret = ep->status;
+				if (ret > 0 && unlikely(copy_to_user(buf, data,
+						min_t(size_t, ret, len))))
+					ret = -EFAULT;
+			}
 		}
 	}
 
