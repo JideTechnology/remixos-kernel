@@ -496,7 +496,6 @@ static void keyboard_init_switch_gpio(void)
 static int autoadc_usb5v_enable(int enable)
 {
 	int usb5v_vdd_en = TEGRA_GPIO_PO3;
-	printk(KERN_DEBUG "%s, enable: %d\n", __func__, enable);
 	gpio_set_value(usb5v_vdd_en, enable);
 
 	return 0;

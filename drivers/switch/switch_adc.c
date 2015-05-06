@@ -168,7 +168,6 @@ static void autoadc_work_func(struct work_struct *work)
 	palmas_autoadc_set_threshold(adc, threshold);
 #endif
 
-	LOG("keyboard adc val = %d\n", val);
 #ifdef GPADC_CONV_MODE_SW
 	schedule_delayed_work(&adc->work, msecs_to_jiffies(200));
 #endif
