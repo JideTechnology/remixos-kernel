@@ -617,7 +617,7 @@ static const struct pinmux_ops sunxi_pmx_ops = {
 	.get_function_name	= sunxi_pmx_get_func_name,
 	.get_function_groups	= sunxi_pmx_get_func_groups,
 	.enable			= sunxi_pmx_set_mux_enable,
-	.disable		= sunxi_pmx_set_mux_disable,
+	//.disable		= sunxi_pmx_set_mux_disable,
 	.gpio_set_direction	= sunxi_pmx_gpio_set_direction,
 };
 
@@ -925,7 +925,7 @@ static struct irq_chip sunxi_pinctrl_level_irq_chip = {
 	/* Define irq_enable / disable to avoid spurious irqs for drivers
 	 * using these to suppress irqs while they clear the irq source */
 	.irq_enable	= sunxi_pinctrl_irq_ack_unmask,
-	.irq_disable	= sunxi_pinctrl_irq_mask,
+	//.irq_disable	= sunxi_pinctrl_irq_mask,
 	.irq_set_type	= sunxi_pinctrl_irq_set_type,
 	.flags		= IRQCHIP_EOI_IF_HANDLED ,
 	.irq_set_wake	= sunxi_pinctrl_irq_set_wake,
