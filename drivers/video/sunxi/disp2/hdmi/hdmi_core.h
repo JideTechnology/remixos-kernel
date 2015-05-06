@@ -91,7 +91,7 @@ extern u32 hdmi_hpd_mask;//0x10: force unplug; 0x11: force plug
 extern u32 is_exp;
 //extern disp_video_timing video_timing[];
 
-extern void hdmi_delay_ms(u32 t);
+extern void hdmi_delay_ms(unsigned long ms);
 extern void hdmi_delay_us(unsigned long us);
 extern unsigned int hdmi_get_soc_version(void);
 

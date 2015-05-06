@@ -3,14 +3,23 @@
 
 #define LINUX_OS
 
-#ifdef LINUX_OS
-typedef void (*hdmi_udelay) (unsigned long us);
+#if defined(__LIB__)
+#if defined(__ARM64__)
+#define uintptr_t unsigned long
+#else
+#define uintptr_t unsigned int
+#endif
+
+#define __iomem
+#endif
+typedef struct
+{
+	void (*delay_us) (unsigned long us);
+	void (*delay_ms) (unsigned long ms);
+} hdmi_bsp_func;
+
 #ifndef NULL
 #define NULL 0
-#endif
-#define hdmi_udelay(x) if (__hdmi_udelay) __hdmi_udelay(x);
-#else
-#define hdmi_udelay(x) udelay(x)
 #endif
 
 enum color_space
@@ -56,7 +65,7 @@ struct audio_para
 	unsigned int			ch_num;
 };
 
-int bsp_hdmi_set_func(hdmi_udelay udelay);
+int bsp_hdmi_set_func(hdmi_bsp_func *func);
 void bsp_hdmi_set_addr(uintptr_t base_addr);
 void bsp_hdmi_init(void);
 void bsp_hdmi_set_video_en(unsigned char enable);
@@ -69,5 +78,6 @@ void bsp_hdmi_hrst(void);
 void bsp_hdmi_hdl(void);
 //@version: 0:A, 1:B, 2:C, 3:D
 void bsp_hdmi_set_version(unsigned int version);
+int bsp_hdmi_hdcp_err_check(void);
 
 #endif

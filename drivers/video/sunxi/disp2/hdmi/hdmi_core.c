@@ -72,10 +72,14 @@ static void hdmi_para_init(void)
 
 s32 hdmi_core_initial(bool sw_only)
 {
+	hdmi_bsp_func func;
+
+	func.delay_us = hdmi_delay_us;
+	func.delay_ms = hdmi_delay_ms;
 	memset(&audio_info,0,sizeof(HDMI_AUDIO_INFO));
 	mutex_init(&hdmi_lock);
 	bsp_hdmi_set_version(hdmi_get_soc_version());
-	bsp_hdmi_set_func(hdmi_delay_us);
+	bsp_hdmi_set_func(&func);
 	hdmi_para_init();
 	if (sw_only) {
 		video_enable = 1;
@@ -109,12 +113,14 @@ static s32 main_Hpd_Check(void)
 	times	= 0;
 
 	for (i=0;i<3;i++) {
+		mutex_lock(&hdmi_lock);
 		if (hdmi_hpd_mask & 0x10)
 			times += (hdmi_hpd_mask & 0x1);//for debug
 		else if ( bsp_hdmi_get_hpd())
 		{
 				times++;
 		}
+		mutex_unlock(&hdmi_lock);
 		if ((cts_enable==1) && (hdcp_enable==1))
 			hdmi_delay_ms(20);
 		else {

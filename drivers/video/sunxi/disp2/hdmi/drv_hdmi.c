@@ -33,9 +33,9 @@ static dev_t devid ;
 static struct class *hdmi_class;
 hdmi_info_t ghdmi;
 
-void hdmi_delay_ms(u32 t)
+void hdmi_delay_ms(unsigned long ms)
 {
-	u32 timeout = t*HZ/1000;
+	u32 timeout = ms*HZ/1000;
 	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout(timeout);
 }
