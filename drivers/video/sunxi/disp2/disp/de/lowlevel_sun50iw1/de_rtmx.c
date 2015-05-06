@@ -1223,7 +1223,15 @@ int de_rtmx_set_pf_en(unsigned int sel, unsigned char *pen)
 
 int de_rtmx_set_pipe_cfg(unsigned int sel, unsigned char pno, unsigned int color, de_rect bldrc)
 {
-	de200_rtmx[sel].bld_ctl->bld_pipe_attr[pno].fcolor.dwval = color;
+	/* fix the pipe fill color to 0xff000000(alpha=1)
+	 * actually, we just want to fix the fill color of the bottom pipe
+	 * so only the fill color function of the bottom pipe is enabled
+	 * cause:
+	 * co = cs + cb * (1 - as), ao = as + ab * (1 - as), Co(result) = co / ao
+	 * when ab = 0, the result is	( Cs );
+	 *  when 1, the result is ( Cs * as ), this is what we want.
+	 */
+	de200_rtmx[sel].bld_ctl->bld_pipe_attr[pno].fcolor.dwval = 0xff000000;
 	de200_rtmx[sel].bld_ctl->bld_pipe_attr[pno].insize.bits.width = bldrc.w==0?0:bldrc.w-1;
 	de200_rtmx[sel].bld_ctl->bld_pipe_attr[pno].insize.bits.height = bldrc.h==0?0:bldrc.h-1;
 	de200_rtmx[sel].bld_ctl->bld_pipe_attr[pno].offset.bits.coorx = bldrc.x;

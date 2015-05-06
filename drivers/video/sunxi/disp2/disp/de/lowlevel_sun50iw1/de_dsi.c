@@ -356,7 +356,47 @@ s32 dsi_dcs_wr_memory(u32 sel,u32* p_data,u32 length)
 
 s32 dsi_gen_wr(u32 sel, u8 cmd, u8* para_p, u32 para_num)
 {
-	return 0;
+    volatile u8*  p = (u8*)dsi_dev[sel]->dsi_cmd_tx;
+    while(dsi_inst_busy(sel));
+    if(para_num == 0)
+    {
+        *(p++) = DSI_DT_GEN_WR_P1;
+        *(p++) = cmd;
+        *(p++) = 0x00;
+    }
+    else if(para_num == 1)
+    {
+        *(p++) = DSI_DT_GEN_WR_P2;
+        *(p++) = cmd;
+        *(p++) = *para_p;
+    }
+    else
+    {
+        *(p++) = DSI_DT_GEN_LONG_WR;
+        *(p++) = (para_num + 1) >> 0 & 0xff;
+        *(p++) = (para_num + 1) >> 8 & 0xff;
+    }
+    *(p++) = dsi_ecc_pro(dsi_dev[sel]->dsi_cmd_tx[0].dwval);
+
+    if(para_num > 1)
+    {
+        __u16 crc, i;
+        *(p++) = cmd;
+        for(i = 0; i < para_num; i++)
+        {
+            *(p++)  = *(para_p + i);
+        }
+        crc = dsi_crc_pro((u8*)(dsi_dev[sel]->dsi_cmd_tx + 1), para_num + 1);
+        *(p++) = (crc >> 0) & 0xff;
+        *(p++) = (crc >> 8) & 0xff;
+        dsi_dev[sel]->dsi_cmd_ctl.bits.tx_size = 4 + 1 + para_num + 2 - 1;
+    }
+    else
+    {
+        dsi_dev[sel]->dsi_cmd_ctl.bits.tx_size = 4 - 1;
+    }
+    dsi_start(sel, DSI_START_LPTX);
+    return 0;
 }
 
 s32 dsi_set_max_ret_size(u32 sel,u32 size)
