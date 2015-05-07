@@ -279,7 +279,7 @@ static void adchpf_enable(struct snd_soc_codec *codec,bool on)
 static int codec_init(struct sunxi_codec *sunxi_internal_codec)
 {
 	int ret = 0;
-
+#if 0
 	{/*add by zl begin
 	 * avoid pops.
 	 */
@@ -313,7 +313,8 @@ static int codec_init(struct sunxi_codec *sunxi_internal_codec)
 	snd_soc_write(sunxi_internal_codec->codec, HP_PA_CTRL, 0xF1);
 	//snd_soc_write(sunxi_internal_codec->codec, HP_CAL_CTRL, 0x14);
 	}/*add by zl end*/
-
+#endif
+	snd_soc_write(sunxi_internal_codec->codec, HP_CAL_CTRL, 0x87);
 	snd_soc_update_bits(sunxi_internal_codec->codec, SPKOUT_CTRL1, (0x1f<<SPKOUT_VOL), (sunxi_internal_codec->gain_config.spkervol<<SPKOUT_VOL));
 	snd_soc_update_bits(sunxi_internal_codec->codec, HP_CTRL, (0x3f<<HPVOL), (sunxi_internal_codec->gain_config.headphonevol<<HPVOL));
 	snd_soc_update_bits(sunxi_internal_codec->codec, EARPIECE_CTRL1, (0x1f<<ESP_VOL), (sunxi_internal_codec->gain_config.earpiecevol<<ESP_VOL));

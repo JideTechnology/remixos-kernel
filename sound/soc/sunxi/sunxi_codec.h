@@ -734,8 +734,8 @@
 #define HMIC_M									(12)
 #define HMIC_N									(8)
 #define MDATA_THRESHOLD_DEBOUNCE				(5)
-#define JACK_IN_IRQ_EN							(4)
-#define JACK_OUT_IRQ_EN							(3)
+//#define JACK_IN_IRQ_EN							(4)
+//#define JACK_OUT_IRQ_EN							(3)
 #define MIC_DET_IRQ_EN							(0)
 
 /*
@@ -755,8 +755,8 @@
 #define MDATA_THRESHOLD_EN						(15)
 #define MDATA_DISCARD							(13)
 #define HMIC_DATA								(8)
-#define JACK_DET_OUT_ST							(4)
-#define JACK_DET_IIN_ST							(3)
+//#define JACK_DET_OUT_ST							(4)
+//#define JACK_DET_IIN_ST							(3)
 //#define JACK_DET_OIRQ							(3)
 #define MIC_DET_ST								(0)
 

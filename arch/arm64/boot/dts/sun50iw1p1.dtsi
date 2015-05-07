@@ -744,6 +744,7 @@
 			aif2fmt = <3>;
 			aif3fmt = <3>;
 			aif2master = <1>;
+			hp_detect_case = <0x00>;
 			status = "okay";
 		};
 
