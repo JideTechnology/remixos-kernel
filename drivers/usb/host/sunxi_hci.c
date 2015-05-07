@@ -70,13 +70,23 @@ static s32 request_usb_regulator_io(struct sunxi_hci_hcd *sunxi_hci)
 {
 
 	if(sunxi_hci->regulator_io != NULL){
-		sunxi_hci->regulator_io_hdle= regulator_get(NULL, sunxi_hci->regulator_io);
+		sunxi_hci->regulator_io_hdle = regulator_get(NULL, sunxi_hci->regulator_io);
 		if(IS_ERR(sunxi_hci->regulator_io_hdle)) {
 			DMSG_PANIC("ERR: some error happen, %s,regulator_io_hdle fail to get regulator!", sunxi_hci->hci_name);
+			sunxi_hci->regulator_io_hdle = NULL;
 			return 0;
 		}
+	}
 
-
+	if(sunxi_hci->hsic_flag){
+		if(sunxi_hci->hsic_regulator_io != NULL){
+			sunxi_hci->hsic_regulator_io_hdle = regulator_get(NULL, sunxi_hci->hsic_regulator_io);
+			if(IS_ERR(sunxi_hci->hsic_regulator_io_hdle)) {
+				DMSG_PANIC("ERR: some error happen, %s, hsic_regulator_io_hdle fail to get regulator!", sunxi_hci->hci_name);
+				sunxi_hci->hsic_regulator_io_hdle = NULL;
+				return 0;
+			}
+		}
 	}
 
 	return 0;
@@ -87,6 +97,12 @@ static s32 release_usb_regulator_io(struct sunxi_hci_hcd *sunxi_hci)
 
 	if(sunxi_hci->regulator_io != NULL){
 		regulator_put(sunxi_hci->regulator_io_hdle);
+	}
+
+	if(sunxi_hci->hsic_flag){
+		if(sunxi_hci->hsic_regulator_io != NULL){
+			regulator_put(sunxi_hci->hsic_regulator_io_hdle);
+		}
 	}
 
 	return 0;
@@ -489,14 +505,53 @@ static int alloc_pin(struct sunxi_hci_hcd *sunxi_hci)
 	}
 
 	if(sunxi_hci->hsic_flag){
-		if(sunxi_hci->hsic_rdy_gpio_valid){
-			ret = gpio_request(sunxi_hci->hsic_rdy_gpio_set.gpio.gpio, NULL);
+		/* Marvell 4G HSIC ctrl*/
+		if(sunxi_hci->usb_host_hsic_rdy_valid){
+			ret = gpio_request(sunxi_hci->usb_host_hsic_rdy.gpio.gpio, NULL);
 			if(ret != 0){
-				DMSG_PANIC("request %s gpio:%d\n", sunxi_hci->hci_name, sunxi_hci->hsic_rdy_gpio_set.gpio.gpio);
-				sunxi_hci->hsic_rdy_gpio_valid = 0;
+				DMSG_PANIC("ERR: gpio_request failed\n");
+				sunxi_hci->usb_host_hsic_rdy_valid = 0;
 			}else{
-				gpio_direction_output(sunxi_hci->hsic_rdy_gpio_set.gpio.gpio, 0);
+				gpio_direction_output(sunxi_hci->usb_host_hsic_rdy.gpio.gpio, 0);
 			}
+		}
+
+		/* SMSC usb3503 HSIC HUB ctrl */
+		if(sunxi_hci->usb_hsic_usb3503_flag){
+			if(sunxi_hci->usb_hsic_hub_connect_valid){
+				ret = gpio_request(sunxi_hci->usb_hsic_hub_connect.gpio.gpio, NULL);
+				if(ret != 0){
+					DMSG_PANIC("ERR: gpio_request failed\n");
+					sunxi_hci->usb_hsic_hub_connect_valid = 0;
+				}else{
+					gpio_direction_output(sunxi_hci->usb_hsic_hub_connect.gpio.gpio, 1);
+				}
+			}
+
+			if(sunxi_hci->usb_hsic_int_n_valid){
+				ret = gpio_request(sunxi_hci->usb_hsic_int_n.gpio.gpio, NULL);
+				if(ret != 0){
+					DMSG_PANIC("ERR: gpio_request failed\n");
+					sunxi_hci->usb_hsic_int_n_valid = 0;
+				}else{
+					gpio_direction_output(sunxi_hci->usb_hsic_int_n.gpio.gpio, 1);
+				}
+			}
+
+			msleep(10);
+
+			if(sunxi_hci->usb_hsic_reset_n_valid){
+				ret = gpio_request(sunxi_hci->usb_hsic_reset_n.gpio.gpio, NULL);
+				if(ret != 0){
+					DMSG_PANIC("ERR: gpio_request failed\n");
+					sunxi_hci->usb_hsic_reset_n_valid = 0;
+				}else{
+					gpio_direction_output(sunxi_hci->usb_hsic_reset_n.gpio.gpio, 1);
+				}
+			}
+
+			/* usb3503 device goto hub connect statua is need 100ms after reset */
+			msleep(100);
 		}
 	}
 
@@ -512,9 +567,28 @@ static void free_pin(struct sunxi_hci_hcd *sunxi_hci)
 	}
 
 	if(sunxi_hci->hsic_flag){
-		if(sunxi_hci->hsic_rdy_gpio_valid){
-			gpio_free(sunxi_hci->hsic_rdy_gpio_set.gpio.gpio);
-			sunxi_hci->hsic_rdy_gpio_valid = 0;
+		/* Marvell 4G HSIC ctrl*/
+		if(sunxi_hci->usb_host_hsic_rdy_valid){
+			gpio_free(sunxi_hci->usb_host_hsic_rdy.gpio.gpio);
+			sunxi_hci->usb_host_hsic_rdy_valid = 0;
+		}
+
+		/* SMSC usb3503 HSIC HUB ctrl */
+		if(sunxi_hci->usb_hsic_usb3503_flag){
+			if(sunxi_hci->usb_hsic_hub_connect_valid){
+				gpio_free(sunxi_hci->usb_hsic_hub_connect.gpio.gpio);
+				sunxi_hci->usb_hsic_hub_connect_valid = 0;
+			}
+
+			if(sunxi_hci->usb_hsic_int_n_valid){
+				gpio_free(sunxi_hci->usb_hsic_int_n.gpio.gpio);
+				sunxi_hci->usb_hsic_int_n_valid = 0;
+			}
+
+			if(sunxi_hci->usb_hsic_reset_n_valid){
+				gpio_free(sunxi_hci->usb_hsic_reset_n.gpio.gpio);
+				sunxi_hci->usb_hsic_reset_n_valid = 0;
+			}
 		}
 	}
 
@@ -523,9 +597,9 @@ static void free_pin(struct sunxi_hci_hcd *sunxi_hci)
 
 void sunxi_set_host_hisc_rdy(struct sunxi_hci_hcd *sunxi_hci, int is_on)
 {
-	if (sunxi_hci->hsic_rdy_gpio_valid) {
+	if (sunxi_hci->usb_host_hsic_rdy_valid) {
 		/* set config, output */
-		gpio_direction_output(sunxi_hci->hsic_rdy_gpio_set.gpio.gpio, is_on);
+		gpio_direction_output(sunxi_hci->usb_host_hsic_rdy.gpio.gpio, is_on);
 	}
 }
 
@@ -552,6 +626,20 @@ static void __sunxi_set_vbus(struct sunxi_hci_hcd *sunxi_hci, int is_on)
 		}else{
 			if(regulator_disable(sunxi_hci->regulator_io_hdle) < 0){
 				DMSG_INFO("%s: regulator_disable fail\n", sunxi_hci->hci_name);
+			}
+		}
+	}
+
+	if(sunxi_hci->hsic_flag){
+		if((sunxi_hci->hsic_regulator_io != NULL) && (sunxi_hci->hsic_regulator_io_hdle != NULL)){
+			if(is_on){
+				if(regulator_enable(sunxi_hci->hsic_regulator_io_hdle) < 0){
+					DMSG_INFO("%s: hsic_regulator_enable fail\n", sunxi_hci->hci_name);
+				}
+			}else{
+				if(regulator_disable(sunxi_hci->hsic_regulator_io_hdle) < 0){
+					DMSG_INFO("%s: hsic_regulator_disable fail\n", sunxi_hci->hci_name);
+				}
 			}
 		}
 	}
@@ -714,33 +802,100 @@ static int get_usb_cfg(struct platform_device *pdev, struct sunxi_hci_hcd *sunxi
 		 DMSG_PRINT("get %s init_state is fail, %d\n", sunxi_hci->hci_name, -ret);
 	}
 
-	ret = of_property_read_u32(usbc_np, KEY_USB_HSIC_USBED, &sunxi_hci->hsic_flag);
-	if (ret) {
-		 DMSG_PRINT("get %s usb_hsic_used is fail, %d\n", sunxi_hci->hci_name, -ret);
-		 sunxi_hci->hsic_flag = 0;
-	}
+	sunxi_hci->hsic_flag = 0;
 
-	if(sunxi_hci->hsic_flag){
+	if(sunxi_hci->usbc_no == HCI1_USBC_NO){
+		ret = of_property_read_u32(usbc_np, KEY_USB_HSIC_USBED, &sunxi_hci->hsic_flag);
+		if (ret) {
+			 DMSG_PRINT("get %s usb_hsic_used is fail, %d\n", sunxi_hci->hci_name, -ret);
+			 sunxi_hci->hsic_flag = 0;
+		}
+
+		if(sunxi_hci->hsic_flag){
+			if(!strncmp(sunxi_hci->hci_name, "ohci", strlen("ohci"))){
+				printk("HSIC is no susport in %s, and to return\n", sunxi_hci->hci_name);
+				sunxi_hci->used = 0;
+				return 0;
+			}
+
+			/* hsic regulator_io */
+			ret = of_property_read_string(usbc_np, KEY_USB_HSIC_REGULATOR_IO, &sunxi_hci->hsic_regulator_io);
+			if (ret){
+				printk("get %s, hsic_regulator_io is fail, %d\n", sunxi_hci->hci_name, -ret);
+				sunxi_hci->hsic_regulator_io = NULL;
+			}else{
+				if (!strcmp(sunxi_hci->hsic_regulator_io, "nocare")) {
+					 printk("get %s, hsic_regulator_io is no nocare\n", sunxi_hci->hci_name);
+					sunxi_hci->hsic_regulator_io = NULL;
+				}
+			}
+
+			/* Marvell 4G HSIC ctrl */
 			ret = of_property_read_u32(usbc_np, KEY_USB_HSIC_CTRL, &sunxi_hci->hsic_ctrl_flag);
 			if (ret) {
 				DMSG_PRINT("get %s usb_hsic_ctrl is fail, %d\n", sunxi_hci->hci_name, -ret);
 				sunxi_hci->hsic_ctrl_flag = 0;
 			}
 			if(sunxi_hci->hsic_ctrl_flag){
-				sunxi_hci->hsic_rdy_gpio_set.gpio.gpio = of_get_named_gpio(usbc_np, KEY_USB_HSIC_RDY_GPIO, 0);
-				if(gpio_is_valid(sunxi_hci->hsic_rdy_gpio_set.gpio.gpio)){
-					sunxi_hci->hsic_rdy_gpio_valid = 1;
+				sunxi_hci->usb_host_hsic_rdy.gpio.gpio = of_get_named_gpio(usbc_np, KEY_USB_HSIC_RDY_GPIO, 0);
+				if(gpio_is_valid(sunxi_hci->usb_host_hsic_rdy.gpio.gpio)){
+					sunxi_hci->usb_host_hsic_rdy_valid = 1;
 				}else{
-					sunxi_hci->hsic_rdy_gpio_valid = 0;
+					sunxi_hci->usb_host_hsic_rdy_valid = 0;
 					DMSG_PRINT("get %s drv_vbus_gpio is fail\n", sunxi_hci->hci_name);
 				}
 			}else{
-				sunxi_hci->hsic_rdy_gpio_valid = 0;
+				sunxi_hci->usb_host_hsic_rdy_valid = 0;
 			}
 
-	}else{
-		sunxi_hci->hsic_ctrl_flag = 0;
-		sunxi_hci->hsic_rdy_gpio_valid = 0;
+			/* SMSC usb3503 HSIC HUB ctrl */
+			ret = of_property_read_u32(usbc_np, "usb_hsic_usb3503_flag", &sunxi_hci->usb_hsic_usb3503_flag);
+			if (ret) {
+				DMSG_PRINT("get %s usb_hsic_usb3503_flag is fail, %d\n", sunxi_hci->hci_name, -ret);
+				sunxi_hci->usb_hsic_usb3503_flag = 0;
+			}
+
+
+			if(sunxi_hci->usb_hsic_usb3503_flag){
+				sunxi_hci->usb_hsic_hub_connect.gpio.gpio = of_get_named_gpio(usbc_np, "usb_hsic_hub_connect_gpio", 0);
+				if(gpio_is_valid(sunxi_hci->usb_hsic_hub_connect.gpio.gpio)){
+					sunxi_hci->usb_hsic_hub_connect_valid = 1;
+				}else{
+					sunxi_hci->usb_hsic_hub_connect_valid = 0;
+					DMSG_PRINT("get %s usb_hsic_hub_connect is fail\n", sunxi_hci->hci_name);
+				}
+
+
+				sunxi_hci->usb_hsic_int_n.gpio.gpio = of_get_named_gpio(usbc_np, "usb_hsic_int_n_gpio", 0);
+				if(gpio_is_valid(sunxi_hci->usb_hsic_int_n.gpio.gpio)){
+					sunxi_hci->usb_hsic_int_n_valid = 1;
+				}else{
+					sunxi_hci->usb_hsic_int_n_valid = 0;
+					DMSG_PRINT("get %s usb_hsic_int_n is fail\n", sunxi_hci->hci_name);
+				}
+
+
+				sunxi_hci->usb_hsic_reset_n.gpio.gpio = of_get_named_gpio(usbc_np, "usb_hsic_reset_n_gpio", 0);
+				if(gpio_is_valid(sunxi_hci->usb_hsic_int_n.gpio.gpio)){
+					sunxi_hci->usb_hsic_reset_n_valid = 1;
+				}else{
+					sunxi_hci->usb_hsic_reset_n_valid = 0;
+					DMSG_PRINT("get %s usb_hsic_int_n is fail\n", sunxi_hci->hci_name);
+				}
+
+			}else{
+				sunxi_hci->usb_hsic_hub_connect_valid = 0;
+				sunxi_hci->usb_hsic_int_n_valid = 0;
+				sunxi_hci->usb_hsic_reset_n_valid = 0;
+			}
+
+		}else{
+			sunxi_hci->hsic_ctrl_flag = 0;
+			sunxi_hci->usb_host_hsic_rdy_valid = 0;
+			sunxi_hci->usb_hsic_hub_connect_valid = 0;
+			sunxi_hci->usb_hsic_int_n_valid = 0;
+			sunxi_hci->usb_hsic_reset_n_valid = 0;
+		}
 	}
 
 	/* usbc wakeup_suspend */
@@ -766,12 +921,6 @@ static int get_usb_cfg(struct platform_device *pdev, struct sunxi_hci_hcd *sunxi
 		if (!strcmp(sunxi_hci->regulator_io, "nocare")) {
 			 printk("get %s, regulator_io is no nocare\n", sunxi_hci->hci_name);
 			sunxi_hci->regulator_io = NULL;
-		}else{
-			ret = of_property_read_u32(usbc_np, KEY_USB_REGULATOR_IO_VOL, &sunxi_hci->regulator_value);
-			if (ret) {
-				printk("get %s, regulator_value is fail, %d\n", sunxi_hci->hci_name, -ret);
-				sunxi_hci->regulator_io = NULL;
-			}
 		}
 	}
 

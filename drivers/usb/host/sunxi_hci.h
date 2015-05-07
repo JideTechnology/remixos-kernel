@@ -155,7 +155,7 @@
 #define  KEY_USB_HSIC_USBED                     "usb_hsic_used"
 #define  KEY_USB_HSIC_CTRL                      "usb_hsic_ctrl"
 #define  KEY_USB_HSIC_RDY_GPIO                  "usb_hsic_rdy_gpio"
-
+#define  KEY_USB_HSIC_REGULATOR_IO		"usb_hsic_regulator_io"
 
 #if defined (CONFIG_FPGA_V4_PLATFORM) || defined (CONFIG_FPGA_V7_PLATFORM)
 #define SUNXI_USB_FPGA
@@ -220,14 +220,12 @@ struct sunxi_hci_hcd{
 	__u32 clk_is_open;                      /* is usb clock open */
 
 	script_item_u drv_vbus_gpio_set;
-	script_item_u hsic_rdy_gpio_set;
 
 	const char  *regulator_io;
 	const char  *used_status;
 	int   regulator_value;
 	struct regulator* regulator_io_hdle;
 	u32 drv_vbus_gpio_valid;
-	u32 hsic_rdy_gpio_valid;
 	u32 usb_restrict_valid;
 	__u8 power_flag;                        /* flag. power on or not */
 
@@ -235,9 +233,30 @@ struct sunxi_hci_hcd{
 	__u8 probe;                             /* hc initialize */
 	int host_init_state;                   /* usb hc initialize state, 0: not work, 1: work */
 	int wakeup_suspend;                       /* flag. not suspend */
-	int hsic_flag;                         /* flag. hsic usbed */
-	int hsic_ctrl_flag;                    /* flag. hsic ctrl */
-	int hsic_enable_flag;                  /* flag. hsic enable */
+
+	/* HSIC device susport */
+	u32 hsic_flag;                         /* flag. hsic usbed */
+	const char* hsic_regulator_io;
+	struct regulator* hsic_regulator_io_hdle;
+
+	/* Marvell 4G HSIC ctrl */
+	script_item_u usb_host_hsic_rdy;
+	u32 usb_host_hsic_rdy_valid;
+	u32 hsic_ctrl_flag;                    /* flag. hsic ctrl */
+	u32 hsic_enable_flag;                  /* flag. hsic enable */
+
+	/* SMSC usb3503 HSIC HUB ctrl */
+	u32 usb_hsic_usb3503_flag;
+
+	script_item_u usb_hsic_hub_connect;
+	u32 usb_hsic_hub_connect_valid;
+
+	script_item_u usb_hsic_int_n;
+	u32 usb_hsic_int_n_valid;
+
+	script_item_u usb_hsic_reset_n;
+	u32 usb_hsic_reset_n_valid;
+
 
 	int (* open_clock)(struct sunxi_hci_hcd *sunxi_hci, u32 ohci);
 	int (* close_clock)(struct sunxi_hci_hcd *sunxi_hci, u32 ohci);

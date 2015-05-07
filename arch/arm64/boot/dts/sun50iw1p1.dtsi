@@ -605,9 +605,16 @@
 			usb_regulator_io    = "nocare";
 			usb_wakeup_suspend  = <0>;
 			/* HISC device */
-			usb_hsic_used       = <0>;
-			usb_hsic_ctrl       = <0>;
+			usb_hsic_used = <0>;
+			usb_hsic_regulator_io = "vcc-hsic-12";
+			/*Marvell 4G HSIC */
+			usb_hsic_ctrl = <0>;
 			usb_hsic_rdy_gpio;
+			/* SMSC usb3503 HSIC HUB */
+			usb_hsic_usb3503_flag = <0>;
+			usb_hsic_hub_connect_gpio;
+			usb_hsic_int_n_gpio;
+			usb_hsic_reset_n_gpio;
 			status              = "okay";
 		};
 
