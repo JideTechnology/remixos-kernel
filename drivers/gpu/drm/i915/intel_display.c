@@ -2970,6 +2970,10 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	} else
 		I915_WRITE(DSPADDR(plane), i915_gem_obj_ggtt_offset(obj) + linear_offset);
 	POSTING_READ(reg);
+
+	if (dspcntr & DISPLAY_PLANE_ENABLE)
+		dev_priv->pipe_plane_stat |=
+			VLV_UPDATEPLANE_STAT_PRIM_PER_PIPE(pipe);
 }
 
 static void ironlake_update_primary_plane(struct drm_crtc *crtc,
