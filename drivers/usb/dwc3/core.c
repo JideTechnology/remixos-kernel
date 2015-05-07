@@ -471,6 +471,19 @@ static void dwc3_cache_hwparams(struct dwc3 *dwc)
 	parms->hwparams8 = dwc3_readl(dwc->regs, DWC3_GHWPARAMS8);
 }
 
+static void dwc3_suspend_usb3_phy(struct dwc3 *dwc, bool suspend)
+{
+	u32 data = 0;
+
+	data = dwc3_readl(dwc->regs, GUSB3PIPECTL0);
+	if (suspend)
+		data |= GUSB3PIPECTL_SUS_EN;
+	else
+		data &= ~GUSB3PIPECTL_SUS_EN;
+
+	dwc3_writel(dwc->regs, GUSB3PIPECTL0, data);
+}
+
 /**
  * dwc3_core_init - Low-level initialization of DWC3 Core
  * @dwc: Pointer to our controller context structure
@@ -536,6 +549,8 @@ static int dwc3_core_init(struct dwc3 *dwc)
 
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 
+	dwc3_suspend_usb3_phy(dwc, true);
+
 	return 0;
 
 err0:
@@ -548,7 +563,7 @@ static void dwc3_core_exit(struct dwc3 *dwc)
 	usb_phy_shutdown(dwc->usb3_phy);
 }
 
-static void dwc3_suspend_phy(struct dwc3 *dwc, bool suspend)
+static void dwc3_suspend_usb2_phy(struct dwc3 *dwc, bool suspend)
 {
 	u32 data = 0;
 
@@ -559,14 +574,6 @@ static void dwc3_suspend_phy(struct dwc3 *dwc, bool suspend)
 		data &= ~GUSB2PHYCFG_SUS_PHY;
 
 	dwc3_writel(dwc->regs, GUSB2PHYCFG0, data);
-
-	data = dwc3_readl(dwc->regs, GUSB3PIPECTL0);
-	if (suspend)
-		data |= GUSB3PIPECTL_SUS_EN;
-	else
-		data &= ~GUSB3PIPECTL_SUS_EN;
-
-	dwc3_writel(dwc->regs, GUSB3PIPECTL0, data);
 }
 
 /*
@@ -968,7 +975,7 @@ static int dwc3_suspend_common(struct device *dev)
 
 	dwc->gctl = dwc3_readl(dwc->regs, DWC3_GCTL);
 
-	dwc3_suspend_phy(dwc, true);
+	dwc3_suspend_usb2_phy(dwc, true);
 
 	dwc->dpm_pulled_down = 0;
 
@@ -1012,7 +1019,7 @@ static int dwc3_resume_common(struct device *dev)
 		udelay(500);
 	}
 
-	dwc3_suspend_phy(dwc, false);
+	dwc3_suspend_usb2_phy(dwc, false);
 
 	dwc3_writel(dwc->regs, DWC3_GCTL, dwc->gctl);
 
