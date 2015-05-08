@@ -2341,6 +2341,7 @@ static void intel_enable_primary_hw_plane(struct drm_i915_private *dev_priv,
 
 	intel_crtc->primary_enabled = true;
 	dev_priv->pipe_plane_stat |= VLV_UPDATEPLANE_STAT_PRIM_PER_PIPE(pipe);
+	intel_crtc->enableprimary = true;
 	dev_priv->display.update_primary_plane(crtc, crtc->primary->fb,
 					       crtc->x, crtc->y);
 
@@ -2761,7 +2762,11 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 		intel_crtc->pri_update = false;
 	} else {
 		dspcntr = I915_READ(reg);
-		dspcntr |= DISPLAY_PLANE_ENABLE;
+		if ((atomic_read(&dev_priv->psr.update_pending)) ||
+			(intel_crtc->enableprimary)) {
+			dspcntr |= DISPLAY_PLANE_ENABLE;
+			intel_crtc->enableprimary = false;
+		}
 	}
 
 	/*
@@ -2930,9 +2935,6 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 		intel_crtc->dspaddr_offset = linear_offset;
 	}
 
-	DRM_DEBUG_KMS("Writing base %08lX %08lX %d %d %d\n",
-		      i915_gem_obj_ggtt_offset(obj), linear_offset, x, y,
-		      fb->pitches[0]);
 	intel_crtc->reg.stride = fb->pitches[0];
 	if (!dev_priv->atomic_update)
 		I915_WRITE(DSPSTRIDE(plane), intel_crtc->reg.stride);
@@ -13027,7 +13029,7 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	intel_crtc->rotate180 = false;
 	/* Flag for wake from sleep */
 	dev_priv->is_resuming = false;
-
+	intel_crtc->enableprimary = false;
 	WARN_ON(drm_crtc_index(&intel_crtc->base) != intel_crtc->pipe);
 }
 
