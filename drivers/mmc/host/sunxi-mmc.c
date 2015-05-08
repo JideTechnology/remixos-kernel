@@ -300,10 +300,10 @@ static void sunxi_mmc_dump_errinfo(struct sunxi_mmc_host *host)
 	struct mmc_data *data = host->mrq->data;
 
 	/* For some cmds timeout is normal with sd/mmc cards */
-	if ((host->int_sum & SDXC_INTERRUPT_ERROR_BIT) ==
-		SDXC_RESP_TIMEOUT && (cmd->opcode == SD_IO_SEND_OP_COND ||
-				      cmd->opcode == SD_IO_RW_DIRECT))
-		return;
+//	if ((host->int_sum & SDXC_INTERRUPT_ERROR_BIT) ==
+//		SDXC_RESP_TIMEOUT && (cmd->opcode == SD_IO_SEND_OP_COND ||
+//				      cmd->opcode == SD_IO_RW_DIRECT))
+//		return;
 
 	dev_err(mmc_dev(host->mmc),
 		"smc %d p%d err, cmd %d,%s%s%s%s%s%s%s%s%s%s !!\n",
