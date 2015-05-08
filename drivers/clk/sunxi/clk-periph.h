@@ -18,7 +18,6 @@
 /**
  * struct sunxi_clk_periph_gate - peripheral gate clock
  *
- * @hw:         handle between common and hardware-specific interfaces
  * @flags:      hardware-specific flags
  * @enable:     enable register
  * @reset:      reset register
@@ -50,9 +49,7 @@ struct sunxi_clk_periph_gate {
 /**
  * struct sunxi_clk_periph_div - periph divider clock
  *
- * @hw:         handle between common and hardware-specific interfaces
  * @reg:        register containing divider
- * @flags:      hardware-specific flags
  * @mshift:     shift to the divider-m bit field, div = (m+1)
  * @mwidth:     width of the divider-m bit field
  * @nshift:     shift to the divider-n bit field, div = (1<<n)
@@ -74,7 +71,6 @@ struct sunxi_clk_periph_div {
 /**
  * struct sunxi_clk_periph_mux - multiplexer clock
  *
- * @hw:         handle between common and hardware-specific interfaces
  * @reg:        register controlling multiplexer
  * @shift:      shift to multiplexer bit field
  * @width:      width of mutliplexer bit field
@@ -92,11 +88,11 @@ struct sunxi_clk_periph_mux {
 };
 
 struct sunxi_clk_comgate {
-    const u8* name;
-    u8 val;
-    u8 mask;
-    u8 share;
-    u8 res;
+    const u8        *name;
+    u8              val;
+    u8              mask;
+    u8              share;
+    u8              res;
 };
 
 #define BUS_GATE_SHARE  0x01
@@ -113,12 +109,15 @@ struct sunxi_clk_comgate {
  * struct sunxi-clk-periph - peripheral clock
  *
  * @hw:         handle between common and hardware-specific interfaces
+ * @flags:      flags used across common struct clk, please take refference of the clk-provider.h
+ * @lock:       lock for protecting the periph clock operations
  * @mux:        mux clock
- * @divider:    divider clock
  * @gate:       gate clock
- * @mux_ops:    mux clock ops
- * @div_ops:    divider clock ops
- * @gate_ops:   gate clock ops
+ * @divider:    divider clock
+ * @com_gate:       the shared clock
+ * @com_gate_off:   bit shift to mark the flag in the com_gate
+ * @priv_clkops:    divider clock ops
+ * @priv_regops:    gate clock ops
  */
 struct sunxi_clk_periph {
     struct clk_hw                   hw;
@@ -180,9 +179,8 @@ static struct sunxi_clk_periph sunxi_clk_periph_##name ={       \
             .bus_shift = _bus_gate_shift,                       \
             .ddr_shift = _dram_gate_shift,                      \
         },                                                      \
-        .com_gate = _com_gate,                                          \
-        .com_gate_off = _com_gate_off,                                          \
+        .com_gate = _com_gate,                                  \
+        .com_gate_off = _com_gate_off,                          \
     }
-
 
 #endif

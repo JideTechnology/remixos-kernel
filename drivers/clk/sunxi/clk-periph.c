@@ -27,18 +27,16 @@ static u8 sunxi_clk_periph_get_parent(struct clk_hw *hw)
 
     if(!periph->mux.reg)
         return 0;
+
     if(periph->lock)
-    {
         spin_lock_irqsave(periph->lock, flags);
-        reg = periph_readl(periph,periph->mux.reg);
-        parent = GET_BITS(periph->mux.shift, periph->mux.width, reg);
+
+    reg = periph_readl(periph,periph->mux.reg);
+    parent = GET_BITS(periph->mux.shift, periph->mux.width, reg);
+
+    if(periph->lock)
         spin_unlock_irqrestore(periph->lock, flags);
-    }
-    else
-    {
-        reg = periph_readl(periph,periph->mux.reg);
-        parent = GET_BITS(periph->mux.shift, periph->mux.width, reg); 
-    }
+
     return parent;
 }
 
@@ -50,23 +48,20 @@ static int sunxi_clk_periph_set_parent(struct clk_hw *hw, u8 index)
 
     if(periph->flags & CLK_READONLY)
         return 0;
-		
+
     if(!periph->mux.reg)
         return 0;
+
     if(periph->lock)
-    {
         spin_lock_irqsave(periph->lock, flags);
-        reg = periph_readl(periph,periph->mux.reg);
-        reg = SET_BITS(periph->mux.shift, periph->mux.width, reg, index);
-        periph_writel(periph,reg, periph->mux.reg);
+
+    reg = periph_readl(periph,periph->mux.reg);
+    reg = SET_BITS(periph->mux.shift, periph->mux.width, reg, index);
+    periph_writel(periph,reg, periph->mux.reg);
+
+    if(periph->lock)
         spin_unlock_irqrestore(periph->lock, flags);
-    }
-    else
-    {
-        reg = periph_readl(periph,periph->mux.reg);
-        reg = SET_BITS(periph->mux.shift, periph->mux.width, reg, index);
-        periph_writel(periph,reg, periph->mux.reg);
-    }
+
     return 0;
 }
 
@@ -74,8 +69,6 @@ static int __sunxi_clk_periph_enable_shared(struct sunxi_clk_periph *periph)
 {
     unsigned long reg;
     struct sunxi_clk_periph_gate *gate = &periph->gate;
-    if(!periph->com_gate)
-        return -1;        
 
     if(!periph->com_gate->val)
     {
@@ -104,28 +97,13 @@ static int __sunxi_clk_periph_enable_shared(struct sunxi_clk_periph *periph)
             reg = periph_readl(periph,gate->dram);
             reg = SET_BITS(gate->ddr_shift, 1, reg, 1);
             periph_writel(periph,reg, gate->dram);
-        }       
+        }
     }
     periph->com_gate->val |= 1 << periph->com_gate_off;
 
     return 0;
 }
-static int sunxi_clk_periph_enable_shared(struct sunxi_clk_periph *periph)
-{
-    unsigned long flags = 0;
-    int ret = 0;
-    if(!periph->com_gate)
-        return -1;        
-    if(periph->lock)
-    {
-        spin_lock_irqsave(periph->lock, flags);
-        ret = __sunxi_clk_periph_enable_shared(periph);
-        spin_unlock_irqrestore(periph->lock, flags);
-    }
-    else
-        ret = __sunxi_clk_periph_enable_shared(periph);
-    return ret;        
-}
+
 static int __sunxi_clk_periph_enable(struct clk_hw *hw)
 {
     unsigned long reg;
@@ -173,19 +151,19 @@ static int sunxi_clk_periph_enable(struct clk_hw *hw)
 
     if(periph->flags & CLK_READONLY)
         return 0;
-		
-    if(periph->com_gate)
-        sunxi_clk_periph_enable_shared(periph);
 
     if(periph->lock)
-    {
         spin_lock_irqsave(periph->lock, flags);
+
+    /* if common gate exist, enable it first */
+    if(periph->com_gate)
+        ret = __sunxi_clk_periph_enable_shared(periph);
+    if(!ret)
         ret = __sunxi_clk_periph_enable(hw);
-        spin_unlock_irqrestore(periph->lock, flags);        
-    }
-    else
-        ret = __sunxi_clk_periph_enable(hw);  
-        
+
+    if(periph->lock)
+        spin_unlock_irqrestore(periph->lock, flags);
+
     return ret;
 }
 static int __sunxi_clk_periph_is_enabled(struct clk_hw *hw)
@@ -227,13 +205,13 @@ static int sunxi_clk_periph_is_enabled(struct clk_hw *hw)
     struct sunxi_clk_periph *periph = to_clk_periph(hw);
 
     if(periph->lock)
-    {
         spin_lock_irqsave(periph->lock, flags);
-        state = __sunxi_clk_periph_is_enabled(hw);
+
+    state = __sunxi_clk_periph_is_enabled(hw);
+
+    if(periph->lock)
         spin_unlock_irqrestore(periph->lock, flags);
-    }
-    else
-        state = __sunxi_clk_periph_is_enabled(hw);    
+
     return state;
 }
 static void __sunxi_clk_periph_disable_shared(struct sunxi_clk_periph *periph)
@@ -243,7 +221,7 @@ static void __sunxi_clk_periph_disable_shared(struct sunxi_clk_periph *periph)
     if(!periph->com_gate->val)
      return ;
 
-    periph->com_gate->val &= ~(1 << periph->com_gate_off);      
+    periph->com_gate->val &= ~(1 << periph->com_gate_off);
 
     if(!periph->com_gate->val)
     {
@@ -274,24 +252,9 @@ static void __sunxi_clk_periph_disable_shared(struct sunxi_clk_periph *periph)
             periph_writel(periph,reg, gate->reset);
         }
     }
-   
-}
-static void sunxi_clk_periph_disable_shared(struct sunxi_clk_periph *periph)
-{
-    unsigned long flags = 0;
-    
-    if(!periph->com_gate->val)
-     return ;
 
-    if(periph->lock)
-    {
-        spin_lock_irqsave(periph->lock, flags);
-        __sunxi_clk_periph_disable_shared(periph);        
-        spin_unlock_irqrestore(periph->lock, flags);
-    }
-    else
-        __sunxi_clk_periph_disable_shared(periph);         
 }
+
 static void __sunxi_clk_periph_disable(struct clk_hw *hw)
 {
     unsigned long reg;
@@ -339,15 +302,15 @@ static void sunxi_clk_periph_disable(struct clk_hw *hw)
         return ;
 
     if(periph->lock)
-    {
         spin_lock_irqsave(periph->lock, flags);
-        __sunxi_clk_periph_disable(hw);
-        spin_unlock_irqrestore(periph->lock, flags);
-    }
-    else
-        __sunxi_clk_periph_disable(hw);    
+
+    __sunxi_clk_periph_disable(hw);
+    /* if common gate exist, disable it */
     if(periph->com_gate)
-        sunxi_clk_periph_disable_shared(periph);        
+        __sunxi_clk_periph_disable_shared(periph);
+
+    if(periph->lock)
+        spin_unlock_irqrestore(periph->lock, flags);
 }
 
 static unsigned long sunxi_clk_periph_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
@@ -361,28 +324,20 @@ static unsigned long sunxi_clk_periph_recalc_rate(struct clk_hw *hw, unsigned lo
     if(!divider->reg)
         return parent_rate;
 
-	if(periph->lock)
-    {
+    if(periph->lock)
         spin_lock_irqsave(periph->lock, flags);
-        reg = periph_readl(periph,divider->reg);
-        if(divider->mwidth)
-            div_m = GET_BITS(divider->mshift, divider->mwidth, reg);
-        if(divider->nwidth)
-            div_n = GET_BITS(divider->nshift, divider->nwidth, reg);
-        div = (div_m+1)*(1<<div_n);
-        do_div(rate, div);
+
+    reg = periph_readl(periph,divider->reg);
+    if(divider->mwidth)
+        div_m = GET_BITS(divider->mshift, divider->mwidth, reg);
+    if(divider->nwidth)
+        div_n = GET_BITS(divider->nshift, divider->nwidth, reg);
+    div = (div_m+1)*(1<<div_n);
+    do_div(rate, div);
+
+    if(periph->lock)
         spin_unlock_irqrestore(periph->lock, flags);
-    }
-    else
-    {
-        reg = periph_readl(periph,divider->reg);
-        if(divider->mwidth)
-            div_m = GET_BITS(divider->mshift, divider->mwidth, reg);
-        if(divider->nwidth)
-            div_n = GET_BITS(divider->nshift, divider->nwidth, reg);
-        div = (div_m+1)*(1<<div_n);
-        do_div(rate, div);
-    }
+
     return rate;
 }
 
@@ -480,11 +435,11 @@ static int __sunxi_clk_periph_set_rate(struct clk_hw *hw, unsigned long rate, un
     unsigned long div, div_m = 0, div_n = 0;
     u64 tmp_rate = parent_rate;
 
-	if(periph->flags & CLK_READONLY)
+    if(periph->flags & CLK_READONLY)
         return 0;
-		
-	if(!divider->reg)
-		return 0;
+
+    if(!divider->reg)
+        return 0;
 
     do_div(tmp_rate, rate);
     div = tmp_rate;
@@ -493,6 +448,12 @@ static int __sunxi_clk_periph_set_rate(struct clk_hw *hw, unsigned long rate, un
     else {
         div_m = 1<<divider->mwidth;
         div_n = (1<<divider->nwidth)-1;
+
+        if( div > (div_m<<div_n) )
+        {
+            WARN(1, "clk %s rate is too large : %lu\n",hw->clk->name , rate );
+            div = div_m<<div_n;
+        }
 #ifndef NEW_RATE_CALULATE
         if(div < div_m) {
             div_m = div;
@@ -572,13 +533,13 @@ static int sunxi_clk_periph_set_rate(struct clk_hw *hw, unsigned long rate, unsi
     struct sunxi_clk_periph *periph = to_clk_periph(hw);
 
     if(periph->lock)
-    {
         spin_lock_irqsave(periph->lock, flags);
-        ret = __sunxi_clk_periph_set_rate(hw,rate,parent_rate);
-        spin_unlock_irqrestore(periph->lock, flags);        
-    }
-    else
-        ret = __sunxi_clk_periph_set_rate(hw,rate,parent_rate);
+
+    ret = __sunxi_clk_periph_set_rate(hw,rate,parent_rate);
+
+    if(periph->lock)
+        spin_unlock_irqrestore(periph->lock, flags);
+
     return ret;
 }
 
@@ -607,14 +568,14 @@ struct clk *sunxi_clk_register_periph(const char *name,
     struct clk *clk;
     struct clk_init_data init;
 #ifdef __SUNXI_ALL_CLK_IGNORE_UNUSED__
-		flags |= CLK_IGNORE_UNUSED;
+        flags |= CLK_IGNORE_UNUSED;
 #endif
     init.name = name;
     init.ops = periph->priv_clkops?periph->priv_clkops:&sunxi_clk_periph_ops;
     init.flags = flags;
     init.parent_names = parent_names;
     init.num_parents = num_parents;
-    
+
     /* Data in .init is copied by clk_register(), so stack variable OK */
     periph->hw.init = &init;
     periph->flags = init.flags;
@@ -625,7 +586,7 @@ struct clk *sunxi_clk_register_periph(const char *name,
     periph->gate.reset = periph->gate.reset ? (base + (u64 __force)periph->gate.reset) : NULL;
     periph->gate.bus = periph->gate.bus ? (base + (u64 __force)periph->gate.bus) : NULL;
     periph->gate.dram = periph->gate.dram ? (base + (u64 __force)periph->gate.dram) : NULL;
-	
+
     clk = clk_register(NULL, &periph->hw);
     if (IS_ERR(clk))
         return clk;
@@ -641,14 +602,14 @@ int sunxi_periph_reset_deassert(struct clk *c)
     struct sunxi_clk_periph_gate *gate = &periph->gate;
     unsigned long reg, flag = 0;
     unsigned long flags = 0;
-    
+
     if(periph->flags & CLK_READONLY)
         return 0;
 
     if((periph->com_gate && periph->com_gate->val)
        && (periph->com_gate->val & periph->com_gate->mask) != (1 << periph->com_gate_off))
        return 1;
-       
+
     if(periph->lock)
         spin_lock_irqsave(periph->lock, flags);
 
@@ -678,20 +639,7 @@ int sunxi_periph_reset_deassert(struct clk *c)
 
     return 0;
 }
-/*
-static void sunxi_periph_auto_reset_disable(struct clk *c)
-{
-    struct clk_hw *hw = __clk_get_hw(c);
-    struct sunxi_clk_periph *periph = to_clk_periph(hw);
-    periph->flags |= CLK_IGNORE_AUTORESET;
-}
-static void sunxi_periph_auto_reset_enable(struct clk *c)
-{
-    struct clk_hw *hw = __clk_get_hw(c);
-    struct sunxi_clk_periph *periph = to_clk_periph(hw);
-    periph->flags &= ~CLK_IGNORE_AUTORESET;
-}
-*/
+
 int sunxi_periph_reset_assert(struct clk *c)
 {
     struct clk_hw *hw = __clk_get_hw(c);
@@ -700,13 +648,13 @@ int sunxi_periph_reset_assert(struct clk *c)
     unsigned long reg, flag = 0;
     unsigned long flags = 0;
 
-	if(periph->flags & CLK_READONLY)
+    if(periph->flags & CLK_READONLY)
         return 0;
-	
+
     if((periph->com_gate && periph->com_gate->val)
        && (periph->com_gate->val & periph->com_gate->mask) != (1 << periph->com_gate_off))
-       return 1;    
-    
+       return 1;
+
     if(periph->lock)
         spin_lock_irqsave(periph->lock, flags);
 
@@ -738,3 +686,4 @@ int sunxi_periph_reset_assert(struct clk *c)
 }
 EXPORT_SYMBOL(sunxi_periph_reset_assert);
 EXPORT_SYMBOL(sunxi_periph_reset_deassert);
+
