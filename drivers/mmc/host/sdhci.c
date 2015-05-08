@@ -2040,6 +2040,16 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	ier = sdhci_readl(host, SDHCI_INT_ENABLE);
 	sdhci_clear_set_irqs(host, ier, SDHCI_INT_DATA_AVAIL);
 
+	if (unlikely(host->quirks2 & SDHCI_QUIRK2_TUNING_POLL)) {
+		/*
+		 * Tuning poll doesn't need data interrupt signal.
+		 * Disable it to prevent unwanted irq requests.
+		 */
+		u32 no_data_int = sdhci_readl(host, SDHCI_SIGNAL_ENABLE);
+		no_data_int &= ~SDHCI_INT_DATA_AVAIL;
+		sdhci_writel(host, no_data_int, SDHCI_SIGNAL_ENABLE);
+	}
+
 	/*
 	 * Issue CMD19 repeatedly till Execute Tuning is set to 0 or the number
 	 * of loops reaches 40 times or a timeout of 150ms occurs.
