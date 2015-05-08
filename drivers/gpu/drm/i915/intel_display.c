@@ -2738,6 +2738,7 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	struct drm_display_mode *mode = &intel_crtc->config.requested_mode;
 	int plane = intel_crtc->plane;
 	int pipe = intel_crtc->pipe;
+	int pipe_stat = VLV_PIPE_STATS(dev_priv->pipe_plane_stat);
 	unsigned long linear_offset;
 	bool rotate = false;
 	bool alpha_changed = false;
@@ -2910,7 +2911,21 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	intel_crtc->vlv_wm.sr = vlv_calculate_wm(intel_crtc, pixel_size);
 	plane_ddl = plane_prec_multi | (plane_ddl);
 
+	/*
+	 * The current Dl formula doesnt consider multipipe
+	 * cases, Use this value suggested by sv till the
+	 * actual formula gets used, same applies for all
+	 * hdmi cases. Since secondary display comes on PIPEC
+	 * we are checking for pipe C, pipe_stat variable
+	 * tells us the number of pipes enabled.
+	 */
+	if (IS_CHERRYVIEW(dev))
+		if (!single_pipe_enabled(pipe_stat) ||
+				(pipe_stat & PIPE_ENABLE(PIPE_C)))
+			plane_ddl = DDL_MULTI_PIPE_CHV;
+
 	intel_crtc->reg_ddl.plane_ddl = plane_ddl;
+
 	intel_crtc->reg_ddl.plane_ddl_mask = mask;
 	if (((plane_ddl & mask) != (I915_READ(VLV_DDL(pipe)) & mask)) ||
 			!(dspcntr & DISPLAY_PLANE_ENABLE)) {
