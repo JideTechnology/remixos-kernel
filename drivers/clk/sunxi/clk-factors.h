@@ -66,8 +66,8 @@ struct clk_factors_value {
  * @sdmwidth    shift to factor sdm width bit filed
  * @sdmpat      sdmpat reg address offset
  * @sdmval      sdm default value
- * @updshift	shift to update bit (especial for ddr/ddr0/ddr1)
- * @delay		for flat factors delay.
+ * @updshift    shift to update bit (especial for ddr/ddr0/ddr1)
+ * @delay       for flat factors delay.
  */
 struct sunxi_clk_factors_config {
     u8 nshift;
@@ -89,7 +89,7 @@ struct sunxi_clk_factors_config {
     u8 outshift;
     u8 modeshift;
     u8 enshift;
-    
+
     u8 lockshift;
     u8 sdmshift;
     u8 sdmwidth;
@@ -97,28 +97,33 @@ struct sunxi_clk_factors_config {
     u64 sdmpat;
     u32 sdmval;
 
-	u32 updshift;
-	u32 delay;
+    u32 updshift;
+    u32 delay;
 };
 
 struct sunxi_clk_factor_freq{
-	u32		factor;	
-    u32   freq;	
+    u32 factor;
+    u32 freq;
 };
 
 /**
- * struct sunxi_clk_factors - factor clock
+ * struct factor_init_data - factor init data
  *
- * @hw:         handle between common and hardware-specific interfaces
- * @dev:        device handle who register this clock
  * @name:       name of the clock
  * @parent_name:name of the parent
- * @reg:        register address for the factor
- * @config:     configuration of the factor
- * @get_factor: function for get factors parameter under a given frequency
- * @calc_rate:  function for calculate the factor frequency
- * @lock:       register lock
+ * @num_parents:counter of the parents
  * @flags:      factor optimal configurations
+ * @reg:        register address for the factor
+ * @lock_reg:   register address for check if the pll has locked
+ * @lock_bit:   bit offset of the lock_reg, to check if the the pll has locked
+ * @pll_lock_ctrl_reg: pll lock control register, this function is first used on
+ *              the sun50i, to enable the function of pll hardlock
+ * @lock_en_bit:bit offset of the pll_lock_ctrl_reg, to enable the function
+ * @config:     configuration of the factor
+ * @get_factors:function for get factors parameter under a given frequency
+ * @calc_rate:  function for calculate the factor frequency
+ * @priv_ops:   private operations hook for the special factor
+ * @priv_regops:register operation hook for read/write the register
  *
  */
 struct factor_init_data {
@@ -126,25 +131,43 @@ struct factor_init_data {
     const char          **parent_names;
     int                 num_parents;
     unsigned long       flags;
-    u64       		reg;
-    u64       		lock_reg;
-    unsigned char       lock_bit;    
-    u64                 pll_clk_ctrl_reg;
+    u64                 reg;
+    u64                 lock_reg;
+    unsigned char       lock_bit;
+    u64                 pll_lock_ctrl_reg;
     unsigned char       lock_en_bit;
     struct sunxi_clk_factors_config *config;
     int (*get_factors) (u32 rate, u32 parent_rate, struct clk_factors_value *factor);
     unsigned long (*calc_rate) (u32 parent_rate, struct clk_factors_value *factor);
     struct clk_ops * priv_ops;
     struct sunxi_reg_ops*  priv_regops;
-}; 
+};
+/**
+ * struct sunxi_clk_factors - factor clock
+ *
+ * @hw:         handle between common and hardware-specific interfaces
+ * @dev:        device handle who register this clock
+ * @flags:      factor optimal configurations
+ * @reg:        register address for the factor
+ * @lock_reg:   register address for check if the pll has locked
+ * @lock_bit:   bit offset of the lock_reg, to check if the the pll has locked
+ * @pll_lock_ctrl_reg: pll lock control register, this function is first used on
+ *              the sun50i, to enable the function of pll hardlock
+ * @lock_en_bit:bit offset of the pll_lock_ctrl_reg, to enable the function
+ * @get_factor: function for get factors parameter under a given frequency
+ * @calc_rate:  function for calculate the factor frequency
+ * @lock:       lock for protecting the factors operations
+ * @priv_ops:   private operations hook for the special factor
+ *
+ */
 struct sunxi_clk_factors {
     struct clk_hw       hw;
     struct device       *dev;
     unsigned long       flags;
     void __iomem        *reg;
     void __iomem        *lock_reg;
-    unsigned char       lock_bit;    
-    void __iomem        *pll_clk_ctrl_reg;
+    unsigned char       lock_bit;
+    void __iomem        *pll_lock_ctrl_reg;
     unsigned char       lock_en_bit;
     struct sunxi_clk_factors_config *config;
     int (*get_factors) (u32 rate, u32 parent_rate, struct clk_factors_value *factor);
@@ -189,17 +212,17 @@ struct clk *sunxi_clk_register_factors(struct device *dev,void __iomem *base,spi
         .outshift = _outshift,  \
         .modeshift =_modeshift,     \
         .enshift =_enshift,    \
-	.sdmshift=_sdmshift,	\
-	.sdmwidth=_sdmwidth,	\
-	.sdmpat  =_sdmpat,	\
-	.sdmval  =_sdmval,	\
-	.updshift = 0\
-	}
+        .sdmshift=_sdmshift,    \
+        .sdmwidth=_sdmwidth,    \
+        .sdmpat  =_sdmpat,    \
+        .sdmval  =_sdmval,    \
+        .updshift = 0\
+    }
     #define FACTOR_ALL(nv,ns,nw,kv,ks,kw,mv,ms,mw, \
-									pv,ps,pw,d0v,d0s,d0w,d1v,d1s,d1w) \
-									((nv&((1<<nw)-1))<<ns|(kv&((1<<kw)-1))<<ks| \
-									(mv&((1<<mw)-1))<<ms|(pv&((1<<pw)-1))<<ps| \
-									(d0v&((1<<d0w)-1))<<d0s|(d1v&((1<<d1w)-1))<<d1s)
+                pv,ps,pw,d0v,d0s,d0w,d1v,d1s,d1w) \
+                ((nv&((1<<nw)-1))<<ns|(kv&((1<<kw)-1))<<ks| \
+                (mv&((1<<mw)-1))<<ms|(pv&((1<<pw)-1))<<ps| \
+                (d0v&((1<<d0w)-1))<<d0s|(d1v&((1<<d1w)-1))<<d1s)
 
 #define SUNXI_CLK_FACTORS_UPDATE(name, _nshift, _nwidth, _kshift, _kwidth, _mshift, _mwidth,   \
                   _pshift, _pwidth, _d1shift, _d1width, _d2shift, _d2width,     \
@@ -221,12 +244,12 @@ struct clk *sunxi_clk_register_factors(struct device *dev,void __iomem *base,spi
         .outshift = _outshift,  \
         .modeshift =_modeshift,     \
         .enshift =_enshift,    \
-	.sdmshift=_sdmshift,	\
-	.sdmwidth=_sdmwidth,	\
-	.sdmpat  =_sdmpat,	\
-	.sdmval  =_sdmval,	\
-	.updshift = _updshift\
-	}
+        .sdmshift=_sdmshift,    \
+        .sdmwidth=_sdmwidth,    \
+        .sdmpat  =_sdmpat,    \
+        .sdmval  =_sdmval,    \
+        .updshift = _updshift\
+    }
 
 #define SUNXI_CLK_FACTORS_DELAY(name, _nshift, _nwidth, _kshift, _kwidth, _mshift, _mwidth,   \
                   _pshift, _pwidth, _d1shift, _d1width, _d2shift, _d2width,     \
@@ -248,12 +271,12 @@ struct clk *sunxi_clk_register_factors(struct device *dev,void __iomem *base,spi
         .outshift = _outshift,  \
         .modeshift =_modeshift,     \
         .enshift =_enshift,    \
-	.sdmshift=_sdmshift,	\
-	.sdmwidth=_sdmwidth,	\
-	.sdmpat  =_sdmpat,	\
-	.sdmval  =_sdmval,	\
-	.delay = _delay\
-	}
+        .sdmshift=_sdmshift,    \
+        .sdmwidth=_sdmwidth,    \
+        .sdmpat  =_sdmpat,    \
+        .sdmval  =_sdmval,    \
+        .delay = _delay\
+    }
 
 int sunxi_clk_get_common_factors(struct sunxi_clk_factors_config* f_config,struct clk_factors_value *factor, struct sunxi_clk_factor_freq table[],unsigned long index,unsigned long tbl_size);
 int sunxi_clk_get_common_factors_search(struct sunxi_clk_factors_config* f_config,struct clk_factors_value *factor, struct sunxi_clk_factor_freq table[],unsigned long index,unsigned long tbl_count);
