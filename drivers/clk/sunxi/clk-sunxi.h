@@ -11,7 +11,7 @@
 #define __MACH_SUNXI_CLK_SUNXI_H
 
 #define to_clk_factor(_hw) container_of(_hw, struct sunxi_clk_factors, hw)
-//#define SETMASK(width, shift)   (((-1U) >> (31-width))  << (shift))
+
 #define SETMASK(width, shift)   ((width?((-1U) >> (32-width)):0)  << (shift))
 #define CLRMASK(width, shift)   (~(SETMASK(width, shift)))
 #define GET_BITS(shift, width, reg)     \
