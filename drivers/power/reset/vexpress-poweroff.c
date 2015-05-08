@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/stat.h>
 #include <linux/vexpress.h>
+#include <linux/reboot.h>
 
 #include <asm/system_misc.h>
 
@@ -48,7 +49,7 @@ static void vexpress_power_off(void)
 
 static struct device *vexpress_restart_device;
 
-static void vexpress_restart(char str, const char *cmd)
+static void vexpress_restart(enum reboot_mode reboot_mode, const char *cmd)
 {
 	vexpress_reset_do(vexpress_restart_device, "restart");
 }
