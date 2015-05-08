@@ -576,6 +576,7 @@ static void sunxi_pmx_set_mux_disable(struct pinctrl_dev *pctldev,
 			     unsigned function,
 			     unsigned group)
 {
+#if 0
 	struct sunxi_pinctrl *pctl = pinctrl_dev_get_drvdata(pctldev);
 	struct sunxi_pinctrl_group *g = pctl->groups + group;
 	struct sunxi_pinctrl_function *func = pctl->functions + function;
@@ -585,8 +586,8 @@ static void sunxi_pmx_set_mux_disable(struct pinctrl_dev *pctldev,
 							 func->name);
 
 	sunxi_pmx_set(pctldev, g->pin, desc->muxval, false);
+#endif
 }
-
 
 static int
 sunxi_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
@@ -617,7 +618,7 @@ static const struct pinmux_ops sunxi_pmx_ops = {
 	.get_function_name	= sunxi_pmx_get_func_name,
 	.get_function_groups	= sunxi_pmx_get_func_groups,
 	.enable			= sunxi_pmx_set_mux_enable,
-	//.disable		= sunxi_pmx_set_mux_disable,
+	.disable		= sunxi_pmx_set_mux_disable,
 	.gpio_set_direction	= sunxi_pmx_gpio_set_direction,
 };
 
