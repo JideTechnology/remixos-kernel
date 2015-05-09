@@ -318,6 +318,7 @@ struct mxt_data {
 	/* Indicates whether device is updating configuration */
 	bool updating_config;
 
+	bool late_start;
 	/*debugfs interfaces for factory test*/
 #ifdef CONFIG_DEBUG_FS
 	char *debugfs_name;
@@ -3364,7 +3365,8 @@ static void mxt_reset_slots(struct mxt_data *data)
 
 static void mxt_start(struct mxt_data *data)
 {
-	if (!data->suspended || data->in_bootloader)
+	if ((!data->suspended && !data->late_start)
+			|| data->in_bootloader)
 		return;
 
 	if (data->use_regulator) {
@@ -4011,9 +4013,12 @@ static int mxt_resume(struct device *dev)
 	if (ret)
 		dev_info(&client->dev, "Can't request reset gpio\n");
 
-	if (input_dev->users)
+	if (input_dev->users) {
 		mxt_start(data);
-
+		data->late_start = false;
+	} else {
+		data->late_start = true;
+	}
 	data->suspended = false;
 	dev_info(&client->dev, "mxt_resume complete\n");
 out:
