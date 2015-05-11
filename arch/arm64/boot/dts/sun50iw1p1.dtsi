@@ -1215,7 +1215,7 @@
 			#cooling-cells = <2>;
 			status = "okay";
 			state_cnt = <3>;
-			state0 = <408>;
+			state0 = <0>;
 			state1 = <360>;
 			state2 = <144>;
 		};
