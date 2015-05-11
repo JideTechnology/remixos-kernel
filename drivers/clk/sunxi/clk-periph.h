@@ -35,15 +35,15 @@
  * SUNXI_PERIPH_NO_DDR_GATE - This flag indicates that dram gate is not allowed for this module.
  */
 struct sunxi_clk_periph_gate {
-    u32             flags;
-    void __iomem    *enable;
-    void __iomem    *reset;
-    void __iomem    *bus;
-    void __iomem    *dram;
-    u8              enb_shift;
-    u8              rst_shift;
-    u8              bus_shift;
-    u8              ddr_shift;
+	u32             flags;
+	void __iomem    *enable;
+	void __iomem    *reset;
+	void __iomem    *bus;
+	void __iomem    *dram;
+	u8              enb_shift;
+	u8              rst_shift;
+	u8              bus_shift;
+	u8              ddr_shift;
 };
 
 /**
@@ -59,12 +59,12 @@ struct sunxi_clk_periph_gate {
  * Flags:
  */
 struct sunxi_clk_periph_div {
-    void __iomem    *reg;
-    u8              mshift;
-    u8              mwidth;
-    u8              nshift;
-    u8              nwidth;
-    spinlock_t      *lock;
+	void __iomem    *reg;
+	u8              mshift;
+	u8              mwidth;
+	u8              nshift;
+	u8              nwidth;
+	spinlock_t      *lock;
 };
 
 
@@ -81,18 +81,18 @@ struct sunxi_clk_periph_div {
  *
  */
 struct sunxi_clk_periph_mux {
-    void __iomem    *reg;
-    u8              shift;
-    u8              width;
-    spinlock_t      *lock;
+	void __iomem    *reg;
+	u8              shift;
+	u8              width;
+	spinlock_t      *lock;
 };
 
 struct sunxi_clk_comgate {
-    const u8        *name;
-    u8              val;
-    u8              mask;
-    u8              share;
-    u8              res;
+	const u8        *name;
+	u8              val;
+	u8              mask;
+	u8              share;
+	u8              res;
 };
 
 #define BUS_GATE_SHARE  0x01
@@ -120,28 +120,28 @@ struct sunxi_clk_comgate {
  * @priv_regops:    gate clock ops
  */
 struct sunxi_clk_periph {
-    struct clk_hw                   hw;
-    unsigned long                   flags;
-    spinlock_t                      *lock;
+	struct clk_hw                   hw;
+	unsigned long                   flags;
+	spinlock_t                      *lock;
 
-    struct sunxi_clk_periph_mux     mux;
-    struct sunxi_clk_periph_gate    gate;
-    struct sunxi_clk_periph_div     divider;
-    struct sunxi_clk_comgate*       com_gate;
-    u8                              com_gate_off;
-    struct clk_ops*                 priv_clkops;
-    struct sunxi_reg_ops*           priv_regops;
+	struct sunxi_clk_periph_mux     mux;
+	struct sunxi_clk_periph_gate    gate;
+	struct sunxi_clk_periph_div     divider;
+	struct sunxi_clk_comgate*       com_gate;
+	u8                              com_gate_off;
+	struct clk_ops*                 priv_clkops;
+	struct sunxi_reg_ops*           priv_regops;
 };
 static inline u32 periph_readl(struct sunxi_clk_periph * periph, void __iomem * reg)
 {
-    return (((u64)periph->priv_regops)?periph->priv_regops->reg_readl(reg):readl(reg));
+	return (((u64)periph->priv_regops)?periph->priv_regops->reg_readl(reg):readl(reg));
 }
 static inline void periph_writel(struct sunxi_clk_periph * periph, unsigned int val, void __iomem * reg)
 {
-    (((u64)periph->priv_regops)?periph->priv_regops->reg_writel(val,reg):writel(val,reg));
+	(((u64)periph->priv_regops)?periph->priv_regops->reg_writel(val,reg):writel(val,reg));
 }
 struct clk *sunxi_clk_register_periph(const char *name, const char **parent_names,
-            int num_parents, unsigned long flags, void __iomem  *base, struct sunxi_clk_periph *periph);
+			int num_parents, unsigned long flags, void __iomem  *base, struct sunxi_clk_periph *periph);
 int sunxi_periph_reset_deassert(struct clk *c);
 int sunxi_periph_reset_assert(struct clk *c);
 extern void sunxi_clk_get_periph_ops(struct clk_ops* ops);
@@ -149,38 +149,38 @@ extern void sunxi_clk_get_periph_ops(struct clk_ops* ops);
 
 
 #define SUNXI_CLK_PERIPH(name, _mux_reg, _mux_shift, _mux_width,  \
-            _div_reg, _div_mshift, _div_mwidth, _div_nshift, _div_nwidth,   \
-            _gate_flags, _enable_reg, _reset_reg, _bus_gate_reg, _drm_gate_reg, \
-            _enable_shift, _reset_shift, _bus_gate_shift, _dram_gate_shift, _lock,_com_gate,_com_gate_off) \
+			_div_reg, _div_mshift, _div_mwidth, _div_nshift, _div_nwidth,   \
+			_gate_flags, _enable_reg, _reset_reg, _bus_gate_reg, _drm_gate_reg, \
+			_enable_shift, _reset_shift, _bus_gate_shift, _dram_gate_shift, _lock,_com_gate,_com_gate_off) \
 static struct sunxi_clk_periph sunxi_clk_periph_##name ={       \
-        .lock = _lock,                                          \
-                                                                \
-        .mux = {                                                \
-            .reg = (void __iomem  *)_mux_reg,                   \
-            .shift = _mux_shift,                                \
-            .width = _mux_width,                                \
-        },                                                      \
-                                                                \
-        .divider = {                                            \
-            .reg = (void __iomem  *)_div_reg,                   \
-            .mshift = _div_mshift,                              \
-            .mwidth = _div_mwidth,                              \
-            .nshift = _div_nshift,                              \
-            .nwidth = _div_nwidth,                              \
-        },                                                      \
-        .gate = {                                               \
-            .flags = _gate_flags,                               \
-            .enable = (void __iomem  *)_enable_reg,             \
-            .reset = (void __iomem  *)_reset_reg,               \
-            .bus = (void __iomem  *)_bus_gate_reg,              \
-            .dram = (void __iomem  *)_drm_gate_reg,             \
-            .enb_shift = _enable_shift,                         \
-            .rst_shift = _reset_shift,                          \
-            .bus_shift = _bus_gate_shift,                       \
-            .ddr_shift = _dram_gate_shift,                      \
-        },                                                      \
-        .com_gate = _com_gate,                                  \
-        .com_gate_off = _com_gate_off,                          \
-    }
+	.lock = _lock,                                          \
+															\
+	.mux = {                                                \
+		.reg = (void __iomem  *)_mux_reg,                   \
+		.shift = _mux_shift,                                \
+		.width = _mux_width,                                \
+	},                                                      \
+															\
+	.divider = {                                            \
+		.reg = (void __iomem  *)_div_reg,                   \
+		.mshift = _div_mshift,                              \
+		.mwidth = _div_mwidth,                              \
+		.nshift = _div_nshift,                              \
+		.nwidth = _div_nwidth,                              \
+	},                                                      \
+	.gate = {                                               \
+		.flags = _gate_flags,                               \
+		.enable = (void __iomem  *)_enable_reg,             \
+		.reset = (void __iomem  *)_reset_reg,               \
+		.bus = (void __iomem  *)_bus_gate_reg,              \
+		.dram = (void __iomem  *)_drm_gate_reg,             \
+		.enb_shift = _enable_shift,                         \
+		.rst_shift = _reset_shift,                          \
+		.bus_shift = _bus_gate_shift,                       \
+		.ddr_shift = _dram_gate_shift,                      \
+	},                                                      \
+	.com_gate = _com_gate,                                  \
+	.com_gate_off = _com_gate_off,                          \
+}
 
 #endif

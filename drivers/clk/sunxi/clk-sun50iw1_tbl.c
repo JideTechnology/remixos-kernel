@@ -393,7 +393,7 @@ PLLVE(    40 ,    0  ,     984000000U),
 PLLVE(    41 ,    0  ,    1008000000U),
 
 };
-//PLLDDR0(n,k,m,freq)	F_N8X5_K4X2_M0X2		
+//PLLDDR0(n,k,m,freq)	F_N8X5_K4X2_M0X2
 struct sunxi_clk_factor_freq factor_pllddr0_tbl[] = {
 PLLDDR0(    4  ,    1  ,    3  ,      60000000U),
 PLLDDR0(    10 ,    0  ,    3  ,      66000000U),
@@ -1670,12 +1670,12 @@ PLLDDR1(    127,    0  ,    3072000000U),
 };
 
 
-static unsigned int pllcpu_max,pllvideo0_max,pllve_max,pllddr0_max , 
+static unsigned int pllcpu_max,pllvideo0_max,pllve_max,pllddr0_max ,
 					pllperiph0_max,pllperiph1_max ,pllvideo1_max,
 					pllgpu_max,pllhsic_max,pllde_max,pllddr1_max;
 
 #define PLL_MAX_ASSIGN(name)	pll##name##_max=factor_pll##name##_tbl[ARRAY_SIZE(factor_pll##name##_tbl)-1].freq
-					
+
 void sunxi_clk_factor_initlimits(void)
 {
 	PLL_MAX_ASSIGN(cpu);PLL_MAX_ASSIGN(video0);PLL_MAX_ASSIGN(ve);PLL_MAX_ASSIGN(ddr0);
