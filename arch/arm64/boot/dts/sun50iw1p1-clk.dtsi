@@ -33,69 +33,82 @@ clocks {
 		clk_pll_cpu: pll_cpu {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-pll-clock";
+			lock-mode = "new";
 			clock-output-names = "pll_cpu";
 		};
 		clk_pll_audio: pll_audio {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-pll-clock";
+			lock-mode = "new";
 			clock-output-names = "pll_audio";
 		};	
 		clk_pll_video0: pll_video0 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-pll-clock";
+			lock-mode = "new";
 			assigned-clock-rates = <297000000>;
 			clock-output-names = "pll_video0";
 		};		
 		clk_pll_ve: pll_ve {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-pll-clock";
+			lock-mode = "new";
 			clock-output-names = "pll_ve";
 		};		
 		clk_pll_ddr0: pll_ddr0 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-pll-clock";
+			lock-mode = "new";
 			clock-output-names = "pll_ddr0";
 		};			
 		clk_pll_periph0: pll_periph0 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-pll-clock";
+			lock-mode = "new";
 			clock-output-names = "pll_periph0";
 		};			
 		clk_pll_periph1: pll_periph1 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-pll-clock";
+			lock-mode = "new";
 			clock-output-names = "pll_periph1";
 		};		
 		clk_pll_video1: pll_video1 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-pll-clock";
+			lock-mode = "new";
 			assigned-clock-rates = <297000000>;
 			clock-output-names = "pll_video1";
 		};			
 		clk_pll_gpu: pll_gpu {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-pll-clock";
+			lock-mode = "new";
 			clock-output-names = "pll_gpu";
 		};		
 		clk_pll_mipi: pll_mipi {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-pll-clock";
+			lock-mode = "new";
 			clock-output-names = "pll_mipi";
 		};		
 		clk_pll_hsic: pll_hsic {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-pll-clock";
+			lock-mode = "new";
 			clock-output-names = "pll_hsic";
 		};		
 		clk_pll_de: pll_de {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-pll-clock";
+			lock-mode = "new";
 			assigned-clock-rates = <297000000>;
 			clock-output-names = "pll_de";
 		};	
 		clk_pll_ddr1: pll_ddr1 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-pll-clock";
+			lock-mode = "new";
 			clock-output-names = "pll_ddr1";
 		};		
 /* register fixed factor clock*/

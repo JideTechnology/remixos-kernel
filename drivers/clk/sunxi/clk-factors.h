@@ -15,6 +15,14 @@
 #include <linux/io.h>
 #include "clk-sunxi.h"
 
+typedef enum pll_lock_mode
+{
+	PLL_LOCK_NEW_MODE = 0x0,
+	PLL_LOCK_OLD_MODE,
+	PLL_LOCK_NONE_MODE,
+	PLL_LOCK_MODE_MAX,
+} pll_lock_mode_e;
+
 /**
  * struct clk_factors_value - factor value
  *
@@ -136,6 +144,7 @@ struct factor_init_data {
     unsigned char       lock_bit;
     u64                 pll_lock_ctrl_reg;
     unsigned char       lock_en_bit;
+    pll_lock_mode_e     lock_mode;
     struct sunxi_clk_factors_config *config;
     int (*get_factors) (u32 rate, u32 parent_rate, struct clk_factors_value *factor);
     unsigned long (*calc_rate) (u32 parent_rate, struct clk_factors_value *factor);
@@ -169,6 +178,7 @@ struct sunxi_clk_factors {
     unsigned char       lock_bit;
     void __iomem        *pll_lock_ctrl_reg;
     unsigned char       lock_en_bit;
+    pll_lock_mode_e     lock_mode;
     struct sunxi_clk_factors_config *config;
     int (*get_factors) (u32 rate, u32 parent_rate, struct clk_factors_value *factor);
     unsigned long (*calc_rate) (u32 parent_rate, struct clk_factors_value *factor);

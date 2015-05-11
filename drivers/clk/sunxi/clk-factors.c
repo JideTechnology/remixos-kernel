@@ -21,13 +21,117 @@
 #include "clk-sunxi.h"
 #include "clk-factors.h"
 
+static int sunxi_clk_disable_plllock(struct sunxi_clk_factors *factor)
+{
+	volatile u32 reg;
+
+	switch (factor->lock_mode) {
+		case PLL_LOCK_NEW_MODE:
+		case PLL_LOCK_OLD_MODE: {
+			/* make sure pll new mode is disable */
+			reg = factor_readl(factor,factor->pll_lock_ctrl_reg);
+			reg = SET_BITS(factor->lock_en_bit, 1, reg, 0);
+			factor_writel(factor,reg, factor->pll_lock_ctrl_reg);
+
+			reg = factor_readl(factor, factor->pll_lock_ctrl_reg);
+			reg = SET_BITS(28, 1, reg, 0);
+			factor_writel(factor, reg, factor->pll_lock_ctrl_reg);
+
+			return 0;
+		}
+		case PLL_LOCK_NONE_MODE: {
+			return 0;
+		}
+		default: {
+			WARN(1, "invaid pll lock mode:%u\n", factor->lock_mode);
+			return -1;
+		}
+
+	}
+
+}
+
+static int sunxi_clk_is_lock(struct sunxi_clk_factors *factor)
+{
+	volatile u32 reg;
+	u32 loop = 5000;
+
+	switch (factor->lock_mode) {
+		case PLL_LOCK_NEW_MODE: {
+			/* enable pll new mode */
+			reg = factor_readl(factor, factor->pll_lock_ctrl_reg);
+			reg = SET_BITS(28, 1, reg, 1);
+			factor_writel(factor, reg, factor->pll_lock_ctrl_reg);
+
+			reg = factor_readl(factor, factor->pll_lock_ctrl_reg);
+			reg = SET_BITS(factor->lock_en_bit, 1, reg, 1);
+			factor_writel(factor, reg, factor->pll_lock_ctrl_reg);
+
+			while(loop--)
+			{
+				reg = factor_readl(factor,factor->lock_reg);
+				if(GET_BITS(factor->lock_bit, 1, reg)) {
+					udelay(20);
+					break;
+				} else {
+					udelay(1);
+				}
+			}
+
+			reg = factor_readl(factor,factor->pll_lock_ctrl_reg);
+			reg = SET_BITS(factor->lock_en_bit, 1, reg, 0);
+			factor_writel(factor,reg, factor->pll_lock_ctrl_reg);
+
+			reg = factor_readl(factor, factor->pll_lock_ctrl_reg);
+			reg = SET_BITS(28, 1, reg, 0);
+			factor_writel(factor, reg, factor->pll_lock_ctrl_reg);
+
+				if(!loop) {
+#if (defined CONFIG_FPGA_V4_PLATFORM) || (defined CONFIG_FPGA_V7_PLATFORM)
+			printk("clk %s wait lock timeout\n", factor->hw.clk->name);
+			return 0;
+#else
+			WARN(1, "clk %s wait lock timeout\n", factor->hw.clk->name);
+			return -1;
+#endif
+				}
+			return 0;
+		}
+		case PLL_LOCK_OLD_MODE:
+		case PLL_LOCK_NONE_MODE: {
+			while(loop--)
+			{
+				reg = factor_readl(factor,factor->lock_reg);
+				if(GET_BITS(factor->lock_bit, 1, reg)) {
+					udelay(20);
+					break;
+				} else {
+					udelay(1);
+				}
+			}
+
+			if(!loop) {
+#if (defined CONFIG_FPGA_V4_PLATFORM) || (defined CONFIG_FPGA_V7_PLATFORM)
+			printk("clk %s wait lock timeout\n", factor->hw.clk->name);
+#else
+			WARN(1, "clk %s wait lock timeout\n", factor->hw.clk->name);
+			return -1;
+#endif
+				}
+			return 0;
+		}
+		default: {
+			WARN(1, "invaid pll lock mode:%u\n", factor->lock_mode);
+			return -1;
+		}
+	}
+}
 
 static int sunxi_clk_fators_enable(struct clk_hw *hw)
 {
     struct sunxi_clk_factors *factor = to_clk_factor(hw);
     struct sunxi_clk_factors_config *config = factor->config;
     unsigned long reg;
-    unsigned int loop = 500;
     unsigned long flags = 0;
 
     /* check if the pll enabled already */
@@ -38,12 +142,7 @@ static int sunxi_clk_fators_enable(struct clk_hw *hw)
     if(factor->lock)
         spin_lock_irqsave(factor->lock, flags);
 
-    if(factor->pll_lock_ctrl_reg) {
-        /* pll lock function is exist, write 0 to the lock enable bit */
-        reg = factor_readl(factor,factor->pll_lock_ctrl_reg);
-        reg = SET_BITS(factor->lock_en_bit, 1, reg, 0);
-        factor_writel(factor, reg, factor->pll_lock_ctrl_reg);
-    }
+	sunxi_clk_disable_plllock(factor);
 
     /* get factor register value */
     reg = factor_readl(factor, factor->reg);
@@ -57,35 +156,20 @@ static int sunxi_clk_fators_enable(struct clk_hw *hw)
     /* update for pll_ddr register */
     if(config->updshift)
         reg = SET_BITS(config->updshift, 1, reg, 1);
+
     factor_writel(factor,reg, factor->reg);
 
-    if(factor->pll_lock_ctrl_reg) {
-        /* pll lock function is exist, write 1 to the lock enable bit */
-        reg = factor_readl(factor, factor->pll_lock_ctrl_reg);
-        reg = SET_BITS(factor->lock_en_bit, 1, reg, 1);
-        factor_writel(factor, reg, factor->pll_lock_ctrl_reg);
-    }
+	if (sunxi_clk_is_lock(factor)) {
+		if(factor->lock)
+			spin_unlock_irqrestore(factor->lock, flags);
+		WARN(1, "clk %s wait lock timeout\n", factor->hw.clk->name);
+		return -1;
+	}
 
-    while(loop--)
-    {
-        reg = factor_readl(factor, factor->lock_reg);
-        if(GET_BITS(factor->lock_bit, 1, reg)) {
-            udelay(20);
-            break;
-        } else {
-            udelay(1);
-        }
-    }
+	if(factor->lock)
+		spin_unlock_irqrestore(factor->lock, flags);
 
-    if(factor->lock)
-        spin_unlock_irqrestore(factor->lock, flags);
-
-    if(!loop) {
-        printk("clk %s wait lock timeout\n",hw->clk->name);
-        return -1;
-    }
-
-    return 0;
+		return 0;
 }
 
 static void sunxi_clk_fators_disable(struct clk_hw *hw)
@@ -117,11 +201,7 @@ static void sunxi_clk_fators_disable(struct clk_hw *hw)
     factor_writel(factor,reg, factor->reg);
 
     /* disable pll lock if needed */
-    if(factor->pll_lock_ctrl_reg) {
-        reg = factor_readl(factor, factor->pll_lock_ctrl_reg);
-        reg = SET_BITS(factor->lock_en_bit, 1, reg, 0);
-        factor_writel(factor, reg, factor->pll_lock_ctrl_reg);
-    }
+    	sunxi_clk_disable_plllock(factor);
 
     if(factor->lock)
         spin_unlock_irqrestore(factor->lock, flags);
@@ -224,18 +304,11 @@ static int sunxi_clk_factors_set_flat_facotrs(struct sunxi_clk_factors *factor,
     u32 reg, tmp_factor_p, tmp_factor_m;
     unsigned long flags = 0;
 
-#ifdef CONFIG_EVB_PLATFORM
-    unsigned int loop = 1500; /*lock loops*/
-#endif
 
     if(factor->lock)
         spin_lock_irqsave(factor->lock, flags);
 
-    if(factor->pll_lock_ctrl_reg) {
-        reg = factor_readl(factor,factor->pll_lock_ctrl_reg);
-        reg = SET_BITS(factor->lock_en_bit, 1, reg, 0);
-        factor_writel(factor, reg, factor->pll_lock_ctrl_reg);
-    }
+	sunxi_clk_disable_plllock(factor);
 
     /*get all factors from the regitsters*/
     reg = factor_readl(factor,factor->reg);
@@ -280,33 +353,15 @@ static int sunxi_clk_factors_set_flat_facotrs(struct sunxi_clk_factors *factor,
             udelay(config->delay);
     }
 
-    if(factor->pll_lock_ctrl_reg) {
-        reg = factor_readl(factor, factor->pll_lock_ctrl_reg);
-        reg = SET_BITS(factor->lock_en_bit, 1, reg, 1);
-        factor_writel(factor, reg, factor->pll_lock_ctrl_reg);
-    }
+	/* 5. wait for PLL state stable */
+	if (sunxi_clk_is_lock(factor)) {
+		if(factor->lock)
+			spin_unlock_irqrestore(factor->lock, flags);
+		WARN(1, "clk %s wait lock timeout\n", factor->hw.clk->name);
+		return -1;
+	}
 
-    /* 5. wait for PLL state stable */
-#ifdef CONFIG_EVB_PLATFORM
-    while(loop--)
-    {
-        reg = factor_readl(factor,factor->lock_reg);
-        if(GET_BITS(factor->lock_bit, 1, reg)) {
-            udelay(20);
-            break;
-        } else {
-            udelay(1);
-        }
-    }
-
-    if(!loop) {
-        printk("clk %s wait lock timeout\n", factor->hw.clk->name);
-        if(factor->lock)
-            spin_unlock_irqrestore(factor->lock, flags);
-    }
-#endif
-
-    /*6.do pair things for 1).  decease factor p */
+	/*6.do pair things for 1).  decease factor p */
     if(config->pwidth && (tmp_factor_p > values->factorp))
     {
         reg = factor_readl(factor, factor->reg);
@@ -327,7 +382,6 @@ static int sunxi_clk_factors_set_rate(struct clk_hw *hw, unsigned long rate, uns
 {
     unsigned long reg;
     struct clk_factors_value factor_val;
-    unsigned int loop = 500;
     struct sunxi_clk_factors *factor = to_clk_factor(hw);
     struct sunxi_clk_factors_config *config = factor->config;
     unsigned long flags = 0;
@@ -353,11 +407,7 @@ static int sunxi_clk_factors_set_rate(struct clk_hw *hw, unsigned long rate, uns
     if(factor->lock)
         spin_lock_irqsave(factor->lock, flags);
 
-    if(factor->pll_lock_ctrl_reg) {
-        reg = factor_readl(factor, factor->pll_lock_ctrl_reg);
-        reg = SET_BITS(factor->lock_en_bit, 1, reg, 0);
-        factor_writel(factor, reg, factor->pll_lock_ctrl_reg);
-    }
+	sunxi_clk_disable_plllock(factor);
 
     reg = factor_readl(factor, factor->reg);
     if(config->sdmwidth)
@@ -383,41 +433,23 @@ static int sunxi_clk_factors_set_rate(struct clk_hw *hw, unsigned long rate, uns
     }
     if(config->updshift) //update for pll_ddr register
         reg = SET_BITS(config->updshift, 1, reg, 1);
-    factor_writel(factor,reg, factor->reg);
-
-    if(factor->pll_lock_ctrl_reg) {
-        reg = factor_readl(factor, factor->pll_lock_ctrl_reg);
-        reg = SET_BITS(factor->lock_en_bit, 1, reg, 1);
-        factor_writel(factor, reg, factor->pll_lock_ctrl_reg);
-    }
+	factor_writel(factor,reg, factor->reg);
 
 #ifndef CONFIG_SUNXI_CLK_DUMMY_DEBUG
-    if(GET_BITS(config->enshift, 1, reg))
-    {
-        while(loop--)
-        {
-            reg = factor_readl(factor, factor->lock_reg);
-            if(GET_BITS(factor->lock_bit, 1, reg)) {
-                udelay(20);
-                break;
-            } else {
-                udelay(1);
-            }
-        }
-
-        if(!loop) {
-            printk("clk %s wait lock timeout\n", hw->clk->name);
-            if(factor->lock)
-                spin_unlock_irqrestore(factor->lock, flags);
-            return -1;
-        }
-    }
+	if(GET_BITS(config->enshift, 1, reg)) {
+		if (sunxi_clk_is_lock(factor)) {
+			if(factor->lock)
+				spin_unlock_irqrestore(factor->lock, flags);
+			WARN(1, "clk %s wait lock timeout\n", factor->hw.clk->name);
+			return -1;
+		}
+	}
 #endif
 
-    if(factor->lock)
-        spin_unlock_irqrestore(factor->lock, flags);
+	if(factor->lock)
+		spin_unlock_irqrestore(factor->lock, flags);
 
-    return 0;
+	return 0;
 }
 
 
@@ -476,6 +508,7 @@ struct clk *sunxi_clk_register_factors(struct device *dev, void __iomem *base,
     factors->lock_bit = init_data->lock_bit;
     factors->pll_lock_ctrl_reg = base + init_data->pll_lock_ctrl_reg;
     factors->lock_en_bit = init_data->lock_en_bit;
+	factors->lock_mode = init_data->lock_mode;
     factors->config = init_data->config;
     factors->config->sdmpat = (u64 __force)(base + factors->config->sdmpat);
     factors->lock = lock;

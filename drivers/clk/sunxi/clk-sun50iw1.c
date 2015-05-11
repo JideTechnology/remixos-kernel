@@ -519,24 +519,22 @@ static const char *mipi_parents[] = {"pll_video0",""};
 static const char *hosc_parents[] = {"hosc"};
 struct clk_ops pll_mipi_ops;
 
-
 struct factor_init_data sunxi_factos[] = {
-    /* name         parent        parent_num, flags                                      reg          lock_reg     lock_bit     pll_clk_ctrl_reg lock_en_bit config                         get_factors               calc_rate             priv_ops*/
-    {"pll_cpu",     hosc_parents, 1,          CLK_IGNORE_DISABLE | CLK_GET_RATE_NOCACHE, PLL_CPU,     PLL_CPU,     LOCKBIT(28), PLL_CLK_CTRL,    0,          &sunxi_clk_factor_pll_cpu,     &get_factors_pll_cpu,     &calc_rate_pll_cpu    ,(struct clk_ops*)NULL},
-    {"pll_audio",   hosc_parents, 1,          CLK_IGNORE_DISABLE,                        PLL_AUDIO,   PLL_AUDIO,   LOCKBIT(28), PLL_CLK_CTRL,    1,          &sunxi_clk_factor_pll_audio,   &get_factors_pll_audio,   &calc_rate_pll_audio  ,(struct clk_ops*)NULL},
-    {"pll_video0",  hosc_parents, 1,          CLK_IGNORE_DISABLE,                        PLL_VIDEO0,  PLL_VIDEO0,  LOCKBIT(28), PLL_CLK_CTRL,    2,          &sunxi_clk_factor_pll_video0,  &get_factors_pll_video0,  &calc_rate_media      ,(struct clk_ops*)NULL},
-    {"pll_ve",      hosc_parents, 1,          CLK_IGNORE_DISABLE,                        PLL_VE,      PLL_VE,      LOCKBIT(28), PLL_CLK_CTRL,    3,          &sunxi_clk_factor_pll_ve,      &get_factors_pll_ve,      &calc_rate_media      ,(struct clk_ops*)NULL},
-    {"pll_ddr0",    hosc_parents, 1,          CLK_IGNORE_DISABLE | CLK_GET_RATE_NOCACHE, PLL_DDR0,    PLL_DDR0,    LOCKBIT(28), PLL_CLK_CTRL,    4,          &sunxi_clk_factor_pll_ddr0,    &get_factors_pll_ddr0,    &calc_rate_pll_ddr0   ,(struct clk_ops*)NULL},
-    {"pll_periph0", hosc_parents, 1,          CLK_IGNORE_DISABLE,                        PLL_PERIPH0, PLL_PERIPH0, LOCKBIT(28), PLL_CLK_CTRL,    5,          &sunxi_clk_factor_pll_periph0, &get_factors_pll_periph0, &calc_rate_pll_periph ,(struct clk_ops*)NULL},
-    {"pll_periph1", hosc_parents, 1,          CLK_IGNORE_DISABLE,                        PLL_PERIPH1, PLL_PERIPH1, LOCKBIT(28), PLL_CLK_CTRL,    12,         &sunxi_clk_factor_pll_periph1, &get_factors_pll_periph1, &calc_rate_pll_periph ,(struct clk_ops*)NULL},
-    {"pll_video1",  hosc_parents, 1,          CLK_IGNORE_DISABLE,                        PLL_VIDEO1,  PLL_VIDEO1,  LOCKBIT(28), PLL_CLK_CTRL,    6,          &sunxi_clk_factor_pll_video1,  &get_factors_pll_video1,  &calc_rate_media      ,(struct clk_ops*)NULL},
-    {"pll_gpu",     hosc_parents, 1,          CLK_IGNORE_DISABLE,                        PLL_GPU,     PLL_GPU,     LOCKBIT(28), PLL_CLK_CTRL,    7,          &sunxi_clk_factor_pll_gpu,     &get_factors_pll_gpu,     &calc_rate_media      ,(struct clk_ops*)NULL},
-    {"pll_mipi",    mipi_parents, 2,          CLK_IGNORE_DISABLE,                        MIPI_PLL,    MIPI_PLL,    LOCKBIT(28), PLL_CLK_CTRL,    8,          &sunxi_clk_factor_pll_mipi,    &get_factors_pll_mipi,    &calc_rate_pll_mipi   ,&pll_mipi_ops        },
-    {"pll_hsic",    hosc_parents, 1,          CLK_IGNORE_DISABLE,                        PLL_HSIC,    PLL_HSIC,    LOCKBIT(28), PLL_CLK_CTRL,    9,          &sunxi_clk_factor_pll_hsic,    &get_factors_pll_hsic,    &calc_rate_media      ,(struct clk_ops*)NULL},
-    {"pll_de",      hosc_parents, 1,          CLK_IGNORE_DISABLE,                        PLL_DE,      PLL_DE,      LOCKBIT(28), PLL_CLK_CTRL,    10,         &sunxi_clk_factor_pll_de,      &get_factors_pll_de,      &calc_rate_media      ,(struct clk_ops*)NULL},
-    {"pll_ddr1",    hosc_parents, 1,          CLK_IGNORE_DISABLE | CLK_GET_RATE_NOCACHE, PLL_DDR1,    PLL_DDR1,    LOCKBIT(28), PLL_CLK_CTRL,    11,         &sunxi_clk_factor_pll_ddr1,    &get_factors_pll_ddr1,    &calc_rate_pll_ddr1   ,(struct clk_ops*)NULL},
+    /* name         parent        parent_num, flags                                      reg          lock_reg     lock_bit     pll_lock_ctrl_reg lock_en_bit lock_mode           config                         get_factors               calc_rate              priv_ops*/
+    {"pll_cpu",     hosc_parents, 1,          CLK_IGNORE_DISABLE | CLK_GET_RATE_NOCACHE, PLL_CPU,     PLL_CPU,     LOCKBIT(28), PLL_CLK_CTRL,     0,          PLL_LOCK_NONE_MODE, &sunxi_clk_factor_pll_cpu,     &get_factors_pll_cpu,     &calc_rate_pll_cpu,    (struct clk_ops*)NULL},
+    {"pll_audio",   hosc_parents, 1,          CLK_IGNORE_DISABLE,                        PLL_AUDIO,   PLL_AUDIO,   LOCKBIT(28), PLL_CLK_CTRL,     1,          PLL_LOCK_NONE_MODE, &sunxi_clk_factor_pll_audio,   &get_factors_pll_audio,   &calc_rate_pll_audio,  (struct clk_ops*)NULL},
+    {"pll_video0",  hosc_parents, 1,          CLK_IGNORE_DISABLE,                        PLL_VIDEO0,  PLL_VIDEO0,  LOCKBIT(28), PLL_CLK_CTRL,     2,          PLL_LOCK_NONE_MODE, &sunxi_clk_factor_pll_video0,  &get_factors_pll_video0,  &calc_rate_media,      (struct clk_ops*)NULL},
+    {"pll_ve",      hosc_parents, 1,          CLK_IGNORE_DISABLE,                        PLL_VE,      PLL_VE,      LOCKBIT(28), PLL_CLK_CTRL,     3,          PLL_LOCK_NONE_MODE, &sunxi_clk_factor_pll_ve,      &get_factors_pll_ve,      &calc_rate_media,      (struct clk_ops*)NULL},
+    {"pll_ddr0",    hosc_parents, 1,          CLK_IGNORE_DISABLE | CLK_GET_RATE_NOCACHE, PLL_DDR0,    PLL_DDR0,    LOCKBIT(28), PLL_CLK_CTRL,     4,          PLL_LOCK_NONE_MODE, &sunxi_clk_factor_pll_ddr0,    &get_factors_pll_ddr0,    &calc_rate_pll_ddr0,   (struct clk_ops*)NULL},
+    {"pll_periph0", hosc_parents, 1,          CLK_IGNORE_DISABLE,                        PLL_PERIPH0, PLL_PERIPH0, LOCKBIT(28), PLL_CLK_CTRL,     5,          PLL_LOCK_NONE_MODE, &sunxi_clk_factor_pll_periph0, &get_factors_pll_periph0, &calc_rate_pll_periph, (struct clk_ops*)NULL},
+    {"pll_periph1", hosc_parents, 1,          CLK_IGNORE_DISABLE,                        PLL_PERIPH1, PLL_PERIPH1, LOCKBIT(28), PLL_CLK_CTRL,     12,         PLL_LOCK_NONE_MODE, &sunxi_clk_factor_pll_periph1, &get_factors_pll_periph1, &calc_rate_pll_periph, (struct clk_ops*)NULL},
+    {"pll_video1",  hosc_parents, 1,          CLK_IGNORE_DISABLE,                        PLL_VIDEO1,  PLL_VIDEO1,  LOCKBIT(28), PLL_CLK_CTRL,     6,          PLL_LOCK_NONE_MODE, &sunxi_clk_factor_pll_video1,  &get_factors_pll_video1,  &calc_rate_media,      (struct clk_ops*)NULL},
+    {"pll_gpu",     hosc_parents, 1,          CLK_IGNORE_DISABLE,                        PLL_GPU,     PLL_GPU,     LOCKBIT(28), PLL_CLK_CTRL,     7,          PLL_LOCK_NONE_MODE, &sunxi_clk_factor_pll_gpu,     &get_factors_pll_gpu,     &calc_rate_media,      (struct clk_ops*)NULL},
+    {"pll_mipi",    mipi_parents, 2,          CLK_IGNORE_DISABLE,                        MIPI_PLL,    MIPI_PLL,    LOCKBIT(28), PLL_CLK_CTRL,     8,          PLL_LOCK_NONE_MODE, &sunxi_clk_factor_pll_mipi,    &get_factors_pll_mipi,    &calc_rate_pll_mipi,   &pll_mipi_ops        },
+    {"pll_hsic",    hosc_parents, 1,          CLK_IGNORE_DISABLE,                        PLL_HSIC,    PLL_HSIC,    LOCKBIT(28), PLL_CLK_CTRL,     9,          PLL_LOCK_NONE_MODE, &sunxi_clk_factor_pll_hsic,    &get_factors_pll_hsic,    &calc_rate_media,      (struct clk_ops*)NULL},
+    {"pll_de",      hosc_parents, 1,          CLK_IGNORE_DISABLE,                        PLL_DE,      PLL_DE,      LOCKBIT(28), PLL_CLK_CTRL,     10,         PLL_LOCK_NONE_MODE, &sunxi_clk_factor_pll_de,      &get_factors_pll_de,      &calc_rate_media,      (struct clk_ops*)NULL},
+    {"pll_ddr1",    hosc_parents, 1,          CLK_IGNORE_DISABLE | CLK_GET_RATE_NOCACHE, PLL_DDR1,    PLL_DDR1,    LOCKBIT(28), PLL_CLK_CTRL,     11,         PLL_LOCK_NONE_MODE, &sunxi_clk_factor_pll_ddr1,    &get_factors_pll_ddr1,    &calc_rate_pll_ddr1,   (struct clk_ops*)NULL},
 };
-
 
 struct periph_init_data {
     const char          *name;
@@ -914,21 +912,14 @@ static int __set_clk_parents(struct device_node *node , struct clk* clk)
 */
 void of_sunxi_clocks_init(struct device_node *node)
 {
-    unsigned int value;
+	sunxi_clk_base = of_iomap(node ,0);
+	sunxi_clk_cpus_base = of_iomap(node , 1);
+	sunxi_clk_periph_losc_out.gate.bus = of_iomap(node , 2);
+	/*do some initialize arguments here*/
+	sunxi_clk_factor_initlimits();
 
-    sunxi_clk_base = of_iomap(node ,0);
-    sunxi_clk_cpus_base = of_iomap(node , 1);
-    sunxi_clk_periph_losc_out.gate.bus = of_iomap(node , 2);
-    /*do some initialize arguments here*/
-    sunxi_clk_factor_initlimits();
-
-    /* enable pll new mode */
-    value = readl(sunxi_clk_base + PLL_CLK_CTRL);
-    value |= 0x1 << 28;
-    writel(value, sunxi_clk_base + PLL_CLK_CTRL);
-
-    sunxi_clk_get_factors_ops(&pll_mipi_ops);
-    pll_mipi_ops.get_parent = get_parent_pll_mipi;
+	sunxi_clk_get_factors_ops(&pll_mipi_ops);
+	pll_mipi_ops.get_parent = get_parent_pll_mipi;
     pll_mipi_ops.set_parent = set_parent_pll_mipi;
     pll_mipi_ops.enable = clk_enable_pll_mipi;
     pll_mipi_ops.disable = clk_disable_pll_mipi;
@@ -990,35 +981,53 @@ void of_sunxi_fixed_factor_clk_setup(struct device_node *node)
  */
 void of_pll_clk_setup(struct device_node *node)
 {
-    struct clk *clk;
-    const char *clk_name = node->name;
-    struct factor_init_data *factor;
-    int i;
-    of_property_read_string(node, "clock-output-names", &clk_name);
+	struct clk *clk;
+	const char *clk_name = node->name;
+	const char *lock_mode = NULL;
+	struct factor_init_data *factor;
+	int i;
+	int ret;
 
-    /*get pll clk init config */
-    for(i=0; i<ARRAY_SIZE(sunxi_factos); i++)
-    {
-        factor = &sunxi_factos[i];
-        if( 0 == strcmp(clk_name , factor->name) )
-        {
-            /*register clk */
-            clk = sunxi_clk_register_factors( NULL ,  sunxi_clk_base , &clk_lock , factor );
-            /*add to of */
-            if (!IS_ERR(clk))
-            {
-                clk_register_clkdev(clk, clk_name, NULL);
-                of_clk_add_provider(node, of_clk_src_simple_get, clk);
-                __set_clk_parents(node , clk);
-                __set_clk_rates(node , clk);
-                /*pr_err( "%s : %s \n", __func__ , clk_name );*/
-                return ;
-            }
+	of_property_read_string(node, "clock-output-names", &clk_name);
+	ret = of_property_read_string(node, "lock-mode", &lock_mode);
 
-        }
-    }
+	/*get pll clk init config */
+	for(i=0; i<ARRAY_SIZE(sunxi_factos); i++)
+	{
+		factor = &sunxi_factos[i];
+		if( 0 == strcmp(clk_name , factor->name) )
+		{
+			if (IS_ERR_VALUE(ret)) {
+				factor->lock_mode = PLL_LOCK_NONE_MODE;
+			} else {
+				if (strcmp(lock_mode, "new") == 0) {
+					factor->lock_mode = PLL_LOCK_NEW_MODE;
+				} else if (strcmp(lock_mode, "old") == 0) {
+					factor->lock_mode = PLL_LOCK_OLD_MODE;
+				} else if (strcmp(lock_mode, "none") == 0) {
+					factor->lock_mode = PLL_LOCK_NONE_MODE;
+				} else {
+					factor->lock_mode = PLL_LOCK_NONE_MODE;
+				}
+			}
 
-    pr_err("clk %s not found in %s\n",clk_name , __func__ );
+			/*register clk */
+			clk = sunxi_clk_register_factors( NULL ,  sunxi_clk_base , &clk_lock , factor );
+			/*add to of */
+			if (!IS_ERR(clk))
+			{
+				clk_register_clkdev(clk, clk_name, NULL);
+				of_clk_add_provider(node, of_clk_src_simple_get, clk);
+				__set_clk_parents(node , clk);
+				__set_clk_rates(node , clk);
+				/*pr_err( "%s : %s \n", __func__ , clk_name );*/
+				return ;
+			}
+
+		}
+	}
+
+	pr_err("clk %s not found in %s\n",clk_name , __func__ );
 }
 
 /**
