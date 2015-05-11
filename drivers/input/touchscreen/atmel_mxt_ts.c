@@ -330,6 +330,7 @@ struct mxt_data {
 #endif
 #ifdef CONFIG_PM_SLEEP
 	bool power_hal_want_suspend;
+	struct mutex power_hal_lock;
 #endif
 	/*chip initilized status*/
 	bool initialized;
@@ -340,6 +341,10 @@ static void mxt_power_hal_suspend(struct device *dev);
 static void mxt_power_hal_resume(struct device *dev);
 static int mxt_power_hal_suspend_init(struct device *dev);
 static void mxt_power_hal_suspend_destroy(struct device *dev);
+static ssize_t mxt_power_hal_suspend_show(struct device *dev,
+		struct device_attribute *attr, char *buf);
+static ssize_t mxt_power_hal_suspend_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count);
 #endif
 
 static int mxt_initialize(struct mxt_data *data);
@@ -3311,6 +3316,11 @@ static DEVICE_ATTR(debug_enable, S_IWUSR | S_IRUSR, mxt_debug_enable_show,
 		   mxt_debug_enable_store);
 static DEVICE_ATTR(config_csum, S_IRUGO, mxt_config_csum_show, NULL);
 static DEVICE_ATTR(soft_reset, S_IWUSR, NULL, mxt_soft_reset_store);
+#ifdef CONFIG_PM_SLEEP
+static DEVICE_ATTR(power_HAL_suspend, S_IWUSR|S_IWGRP,
+				mxt_power_hal_suspend_show,
+				mxt_power_hal_suspend_store);
+#endif
 
 static struct attribute *mxt_attrs[] = {
 	&dev_attr_fw_version.attr,
@@ -3323,6 +3333,9 @@ static struct attribute *mxt_attrs[] = {
 	&dev_attr_debug_notify.attr,
 	&dev_attr_config_csum.attr,
 	&dev_attr_soft_reset.attr,
+#ifdef CONFIG_PM_SLEEP
+	&dev_attr_power_HAL_suspend.attr,
+#endif
 	NULL
 };
 
@@ -3889,6 +3902,7 @@ static int mxt_probe(struct i2c_client *client,
 	if (error < 0)
 		dev_err(&client->dev, "Unable to register for power hal");
 	data->suspended = false;
+	mutex_init(&data->power_hal_lock);
 #endif
 	return 0;
 
@@ -4008,43 +4022,38 @@ out:
 	return 0;
 }
 
+static ssize_t mxt_power_hal_suspend_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct mxt_data *data = i2c_get_clientdata(client);
+
+	return sprintf(buf, "%s\n",
+		data->power_hal_want_suspend ? "suspend" : "resume");
+}
+
 static ssize_t mxt_power_hal_suspend_store(struct device *dev,
 						 struct device_attribute *attr,
 						 const char *buf, size_t count)
 {
 	struct i2c_client *client = to_i2c_client(dev);
-	struct mxt_data *data = i2c_get_clientdata(client);
 
 	if (!strncmp(buf, POWER_HAL_SUSPEND_ON,
-		     POWER_HAL_SUSPEND_STATUS_LEN)) {
-		if (!data->suspended)
-			mxt_power_hal_suspend(dev);
-	} else {
-		if (data->suspended)
-			mxt_power_hal_resume(dev);
-	}
+		     POWER_HAL_SUSPEND_STATUS_LEN))
+		mxt_power_hal_suspend(dev);
+	else
+		mxt_power_hal_resume(dev);
 
 	return count;
 }
-static DEVICE_POWER_HAL_SUSPEND_ATTR(mxt_power_hal_suspend_store);
 
 static int mxt_power_hal_suspend_init(struct device *dev)
 {
-	int ret = 0;
-	ret = device_create_file(dev, &dev_attr_power_HAL_suspend);
-
-	if (ret) {
-		pr_err("device_create_file failed: %d\n", ret);
-		return ret;
-		}
-	ret = register_power_hal_suspend_device(dev);
-	return ret;
-
+	return register_power_hal_suspend_device(dev);
 }
 
 static void mxt_power_hal_suspend_destroy(struct device *dev)
 {
-	device_remove_file(dev, &dev_attr_power_HAL_suspend);
 	unregister_power_hal_suspend_device(dev);
 }
 
@@ -4052,16 +4061,29 @@ static void mxt_power_hal_suspend(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct mxt_data *data = i2c_get_clientdata(client);
-	data->power_hal_want_suspend = true;
+
+	mutex_lock(&data->power_hal_lock);
+	if (data->power_hal_want_suspend)
+		goto out;
 	mxt_suspend(dev);
+	data->power_hal_want_suspend = true;
+out:
+	mutex_unlock(&data->power_hal_lock);
 }
 
 static void mxt_power_hal_resume(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct mxt_data *data = i2c_get_clientdata(client);
+
+	mutex_lock(&data->power_hal_lock);
+
+	if (!data->power_hal_want_suspend)
+		goto out;
 	data->power_hal_want_suspend = false;
 	mxt_resume(dev);
+out:
+	mutex_unlock(&data->power_hal_lock);
 }
 
 #endif
