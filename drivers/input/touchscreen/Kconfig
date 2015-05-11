@@ -895,4 +895,5 @@ config  TOUCHSCREEN_GT82X
        help
          gt813,gt827,gt828 touchscreen driver
 
+source "drivers/input/touchscreen/gslx680new/Kconfig"
 endif
