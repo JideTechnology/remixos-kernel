@@ -1583,9 +1583,12 @@ static int vbus_set_cur_state(struct thermal_cooling_device *tcd,
 	/**
 	 * notify directly only when the ID_GND and want to change the state
 	 * from previous state (vbus enable/disable).
+	 * Otherwise, check cable_state to determine OTG connect/disconnect
+	 * status based on USB notification and enable/disable vbus.
 	 */
 	mutex_lock(&pmic_lock);
-	if ((pmic_get_usbid() == RID_GND) && (chc.vbus_state != new_state)) {
+	if (((pmic_get_usbid() == RID_GND) || chc.cable_state) &&
+		(chc.vbus_state != new_state)) {
 		if (!new_state) {
 			if (chc.otg->set_vbus)
 				chc.otg->set_vbus(chc.otg, true);
