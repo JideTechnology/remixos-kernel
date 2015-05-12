@@ -692,6 +692,31 @@ static ssize_t axp_dump_show(struct class *class,
 	return count;
 }
 
+static ssize_t regu_tree_show(struct class *class,
+			struct class_attribute *attr,	char *buf)
+{
+	struct regulator_map *map;
+	struct regulator_dev *rdev;
+	ssize_t count = 0;
+
+	mutex_lock(&regulator_list_mutex);
+	list_for_each_entry(rdev, &regulator_list, list) {
+		mutex_lock(&rdev->mutex);
+		count += sprintf(buf+count, "%s : ", rdev_get_name(rdev));
+		list_for_each_entry(map, &regulator_map_list, list) {
+			if (rdev == map->regulator) {
+				if (strcmp(map->supply, rdev_get_name(rdev)) != 0) {
+					count += sprintf(buf+count, "%s  ", map->supply);
+				}
+			}
+		}
+		mutex_unlock(&rdev->mutex);
+		count += sprintf(buf+count, "\n ");
+	}
+	mutex_unlock(&regulator_list_mutex);
+	return count;
+}
+
 static ssize_t axp_debug_store(struct class *class,
         struct class_attribute *attr, const char *buf, size_t count)
 {
@@ -710,6 +735,7 @@ static ssize_t axp_debug_store(struct class *class,
 
 static struct class_attribute axp_class_attrs[] = {
 	__ATTR(dump,S_IRUGO|S_IWUSR,axp_dump_show,NULL),
+	__ATTR(regu_tree,S_IRUGO|S_IWUSR,regu_tree_show,NULL),
 	__ATTR(debug,S_IRUGO|S_IWUSR,NULL,axp_debug_store),
 	__ATTR_NULL
 };
