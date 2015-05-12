@@ -46,7 +46,7 @@
 #define GPADC_ADOVE_THRESHOLD 0
 #define GPADC_BELOW_THRESHOLD 1
 
-#define GPADC_CONV_MODE_SW
+/*#define GPADC_CONV_MODE_SW*/
 /*#define GPADC_CONV_MODE_AUTO*/
 
 #define SW_DEBUG
@@ -250,12 +250,16 @@ static int fb_notifier_callback(struct notifier_block *self,
 	struct fb_event *fb_event = data;
 	int *blank = fb_event->data;
 	int fb_status = *blank ? BLANK : UNBLANK;
-
-	if (!memcmp(usb_name, "keyboard", 8)) {
+#ifdef  GPADC_CONV_MODE_SW
+	if (!memcmp(usb_name, "keyboard", 8)) 
+#endif
+	{
 		if (fb_status == BLANK) {
+			pr_debug("fb notifiler usb5v disable! ");
 			gpio_set_value(TEGRA_GPIO_PO3, 0);
 			gpio_set_value(TEGRA_GPIO_PY3, 1);
 		} else {
+			pr_debug("fb notifiler usb5v enable! ");
 			gpio_set_value(TEGRA_GPIO_PO3, 1);
 			gpio_set_value(TEGRA_GPIO_PY3, 0);
 		}
