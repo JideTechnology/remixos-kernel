@@ -8169,7 +8169,7 @@ static int himax_ts_probe(struct i2c_client *client,const struct i2c_device_id *
 		error = mxt_regulator_configure(ts, true);	
 	if (error) {
 		dev_err(&client->dev, "Failed to intialize hardware\n");
-		goto err_input_register_device_failed;
+		goto err_init_hw_failed;
 	}
 
 	if (pdata->power_on)
@@ -8178,7 +8178,7 @@ static int himax_ts_probe(struct i2c_client *client,const struct i2c_device_id *
 		//error = mxt_power_on(ts, true);
 	if (error) {
 		dev_err(&client->dev, "Failed to power on hardware\n");
-		goto err_input_register_device_failed;
+		goto err_power_on_failed;
 	}	
 
 	#ifdef HX_PORTING_DEB_MSG
@@ -8194,7 +8194,7 @@ static int himax_ts_probe(struct i2c_client *client,const struct i2c_device_id *
 	{
 		printk("[HIMAX PORTING ERROR] interrupt gpio %d request fail.\n",pdata->irq_gpio);
 		err = -ENODEV;
-		goto err_check_functionality_failed;
+		goto err_irq_gpio_request_failed;
 	}
 	gpio_direction_input(pdata->irq_gpio);
 	
@@ -8213,7 +8213,7 @@ static int himax_ts_probe(struct i2c_client *client,const struct i2c_device_id *
 	{
 		printk("[HIMAX PORTING ERROR] reset gpio %d request fail.\n",pdata->reset_gpio);
 		err = -ENODEV;
-		goto err_check_functionality_failed;
+		goto err_reset_gpio_request_failed;
 	}
 	gpio_direction_output(pdata->reset_gpio, 1);	//reset set high
 	msleep(100);
@@ -8508,12 +8508,22 @@ static int himax_ts_probe(struct i2c_client *client,const struct i2c_device_id *
 		destroy_workqueue(ts->himax_wq);
 	}
 	
-	err_create_wq_failed:
+err_create_wq_failed:
+err_check_functionality_failed:
+	if (gpio_is_valid(pdata->reset_gpio))
+		gpio_free(pdata->reset_gpio);
+err_reset_gpio_request_failed:
+	if (gpio_is_valid(pdata->irq_gpio))
+		gpio_free(pdata->irq_gpio);
+err_irq_gpio_request_failed:
+err_power_on_failed:
+	if (pdata->init_hw)
+		pdata->init_hw(false);
+	else
+		mxt_regulator_configure(ts, false);
+err_init_hw_failed:
 	kfree(ts);
-	
-	err_alloc_data_failed:
-	err_check_functionality_failed:
-	
+err_alloc_data_failed:
 	return err;
 }
 
@@ -8583,7 +8593,9 @@ static int __init himax_module_init(void)
 {
 	return i2c_add_driver(&himax_ts_driver);
 }
-fs_initcall(himax_module_init);
+//fs_initcall(himax_module_init);
+module_init(himax_module_init);
+
 
 	
 MODULE_DESCRIPTION("Himax Touchscreen Driver");
