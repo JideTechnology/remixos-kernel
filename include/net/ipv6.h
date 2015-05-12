@@ -412,14 +412,19 @@ void ip6_frag_init(struct inet_frag_queue *q, void *a);
 int ip6_frag_match(struct inet_frag_queue *q, void *a);
 
 /* more secured version of ipv6_addr_hash() */
-static inline u32 ipv6_addr_jhash(const struct in6_addr *a)
+static inline u32 __ipv6_addr_jhash(const struct in6_addr *a, const u32 initval)
 {
 	u32 v = (__force u32)a->s6_addr32[0] ^ (__force u32)a->s6_addr32[1];
 
 	return jhash_3words(v,
 			    (__force u32)a->s6_addr32[2],
 			    (__force u32)a->s6_addr32[3],
-			    ipv6_hash_secret);
+			    initval);
+}
+
+static inline u32 ipv6_addr_jhash(const struct in6_addr *a)
+{
+	return __ipv6_addr_jhash(a, ipv6_hash_secret);
 }
 
 static inline int ipv6_addr_any(const struct in6_addr *a)
@@ -500,6 +505,7 @@ static inline int ipv6_addr_diff(const struct in6_addr *a1, const struct in6_add
 }
 
 extern void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt);
+void ipv6_proxy_select_ident(struct sk_buff *skb);
 
 /*
  *	Prototypes exported by ipv6
@@ -626,8 +632,10 @@ extern int			compat_ipv6_getsockopt(struct sock *sk,
 extern int			ip6_datagram_connect(struct sock *sk, 
 						     struct sockaddr *addr, int addr_len);
 
-extern int 			ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len);
-extern int 			ipv6_recv_rxpmtu(struct sock *sk, struct msghdr *msg, int len);
+extern int 			ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len,
+						int *addr_len);
+extern int 			ipv6_recv_rxpmtu(struct sock *sk, struct msghdr *msg, int len,
+						 int *addr_len);
 extern void			ipv6_icmp_error(struct sock *sk, struct sk_buff *skb, int err, __be16 port,
 						u32 info, u8 *payload);
 extern void			ipv6_local_error(struct sock *sk, int err, struct flowi6 *fl6, u32 info);

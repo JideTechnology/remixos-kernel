@@ -988,9 +988,10 @@ out_adjust:
  * It also calls into the NTP code to handle leapsecond processing.
  *
  */
-static inline void accumulate_nsecs_to_secs(struct timekeeper *tk)
+static inline unsigned int accumulate_nsecs_to_secs(struct timekeeper *tk)
 {
 	u64 nsecps = (u64)NSEC_PER_SEC << tk->shift;
+	unsigned int clock_set = 0;
 
 	while (tk->xtime_nsec >= nsecps) {
 		int leap;
@@ -1010,9 +1011,10 @@ static inline void accumulate_nsecs_to_secs(struct timekeeper *tk)
 			tk_set_wall_to_mono(tk,
 				timespec_sub(tk->wall_to_monotonic, ts));
 
-			clock_was_set_delayed();
+			clock_set = 1;
 		}
 	}
+	return clock_set;
 }
 
 /**
@@ -1025,7 +1027,7 @@ static inline void accumulate_nsecs_to_secs(struct timekeeper *tk)
  * Returns the unconsumed cycles.
  */
 static cycle_t logarithmic_accumulation(struct timekeeper *tk, cycle_t offset,
-						u32 shift)
+						u32 shift, unsigned int *clock_set)
 {
 	u64 raw_nsecs;
 
@@ -1038,7 +1040,7 @@ static cycle_t logarithmic_accumulation(struct timekeeper *tk, cycle_t offset,
 	tk->clock->cycle_last += tk->cycle_interval << shift;
 
 	tk->xtime_nsec += tk->xtime_interval << shift;
-	accumulate_nsecs_to_secs(tk);
+	*clock_set |= accumulate_nsecs_to_secs(tk);
 
 	/* Accumulate raw time */
 	raw_nsecs = (u64)tk->raw_interval << shift;
@@ -1067,6 +1069,7 @@ static void update_wall_time(void)
 	struct clocksource *clock;
 	cycle_t offset;
 	int shift = 0, maxshift;
+	unsigned int clock_set = 0;
 	unsigned long flags;
 	s64 remainder;
 
@@ -1101,7 +1104,8 @@ static void update_wall_time(void)
 	maxshift = (64 - (ilog2(ntp_tick_length())+1)) - 1;
 	shift = min(shift, maxshift);
 	while (offset >= timekeeper.cycle_interval) {
-		offset = logarithmic_accumulation(&timekeeper, offset, shift);
+		offset = logarithmic_accumulation(&timekeeper, offset, shift,
+		 												 &clock_set);
 		if(offset < timekeeper.cycle_interval<<shift)
 			shift--;
 	}
@@ -1128,13 +1132,15 @@ static void update_wall_time(void)
 	 * Finally, make sure that after the rounding
 	 * xtime_nsec isn't larger than NSEC_PER_SEC
 	 */
-	accumulate_nsecs_to_secs(&timekeeper);
+	clock_set |= accumulate_nsecs_to_secs(&timekeeper);
 
 	timekeeping_update(&timekeeper, false);
 
 out:
 	write_sequnlock_irqrestore(&timekeeper.lock, flags);
 
+	if (clock_set)
+		clock_was_set_delayed();
 }
 
 /**

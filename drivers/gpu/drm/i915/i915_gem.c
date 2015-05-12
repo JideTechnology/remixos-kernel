@@ -2193,6 +2193,13 @@ static int sandybridge_write_fence_reg(struct drm_i915_gem_object *obj,
 	int regnum = obj->fence_reg;
 	uint64_t val;
 
+	/* Adjust fence size to match tiled area */
+	if (obj->tiling_mode != I915_TILING_NONE) {
+		uint32_t row_size = obj->stride *
+			(obj->tiling_mode == I915_TILING_Y ? 32 : 8);
+		size = (size / row_size) * row_size;
+	}
+
 	val = (uint64_t)((obj->gtt_offset + size - 4096) &
 			 0xfffff000) << 32;
 	val |= obj->gtt_offset & 0xfffff000;
@@ -2229,6 +2236,13 @@ static int i965_write_fence_reg(struct drm_i915_gem_object *obj,
 	u32 size = obj->gtt_space->size;
 	int regnum = obj->fence_reg;
 	uint64_t val;
+
+	/* Adjust fence size to match tiled area */
+	if (obj->tiling_mode != I915_TILING_NONE) {
+		uint32_t row_size = obj->stride *
+			(obj->tiling_mode == I915_TILING_Y ? 32 : 8);
+		size = (size / row_size) * row_size;
+	}
 
 	val = (uint64_t)((obj->gtt_offset + size - 4096) &
 		    0xfffff000) << 32;
@@ -2468,6 +2482,11 @@ i915_find_fence_reg(struct drm_device *dev,
 	return avail;
 }
 
+static void i915_gem_write_fence__ipi(void *data)
+{
+	wbinvd();
+}
+
 /**
  * i915_gem_object_get_fence - set up a fence reg for an object
  * @obj: object to map through a fence reg
@@ -2589,6 +2608,17 @@ update:
 	switch (INTEL_INFO(dev)->gen) {
 	case 7:
 	case 6:
+		/* In order to fully serialize access to the fenced region and
+		 * the update to the fence register we need to take extreme
+		 * measures on SNB+. In theory, the write to the fence register
+		 * flushes all memory transactions before, and coupled with the
+		 * mb() placed around the register write we serialise all memory
+		 * operations with respect to the changes in the tiler. Yet, on
+		 * SNB+ we need to take a step further and emit an explicit wbinvd()
+		 * on each processor in order to manually flush all memory
+		 * transactions before updating the fence register.
+		 */
+		on_each_cpu(i915_gem_write_fence__ipi, NULL, 1);
 		ret = sandybridge_write_fence_reg(obj, pipelined);
 		break;
 	case 5:
@@ -3411,13 +3441,14 @@ i915_gem_pin_ioctl(struct drm_device *dev, void *data,
 		goto out;
 	}
 
-	obj->user_pin_count++;
-	obj->pin_filp = file;
-	if (obj->user_pin_count == 1) {
+	if (obj->user_pin_count == 0) {
 		ret = i915_gem_object_pin(obj, args->alignment, true);
 		if (ret)
 			goto out;
 	}
+
+	obj->user_pin_count++;
+	obj->pin_filp = file;
 
 	/* XXX - flush the CPU caches for pinned objects
 	 * as the X server doesn't manage domains yet

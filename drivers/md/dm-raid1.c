@@ -603,6 +603,15 @@ static void write_callback(unsigned long error, void *context)
 		return;
 	}
 
+	/*
+	 * If the bio is discard, return an error, but do not
+	 * degrade the array.
+	 */
+	if (bio->bi_rw & REQ_DISCARD) {
+		bio_endio(bio, -EOPNOTSUPP);
+		return;
+	}
+
 	for (i = 0; i < ms->nr_mirrors; i++)
 		if (test_bit(i, &error))
 			fail_mirror(ms->mirror + i, DM_RAID1_WRITE_ERROR);
@@ -1362,8 +1371,8 @@ static char device_status_char(struct mirror *m)
 }
 
 
-static int mirror_status(struct dm_target *ti, status_type_t type,
-			 char *result, unsigned int maxlen)
+static void mirror_status(struct dm_target *ti, status_type_t type,
+			  char *result, unsigned int maxlen)
 {
 	unsigned int m, sz = 0;
 	struct mirror_set *ms = (struct mirror_set *) ti->private;
@@ -1398,8 +1407,6 @@ static int mirror_status(struct dm_target *ti, status_type_t type,
 		if (ms->features & DM_RAID1_HANDLE_ERRORS)
 			DMEMIT(" 1 handle_errors");
 	}
-
-	return 0;
 }
 
 static int mirror_iterate_devices(struct dm_target *ti,

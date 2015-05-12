@@ -2862,7 +2862,7 @@ static int tegra_xhci_bus_suspend(struct usb_hcd *hcd)
 	WARN_ON(tegra->ss_pwr_gated && tegra->host_pwr_gated);
 
 	/* save xhci spec ctx. Already done by xhci_suspend */
-	err = xhci_suspend(tegra->xhci);
+	err = xhci_suspend(tegra->xhci, true);
 	if (err) {
 		xhci_err(xhci, "%s: xhci_suspend failed %d\n", __func__, err);
 		goto xhci_suspend_failed;

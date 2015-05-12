@@ -3,6 +3,8 @@
 #include <linux/interrupt.h>
 #include <linux/sched.h>
 #include <linux/selection.h>
+#include <linux/workqueue.h>
+#include <asm/cmpxchg.h>
 
 #include "speakup.h"
 
@@ -10,7 +12,7 @@
 /* Don't take this from <ctype.h>: 011-015 on the screen aren't spaces */
 #define ishardspace(c)      ((c) == ' ')
 
-unsigned short xs, ys, xe, ye; /* our region points */
+unsigned short spk_xs, spk_ys, spk_xe, spk_ye; /* our region points */
 
 /* Variables for selection control. */
 /* must not be disallocated */
@@ -51,12 +53,12 @@ int speakup_set_selection(struct tty_struct *tty)
 	int i, ps, pe;
 	struct vc_data *vc = vc_cons[fg_console].d;
 
-	xs = limit(xs, vc->vc_cols - 1);
-	ys = limit(ys, vc->vc_rows - 1);
-	xe = limit(xe, vc->vc_cols - 1);
-	ye = limit(ye, vc->vc_rows - 1);
-	ps = ys * vc->vc_size_row + (xs << 1);
-	pe = ye * vc->vc_size_row + (xe << 1);
+	spk_xs = limit(spk_xs, vc->vc_cols - 1);
+	spk_ys = limit(spk_ys, vc->vc_rows - 1);
+	spk_xe = limit(spk_xe, vc->vc_cols - 1);
+	spk_ye = limit(spk_ye, vc->vc_rows - 1);
+	ps = spk_ys * vc->vc_size_row + (spk_xs << 1);
+	pe = spk_ye * vc->vc_size_row + (spk_xe << 1);
 
 	if (ps > pe) {
 		/* make sel_start <= sel_end */
@@ -121,20 +123,24 @@ int speakup_set_selection(struct tty_struct *tty)
 	return 0;
 }
 
-/* TODO: move to some helper thread, probably.  That'd fix having to check for
- * in_atomic().  */
-int speakup_paste_selection(struct tty_struct *tty)
+struct speakup_paste_work {
+	struct work_struct work;
+	struct tty_struct *tty;
+};
+
+static void __speakup_paste_selection(struct work_struct *work)
 {
+	struct speakup_paste_work *spw =
+		container_of(work, struct speakup_paste_work, work);
+	struct tty_struct *tty = xchg(&spw->tty, NULL);
 	struct vc_data *vc = (struct vc_data *) tty->driver_data;
 	int pasted = 0, count;
 	DECLARE_WAITQUEUE(wait, current);
+
 	add_wait_queue(&vc->paste_wait, &wait);
 	while (sel_buffer && sel_buffer_lth > pasted) {
 		set_current_state(TASK_INTERRUPTIBLE);
 		if (test_bit(TTY_THROTTLED, &tty->flags)) {
-			if (in_atomic())
-				/* if we are in an interrupt handler, abort */
-				break;
 			schedule();
 			continue;
 		}
@@ -146,6 +152,26 @@ int speakup_paste_selection(struct tty_struct *tty)
 	}
 	remove_wait_queue(&vc->paste_wait, &wait);
 	current->state = TASK_RUNNING;
+	tty_kref_put(tty);
+}
+
+static struct speakup_paste_work speakup_paste_work = {
+	.work = __WORK_INITIALIZER(speakup_paste_work.work,
+				   __speakup_paste_selection)
+};
+
+int speakup_paste_selection(struct tty_struct *tty)
+{
+	if (cmpxchg(&speakup_paste_work.tty, NULL, tty) != NULL)
+		return -EBUSY;
+
+	tty_kref_get(tty);
+	schedule_work_on(WORK_CPU_UNBOUND, &speakup_paste_work.work);
 	return 0;
 }
 
+void speakup_cancel_paste(void)
+{
+	cancel_work_sync(&speakup_paste_work.work);
+	tty_kref_put(speakup_paste_work.tty);
+}

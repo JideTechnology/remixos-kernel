@@ -124,8 +124,7 @@ struct acm {
 	unsigned int throttle_req:1;			/* throttle requested */
 	unsigned int no_hangup_in_reset_resume:1;	/* do not call tty_hangup in acm_reset_resume */
 	u8 bInterval;
-	struct acm_wb *delayed_wb;			/* write queued for a device about to be woken */
-	struct usb_anchor	deferred;
+	struct usb_anchor deferred;			/* writes queued for a device about to be woken */
 };
 
 #define CDC_DATA_INTERFACE_TYPE	0x0a

@@ -446,8 +446,12 @@ static void c_can_setup_receive_object(struct net_device *dev, int iface,
 
 	priv->write_reg(priv, &priv->regs->ifregs[iface].mask1,
 			IFX_WRITE_LOW_16BIT(mask));
+
+	/* According to C_CAN documentation, the reserved bit
+	 * in IFx_MASK2 register is fixed 1
+	 */
 	priv->write_reg(priv, &priv->regs->ifregs[iface].mask2,
-			IFX_WRITE_HIGH_16BIT(mask));
+			IFX_WRITE_HIGH_16BIT(mask) | BIT(13));
 
 	priv->write_reg(priv, &priv->regs->ifregs[iface].arb1,
 			IFX_WRITE_LOW_16BIT(id));
@@ -760,15 +764,15 @@ static int c_can_do_rx_poll(struct net_device *dev, int quota)
 			msg_ctrl_save = priv->read_reg(priv,
 					&priv->regs->ifregs[0].msg_cntrl);
 
-			if (msg_ctrl_save & IF_MCONT_EOB)
-				return num_rx_pkts;
-
 			if (msg_ctrl_save & IF_MCONT_MSGLST) {
 				c_can_handle_lost_msg_obj(dev, 0, msg_obj);
 				num_rx_pkts++;
 				quota--;
 				continue;
 			}
+
+			if (msg_ctrl_save & IF_MCONT_EOB)
+				return num_rx_pkts;
 
 			if (!(msg_ctrl_save & IF_MCONT_NEWDAT))
 				continue;

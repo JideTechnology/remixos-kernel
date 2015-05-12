@@ -2279,6 +2279,11 @@ static int qib_7322_bringup_serdes(struct qib_pportdata *ppd)
 	qib_write_kreg_port(ppd, krp_ibcctrl_a, ppd->cpspec->ibcctrl_a);
 	qib_write_kreg(dd, kr_scratch, 0ULL);
 
+	/* ensure previous Tx parameters are not still forced */
+	qib_write_kreg_port(ppd, krp_tx_deemph_override,
+		SYM_MASK(IBSD_TX_DEEMPHASIS_OVERRIDE_0,
+		reset_tx_deemphasis_override));
+
 	if (qib_compat_ddr_negotiate) {
 		ppd->cpspec->ibdeltainprog = 1;
 		ppd->cpspec->ibsymsnap = read_7322_creg32_port(ppd,
@@ -4836,8 +4841,6 @@ static void qib_get_7322_faststats(unsigned long opaque)
 		spin_lock_irqsave(&ppd->dd->eep_st_lock, flags);
 		traffic_wds -= ppd->dd->traffic_wds;
 		ppd->dd->traffic_wds += traffic_wds;
-		if (traffic_wds >= QIB_TRAFFIC_ACTIVE_THRESHOLD)
-			atomic_add(ACTIVITY_TIMER, &ppd->dd->active_time);
 		spin_unlock_irqrestore(&ppd->dd->eep_st_lock, flags);
 		if (ppd->cpspec->qdr_dfe_on && (ppd->link_speed_active &
 						QIB_IB_QDR) &&

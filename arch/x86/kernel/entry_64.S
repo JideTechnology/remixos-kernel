@@ -55,6 +55,7 @@
 #include <asm/paravirt.h>
 #include <asm/ftrace.h>
 #include <asm/percpu.h>
+#include <asm/pgtable_types.h>
 #include <linux/err.h>
 
 /* Avoid __ASSEMBLER__'ifying <linux/audit.h> just for this.  */
@@ -413,11 +414,14 @@ ENTRY(ret_from_fork)
 	testl $3, CS-ARGOFFSET(%rsp)		# from kernel_thread?
 	jz   retint_restore_args
 
-	testl $_TIF_IA32, TI_flags(%rcx)	# 32-bit compat task needs IRET
-	jnz  int_ret_from_sys_call
-
-	RESTORE_TOP_OF_STACK %rdi, -ARGOFFSET
-	jmp ret_from_sys_call			# go to the SYSRET fastpath
+	/*
+	 * By the time we get here, we have no idea whether our pt_regs,
+	 * ti flags, and ti status came from the 64-bit SYSCALL fast path,
+	 * the slow path, or one of the ia32entry paths.
+	 * Use int_ret_from_sys_call to return, since it can safely handle
+	 * all of the above.
+	 */
+	jmp  int_ret_from_sys_call
 
 	CFI_ENDPROC
 END(ret_from_fork)
@@ -901,37 +905,51 @@ restore_args:
 irq_return:
 	INTERRUPT_RETURN
 
-	.section __ex_table, "a"
-	.quad irq_return, bad_iret
-	.previous
-
-#ifdef CONFIG_PARAVIRT
 ENTRY(native_iret)
-	iretq
-
-	.section __ex_table,"a"
-	.quad native_iret, bad_iret
-	.previous
+	/*
+	 * Are we returning to a stack segment from the LDT?  Note: in
+	 * 64-bit mode SS:RSP on the exception stack is always valid.
+	 */
+#ifdef CONFIG_X86_ESPFIX64
+	testb $4,(SS-RIP)(%rsp)
+	jnz native_irq_return_ldt
 #endif
 
-	.section .fixup,"ax"
-bad_iret:
+.global native_irq_return_iret
+native_irq_return_iret:
 	/*
-	 * The iret traps when the %cs or %ss being restored is bogus.
-	 * We've lost the original trap vector and error code.
-	 * #GPF is the most likely one to get for an invalid selector.
-	 * So pretend we completed the iret and took the #GPF in user mode.
-	 *
-	 * We are now running with the kernel GS after exception recovery.
-	 * But error_entry expects us to have user GS to match the user %cs,
-	 * so swap back.
+	 * This may fault.  Non-paranoid faults on return to userspace are
+	 * handled by fixup_bad_iret.  These include #SS, #GP, and #NP.
+	 * Double-faults due to espfix64 are handled in do_double_fault.
+	 * Other faults here are fatal.
 	 */
-	pushq $0
+	iretq
 
+#ifdef CONFIG_X86_ESPFIX64
+native_irq_return_ldt:
+	pushq_cfi %rax
+	pushq_cfi %rdi
 	SWAPGS
-	jmp general_protection
-
-	.previous
+	movq PER_CPU_VAR(espfix_waddr),%rdi
+	movq %rax,(0*8)(%rdi)	/* RAX */
+	movq (2*8)(%rsp),%rax	/* RIP */
+	movq %rax,(1*8)(%rdi)
+	movq (3*8)(%rsp),%rax	/* CS */
+	movq %rax,(2*8)(%rdi)
+	movq (4*8)(%rsp),%rax	/* RFLAGS */
+	movq %rax,(3*8)(%rdi)
+	movq (6*8)(%rsp),%rax	/* SS */
+	movq %rax,(5*8)(%rdi)
+	movq (5*8)(%rsp),%rax	/* RSP */
+	movq %rax,(4*8)(%rdi)
+	andl $0xffff0000,%eax
+	popq_cfi %rdi
+	orq PER_CPU_VAR(espfix_stack),%rax
+	SWAPGS
+	movq %rax,%rsp
+	popq_cfi %rax
+	jmp native_irq_return_iret
+#endif
 
 	/* edi: workmask, edx: work */
 retint_careful:
@@ -977,9 +995,9 @@ ENTRY(retint_kernel)
 	call preempt_schedule_irq
 	jmp exit_intr
 #endif
-
 	CFI_ENDPROC
 END(common_interrupt)
+
 /*
  * End of kprobes section
  */
@@ -1369,7 +1387,7 @@ apicinterrupt XEN_HVM_EVTCHN_CALLBACK \
 
 paranoidzeroentry_ist debug do_debug DEBUG_STACK
 paranoidzeroentry_ist int3 do_int3 DEBUG_STACK
-paranoiderrorentry stack_segment do_stack_segment
+errorentry stack_segment do_stack_segment
 #ifdef CONFIG_XEN
 zeroentry xen_debug do_debug
 zeroentry xen_int3 do_int3
@@ -1479,16 +1497,15 @@ error_sti:
 
 /*
  * There are two places in the kernel that can potentially fault with
- * usergs. Handle them here. The exception handlers after iret run with
- * kernel gs again, so don't set the user space flag. B stepping K8s
- * sometimes report an truncated RIP for IRET exceptions returning to
- * compat mode. Check for these here too.
+ * usergs. Handle them here.  B stepping K8s sometimes report a
+ * truncated RIP for IRET exceptions returning to compat mode. Check
+ * for these here too.
  */
 error_kernelspace:
 	incl %ebx
-	leaq irq_return(%rip),%rcx
+	leaq native_irq_return_iret(%rip),%rcx
 	cmpq %rcx,RIP+8(%rsp)
-	je error_swapgs
+	je error_bad_iret
 	movl %ecx,%eax	/* zero extend */
 	cmpq %rax,RIP+8(%rsp)
 	je bstep_iret
@@ -1499,7 +1516,15 @@ error_kernelspace:
 bstep_iret:
 	/* Fix truncated RIP */
 	movq %rcx,RIP+8(%rsp)
-	jmp error_swapgs
+	/* fall through */
+
+error_bad_iret:
+	SWAPGS
+	mov %rsp,%rdi
+	call fixup_bad_iret
+	mov %rax,%rsp
+	decl %ebx	/* Return to usergs */
+	jmp error_sti
 	CFI_ENDPROC
 END(error_entry)
 

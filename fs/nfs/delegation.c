@@ -148,8 +148,8 @@ void nfs_inode_reclaim_delegation(struct inode *inode, struct rpc_cred *cred,
 				  &delegation->flags);
 			NFS_I(inode)->delegation_state = delegation->type;
 			spin_unlock(&delegation->lock);
-			put_rpccred(oldcred);
 			rcu_read_unlock();
+			put_rpccred(oldcred);
 		} else {
 			/* We appear to have raced with a delegation return. */
 			spin_unlock(&delegation->lock);
@@ -540,16 +540,19 @@ int nfs_async_inode_return_delegation(struct inode *inode,
 
 	rcu_read_lock();
 	delegation = rcu_dereference(NFS_I(inode)->delegation);
+	if (delegation == NULL)
+		goto out_enoent;
 
-	if (!clp->cl_mvops->match_stateid(&delegation->stateid, stateid)) {
-		rcu_read_unlock();
-		return -ENOENT;
-	}
+	if (!clp->cl_mvops->match_stateid(&delegation->stateid, stateid))
+		goto out_enoent;
 	nfs_mark_return_delegation(server, delegation);
 	rcu_read_unlock();
 
 	nfs_delegation_run_state_manager(clp);
 	return 0;
+out_enoent:
+	rcu_read_unlock();
+	return -ENOENT;
 }
 
 static struct inode *
