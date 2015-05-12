@@ -304,4 +304,9 @@ config CRYPTO_DEV_TEGRA_SE
 	  This option allows you to have support of Security Engine for crypto
 	  acceleration.
 
+config CRYPTO_DEV_CRYPTODEV
+	tristate "crypto-dev-linux driver"
+	help
+	  driver for /dev/crypto.
+
 endif # CRYPTO_HW

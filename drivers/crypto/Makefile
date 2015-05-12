@@ -19,3 +19,4 @@ CFLAGS_tegra-aes.o 	= -Werror
 obj-$(CONFIG_CRYPTO_DEV_TEGRA_AES) += tegra-aes.o
 CFLAGS_tegra-se.o	= -Werror
 obj-$(CONFIG_CRYPTO_DEV_TEGRA_SE) += tegra-se.o
+obj-$(CONFIG_CRYPTO_DEV_CRYPTODEV) += cryptodev/
