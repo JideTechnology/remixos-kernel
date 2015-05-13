@@ -2447,7 +2447,7 @@ static int bq24192_probe(struct i2c_client *client,
 static int bq24192_remove(struct i2c_client *client)
 {
 	struct bq24192_chip *chip = i2c_get_clientdata(client);
-	int ret;
+	int ret = 0;
 
 	if (chip->chip_type == BQ24297) {
 		if (IS_ERR_OR_NULL(chip->vbus_cdev))
