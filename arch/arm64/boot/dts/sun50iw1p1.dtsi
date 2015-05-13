@@ -5,9 +5,9 @@
  * modify base on juno.dts
  */
 /* kernel used */
-/memreserve/ 0x48000000 0x00200000; /* sun50iw1p1.dtb range       : [0x48000000~0x48200000], size = 2M */
-/memreserve/ 0x44010000 0x00010000; /* sys_config.fex range       : [0x44010000~0x44020000], size = 64K */
-/memreserve/ 0x44020000 0x00000800; /* super standby range        : [0x44020000~0x40020800], size = 2K  */
+/memreserve/ 0x45000000 0x00200000; /* sun50iw1p1.dtb range       : [0x45000000~0x45200000], size = 2M */
+/memreserve/ 0x41010000 0x00010000; /* sys_config.fex range       : [0x41010000~0x41020000], size = 64K */
+/memreserve/ 0x41020000 0x00000800; /* super standby range        : [0x41020000~0x41020800], size = 2K  */
 /* tf used */
 /memreserve/ 0x40100000 0x00004000; /* arisc dram code space range: [0x40100000~0x40104000], size = 16K */
 /memreserve/ 0x40104000 0x00001000; /* arisc para cfg range       : [0x40104000~0x40105000], size = 4K  */
@@ -347,7 +347,7 @@
 		standby_space {
 			compatible = "allwinner,standby_space";
 			/* num    dst        offset     size						*/
-			space1 = <0x44020000 0x00000000 0x00000800>; /* super standby para space        */
+			space1 = <0x41020000 0x00000000 0x00000800>; /* super standby para space        */
 		};
 
 		msgbox: msgbox@1c17000 {
