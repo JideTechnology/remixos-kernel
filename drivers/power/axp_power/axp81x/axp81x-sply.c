@@ -321,7 +321,6 @@ static s32 axp_battery_probe(struct platform_device *pdev)
 	struct axp_charger *charger;
 	struct axp_supply_init_data *pdata = pdev->dev.platform_data;
 	s32 ret;
-	u8 val;
 
 	if (pdata == NULL)
 		return -EINVAL;
@@ -389,7 +388,6 @@ static s32 axp_battery_probe(struct platform_device *pdev)
 
 	axp_charger_update_state(charger);
 	axp_battery_update_vol(charger);
-	DBG_PSY_MSG(DEBUG_SPLY, "now_rest_vol = %d\n",(val & 0x7F));
 
 	spin_lock(&charger->charger_lock);
 	charger->interval = msecs_to_jiffies(10 * 1000);
