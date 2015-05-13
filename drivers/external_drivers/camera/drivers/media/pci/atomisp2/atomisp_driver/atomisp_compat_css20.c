@@ -3012,6 +3012,8 @@ int atomisp_get_css_frame_info(struct atomisp_sub_device *asd,
 	struct ia_css_pipe_info info;
 	int pipe_index = atomisp_get_pipe_index(asd, source_pad);
 	int stream_index;
+	struct atomisp_device *isp = asd->isp;
+
 	if (ATOMISP_SOC_CAMERA(asd))
 		stream_index = atomisp_source_pad_to_stream_id(asd, source_pad);
 	else {
@@ -3019,8 +3021,13 @@ int atomisp_get_css_frame_info(struct atomisp_sub_device *asd,
 			   ATOMISP_INPUT_STREAM_VIDEO :
 			   atomisp_source_pad_to_stream_id(asd, source_pad);
 	}
-	ia_css_pipe_get_info(asd->stream_env[stream_index]
-		.pipes[pipe_index], &info);
+
+	if (IA_CSS_SUCCESS != ia_css_pipe_get_info(asd->stream_env[stream_index]
+				 .pipes[pipe_index], &info)) {
+		dev_err(isp->dev, "ia_css_pipe_get_info FAILED");
+		return -EINVAL;
+	}
+
 	switch (source_pad) {
 	case ATOMISP_SUBDEV_PAD_SOURCE_CAPTURE:
 		*frame_info = info.output_info[0];
