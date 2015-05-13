@@ -5852,6 +5852,7 @@ void intel_crtc_control(struct drm_crtc *crtc, bool enable)
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	enum intel_display_power_domain domain;
 	unsigned long domains;
+	int ret;
 
 	if (enable) {
 		if (!intel_crtc->active) {
@@ -5860,7 +5861,13 @@ void intel_crtc_control(struct drm_crtc *crtc, bool enable)
 				intel_display_power_get(dev_priv, domain);
 			intel_crtc->enabled_power_domains = domains;
 
-			dev_priv->display.crtc_enable(crtc);
+			/* Enable PLLs before enabling crtc */
+			ret = dev_priv->display.crtc_mode_set(
+					&intel_crtc->base, 0, 0, NULL);
+			if (ret)
+				DRM_ERROR("Enabling PLL for DPMS ON failed\n");
+			else
+				dev_priv->display.crtc_enable(crtc);
 		}
 	} else {
 		if (intel_crtc->active)
