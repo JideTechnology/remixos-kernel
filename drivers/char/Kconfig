@@ -628,5 +628,6 @@ source "drivers/char/sunxi-di/Kconfig"
 source "drivers/char/dump_reg/Kconfig"
 source "drivers/char/sunxi_tr/Kconfig"
 source "drivers/char/sunxi_sys_info/Kconfig"
+source "drivers/char/timer_test/Kconfig"
 endmenu
 
