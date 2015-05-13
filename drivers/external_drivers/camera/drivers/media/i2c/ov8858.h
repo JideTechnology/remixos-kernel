@@ -811,7 +811,56 @@ static const struct ov8858_reg ov8858_1080P_60[] = {
 	{OV8858_TOK_TERM, 0, 0}
 };
 
+static const struct ov8858_reg ov8858_1080P_30[] = {
+	{OV8858_8BIT, 0x3778, 0x17}, /* Unknown */
+	{OV8858_8BIT, 0x3800, 0x02}, /* h_crop_start high */
+	{OV8858_8BIT, 0x3801, 0x26}, /* h_crop_start low */
+	{OV8858_8BIT, 0x3802, 0x02}, /* v_crop_start high */
+	{OV8858_8BIT, 0x3803, 0x8C}, /* v_crop_start low */
+	{OV8858_8BIT, 0x3804, 0x0A}, /* h_crop_end high */
+	{OV8858_8BIT, 0x3805, 0x9D}, /* h_crop_end low */
+	{OV8858_8BIT, 0x3806, 0x07}, /* v_crop_end high */
+	{OV8858_8BIT, 0x3807, 0x0A}, /* v_crop_end low */
+	{OV8858_8BIT, 0x3808, 0x07}, /* h_output_size high*/
+	{OV8858_8BIT, 0x3809, 0x90}, /* h_output_size low */
+	{OV8858_8BIT, 0x380A, 0x04}, /* v_output_size high */
+	{OV8858_8BIT, 0x380B, 0x48}, /* v_output_size low */
+	{OV8858_8BIT, 0x380C, 0x07}, /* horizontal timing size high */
+	{OV8858_8BIT, 0x380D, 0x94}, /* horizontal timing size low */
+	{OV8858_8BIT, 0x380E, 0x0A}, /* vertical timing size high */
+	{OV8858_8BIT, 0x380F, 0x0D}, /* vertical timing size low */
+	{OV8858_8BIT, 0x4022, 0x07}, /* Anchor left end = 0x072D */
+	{OV8858_8BIT, 0x4023, 0x2D}, /* Anchor left end = 0x072D */
+	{OV8858_8BIT, 0x4024, 0x07}, /* Anchor right start = 0x079E */
+	{OV8858_8BIT, 0x4025, 0x9E}, /* Anchor right start = 0x079E */
+	{OV8858_8BIT, 0x4026, 0x07}, /* Anchor right end = 0x079F */
+	{OV8858_8BIT, 0x4027, 0x9F}, /* Anchor right end = 0x079F */
+	{OV8858_8BIT, 0x4600, 0x00}, /* Unknown */
+	{OV8858_8BIT, 0x4601, 0xef}, /* Unknown */
+	{OV8858_8BIT, 0x4837, 0x16}, /* pclk_period = 0x16 */
+	{OV8858_TOK_TERM, 0, 0}
+};
+
 static struct ov8858_resolution ov8858_res_preview[] = {
+	{
+		.desc = "ov8858_1080P_30_PREVIEW",
+		.width = 1936,
+		.height = 1096,
+		.used = 0,
+		.regs = ov8858_1080P_30,
+		.bin_factor_x = 0,
+		.bin_factor_y = 0,
+		.skip_frames = 1,
+		.fps_options =  {
+			{
+				.fps = 30,
+				.pixels_per_line = 3880,
+				.lines_per_frame = 2573,
+			},
+			{
+			}
+		},
+	},
 	{
 		.desc = "ov8858_6M_PREVIEW",
 		.width = 3280,
@@ -895,6 +944,25 @@ static struct ov8858_resolution ov8858_res_still[] = {
 };
 
 static struct ov8858_resolution ov8858_res_video[] = {
+	{
+		.desc = "ov8858_1080P_30_VIDEO",
+		.width = 1936,
+		.height = 1096,
+		.used = 0,
+		.regs = ov8858_1080P_30,
+		.bin_factor_x = 0,
+		.bin_factor_y = 0,
+		.skip_frames = 1,
+		.fps_options =  {
+			{
+				.fps = 30,
+				.pixels_per_line = 3880,
+				.lines_per_frame = 2573,
+			},
+			{
+			}
+		},
+	},
 	{
 		.desc = "ov8858_1080P_60_VIDEO",
 		.width = 1936,
