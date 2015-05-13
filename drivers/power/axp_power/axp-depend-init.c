@@ -50,6 +50,7 @@ const bitmap_name_mapping_t pwr_dm_bitmap_name_mapping[] = {
     {VCC_LDOIN_BIT  ,    "vcc-ldoin"        },
     {VCC_PLL_BIT    ,    "vcc-pll"          },
     {VCC_LPDDR_BIT  ,    "vcc-lpddr"        },
+    {VDD_TEST_BIT  ,     "vdd-test"        },
 };
 s32 pwr_dm_bitmap_name_mapping_cnt = sizeof(pwr_dm_bitmap_name_mapping)/sizeof(pwr_dm_bitmap_name_mapping[0]);
 
