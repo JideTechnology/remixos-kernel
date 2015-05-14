@@ -1855,6 +1855,9 @@ static int ov8858_g_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_VFLIP:
 		ctrl->val = dev->vflip;
 		break;
+	case V4L2_CID_EXPOSURE_ABSOLUTE:
+		ctrl->val = dev->exposure;
+		break;
 	default:
 		dev_warn(&client->dev,
 			 "%s: Error: Invalid ctrl: 0x%X\n", __func__, ctrl->id);
@@ -2083,7 +2086,7 @@ static const struct v4l2_ctrl_config ctrls[] = {
 		.min = 0x0,
 		.step = 1,
 		.def = 0x00,
-		.flags = 0,
+		.flags = V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE,
 	}, {
 		.ops = &ctrl_ops,
 		.id = V4L2_CID_TEST_PATTERN,
