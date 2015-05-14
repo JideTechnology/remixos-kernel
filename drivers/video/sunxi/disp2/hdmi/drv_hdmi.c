@@ -465,13 +465,13 @@ s32 hdmi_hpd_event(void)
 static s32 hdmi_suspend(void)
 {
 	hdmi_core_update_detect_time(0);
-	mutex_lock(&mlock);
 	if (hdmi_used && (false == b_hdmi_suspend)) {
-		b_hdmi_suspend = true;
 		if (HDMI_task) {
 			kthread_stop(HDMI_task);
 			HDMI_task = NULL;
 		}
+		mutex_lock(&mlock);
+		b_hdmi_suspend = true;
 		hdmi_core_enter_lp();
 		if (0 != clk_enable_count) {
 			hdmi_clk_disable();
@@ -485,9 +485,9 @@ static s32 hdmi_suspend(void)
 			hdmi_power_disable(hdmi_power);
 			power_enable_count --;
 		}
+		mutex_unlock(&mlock);
 		pr_info("[HDMI]hdmi suspend\n");
 	}
-	mutex_unlock(&mlock);
 
 	return 0;
 }
