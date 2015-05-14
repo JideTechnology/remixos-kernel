@@ -1259,7 +1259,7 @@ static const struct driver_info wwan_noarp_info = {
 	.description = "Mobile Broadband Network Device (NO ARP)",
 	.flags = FLAG_POINTTOPOINT | FLAG_NO_SETINT | FLAG_MULTI_PACKET
 			| FLAG_WWAN | FLAG_NOARP,
-	.bind = cdc_ncm_bind,
+	.bind = cdc_ncm_remote_mac_bind,
 	.unbind = cdc_ncm_unbind,
 	.check_connect = cdc_ncm_check_connect,
 	.manage_power = usbnet_manage_power,
