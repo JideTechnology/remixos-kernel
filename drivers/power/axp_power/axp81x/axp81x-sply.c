@@ -379,11 +379,7 @@ static s32 axp_battery_probe(struct platform_device *pdev)
 		power_supply_unregister(&charger->batt);
 		goto err_ps_register;
 	}
-	ret = axp_charger_create_attrs(&charger->batt);
-	if(ret){
-		printk("cat notaxp_charger_create_attrs!!!===\n ");
-		return ret;
-	}
+
 	platform_set_drvdata(pdev, charger);
 
 	axp_charger_update_state(charger);
