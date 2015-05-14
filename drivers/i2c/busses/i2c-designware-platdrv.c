@@ -434,7 +434,7 @@ MODULE_DEVICE_TABLE(of, dw_i2c_of_match);
 #endif
 
 #ifdef CONFIG_PM
-static int dw_i2c_suspend(struct device *dev)
+static int dw_i2c_suspend_late(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dw_i2c_dev *i_dev = platform_get_drvdata(pdev);
@@ -454,7 +454,7 @@ static int dw_i2c_suspend(struct device *dev)
 	return 0;
 }
 
-static int dw_i2c_resume(struct device *dev)
+static int dw_i2c_resume_early(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dw_i2c_dev *i_dev = platform_get_drvdata(pdev);
@@ -505,7 +505,10 @@ static int dw_i2c_runtime_resume(struct device *dev)
 #endif
 
 static const struct dev_pm_ops dw_i2c_dev_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(dw_i2c_suspend, dw_i2c_resume)
+#ifdef CONFIG_PM_SLEEP
+	.suspend_late = dw_i2c_suspend_late,
+	.resume_early = dw_i2c_resume_early,
+#endif
 	SET_RUNTIME_PM_OPS(dw_i2c_runtime_suspend, dw_i2c_runtime_resume, NULL)
 };
 /* work with hotplug and coldplug */
