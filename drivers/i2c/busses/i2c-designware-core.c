@@ -258,14 +258,14 @@ static u32 i2c_dw_scl_lcnt(u32 ic_clk, u32 tLOW, u32 tf, int offset)
 	return ((ic_clk * (tLOW + tf) + 5000) / 10000) - 1 + offset;
 }
 
-static void __i2c_dw_enable(struct dw_i2c_dev *dev, bool enable)
+static bool __i2c_dw_enable(struct dw_i2c_dev *dev, bool enable)
 {
-	int timeout = 100;
+	int timeout = 10;
 
 	do {
 		dw_writel(dev, enable, DW_IC_ENABLE);
 		if ((dw_readl(dev, DW_IC_ENABLE_STATUS) & 1) == enable)
-			return;
+			return true;
 
 		/*
 		 * Wait 10 times the signaling period of the highest I2C
@@ -280,6 +280,7 @@ static void __i2c_dw_enable(struct dw_i2c_dev *dev, bool enable)
 
 	dev_warn(dev->dev, "timeout in %sabling adapter\n",
 		 enable ? "en" : "dis");
+	return false;
 }
 
 /**
@@ -444,13 +445,14 @@ static int i2c_dw_wait_bus_not_busy(struct dw_i2c_dev *dev)
 	return 0;
 }
 
-static void i2c_dw_xfer_init(struct dw_i2c_dev *dev)
+static bool i2c_dw_xfer_init(struct dw_i2c_dev *dev)
 {
 	struct i2c_msg *msgs = dev->msgs;
 	u32 ic_con, ic_tar = 0;
 
 	/* Disable the adapter */
-	__i2c_dw_enable(dev, false);
+	if (!__i2c_dw_enable(dev, false))
+		return false;
 
 	/* if the slave address is ten bit address, enable 10BITADDR */
 	ic_con = dw_readl(dev, DW_IC_CON);
@@ -479,12 +481,15 @@ static void i2c_dw_xfer_init(struct dw_i2c_dev *dev)
 	i2c_dw_disable_int(dev);
 
 	/* Enable the adapter */
-	__i2c_dw_enable(dev, true);
+	if (!__i2c_dw_enable(dev, true))
+		return false;
 
 	/* Clear and enable interrupts */
 	i2c_dw_clear_int(dev);
 	if (!dev->polling)
 		dw_writel(dev, DW_IC_INTR_DEFAULT_MASK, DW_IC_INTR_MASK);
+
+	return true;
 }
 
 /*
@@ -739,8 +744,15 @@ i2c_dw_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 	if (ret < 0)
 		goto done;
 
-	/* start the transfers */
-	i2c_dw_xfer_init(dev);
+	/* start the transfers, retry i2c_dw_xfer_init on error */
+	if (!i2c_dw_xfer_init(dev)) {
+		ret = i2c_dw_init(dev) >= 0 && i2c_dw_xfer_init(dev);
+		if (!ret) {
+			dev_err(dev->dev, "xfer init failed\n");
+			ret = -EIO;
+			goto err_reset;
+		}
+	}
 
 	if (dev->polling)
 		ret = i2c_dw_xfer_polling(dev);
@@ -750,10 +762,8 @@ i2c_dw_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 
 	if (ret == 0) {
 		dev_err(dev->dev, "controller timed out\n");
-		/* i2c_dw_init implicitly disables the adapter */
-		i2c_dw_init(dev);
 		ret = -ETIMEDOUT;
-		goto done;
+		goto err_reset;
 	}
 
 	/*
@@ -763,7 +773,11 @@ i2c_dw_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 	 * Needs some more investigation if the additional interrupts are
 	 * a hardware bug or this driver doesn't handle them correctly yet.
 	 */
-	__i2c_dw_enable(dev, false);
+	if (!__i2c_dw_enable(dev, false)) {
+		dev_err(dev->dev, "i2c dw disabling failed\n");
+		ret = -EIO;
+		goto err_reset;
+	}
 
 	if (dev->msg_err) {
 		ret = dev->msg_err;
@@ -782,6 +796,9 @@ i2c_dw_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 		goto done;
 	}
 	ret = -EIO;
+
+err_reset:
+	i2c_dw_init(dev);
 
 done:
 	if (dev->shared_host && dev->release_ownership)
