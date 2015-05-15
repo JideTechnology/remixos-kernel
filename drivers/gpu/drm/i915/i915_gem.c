@@ -2746,10 +2746,6 @@ int __i915_add_request(struct intel_engine_cs *ring,
 	list_add_tail(&request->list, &ring->request_list);
 	request->file_priv = NULL;
 
-	/* Avoid race condition where the request completes before it has
-	 * been added to the list. */
-	ring->last_read_seqno = 0;
-
 	if (file) {
 		struct drm_i915_file_private *file_priv = file->driver_priv;
 
@@ -2768,6 +2764,14 @@ int __i915_add_request(struct intel_engine_cs *ring,
 		queue_retire_work(dev_priv, round_jiffies_up_relative(HZ));
 		intel_mark_busy(dev_priv->dev);
 	}
+
+	/*
+	 * Avoid race condition where the request completes before it has
+	 * been added to the list.
+	 */
+	ring->last_read_seqno = 0;
+	if (i915_seqno_passed(ring->get_seqno(ring, false), request->seqno))
+		i915_gem_complete_requests_ring(request->ring, true);
 
 end:
 	intel_runtime_pm_put(dev_priv);
