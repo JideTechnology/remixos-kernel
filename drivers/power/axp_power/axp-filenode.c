@@ -33,7 +33,7 @@ static ssize_t axpdebug_store(struct class *class,
 static ssize_t axpdebug_show(struct class *class,
 			struct class_attribute *attr,	char *buf)
 {
-	return sprintf(buf, "bat-debug value is %d\n", axp_debug);
+	return sprintf(buf, "%x\n", axp_debug);
 }
 
 static ssize_t axp_regdebug_store(struct class *class,
@@ -51,7 +51,7 @@ static ssize_t axp_regdebug_store(struct class *class,
 static ssize_t axp_regdebug_show(struct class *class,
 			struct class_attribute *attr,	char *buf)
 {
-	return sprintf(buf, "reg-debug value is 0x%x\n", reg_debug);
+	return sprintf(buf, "%x\n", reg_debug);
 }
 
 void axp_reg_debug(s32 reg, s32 len, u8 *val)
@@ -79,7 +79,7 @@ static ssize_t vbuslimit_store(struct class *class,
 static ssize_t vbuslimit_show(struct class *class,
 			struct class_attribute *attr,	char *buf)
 {
-	return sprintf(buf, "vbus curr limit value is %d\n", vbus_curr_limit_debug);
+	return sprintf(buf, "%d\n", vbus_curr_limit_debug);
 }
 
 static ssize_t out_factory_mode_show(struct class *class,
