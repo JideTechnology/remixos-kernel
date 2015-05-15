@@ -131,7 +131,10 @@ typedef enum AXP209_POWER_LDO
 	AXP209_LDOIO0 = 1U << 6,
 } axp209_ldo_e;
 
-
+/* FIXME: if you modify this struct, you should
+ * sync this change with cpus source,
+ * by superm at 2015-05-15.
+ */
 enum VDD_BIT
 {
 	VDD_CPUA_BIT = 0,
@@ -151,6 +154,9 @@ enum VDD_BIT
 	VCC_PLL_BIT,
 	VCC_LPDDR_BIT,
 	VDD_TEST_BIT,
+	VDD_RES1_BIT,
+	VDD_RES2_BIT,
+	VDD_RES3_BIT,
 	VCC_MAX_INDEX,
 };
 
