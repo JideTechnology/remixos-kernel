@@ -445,6 +445,25 @@ config CHARGER_BQ24192
 	  Say Y here if you know your platform has this chip for charging
 	  support.
 
+config WIRELESS_REZENCE
+	bool "Wireless Rezence Driver"
+	help
+	  This generic driver adds support for the A4WP standard and
+	  should be built in combination of a A4WP receiver driver like
+	  the NX2A4WP driver.
+
+	  Say Y here to enable generic Wireless Rezence driver support.
+
+config REZENCE_NX2A4WP
+	bool "Rezence NX2A4WP driver"
+	select WIRELESS_REZENCE
+	depends on I2C
+	help
+	  This is a receiver driver suporting the NX2A4WP chip from NXP.
+	  This receiver supports A4WP/Rezence wireless charging technology.
+	  It include set/get property of NX2 chip.
+	  Say Y here to enable NX2A4WP rezence chip driver.
+
 config INTEL_FUEL_GAUGE
 	bool "Intel Fuel Gauge driver"
 	help
