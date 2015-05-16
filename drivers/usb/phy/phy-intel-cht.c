@@ -167,6 +167,14 @@ static int cht_otg_set_power(struct usb_phy *phy, unsigned mA)
 	if (!cht_otg_dev)
 		return -ENODEV;
 
+	/* VBUS drop event from EM part may come firstly to phy-intel-cht and
+	 * suspend event from device stack may come later than the VBUS drop
+	 * event. suspend event will trigger usb_gadget_vbus_draw 2mA when
+	 * b_sess_vld is already clear to 0. It will cause conflict events
+	 * received by other components, (e.g otg-wakelock) */
+	if (!cht_otg_dev->fsm.b_sess_vld)
+		return -ENODEV;
+
 	if (phy->state != OTG_STATE_B_PERIPHERAL)
 		dev_err(phy->dev, "ERR: Draw %d mA in state %s\n",
 			mA, usb_otg_state_string(cht_otg_dev->phy.state));
