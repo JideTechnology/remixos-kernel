@@ -2946,6 +2946,12 @@ static void quirk_pcie_enable_rtpm_ignore_children(struct pci_dev *dev)
 DECLARE_PCI_FIXUP_ENABLE(PCI_VENDOR_ID_INTEL,
 	PCI_DEVICE_ID_INTEL_CHV_PCIe_1, quirk_pcie_enable_rtpm_ignore_children);
 
+static void quirk_disable_pme_poll(struct pci_dev *dev)
+{
+	pci_disable_dev_pme_poll(dev, NULL);
+}
+DECLARE_PCI_FIXUP_ENABLE(PCI_VENDOR_ID_INTEL, 0x22b5, quirk_disable_pme_poll);
+
 static ktime_t fixup_debug_start(struct pci_dev *dev,
 				 void (*fn)(struct pci_dev *dev))
 {
