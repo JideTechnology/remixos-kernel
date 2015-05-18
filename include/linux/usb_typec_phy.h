@@ -64,10 +64,16 @@ enum typec_cc_level {
 	USB_TYPEC_CC_VRD_3000,
 };
 
+enum typec_fifo {
+	FIFO_TYPE_TX = 1,
+	FIFO_TYPE_RX = 2,
+};
+
 enum typec_event {
 	TYPEC_EVENT_UNKNOWN,
 	TYPEC_EVENT_VBUS,
 	TYPEC_EVENT_DRP,
+	TYPEC_EVENT_DFP,
 	TYPEC_EVENT_TIMER,
 	TYPEC_EVENT_NONE,
 	TYPEC_EVENT_DEV_REMOVE,
@@ -82,6 +88,41 @@ enum typec_mode {
 
 enum typec_type {
 	USB_TYPE_C
+};
+
+enum typec_phy_evts {
+	PROT_PHY_EVENT_NONE,
+	PROT_PHY_EVENT_GOODCRC,
+	PROT_PHY_EVENT_TX_SENT,
+	PROT_PHY_EVENT_COLLISION,
+	PROT_PHY_EVENT_HARD_RST,
+	PROT_PHY_EVENT_SOFT_RST,
+	PROT_PHY_EVENT_RESET,
+	PROT_PHY_EVENT_TX_FAIL,
+	PROT_PHY_EVENT_SOFT_RST_FAIL,
+	PROT_PHY_EVENT_TX_HARD_RST,
+	PROT_PHY_EVENT_GOODCRC_SENT,
+	PROT_PHY_EVENT_MSG_RCV,
+};
+
+enum {
+	PD_DATA_ROLE_UFP,
+	PD_DATA_ROLE_DFP,
+};
+
+enum {
+	PD_POWER_ROLE_PROVIDER,
+	PD_POWER_ROLE_PROVIER_CONSUMER,
+	PD_POWER_ROLE_CONSUMER,
+	PD_POWER_ROLE_CONSUMER_PROVIDER,
+};
+
+enum typec_cc_vrd {
+	TYPEC_CC_VRD_UNKNOWN = -1,
+	TYPEC_CC_VRA,
+	TYPEC_CC_VRD_USB,
+	TYPEC_CC_VRD_1500,
+	TYPEC_CC_VRD_3000
 };
 
 struct typec_cc_psy {
@@ -120,6 +161,10 @@ struct typec_phy {
 	enum typec_state state;
 	enum typec_cc_pin valid_cc;
 	bool valid_ra;
+	bool support_drp_toggle;
+	bool support_auto_goodcrc;
+	bool support_retry;
+	struct pd_prot *proto;
 
 	struct list_head list;
 	spinlock_t irq_lock;
@@ -132,9 +177,16 @@ struct typec_phy {
 	int (*init)(struct typec_phy *phy);
 	int (*shutdown)(struct typec_phy *phy);
 	int (*get_pd_version)(struct typec_phy *phy);
+	int (*phy_reset)(struct typec_phy *phy);
+	int (*flush_fifo)(struct typec_phy *phy, enum typec_fifo fifo_type);
+	int (*send_packet)(struct typec_phy *phy, u8 *msg, int len);
+	int (*recv_packet)(struct typec_phy *phy, u8 *msg);
+	int (*setup_role)(struct typec_phy *phy, int data_role, int pwr_role);
+	int (*notify_protocol)(struct typec_phy *phy, unsigned long event);
 	bool (*is_pd_capable)(struct typec_phy *phy);
 };
 
+extern struct typec_phy *typec_get_phy(int type);
 extern int typec_add_phy(struct typec_phy *phy);
 extern int typec_remove_phy(struct typec_phy *phy);
 struct typec_phy *typec_get_phy(int type);
@@ -233,4 +285,5 @@ static inline int typec_unregister_prot_notifier(struct typec_phy *phy,
 {
 	return atomic_notifier_chain_unregister(&phy->prot_notifier, nb);
 }
+
 #endif /* __USB_TYPEC_PHY_H__ */
