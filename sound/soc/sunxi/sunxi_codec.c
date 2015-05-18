@@ -606,7 +606,7 @@ static int ac_headphone_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		/*open*/
-		snd_soc_update_bits(codec, HP_PA_CTRL, (0xf<<HPOUTPUTENABLE), (0xf<<HPOUTPUTENABLE));
+		//snd_soc_update_bits(codec, HP_PA_CTRL, (0xf<<HPOUTPUTENABLE), (0xf<<HPOUTPUTENABLE));
 		snd_soc_update_bits(codec, HP_CTRL, (0x1<<HPPA_EN), (0x1<<HPPA_EN));
 		msleep(10);
 		snd_soc_update_bits(codec, MIX_DAC_CTRL, (0x3<<LHPPAMUTE), (0x3<<LHPPAMUTE));
@@ -614,7 +614,7 @@ static int ac_headphone_event(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_PRE_PMD:
 		/*close*/
 		snd_soc_update_bits(codec, HP_CTRL, (0x1<<HPPA_EN), (0x0<<HPPA_EN));
-		snd_soc_update_bits(codec, HP_PA_CTRL, (0xf<<HPOUTPUTENABLE), (0x0<<HPOUTPUTENABLE));
+		//snd_soc_update_bits(codec, HP_PA_CTRL, (0xf<<HPOUTPUTENABLE), (0x0<<HPOUTPUTENABLE));
 		snd_soc_update_bits(codec, MIX_DAC_CTRL, (0x3<<LHPPAMUTE), (0x0<<LHPPAMUTE));
 		break;
 	}
@@ -2603,7 +2603,7 @@ static void sunxi_internal_codec_shutdown(struct platform_device *pdev)
 	struct sunxi_codec * sunxi_internal_codec = dev_get_drvdata(&pdev->dev);
 
 	snd_soc_update_bits(sunxi_internal_codec->codec, HP_CTRL, (0x1<<HPPA_EN), (0x0<<HPPA_EN));
-	snd_soc_update_bits(sunxi_internal_codec->codec, HP_PA_CTRL, (0xf<<HPOUTPUTENABLE), (0x0<<HPOUTPUTENABLE));
+	//snd_soc_update_bits(sunxi_internal_codec->codec, HP_PA_CTRL, (0xf<<HPOUTPUTENABLE), (0x0<<HPOUTPUTENABLE));
 	snd_soc_update_bits(sunxi_internal_codec->codec, MIX_DAC_CTRL, (0x3<<LHPPAMUTE), (0x0<<LHPPAMUTE));
 	snd_soc_update_bits(sunxi_internal_codec->codec, JACK_MIC_CTRL, (0x1<<HMICBIASEN), (0x0<<HMICBIASEN));
 	if (spk_gpio.cfg)

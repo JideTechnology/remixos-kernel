@@ -39,7 +39,8 @@
 #define SUNXI_PCM_RATES (SNDRV_PCM_RATE_8000_192000 | SNDRV_PCM_RATE_KNOT)
 
 static bool  i2s_suspend 		= false;
-
+static struct sunxi_i2s *sunxi_i2s_global = NULL ;
+static bool hub_function_en = false;
 static u32 sample_resolution =16;
 static void sunxi_snd_txctrl(struct snd_pcm_substream *substream, int on,struct snd_soc_dai *dai)
 {
@@ -384,12 +385,38 @@ static struct snd_soc_dai_ops sunxi_i2s_dai_ops = {
 	.set_sysclk = sunxi_i2s_set_sysclk,
 	.prepare = sunxi_i2s_preapre,
 };
+static int set_hub_function(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	hub_function_en = ucontrol->value.integer.value[0];
+	if (hub_function_en) {
+	/* enable hub mode for play */
+		codec_wr_control(sunxi_i2s_global->sunxi_i2s_membase+SUNXI_DA_FCTL, 0x1, HUB_EN, 1);
+	} else {
+		codec_wr_control(sunxi_i2s_global->sunxi_i2s_membase+SUNXI_DA_FCTL, 0x1, HUB_EN, 0);
+	}
+	return 0;
+}
+
+static int get_hub_function(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = hub_function_en;
+	return 0;
+}
+static const struct snd_kcontrol_new sunxi_i2s_controls[] = {
+
+	SOC_SINGLE_BOOL_EXT("I2S HUB FUNC", 	0, get_hub_function, 	set_hub_function),
+
+};
 static int sunxi_i2s_probe(struct snd_soc_dai *dai)
 {
 	struct sunxi_i2s *sunxi_i2s = snd_soc_dai_get_drvdata(dai);
 
 	dai->capture_dma_data = &sunxi_i2s->capture_dma_param;
 	dai->playback_dma_data = &sunxi_i2s->play_dma_param;
+	snd_soc_add_dai_controls(dai,sunxi_i2s_controls,
+					ARRAY_SIZE(sunxi_i2s_controls));
 	return 0;
 }
 static int sunxi_i2s_suspend(struct snd_soc_dai *cpu_dai)
@@ -478,6 +505,7 @@ static int __init sunxi_internal_i2s_platform_probe(struct platform_device *pdev
 		ret = -ENOMEM;
 		goto err0;
 	}
+	sunxi_i2s_global = sunxi_i2s;
 	dev_set_drvdata(&pdev->dev, sunxi_i2s);
 	sunxi_i2s->dai = sunxi_pcm_dai;
 	sunxi_i2s->dai.name = dev_name(&pdev->dev);

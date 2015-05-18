@@ -101,6 +101,7 @@ static int sunxi_daudio_suspend(struct snd_soc_dai *cpu_dai)
 {
 	int ret = 0;
 	struct sunxi_tdm_info  *sunxi_daudio = snd_soc_dai_get_drvdata(cpu_dai);
+	tdm_global_enable(sunxi_daudio,0);
 	pr_debug("[daudio] suspend .%s\n",cpu_dai->name);
 	if (sunxi_daudio->tdm_moduleclk != NULL) {
 		clk_disable(sunxi_daudio->tdm_moduleclk);
@@ -128,6 +129,7 @@ static int sunxi_daudio_resume(struct snd_soc_dai *cpu_dai)
 {
 	int ret = 0;
 	struct sunxi_tdm_info  *sunxi_daudio = snd_soc_dai_get_drvdata(cpu_dai);
+
 	pr_debug("[daudio] resume .%s\n",cpu_dai->name);
 	if (sunxi_daudio->tdm_pllclk != NULL) {
 		if (clk_prepare_enable(sunxi_daudio->tdm_pllclk)) {
@@ -167,6 +169,7 @@ static int sunxi_daudio_resume(struct snd_soc_dai *cpu_dai)
 		pr_warn("[daudio]select pin default state failed\n");
 		return ret;
 	}
+	tdm_global_enable(sunxi_daudio,1);
 	return 0;
 }
 

@@ -59,7 +59,7 @@ void audio_set_hdmi_func(__audio_hdmi_func *hdmi_func)
 }
 EXPORT_SYMBOL(audio_set_hdmi_func);
 #endif
-static int sndhdmi_hw_params(struct snd_pcm_substream *substream,
+int sndhdmi_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params,
 	struct snd_soc_dai *dai)
 {
@@ -129,13 +129,13 @@ static int sndhdmi_hw_params(struct snd_pcm_substream *substream,
 
 	return 0;
 }
-
+EXPORT_SYMBOL(sndhdmi_hw_params);
 static int sndhdmi_set_dai_fmt(struct snd_soc_dai *codec_dai,
 			       unsigned int fmt)
 {
 	return 0;
 }
-static int sndhdmi_perpare(struct snd_pcm_substream *substream,
+int sndhdmi_perpare(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *dai)
 {
 //	u32 reg_val;
@@ -204,6 +204,7 @@ static int sndhdmi_perpare(struct snd_pcm_substream *substream,
 #endif //hdmi_hw
 	return 0;
 }
+EXPORT_SYMBOL(sndhdmi_perpare);
 static int sndhdmi_trigger(struct snd_pcm_substream *substream,
                               int cmd, struct snd_soc_dai *dai)
 {
@@ -241,7 +242,7 @@ static int sunxi_sndhdmi_resume(struct snd_soc_codec *dai)
 	return 0;
 }
 
-static void sndhdmi_shutdown(struct snd_pcm_substream *substream,
+void sndhdmi_shutdown(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *dai)
 {
 	#ifdef hdmi_hw
@@ -250,6 +251,7 @@ static void sndhdmi_shutdown(struct snd_pcm_substream *substream,
 	}
 	#endif
 }
+EXPORT_SYMBOL(sndhdmi_shutdown);
 #ifdef CONFIG_HAS_EARLYSUSPEND
 void hdmiaudio_early_suspend(struct early_suspend *h) {
 

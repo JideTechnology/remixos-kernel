@@ -80,6 +80,12 @@ config SND_SUNXI_SOC_SPDIF
 	tristate "ASoC support for spdif soundcard"
 	help
  	  Say Y or M if you want to add the spdif soundcard include macheine plarform.
+config SND_SOC_HUB
+	bool "Support SUNXI AUDIO HUB"
+	depends on (SND_SUNXI_SOC_HDMIAUDIO && SND_SUNXI_SOC_SPDIF)
+	help
+	Say Y if you want to add audiohub function.
+
 
 config SND_SUNXI_SOC_SUPPORT_AUDIO_RAW
 	bool "Support Audio Raw Data"
@@ -95,5 +101,8 @@ config SUNXI_AUDIO_DEBUG
 	depends on SND_SOC_SUNXI_AUDIO_DMA
 
 endif
+
+
+
 #endmenu
 

@@ -143,13 +143,16 @@ static int sunxi_hdmi_dai_probe(struct snd_soc_dai *dai)
 static int sunxi_hdmi_suspend(struct snd_soc_dai *cpu_dai)
 {
 	struct sunxi_tdm_info  *sunxi_tdmhdmi = snd_soc_dai_get_drvdata(cpu_dai);
-	pr_debug("[HDMI-TDM]Entered %s\n", __func__);
-
-	if (sunxi_tdmhdmi->tdm_moduleclk != NULL) {
-		clk_disable(sunxi_tdmhdmi->tdm_moduleclk);
-	}
-	if (sunxi_tdmhdmi->tdm_pllclk != NULL) {
-		clk_disable(sunxi_tdmhdmi->tdm_pllclk);
+	tdm_global_enable(sunxi_tdmhdmi,0);
+	pr_debug("[HDMI-TDM]Entered sunxi_tdmhdmi->clk_enable_cnt:%d,%s\n", sunxi_tdmhdmi->clk_enable_cnt,__func__);
+	if (sunxi_tdmhdmi->clk_enable_cnt > 0) {
+		if (sunxi_tdmhdmi->tdm_moduleclk != NULL) {
+			clk_disable(sunxi_tdmhdmi->tdm_moduleclk);
+		}
+		if (sunxi_tdmhdmi->tdm_pllclk != NULL) {
+			clk_disable(sunxi_tdmhdmi->tdm_pllclk);
+		}
+		sunxi_tdmhdmi->clk_enable_cnt--;
 	}
 	return 0;
 }
@@ -157,6 +160,8 @@ static int sunxi_hdmi_suspend(struct snd_soc_dai *cpu_dai)
 static int sunxi_hdmi_resume(struct snd_soc_dai *cpu_dai)
 {
 	struct sunxi_tdm_info  *sunxi_tdmhdmi = snd_soc_dai_get_drvdata(cpu_dai);
+
+	pr_debug("[HDMI-TDM]Entered sunxi_tdmhdmi->clk_enable_cnt:%d,%s\n", sunxi_tdmhdmi->clk_enable_cnt,__func__);
 	if (sunxi_tdmhdmi->tdm_pllclk != NULL) {
 		if (clk_prepare_enable(sunxi_tdmhdmi->tdm_pllclk)) {
 			pr_err("open sunxi_tdmhdmi->tdm_pllclk failed! line = %d\n", __LINE__);
@@ -168,8 +173,8 @@ static int sunxi_hdmi_resume(struct snd_soc_dai *cpu_dai)
 			pr_err("open sunxi_tdmhdmi->tdm_moduleclk failed! line = %d\n", __LINE__);
 		}
 	}
-
-	pr_debug("[HDMI-TDM]Entered %s\n", __func__);
+	sunxi_tdmhdmi->clk_enable_cnt++;
+	tdm_global_enable(sunxi_tdmhdmi,1);
 	return 0;
 }
 
@@ -260,6 +265,7 @@ static int __init sunxi_hdmi_dev_probe(struct platform_device *pdev)
 		}
 		clk_prepare_enable(sunxi_tdmhdmi->tdm_pllclk);
 		clk_prepare_enable(sunxi_tdmhdmi->tdm_moduleclk);
+		sunxi_tdmhdmi->clk_enable_cnt++;
 	}
 	sunxi_tdmhdmi->play_dma_param.dma_addr = res.start + SUNXI_DAUDIOTXFIFO;
 	sunxi_tdmhdmi->play_dma_param.dma_drq_type_num = DRQDST_DAUDIO_2_TX;

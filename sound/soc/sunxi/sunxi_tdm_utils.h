@@ -176,6 +176,7 @@ struct sunxi_tdm_info {
 	u32 samp_res;
 	u32 others;	/*other use*/
 	u32 tdm_num;
+	u32 clk_enable_cnt;
 	bool tdm_config;	/*1:i2s 0:pcm*/
 	bool frametype;	/*pcm format: 0-short frame,1-long frame*/
 

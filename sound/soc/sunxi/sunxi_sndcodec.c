@@ -30,6 +30,9 @@
 
 #include "sunxi_rw_func.h"
 
+#ifdef CONFIG_SND_SOC_HUB
+#include "sunxi_hub.h"
+#endif
 
 typedef enum {
 	RESUME_IRQ = 0x0,
@@ -584,6 +587,7 @@ static int bt_hw_params(struct snd_pcm_substream *substream,
 static struct snd_soc_ops bt_voice_ops = {
 	.hw_params = bt_hw_params,
 };
+
 static struct snd_soc_dai_link sunxi_sndpcm_dai_link[] = {
 	{
 	.name = "audiocodec",
@@ -622,8 +626,18 @@ static struct snd_soc_dai_link sunxi_sndpcm_dai_link[] = {
 	.codec_name = "sunxi-pcm-codec",
 	.ops = &bt_voice_ops,
 	},
+#ifdef CONFIG_SND_SOC_HUB
+	{
+	/*hub-spdif*/
+	},
+	{
+	/*hub-hdmi*/
+	},
+#endif
 /**/
 };
+
+
 static int sunxi_suspend(struct snd_soc_card *card)
 {
 	struct mc_private *ctx = snd_soc_card_get_drvdata(card);
@@ -752,7 +766,20 @@ static int sunxi_machine_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "register DAI failed\n");
 		goto err0;
 	}
+//	pr_debug("%s,line:%d,ARRAY_SIZE(sunxi_sndpcm_dai_link):%d\n",__func__,__LINE__,ARRAY_SIZE(sunxi_sndpcm_dai_link));
 
+	#ifdef CONFIG_SND_SOC_HUB
+	/*
+	*sunxi_sndpcm_dai_link[0]:audiocodec
+	*sunxi_sndpcm_dai_link[1]:Voice
+	*sunxi_sndpcm_dai_link[2]:bbclk
+	*sunxi_sndpcm_dai_link[3]:bt
+	*sunxi_sndpcm_dai_link[4]:hub-hdmi
+	*sunxi_sndpcm_dai_link[5]:hub-spdif
+	*/
+	memcpy(sunxi_sndpcm_dai_link + 4,
+			sunxi_hub_dai_link, sizeof(sunxi_hub_dai_link));
+	#endif
 	/* register the soc card */
 	snd_soc_sunxi_sndpcm.dev = &pdev->dev;
 	snd_soc_card_set_drvdata(&snd_soc_sunxi_sndpcm, ctx);

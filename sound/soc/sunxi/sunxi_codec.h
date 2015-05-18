@@ -281,7 +281,7 @@
 *      I2S_AP FIFO     Control register
 *      DA_FCTL:codecbase+0x14
 */
-#define FIFOSRC                                 (31)
+#define HUB_EN                                 (31)
 #define FTX                                     (25)
 #define FRX                                     (24)
 #define TXTL                                   	(12)

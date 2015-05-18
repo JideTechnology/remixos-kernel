@@ -607,14 +607,16 @@ static int sunxi_spdif_suspend(struct snd_soc_dai *cpu_dai)
 	sunxi_spdif->pinctrl = NULL;
 	sunxi_spdif->pinstate = NULL;
 	sunxi_spdif->pinstate_sleep = NULL;
-
-	if (sunxi_spdif->moduleclk != NULL) {
-		clk_disable(sunxi_spdif->moduleclk);
+	pr_debug("[SPDIF]sunxi_spdif->clk_enable_cnt:%d,%s\n",sunxi_spdif->clk_enable_cnt, __func__);
+	if (sunxi_spdif->clk_enable_cnt > 0) {
+		if (sunxi_spdif->moduleclk != NULL) {
+			clk_disable(sunxi_spdif->moduleclk);
+		}
+		if (sunxi_spdif->pllclk != NULL) {
+			clk_disable(sunxi_spdif->pllclk);
+		}
+		sunxi_spdif->clk_enable_cnt--;
 	}
-	if (sunxi_spdif->pllclk != NULL) {
-		clk_disable(sunxi_spdif->pllclk);
-	}
-
 	pr_debug("[SPDIF]End %s\n", __func__);
 	return 0;
 }
@@ -637,7 +639,8 @@ static int sunxi_spdif_resume(struct snd_soc_dai *cpu_dai)
 			pr_err("open sunxi_spdif->moduleclk failed! line = %d\n", __LINE__);
 		}
 	}
-
+	sunxi_spdif->clk_enable_cnt++;
+	pr_debug("[SPDIF]sunxi_spdif->clk_enable_cnt:%d,%s\n",sunxi_spdif->clk_enable_cnt, __func__);
 	reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_CTL);
 	reg_val |= SUNXI_SPDIF_CTL_GEN;
 	writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_CTL);
@@ -758,6 +761,7 @@ static int __init sunxi_spdif_dev_probe(struct platform_device *pdev)
 		}
 		clk_prepare_enable(sunxi_spdif->pllclk);
 		clk_prepare_enable(sunxi_spdif->moduleclk);
+		sunxi_spdif->clk_enable_cnt++;
 	}
 
 	sunxi_spdif->play_dma_param.dma_addr = res.start + SUNXI_SPDIF_TXFIFO;
