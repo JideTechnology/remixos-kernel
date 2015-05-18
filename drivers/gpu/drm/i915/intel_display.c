@@ -6006,13 +6006,28 @@ void intel_connector_dpms(struct drm_connector *connector, int mode)
 {
 	struct drm_device *dev = connector->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_connector *intel_connector =
+				to_intel_connector(connector);
+	struct intel_encoder *intel_encoder = intel_connector->encoder;
 
 	/* All the simple cases only support two dpms states. */
 	if (mode != DRM_MODE_DPMS_ON)
 		mode = DRM_MODE_DPMS_OFF;
 
-	if (mode == connector->dpms)
+	if (mode == connector->dpms) {
+		intel_connector->dpms_off_pending = false;
 		return;
+	}
+
+	/* Ignore DPMS OFF on HDMI if Audio playback is active */
+	if (connector->encoder && intel_encoder->type == INTEL_OUTPUT_HDMI) {
+		intel_connector->dpms_off_pending = false;
+		if (mode == DRM_MODE_DPMS_OFF && mid_hdmi_audio_is_busy(dev)) {
+			DRM_DEBUG_KMS("HDMI Audio active, ignoring DPMS OFF\n");
+			intel_connector->dpms_off_pending = true;
+			return;
+		}
+	}
 
 	connector->dpms = mode;
 
