@@ -43,10 +43,12 @@
 #define CC_RD(x)		(x > USB_TYPEC_CC_VRA)
 #define CC_RA(x)		(x == USB_TYPEC_CC_VRA)
 
-#define TYPEC_DRPLOCK_TIMEOUT 130	/* 100 - 150ms */
+/* Typec spec1.1 CC debounce time is 250ms */
+#define TYPEC_DRPLOCK_TIMEOUT 250
 
 #define TYPEC_CABLE_USB		"USB"
 #define TYPEC_CABLE_USB_HOST	"USB-Host"
+
 
 static const char *detect_extcon_cable[] = {
 	TYPEC_CABLE_USB,
@@ -197,6 +199,7 @@ static void detect_dfp_work(struct work_struct *work)
 			typec_setup_cc(phy, use_cc, TYPEC_STATE_ATTACHED_DFP);
 
 			extcon_set_cable_state(detect->edev, "USB-Host", true);
+
 			atomic_notifier_call_chain(&detect->otg->notifier,
 				USB_EVENT_ID, NULL);
 			/* [WA] Since neccessary pmic-gpio isn't exposed
@@ -278,10 +281,12 @@ static void detect_lock_ufp_work(struct work_struct *work)
 {
 	struct typec_detect *detect = container_of(work, struct typec_detect,
 					lock_ufp_work);
+	struct typec_phy *phy;
 	int ret;
 	/* tDRPLock - 100 to 150ms */
 	unsigned long timeout = msecs_to_jiffies(TYPEC_DRPLOCK_TIMEOUT);
 
+	phy = detect->phy;
 	typec_switch_mode(detect->phy, TYPEC_MODE_UFP);
 	ret = wait_for_completion_timeout(&detect->lock_ufp_complete, timeout);
 	if (ret == 0) {
@@ -325,8 +330,9 @@ static void update_phy_state(struct work_struct *work)
 		del_timer(&detect->drp_timer); /* disable timer */
 		if (state == DETECT_STATE_ATTACHED_DFP)
 			break;
-		else if ((state == DETECT_STATE_UNATTACHED_DFP) ||
-				(state == DETECT_STATE_UNATTACHED_DRP)) {
+		else if (!phy->support_drp_toggle &&
+				(state == DETECT_STATE_UNATTACHED_DFP ||
+				state == DETECT_STATE_UNATTACHED_DRP)) {
 			mutex_lock(&detect->lock);
 			typec_switch_mode(phy, TYPEC_MODE_UFP);
 			mutex_unlock(&detect->lock);
@@ -353,26 +359,33 @@ static void update_phy_state(struct work_struct *work)
 		dev_info(detect->phy->dev, "evt_vbus cc1 = %d, cc2 = %d",
 						cc1_psy.v_rd, cc2_psy.v_rd);
 
-		/* try another time? */
-		if (CC_OPEN(cc1_psy.v_rd) || CC_RA(cc1_psy.v_rd)) {
-			ret = typec_measure_cc(phy, TYPEC_PIN_CC1, &cc1_psy, 0);
-			if (ret < 0) {
-				dev_warn(detect->phy->dev,
-					"%s: Error(%d) measuring cc1\n",
-					__func__, ret);
-				cc1_psy.v_rd = USB_TYPEC_CC_VRD_UNKNOWN;
-				cc1_psy.cur = TYPEC_CURRENT_UNKNOWN;
+		if (!phy->support_drp_toggle) {
+			/* try another time? */
+			if (CC_OPEN(cc1_psy.v_rd) || CC_RA(cc1_psy.v_rd)) {
+				ret = typec_measure_cc(phy, TYPEC_PIN_CC1,
+						&cc1_psy, 0);
+				if (ret < 0) {
+					dev_warn(detect->phy->dev,
+						"%s: Error(%d) measuring cc1\n",
+						__func__, ret);
+					cc1_psy.v_rd = USB_TYPEC_CC_VRD_UNKNOWN;
+					cc1_psy.cur = TYPEC_CURRENT_UNKNOWN;
+				}
 			}
-		}
-		if (CC_OPEN(cc2_psy.v_rd) || CC_RA(cc2_psy.v_rd)) {
-			ret = typec_measure_cc(phy, TYPEC_PIN_CC2, &cc2_psy, 0);
-			if (ret < 0) {
-				dev_warn(detect->phy->dev,
-					"%s: Error(%d) measuring cc2\n",
-					__func__, ret);
-				cc2_psy.v_rd = USB_TYPEC_CC_VRD_UNKNOWN;
-				cc2_psy.cur = TYPEC_CURRENT_UNKNOWN;
+
+			if (CC_OPEN(cc2_psy.v_rd) || CC_RA(cc2_psy.v_rd)) {
+				ret = typec_measure_cc(phy, TYPEC_PIN_CC2,
+						&cc2_psy, 0);
+				if (ret < 0) {
+					dev_warn(detect->phy->dev,
+						"%s: Error(%d) measuring cc2\n",
+						__func__, ret);
+					cc2_psy.v_rd = USB_TYPEC_CC_VRD_UNKNOWN;
+					cc2_psy.cur = TYPEC_CURRENT_UNKNOWN;
+				}
 			}
+			dev_info(detect->phy->dev, "evt_vbus-retry cc1 = %d cc2 = %d",
+					cc1_psy.v_rd, cc2_psy.v_rd);
 		}
 
 		use_cc = get_active_cc(&cc1_psy, &cc2_psy);
@@ -401,8 +414,10 @@ static void update_phy_state(struct work_struct *work)
 	case TYPEC_EVENT_NONE:
 		mutex_lock(&detect->lock);
 		detect->got_vbus = false;
-		typec_setup_cc(phy, 0, TYPEC_STATE_UNATTACHED_UFP);
+		if (!phy->support_drp_toggle)
+			typec_setup_cc(phy, 0, TYPEC_STATE_UNATTACHED_UFP);
 		mutex_unlock(&detect->lock);
+
 		if (detect->state == DETECT_STATE_ATTACHED_UFP) {
 			extcon_set_cable_state(detect->edev, "USB", false);
 			/* notify power supply */
@@ -420,8 +435,7 @@ static void update_phy_state(struct work_struct *work)
 			 * as of now, this is a w/a to write directly.
 			 */
 			intel_soc_pmic_writeb(0x6e2d, 0x30);
-			extcon_set_cable_state(detect->edev,
-							"USB-Host", false);
+			extcon_set_cable_state(detect->edev, "USB-Host", false);
 
 			reinit_completion(&detect->lock_ufp_complete);
 			mutex_lock(&detect->lock);
@@ -460,7 +474,13 @@ static int typec_handle_phy_ntf(struct notifier_block *nb,
 	case TYPEC_EVENT_NONE:
 		schedule_work(&detect->phy_ntf_work);
 		break;
+	case TYPEC_EVENT_DFP:
+		detect->state = DETECT_STATE_UNATTACHED_DFP;
+		schedule_work(&detect->dfp_work);
+		break;
 	case TYPEC_EVENT_DRP:
+		if (phy->support_drp_toggle)
+			break;
 		dev_info(detect->phy->dev, "EVNT DRP");
 		detect->state = DETECT_STATE_UNATTACHED_DRP;
 		/* start the timer now */
@@ -510,8 +530,9 @@ int typec_bind_detect(struct typec_phy *phy)
 	INIT_WORK(&detect->phy_ntf_work, update_phy_state);
 	INIT_WORK(&detect->dfp_work, detect_dfp_work);
 
-	setup_timer(&detect->drp_timer, detect_drp_timer,
-			(unsigned long)detect);
+	if (!phy->support_drp_toggle)
+		setup_timer(&detect->drp_timer, detect_drp_timer,
+				(unsigned long)detect);
 
 	detect->detect_kthread = kthread_run(detect_kthread, detect, "detect");
 	detect->state = DETECT_STATE_UNATTACHED_DRP;
