@@ -79,14 +79,14 @@ static void uart_enable(struct device *tty)
 {
 	pr_debug("%s: runtime get\n", __func__);
 	/* Tell PM runtime to power on the tty device and block s0i3 */
-	pm_runtime_get_sync(tty);
+	pm_runtime_get(tty);
 }
 
 static void uart_disable(struct device *tty)
 {
 	pr_debug("%s: runtime put\n", __func__);
 	/* Tell PM runtime to release tty device and allow s0i3 */
-	pm_runtime_put_sync(tty);
+	pm_runtime_put(tty);
 }
 #endif /* !DBG_DISABLE_BT_LOW_POWER */
 
