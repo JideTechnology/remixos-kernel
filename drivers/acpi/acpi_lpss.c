@@ -213,7 +213,7 @@ static const struct acpi_device_id acpi_lpss_device_ids[] = {
 	{ "INT3437", },
 	{ "INT3496", },
 	{ "GPTC0001", },
-
+	{ "INTA4321", },
 	/* BYT PWM */
 	{ "80860F09", },
 	{ }
