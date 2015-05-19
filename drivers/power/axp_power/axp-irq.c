@@ -85,6 +85,9 @@ static void axp_keyup(struct axp_charger *charger)
 static void axp_keydown(struct axp_charger *charger)
 {
 	DBG_PSY_MSG(DEBUG_INT, "power key down\n");
+#ifdef CONFIG_HAS_WAKELOCK
+	wake_lock_timeout(&axp_wakeup_lock, msecs_to_jiffies(20));
+#endif
 	input_report_key(powerkeydev, KEY_POWER, 1);
 	input_sync(powerkeydev);
 }
