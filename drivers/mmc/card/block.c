@@ -684,22 +684,16 @@ static inline int mmc_blk_part_switch(struct mmc_card *card,
 		u8 part_config = card->ext_csd.part_config;
 		struct mmc_host *host = card->host;
 
-		/*
-		 * before switching partition, needs to make
-		 * sure there is no active transferring in previous
-		 * queue
-		 */
+		WARN_ON(host->context_info.is_cmdq_busy);
 
 		/*
 		 * Before swithcing the partition, need to do following
 		 * checks:
-		 * 1. there is no on going request in previous queue
-		 * 2. if switch to RPMB partition, CMDQ should be disabled
-		 * 3. if switch to other partition, CMDQ should be back to
-		 * previous status
+		 * 1. if switch to none-user partition, CMDQ should be disabled
+		 * before switch the partition
+		 * 2. if switch to user partition, CMDQ should be back to
+		 * previous status after switch to user
 		 */
-		mmc_blk_issue_rw_rq(main_md->mq_curr, NULL, false);
-
 		if ((md->part_type != EXT_CSD_PART_CONFIG_USER) &&
 				card->ext_csd.cmdq_en) {
 			/* disable CMDQ mode */
@@ -711,27 +705,7 @@ static inline int mmc_blk_part_switch(struct mmc_card *card,
 				return ret;
 			card->ext_csd.cmdq_en = 0;
 			pm_suspend_ignore_children(&host->class_dev, true);
-		} else if ((md->part_type == EXT_CSD_PART_CONFIG_USER) &&
-					card->ext_csd.cmdq_support &&
-					(host->caps2 & MMC_CAP2_CAN_DO_CMDQ) &&
-					!card->ext_csd.cmdq_en) {
-			/* enable CMDQ mode */
-			ret = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
-					EXT_CSD_CMDQ_MODE_EN,
-					EXT_CSD_CMDQ_MODE_ON,
-					card->ext_csd.generic_cmd6_time);
-			/*
-			 * if err during turning on CMDQ mode, continue with
-			 * CMDQ disabled mode
-			 */
-			if (!ret)
-				card->ext_csd.cmdq_en = 1;
 		}
-
-		if ((card->host->pm_caps & MMC_PM_TUNING_AFTER_RTRESUME) &&
-				card->ext_csd.cmdq_en)
-			pm_suspend_ignore_children(&card->host->class_dev,
-					false);
 
 		part_config &= ~EXT_CSD_PART_CONFIG_ACC_MASK;
 		part_config |= md->part_type;
@@ -747,6 +721,28 @@ static inline int mmc_blk_part_switch(struct mmc_card *card,
 			return ret;
 
 		card->ext_csd.part_config = part_config;
+
+		if ((md->part_type == EXT_CSD_PART_CONFIG_USER) &&
+					card->ext_csd.cmdq_support &&
+					(host->caps2 & MMC_CAP2_CAN_DO_CMDQ) &&
+					!card->ext_csd.cmdq_en) {
+			/* enable CMDQ mode */
+			ret = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+					EXT_CSD_CMDQ_MODE_EN,
+					EXT_CSD_CMDQ_MODE_ON,
+					card->ext_csd.generic_cmd6_time);
+			/*
+			 * if err during turning on CMDQ mode, continue with
+			 * CMDQ disabled mode
+			 */
+			if (!ret) {
+				card->ext_csd.cmdq_en = 1;
+				if (host->pm_caps &
+						MMC_PM_TUNING_AFTER_RTRESUME)
+					pm_suspend_ignore_children(
+						&host->class_dev, false);
+			}
+		}
 	}
 
 	main_md->part_curr = md->part_type;
@@ -2329,8 +2325,10 @@ static int mmc_blk_queue_cmdq_req(struct mmc_queue *mq,
 
 	mrq.precmd = areq->mrq->precmd;
 	mrq.cmd = areq->mrq->cmd;
-	if (status)
+	if (status) {
+		*status = 0;
 		mrq.cmd2 = areq->mrq->cmd2;
+	}
 
 	mmc_wait_for_req(card->host, &mrq);
 	if (mrq.cmd->error) {
@@ -2345,6 +2343,17 @@ static int mmc_blk_queue_cmdq_req(struct mmc_queue *mq,
 
 	card->host->context_info.is_cmdq_busy = true;
 
+	if (status && mrq.cmd2) {
+		*status = (unsigned long)mrq.cmd2->resp[0];
+		if (card->host->areq) {
+			struct mmc_queue_req *active_mqrq;
+
+			active_mqrq = container_of(card->host->areq,
+					struct mmc_queue_req, mmc_active);
+			*status &= ~(1 << active_mqrq->task_id);
+		}
+	}
+
 	if (card->host->context_info.is_pending_cmdq) {
 		card->host->context_info.is_pending_cmdq = false;
 		err = mmc_blk_execute_cmdq(mq, 0);
@@ -2354,9 +2363,6 @@ static int mmc_blk_queue_cmdq_req(struct mmc_queue *mq,
 			return err;
 		}
 	}
-
-	if (status && mrq.cmd2)
-		*status = (unsigned long)mrq.cmd2->resp[0];
 
 	return 0;
 }
