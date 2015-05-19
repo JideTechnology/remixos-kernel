@@ -38,6 +38,20 @@ struct aspm_latency {
 	u32 l1;				/* L1 latency (nsec) */
 };
 
+#ifdef CONFIG_PCIE_ASPM_LNKSUB
+#define ASPM_LNKSUB_L11		(1)	/*Link Sub-States L1.1 */
+#define ASPM_LNKSUB_L12		(2)	/*Link Sub-States L1.2 */
+#define ASPM_LNKSUB_ALL		(ASPM_LNKSUB_L11 | ASPM_LNKSUB_L12)
+
+struct pcie_aspm_l1ss_timing {
+	u32 cm_mode_restore_time;
+	u32 ltr_l12_threshold_val;
+	u32 ltr_l12_threshold_scal;
+	u32 pwr_on_scal;
+	u32 pwr_on_val;
+};
+#endif
+
 struct pcie_link_state {
 	struct pci_dev *pdev;		/* Upstream component of the Link */
 	struct pcie_link_state *root;	/* pointer to the root port link */
@@ -66,6 +80,23 @@ struct pcie_link_state {
 	 * has one slot under it, so at most there are 8 functions.
 	 */
 	struct aspm_latency acceptable[8];
+
+#ifdef CONFIG_PCIE_ASPM_LNKSUB
+	/* ASPM Link sub-states */
+	u32 aspm_l1ss_support:2;		/* Supported ASPM L1SS state */
+	u32 aspm_l1ss_enabled:2;		/* Enabled ASPM L1SS state */
+	u32 aspm_l1ss_disable:3;		/* Disabled ASPM state */
+
+	/*
+	* The down port ASPM L1SS timing info may be lost.
+	* For example, the power supply to the down port is disabled.
+	* Read and save those values in the initilization.
+	* Reconfigure them when necessary.
+	*/
+	u16 dw_max_snoop_ltr;		/* Max Snoop Latency */
+	u16 dw_max_no_snoop_ltr;	/* Max No-snoop Latency */
+	struct pcie_aspm_l1ss_timing dw_l1ss_timing[8];
+#endif
 };
 
 static int aspm_disabled, aspm_force;
@@ -92,6 +123,306 @@ static const char *policy_str[] = {
 };
 
 #define LINK_RETRAIN_TIMEOUT HZ
+
+
+#ifdef CONFIG_PCIE_ASPM_LNKSUB
+struct aspm_l1ss_register_info {
+	u32 support;
+	u32 enabled;
+	u32 cm_mode_restore_time;
+	u32 ltr_l12_threshold_val;
+	u32 ltr_l12_threshold_scal;
+	u32 pwr_on_scal;
+	u32 pwr_on_val;
+};
+
+
+static void pcie_aspm_l1ss_reg_read(struct pci_dev *pdev,
+	struct aspm_l1ss_register_info *info)
+{
+	u32 reg32;
+	int pos;
+
+	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_LNKSUB);
+	if (pos) {
+		pci_read_config_dword(pdev, pos + PCI_LNKSUB_CAP, &reg32);
+		if (reg32 & PCI_LNKSUB_CAP_L1_PM_SS) {
+			if (reg32 & PCI_LNKSUB_CAP_ASPM_L11)
+				info->support |= ASPM_LNKSUB_L11;
+			if (reg32 & PCI_LNKSUB_CAP_ASPM_L12)
+				info->support |= ASPM_LNKSUB_L12;
+
+			dev_dbg(&pdev->dev, "L1SS cap = 0x%x\n", reg32);
+
+			pci_read_config_dword(pdev,
+				pos + PCI_LNKSUB_CTRL1, &reg32);
+			if (reg32 & PCI_LNKSUB_ASPM_L11_EN)
+				info->enabled |= ASPM_LNKSUB_L11;
+			if (reg32 & PCI_LNKSUB_ASPM_L12_EN)
+				info->enabled |= ASPM_LNKSUB_L12;
+
+			info->cm_mode_restore_time =
+				(reg32 & PCI_LNKSUB_RESTORE_TIME);
+
+			info->ltr_l12_threshold_val =
+				(reg32 & PCI_LNKSUB_L12_THRE_VAL);
+
+			info->ltr_l12_threshold_scal =
+				(reg32 & PCI_LNKSUB_L12_THRE_SCAL);
+
+			dev_dbg(&pdev->dev, "L1SS ctrl 1 = 0x%x\n", reg32);
+
+			pci_read_config_dword(pdev,
+				pos + PCI_LNKSUB_CTRL2, &reg32);
+
+			info->pwr_on_scal = reg32 & PCI_LNKSUB_PWR_ON_SCAL;
+			info->pwr_on_val =
+				(reg32 & PCI_LNKSUB_PWR_ON_VAL);
+
+			dev_dbg(&pdev->dev, "L1SS ctrl 2 = 0x%x\n", reg32);
+		} else
+			info->support = 0;
+	}
+}
+
+static void pcie_aspm_l1ss_clear_and_set(struct pci_dev *pdev,
+	u32 offset, u32 clear, u32 set)
+{
+	u32 reg32;
+	int pos;
+
+	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_LNKSUB);
+	if (pos) {
+		pci_read_config_dword(pdev, pos + offset, &reg32);
+		reg32 &= ~clear;
+		reg32 |= set;
+		pci_write_config_dword(pdev, pos + offset, reg32);
+		dev_dbg(&pdev->dev, "%s: offset 0x%x, write value 0x%x",
+			__func__, offset, reg32);
+	}
+}
+
+static void pcie_read_ltr(struct pci_dev *pdev, u16 *snoop, u16 *non_snoop)
+{
+	int pos;
+
+	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_LTR);
+	if (pos) {
+		pci_read_config_word(pdev,
+			pos + PCI_LTR_MAX_SNOOP_LAT, snoop);
+		pci_read_config_word(pdev,
+			pos + PCI_LTR_MAX_NOSNOOP_LAT, non_snoop);
+	}
+}
+
+static void pcie_write_ltr(struct pci_dev *pdev, u16 snoop, u16 non_snoop)
+{
+	int pos;
+
+	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_LTR);
+	if (pos) {
+		if (snoop)
+			pci_write_config_word(pdev,
+				pos + PCI_LTR_MAX_SNOOP_LAT, snoop);
+		if (non_snoop)
+			pci_write_config_word(pdev,
+				pos + PCI_LTR_MAX_NOSNOOP_LAT, non_snoop);
+	}
+}
+
+static void pcie_config_aspm_dev(struct pci_dev *pdev, u32 val);
+
+static void pcie_aspm_l1ss_cfg(struct pcie_link_state *link, u32 state)
+{
+	u32 upctrl1 = 0, dwctrl1 = 0, dwctrl2 = 0;
+	struct pci_dev *child, *parent = link->pdev;
+	struct pci_bus *linkbus = parent->subordinate;
+	u32 l1ss_state;
+
+	l1ss_state = (~link->aspm_l1ss_disable) & link->aspm_l1ss_support;
+
+	pr_debug("%s: state %d, old state %d\n",
+		__func__, l1ss_state, link->aspm_l1ss_enabled);
+
+	if (link->aspm_l1ss_enabled == l1ss_state)
+		return;
+
+	/* Restore the LTR values */
+	child = list_entry(linkbus->devices.next, struct pci_dev, bus_list);
+	pcie_write_ltr(child, link->dw_max_snoop_ltr,
+		link->dw_max_no_snoop_ltr);
+
+	/* Clear L1SS enable bits if L1 is going to be disabled
+	* or l1ss is disabled */
+	if (!(state & ASPM_STATE_L1) || (!l1ss_state)) {
+		pcie_aspm_l1ss_clear_and_set(parent, PCI_LNKSUB_CTRL1,
+			PCI_LNKSUB_ASPM_L11_EN | PCI_LNKSUB_ASPM_L12_EN, 0);
+
+		list_for_each_entry(child, &linkbus->devices, bus_list)
+			pcie_aspm_l1ss_clear_and_set(child, PCI_LNKSUB_CTRL1,
+				PCI_LNKSUB_ASPM_L11_EN
+					| PCI_LNKSUB_ASPM_L12_EN, 0);
+		link->aspm_l1ss_enabled = 0;
+	} else {
+		/*
+		* Quote from Spec 3.1, 5.5.4, , If setting either or both of
+		* the enable bits for ASPM L1 PM Substates, both ports must
+		* be configured as described in this section while ASPM L1 is
+		* disabled. So disable the ASPM L1 first.
+		*/
+		list_for_each_entry(child, &linkbus->devices, bus_list)
+			pcie_config_aspm_dev(child, 0);
+		pcie_config_aspm_dev(parent, 0);
+
+		/*
+		* Reset the SW state, so the ASPM Link state will be configured
+		* again for restore purpose in the pcie_config_aspm_link.
+		*/
+		link->aspm_enabled = 0;
+
+		if (l1ss_state & ASPM_LNKSUB_L11)
+			upctrl1 |= PCI_LNKSUB_ASPM_L11_EN;
+		if (l1ss_state & ASPM_LNKSUB_L12)
+			upctrl1 |= PCI_LNKSUB_ASPM_L12_EN;
+
+		list_for_each_entry(child, &linkbus->devices, bus_list) {
+			struct pcie_aspm_l1ss_timing *timing =
+				&link->dw_l1ss_timing[PCI_FUNC(child->devfn)];
+			/*
+			* Per the Spec, clear the EN bits first before
+			* handling the timing values setting.
+			*/
+			pcie_aspm_l1ss_clear_and_set(child, PCI_LNKSUB_CTRL1,
+				PCI_LNKSUB_ASPM_L11_EN
+					| PCI_LNKSUB_ASPM_L12_EN, 0);
+
+			if (state & ASPM_LNKSUB_L11) {
+				dwctrl1 |= timing->cm_mode_restore_time;
+				dwctrl2 |= timing->pwr_on_scal
+						| timing->pwr_on_val;
+			}
+			if (state & ASPM_LNKSUB_L12)
+				dwctrl1 |= timing->ltr_l12_threshold_val
+					| timing->ltr_l12_threshold_scal;
+
+			/* Second to update the timing of down port */
+			pcie_aspm_l1ss_clear_and_set(child, PCI_LNKSUB_CTRL1,
+				PCI_LNKSUB_RESTORE_TIME
+				| PCI_LNKSUB_L12_THRE_VAL
+				| PCI_LNKSUB_L12_THRE_SCAL, dwctrl1);
+
+			pcie_aspm_l1ss_clear_and_set(child, PCI_LNKSUB_CTRL2,
+				PCI_LNKSUB_PWR_ON_SCAL | PCI_LNKSUB_PWR_ON_VAL,
+				dwctrl2);
+
+			dwctrl1 = 0;
+			if (state & ASPM_LNKSUB_L11)
+				dwctrl1 |= PCI_LNKSUB_ASPM_L11_EN;
+			if (state & ASPM_LNKSUB_L12)
+				dwctrl1 |= PCI_LNKSUB_ASPM_L12_EN;
+
+			/* Third, update the enable bits */
+			pcie_aspm_l1ss_clear_and_set(child, PCI_LNKSUB_CTRL1,
+				PCI_LNKSUB_ASPM_L11_EN | PCI_LNKSUB_ASPM_L12_EN,
+				dwctrl1);
+		}
+
+		/* Last, enable the parent accordingly */
+		pcie_aspm_l1ss_clear_and_set(parent, PCI_LNKSUB_CTRL1,
+			PCI_LNKSUB_ASPM_L11_EN
+				| PCI_LNKSUB_ASPM_L12_EN, upctrl1);
+		link->aspm_l1ss_enabled = state;
+	}
+}
+
+static void pcie_aspm_l1ss_init(struct pcie_link_state *link, int blacklist)
+{
+	struct pci_dev *child;
+	struct pci_dev *parent = link->pdev;
+	struct pci_bus *linkbus = link->pdev->subordinate;
+	struct aspm_l1ss_register_info upreg, dwreg;
+
+	if (blacklist) {
+		link->aspm_l1ss_disable = ASPM_LNKSUB_ALL;
+		return;
+	}
+
+	pcie_aspm_l1ss_reg_read(parent, &upreg);
+	if (!upreg.support) {
+		link->aspm_l1ss_disable = ASPM_LNKSUB_ALL;
+		return;
+	}
+
+	child = list_entry(linkbus->devices.next, struct pci_dev, bus_list);
+	/* Save LTR values */
+	pcie_read_ltr(child, &link->dw_max_snoop_ltr,
+		&link->dw_max_no_snoop_ltr);
+	pcie_aspm_l1ss_reg_read(child, &dwreg);
+	if (!dwreg.support) {
+		link->aspm_l1ss_disable = ASPM_LNKSUB_ALL;
+		return;
+	}
+
+	if (upreg.support & dwreg.support & ASPM_LNKSUB_L11)
+		link->aspm_l1ss_support |= ASPM_LNKSUB_L11;
+	if (upreg.support & dwreg.support & ASPM_LNKSUB_L12)
+		link->aspm_l1ss_support |= ASPM_LNKSUB_L12;
+
+	if (upreg.enabled & dwreg.enabled & ASPM_LNKSUB_L11)
+		link->aspm_l1ss_enabled |= ASPM_LNKSUB_L11;
+	if (upreg.enabled & dwreg.enabled & ASPM_LNKSUB_L12)
+		link->aspm_l1ss_enabled |= ASPM_LNKSUB_L12;
+
+	/*
+	 * If the downstream component has pci bridge function, don't
+	 * do ASPM L1SS for now.
+	 */
+	list_for_each_entry(child, &linkbus->devices, bus_list) {
+		if (pci_pcie_type(child) == PCI_EXP_TYPE_PCI_BRIDGE) {
+			link->aspm_l1ss_disable = ASPM_STATE_ALL;
+			break;
+		}
+	}
+
+	/* Get and check endpoint l1ss timing */
+	list_for_each_entry(child, &linkbus->devices, bus_list) {
+		struct pcie_aspm_l1ss_timing *timing =
+			&link->dw_l1ss_timing[PCI_FUNC(child->devfn)];
+
+		if (pci_pcie_type(child) != PCI_EXP_TYPE_ENDPOINT &&
+		    pci_pcie_type(child) != PCI_EXP_TYPE_LEG_END)
+			continue;
+
+		/*
+		* These downport timing values may get lost (device power off).
+		* Save them in the initilization for restore usage.
+		*/
+
+		/*
+		* From the Spec PCI Express Base r3.1, when programming
+		* LTR_L1.2_THRESHOLD Value and Scale fields, identical values
+		* must be programmed in both Ports. Since upports LTR values
+		* are always valid (set in the BIOS), use them directly for
+		* downports.
+		*/
+		timing->ltr_l12_threshold_val =
+			upreg.ltr_l12_threshold_val;
+
+		timing->ltr_l12_threshold_scal =
+			upreg.ltr_l12_threshold_scal;
+
+		/*
+		* Save the initial values (set in the BIOS)
+		*/
+		pcie_aspm_l1ss_reg_read(child, &dwreg);
+
+		timing->cm_mode_restore_time =
+			dwreg.cm_mode_restore_time;
+		timing->pwr_on_scal = dwreg.pwr_on_scal;
+		timing->pwr_on_val = dwreg.pwr_on_val;
+	}
+}
+#endif
 
 static int policy_to_aspm_state(struct pcie_link_state *link)
 {
@@ -438,6 +769,12 @@ static void pcie_config_aspm_link(struct pcie_link_state *link, u32 state)
 
 	/* Nothing to do if the link is already in the requested state */
 	state &= (link->aspm_capable & ~link->aspm_disable);
+
+#ifdef CONFIG_PCIE_ASPM_LNKSUB
+	/* L1 Sub-States check and configuration */
+	pcie_aspm_l1ss_cfg(link, state);
+#endif
+
 	if (link->aspm_enabled == state)
 		return;
 	/* Convert ASPM state to upstream/downstream ASPM register state */
@@ -588,6 +925,11 @@ void pcie_aspm_init_link_state(struct pci_dev *pdev)
 	/* Setup initial Clock PM state */
 	pcie_clkpm_cap_init(link, blacklist);
 
+#ifdef CONFIG_PCIE_ASPM_LNKSUB
+	/* Get the initial settings of ASPM Link sub-states */
+	pcie_aspm_l1ss_init(link, blacklist);
+#endif
+
 	/*
 	 * At this stage drivers haven't had an opportunity to change the
 	 * link policy setting. Enabling ASPM on broken hardware can cripple
@@ -708,6 +1050,15 @@ void pcie_aspm_powersave_config_link(struct pci_dev *pdev)
 
 	down_read(&pci_bus_sem);
 	mutex_lock(&aspm_lock);
+
+#ifdef CONFIG_PCIE_ASPM_LNKSUB
+	/*
+	* Reset the status of aspm l1ss to make it can do the full
+	* configuration in this stage just after do_pci_enable_device.
+	*/
+	link->aspm_l1ss_enabled = 0;
+#endif
+
 	pcie_config_aspm_path(link);
 	pcie_set_clkpm(link, policy_to_clkpm_state(link));
 	mutex_unlock(&aspm_lock);
