@@ -41,6 +41,9 @@
 
 #define PCI_DEVICE_ID_INTEL_CHT_XHCI	0x22b5
 
+#define SSIC_SS_PORT_LINK_CTRL 0x80ec
+#define SSIC_SS_PORT_LINK_CTRL_U3_MASK (0x7 << 9)
+
 static const char hcd_name[] = "xhci_hcd";
 
 /* called after powerup, by probe or system-pm "wakeup" */
@@ -56,6 +59,17 @@ static int xhci_pci_reinit(struct xhci_hcd *xhci, struct pci_dev *pdev)
 	if (pdev->vendor == PCI_VENDOR_ID_INTEL) {
 		if (!xhci_intel_vendor_cap_init(xhci))
 			xhci_dbg(xhci, "Intel Vendor Capability init done\n");
+	}
+
+	if (pdev->vendor == PCI_VENDOR_ID_INTEL &&
+				pdev->device == PCI_DEVICE_ID_INTEL_CHT_XHCI) {
+		struct usb_hcd *hcd = xhci_to_hcd(xhci);
+		u32 data;
+
+		/* Clear bit 11:9 of Superspeed Port Link Control reg */
+		data = readl(hcd->regs + SSIC_SS_PORT_LINK_CTRL);
+		data &= ~SSIC_SS_PORT_LINK_CTRL_U3_MASK;
+		writel(data, hcd->regs + SSIC_SS_PORT_LINK_CTRL);
 	}
 
 	/* PCI Memory-Write-Invalidate cycle support is optional (uncommon) */
