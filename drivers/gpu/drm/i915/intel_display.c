@@ -5979,8 +5979,11 @@ static void intel_connector_check_state(struct intel_connector *connector)
 			      connector->base.base.id,
 			      connector->base.name);
 
-		WARN(connector->base.dpms == DRM_MODE_DPMS_OFF,
-		     "wrong connector dpms state\n");
+		if ((encoder->base.crtc) && (!to_intel_crtc(
+			encoder->base.crtc)->skip_check_state)) {
+			WARN(connector->base.dpms == DRM_MODE_DPMS_OFF,
+			     "wrong connector dpms state\n");
+		}
 		WARN(connector->base.encoder != &encoder->base,
 		     "active connector not linked to encoder\n");
 		WARN(!encoder->connectors_active,
@@ -12075,9 +12078,12 @@ check_encoder_state(struct drm_device *dev)
 		WARN(active && !encoder->base.crtc,
 		     "active encoder with no crtc\n");
 
-		WARN(encoder->connectors_active != active,
-		     "encoder's computed active state doesn't match tracked active state "
-		     "(expected %i, found %i)\n", active, encoder->connectors_active);
+		if ((encoder->base.crtc) && (!to_intel_crtc(
+			encoder->base.crtc)->skip_check_state)) {
+			WARN(encoder->connectors_active != active,
+	"encoder's computed active state doesn't match tracked one (%i, %i)\n",
+			     active, encoder->connectors_active);
+		}
 
 		active = encoder->get_hw_state(encoder, &pipe);
 		WARN(active != encoder->connectors_active,
@@ -12416,7 +12422,7 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 
 		intel_crtc = to_intel_crtc(connector->encoder->crtc);
 
-		if ((connector->dpms != DRM_MODE_DPMS_OFF)
+		if ((!intel_crtc->active)
 			&& (prepare_pipes & (1 << (intel_crtc)->pipe))) {
 			/*
 			 * Now enable the clocks, plane, pipe, and
@@ -12436,6 +12442,16 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 			update_scanline_offset(intel_crtc);
 			to_intel_encoder(connector->encoder)->connectors_active = true;
 			dev_priv->display.crtc_enable(&intel_crtc->base);
+
+			/*
+			 * As we are updating crtc active state before
+			 * connector's DPMS state (which will be done by
+			 * subsequent DPMS ON call), hence we can ignore
+			 * conenctor's dpms state and encoder's active state
+			 * checks after crtc mode set.
+			 */
+			if (connector->dpms != DRM_MODE_DPMS_ON)
+				intel_crtc->skip_check_state = true;
 		}
 	}
 
@@ -12465,6 +12481,8 @@ static int intel_set_mode(struct drm_crtc *crtc,
 
 	if (ret == 0)
 		intel_modeset_check_state(crtc->dev);
+
+	(to_intel_crtc(crtc))->skip_check_state = false;
 
 	return ret;
 }
@@ -13049,6 +13067,8 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	intel_attach_pipe_color_correction(intel_crtc);
 
 	intel_crtc->rotate180 = false;
+	intel_crtc->skip_check_state = false;
+
 	/* Flag for wake from sleep */
 	dev_priv->is_resuming = false;
 	intel_crtc->enableprimary = false;
