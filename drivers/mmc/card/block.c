@@ -962,7 +962,8 @@ static int mmc_blk_issue_secdiscard_rq(struct mmc_queue *mq,
 	unsigned int from, nr, arg, trim_arg, erase_arg;
 	int err = 0, type = MMC_BLK_SECDISCARD;
 
-	if (!(mmc_can_secure_erase_trim(card) || mmc_can_sanitize(card))) {
+	//if (!(mmc_can_secure_erase_trim(card) || mmc_can_sanitize(card))) {
+	if (!(mmc_can_secure_erase_trim(card))) {
 		err = -EOPNOTSUPP;
 		goto out;
 	}
@@ -971,13 +972,13 @@ static int mmc_blk_issue_secdiscard_rq(struct mmc_queue *mq,
 	nr = blk_rq_sectors(req);
 
 	/* The sanitize operation is supported at v4.5 only */
-	if (mmc_can_sanitize(card)) {
-		erase_arg = MMC_ERASE_ARG;
-		trim_arg = MMC_TRIM_ARG;
-	} else {
+	//if (mmc_can_sanitize(card)) {
+	//	erase_arg = MMC_ERASE_ARG;
+	//	trim_arg = MMC_TRIM_ARG;
+	//} else {
 		erase_arg = MMC_SECURE_ERASE_ARG;
 		trim_arg = MMC_SECURE_TRIM1_ARG;
-	}
+	//}
 
 	if (mmc_erase_group_aligned(card, from, nr))
 		arg = erase_arg;
@@ -1022,12 +1023,12 @@ retry:
 			goto out;
 	}
 
-	if (mmc_can_sanitize(card)) {
-		trace_mmc_blk_erase_start(EXT_CSD_SANITIZE_START, 0, 0);
-		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
-				 EXT_CSD_SANITIZE_START, 1, 0);
-		trace_mmc_blk_erase_end(EXT_CSD_SANITIZE_START, 0, 0);
-	}
+	//if (mmc_can_sanitize(card)) {
+	//	trace_mmc_blk_erase_start(EXT_CSD_SANITIZE_START, 0, 0);
+	//	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+	//			 EXT_CSD_SANITIZE_START, 1, 0);
+	//	trace_mmc_blk_erase_end(EXT_CSD_SANITIZE_START, 0, 0);
+	//}
 out_retry:
 	if (err && !mmc_blk_reset(md, card->host, type))
 		goto retry;
