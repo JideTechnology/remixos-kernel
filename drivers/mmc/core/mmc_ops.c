@@ -503,7 +503,7 @@ int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 	if (!timeout_ms)
 		timeout_ms = MMC_OPS_TIMEOUT_MS;
 
-#ifdef CONFIG_ARCH_SUNXI
+#if 0
 	/*Here we limit timemout over 1 minute for that we will used mmc_set_clock to reset timing before send status*/
 	/*mmc_set_clock will use some time,which wll cause timeout and "Card stuck in programming state" err*/
 	if(timeout_ms<(1*60*1000))
@@ -514,7 +514,7 @@ int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 	timeout = jiffies + msecs_to_jiffies(timeout_ms);
 	do {
 		if (send_status) {
-#ifdef CONFIG_ARCH_SUNXI
+#if 0
 			/*The purpose of set clk here is to make 2x mode to reset the sample point
 			* Because if switch to new timing mode,device's timing maybe change,so we
 			* should reset the sample point to get new sample point
