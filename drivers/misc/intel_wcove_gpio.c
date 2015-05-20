@@ -171,8 +171,16 @@ static int wcove_gpio_probe(struct platform_device *pdev)
 	 * However ACPI _DSD is not support in Gmin yet and we need to live
 	 * with it.
 	 */
+	info->gpio_vchgrin = devm_gpiod_get_index(&pdev->dev,
+					WCOVE_GPIO_VCHGIN, 0);
+	if (IS_ERR(info->gpio_vchgrin)) {
+		dev_err(&pdev->dev, "Can't request gpio_vchgrin\n");
+		ret = PTR_ERR(info->gpio_vchgrin);
+		goto error_gpio;
+	}
+
 	info->gpio_otg = devm_gpiod_get_index(&pdev->dev,
-					WCOVE_GPIO_OTG, 0);
+					WCOVE_GPIO_OTG, 1);
 	if (IS_ERR(info->gpio_otg)) {
 		dev_err(&pdev->dev, "Can't request gpio_otg\n");
 		ret = PTR_ERR(info->gpio_otg);
@@ -180,18 +188,16 @@ static int wcove_gpio_probe(struct platform_device *pdev)
 	}
 
 	info->gpio_vconn = devm_gpiod_get_index(&pdev->dev,
-					WCOVE_GPIO_VCONN, 1);
+					WCOVE_GPIO_VCONN, 2);
 	if (IS_ERR(info->gpio_vconn)) {
 		dev_err(&pdev->dev, "Can't request gpio_vconn\n");
 		ret = PTR_ERR(info->gpio_vconn);
 		goto error_gpio;
 	}
 
-	info->gpio_vchgrin = devm_gpiod_get_index(&pdev->dev,
-					WCOVE_GPIO_VCHGIN, 2);
-	if (IS_ERR(info->gpio_vchgrin)) {
-		dev_err(&pdev->dev, "Can't request gpio_vchgrin\n");
-		ret = PTR_ERR(info->gpio_vchgrin);
+	ret = gpiod_direction_output(info->gpio_vchgrin, 0);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "cannot configure vchgrin-gpio %d\n", ret);
 		goto error_gpio;
 	}
 
@@ -204,12 +210,6 @@ static int wcove_gpio_probe(struct platform_device *pdev)
 	ret = gpiod_direction_output(info->gpio_vconn, 0);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "cannot configure vconn-gpio %d\n", ret);
-		goto error_gpio;
-	}
-
-	ret = gpiod_direction_output(info->gpio_vchgrin, 0);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "cannot configure vchgrin-gpio %d\n", ret);
 		goto error_gpio;
 	}
 	dev_dbg(&pdev->dev, "wcove gpio probed\n");
