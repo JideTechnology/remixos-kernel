@@ -333,14 +333,20 @@ static struct gc2235_reg const gc2235_1296_736_30fps[] = {
 	{ GC2235_8BIT, 0x13, 0x06 }, /* val_high = (width * 10 / 8) >> 8 */
 
 	{ GC2235_8BIT, 0x15, 0x12 }, /* DPHY mode*/
-	{ GC2235_8BIT, 0x04, 0x20 },
+	{ GC2235_8BIT, 0x04, 0x10 },
 	{ GC2235_8BIT, 0x05, 0x00 },
 	{ GC2235_8BIT, 0x17, 0x01 },
-	{ GC2235_8BIT, 0x21, 0x01 },
-	{ GC2235_8BIT, 0x22, 0x02 },
-	{ GC2235_8BIT, 0x23, 0x01 },
-	{ GC2235_8BIT, 0x29, 0x02 },
-	{ GC2235_8BIT, 0x2a, 0x09 },
+
+	{ GC2235_8BIT, 0x22, 0x01 },
+	{ GC2235_8BIT, 0x23, 0x05 },
+	{ GC2235_8BIT, 0x24, 0x10 },
+	{ GC2235_8BIT, 0x25, 0x10 },
+	{ GC2235_8BIT, 0x26, 0x02 },
+	{ GC2235_8BIT, 0x21, 0x10 },
+	{ GC2235_8BIT, 0x29, 0x01 },
+	{ GC2235_8BIT, 0x2a, 0x02 },
+	{ GC2235_8BIT, 0x2b, 0x02 },
+
 	{ GC2235_8BIT, 0x10, 0x01 }, /* disable mipi */
 	{ GC2235_8BIT, 0xfe, 0x00 }, /* switch to P0 */
 	{ GC2235_TOK_TERM, 0, 0 }
@@ -380,14 +386,18 @@ static struct gc2235_reg const gc2235_960_640_30fps[] = {
 	{ GC2235_8BIT, 0x13, 0x04 }, /* val_high = (width * 10 / 8) >> 8 */
 
 	{ GC2235_8BIT, 0x15, 0x12 }, /* DPHY mode*/
-	{ GC2235_8BIT, 0x04, 0x20 },
+	{ GC2235_8BIT, 0x04, 0x10 },
 	{ GC2235_8BIT, 0x05, 0x00 },
 	{ GC2235_8BIT, 0x17, 0x01 },
-	{ GC2235_8BIT, 0x21, 0x01 },
-	{ GC2235_8BIT, 0x22, 0x02 },
-	{ GC2235_8BIT, 0x23, 0x01 },
-	{ GC2235_8BIT, 0x29, 0x02 },
-	{ GC2235_8BIT, 0x2a, 0x09 },
+	{ GC2235_8BIT, 0x22, 0x01 },
+	{ GC2235_8BIT, 0x23, 0x05 },
+	{ GC2235_8BIT, 0x24, 0x10 },
+	{ GC2235_8BIT, 0x25, 0x10 },
+	{ GC2235_8BIT, 0x26, 0x02 },
+	{ GC2235_8BIT, 0x21, 0x10 },
+	{ GC2235_8BIT, 0x29, 0x01 },
+	{ GC2235_8BIT, 0x2a, 0x02 },
+	{ GC2235_8BIT, 0x2b, 0x02 },
 	{ GC2235_8BIT, 0x10, 0x01 }, /* disable mipi */
 	{ GC2235_8BIT, 0xfe, 0x00 }, /* switch to P0 */
 	{ GC2235_TOK_TERM, 0, 0 }
@@ -421,14 +431,18 @@ static struct gc2235_reg const gc2235_1600_900_30fps[] = {
 	{ GC2235_8BIT, 0x13, 0x07 }, /* val_high = (width * 10 / 8) >> 8 */
 
 	{ GC2235_8BIT, 0x15, 0x12 }, /* DPHY mode*/
-	{ GC2235_8BIT, 0x04, 0x20 },
+	{ GC2235_8BIT, 0x04, 0x10 },
 	{ GC2235_8BIT, 0x05, 0x00 },
 	{ GC2235_8BIT, 0x17, 0x01 },
-	{ GC2235_8BIT, 0x21, 0x01 },
-	{ GC2235_8BIT, 0x22, 0x02 },
-	{ GC2235_8BIT, 0x23, 0x01 },
-	{ GC2235_8BIT, 0x29, 0x02 },
-	{ GC2235_8BIT, 0x2a, 0x09 },
+	{ GC2235_8BIT, 0x22, 0x01 },
+	{ GC2235_8BIT, 0x23, 0x05 },
+	{ GC2235_8BIT, 0x24, 0x10 },
+	{ GC2235_8BIT, 0x25, 0x10 },
+	{ GC2235_8BIT, 0x26, 0x02 },
+	{ GC2235_8BIT, 0x21, 0x10 },
+	{ GC2235_8BIT, 0x29, 0x01 },
+	{ GC2235_8BIT, 0x2a, 0x02 },
+	{ GC2235_8BIT, 0x2b, 0x02 },
 	{ GC2235_8BIT, 0x10, 0x01 }, /* disable mipi */
 	{ GC2235_8BIT, 0xfe, 0x00 }, /* switch to P0 */
 	{ GC2235_TOK_TERM, 0, 0 }
@@ -462,14 +476,18 @@ static struct gc2235_reg const gc2235_1616_1082_30fps[] = {
 	{ GC2235_8BIT, 0x13, 0x07 }, /* val_high = (width * 10 / 8) >> 8 */
 
 	{ GC2235_8BIT, 0x15, 0x12 }, /* DPHY mode*/
-	{ GC2235_8BIT, 0x04, 0x20 },
+	{ GC2235_8BIT, 0x04, 0x10 },
 	{ GC2235_8BIT, 0x05, 0x00 },
 	{ GC2235_8BIT, 0x17, 0x01 },
-	{ GC2235_8BIT, 0x21, 0x01 },
-	{ GC2235_8BIT, 0x22, 0x02 },
-	{ GC2235_8BIT, 0x23, 0x01 },
-	{ GC2235_8BIT, 0x29, 0x02 },
-	{ GC2235_8BIT, 0x2a, 0x01 },
+	{ GC2235_8BIT, 0x22, 0x01 },
+	{ GC2235_8BIT, 0x23, 0x05 },
+	{ GC2235_8BIT, 0x24, 0x10 },
+	{ GC2235_8BIT, 0x25, 0x10 },
+	{ GC2235_8BIT, 0x26, 0x02 },
+	{ GC2235_8BIT, 0x21, 0x10 },
+	{ GC2235_8BIT, 0x29, 0x01 },
+	{ GC2235_8BIT, 0x2a, 0x02 },
+	{ GC2235_8BIT, 0x2b, 0x02 },
 	{ GC2235_8BIT, 0x10, 0x01 }, /* disable mipi */
 	{ GC2235_8BIT, 0xfe, 0x00 }, /* switch to P0 */
 	{ GC2235_TOK_TERM, 0, 0 }
@@ -501,16 +519,19 @@ static struct gc2235_reg const gc2235_1616_1216_30fps[] = {
 	/* set mipi buffer */
 	{ GC2235_8BIT, 0x12, 0xe4 }, /* val_low = (width * 10 / 8) & 0xFF */
 	{ GC2235_8BIT, 0x13, 0x07 }, /* val_high = (width * 10 / 8) >> 8 */
-
 	{ GC2235_8BIT, 0x15, 0x12 }, /* DPHY mode*/
-	{ GC2235_8BIT, 0x04, 0x20 },
+	{ GC2235_8BIT, 0x04, 0x10 },
 	{ GC2235_8BIT, 0x05, 0x00 },
 	{ GC2235_8BIT, 0x17, 0x01 },
-	{ GC2235_8BIT, 0x21, 0x01 },
-	{ GC2235_8BIT, 0x22, 0x02 },
-	{ GC2235_8BIT, 0x23, 0x01 },
-	{ GC2235_8BIT, 0x29, 0x02 },
-	{ GC2235_8BIT, 0x2a, 0x01 },
+	{ GC2235_8BIT, 0x22, 0x01 },
+	{ GC2235_8BIT, 0x23, 0x05 },
+	{ GC2235_8BIT, 0x24, 0x10 },
+	{ GC2235_8BIT, 0x25, 0x10 },
+	{ GC2235_8BIT, 0x26, 0x02 },
+	{ GC2235_8BIT, 0x21, 0x10 },
+	{ GC2235_8BIT, 0x29, 0x01 },
+	{ GC2235_8BIT, 0x2a, 0x02 },
+	{ GC2235_8BIT, 0x2b, 0x02 },
 	{ GC2235_8BIT, 0x10, 0x01 }, /* disable mipi */
 	{ GC2235_8BIT, 0xfe, 0x00 }, /* switch to P0 */
 	{ GC2235_TOK_TERM, 0, 0 }
