@@ -44,6 +44,7 @@
 #include <linux/gpio.h>
 #include <linux/completion.h>
 #include <linux/thermal.h>
+#include "power_supply.h"
 
 #include <asm/intel_em_config.h>
 
@@ -356,32 +357,6 @@ static void *platform_byt_get_batt_charge_profile(void)
 	get_batt_prop(&byt_ps_batt_chrg_prof);
 
 	return &byt_ps_batt_chrg_prof;
-}
-
-static enum power_supply_type get_power_supply_type(
-		enum power_supply_charger_cable_type cable)
-{
-
-	switch (cable) {
-
-	case POWER_SUPPLY_CHARGER_TYPE_USB_DCP:
-		return POWER_SUPPLY_TYPE_USB_DCP;
-	case POWER_SUPPLY_CHARGER_TYPE_USB_CDP:
-		return POWER_SUPPLY_TYPE_USB_CDP;
-	case POWER_SUPPLY_CHARGER_TYPE_USB_ACA:
-	case POWER_SUPPLY_CHARGER_TYPE_ACA_DOCK:
-		return POWER_SUPPLY_TYPE_USB_ACA;
-	case POWER_SUPPLY_CHARGER_TYPE_AC:
-		return POWER_SUPPLY_TYPE_MAINS;
-	case POWER_SUPPLY_CHARGER_TYPE_WIRELESS:
-		return POWER_SUPPLY_TYPE_WIRELESS;
-	case POWER_SUPPLY_CHARGER_TYPE_NONE:
-	case POWER_SUPPLY_CHARGER_TYPE_USB_SDP:
-	default:
-		return POWER_SUPPLY_TYPE_USB;
-	}
-
-	return POWER_SUPPLY_TYPE_USB;
 }
 
 /*-------------------------------------------------------------------------*/
