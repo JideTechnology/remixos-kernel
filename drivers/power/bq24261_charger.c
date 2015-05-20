@@ -40,6 +40,7 @@
 #include <linux/seq_file.h>
 #include <linux/debugfs.h>
 #include <linux/wakelock.h>
+#include "power_supply.h"
 
 #include <asm/intel_scu_ipc.h>
 
@@ -318,32 +319,6 @@ static inline int get_battery_voltage(int *volt);
 static inline int get_battery_current(int *cur);
 static int bq24261_handle_irq(struct bq24261_charger *chip, u8 stat_reg);
 static inline int bq24261_set_iterm(struct bq24261_charger *chip, int iterm);
-
-enum power_supply_type get_power_supply_type(
-		enum power_supply_charger_cable_type cable)
-{
-
-	switch (cable) {
-
-	case POWER_SUPPLY_CHARGER_TYPE_USB_DCP:
-		return POWER_SUPPLY_TYPE_USB_DCP;
-	case POWER_SUPPLY_CHARGER_TYPE_USB_CDP:
-		return POWER_SUPPLY_TYPE_USB_CDP;
-	case POWER_SUPPLY_CHARGER_TYPE_USB_ACA:
-	case POWER_SUPPLY_CHARGER_TYPE_ACA_DOCK:
-		return POWER_SUPPLY_TYPE_USB_ACA;
-	case POWER_SUPPLY_CHARGER_TYPE_AC:
-		return POWER_SUPPLY_TYPE_MAINS;
-	case POWER_SUPPLY_CHARGER_TYPE_SE1:
-		return POWER_SUPPLY_TYPE_USB_DCP;
-	case POWER_SUPPLY_CHARGER_TYPE_NONE:
-	case POWER_SUPPLY_CHARGER_TYPE_USB_SDP:
-	default:
-		return POWER_SUPPLY_TYPE_USB;
-	}
-
-	return POWER_SUPPLY_TYPE_USB;
-}
 
 static void lookup_regval(u16 tbl[][2], size_t size, u16 in_val, u8 *out_val)
 {

@@ -1020,6 +1020,35 @@ int power_supply_register_charger(struct power_supply *psy)
 }
 EXPORT_SYMBOL(power_supply_register_charger);
 
+enum power_supply_type get_power_supply_type(
+		enum power_supply_charger_cable_type cable)
+{
+
+	switch (cable) {
+
+	case POWER_SUPPLY_CHARGER_TYPE_USB_DCP:
+		return POWER_SUPPLY_TYPE_USB_DCP;
+	case POWER_SUPPLY_CHARGER_TYPE_USB_CDP:
+		return POWER_SUPPLY_TYPE_USB_CDP;
+	case POWER_SUPPLY_CHARGER_TYPE_USB_ACA:
+	case POWER_SUPPLY_CHARGER_TYPE_ACA_DOCK:
+		return POWER_SUPPLY_TYPE_USB_ACA;
+	case POWER_SUPPLY_CHARGER_TYPE_AC:
+		return POWER_SUPPLY_TYPE_MAINS;
+	case POWER_SUPPLY_CHARGER_TYPE_WIRELESS:
+		return POWER_SUPPLY_TYPE_WIRELESS;
+	case POWER_SUPPLY_CHARGER_TYPE_USB_TYPEC:
+		return POWER_SUPPLY_TYPE_USB_TYPEC;
+	case POWER_SUPPLY_CHARGER_TYPE_NONE:
+	case POWER_SUPPLY_CHARGER_TYPE_USB_SDP:
+	default:
+		return POWER_SUPPLY_TYPE_USB;
+	}
+
+	return POWER_SUPPLY_TYPE_USB;
+}
+EXPORT_SYMBOL(get_power_supply_type);
+
 static inline void flush_charger_context(struct power_supply *psy)
 {
 	struct charger_props *chrgr_prop, *tmp;
