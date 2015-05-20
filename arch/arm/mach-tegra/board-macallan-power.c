@@ -497,7 +497,7 @@ static int autoadc_usb5v_enable(int enable)
 {
 	int usb5v_vdd_en = TEGRA_GPIO_PO3;
 	gpio_set_value(usb5v_vdd_en, enable);
-	pr_debug("autoadc usb5v en: %d", enable);
+
 	return 0;
 }
 
@@ -508,10 +508,7 @@ static struct supply_hid_device hid_device[] = {
 		.adc_limit = 200, //327  (100mV)
 		.init_switch_gpio = keyboard_init_switch_gpio,
 	},
-	/* value 0 device for adc bug, get wrong adc value
-	 * value 400 , detect keyboard revesed inserted.
-	 * Both 0&400 ,kernel do nothing and removed from list */
-/*	{
+	{
 		.name = "keyboard",
 		.volt2adc = 0, //(0.01/(1.25/2^12))
 		.adc_limit = 50, //327  (100mV)
@@ -521,7 +518,7 @@ static struct supply_hid_device hid_device[] = {
 		.name = "reverse",
 		.adc_limit = 400, //327  (100mV)
 		.volt2adc = 900, //(0.21/(1.25/2^12))
-	},*/
+	},
 };
 
 static struct palmas_autoadc_platform_data palmas_autoadc_pdata = {

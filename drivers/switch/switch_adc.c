@@ -46,7 +46,7 @@
 #define GPADC_ADOVE_THRESHOLD 0
 #define GPADC_BELOW_THRESHOLD 1
 
-#define GPADC_CONV_MODE_SW
+/*#define GPADC_CONV_MODE_SW*/
 /*#define GPADC_CONV_MODE_AUTO*/
 
 #define SW_DEBUG
@@ -77,7 +77,6 @@ struct palmas_autoadc {
 	struct mutex irq_lock;
 	struct notifier_block fb_notif;
 	struct palmas_autoadc_platform_data *pdata;
-	int    dock_keyboard;
 };
 
 #ifdef GPADC_CONV_MODE_AUTO
@@ -140,19 +139,11 @@ static void autoadc_work_func(struct work_struct *work)
 		dev_err(adc->dev, "%s: Failed to read channel, %d\n",
 				__func__, ret);
 	}
-	/* hack for tegra 4 platform, filter unexpect adc value 0 */
-	if(val <= 0){
-		pr_debug("sw-adc: error adc value %d", val);
-		mutex_unlock(&adc->irq_lock);
-		schedule_delayed_work(&adc->work, msecs_to_jiffies(200));
-		return ;
-	}
 #endif
 
-	for (i = 0; i < adc->pdata->hid_dev_num; i++) {
+	for (i = 0; i < adc->pdata->hid_dev_num; i++) { 
 		volt_min = adc->pdata->hid_dev[i].volt2adc - adc->pdata->hid_dev[i].adc_limit;
 		volt_max = adc->pdata->hid_dev[i].volt2adc + adc->pdata->hid_dev[i].adc_limit;
-		pr_debug("sw_adc--> v=%d,[%d:%d], dock:%d", val, volt_min, volt_max, adc->dock_keyboard);
 
 		if ((val > volt_min) && (val < volt_max)) {
 			if (adc->pdata->hid_dev[i].init_switch_gpio)
@@ -165,16 +156,13 @@ static void autoadc_work_func(struct work_struct *work)
 	if (!memcmp(usb_name, "mic", 3))
 		switch_set_state(&adc->sdev, usb5v_enable);
 
-	if (adc->pdata->usb5v_enable && (!memcmp(usb_name, "keyboard", 8)))	{
+	if (adc->pdata->usb5v_enable && (!memcmp(usb_name, "keyboard", 8)))
 		adc->pdata->usb5v_enable(usb5v_enable);
-		adc->dock_keyboard = usb5v_enable;
-	}
 
 	if (!usb5v_enable) {
 		memset(usb_name, '\0', sizeof(usb_name));
 		memcpy(usb_name, "null", sizeof(usb_name));
-		adc->dock_keyboard = 0;
-	}
+    }
 
 #ifdef GPADC_CONV_MODE_AUTO
 	palmas_autoadc_set_threshold(adc, threshold);
@@ -217,7 +205,7 @@ static int palmas_autoadc_start(struct palmas_autoadc *autoadc, int enable)
 		dev_err(autoadc->dev, "CTRL1_GPADC_FORCE update failed: %d\n", ret);
 		return ret;
 	}
-
+	
 	//channel 1
 	ret = palmas_write(autoadc->palmas, PALMAS_GPADC_BASE,
 				PALMAS_GPADC_AUTO_SELECT, autoadc->pdata->adc_channel);
@@ -262,10 +250,10 @@ static int fb_notifier_callback(struct notifier_block *self,
 	struct fb_event *fb_event = data;
 	int *blank = fb_event->data;
 	int fb_status = *blank ? BLANK : UNBLANK;
-	struct palmas_autoadc  * adc = container_of(self, struct palmas_autoadc, fb_notif);
-	if(adc == NULL) return 0;
-
-	if( adc->dock_keyboard ){
+#ifdef  GPADC_CONV_MODE_SW
+	if (!memcmp(usb_name, "keyboard", 8)) 
+#endif
+	{
 		if (fb_status == BLANK) {
 			pr_debug("fb notifiler usb5v disable! ");
 			gpio_set_value(TEGRA_GPIO_PO3, 0);
@@ -276,23 +264,15 @@ static int fb_notifier_callback(struct notifier_block *self,
 			gpio_set_value(TEGRA_GPIO_PY3, 0);
 		}
 	}
-	if (fb_status == BLANK) {
-		cancel_delayed_work(&adc->work);
-		pr_debug("fb notifiler stop adc polling! ");
-	}else {
-		schedule_delayed_work(&adc->work, msecs_to_jiffies(200));
-		pr_debug("fb notifiler adc polling! ");
-	}
 
 	return 0;
 }
-
 static ssize_t palmas_dock_name_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	return sprintf(buf, "%s\n", usb_name);
 }
 
-static DEVICE_ATTR(dock_name, S_IRUGO, palmas_dock_name_show, NULL);
+static DEVICE_ATTR(dock_name, S_IRUGO, palmas_dock_name_show, NULL); 
 
 static int __devinit palmas_autoadc_probe(struct platform_device *pdev)
 {
@@ -388,7 +368,7 @@ static int __devexit palmas_autoadc_remove(struct platform_device *pdev)
 #endif
 	palmas_autoadc_start(palmas_autoadc, false);
 	cancel_delayed_work_sync(&palmas_autoadc->work);
-	switch_dev_unregister(&palmas_autoadc->sdev);
+    switch_dev_unregister(&palmas_autoadc->sdev);
 
 	return 0;
 }
@@ -406,7 +386,7 @@ static int palmas_autoadc_suspend(struct device *dev)
 		gpio_set_value(TEGRA_GPIO_PO3, 0);
 		gpio_set_value(TEGRA_GPIO_PY3, 1);
 	}
-
+	
 #ifdef GPADC_CONV_MODE_AUTO
 	if (device_may_wakeup(dev))
 		enable_irq_wake(adc->irq);
@@ -427,7 +407,7 @@ static int palmas_autoadc_resume(struct device *dev)
 		gpio_set_value(TEGRA_GPIO_PO3, 1);
 		gpio_set_value(TEGRA_GPIO_PY3, 0);
 	}
-
+	
 #ifdef GPADC_CONV_MODE_AUTO
 	if (device_may_wakeup(dev))
 		disable_irq_wake(adc->irq);
