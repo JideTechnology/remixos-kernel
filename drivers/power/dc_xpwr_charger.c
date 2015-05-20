@@ -44,6 +44,7 @@
 #include <linux/power/dc_xpwr_charger.h>
 #include <linux/extcon.h>
 #include <linux/thermal.h>
+#include "power_supply.h"
 
 #define DC_PS_STAT_REG			0x00
 #define PS_STAT_VBUS_TRIGGER		(1 << 0)
@@ -299,30 +300,6 @@ static int pmic_chrg_reg_clearb(struct pmic_chrg_info *info, int reg, u8 mask)
 		dev_err(&info->pdev->dev, "pmic reg set mask err:%d\n", ret);
 
 	return ret;
-}
-
-static enum power_supply_type get_power_supply_type(
-		enum power_supply_charger_cable_type cable)
-{
-
-	switch (cable) {
-
-	case POWER_SUPPLY_CHARGER_TYPE_USB_DCP:
-		return POWER_SUPPLY_TYPE_USB_DCP;
-	case POWER_SUPPLY_CHARGER_TYPE_USB_CDP:
-		return POWER_SUPPLY_TYPE_USB_CDP;
-	case POWER_SUPPLY_CHARGER_TYPE_USB_ACA:
-	case POWER_SUPPLY_CHARGER_TYPE_ACA_DOCK:
-		return POWER_SUPPLY_TYPE_USB_ACA;
-	case POWER_SUPPLY_CHARGER_TYPE_AC:
-		return POWER_SUPPLY_TYPE_MAINS;
-	case POWER_SUPPLY_CHARGER_TYPE_NONE:
-	case POWER_SUPPLY_CHARGER_TYPE_USB_SDP:
-	default:
-		return POWER_SUPPLY_TYPE_USB;
-	}
-
-	return POWER_SUPPLY_TYPE_USB;
 }
 
 static inline int pmic_chrg_set_cc(struct pmic_chrg_info *info, int cc)
