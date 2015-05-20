@@ -2,8 +2,10 @@
 #include <linux/cpumask.h>
 #include <linux/cpufreq.h>
 #include <linux/freezer.h>
+#include <linux/input.h>
 #include <linux/module.h>
 #include <linux/sched/rt.h>
+#include <linux/slab.h>
 #include <linux/timer.h>
 #include <linux/kthread.h>
 #include <linux/sysfs.h>
@@ -1033,6 +1035,124 @@ static struct notifier_block __refdata autohotplug_cpu_notifier = {
 };
 #endif /* CONFIG_CPU_AUTOHOTPLUG_STATS */
 
+#ifdef CONFIG_CPU_AUTOHOTPLUG_INPUT_EVNT_NOTIFY
+static struct timer_list autohotplug_input_timer;
+static unsigned int period_us_bak;
+static unsigned int up_stable_us_bak;
+static unsigned int down_stable_us_bak;
+
+static void autohotplug_input_mode(bool input_mode)
+{
+	if (input_mode) {
+		hotplug_period_us   = 50000;
+		load_up_stable_us   = 50000;
+		load_down_stable_us = UINT_MAX;
+	} else {
+		hotplug_period_us   = period_us_bak;
+		load_up_stable_us   = up_stable_us_bak;
+		load_down_stable_us = down_stable_us_bak;
+	}
+
+	wake_up_process(autohotplug_task);
+}
+
+static void autohotplug_do_input_timer(unsigned long data)
+{
+	autohotplug_input_mode(false);
+}
+
+/*
+ * trigger cpu frequency to a high speed when input event coming.
+ * such as key, ir, touchpannel for ex. , but skip gsensor.
+ */
+static void autohotplug_input_event(struct input_handle *handle,
+				unsigned int type, unsigned int code, int value)
+{
+	if (type == EV_SYN && code == SYN_REPORT) {
+		autohotplug_input_mode(true);
+		mod_timer_pinned(&autohotplug_input_timer,
+							jiffies + msecs_to_jiffies(2000));
+	}
+}
+
+static int autohotplug_input_connect(struct input_handler *handler,
+				struct input_dev *dev, const struct input_device_id *id)
+{
+	struct input_handle *handle;
+	int error;
+
+	handle = kzalloc(sizeof(struct input_handle), GFP_KERNEL);
+	if (!handle)
+		return -ENOMEM;
+
+	handle->dev = dev;
+	handle->handler = handler;
+	handle->name = "autohotplug";
+
+	error = input_register_handle(handle);
+	if (error)
+		goto err;
+
+	error = input_open_device(handle);
+	if (error)
+		goto err_open;
+
+	return 0;
+
+err_open:
+	input_unregister_handle(handle);
+err:
+	kfree(handle);
+	return error;
+}
+
+static void autohotplug_input_disconnect(struct input_handle *handle)
+{
+	input_close_device(handle);
+	input_unregister_handle(handle);
+	kfree(handle);
+}
+
+static const struct input_device_id autohotplug_ids[] = {
+	{
+		.flags = INPUT_DEVICE_ID_MATCH_EVBIT |
+			INPUT_DEVICE_ID_MATCH_ABSBIT,
+		.evbit = { BIT_MASK(EV_ABS) },
+		.absbit = { [BIT_WORD(ABS_MT_POSITION_X)] =
+				BIT_MASK(ABS_MT_POSITION_X) |
+				BIT_MASK(ABS_MT_POSITION_Y) },
+	}, /* multi-touch touchscreen */
+	{
+		.flags = INPUT_DEVICE_ID_MATCH_KEYBIT |
+			INPUT_DEVICE_ID_MATCH_ABSBIT,
+		.keybit = { [BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH) },
+		.absbit = { [BIT_WORD(ABS_X)] =
+				BIT_MASK(ABS_X) | BIT_MASK(ABS_Y) },
+	}, /* touchpad */
+	{
+		.flags = INPUT_DEVICE_ID_MATCH_EVBIT |
+			INPUT_DEVICE_ID_MATCH_BUS   |
+			INPUT_DEVICE_ID_MATCH_VENDOR |
+			INPUT_DEVICE_ID_MATCH_PRODUCT |
+			INPUT_DEVICE_ID_MATCH_VERSION,
+		.bustype = BUS_HOST,
+		.vendor  = 0x0001,
+		.product = 0x0001,
+		.version = 0x0100,
+		.evbit = { BIT_MASK(EV_KEY) },
+	}, /* keyboard/ir */
+	{ },
+};
+
+static struct input_handler autohotplug_input_handler = {
+	.event          = autohotplug_input_event,
+	.connect        = autohotplug_input_connect,
+	.disconnect     = autohotplug_input_disconnect,
+	.name           = "autohotplug",
+	.id_table       = autohotplug_ids,
+};
+#endif  /* #ifdef CONFIG_CPU_AUTOHOTPLUG_INPUT_EVNT_NOTIFY */
+
 static int autohotplug_init(void)
 {
 	int cpu;
@@ -1085,6 +1205,20 @@ static int autohotplug_init(void)
 
 	/* register reboot notifier for process cpus when reboot */
 	register_reboot_notifier(&reboot_notifier);
+
+#ifdef CONFIG_CPU_AUTOHOTPLUG_INPUT_EVNT_NOTIFY
+	period_us_bak      = hotplug_period_us;
+	up_stable_us_bak   = load_up_stable_us;
+	down_stable_us_bak = load_down_stable_us;
+
+	input_register_handler(&autohotplug_input_handler);
+
+	/* init input event timer */
+	init_timer_deferrable(&autohotplug_input_timer);
+	autohotplug_input_timer.function = autohotplug_do_input_timer;
+	autohotplug_input_timer.expires = jiffies + msecs_to_jiffies(2000);
+	add_timer_on(&autohotplug_input_timer, 0);
+#endif
 
 	/* turn hotplug task on*/
 	wake_up_process(autohotplug_task);

@@ -208,6 +208,15 @@ config CPU_AUTOHOTPLUG_STATS
 
 	  If in doubt say N.
 
+config CPU_AUTOHOTPLUG_INPUT_EVNT_NOTIFY
+	bool "CPU autohotplug input event notify"
+	depends on INPUT && CPU_AUTOHOTPLUG
+	help
+	  This will allow input sub-system notify autohotplug that some user event has happened,
+	  need change cpu up threshold to response it.
+
+	  If in doubt, say N.
+
 config CPU_FREQ_GOV_CONSERVATIVE
 	tristate "'conservative' cpufreq governor"
 	depends on CPU_FREQ
