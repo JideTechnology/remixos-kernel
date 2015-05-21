@@ -2323,7 +2323,6 @@ int drm_mode_setplane(struct drm_device *dev, void *data,
 	}
 
 	drm_modeset_lock_all(dev);
-	old_fb = plane->fb;
 
 	if (plane_req->flags & DRM_MODE_PAGE_FLIP_EVENT) {
 		ret = -ENOMEM;
@@ -2350,6 +2349,7 @@ int drm_mode_setplane(struct drm_device *dev, void *data,
 		e->base.destroy = (void (*) (struct drm_pending_event *)) kfree;
 	}
 
+	old_fb = plane->fb;
 	ret = plane->funcs->update_plane(plane, crtc, fb,
 					 plane_req->crtc_x, plane_req->crtc_y,
 					 plane_req->crtc_w, plane_req->crtc_h,
