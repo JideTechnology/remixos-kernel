@@ -42,7 +42,7 @@ ENTRY(vfp_null_entry)
 	sub	r11, r4, #1		@ decrement it
 	str	r11, [r10, #TI_PREEMPT]
 #endif
-	mov	pc, lr
+	ret	lr
 ENDPROC(vfp_null_entry)
 
 	.align	2
@@ -62,7 +62,7 @@ ENTRY(vfp_testing_entry)
 #endif
 	ldr	r0, VFP_arch_address
 	str	r5, [r0]		@ known non-zero value
-	mov	pc, r9			@ we have handled the fault
+	ret	r9			@ we have handled the fault
 ENDPROC(vfp_testing_entry)
 
 	.align	2

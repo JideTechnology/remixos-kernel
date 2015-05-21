@@ -167,6 +167,10 @@ static unsigned int cpufreq_interactive_get_target(
 		if (mboost && target_freq > policy->cur + mboost)
 			target_freq = policy->cur + mboost;
 	}
+	// @jide try to avoid unnecessary freq jitter
+	else if (sustain_load && cpu_load >= sustain_load) {
+		target_freq = policy->cur;
+	}
 	else {
 		if (!sustain_load)
 			return policy->max * cpu_load / 100;

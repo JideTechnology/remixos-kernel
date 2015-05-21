@@ -113,12 +113,6 @@
 	mov	\rd, \rd, lsl #13
 	.endm
 
-	@
-	@ 32-bit wide "mov pc, reg"
-	@
-	.macro	movw_pc, reg
-	mov	pc, \reg
-	.endm
 #else	/* CONFIG_THUMB2_KERNEL */
 	.macro	svc_exit, rpsr
 	ldr	lr, [sp, #S_SP]			@ top of the stack
@@ -154,13 +148,6 @@
 	mov	\rd, \rd, lsl #13
 	.endm
 
-	@
-	@ 32-bit wide "mov pc, reg"
-	@
-	.macro	movw_pc, reg
-	mov	pc, \reg
-	nop
-	.endm
 #endif	/* !CONFIG_THUMB2_KERNEL */
 
 /*
