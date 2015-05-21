@@ -1229,26 +1229,33 @@ static int ov8858_get_intg_factor(struct v4l2_subdev *sd,
  * @w: width
  * @h: height
  *
- * Get the gap between resolution and w/h.
+ * Get the gap between res_w/res_h and w/h.
+ * distance = (res_w/res_h - w/h) / (w/h) * 8192
  * res->width/height smaller than w/h wouldn't be considered.
+ * The gap of ratio larger than 1/8 wouldn't be considered.
  * Returns the value of gap or -1 if fail.
  */
-/* tune this value so that the DVS resolutions get selected properly,
- * but make sure 16:9 does not match 4:3.
- */
-#define LARGEST_ALLOWED_RATIO_MISMATCH 500
+#define LARGEST_ALLOWED_RATIO_MISMATCH 1024
 static int distance(struct ov8858_resolution const *res, const u32 w,
 		    const u32 h)
 {
-	unsigned int w_ratio = ((res->width<<13)/w);
-	unsigned int h_ratio = ((res->height<<13)/h);
-	int match   = abs(((w_ratio<<13)/h_ratio) - ((int)8192));
+	int ratio;
+	int distance;
 
-	if ((w_ratio < (int)8192) ||
-	    (h_ratio < (int)8192) || (match > LARGEST_ALLOWED_RATIO_MISMATCH))
+	if (w == 0 || h == 0 ||
+		res->width < w || res->height < h)
 		return -1;
 
-	return w_ratio + h_ratio;
+	ratio = (res->width << 13);
+	ratio /= w;
+	ratio *= h;
+	ratio /= res->height;
+
+	distance = abs(ratio - 8192);
+
+	if (distance > LARGEST_ALLOWED_RATIO_MISMATCH)
+		return -1;
+	return distance;
 }
 
 /*
@@ -1267,6 +1274,7 @@ static int nearest_resolution_index(struct v4l2_subdev *sd, int w, int h)
 	int fps_diff;
 	int min_fps_diff = INT_MAX;
 	int min_dist = INT_MAX;
+	int min_res_w = INT_MAX;
 	const struct ov8858_resolution *tmp_res = NULL;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov8858_device *dev = to_ov8858_sensor(sd);
@@ -1276,12 +1284,15 @@ static int nearest_resolution_index(struct v4l2_subdev *sd, int w, int h)
 		tmp_res = &dev->curr_res_table[i];
 		dist = distance(tmp_res, w, h);
 		dev_dbg(&client->dev,
-			"nearest_resolution_index[%d]: %dx%d distance=%d\n",
+			"%s[%d]: %dx%d distance=%d\n", tmp_res->desc,
 			i, tmp_res->width, tmp_res->height, dist);
 		if (dist == -1)
 			continue;
 		if (dist < min_dist) {
 			min_dist = dist;
+			min_res_w = tmp_res->width;
+			min_fps_diff = __ov8858_min_fps_diff(dev->fps,
+						tmp_res->fps_options);
 			idx = i;
 		}
 		if (dist == min_dist) {
@@ -1289,6 +1300,10 @@ static int nearest_resolution_index(struct v4l2_subdev *sd, int w, int h)
 						tmp_res->fps_options);
 			if (fps_diff < min_fps_diff) {
 				min_fps_diff = fps_diff;
+				idx = i;
+			}
+			if (tmp_res->width < min_res_w) {
+				min_res_w = tmp_res->width;
 				idx = i;
 			}
 		}
