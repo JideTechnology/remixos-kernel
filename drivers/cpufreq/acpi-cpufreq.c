@@ -731,11 +731,14 @@ static int acpi_cpufreq_cpu_init(struct cpufreq_policy *policy)
 		intel_mid_msgbus_read32(CLASSCODE_REG, CLASSCODE_OFFSET);
 		revision_id = (revision_id & REVISION_ID_BIT);
 
-		if ((c->x86_model == 0x4c) && (!revision_id)) {
-			pr_info("Platform supports Module Level DVFS\n");
+		if (c->x86_model == 0x4c) {
 			policy->shared_type = CPUFREQ_SHARED_TYPE_ALL;
-			get_cpu_sibling_mask(cpu, &sibling_mask);
-			cpumask_copy(policy->cpus, &sibling_mask);
+			cpumask_copy(policy->cpus, perf->shared_cpu_map);
+			if (!revision_id) {
+				pr_info("Platform supports Module Level DVFS\n");
+				get_cpu_sibling_mask(cpu, &sibling_mask);
+				cpumask_copy(policy->cpus, &sibling_mask);
+			}
 		}
 	}
 #endif
