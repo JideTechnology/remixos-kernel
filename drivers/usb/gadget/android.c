@@ -59,9 +59,40 @@ MODULE_VERSION("1.0");
 #define  KEY_USB_SERIAL_UNIQUE			"usb_serial_unique"
 #define  KEY_USB_SERIAL_NUMBER			"usb_serial_number"
 
+#define KEY_CMDLINE_SERIAL          "androidboot.serialno"
+
 u32 luns = 1;
 u32 serial_unique = 0;
 char g_usb_serial_number[64];
+
+static int get_para_from_cmdline(const char *cmdline, const char *name, char *value, int maxsize)
+{
+    char *p = (char *)cmdline;
+    char *value_p = value;
+    int size= 0;
+
+    if(!cmdline || !name || !value) {
+        return -1;
+    }
+
+    for(; *p != 0;){
+        if(*p++ == ' '){
+            if(0 == strncmp(p, name, strlen(name))) {
+                p += strlen(name);
+                if(*p++ != '=') {
+                    continue;
+                }
+                while((*p != 0) && (*p != ' ') && (++size < maxsize)) {
+                    *value_p++ = *p++;
+                }
+                *value_p = '\0';
+                return value_p - value;
+            }
+        }
+    }
+
+    return 0;
+}
 
 static int get_android_usb_config(void)
 {
@@ -86,17 +117,24 @@ static int get_android_usb_config(void)
 		 printk("get serial_unique is fail\n");
 	}
 
-	/* usbc det_vbus */
-	ret = of_property_read_string(usbc0_np, KEY_USB_SERIAL_NUMBER, &usb_serial_number);
-	if (ret){
-		printk("get usb_serial_number is fail\n");
-		strcpy(g_usb_serial_number, "20080411");
-	}else{
-		if(usb_serial_number != NULL){
-			strcpy(g_usb_serial_number, usb_serial_number);
-			printk("usb_serial_number:%s\n", usb_serial_number);
-		}
-	}
+    /* get usb serial number from boot command line*/
+    ret = get_para_from_cmdline(saved_command_line, KEY_CMDLINE_SERIAL, g_usb_serial_number, sizeof(g_usb_serial_number));
+
+    if (1 == serial_unique && ret > 0) {
+        printk("get usb_serial_number success from boot command line");
+    } else {
+        /* usbc det_vbus */
+        ret = of_property_read_string(usbc0_np, KEY_USB_SERIAL_NUMBER, &usb_serial_number);
+        if (ret) {
+            printk("get usb_serial_number is fail\n");
+            strcpy(g_usb_serial_number, "20080411");
+        } else {
+            if(usb_serial_number != NULL) {
+                strcpy(g_usb_serial_number, usb_serial_number);
+                printk("usb_serial_number:%s\n", usb_serial_number);
+            }
+        }
+    }
 
 #else
 	script_item_value_type_e type = 0;
