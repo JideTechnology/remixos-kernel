@@ -163,7 +163,6 @@ static int dsi2ledp_i2c_transfer(struct tegra_dc_dsi2edp_data *dsi2edp,
 	struct i2c_msg *i2c_msg_transfer;
 	struct i2c_client *client = dsi2edp->client_i2c;
 	int err = 0,count = 1;
-	int delay_time = 10;
 	u32 cnt = 0;
 
 	i2c_msg_transfer = kzalloc
@@ -179,7 +178,6 @@ static int dsi2ledp_i2c_transfer(struct tegra_dc_dsi2edp_data *dsi2edp,
 	}
 
 	for (cnt = 0; cnt < no_of_tranfers; cnt++) {
-		
 		err = i2c_transfer(client->adapter, &i2c_msg_transfer[cnt], count);
 		if (err < 0) {
 			dev_err(&dsi2edp->dsi->dc->ndev->dev,
@@ -188,7 +186,7 @@ static int dsi2ledp_i2c_transfer(struct tegra_dc_dsi2edp_data *dsi2edp,
 		}
 		if(DEBUG)
 		printk("%s:==========>addr = %02x,val = %02x\n",__func__,transfers[cnt][0],transfers[cnt][1]);
-		msleep(delay_time);
+		msleep(1);
 	}
 
 	kfree(i2c_msg_transfer);

@@ -2310,7 +2310,7 @@ static int himax_ts_poweron(struct himax_ts_data *ts_modify)
 		{
 			printk("Himax send config fail\n");
 		}
-		msleep(100); //100ms
+		msleep(1); //100ms
 		#endif
 
 		buf0[0] = HX_CMD_TSSON;
@@ -2320,7 +2320,7 @@ static int himax_ts_poweron(struct himax_ts_data *ts_modify)
 			printk(KERN_ERR "i2c_master_send failed addr = 0x%x\n",ts_modify->client->addr);
 			goto send_i2c_msg_fail;
 		} 
-		msleep(30); //120ms
+		msleep(1); //30//120ms
 
 		buf0[0] = 0x81;	//0x81
 		ret = i2c_himax_master_write(ts_modify->client, buf0, 1, DEFAULT_RETRY_CNT);
@@ -2329,7 +2329,7 @@ static int himax_ts_poweron(struct himax_ts_data *ts_modify)
 			printk(KERN_ERR "i2c_master_send failed addr = 0x%x\n",ts_modify->client->addr);
 			goto send_i2c_msg_fail;
 		} 	
-		msleep(100); //120ms		
+		msleep(1); //100//120ms
 	}
 	else if(IC_TYPE == HX_85XX_ES_SERIES_PWON)
 	{
@@ -3121,9 +3121,9 @@ void himax_HW_reset(bool poweron)
 		
 	#else
 		gpio_set_value(private_ts->rst_gpio, 0);
-		msleep(5);
+		msleep(1);//5
 		gpio_set_value(private_ts->rst_gpio, 1);
-		msleep(10);
+		msleep(1);//10
 	#endif
 		
 	if(poweron)

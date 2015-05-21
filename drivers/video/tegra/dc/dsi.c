@@ -2326,7 +2326,7 @@ static int tegra_dsi_init_hw(struct tegra_dc *dc,
 #ifdef TEGRA_DSI_CSI_EN
 	regulator_enable(dsi->avdd_dsi_csi);
 	/* stablization delay */
-	mdelay(50);
+	mdelay(5);//50
 #endif
 
 	tegra_dsi_set_dsi_clk(dc, dsi, dsi->target_lp_clk_khz);
