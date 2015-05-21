@@ -60,10 +60,11 @@ MODULE_VERSION("1.0");
 #define  KEY_USB_SERIAL_NUMBER			"usb_serial_number"
 
 #define KEY_CMDLINE_SERIAL          "androidboot.serialno"
-
+#define  KEY_USB_RNDIS_WCEIS			"rndis_wceis"
 u32 luns = 1;
 u32 serial_unique = 0;
 char g_usb_serial_number[64];
+u32 rndis_wceis = 1;
 
 static int get_para_from_cmdline(const char *cmdline, const char *name, char *value, int maxsize)
 {
@@ -135,6 +136,13 @@ static int get_android_usb_config(void)
             }
         }
     }
+
+	/* rndis_wceis */
+	ret = of_property_read_u32(usbc0_np, KEY_USB_RNDIS_WCEIS, &rndis_wceis);
+	if (ret) {
+		 printk("get serial_unique is fail\n");
+		 rndis_wceis = 1;
+	}
 
 #else
 	script_item_value_type_e type = 0;
@@ -823,6 +831,8 @@ rndis_function_bind_config(struct android_usb_function *f,
 		return ret;
 	}
 	rndis->dev = dev;
+
+	rndis->wceis = rndis_wceis;
 
 	if (rndis->wceis) {
 		/* "Wireless" RNDIS; auto-detected by Windows */

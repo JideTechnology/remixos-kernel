@@ -564,6 +564,7 @@
 			usb_luns            = <3>;
 			usb_serial_unique   = <0>;
 			usb_serial_number   = "20080411";
+			rndis_wceis         = <1>;
 			status              = "okay";
 		};
 
