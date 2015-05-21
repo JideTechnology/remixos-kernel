@@ -606,12 +606,14 @@ static unsigned int autohotplug_updateload(int cpu)
 	return ((unsigned int)load);
 }
 
-static void autohotplug_set_load(unsigned int cpu, unsigned int load)
+static void autohotplug_set_load(unsigned int cpu, unsigned int load,
+					unsigned int load_relative)
 {
 	if (cpu >= total_nr_cpus)
 		return;
 
 	governor_load.load.cpu_load[cpu] = load;
+	governor_load.load.cpu_load_relative[cpu] = load_relative;
 }
 
 static void autohotplug_governor_updateload(int cpu, unsigned int load,
@@ -623,7 +625,7 @@ static void autohotplug_governor_updateload(int cpu, unsigned int load,
 
 	if (cur) {
 		spin_lock_irqsave(&hotplug_load_lock, flags);
-		autohotplug_set_load(cpu, (load * cur) / policy->max);
+		autohotplug_set_load(cpu, (load * cur) / policy->max, load);
 		if (is_cpu_big(cpu)) {
 			governor_load.load.big_min_load = load_last_big_min_freq * 100 / policy->max;
 		}
@@ -657,7 +659,7 @@ static void autohotplug_sample_timer(unsigned long data)
 							(policy.cur ? policy.cur : policy.min), &policy);
 			spin_unlock_irqrestore(&pcpu->load_lock, flags);
 		} else {
-			autohotplug_set_load(i, INVALID_LOAD);
+			autohotplug_set_load(i, INVALID_LOAD, INVALID_LOAD);
 		}
 	}
 
@@ -694,7 +696,7 @@ static int autohotplug_timer_start(void)
 	add_timer_on(&hotplug_sample_timer, 0);
 
 	for (i = total_nr_cpus - 1; i >= 0; i--) {
-		autohotplug_set_load(i, INVALID_LOAD);
+		autohotplug_set_load(i, INVALID_LOAD, INVALID_LOAD);
 #ifdef CONFIG_CPU_AUTOHOTPLUG_STATS
 		cpu_on_time_total[i] = 0;
 		cpu_up_count_total[i] = 1;
@@ -1002,7 +1004,7 @@ static int __cpuinit autohotplug_cpu_callback(struct notifier_block *nfb,
 		switch (action) {
 			case CPU_ONLINE:
 				spin_lock_irqsave(&hotplug_load_lock, flags);
-				autohotplug_set_load(cpu, INVALID_LOAD);
+				autohotplug_set_load(cpu, INVALID_LOAD, INVALID_LOAD);
 				cpu_on_lasttime[cpu] = get_jiffies_64();
 				cpu_up_count_total[cpu]++;
 				spin_unlock_irqrestore(&hotplug_load_lock, flags);
@@ -1011,7 +1013,7 @@ static int __cpuinit autohotplug_cpu_callback(struct notifier_block *nfb,
 			case CPU_UP_CANCELED_FROZEN:
 			case CPU_DOWN_FAILED:
 				spin_lock_irqsave(&hotplug_load_lock, flags);
-				autohotplug_set_load(cpu, INVALID_LOAD);
+				autohotplug_set_load(cpu, INVALID_LOAD, INVALID_LOAD);
 				spin_unlock_irqrestore(&hotplug_load_lock, flags);
 				break;
 			case CPU_DEAD:
@@ -1231,7 +1233,7 @@ device_initcall(autohotplug_init);
 static struct dentry *debugfs_autohotplug_root;
 static char autohotplug_load_info[256];
 
-static ssize_t autohotplug_debugfs_read(struct file *file,
+static ssize_t autohotplug_load_read(struct file *file,
 							char __user *buf, size_t count, loff_t *ppos)
 {
 	int i, len;
@@ -1263,8 +1265,44 @@ static ssize_t autohotplug_debugfs_read(struct file *file,
 	return count;
 }
 
-static const struct file_operations loaddbg_ops = {
-	.read = autohotplug_debugfs_read,
+static const struct file_operations load_ops = {
+	.read = autohotplug_load_read,
+};
+
+static ssize_t autohotplug_load_relative_read(struct file *file,
+							char __user *buf, size_t count, loff_t *ppos)
+{
+	int i, len;
+
+	for_each_possible_cpu(i)
+		sprintf(autohotplug_load_info + i * 5,"%4d ",
+						governor_load.load.cpu_load_relative[i]);
+
+	len = strlen(autohotplug_load_info);
+	autohotplug_load_info[len] = 0x0A;
+	autohotplug_load_info[len + 1] = 0x0;
+
+	len = strlen(autohotplug_load_info);
+	if (len) {
+		if (*ppos >=len)
+			return 0;
+		if (count >=len)
+			count = len;
+		if (count > (len - *ppos))
+			count = (len - *ppos);
+		if (copy_to_user((void __user *)buf,
+				(const void *)autohotplug_load_info, (unsigned long)len))
+			return 0;
+		*ppos += count;
+	} else {
+		count = 0;
+	}
+
+	return count;
+}
+
+static const struct file_operations load_relative_ops = {
+	.read = autohotplug_load_relative_read,
 };
 
 static int __init autohotplug_debugfs_init(void)
@@ -1276,7 +1314,13 @@ static int __init autohotplug_debugfs_init(void)
 		return -ENOMEM;
 
 	if (!debugfs_create_file("load", 0444, debugfs_autohotplug_root,
-			NULL, &loaddbg_ops)) {
+			NULL, &load_ops)) {
+		err = -ENOMEM;
+		goto out;
+	}
+
+	if (!debugfs_create_file("load_relative", 0444, debugfs_autohotplug_root,
+			NULL, &load_relative_ops)) {
 		err = -ENOMEM;
 		goto out;
 	}

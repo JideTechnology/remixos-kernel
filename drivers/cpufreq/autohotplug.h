@@ -48,6 +48,7 @@
 struct autohotplug_loadinfo
 {
 	unsigned int  cpu_load[CONFIG_NR_CPUS];
+	unsigned int  cpu_load_relative[CONFIG_NR_CPUS];
 	unsigned int  max_load;
 	unsigned int  min_load;
 	unsigned int  max_cpu;
