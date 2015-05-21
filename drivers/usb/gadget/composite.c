@@ -1532,7 +1532,7 @@ static void __composite_unbind(struct usb_gadget *gadget, bool unbind_driver)
 		struct usb_configuration	*c;
 		c = list_first_entry(&cdev->configs,
 				struct usb_configuration, list);
-		list_del(&c->list);
+		//list_del(&c->list);
 		unbind_config(cdev, c);
 	}
 	if (cdev->driver->unbind && unbind_driver)
