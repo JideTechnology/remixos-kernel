@@ -1662,6 +1662,10 @@ config HAVE_ARM_TWD
 	help
 	  This options enables support for the ARM timer and watchdog unit
 
+config GENERIC_TIME_VSYSCALL
+	bool
+	default n
+
 choice
 	prompt "Memory split"
 	default VMSPLIT_3G

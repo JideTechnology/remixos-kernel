@@ -752,7 +752,7 @@ int arch_setup_additional_pages(struct linux_binprm *bprm, int uses_interp)
 	 */
 	arm_install_vdso(mm, addr);
 
- up_fail:
+up_fail:
 	up_write(&mm->mmap_sem);
 	return ret;
 }

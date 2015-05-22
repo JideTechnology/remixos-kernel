@@ -32,7 +32,6 @@
 #include <asm/page.h>
 #include <asm/vdso.h>
 #include <asm/vdso_datapage.h>
-#include <clocksource/arm_arch_timer.h>
 
 #define MAX_SYMNAME	64
 
@@ -270,7 +269,7 @@ static bool tk_is_cntvct(const struct timekeeper *tk)
 	if (!IS_ENABLED(CONFIG_ARM_ARCH_TIMER))
 		return false;
 
-	if (strcmp(tk->tkr.clock->name, "arch_sys_counter") != 0)
+	if (strcmp(tk->clock->name, "arch_sys_counter") != 0)
 		return false;
 
 	return true;
@@ -297,7 +296,7 @@ static bool tk_is_cntvct(const struct timekeeper *tk)
 void update_vsyscall(struct timekeeper *tk)
 {
 	struct timespec xtime_coarse;
-	struct timespec64 *wtm = &tk->wall_to_monotonic;
+	struct timespec *wtm = &tk->wall_to_monotonic;
 
 	if (!cntvct_ok) {
 		/* The entry points have been zeroed, so there is no
@@ -316,12 +315,12 @@ void update_vsyscall(struct timekeeper *tk)
 	vdso_data->wtm_clock_nsec		= wtm->tv_nsec;
 
 	if (vdso_data->tk_is_cntvct) {
-		vdso_data->cs_cycle_last	= tk->tkr.cycle_last;
+		vdso_data->cs_cycle_last	= tk->clock->cycle_last;
 		vdso_data->xtime_clock_sec	= tk->xtime_sec;
-		vdso_data->xtime_clock_snsec	= tk->tkr.xtime_nsec;
-		vdso_data->cs_mult		= tk->tkr.mult;
-		vdso_data->cs_shift		= tk->tkr.shift;
-		vdso_data->cs_mask		= tk->tkr.mask;
+		vdso_data->xtime_clock_snsec	= tk->xtime_nsec;
+		vdso_data->cs_mult		= tk->mult;
+		vdso_data->cs_shift		= tk->shift;
+		vdso_data->cs_mask		= tk->clock->mask;
 	}
 
 	vdso_write_end(vdso_data);

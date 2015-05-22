@@ -413,4 +413,10 @@ static inline cpumask_t *mm_cpumask(struct mm_struct *mm)
 	return mm->cpu_vm_mask_var;
 }
 
+struct vm_special_mapping
+{
+	const char *name;
+	struct page **pages;
+};
+
 #endif /* _LINUX_MM_TYPES_H */

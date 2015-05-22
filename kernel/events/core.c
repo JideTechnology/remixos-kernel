@@ -4649,6 +4649,14 @@ static void perf_event_mmap_event(struct perf_mmap_event *mmap_event)
 			goto got_name;
 		}
 
+		if (vma->vm_ops && vma->vm_ops->name) {
+			name = (char *) vma->vm_ops->name(vma);
+			if (name) {
+				name = strncpy(tmp, name, sizeof(tmp));
+				goto got_name;
+			}
+		}
+
 		if (!vma->vm_mm) {
 			name = strncpy(tmp, "[vdso]", sizeof(tmp));
 			goto got_name;

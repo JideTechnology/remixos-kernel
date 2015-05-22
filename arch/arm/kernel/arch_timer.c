@@ -14,6 +14,7 @@
 #include <linux/device.h>
 #include <linux/smp.h>
 #include <linux/cpu.h>
+#include <linux/cpu_pm.h>
 #include <linux/jiffies.h>
 #include <linux/clockchips.h>
 #include <linux/interrupt.h>
@@ -43,6 +44,19 @@ static struct clock_event_device __percpu **arch_timer_evt;
 #define ARCH_TIMER_REG_CTRL		0
 #define ARCH_TIMER_REG_FREQ		1
 #define ARCH_TIMER_REG_TVAL		2
+
+#define ARCH_TIMER_PHYS_ACCESS          0
+#define ARCH_TIMER_VIRT_ACCESS          1
+#define ARCH_TIMER_MEM_PHYS_ACCESS      2
+#define ARCH_TIMER_MEM_VIRT_ACCESS      3
+
+#define ARCH_TIMER_USR_PCT_ACCESS_EN    (1 << 0) /* physical counter */
+#define ARCH_TIMER_USR_VCT_ACCESS_EN    (1 << 1) /* virtual counter */
+#define ARCH_TIMER_VIRT_EVT_EN          (1 << 2)
+#define ARCH_TIMER_EVT_TRIGGER_SHIFT    (4)
+#define ARCH_TIMER_EVT_TRIGGER_MASK     (0xF << ARCH_TIMER_EVT_TRIGGER_SHIFT)
+#define ARCH_TIMER_USR_VT_ACCESS_EN     (1 << 8) /* virtual timer registers */
+#define ARCH_TIMER_USR_PT_ACCESS_EN     (1 << 9) /* physical timer registers */
 
 static void arch_timer_reg_write(int reg, u32 val)
 {
@@ -132,6 +146,35 @@ static int arch_timer_set_next_event(unsigned long evt,
 	return 0;
 }
 
+static inline u32 arch_timer_get_cntkctl(void)
+{
+	u32 cntkctl;
+	asm volatile("mrc p15, 0, %0, c14, c1, 0" : "=r" (cntkctl));
+	return cntkctl;
+}
+
+static inline void arch_timer_set_cntkctl(u32 cntkctl)
+{
+	asm volatile("mcr p15, 0, %0, c14, c1, 0" : : "r" (cntkctl));
+}
+
+static void arch_counter_set_user_access(void)
+{
+	u32 cntkctl = arch_timer_get_cntkctl();
+
+	/* Disable user access to the timers and the physical counter */
+	/* Also disable virtual event stream */
+	cntkctl &= ~(ARCH_TIMER_USR_PT_ACCESS_EN
+			| ARCH_TIMER_USR_VT_ACCESS_EN
+			| ARCH_TIMER_VIRT_EVT_EN
+			| ARCH_TIMER_USR_PCT_ACCESS_EN);
+
+	/* Enable user access to the virtual counter */
+	cntkctl |= ARCH_TIMER_USR_VCT_ACCESS_EN;
+
+	arch_timer_set_cntkctl(cntkctl);
+}
+
 static int __cpuinit arch_timer_setup(struct clock_event_device *clk)
 {
 	/* Be safe... */
@@ -152,6 +195,8 @@ static int __cpuinit arch_timer_setup(struct clock_event_device *clk)
 	enable_percpu_irq(clk->irq, 0);
 	if (arch_timer_ppi2)
 		enable_percpu_irq(arch_timer_ppi2, 0);
+
+	arch_counter_set_user_access();
 
 	return 0;
 }
@@ -186,24 +231,6 @@ static int arch_timer_available(void)
 	}
 
 	return 0;
-}
-
-static inline cycle_t arch_counter_get_cntpct(void)
-{
-	u32 cvall, cvalh;
-
-	asm volatile("mrrc p15, 0, %0, %1, c14" : "=r" (cvall), "=r" (cvalh));
-
-	return ((cycle_t) cvalh << 32) | cvall;
-}
-
-static inline cycle_t arch_counter_get_cntvct(void)
-{
-	u32 cvall, cvalh;
-
-	asm volatile("mrrc p15, 1, %0, %1, c14" : "=r" (cvall), "=r" (cvalh));
-
-	return ((cycle_t) cvalh << 32) | cvall;
 }
 
 static u32 notrace arch_counter_get_cntvct32(void)
@@ -246,6 +273,26 @@ static struct local_timer_ops arch_timer_ops __cpuinitdata = {
 	.stop	= arch_timer_stop,
 };
 
+static unsigned int saved_cntkctl;
+static int arch_timer_cpu_pm_notify(struct notifier_block *self,
+				    unsigned long action, void *hcpu)
+{
+	if (action == CPU_PM_ENTER)
+		saved_cntkctl = arch_timer_get_cntkctl();
+	else if (action == CPU_PM_ENTER_FAILED || action == CPU_PM_EXIT)
+		arch_timer_set_cntkctl(saved_cntkctl);
+	return NOTIFY_OK;
+}
+
+static struct notifier_block arch_timer_cpu_pm_notifier = {
+	.notifier_call = arch_timer_cpu_pm_notify,
+};
+
+static int __init arch_timer_cpu_pm_init(void)
+{
+	return cpu_pm_register_notifier(&arch_timer_cpu_pm_notifier);
+}
+
 static struct clock_event_device arch_timer_global_evt;
 
 static int __init arch_timer_common_register(void)
@@ -280,6 +327,10 @@ static int __init arch_timer_common_register(void)
 			goto out_free_irq;
 		}
 	}
+
+	err = arch_timer_cpu_pm_init();
+	if (err)
+		goto out_free_irq;
 
 	err = local_timer_register(&arch_timer_ops);
 	if (err) {

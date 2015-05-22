@@ -31,7 +31,7 @@
 
 extern struct vdso_data *__get_datapage(void);
 
-static notrace u32 __vdso_read_begin(const struct vdso_data *vdata)
+static inline notrace u32 __vdso_read_begin(const struct vdso_data *vdata)
 {
 	u32 seq;
 repeat:
@@ -43,7 +43,7 @@ repeat:
 	return seq;
 }
 
-static notrace u32 vdso_read_begin(const struct vdso_data *vdata)
+static inline notrace u32 vdso_read_begin(const struct vdso_data *vdata)
 {
 	u32 seq;
 
@@ -53,7 +53,7 @@ static notrace u32 vdso_read_begin(const struct vdso_data *vdata)
 	return seq;
 }
 
-static notrace int vdso_read_retry(const struct vdso_data *vdata, u32 start)
+static inline notrace int vdso_read_retry(const struct vdso_data *vdata, u32 start)
 {
 	smp_rmb(); /* Pairs with smp_wmb in vdso_write_begin */
 	return vdata->seq_count != start;
@@ -220,7 +220,7 @@ notrace int __vdso_clock_gettime(clockid_t clkid, struct timespec *ts)
 		break;
 	}
 
-	if (ret)
+	if (unlikely(ret))
 		ret = clock_gettime_fallback(clkid, ts);
 
 	return ret;
@@ -252,10 +252,10 @@ notrace int __vdso_gettimeofday(struct timeval *tv, struct timezone *tz)
 	vdata = __get_datapage();
 
 	ret = do_realtime(&ts, vdata);
-	if (ret)
+	if (unlikely(ret))
 		return gettimeofday_fallback(tv, tz);
 
-	if (tv) {
+	if (likely(tv)) {
 		tv->tv_sec = ts.tv_sec;
 		tv->tv_usec = ts.tv_nsec / 1000;
 	}
