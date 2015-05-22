@@ -1853,7 +1853,6 @@ static int himax_ts_poweron(struct himax_ts_data *ts_modify)
 {
 	uint8_t buf0[11];
 	int ret = 0;
-	printk(KERN_INFO "[himax] %s: TS himax_ts_poweron\n", __func__);
 	
 	#ifdef HX_LOADIN_CONFIG
 	int config_fail_retry = 0;
@@ -3126,9 +3125,7 @@ void himax_HW_reset(bool poweron)
 		gpio_set_value(private_ts->rst_gpio, 1);
 		msleep(10);
 	#endif
-	
-	printk(KERN_INFO "[himax] %s: TS himax_HW_reset\n", __func__);
-	
+		
 	if(poweron)
 	{
 		himax_ts_poweron(private_ts);
@@ -7427,7 +7424,6 @@ static void himax_ts_work_func(struct work_struct *work)
 		else if(ESD_RESET_ACTIVATE)
 		{
 			ESD_RESET_ACTIVATE = 0;
-			printk(KERN_INFO "[HIMAX TP MSG]:%s: Back from ESD reset, ready to serve.\n", __func__);
 			//Mutexlock Protect Start
 			mutex_unlock(&ts->mutex_lock);
 			//Mutexlock Protect End

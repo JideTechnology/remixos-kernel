@@ -2151,7 +2151,6 @@ tegra_dsi_mipi_calibration_status(struct tegra_dc_dsi_data *dsi)
 		MIPI_CAL_CIL_MIPI_CAL_STATUS_0);
 		if (!(val & MIPI_CAL_ACTIVE(0x1)) &&
 			(val & MIPI_AUTO_CAL_DONE(0x1))) {
-				dev_info(&dsi->dc->ndev->dev, "DSI pad calibration done\n");
 				break;
 		}
 		usleep_range(10, 100);
