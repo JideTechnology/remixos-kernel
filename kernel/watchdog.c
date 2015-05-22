@@ -24,10 +24,12 @@
 #include <linux/sysctl.h>
 #include <linux/smpboot.h>
 #include <linux/sched/rt.h>
-
+#include <linux/of.h>
+#include <linux/of_address.h>
 #include <asm/irq_regs.h>
 #include <linux/kvm_para.h>
 #include <linux/perf_event.h>
+#include <linux/sched.h>
 
 int watchdog_enabled = 1;
 int __read_mostly watchdog_thresh = 10;
@@ -52,6 +54,9 @@ static cpumask_t __read_mostly watchdog_cpus;
 #ifdef CONFIG_HARDLOCKUP_DETECTOR_NMI
 static DEFINE_PER_CPU(struct perf_event *, watchdog_ev);
 #endif
+
+static u32 *base = NULL;
+static u32 cpu_reset_status = 0;
 
 /* boot commands */
 /*
@@ -253,10 +258,18 @@ static void watchdog_check_hardlockup_other_cpu(void)
 		if (per_cpu(hard_watchdog_warn, next_cpu) == true)
 			return;
 
-		if (hardlockup_panic)
+		if (hardlockup_panic){
 			panic("Watchdog detected hard LOCKUP on cpu %u", next_cpu);
-		else
+		}
+		else{
 			WARN(1, "Watchdog detected hard LOCKUP on cpu %u", next_cpu);
+			show_state();
+			cpu_reset_status = readl_relaxed(base + 0x30); 
+			printk("cpu_reset_status = 0x%x. next_cpu = 0x%x\n", cpu_reset_status, next_cpu);
+			cpu_reset_status &= ((unsigned int)0x1<<(unsigned int)next_cpu);
+			printk("set cpu_reset_status = 0x%x. next_cpu = 0x%x\n", cpu_reset_status, next_cpu);
+			writel_relaxed(cpu_reset_status, base + 0x30);
+		}
 
 		per_cpu(hard_watchdog_warn, next_cpu) = true;
 	} else {
@@ -318,7 +331,6 @@ static void watchdog_overflow_callback(struct perf_event *event,
 			panic("Watchdog detected hard LOCKUP on cpu %d", this_cpu);
 		else
 			WARN(1, "Watchdog detected hard LOCKUP on cpu %d", this_cpu);
-
 		__this_cpu_write(hard_watchdog_warn, true);
 		return;
 	}
@@ -654,11 +666,30 @@ static struct smp_hotplug_thread watchdog_threads = {
 	.unpark			= watchdog_enable,
 };
 
+
 void __init lockup_detector_init(void)
 {
+	struct device_node *np;
+	u32 reg[4];
+
 	set_sample_period();
 	if (smpboot_register_percpu_thread(&watchdog_threads)) {
 		pr_err("Failed to create watchdog threads, disabled\n");
 		watchdog_disabled = -ENODEV;
 	}
+
+	np = of_find_node_by_path("/cpuscfg");	      
+	if(NULL == np){
+		printk(KERN_ERR "can not find np for cpuscfg \n");
+	}
+	else{
+		//printk(KERN_INFO "np name = %s. \n", np->full_name);
+		of_property_read_u32_array(np, "reg", reg, ARRAY_SIZE(reg));
+		base = (u32 *)((phys_addr_t)reg[1]);
+		printk(KERN_INFO "cpuscfg physical base = 0x%p . \n", base);
+		base = of_iomap(np, 0);
+		//printk(KERN_INFO "virtual base = 0x%p. \n", *base);
+	}
+
+
 }
