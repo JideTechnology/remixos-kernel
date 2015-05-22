@@ -138,7 +138,9 @@ struct irq_2_irte {
  *
  * Most irqs are mapped 1:1 with pins.
  */
+#define IRQ_CFG_MAGIC	0x6c72715f63666700	/* ascii for irq_cfg */
 struct irq_cfg {
+	u64			magic;
 	struct irq_pin_list	*irq_2_pin;
 	cpumask_var_t		domain;
 	cpumask_var_t		old_domain;

@@ -27,7 +27,7 @@ extern void irq_ctx_init(int cpu);
 #include <linux/cpumask.h>
 extern int check_irq_vectors_for_cpu_disable(void);
 extern void fixup_irqs(void);
-extern void irq_force_complete_move(int);
+extern int irq_force_complete_move(int);
 #endif
 
 extern void (*x86_platform_ipi_callback)(void);
