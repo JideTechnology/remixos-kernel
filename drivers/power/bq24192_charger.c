@@ -224,11 +224,13 @@
 #define MAX_RESET_WDT_RETRY 8
 #define VBUS_DET_TIMEOUT msecs_to_jiffies(50) /* 50 msec */
 
-#define BQ_CHARGE_CUR_SDP	500
+#define BQ_CHARGE_CUR_SDP_100	100
+#define BQ_CHARGE_CUR_SDP_500	500
 #define BQ_CHARGE_CUR_DCP	2000
 
 #define BQ_GPIO_MUX_SEL_PMIC	0
-#define BQ_GPIO_MUX_SEL_SOC		1
+#define BQ_GPIO_MUX_SEL_SOC	1
+#define FPO0_USB_COMP_OFFSET	0x01
 
 static struct power_supply *fg_psy;
 
@@ -290,6 +292,7 @@ struct bq24192_chip {
 	bool boost_mode;
 	bool online;
 	bool present;
+	bool chrg_usb_compliance;
 };
 
 enum vbus_states {
@@ -1641,7 +1644,10 @@ static int check_cable_status(struct bq24192_chip *chip, int reg_stat)
 		vbus_mask = 1;
 		cable_props.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
 		cable_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_SDP;
-		cable_props.ma = BQ_CHARGE_CUR_SDP;
+		if (chip->chrg_usb_compliance)
+			cable_props.ma = BQ_CHARGE_CUR_SDP_100;
+		else
+			cable_props.ma = BQ_CHARGE_CUR_SDP_500;
 
 	} else if (reg_stat & SYSTEM_STAT_VBUS_ADP) {
 		/* AC Adapter or DCP connected */
@@ -2218,7 +2224,7 @@ static int bq24192_probe(struct i2c_client *client,
 	struct device *dev;
 	struct gpio_desc *gpio;
 	int ret;
-
+	struct em_config_oem1_data em_config;
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE_DATA)) {
 		dev_err(&client->dev,
@@ -2266,6 +2272,17 @@ static int bq24192_probe(struct i2c_client *client,
 	chip->irq = -1;
 	chip->a_bus_enable = true;
 
+	chip->chrg_usb_compliance = true;
+#ifdef CONFIG_ACPI
+	ret = em_config_get_oem1_data(&em_config);
+	if (!ret)
+		dev_warn(&client->dev,
+			"Failed to fetch OEM1 table\n");
+	else
+		/* 0 - usb compliance, 1 - no usb compliance */
+		chip->chrg_usb_compliance =
+			!(em_config.fpo_0 & FPO0_USB_COMP_OFFSET);
+#endif
 	/*assigning default value for min and max temp*/
 	chip->max_temp = chip->pdata->max_temp;
 	chip->min_temp = chip->pdata->min_temp;
