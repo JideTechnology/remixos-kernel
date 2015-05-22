@@ -878,7 +878,7 @@ intel_dp_connector_unregister(struct intel_connector *intel_connector)
 	intel_connector_unregister(intel_connector);
 }
 
-static void
+void
 intel_dp_set_clock(struct intel_encoder *encoder,
 		   struct intel_crtc_config *pipe_config, int link_bw)
 {
@@ -1010,7 +1010,6 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 				link_clock = drm_dp_bw_code_to_link_rate(bws[clock]);
 				link_avail = intel_dp_max_data_rate(link_clock,
 								    lane_count);
-
 				if (mode_rate <= link_avail) {
 					goto found;
 				}
@@ -4516,6 +4515,11 @@ g4x_dp_detect(struct intel_dp *intel_dp)
 	if ((I915_READ(PORT_HOTPLUG_STAT) & bit) == 0)
 		return connector_status_disconnected;
 
+	/* Avoid DPCD opertations if status is same */
+	if (intel_dp->attached_connector->base.status ==
+				connector_status_connected)
+		return connector_status_connected;
+
 	return intel_dp_detect_dpcd(intel_dp);
 }
 
@@ -4560,11 +4564,13 @@ intel_dp_detect(struct drm_connector *connector, bool force)
 	struct intel_dp *intel_dp = intel_attached_dp(connector);
 	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
 	struct intel_encoder *intel_encoder = &intel_dig_port->base;
+	struct drm_crtc *crtc = intel_dig_port->base.base.crtc;
 	struct drm_device *dev = connector->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	enum drm_connector_status status;
 	enum intel_display_power_domain power_domain;
 	struct edid *edid = NULL;
+	struct intel_crtc *intel_crtc = NULL;
 
 	intel_runtime_pm_get(dev_priv);
 
@@ -4584,6 +4590,11 @@ intel_dp_detect(struct drm_connector *connector, bool force)
 	if (status != connector_status_connected)
 		goto out;
 
+	if (connector->status == connector_status_connected) {
+		DRM_DEBUG_KMS("Connector status is already connected\n");
+		goto out;
+	}
+
 	intel_dp_probe_oui(intel_dp);
 
 	if (intel_dp->force_audio != HDMI_AUDIO_AUTO) {
@@ -4598,6 +4609,22 @@ intel_dp_detect(struct drm_connector *connector, bool force)
 
 	if (intel_encoder->type != INTEL_OUTPUT_EDP)
 		intel_encoder->type = INTEL_OUTPUT_DISPLAYPORT;
+
+	if (IS_CHERRYVIEW(dev) &&
+			intel_encoder->type == INTEL_OUTPUT_DISPLAYPORT) {
+		/* TODO: Need to test connected boot scenario once platform
+		 * patches are ready. This path is tested on reworked-RVP only.
+		 */
+		if (intel_encoder->connectors_active &&
+						crtc && crtc->enabled) {
+			intel_crtc = to_intel_crtc(crtc);
+			DRM_DEBUG_KMS("Disabling crtc %c for upfront link training\n",
+					pipe_name(intel_crtc->pipe));
+			intel_crtc_control(crtc, false);
+		}
+		chv_upfront_link_train(dev, intel_dp, intel_crtc);
+	}
+
 	status = connector_status_connected;
 
 out:

@@ -988,6 +988,10 @@ void intel_dp_start_link_train(struct intel_dp *intel_dp);
 void intel_dp_complete_link_train(struct intel_dp *intel_dp);
 void intel_dp_stop_link_train(struct intel_dp *intel_dp);
 bool intel_dp_fast_link_train(struct intel_dp *intel_dp);
+bool chv_upfront_link_train(struct drm_device *dev,
+			struct intel_dp *intel_dp, struct intel_crtc *crtc);
+void intel_dp_set_clock(struct intel_encoder *encoder,
+			struct intel_crtc_config *pipe_config, int link_bw);
 void intel_dp_sink_dpms(struct intel_dp *intel_dp, int mode);
 void intel_dp_set_m2_n2(struct intel_crtc *crtc, struct intel_link_m_n *m_n);
 void intel_dp_encoder_destroy(struct drm_encoder *encoder);
