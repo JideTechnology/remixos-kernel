@@ -579,7 +579,8 @@ static int sunxi_dramfreq_target(struct device *dev,
 
 	valid_freq = sunxi_dramfreq_get_valid_freq(*freq);
 	if (valid_freq == dramfreq->devfreq->previous_freq) {
-		ret = -EINVAL;
+		if (*freq != valid_freq)
+			*freq = valid_freq;
 		goto unlock;
 	}
 
