@@ -266,6 +266,9 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 	arch_suspend_enable_irqs();
 	BUG_ON(irqs_disabled());
 
+	/* resume notification for quiesce timer, sched_timer etc */
+	clockevents_notify(CLOCK_EVT_NOTIFY_RESUME, NULL);
+
  Enable_cpus:
 	enable_nonboot_cpus();
 	ftrace_start();

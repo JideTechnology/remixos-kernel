@@ -978,8 +978,6 @@ static void timekeeping_resume(void)
 
 	touch_softlockup_watchdog();
 
-	clockevents_notify(CLOCK_EVT_NOTIFY_RESUME, NULL);
-
 	/* Resume hrtimers */
 	hrtimers_resume();
 }
