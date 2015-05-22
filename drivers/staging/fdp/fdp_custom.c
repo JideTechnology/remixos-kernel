@@ -83,6 +83,9 @@ enum custom_state {
 #define RST_RESET		0
 #define RST_NO_RESET		1
 
+#define REF_CLOCK_REQUEST		1
+#define REF_CLOCK_RELEASE		0
+
 /* Context variable */
 
 struct fdp_custom_device {
@@ -238,6 +241,27 @@ static void fdp_update_stack_state(struct fdp_custom_device *p_device,
 }
 
 /**
+  * Function used to request the reference clock from the platform
+  *
+  * @return 0 on success, a negative value on failure.
+  */
+
+static long fdp_clk_req(struct fdp_custom_device *p_device,
+				unsigned long enable)
+{
+	ENTER();
+
+	if (ACPI_HANDLE(&p_device->i2c_client->dev)) {
+		acpi_bus_set_power(
+				ACPI_HANDLE(&p_device->i2c_client->dev),
+				enable ? ACPI_STATE_D0 : ACPI_STATE_D3_COLD);
+		return 0;
+	}
+
+	return  -ENODEV;
+}
+
+/**
   * Function called when the user opens /dev/nfcc
   *
   * @return 0 on success, a negative value on failure.
@@ -279,11 +303,7 @@ int fdp_custom_open(struct inode *inode, struct file *filp)
 	/* Inform the chip that the stack is active */
 	fdp_update_stack_state(p_device, 1);
 
-	if (ACPI_HANDLE(&p_device->i2c_client->dev)) {
-		acpi_bus_set_power(
-				ACPI_HANDLE(&p_device->i2c_client->dev),
-				ACPI_STATE_D0);
-	}
+	fdp_clk_req(p_device, REF_CLOCK_REQUEST);
 
  end:
 	mutex_unlock(&p_device->mutex);
@@ -318,7 +338,7 @@ ssize_t fdp_custom_read(struct file *filp, char __user *buf, size_t count,
 	}
 
 	/* we have data to read in
-     *  p_device->rx_buffer[p_device->next_to_read] */
+	 *  p_device->rx_buffer[p_device->next_to_read] */
 
 	if (count < (p_device->rx_data_length[p_device->next_to_read] - 3)) {
 		/* supplied buffer is too small */
@@ -463,14 +483,7 @@ long fdp_custom_ioctl_clk_req(struct file *filp, unsigned int cmd,
 		return -ENODEV;
 	}
 
-	if (ACPI_HANDLE(&p_device->i2c_client->dev)) {
-		acpi_bus_set_power(
-				ACPI_HANDLE(&p_device->i2c_client->dev),
-				enable ? ACPI_STATE_D0 : ACPI_STATE_D3_COLD);
-		return 0;
-	}
-
-	return  -ENODEV;
+	return fdp_clk_req(p_device, enable);
 }
 
 /**
@@ -526,11 +539,7 @@ int fdp_custom_release(struct inode *inode, struct file *filp)
 	/* Inform the chip the stack is no longer active */
 	fdp_update_stack_state(p_device, 0);
 
-	if (ACPI_HANDLE(&p_device->i2c_client->dev)) {
-		acpi_bus_set_power(
-				ACPI_HANDLE(&p_device->i2c_client->dev),
-				ACPI_STATE_D3_COLD);
-	}
+	fdp_clk_req(p_device, REF_CLOCK_RELEASE);
 
 	/* Go back to PROBED state */
 	fdp_struct_cleanup(p_device);
@@ -817,11 +826,11 @@ unlock:
 	return rc;
 }
 
-int fdp_suspend(struct i2c_client *client, pm_message_t mesg)
+int fdp_suspend(struct device *dev)
 {
 	struct fdp_custom_device *p_device = fdp_p_device;
 
-	pr_info("fdp_suspend\n");
+	ENTER();
 
 	if (!p_device) {
 		pr_err("fdp_suspend: p_device is missing\n");
@@ -831,14 +840,16 @@ int fdp_suspend(struct i2c_client *client, pm_message_t mesg)
 	/* if (p_device->state == CUSTOM_OPENED)
 		disable_irq(p_device->irqout); */
 
+	fdp_clk_req(p_device, REF_CLOCK_RELEASE);
+
 	return 0;
 }
 
-int fdp_resume(struct i2c_client *client)
+int fdp_resume(struct device *dev)
 {
 	struct fdp_custom_device *p_device = fdp_p_device;
 
-	pr_info("fdp_resume\n");
+	ENTER();
 
 	if (!p_device) {
 		pr_err("fdp_resume: p_device is missing\n");
@@ -847,6 +858,8 @@ int fdp_resume(struct i2c_client *client)
 
 	/* if (p_device->state == CUSTOM_OPENED)
 		enable_irq(p_device->irqout); */
+
+	fdp_clk_req(p_device, REF_CLOCK_RELEASE);
 
 	return 0;
 }
