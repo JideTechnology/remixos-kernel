@@ -634,7 +634,7 @@ intel_dp_aux_ch(struct intel_dp *intel_dp,
 	bool vdd = false;
 
 	/* If we already have panel power, do not call _vdd_on */
-	if (!edp_have_panel_power(intel_dp))
+	if (is_edp(intel_dp) && !edp_have_panel_power(intel_dp))
 		vdd = _edp_panel_vdd_on(intel_dp);
 
 	/* dp aux is extremely sensitive to irq latency, hence request the
