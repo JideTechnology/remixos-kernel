@@ -385,7 +385,6 @@ fail:
 static int dsi_u_1080p_11_6_enable(struct device *dev)
 {
 	int err = 0;
-	pr_err("%s:=============>\n",__func__);
 	/*if(!atomic_read(&tegra_release_bootloader_fb_flag)) {*/
 		/*tegra_release_bootloader_fb();*/
 		/*atomic_set(&tegra_release_bootloader_fb_flag, 1);*/
@@ -473,7 +472,6 @@ fail:
 
 static int dsi_u_1080p_11_6_disable(void)
 {
-pr_err("%s:=============>\n",__func__);
 //	if(!atomic_read(&dsi2lvds_enabled))return 0; //prevent unbalanced disable
 
 	if (avdd_lcd_3v3)

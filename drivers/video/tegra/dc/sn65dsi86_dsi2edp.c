@@ -226,7 +226,6 @@ static int sn65dsi86_dsi2edp_retrain(struct tegra_dc_dsi2edp_data *dsi2edp)
 	int count = 0;
 	sn65dsi86_reg_read(dsi2edp, 0x96, &reg_ml);
 	sn65dsi86_reg_read(dsi2edp, 0xf8, &reg_st);
-	printk("%s, reg_ml:0x%02x, reg_st:0x%02x, count:%d\n", __func__, reg_ml, reg_st, count);
 	if (reg_ml != 0x01) {
 		sn65dsi86_reg_write(dsi2edp, 0xf8, reg_st);
 		sn65dsi86_reg_write(dsi2edp, 0x96, 0x0a);
@@ -365,10 +364,6 @@ static void sn65dsi86_dsi2edp_enable(struct tegra_dc_dsi_data *dsi)
 	}
 	
 	sn65dsi86_reg_read(dsi2edp,0x0a,&val);//Verify PLL is locked
-	dev_info(&dsi->dc->ndev->dev,"%s:=========>Verify PLL is locked state=%x\n",__func__,val);
-
-	if (val&=0x80)
-		printk(" dsi86 clock PLL locked ");
 	err = dsi2ledp_i2c_transfer(dsi2edp, dsi2edp_config_init2,
 			ARRAY_SIZE(dsi2edp_config_init2), I2C_WRITE);
 	if (err < 0) {
@@ -381,9 +376,7 @@ static void sn65dsi86_dsi2edp_enable(struct tegra_dc_dsi_data *dsi)
 		unsigned int reg_send=0,aux_st=0;
 		//sn65dsi86_reg_read(dsi2edp,0x0a,&val);		
 		while (count < 20) {
-			msleep(10);
 			sn65dsi86_reg_read(dsi2edp,0x78,&reg_send);
-			
 			if (reg_send == 0x80) {	
 				sn65dsi86_reg_read(dsi2edp,0xf4,&aux_st);
 				if (aux_st&0xf8) {                    
@@ -400,6 +393,7 @@ static void sn65dsi86_dsi2edp_enable(struct tegra_dc_dsi_data *dsi)
 							
 			}
 			count++;
+			udelay(400);
 		}
 	}
 	screen_power_on = 1;
@@ -422,7 +416,6 @@ static void sn65dsi86_dsi2edp_enable(struct tegra_dc_dsi_data *dsi)
 	if(DEBUG)
 	bridge_read_table(dsi2edp,mode_common);
 fail:
-	pr_warn("%s-------------enable end\n",__func__);
 	mutex_unlock(&dsi2edp->lock);
 }
 
