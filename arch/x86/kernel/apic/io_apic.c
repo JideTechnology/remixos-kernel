@@ -74,6 +74,8 @@ int sis_apic_bug = -1;
 static DEFINE_RAW_SPINLOCK(ioapic_lock);
 static DEFINE_RAW_SPINLOCK(vector_lock);
 
+static struct irq_chip ioapic_chip;
+
 static struct ioapic {
 	/*
 	 * # of IRQ routing registers
@@ -210,6 +212,7 @@ int __init arch_early_irq_init(void)
 	irq_reserve_irqs(0, legacy_pic->nr_legacy_irqs);
 
 	for (i = 0; i < count; i++) {
+		cfg[i].magic = IRQ_CFG_MAGIC;
 		irq_set_chip_data(i, &cfg[i]);
 		zalloc_cpumask_var_node(&cfg[i].domain, GFP_KERNEL, node);
 		zalloc_cpumask_var_node(&cfg[i].old_domain, GFP_KERNEL, node);
@@ -228,7 +231,12 @@ int __init arch_early_irq_init(void)
 
 static struct irq_cfg *irq_cfg(unsigned int irq)
 {
-	return irq_get_chip_data(irq);
+	struct irq_cfg *cfg = irq_get_chip_data(irq);
+
+	if (cfg && cfg->magic != IRQ_CFG_MAGIC)
+		return NULL;
+
+	return cfg;
 }
 
 static struct irq_cfg *alloc_irq_cfg(unsigned int irq, int node)
@@ -242,6 +250,7 @@ static struct irq_cfg *alloc_irq_cfg(unsigned int irq, int node)
 		goto out_cfg;
 	if (!zalloc_cpumask_var_node(&cfg->old_domain, GFP_KERNEL, node))
 		goto out_domain;
+	cfg->magic = IRQ_CFG_MAGIC;
 	return cfg;
 out_domain:
 	free_cpumask_var(cfg->domain);
@@ -268,7 +277,7 @@ static struct irq_cfg *alloc_irq_and_cfg_at(unsigned int at, int node)
 	if (res < 0) {
 		if (res != -EEXIST)
 			return NULL;
-		cfg = irq_get_chip_data(at);
+		cfg = irq_cfg(at);
 		if (cfg)
 			return cfg;
 	}
@@ -1213,7 +1222,7 @@ void __setup_vector_irq(int cpu)
 	raw_spin_lock(&vector_lock);
 	/* Mark the inuse vectors */
 	for_each_active_irq(irq) {
-		cfg = irq_get_chip_data(irq);
+		cfg = irq_cfg(irq);
 		if (!cfg)
 			continue;
 
@@ -1229,13 +1238,11 @@ void __setup_vector_irq(int cpu)
 			continue;
 
 		cfg = irq_cfg(irq);
-		if (!cpumask_test_cpu(cpu, cfg->domain))
+		if (cfg && !cpumask_test_cpu(cpu, cfg->domain))
 			per_cpu(vector_irq, cpu)[vector] = VECTOR_UNDEFINED;
 	}
 	raw_spin_unlock(&vector_lock);
 }
-
-static struct irq_chip ioapic_chip;
 
 #ifdef CONFIG_X86_32
 static inline int IO_APIC_irq_trigger(int irq)
@@ -1623,7 +1630,7 @@ __apicdebuginit(void) print_IO_APICs(void)
 		if (chip != &ioapic_chip)
 			continue;
 
-		cfg = irq_get_chip_data(irq);
+		cfg = irq_cfg(irq);
 		if (!cfg)
 			continue;
 		entry = cfg->irq_2_pin;
@@ -2266,14 +2273,15 @@ static void irq_complete_move(struct irq_cfg *cfg)
 	__irq_complete_move(cfg, ~get_irq_regs()->orig_ax);
 }
 
-void irq_force_complete_move(int irq)
+int irq_force_complete_move(int irq)
 {
-	struct irq_cfg *cfg = irq_get_chip_data(irq);
+	struct irq_cfg *cfg = irq_cfg(irq);
 
 	if (!cfg)
-		return;
+		return -EINVAL;
 
 	__irq_complete_move(cfg, cfg->vector);
+	return 0;
 }
 #else
 static inline void irq_complete_move(struct irq_cfg *cfg) { }
@@ -2542,7 +2550,7 @@ static inline void init_IO_APIC_traps(void)
 	 * 0x80, because int 0x80 is hm, kind of importantish. ;)
 	 */
 	for_each_active_irq(irq) {
-		cfg = irq_get_chip_data(irq);
+		cfg = irq_cfg(irq);
 		if (IO_APIC_IRQ(irq) && cfg && !cfg->vector) {
 			/*
 			 * Hmm.. We don't have an entry for this,
@@ -2677,7 +2685,7 @@ int timer_through_8259 __initdata;
  */
 static inline void __init check_timer(void)
 {
-	struct irq_cfg *cfg = irq_get_chip_data(0);
+	struct irq_cfg *cfg = irq_cfg(0);
 	int node = cpu_to_node(0);
 	int apic1, pin1, apic2, pin2;
 	unsigned long flags;
@@ -2990,8 +2998,11 @@ int create_irq(void)
 
 void destroy_irq(unsigned int irq)
 {
-	struct irq_cfg *cfg = irq_get_chip_data(irq);
+	struct irq_cfg *cfg = irq_cfg(irq);
 	unsigned long flags;
+
+	if (!cfg)
+		return;
 
 	irq_set_status_flags(irq, IRQ_NOREQUEST|IRQ_NOPROBE);
 
@@ -3019,6 +3030,9 @@ void native_compose_msi_msg(struct pci_dev *pdev,
 			    struct msi_msg *msg, u8 hpet_id)
 {
 	struct irq_cfg *cfg = irq_cfg(irq);
+
+	if (!cfg)
+		return;
 
 	msg->address_hi = MSI_ADDR_BASE_HI;
 
@@ -3056,6 +3070,10 @@ static int msi_compose_msg(struct pci_dev *pdev, unsigned int irq,
 		return -ENXIO;
 
 	cfg = irq_cfg(irq);
+
+	if (!cfg)
+		return -ENXIO;
+
 	err = assign_irq_vector(irq, cfg, apic->target_cpus());
 	if (err)
 		return err;
@@ -3126,7 +3144,7 @@ int setup_msi_irq(struct pci_dev *dev, struct msi_desc *msidesc,
 	if (!irq_offset)
 		write_msi_msg(irq, &msg);
 
-	setup_remapped_irq(irq, irq_get_chip_data(irq), chip);
+	setup_remapped_irq(irq, irq_cfg(irq), chip);
 
 	irq_set_chip_and_handler_name(irq, chip, handle_edge_irq, "edge");
 
@@ -3264,7 +3282,7 @@ int default_setup_hpet_msi(unsigned int irq, unsigned int id)
 
 	hpet_msi_write(irq_get_handler_data(irq), &msg);
 	irq_set_status_flags(irq, IRQ_MOVE_PCNTXT);
-	setup_remapped_irq(irq, irq_get_chip_data(irq), chip);
+	setup_remapped_irq(irq, irq_cfg(irq), chip);
 
 	irq_set_chip_and_handler_name(irq, chip, handle_edge_irq, "edge");
 	return 0;
