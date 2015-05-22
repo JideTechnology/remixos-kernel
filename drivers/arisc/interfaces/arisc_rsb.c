@@ -75,10 +75,8 @@ int arisc_rsb_read_block_data(struct arisc_rsb_block_cfg *cfg)
 	/* FIXME: if the runtime sever enable the mmu & dcache,
 	 * should not use flush cache here.
 	 */
-	flush_cache_all();
 	/* send message use hwmsgbox */
 	result = invoke_scp_fn_smc(ARM_SVC_ARISC_RSB_READ_BLOCK_DATA, virt_to_phys(paras), 0, 0);
-	flush_cache_all();
 
 	/* copy message readout data to user data buffer */
 	for (i = 0; i < cfg->len; i++) {
@@ -136,7 +134,6 @@ int arisc_rsb_write_block_data(struct arisc_rsb_block_cfg *cfg)
 	/* FIXME: if the runtime sever enable the mmu & dcache,
 	 * should not use flush cache here.
 	 */
-	flush_cache_all();
 	/* send message use hwmsgbox */
 	result = invoke_scp_fn_smc(ARM_SVC_ARISC_RSB_WRITE_BLOCK_DATA, virt_to_phys(paras), 0, 0);
 
@@ -208,7 +205,6 @@ int rsb_bits_ops_sync(struct arisc_rsb_bits_cfg *cfg)
 	/* FIXME: if the runtime sever enable the mmu & dcache,
 	 * should not use flush cache here.
 	 */
-	flush_cache_all();
 	/* send message use hwmsgbox */
 	result = invoke_scp_fn_smc(ARM_SVC_ARISC_RSB_BITS_OPS_SYNC, virt_to_phys(paras), 0, 0);
 

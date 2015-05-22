@@ -92,14 +92,12 @@ int arisc_query_set_standby_info(struct standby_info_para *para, arisc_rw_type_e
 		/* FIXME: if the runtime sever enable the mmu & dcache,
 	 	 * should not use flush cache here.
 	 	 */
-		flush_cache_all();
 	}
 
 
 	/* send message use hwmsgbox */
 	result = invoke_scp_fn_smc(ARM_SVC_ARISC_STANDBY_INFO_REQ, virt_to_phys(paras), 0, 0);
 	if (ARISC_READ == op) {
-		flush_cache_all();
 		memcpy((void *)para, (void *)paras, sizeof(struct standby_info_para));
 	}
 

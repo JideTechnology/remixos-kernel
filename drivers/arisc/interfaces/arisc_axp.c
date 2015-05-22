@@ -126,7 +126,6 @@ int arisc_axp_get_chip_id(unsigned char *chip_id)
 	 * should not use flush cache here.
 	 */
 	result = invoke_scp_fn_smc(ARM_SVC_ARISC_AXP_GET_CHIP_ID, virt_to_phys(chip_id), 0, 0);
-	flush_cache_all();
 
 	return result;
 }
@@ -145,7 +144,6 @@ int arisc_set_led_bln(u32 led_rgb, u32 led_onms, u32 led_offms, u32 led_darkms)
 	/* FIXME: if the runtime sever enable the mmu & dcache,
 	 * should not use flush cache here.
 	 */
-	flush_cache_all();
 	result = invoke_scp_fn_smc(ARM_SVC_ARISC_SET_LED_BLN, virt_to_phys(paras), 0, 0);
 
 	return result;
@@ -169,7 +167,6 @@ int arisc_set_pwr_tree(u32 *pwr_tree)
 {
 	int result;
 
-	flush_cache_all();
 	result = invoke_scp_fn_smc(ARM_SVC_ARISC_SET_PWR_TREE, virt_to_phys(pwr_tree), 0, 0);
 
 	return result;
