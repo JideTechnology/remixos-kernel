@@ -119,6 +119,11 @@
 #define MIN_SHUTTER		0
 #define MIN_GAIN		0
 
+#define AE_UNLOCK	0
+#define AE_LOCK		1
+#define HOT_PIXEL_OFF	0
+#define HOT_PIXEL_ON	1
+
 /* OV2685_DEVICE_ID */
 #define OV2685_MOD_ID		0x2685
 

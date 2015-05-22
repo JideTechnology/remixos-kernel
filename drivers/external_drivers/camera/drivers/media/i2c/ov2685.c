@@ -1133,6 +1133,10 @@ static int ov2685_s_mbus_fmt(struct v4l2_subdev *sd,
 	fmt->width = ov2685_res[res_index].width;
 	fmt->height = ov2685_res[res_index].height;
 	fmt->code = V4L2_MBUS_FMT_UYVY8_1X16;
+	dev->color_effect = V4L2_COLORFX_NONE;
+	dev->wb_mode = V4L2_WHITE_BALANCE_AUTO;
+	dev->ae_lock = AE_UNLOCK;
+	dev->hot_pixel = HOT_PIXEL_OFF;
 
 	mutex_unlock(&dev->input_lock);
 	return ret;
@@ -1821,9 +1825,11 @@ static int ov2685_probe(struct i2c_client *client,
 	dev->format.code = V4L2_MBUS_FMT_UYVY8_1X16;
 	dev->sd.entity.ops = &ov2685_entity_ops;
 	dev->sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV_SENSOR;
-	dev->ae_lock = 0;
-	dev->color_effect = 0;
-	dev->hot_pixel = 0;
+	dev->color_effect = V4L2_COLORFX_NONE;
+	dev->wb_mode = V4L2_WHITE_BALANCE_AUTO;
+	dev->ae_lock = AE_UNLOCK;
+	dev->hot_pixel = HOT_PIXEL_OFF;
+
 	ret = media_entity_init(&dev->sd.entity, 1, &dev->pad, 0);
 	if (ret)
 		ov2685_remove(client);
