@@ -160,7 +160,7 @@ static s32 axp_battery_event(struct notifier_block *nb, unsigned long event,
 			axp_change(charger);
 		if(event & (AXP_IRQ_ACIN|AXP_IRQ_USBIN)) {
 #ifdef CONFIG_HAS_WAKELOCK
-			wake_lock_timeout(&axp_wakeup_lock, msecs_to_jiffies(2000));
+			wake_lock_timeout(&axp_wakeup_lock, msecs_to_jiffies(5000));
 #endif
 			axp_usbac_checkst(charger);
 			axp_change(charger);
@@ -168,7 +168,7 @@ static s32 axp_battery_event(struct notifier_block *nb, unsigned long event,
 		}
 		if(event & (AXP_IRQ_ACRE|AXP_IRQ_USBRE)) {
 #ifdef CONFIG_HAS_WAKELOCK
-			wake_lock_timeout(&axp_wakeup_lock, msecs_to_jiffies(2000));
+			wake_lock_timeout(&axp_wakeup_lock, msecs_to_jiffies(5000));
 #endif
 			axp_usbac_checkst(charger);
 			axp_change(charger);
