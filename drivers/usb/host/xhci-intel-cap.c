@@ -117,9 +117,8 @@ int xhci_intel_phy_mux_switch(struct xhci_hcd *xhci, int is_device_on)
 	while (!time_after(jiffies, timeout)) {
 		data = readl(xhci->phy_mux_regs + DUAL_ROLE_CFG1);
 		if (is_device_on) {
-			/* HACK: don't poll CFG1 when swtich to device
-			   mode, as it is always timed out. */
-			break;
+			if (!(data & SW_MODE))
+				break;
 		} else {
 			if (data & SW_MODE)
 				break;
