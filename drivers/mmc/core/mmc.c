@@ -962,8 +962,12 @@ static int mmc_select_hs200(struct mmc_card *card)
 	if (!err){
 
 		u8 hs_timing = 2|mmc_dec_drv_str(card);
-		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
-				 EXT_CSD_HS_TIMING, hs_timing, 0);
+		//err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+		//		 EXT_CSD_HS_TIMING, hs_timing, 0);
+		err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+			   EXT_CSD_HS_TIMING, hs_timing,
+			   card->ext_csd.generic_cmd6_time,
+			   true, true, true);
 #ifdef CHECK_HSTIIMING
 		mmc_chk_hstiming_set(card,hs_timing);
 #endif
