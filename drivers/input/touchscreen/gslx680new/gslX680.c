@@ -338,7 +338,7 @@ bool ctp_i2c_test(struct i2c_client * client)
 	int ret,retry;
 	uint8_t test_data[1] = { 0 };	//only write a data address.
 
-	for(retry=0; retry < 2; retry++)
+	for(retry=0; retry < 12; retry++)
 	{
 		ret =ctp_i2c_write_bytes(client, test_data, 1);	//Test i2c.
 		if (ret == 1)
