@@ -69,12 +69,6 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 
 	dev_dbg(dev, "Request buffer allocation len %ld\n", len);
 
-	if (buffer->flags & ION_FLAG_CACHED)
-		return -EINVAL;
-
-	if (align > PAGE_SIZE)
-		return -EINVAL;
-
 	info = kzalloc(sizeof(struct ion_cma_buffer_info), GFP_KERNEL);
 	if (!info) {
 		dev_err(dev, "Can't allocate buffer info\n");
@@ -161,12 +155,14 @@ static void ion_cma_heap_unmap_dma(struct ion_heap *heap,
 static int ion_cma_mmap(struct ion_heap *mapper, struct ion_buffer *buffer,
 			struct vm_area_struct *vma)
 {
-	struct ion_cma_heap *cma_heap = to_cma_heap(buffer->heap);
-	struct device *dev = cma_heap->dev;
 	struct ion_cma_buffer_info *info = buffer->priv_virt;
-
-	return dma_mmap_coherent(dev, vma, info->cpu_addr, info->handle,
-				 buffer->size);
+	/* we need cached map in most case, so donot use dma_mmap_coherent */
+	/*return dma_mmap_coherent(dev, vma, info->cpu_addr, info->handle,
+				 buffer->size);*/
+       return remap_pfn_range(vma, vma->vm_start,
+                              __phys_to_pfn((u32)info->handle) + vma->vm_pgoff,
+                              vma->vm_end - vma->vm_start,
+                              vma->vm_page_prot);
 }
 
 static void *ion_cma_map_kernel(struct ion_heap *heap,
