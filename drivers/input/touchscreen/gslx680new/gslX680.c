@@ -456,7 +456,7 @@ static inline u16 join_bytes(u8 a, u8 b)
 	return ab;
 }
 
-#if 0
+#if 1
 static u32 gsl_read_interface(struct i2c_client *client, u8 reg, u8 *buf, u32 num)
 {
 	struct i2c_msg xfer_msg[2];
@@ -645,6 +645,10 @@ static void reset_chip(struct i2c_client *client)
 	u8 tmp = 0x88;
 	u8 buf[4] = {0x00};
 	
+	gslX680_shutdown_low();
+	msleep(10);
+	gslX680_shutdown_high();
+	msleep(10);
 	gsl_ts_write(client, 0xe0, &tmp, sizeof(tmp));
 	msleep(10);
 
@@ -932,7 +936,7 @@ static int gsl_config_read_proc(struct seq_file *m,void *v)
 			tmp=(gsl_data_proc[5]<<8) | gsl_data_proc[4];
 			//ptr +=sprintf(ptr,"gsl_config_data_id[%u] = ",tmp);
 			seq_printf(m,"gsl_config_data_id[%u] = ",tmp);
-			if(tmp>=0&&tmp<256)
+			if(tmp>=0&&tmp<512)		//gslX680_config_data[fw_index]
 				//ptr +=sprintf(ptr,"%d\n",gsl_config_data_id[tmp]); 
 				seq_printf(m,"%d\n",gsl_config_data_id[tmp]); 
 #endif
@@ -940,8 +944,7 @@ static int gsl_config_read_proc(struct seq_file *m,void *v)
 		else 
 		{
 			gsl_ts_write(glsX680_i2c,0xf0,&gsl_data_proc[4],4);
-			gsl_ts_read(glsX680_i2c,gsl_data_proc[0],temp_data,4);
-			gsl_ts_read(glsX680_i2c,gsl_data_proc[0],temp_data,4);
+			gsl_read_interface(glsX680_i2c,gsl_data_proc[0],temp_data,4);
 			//ptr +=sprintf(ptr,"offset : {0x%02x,0x",gsl_data_proc[0]);
 			//ptr +=sprintf(ptr,"%02x",temp_data[3]);
 			//ptr +=sprintf(ptr,"%02x",temp_data[2]);
@@ -1021,7 +1024,7 @@ static int gsl_config_write_proc(struct file *file, const char *buffer, unsigned
 	{
 		tmp1=(buf[7]<<24)|(buf[6]<<16)|(buf[5]<<8)|buf[4];
 		tmp=(buf[3]<<24)|(buf[2]<<16)|(buf[1]<<8)|buf[0];
-		if(tmp1>=0 && tmp1<256)
+		if(tmp1>=0 && tmp1<512)
 		{
 			gslX680_config_data[fw_index][tmp1] = tmp;
 		}
@@ -1106,7 +1109,7 @@ static void process_gslX680_data(struct gsl_ts *ts)
 	u8 id, touches;
 	u16 x, y;
 	int i = 0;
-	int tmp1 = 0;
+	//int tmp1 = 0;
 	u8 buf[4]={0};
 #ifdef GSL_NOID_VERSION
     struct gsl_touch_info cinfo;
@@ -1126,6 +1129,7 @@ static void process_gslX680_data(struct gsl_ts *ts)
 		(ts->touch_data[3]<<24);
 	gsl_alg_id_main(&cinfo);
 	dprintk(DEBUG_OTHERS_INFO,"tp-gsl  finger_num = %d\n",cinfo.finger_num);
+#if 0
 	tmp1=gsl_mask_tiaoping();
 	if(tmp1>0&&tmp1<0xffffffff)
 	{
@@ -1142,6 +1146,7 @@ static void process_gslX680_data(struct gsl_ts *ts)
 			tmp1,buf[0],buf[1],buf[2],buf[3]);
 		gsl_write_interface(ts->client,0x8,buf,4);
 	}
+#endif
 	touches = cinfo.finger_num;
 
 #endif
