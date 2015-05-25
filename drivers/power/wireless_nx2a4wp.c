@@ -127,6 +127,8 @@
 #define A4WP_LONG_BEACON_TIME	(100 * HZ/1000)
 
 #define PRU_MAX_MA	900
+#define PTU_DEFAULT_POWER	5500
+
 
 #define IRECT_BIT_RESOLUTION_INV	1715
 #define IRECT_ADC12_TO_MA(__value)  \
@@ -799,7 +801,12 @@ static int nx2a4wp_usb_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PTU_POWER:
 		temp = find_adc_code(val->intval,
 			PTU_POWER_TABLE_SIZE, ptu_power_code);
-		chip->ptu_power = ptu_power_code[temp][1];
+		if (temp >= 0)
+			chip->ptu_power =
+				ptu_power_code[temp][1];
+		else
+			chip->ptu_power =
+				PTU_DEFAULT_POWER;
 		break;
 	case POWER_SUPPLY_PROP_PTU_CLASS:
 		chip->ptu_class = val->intval;
@@ -952,9 +959,7 @@ static irqreturn_t nx2a4wp_thread_handler(int id, void *data)
 		if (!test_bit(A4WP_FLAGS_PRESENT_BIT, &chip->flags)) {
 			chip->present_timestamp = chip->irq_timestamp;
 			nx2a4wp_evt_present_lock(chip);
-		}
-		/* Health event */
-		else {
+		} else {
 			int ret;
 
 			/* No more Interrupt */
@@ -974,10 +979,8 @@ static irqreturn_t nx2a4wp_thread_handler(int id, void *data)
 				power_supply_changed(&chip->psy_wc);
 			}
 		}
-	}
-
-	/* Falling Edge */
-	else {
+	} else {
+		/* Falling Edge */
 		int ret1, ret2;
 
 		ret1 = nx2a4wp_read_reg(chip->client, NX2A4WP_STATL_ADDR);
@@ -989,10 +992,8 @@ static irqreturn_t nx2a4wp_thread_handler(int id, void *data)
 		if ((ret1 < 0) || (ret2 < 0)) {
 			if (test_bit(A4WP_FLAGS_PRESENT_BIT, &chip->flags))
 				nx2a4wp_evt_nopresent_lock(chip);
-		}
-
-		/* Health event */
-		else {
+		} else {
+			/* Health event */
 			unsigned int health;
 			if (ret2 & NX2A4WP_OVP_MASK)
 				health = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
