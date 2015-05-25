@@ -40,6 +40,9 @@ struct sensor_config_info{
 	char* ldo;
 	struct device *dev;
 	struct pinctrl *pinctrl;
+	const char *sensor_power;
+	u32 sensor_power_vol;
+	struct regulator *sensor_power_ldo;
 };
 
 struct ctp_config_info{

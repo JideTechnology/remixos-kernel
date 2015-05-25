@@ -214,6 +214,13 @@ static int ctp_init_platform_resource(enum input_sensor_type *ctp_type)
  */
 static void gsensor_free_platform_resource(enum input_sensor_type *gsensor_type)
 {
+	  struct sensor_config_info *data = container_of(gsensor_type,
+	   	struct sensor_config_info,input_type);
+	  if (data->sensor_power_ldo){
+			regulator_put(data->sensor_power_ldo);
+			data->sensor_power_ldo=NULL;
+	  }
+	  return;
 }
 
 /**
@@ -224,6 +231,23 @@ static void gsensor_free_platform_resource(enum input_sensor_type *gsensor_type)
  */
 static int gsensor_init_platform_resource(enum input_sensor_type *gsensor_type)
 {
+	
+	   struct sensor_config_info *data = container_of(gsensor_type,
+	   	struct sensor_config_info,input_type);	 
+	   if (data->sensor_power){
+			data->sensor_power_ldo =regulator_get(NULL,data->sensor_power);
+			if (!data->sensor_power_ldo){
+				pr_err("%s: could not get ctp ldo '%s' ,check"
+					"if ctp independent power supply by ldo,ignore"
+					"firstly\n",__func__,data->sensor_power);
+			}else{
+				regulator_set_voltage(data->sensor_power_ldo,
+					(int)(data->sensor_power_vol)*1000,
+					(int)(data->sensor_power_vol)*1000);
+			}
+
+	   }
+
 	return 0;
 }
 
@@ -262,6 +286,20 @@ static int gsensor_fetch_sysconfig_para(enum input_sensor_type *gsensor_type)
        pr_err("%s gsensor_unused \n",__func__);
     }
 
+	ret = of_property_read_string(np,"gsensor_vcc_io",&data->sensor_power);
+	if (ret) {
+		    pr_err("get gsensor_vcc_io is fail, %d\n", ret);
+		    goto devicetree_get_item_err;
+	  }
+
+	ret = of_property_read_u32(np,"gsensor_vcc_io_val",&data->sensor_power_vol);
+	if (ret){
+		   pr_err("get gsensor_vcc_io_val is fail, %d\n", ret);
+		    goto devicetree_get_item_err;
+	  }
+	
+	
+	
     return ret;	
 
 devicetree_get_item_err:
@@ -638,6 +676,7 @@ int input_set_power_enable(enum input_sensor_type *input_type, u32 enable)
 	struct regulator *ldo = NULL;
 	u32 power_io = 0;
 	void *data = NULL;
+
 	switch (*input_type) {
 		case CTP_TYPE:
 			data = container_of(input_type,
@@ -646,6 +685,8 @@ int input_set_power_enable(enum input_sensor_type *input_type, u32 enable)
 			power_io = ((struct ctp_config_info *)data)->ctp_power_io.gpio;
 			break;
 		case GSENSOR_TYPE:
+			data = container_of (input_type,struct sensor_config_info,input_type );
+			ldo = ((struct sensor_config_info*)data)->sensor_power_ldo;		
 			break;
 		case LS_TYPE:
 			break;
@@ -656,7 +697,7 @@ int input_set_power_enable(enum input_sensor_type *input_type, u32 enable)
 		return ret;
 	}
 	if(ldo) {
-		if(enable) {
+		if(enable){ 
 			regulator_enable(ldo);
 		} else {
 			if (regulator_is_enabled(ldo))

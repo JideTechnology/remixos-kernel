@@ -633,7 +633,7 @@ static void SC7A30_set_enable(struct device *dev, int enable)
 {
     struct i2c_client *client = to_i2c_client(dev);
     struct SC7A30_data *SC7A30 = i2c_get_clientdata(client);
-    int pre_enable = atomic_read(&SC7A30->enable);
+	int pre_enable = atomic_read(&SC7A30->enable);
 
     mutex_lock(&SC7A30->enable_mutex);
     if (enable != pre_enable) {
@@ -1141,8 +1141,9 @@ static int SC7A30_suspend(struct device *dev)
 {
     struct i2c_client *client = to_i2c_client(dev);
     struct SC7A30_data *data = i2c_get_clientdata(client);
-        SC7A30_do_enable(dev, 0);
     
+    SC7A30_do_enable(dev, 0);  
+	input_set_power_enable(&(gsensor_info.input_type),0);
     return 0;
 }
 
@@ -1154,16 +1155,18 @@ static int SC7A30_resume(struct device *dev)
     //power on init regs    
     SC7A30_hw_init(data->SC7A30_client);
     SC7A30_do_enable(dev, atomic_read(&data->enable));
-    
+	input_set_power_enable(&(gsensor_info.input_type),1);
     return 0;
 }
+
 
 #else
 
 #define SC7A30_suspend        NULL
 #define SC7A30_resume        NULL
 
-#endif /* CONFIG_PM */
+#endif*/ /* CONFIG_PM */
+
 
 static SIMPLE_DEV_PM_OPS(SC7A30_pm_ops, SC7A30_suspend, SC7A30_resume);
 
@@ -1236,15 +1239,22 @@ static int __init SC7A30_init(void)
     SC7A30_client = i2c_new_device(i2c_adap, &SC7A30_board_info);  
     i2c_put_adapter(i2c_adap);
 #endif
-
 #ifdef ALLWINNER_PLATFORM
+   int ret ;
   if (input_fetch_sysconfig_para(&(gsensor_info.input_type))){
 	printk("%s: err.\n", __func__);
 	return -1;
+	}else{
+		ret = input_init_platform_resource(&(gsensor_info.input_type));
+		if (0 != ret){
+			printk("%s:ctp_ops.init_platform_resource err. \n", __func__);
+		}
 	}
+  	input_set_power_enable(&(gsensor_info.input_type),1);
 	twi_id = gsensor_info.twi_id;
 	printk("%s i2c twi is %d \n", __func__, twi_id);
 	SC7A30_driver.detect = gsensor_detect;
+	
 #endif
     
     return i2c_add_driver(&SC7A30_driver);
@@ -1256,6 +1266,7 @@ static void __exit SC7A30_exit(void)
     i2c_unregister_device(SC7A30_client);
   #endif
     i2c_del_driver(&SC7A30_driver);
+    input_free_platform_resource(&(gsensor_info.input_type));
 }
 
 MODULE_AUTHOR("zhiyi quan <quanzhiyi@silan.com.cn>");
