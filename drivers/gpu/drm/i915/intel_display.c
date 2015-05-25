@@ -11137,8 +11137,12 @@ int intel_set_disp_commit_regs(struct drm_mode_set_display *disp,
 	if (disp->update_flag & DRM_MODE_SET_DISPLAY_UPDATE_ZORDER) {
 		I915_WRITE_BITS(SPCNTR(intel_crtc->pipe, 0),
 				intel_crtc->reg.spacntr, 0x00000007);
+		I915_WRITE(SPSURF(intel_crtc->pipe, 0),
+				I915_READ(SPSURF(intel_crtc->pipe, 0)));
 		I915_WRITE_BITS(SPCNTR(intel_crtc->pipe, 1),
 				intel_crtc->reg.spbcntr, 0x00000007);
+		I915_WRITE(SPSURF(intel_crtc->pipe, 1),
+				I915_READ(SPSURF(intel_crtc->pipe, 1)));
 	}
 
 	/* Write to all display registers */
