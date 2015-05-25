@@ -517,10 +517,6 @@ static int xhci_all_ports_seen_u0(struct xhci_hcd *xhci)
 	return (xhci->port_status_u0 == ((1 << xhci->num_usb3_ports)-1));
 }
 
-void xhci_disable_usb3_lpm_quirk(struct xhci_hcd *xhci, int port1)
-{
-	set_bit(port1 - 1, &xhci->usb3_no_lpm);
-}
 
 /*
  * Initialize memory for HCD and xHC (one-time init).
@@ -4231,11 +4227,6 @@ int xhci_update_device(struct usb_hcd *hcd, struct usb_device *udev)
 	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
 	int		portnum = udev->portnum - 1;
 
-	if (hcd->speed == HCD_USB3 && test_bit(portnum, &xhci->usb3_no_lpm)) {
-		udev->lpm_capable = 0;
-		return 0;
-	}
-
 	if (hcd->speed == HCD_USB3 || !xhci->sw_lpm_support ||
 			!udev->lpm_capable)
 		return 0;
@@ -4640,8 +4631,7 @@ int xhci_enable_usb3_lpm_timeout(struct usb_hcd *hcd,
 	 * information about their timeout algorithm.
 	 */
 	if (!xhci || !(xhci->quirks & XHCI_LPM_SUPPORT) ||
-			!xhci->devs[udev->slot_id] ||
-			test_bit(udev->portnum - 1, &xhci->usb3_no_lpm))
+			!xhci->devs[udev->slot_id])
 		return USB3_LPM_DISABLED;
 
 	hub_encoded_timeout = xhci_calculate_lpm_timeout(hcd, udev, state);
@@ -4667,8 +4657,7 @@ int xhci_disable_usb3_lpm_timeout(struct usb_hcd *hcd,
 
 	xhci = hcd_to_xhci(hcd);
 	if (!xhci || !(xhci->quirks & XHCI_LPM_SUPPORT) ||
-			!xhci->devs[udev->slot_id] ||
-			test_bit(udev->portnum - 1, &xhci->usb3_no_lpm))
+			!xhci->devs[udev->slot_id])
 		return 0;
 
 	mel = calculate_max_exit_latency(udev, state, USB3_LPM_DISABLED);

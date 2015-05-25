@@ -154,7 +154,6 @@ static void xhci_pci_quirks(struct device *dev, struct xhci_hcd *xhci)
 	if (pdev->vendor == PCI_VENDOR_ID_INTEL &&
 			pdev->device == PCI_DEVICE_ID_INTEL_CHT_XHCI) {
 		xhci->quirks |= XHCI_SPURIOUS_PME;
-		xhci_disable_usb3_lpm_quirk(xhci, 5);
 	}
 
 	if (pdev->vendor == PCI_VENDOR_ID_ETRON &&
