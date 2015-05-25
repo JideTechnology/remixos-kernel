@@ -198,7 +198,7 @@ struct sunxi_rtc_dev {
 	int irq;
 };
 
-#if CONFIG_RTC_SHUTDOWN_ALARM
+#ifdef CONFIG_RTC_SHUTDOWN_ALARM
 static int alarm_in_booting = 0;
 module_param_named(alarm_in_booting, alarm_in_booting, int, S_IRUGO | S_IWUSR);
 #endif
@@ -544,7 +544,7 @@ static int sunxi_rtc_probe(struct platform_device *pdev)
 	const struct of_device_id *of_id;
 	int ret;
 	unsigned int tmp_data;
-#if CONFIG_RTC_SHUTDOWN_ALARM
+#ifdef CONFIG_RTC_SHUTDOWN_ALARM
 	unsigned int alarm_cnt, alarm_cur, alarm_en, alarm_int_ctrl, alarm_int_stat;
 #endif
 
@@ -573,7 +573,7 @@ static int sunxi_rtc_probe(struct platform_device *pdev)
 
 	chip->data_year = (struct sunxi_rtc_data_year *) of_id->data;
 
-#if CONFIG_RTC_SHUTDOWN_ALARM
+#ifdef CONFIG_RTC_SHUTDOWN_ALARM
 	/*
 	 * when alarm irq occur at boot0~rtc_driver.probe() process in shutdown
 	 * charger mode, /charger in userspace must know this irq through sysfs
