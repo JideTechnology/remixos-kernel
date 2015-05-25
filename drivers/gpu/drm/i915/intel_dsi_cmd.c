@@ -495,6 +495,34 @@ int dpi_send_cmd(struct intel_dsi *intel_dsi, u32 cmd, bool hs)
 	return 0;
 }
 
+void wait_for_dpi_dbi_fifo_empty(struct intel_dsi *intel_dsi)
+{
+	struct drm_encoder *encoder = &intel_dsi->base.base;
+	struct drm_device *dev = encoder->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->crtc);
+	enum pipe pipe = intel_crtc->pipe;
+	u32 mask;
+	int count = 1;
+
+	mask = DPI_FIFO_EMPTY | DBI_FIFO_EMPTY;
+
+	if (intel_dsi->dual_link) {
+		count = 2;
+		pipe = PIPE_A;
+	}
+
+	do {
+		if (wait_for((I915_READ(MIPI_GEN_FIFO_STAT(pipe)) & mask)
+								== mask, 100))
+			DRM_ERROR("DPI/DBI FIFO empty wait timed out\n");
+
+		/* For Port C for dual link */
+		if (intel_dsi->dual_link)
+			pipe = PIPE_B;
+	} while (--count > 0);
+}
+
 void wait_for_dsi_fifo_empty(struct intel_dsi *intel_dsi)
 {
 	struct drm_encoder *encoder = &intel_dsi->base.base;
