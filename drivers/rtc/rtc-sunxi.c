@@ -198,6 +198,11 @@ struct sunxi_rtc_dev {
 	int irq;
 };
 
+#if CONFIG_RTC_SHUTDOWN_ALARM
+static int alarm_in_booting = 0;
+module_param_named(alarm_in_booting, alarm_in_booting, int, S_IRUGO | S_IWUSR);
+#endif
+
 static irqreturn_t sunxi_rtc_alarmirq(int irq, void *id)
 {
 	struct sunxi_rtc_dev *chip = (struct sunxi_rtc_dev *) id;
@@ -539,6 +544,9 @@ static int sunxi_rtc_probe(struct platform_device *pdev)
 	const struct of_device_id *of_id;
 	int ret;
 	unsigned int tmp_data;
+#if CONFIG_RTC_SHUTDOWN_ALARM
+	unsigned int alarm_cnt, alarm_cur, alarm_en, alarm_int_ctrl, alarm_int_stat;
+#endif
 
 	of_id = of_match_device(sunxi_rtc_dt_ids, &pdev->dev);
 	if (!of_id) {
@@ -555,6 +563,7 @@ static int sunxi_rtc_probe(struct platform_device *pdev)
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	chip->base = devm_ioremap_resource(&pdev->dev, res);
+
 	if (IS_ERR(chip->base))
 		return PTR_ERR(chip->base);
 
@@ -564,6 +573,26 @@ static int sunxi_rtc_probe(struct platform_device *pdev)
 
 	chip->data_year = (struct sunxi_rtc_data_year *) of_id->data;
 
+#if CONFIG_RTC_SHUTDOWN_ALARM
+	/*
+	 * when alarm irq occur at boot0~rtc_driver.probe() process in shutdown
+	 * charger mode, /charger in userspace must know this irq through sysfs
+	 * node 'alarm_in_booting' to reboot and startup system.
+	 * */
+	alarm_cnt = readl(chip->base + SUNXI_ALRM_COUNTER);
+	alarm_cur = readl(chip->base + SUNXI_ALRM_CURRENT);
+	alarm_en = readl(chip->base + SUNXI_ALRM_EN);
+	alarm_int_ctrl = readl(chip->base + SUNXI_ALRM_IRQ_EN);
+	alarm_int_stat = readl(chip->base + SUNXI_ALRM_IRQ_STA);
+	if (alarm_int_stat && alarm_int_ctrl && alarm_en && (alarm_cnt <= alarm_cur)) {
+		alarm_in_booting = 1;
+	}
+#else
+	/*
+	 * to support RTC shutdown alarm, we should not clear alarm for android
+	 * will restart in charge mode.
+	 * alarm will be cleared by android in normal start mode.
+	 * */
 	/* clear the alarm count value */
 #ifdef SUNXI_ALARM1_USED
 	writel(0, chip->base + SUNXI_ALRM_DHMS);
@@ -580,6 +609,7 @@ static int sunxi_rtc_probe(struct platform_device *pdev)
 	/* clear alarm week/cnt irq pending */
 	writel(SUNXI_ALRM_IRQ_STA_CNT_IRQ_PEND, chip->base +
 			SUNXI_ALRM_IRQ_STA);
+#endif
 	/* clear alarm wakeup output */
 	writel(SUNXI_ALRM_WAKEUP_OUTPUT_EN, chip->base +
 	       SUNXI_ALARM_CONFIG);

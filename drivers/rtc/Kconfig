@@ -62,6 +62,12 @@ config RTC_DEBUG
 	  Say yes here to enable debugging support in the RTC framework
 	  and individual RTC drivers.
 
+config RTC_SHUTDOWN_ALARM
+	bool "RTC shutdown alarm support"
+	help
+	  Say yes here to enable shutdown alarm support in the RTC framework
+	  and individual RTC drivers.
+
 comment "RTC interfaces"
 
 config RTC_INTF_SYSFS
