@@ -166,12 +166,14 @@ static int di_mem_release(__di_mem_t *di_mem)
 	}
 
 	free_pages((unsigned long)(di_mem->v_addr),get_order(page_size));
+	di_mem->v_addr = NULL;
 #else
 	if (NULL == di_mem->v_addr) {
 		printk(KERN_ERR "%s: failed!\n", __func__);
 		return -1;
 	}
 	sunxi_di_free(di_mem->v_addr, di_mem->p_addr, di_mem->size);
+	di_mem->v_addr = NULL;
 #endif
   return 0;
 }
@@ -571,6 +573,8 @@ static int sunxi_di_probe(struct platform_device *pdev)
 
 	atomic_set(&di_data->di_complete, 0);
 	atomic_set(&di_data->enable, 0);
+	di_data->mem_in_params.v_addr = NULL;
+	di_data->mem_out_params.v_addr = NULL;
 
 	init_waitqueue_head(&di_data->wait);
 
