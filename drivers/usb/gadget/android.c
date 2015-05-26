@@ -66,6 +66,10 @@ u32 serial_unique = 0;
 char g_usb_serial_number[64];
 u32 rndis_wceis = 1;
 
+#ifdef CONFIG_USB_SUNXI_USB0_OTG
+extern atomic_t thread_suspend_flag;
+#endif
+
 static int get_para_from_cmdline(const char *cmdline, const char *name, char *value, int maxsize)
 {
     char *p = (char *)cmdline;
@@ -1710,7 +1714,16 @@ static void android_disconnect(struct usb_composite_dev *cdev)
 	acc_disconnect();
 
 	dev->connected = 0;
+
+#ifdef CONFIG_USB_SUNXI_USB0_OTG
+	if(!atomic_read(&thread_suspend_flag)){
+		schedule_work(&dev->work);
+	}else{
+		printk("warning: %s cannot sent uevent env on suspend\n", __func__);
+	}
+#else
 	schedule_work(&dev->work);
+#endif
 }
 
 static struct usb_composite_driver android_usb_driver = {

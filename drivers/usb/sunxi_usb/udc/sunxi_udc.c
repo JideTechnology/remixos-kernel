@@ -3082,6 +3082,11 @@ static int sunxi_udc_suspend(struct device *dev)
 	/* soft disconnect */
 	cfg_udc_command(SW_UDC_P_DISABLE);
 
+	/* disable usb controller */
+	if (udc->driver && udc->driver->disconnect) {
+		udc->driver->disconnect(&udc->gadget);
+	}
+
 	sunxi_udc_disable(udc);
 
 	/* close USB clock */
