@@ -1199,6 +1199,12 @@ static int intel_dsi_set_property(struct drm_connector *connector,
 		DRM_DEBUG_DRIVER("src size = %u", intel_crtc->scaling_src_size);
 		return 0;
 	}
+
+	if (property == dev_priv->force_ddr_low_freq_property) {
+		vlv_force_ddr_low_frequency(dev_priv, val);
+		return 0;
+	}
+
 done:
 	if (intel_dsi->base.base.crtc)
 		intel_crtc_restore_mode(intel_dsi->base.base.crtc);
@@ -1272,6 +1278,7 @@ intel_dsi_add_properties(struct intel_dsi *intel_dsi,
 {
 	intel_attach_force_pfit_property(connector);
 	intel_attach_scaling_src_size_property(connector);
+	intel_attach_force_ddr_low_freq_property(connector);
 }
 
 bool intel_dsi_init(struct drm_device *dev)

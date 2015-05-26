@@ -1470,6 +1470,12 @@ intel_hdmi_set_property(struct drm_connector *connector,
 			intel_crtc->scaling_src_size);
 		return 0;
 	}
+
+	if (property == dev_priv->force_ddr_low_freq_property) {
+		vlv_force_ddr_low_frequency(dev_priv, val);
+		return 0;
+	}
+
 	return -EINVAL;
 
 done:
@@ -1870,6 +1876,7 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *c
 	intel_attach_broadcast_rgb_property(connector);
 	intel_attach_force_pfit_property(connector);
 	intel_attach_scaling_src_size_property(connector);
+	intel_attach_force_ddr_low_freq_property(connector);
 	intel_hdmi->color_range_auto = true;
 }
 
