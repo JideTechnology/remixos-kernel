@@ -528,7 +528,13 @@ static struct pernet_operations uevent_net_ops = {
 static int __init kobject_uevent_init(void)
 {
 #ifdef CONFIG_PM_SLEEP
-	pm_notifier(uevent_buffer_pm_notify, 0);
+	/*
+	 * F/W caching PM notifier has a priority of 0. Since it needs
+	 * to communicate with user space during suspend prepare, make
+	 * sure that uevent_buffer_pm_notify has a lower priority
+	 * otherwise it would break F/W caching.
+	 */
+	pm_notifier(uevent_buffer_pm_notify, -1);
 #endif
 	return register_pernet_subsys(&uevent_net_ops);
 }
