@@ -1723,7 +1723,6 @@ struct drm_i915_private {
 	/* Atomicity fixes */
 	u32 pfit_pipe;
 	bool pfit_changed;
-	bool atomic_update;
 	bool pri_update;
 	u32 dspcntr;
 	bool wait_vbl;
