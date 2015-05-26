@@ -803,7 +803,7 @@ static void chv_gpio_free(struct gpio_chip *chip, unsigned offset)
 		/*clear GPIOEn bit to let Pad mode take effect*/
 		value = chv_readl(reg) & (~CV_GPIO_EN);
 		chv_writel(value, reg);
-		dev_info(&cg->pdev->dev,
+		dev_dbg(&cg->pdev->dev,
 			"pin %d switch back to native mode\n", offset);
 	}
 }
