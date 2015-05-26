@@ -356,6 +356,12 @@ static irqreturn_t sunxi_mmc_finalize_request(struct sunxi_mmc_host *host)
 
 		if (data)
 			data->bytes_xfered = data->blocks * data->blksz;
+
+		//To avoid that "wait busy" and "maual stop" occur at the same time,
+		//We wait busy only on not error occur.
+		if(mrq->cmd->flags & MMC_RSP_BUSY){
+			host->mrq_busy = host->mrq;
+		}
 	}
 
 	if (data) {
@@ -378,7 +384,7 @@ static irqreturn_t sunxi_mmc_finalize_request(struct sunxi_mmc_host *host)
 	host->int_sum = 0;
 	host->wait_dma = false;
 
-	return host->manual_stop_mrq ? IRQ_WAKE_THREAD : IRQ_HANDLED;
+	return (host->manual_stop_mrq||host->mrq_busy) ? IRQ_WAKE_THREAD : IRQ_HANDLED;
 }
 
 static irqreturn_t sunxi_mmc_irq(int irq, void *dev_id)
@@ -438,15 +444,83 @@ static irqreturn_t sunxi_mmc_irq(int irq, void *dev_id)
 	return ret;
 }
 
-static irqreturn_t sunxi_mmc_handle_manual_stop(int irq, void *dev_id)
+
+int sunxi_check_r1_ready(struct sunxi_mmc_host *smc_host, unsigned ms)
+{
+	//struct sunxi_mmc_host *smc_host = mmc_priv(mmc);
+	unsigned long expire = jiffies + msecs_to_jiffies(ms);
+	dev_info(mmc_dev(smc_host->mmc), "wrd\n");
+	do {
+		if (!(mmc_readl(smc_host, REG_STAS) & SDXC_CARD_DATA_BUSY))
+			break;
+	} while (time_before(jiffies, expire));
+
+	if ((mmc_readl(smc_host, REG_STAS) & SDXC_CARD_DATA_BUSY)) {
+		dev_err(mmc_dev(smc_host->mmc), "wait r1 rdy %d ms timeout\n", ms);
+		return -1;
+	} else{
+		return 0;
+	}
+}
+
+
+int sunxi_check_r1_ready_may_sleep(struct sunxi_mmc_host *smc_host, unsigned ms)
+{
+	unsigned cnt = 0;
+	do {
+		if (!(mmc_readl(smc_host, REG_STAS) & SDXC_CARD_DATA_BUSY)){
+			break;
+		}
+		if(cnt/1000){
+			//print to tell that we are waiting busy
+			dev_info(mmc_dev(smc_host->mmc),\
+				"*Has wait r1 rdy %d ms*\n", cnt);
+		}
+		msleep(1);
+	} while ((cnt++)<ms);
+
+	if ((mmc_readl(smc_host, REG_STAS) & SDXC_CARD_DATA_BUSY)) {
+		dev_err(mmc_dev(smc_host->mmc), \
+				"Wait r1 rdy %d ms timeout\n", ms);
+		return -1;
+	} else{
+		dev_info(mmc_dev(smc_host->mmc), \
+			"*All wait r1 rdy %d ms*\n", cnt);
+		return 0;
+	}
+}
+
+
+
+//static irqreturn_t sunxi_mmc_handle_manual_stop(int irq, void *dev_id)
+static irqreturn_t sunxi_mmc_handle_bottom_half(int irq, void *dev_id)
+
 {
 	struct sunxi_mmc_host *host = dev_id;
 	struct mmc_request *mrq;
+		struct mmc_request *mrq_busy = NULL;
 	unsigned long iflags;
 
 	spin_lock_irqsave(&host->lock, iflags);
 	mrq = host->manual_stop_mrq;
+	mrq_busy = host->mrq_busy;
 	spin_unlock_irqrestore(&host->lock, iflags);
+
+
+    if (mrq_busy) {
+		//Here,we don't use the timeout value in mrq_busy->busy_timeout
+		//Because this value may not right for example when useing TRIM
+		//So we use max wait time and print time value every 1 second
+		sunxi_check_r1_ready_may_sleep(host,0x7ffffff);
+    	spin_lock_irqsave(&host->lock, iflags);				
+		host->mrq_busy = NULL;
+    	spin_unlock_irqrestore(&host->lock, iflags);				
+		mmc_request_done(host->mmc, mrq_busy);
+		return IRQ_HANDLED;		
+    }else{
+		dev_dbg(mmc_dev(host->mmc), "no request for busy\n");
+	}
+
 
 	if (!mrq) {
 		dev_err(mmc_dev(host->mmc), "no request for manual stop\n");
@@ -943,7 +1017,7 @@ static void sunxi_mmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	spin_lock_irqsave(&host->lock, iflags);
 
-	if (host->mrq || host->manual_stop_mrq) {
+	if (host->mrq || host->manual_stop_mrq || host->mrq_busy) {
 		spin_unlock_irqrestore(&host->lock, iflags);
 
 		if (data)
@@ -1339,7 +1413,7 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 
 	host->irq = platform_get_irq(pdev, 0);
 	ret = devm_request_threaded_irq(&pdev->dev, host->irq, sunxi_mmc_irq,
-			sunxi_mmc_handle_manual_stop, 0, "sunxi-mmc", host);
+			sunxi_mmc_handle_bottom_half, 0, "sunxi-mmc", host);
 	if(ret){
 		dev_err(&pdev->dev, "faild to request irq %d\n", ret);
 		goto error_disable_clk_mmc;
@@ -1426,7 +1500,8 @@ static int sunxi_mmc_probe(struct platform_device *pdev)
 	/* 400kHz ~ 50MHz */
 	mmc->f_min		=   400000;
 	mmc->f_max		= 50000000;
-	mmc->caps	       |= MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED | MMC_CAP_ERASE;
+	mmc->caps	       |= MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED | MMC_CAP_ERASE \
+						| MMC_CAP_WAIT_WHILE_BUSY;
 	//mmc->caps2	  |= MMC_CAP2_HS400_1_8V;
 
 

@@ -26,7 +26,7 @@
 
 
 #define DRIVER_NAME "sunxi-mmc"
-#define DRIVER_RIVISION "v0.15 2015-5-25 15:00"
+#define DRIVER_RIVISION "v0.16 2015-5-26 11:06"
 #define DRIVER_VERSION "SD/MMC/SDIO Host Controller Driver(" DRIVER_RIVISION ")" \
 			" Compiled in " __DATE__ " at " __TIME__""
 
@@ -267,6 +267,7 @@ struct sunxi_mmc_host {
 				  struct mmc_ios *ios, struct mmc_data *data);
 
 	struct mmc_request *mrq;
+	struct mmc_request *mrq_busy;
 	struct mmc_request *manual_stop_mrq;
 	int		ferror;
 
