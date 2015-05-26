@@ -456,7 +456,7 @@ static inline u16 join_bytes(u8 a, u8 b)
 	return ab;
 }
 
-#if 1
+#if 0
 static u32 gsl_read_interface(struct i2c_client *client, u8 reg, u8 *buf, u32 num)
 {
 	struct i2c_msg xfer_msg[2];
@@ -1110,7 +1110,7 @@ static void process_gslX680_data(struct gsl_ts *ts)
 	u16 x, y;
 	int i = 0;
 	//int tmp1 = 0;
-	u8 buf[4]={0};
+	//u8 buf[4]={0};
 #ifdef GSL_NOID_VERSION
     struct gsl_touch_info cinfo;
 #endif
