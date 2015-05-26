@@ -28,7 +28,6 @@
 #include <linux/slab.h>
 #include <linux/dmi.h>
 #include <linux/dma-mapping.h>
-#include <linux/platform_device.h>
 
 #include "xhci.h"
 #include "xhci-trace.h"
@@ -517,10 +516,6 @@ static int xhci_all_ports_seen_u0(struct xhci_hcd *xhci)
 	return (xhci->port_status_u0 == ((1 << xhci->num_usb3_ports)-1));
 }
 
-void xhci_disable_usb3_lpm_quirk(struct xhci_hcd *xhci, int port1)
-{
-	set_bit(port1 - 1, &xhci->usb3_no_lpm);
-}
 
 /*
  * Initialize memory for HCD and xHC (one-time init).
@@ -697,11 +692,6 @@ void xhci_stop(struct usb_hcd *hcd)
 	spin_unlock_irq(&xhci->lock);
 
 	xhci_cleanup_msix(xhci);
-
-	if (xhci->ext_dev) {
-		platform_device_unregister(xhci->ext_dev);
-		xhci->ext_dev = NULL;
-	}
 
 	/* Deleting Compliance Mode Recovery Timer */
 	if ((xhci->quirks & XHCI_COMP_MODE_QUIRK) &&
@@ -4231,11 +4221,6 @@ int xhci_update_device(struct usb_hcd *hcd, struct usb_device *udev)
 	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
 	int		portnum = udev->portnum - 1;
 
-	if (hcd->speed == HCD_USB3 && test_bit(portnum, &xhci->usb3_no_lpm)) {
-		udev->lpm_capable = 0;
-		return 0;
-	}
-
 	if (hcd->speed == HCD_USB3 || !xhci->sw_lpm_support ||
 			!udev->lpm_capable)
 		return 0;
@@ -4640,8 +4625,7 @@ int xhci_enable_usb3_lpm_timeout(struct usb_hcd *hcd,
 	 * information about their timeout algorithm.
 	 */
 	if (!xhci || !(xhci->quirks & XHCI_LPM_SUPPORT) ||
-			!xhci->devs[udev->slot_id] ||
-			test_bit(udev->portnum - 1, &xhci->usb3_no_lpm))
+			!xhci->devs[udev->slot_id])
 		return USB3_LPM_DISABLED;
 
 	hub_encoded_timeout = xhci_calculate_lpm_timeout(hcd, udev, state);
@@ -4667,8 +4651,7 @@ int xhci_disable_usb3_lpm_timeout(struct usb_hcd *hcd,
 
 	xhci = hcd_to_xhci(hcd);
 	if (!xhci || !(xhci->quirks & XHCI_LPM_SUPPORT) ||
-			!xhci->devs[udev->slot_id] ||
-			test_bit(udev->portnum - 1, &xhci->usb3_no_lpm))
+			!xhci->devs[udev->slot_id])
 		return 0;
 
 	mel = calculate_max_exit_latency(udev, state, USB3_LPM_DISABLED);
@@ -4892,19 +4875,7 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
 	if (retval)
 		goto error;
 	xhci_dbg(xhci, "Called HCD init\n");
-
-	/* Register a platform device to extend xHCI's vendor capabilities */
-	if (xhci->ext_dev) {
-		xhci->ext_dev->dev.parent = dev;
-		retval = platform_device_add(xhci->ext_dev);
-		if (retval)
-			goto error1;
-	}
-
 	return 0;
-
-error1:
-	xhci_mem_cleanup(xhci);
 error:
 	kfree(xhci);
 	return retval;

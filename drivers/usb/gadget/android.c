@@ -162,7 +162,7 @@ static struct usb_configuration android_config_driver = {
 	.label		= "android",
 	.unbind		= android_unbind_config,
 	.bConfigurationValue = 1,
-	.bmAttributes	= USB_CONFIG_ATT_ONE | USB_CONFIG_ATT_SELFPOWER,
+	.bmAttributes	= USB_CONFIG_ATT_ONE,
 	.MaxPower	= 500, /* 500ma */
 };
 
@@ -425,9 +425,12 @@ static int functionfs_ready_callback(struct ffs_data *ffs)
 {
 	struct android_dev *dev = _android_dev;
 	struct functionfs_config *config = ffs_function.config;
+	struct usb_composite_dev *cdev = dev->cdev;
 	int ret = 0;
 
 	mutex_lock(&dev->mutex);
+
+	cdev->next_string_id = dev->reset_string_id;
 
 	config->instances++;
 	config->data = ffs;
@@ -1552,7 +1555,6 @@ static int android_bind(struct usb_composite_dev *cdev)
 	device_desc.iSerialNumber = id;
 	dev->reset_string_id = id;
 
-	usb_gadget_set_selfpowered(gadget);
 	dev->cdev = cdev;
 
 	return 0;

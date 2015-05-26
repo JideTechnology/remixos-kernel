@@ -2404,14 +2404,22 @@ int atomisp_set_array_res(struct atomisp_sub_device *asd,
 int atomisp_get_dvs2_bq_resolutions(struct atomisp_sub_device *asd,
 			 struct atomisp_dvs2_bq_resolutions *bq_res)
 {
-	struct ia_css_pipe_config *pipe_cfg =
-		&asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL]
+	struct ia_css_pipe_config *pipe_cfg = NULL;
+	struct ia_css_stream_config *stream_cfg = NULL;
+	struct ia_css_stream_input_config *input_config = NULL;
+
+	struct ia_css_stream *stream =
+		asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL].stream;
+	if (!stream) {
+		dev_warn(asd->isp->dev, "stream is not created");
+		return -EAGAIN;
+	}
+
+	pipe_cfg = &asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL]
 		.pipe_configs[CSS_PIPE_ID_VIDEO];
-	struct ia_css_stream_config *stream_cfg =
-		&asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL]
+	stream_cfg = &asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL]
 		.stream_config;
-	struct ia_css_stream_input_config *input_config =
-		&stream_cfg->input_config;
+	input_config = &stream_cfg->input_config;
 
 	if (!bq_res)
 		return -EINVAL;
@@ -5182,6 +5190,7 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 	struct atomisp_video_pipe *pipe = atomisp_to_video_pipe(vdev);
 	struct atomisp_sub_device *asd = pipe->asd;
 	const struct atomisp_format_bridge *format_bridge;
+	const struct atomisp_format_bridge *snr_format_bridge;
 	struct atomisp_css_frame_info output_info, raw_output_info;
 	struct v4l2_format snr_fmt = *f;
 	struct v4l2_format backup_fmt = *f, s_fmt = *f;
@@ -5199,6 +5208,9 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 		"setting resolution %ux%u on pad %u for asd%d, bytesperline %u\n",
 		f->fmt.pix.width, f->fmt.pix.height, source_pad,
 		asd->index, f->fmt.pix.bytesperline);
+
+	if (source_pad >= ATOMISP_SUBDEV_PADS_NUM)
+		return -EINVAL;
 
 	if (asd->streaming == ATOMISP_DEVICE_STREAMING_ENABLED) {
 		dev_warn(isp->dev, "ISP does not support set format while at streaming!\n");
@@ -5356,24 +5368,21 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 	f->fmt.pix.width = snr_fmt.fmt.pix.width;
 	f->fmt.pix.height = snr_fmt.fmt.pix.height;
 
-	if (!atomisp_get_format_bridge(snr_fmt.fmt.pix.pixelformat))
+	snr_format_bridge =
+		atomisp_get_format_bridge(snr_fmt.fmt.pix.pixelformat);
+	if (!snr_format_bridge)
 		return -EINVAL;
 
 	atomisp_subdev_get_ffmt(&asd->subdev, NULL,
 				V4L2_SUBDEV_FORMAT_ACTIVE,
 				ATOMISP_SUBDEV_PAD_SINK)->code =
-		atomisp_get_format_bridge(
-			snr_fmt.fmt.pix.pixelformat)->mbus_code;
+		snr_format_bridge->mbus_code;
 
 	isp_sink_fmt = *atomisp_subdev_get_ffmt(&asd->subdev, NULL,
 					    V4L2_SUBDEV_FORMAT_ACTIVE,
 					    ATOMISP_SUBDEV_PAD_SINK);
 
-	if (!atomisp_get_format_bridge(f->fmt.pix.pixelformat))
-		return -EINVAL;
-
-	isp_source_fmt.code = atomisp_get_format_bridge(
-		f->fmt.pix.pixelformat)->mbus_code;
+	isp_source_fmt.code = format_bridge->mbus_code;
 	atomisp_subdev_set_ffmt(&asd->subdev, &fh,
 				V4L2_SUBDEV_FORMAT_ACTIVE,
 				source_pad, &isp_source_fmt);
