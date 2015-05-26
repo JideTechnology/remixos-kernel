@@ -353,13 +353,13 @@ static int ov2685_g_wb(struct v4l2_subdev *sd, s32 *value)
 	return 0;
 }
 
-static int ov2685_s_wb(struct v4l2_subdev *sd, int value)
+static int __ov2685_s_wb(struct v4l2_subdev *sd, int wb)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov2685_device *dev = to_ov2685_sensor(sd);
 	int ret;
 
-	switch (value) {
+	switch (wb) {
 	case V4L2_WHITE_BALANCE_MANUAL:
 		ret = ov2685_write_reg_array(client, ov2685_AWB_manual);
 		break;
@@ -380,15 +380,27 @@ static int ov2685_s_wb(struct v4l2_subdev *sd, int value)
 		ret = ov2685_write_reg_array(client, ov2685_AWB_sunny);
 		break;
 	default:
-		dev_err(&client->dev, "ov2685_s_wb: %d\n", value);
-		return -EINVAL;
+		dev_err(&client->dev, "invalid wb mode: %d with err: %d\n", wb, -ERANGE);
+		return -ERANGE;
 	}
 
 	if (ret)
 		return ret;
 
-	dev->wb_mode = value;
+	dev->wb_mode = wb;
 	return 0;
+}
+
+static int ov2685_s_wb(struct v4l2_subdev *sd, int wb)
+{
+	struct ov2685_device *dev = to_ov2685_sensor(sd);
+	int ret;
+
+	if (dev->wb_mode == wb)
+		return 0;
+
+	ret = __ov2685_s_wb(sd, wb);
+	return ret;
 }
 
 static int ov2685_get_sysclk(struct v4l2_subdev *sd, int *sysclk)
@@ -705,14 +717,11 @@ static int ov2685_s_ae_lock(struct v4l2_subdev *sd, int value)
 	dev->ae_lock = value;
 	return 0;
 }
-static int ov2685_s_color_effect(struct v4l2_subdev *sd, int effect)
+static int __ov2685_s_color_effect(struct v4l2_subdev *sd, int effect)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov2685_device *dev = to_ov2685_sensor(sd);
 	int ret = 0;
-
-	if (dev->color_effect == effect)
-		return 0;
 
 	switch (effect) {
 	case V4L2_COLORFX_NONE:
@@ -734,7 +743,8 @@ static int ov2685_s_color_effect(struct v4l2_subdev *sd, int effect)
 		ret = ov2685_write_reg_array(client, ov2685_green_effect);
 		break;
 	default:
-		dev_err(&client->dev, "invalid color effect.\n");
+		dev_err(&client->dev, "invalid color effect: %d with err: %d\n",
+				effect, -ERANGE);
 		return -ERANGE;
 	}
 
@@ -744,7 +754,17 @@ static int ov2685_s_color_effect(struct v4l2_subdev *sd, int effect)
 	dev->color_effect = effect;
 	return 0;
 }
+static int ov2685_s_color_effect(struct v4l2_subdev *sd, int effect)
+{
+	struct ov2685_device *dev = to_ov2685_sensor(sd);
+	int ret;
 
+	if (dev->color_effect == effect)
+		return 0;
+
+	ret = __ov2685_s_color_effect(sd, effect);
+	return ret;
+}
 static int ov2685_g_color_effect(struct v4l2_subdev *sd, int *effect)
 {
 	struct ov2685_device *dev = to_ov2685_sensor(sd);
@@ -1133,8 +1153,24 @@ static int ov2685_s_mbus_fmt(struct v4l2_subdev *sd,
 	fmt->width = ov2685_res[res_index].width;
 	fmt->height = ov2685_res[res_index].height;
 	fmt->code = V4L2_MBUS_FMT_UYVY8_1X16;
-	dev->color_effect = V4L2_COLORFX_NONE;
-	dev->wb_mode = V4L2_WHITE_BALANCE_AUTO;
+
+	/* Restore color effect. Not to set NONE since
+	 * it had been set in resolution setting.
+	 */
+	if (dev->color_effect != V4L2_COLORFX_NONE) {
+		ret = __ov2685_s_color_effect(sd, dev->color_effect);
+		if (ret)
+			return ret;
+	}
+	/* Restore AWB. Not to set AUTO since it had been
+	 * set in resolutin setting and reset to AUTO will
+	 * clear previous color effect.
+	 */
+	if (dev->wb_mode != V4L2_WHITE_BALANCE_AUTO) {
+		ret = __ov2685_s_wb(sd, dev->wb_mode);
+		if (ret)
+			return ret;
+	}
 	dev->ae_lock = AE_UNLOCK;
 	dev->hot_pixel = HOT_PIXEL_OFF;
 
@@ -1272,7 +1308,7 @@ static int ov2685_s_ctrl(struct v4l2_ctrl *ctrl)
 		ret = ov2685_s_ae_lock(&dev->sd, ctrl->val);
 		break;
 	case V4L2_CID_COLORFX:
-		dev_dbg(&client->dev, "%s: CID_3A_LOCK:%d.\n",
+		dev_dbg(&client->dev, "%s: CID_COLORFX:%d.\n",
 			__func__, ctrl->val);
 		ret = ov2685_s_color_effect(&dev->sd, ctrl->val);
 		break;
