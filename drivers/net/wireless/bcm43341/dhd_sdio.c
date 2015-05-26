@@ -7871,7 +7871,9 @@ dhdsdio_download_nvram(struct dhd_bus *bus)
 		ASSERT(len <= MAX_NVRAMBUF_SIZE);
 		memcpy(memblock, bus->nvram_params, len);
 	}
-	
+
+//Comment to remove nvram file descryption of USI    
+#if 0
 #ifdef _USI_NVRAM_FILE
 	{
 	int ret = 0;
@@ -7881,6 +7883,7 @@ dhdsdio_download_nvram(struct dhd_bus *bus)
 #endif /* DHD_DEBUG */
 	}
 #endif /* _USI_NVRAM_FILE */
+#endif
 
 	if (len > 0 && len < MAX_NVRAMBUF_SIZE) {
 		bufp = (char *)memblock;
