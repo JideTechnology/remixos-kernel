@@ -691,23 +691,7 @@ static void ish_remove(struct pci_dev *pdev)
 	pci_disable_device(pdev);
 }
 
-#define HECI_ISH_PM_OPS	(&intel_ish_pm)
-
-
-static int intel_ish_suspend(struct device *dev)
-{
-	return 0;
-}
-
-static int intel_ish_resume(struct device *dev)
-{
-	return 0;
-}
-
-static const struct dev_pm_ops intel_ish_pm = {
-	.suspend = intel_ish_suspend,
-	.resume = intel_ish_resume,
-};
+#define HECI_ISH_PM_OPS	NULL
 
 /*
  *  PCI driver structure
