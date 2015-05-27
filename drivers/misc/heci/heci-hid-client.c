@@ -1,7 +1,7 @@
 /*
- * HECI client driver for HID (ISS)
+ * HECI client driver for HID (ISH)
  *
- * Copyright (c) 2014-2015, Intel Corporation.
+ * Copyright (c) 2014, Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -36,10 +36,9 @@ void	heci_hid_remove(void);
 
 
 /* Global vars, may eventually end up in a structure */
-struct heci_cl	*hid_heci_cl = NULL;			/* ISS HECI client */
+struct heci_cl	*hid_heci_cl = NULL;			/* ISH HECI client */
 
-/* Set when ISS HECI client is successfully probed */
-int	hid_heci_client_found;
+int	hid_heci_client_found;		/* Set when ISH HECI client is successfully probed */
 int	may_send;				/* Global flag that determines if sender thread can safely send something or it should wait more */
 int	enum_devices_done;			/* Enum devices response complete flag */
 int	hid_descr_done;			/* Get HID descriptor complete flag */
@@ -566,7 +565,7 @@ static int __init ish_init(void)
 /*----------------------*/
 	init_waitqueue_head(&init_wait);
 
-	/* Register HECI client device driver - ISS */
+	/* Register HECI client device driver - ISH */
 	rv = heci_cl_driver_register(&hid_heci_cl_driver);
 
 	/* 7/7/2014: in order to not stick Android boot, from here & below needs to run in work queue and here we should return rv */
@@ -595,7 +594,7 @@ static void __exit ish_exit(void)
 module_init(ish_init);
 module_exit(ish_exit);
 
-MODULE_DESCRIPTION("ISS HECI client driver");
+MODULE_DESCRIPTION("ISH HECI client driver");
 MODULE_AUTHOR("Intel Corporation");
 MODULE_LICENSE("GPL");
 
