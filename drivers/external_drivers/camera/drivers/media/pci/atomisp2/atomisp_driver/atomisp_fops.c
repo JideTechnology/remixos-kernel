@@ -765,10 +765,10 @@ static int atomisp_open(struct file *file)
 {
 	struct video_device *vdev = video_devdata(file);
 	struct atomisp_device *isp = video_get_drvdata(vdev);
-	struct atomisp_video_pipe *pipe = NULL;
-	struct atomisp_acc_pipe *acc_pipe = NULL;
+	struct atomisp_video_pipe *pipe;
+	struct atomisp_acc_pipe *acc_pipe;
 	struct atomisp_sub_device *asd;
-	bool acc_node = false;
+	bool acc_node;
 	int ret;
 
 	dev_dbg(isp->dev, "open device %s\n", vdev->name);
