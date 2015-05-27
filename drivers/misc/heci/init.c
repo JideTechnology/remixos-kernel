@@ -153,9 +153,6 @@ reset_done:
 
 	dev_dbg(&dev->pdev->dev, "link layer has been established.\n");
 
-	/*suspend & resume notification - send QUERY_SUBSCRIBERS msg*/
-	query_subscribers(dev);
-
 	return 0;
 err:
 	dev_err(&dev->pdev->dev, "link layer initialization failed.\n");

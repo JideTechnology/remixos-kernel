@@ -17,7 +17,7 @@
 #define PLATFORM_CONFIG__H
 
 /* Build ID string */
-#define	BUILD_ID	"imin-0133-fixes-batch-wake-hid-dbg"
+#define	BUILD_ID	"imin-0127-fixes-c0"
 
 #define	ISH_DEBUG	0
 #if ISH_DEBUG
