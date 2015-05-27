@@ -32,7 +32,7 @@ static void no_dev_dbg(void *v, char *s, ...)
 {
 }
 #define dev_dbg no_dev_dbg
-/* #define dev_dbg dev_err */
+/*#define dev_dbg dev_err*/
 
 int	host_dma_enabled;
 void	*host_dma_buf;
@@ -46,12 +46,8 @@ void	heci_cl_alloc_dma_buf(void)
 	int	order;
 	unsigned	temp;
 
-	/*
-	 * Try to allocate 256 contiguous pages (1 M)
-	 * for DMA and enabled host DMA
-	 */
-	for (order = 0, temp = host_dma_buf_size / PAGE_SIZE + 1; temp;
-			temp >>= 1)
+	/* Try to allocate 256 contiguous pages (1 M) for DMA and enabled host DMA */
+	for (order = 0, temp = host_dma_buf_size / PAGE_SIZE + 1; temp; temp >>= 1)
 		++order;
 	host_dma_buf = (void *)__get_free_pages(GFP_KERNEL, order);
 	if (host_dma_buf) {
@@ -59,33 +55,27 @@ void	heci_cl_alloc_dma_buf(void)
 		host_dma_enabled = 1;
 	}
 
-	ISH_DBG_PRINT(KERN_ALERT
-		"%s(): host_dma_enabled=%d host_dma_buf=%p host_dma_buf_phys=%llX host_dma_buf_size=%u order=%d\n",
-		__func__, host_dma_enabled, host_dma_buf, host_dma_buf_phys,
-		host_dma_buf_size, order);
+	ISH_DBG_PRINT(KERN_ALERT "%s(): host_dma_enabled=%d host_dma_buf=%p host_dma_buf_phys=%llX host_dma_buf_size=%u order=%d\n", __func__, host_dma_enabled, host_dma_buf, host_dma_buf_phys, host_dma_buf_size, order);
 }
 
 
 /**
- * heci_read_list_flush - removes list entry belonging to cl.
+ * heci_io_list_flush - removes list entry belonging to cl.
  *
  * @list:  An instance of our list structure
  * @cl: host client
  */
-void heci_read_list_flush(struct heci_cl *cl)
+void heci_io_list_flush(struct heci_cl_rb *list, struct heci_cl *cl)
 {
 	struct heci_cl_rb *rb;
 	struct heci_cl_rb *next;
 
-	unsigned long	flags;
-	spin_lock_irqsave(&cl->dev->read_list_spinlock, flags);
-	list_for_each_entry_safe(rb, next, &cl->dev->read_list.list, list) {
+	list_for_each_entry_safe(rb, next, &list->list, list) {
 		if (rb->cl && heci_cl_cmp_id(cl, rb->cl)) {
 			list_del(&rb->list);
 			heci_io_rb_free(rb);
 		}
 	}
-	spin_unlock_irqrestore(&cl->dev->read_list_spinlock, flags);
 }
 
 /**
@@ -154,8 +144,7 @@ int heci_io_rb_alloc_buf(struct heci_cl_rb *rb, size_t length)
 
 
 /*
- * heci_io_rb_recycle - re-append rb to its client's free list
- * and send flow control if needed
+ * heci_io_rb_recycle - re-append rb to its client's free list and send flow control if needed
  */
 int heci_io_rb_recycle(struct heci_cl_rb *rb)
 {
@@ -172,12 +161,10 @@ int heci_io_rb_recycle(struct heci_cl_rb *rb)
 	list_add_tail(&rb->list, &cl->free_rb_list.list);
 	spin_unlock_irqrestore(&cl->free_list_spinlock, flags);
 
-	/*
-	 * If we returned the first buffer to empty 'free' list,
-	 * send flow control
-	 */
-	if (!cl->out_flow_ctrl_creds)
+	/* If we returned the first buffer to empty 'free' list, send flow control */
+	if (!cl->out_flow_ctrl_creds) {
 		rets = heci_cl_read_start(cl);
+	}
 
 	return	rets;
 }
@@ -196,7 +183,7 @@ int heci_cl_flush_queues(struct heci_cl *cl)
 		return -EINVAL;
 
 	dev_dbg(&cl->dev->pdev->dev, "remove list entry belonging to cl\n");
-	heci_read_list_flush(cl);
+	heci_io_list_flush(&cl->dev->read_list, cl);
 
 	return 0;
 }
@@ -235,57 +222,45 @@ void heci_cl_init(struct heci_cl *cl, struct heci_device *dev)
 int	heci_cl_free_rx_ring(struct heci_cl *cl)
 {
 	struct heci_cl_rb * rb;
-	unsigned long	flags;
 
 	/* relese allocated mem- pass over free_rb_list */
-	spin_lock_irqsave(&cl->free_list_spinlock, flags);
 	while (!list_empty(&cl->free_rb_list.list)) {
-		rb = list_entry(cl->free_rb_list.list.next, struct heci_cl_rb,
-			list);
+		rb = list_entry(cl->free_rb_list.list.next, struct heci_cl_rb, list);
 		list_del(&rb->list);
 		kfree(rb->buffer.data);
 		kfree(rb);
 	}
-	spin_unlock_irqrestore(&cl->free_list_spinlock, flags);
+
 	/* relese allocated mem- pass over in_process_list */
-	spin_lock_irqsave(&cl->in_process_spinlock, flags);
 	while (!list_empty(&cl->in_process_list.list)) {
-		rb = list_entry(cl->in_process_list.list.next,
-			struct heci_cl_rb, list);
+		rb = list_entry(cl->in_process_list.list.next, struct heci_cl_rb, list);
 		list_del(&rb->list);
 		kfree(rb->buffer.data);
 		kfree(rb);
 	}
-	spin_unlock_irqrestore(&cl->in_process_spinlock, flags);
+
 	return	0;
 }
 
 int	heci_cl_free_tx_ring(struct heci_cl *cl)
 {
 	struct heci_cl_tx_ring  *tx_buf;
-	unsigned long	flags;
 
-	spin_lock_irqsave(&cl->tx_free_list_spinlock, flags);
 	/* relese allocated mem- pass over tx_free_list */
 	while (!list_empty(&cl->tx_free_list.list)) {
-		tx_buf = list_entry(cl->tx_free_list.list.next,
-			struct heci_cl_tx_ring, list);
+		tx_buf = list_entry(cl->tx_free_list.list.next, struct heci_cl_tx_ring, list);
 		list_del(&tx_buf->list);
 		kfree(tx_buf->send_buf.data);
 		kfree(tx_buf);
 	}
-	spin_unlock_irqrestore(&cl->tx_free_list_spinlock, flags);
 
-	spin_lock_irqsave(&cl->tx_list_spinlock, flags);
 	/* relese allocated mem- pass over tx_list */
 	while (!list_empty(&cl->tx_list.list)) {
-		tx_buf = list_entry(cl->tx_list.list.next,
-			struct heci_cl_tx_ring, list);
+		tx_buf = list_entry(cl->tx_list.list.next, struct heci_cl_tx_ring, list);
 		list_del(&tx_buf->list);
 		kfree(tx_buf->send_buf.data);
 		kfree(tx_buf);
 	}
-	spin_unlock_irqrestore(&cl->tx_list_spinlock, flags);
 
 	return	0;
 }
@@ -295,31 +270,24 @@ int	heci_cl_alloc_rx_ring(struct heci_cl *cl)
 	size_t	len = cl->device->fw_client->props.max_msg_length;
 	int	j;
 	struct heci_cl_rb *rb;
-	int	ret = 0;
+	int	ret;
 	struct heci_device *dev = cl->dev;
-	unsigned long	flags;
 
 	for (j = 0; j < cl->rx_ring_size; ++j) {
 		rb = heci_io_rb_init(cl);
-		if (!rb) {
-			ret = -ENOMEM;
+		if (!rb)
 			goto out;
-		}
 		ret = heci_io_rb_alloc_buf(rb, len);
 		if (ret)
 			goto out;
-		spin_lock_irqsave(&cl->free_list_spinlock, flags);
 		list_add_tail(&rb->list, &cl->free_rb_list.list);
-		spin_unlock_irqrestore(&cl->free_list_spinlock, flags);
 	}
 
-	ISH_DBG_PRINT(KERN_ALERT "%s() allocated rb pool successfully\n",
-		__func__);
+	ISH_DBG_PRINT(KERN_ALERT "%s() allocated rb pool successfully\n", __func__);
 	return	0;
 
 out:
-	dev_err(&dev->pdev->dev, "%s() error in allocating rb pool\n",
-		__func__);
+	dev_err(&dev->pdev->dev, "%s() error in allocating rb pool\n", __func__);
 	heci_cl_free_rx_ring(cl);
 	return	ret;
 }
@@ -330,11 +298,9 @@ int	heci_cl_alloc_tx_ring(struct heci_cl *cl)
 	size_t	len = cl->device->fw_client->props.max_msg_length;
 	int	j;
 	struct heci_device *dev = cl->dev;
-	unsigned long	flags;
 
 	/*cl->send_fc_flag = 0;*/
-	ISH_DBG_PRINT(KERN_ALERT "%s() allocated rb pool successfully\n",
-		__func__);
+	ISH_DBG_PRINT(KERN_ALERT "%s() allocated rb pool successfully\n", __func__);
 
 	/* Allocate pool to free Tx bufs */
 	for (j = 0; j < cl->tx_ring_size; ++j) {
@@ -342,30 +308,24 @@ int	heci_cl_alloc_tx_ring(struct heci_cl *cl)
 
 		tx_buf = kmalloc(sizeof(struct heci_cl_tx_ring), GFP_KERNEL);
 		if (!tx_buf) {
-			dev_err(&dev->pdev->dev, "%s(): error allocating Tx buffers\n",
-				__func__);
+			dev_err(&dev->pdev->dev, "%s(): error allocating Tx buffers\n", __func__);
 			goto	out;
 		}
 		memset(tx_buf, 0, sizeof(struct heci_cl_tx_ring));
 		tx_buf->send_buf.data = kmalloc(len, GFP_KERNEL);
 		if (!tx_buf->send_buf.data) {
-			dev_err(&dev->pdev->dev, "%s(): error allocating Tx buffers\n",
-				__func__);
+			dev_err(&dev->pdev->dev, "%s(): error allocating Tx buffers\n", __func__);
 			kfree(tx_buf);
 			goto	out;
 		}
-		spin_lock_irqsave(&cl->tx_free_list_spinlock, flags);
 		list_add_tail(&tx_buf->list, &cl->tx_free_list.list);
-		spin_unlock_irqrestore(&cl->tx_free_list_spinlock, flags);
 	}
-	ISH_DBG_PRINT(KERN_ALERT "%s() allocated Tx  pool successfully\n",
-		__func__);
+	ISH_DBG_PRINT(KERN_ALERT "%s() allocated Tx  pool successfully\n", __func__);
 
 	return	0;
 
 out:
-	dev_err(&dev->pdev->dev, "%s() error in allocating rb pool\n",
-		__func__);
+	dev_err(&dev->pdev->dev, "%s() error in allocating rb pool\n", __func__);
 	heci_cl_free_rx_ring(cl);
 	return	-ENOMEM;
 }
@@ -418,8 +378,7 @@ struct heci_cl_rb *heci_cl_find_read_rb(struct heci_cl *cl)
 	spin_lock_irqsave(&dev->read_list_spinlock, dev_flags);
 	list_for_each_entry_safe(rb, next, &dev->read_list.list, list)
 		if (heci_cl_cmp_id(cl, rb->cl)) {
-			spin_unlock_irqrestore(&dev->read_list_spinlock,
-				dev_flags);
+			spin_unlock_irqrestore(&dev->read_list_spinlock, dev_flags);
 			return rb;
 		}
 	spin_unlock_irqrestore(&dev->read_list_spinlock, dev_flags);
@@ -438,7 +397,7 @@ EXPORT_SYMBOL(heci_cl_find_read_rb);
 int heci_cl_link(struct heci_cl *cl, int id)
 {
 	struct heci_device *dev;
-	unsigned long	flags, flags_cl;
+	unsigned long	flags;
 
 	if (WARN_ON(!cl || !cl->dev))
 		return -EINVAL;
@@ -454,8 +413,7 @@ int heci_cl_link(struct heci_cl *cl, int id)
 
 	/* If Id is not asigned get one*/
 	if (id == HECI_HOST_CLIENT_ID_ANY)
-		id = find_first_zero_bit(dev->host_clients_map,
-			HECI_CLIENTS_MAX);
+		id = find_first_zero_bit(dev->host_clients_map, HECI_CLIENTS_MAX);
 
 	if (id >= HECI_CLIENTS_MAX) {
 		spin_unlock_irqrestore(&dev->device_lock, flags);
@@ -465,14 +423,7 @@ int heci_cl_link(struct heci_cl *cl, int id)
 
 	dev->open_handle_count++;
 	cl->host_client_id = id;
-	spin_lock_irqsave(&dev->cl_list_lock, flags_cl);
-	if (dev->dev_state != HECI_DEV_ENABLED) {
-		spin_unlock_irqrestore(&dev->cl_list_lock, flags_cl);
-		spin_unlock_irqrestore(&dev->device_lock, flags);
-		return -ENODEV;
-	}
 	list_add_tail(&cl->link, &dev->cl_list);
-	spin_unlock_irqrestore(&dev->cl_list_lock, flags_cl);
 	set_bit(id, dev->host_clients_map);
 	cl->state = HECI_CL_INITIALIZING;
 	spin_unlock_irqrestore(&dev->device_lock, flags);
@@ -501,24 +452,20 @@ int heci_cl_unlink(struct heci_cl *cl)
 	dev = cl->dev;
 
 	spin_lock_irqsave(&dev->device_lock, flags);
+		
 	if (dev->open_handle_count > 0) {
 		clear_bit(cl->host_client_id, dev->host_clients_map);
 		dev->open_handle_count--;
 	}
-	spin_unlock_irqrestore(&dev->device_lock, flags);
 
-	/*
-	 * This checks that 'cl' is actually linked into device's structure,
-	 * before attempting 'list_del'
-	 */
-	spin_lock_irqsave(&dev->cl_list_lock, flags);
+	/* This checks that 'cl' is actually linked into device's structure, before attempting 'list_del' */
 	list_for_each_entry_safe(pos, next, &dev->cl_list, link) {
 		if (cl->host_client_id == pos->host_client_id) {
 			list_del_init(&pos->link);
 			break;
 		}
 	}
-	spin_unlock_irqrestore(&dev->cl_list_lock, flags);
+	spin_unlock_irqrestore(&dev->device_lock, flags);
 
 	return 0;
 }
@@ -561,14 +508,10 @@ int heci_cl_disconnect(struct heci_cl *cl)
 	}
 
 	err = wait_event_timeout(cl->wait_ctrl_res,
-			(dev->dev_state != HECI_DEV_ENABLED ||
-			HECI_CL_DISCONNECTED == cl->state),
+			(dev->dev_state == HECI_DEV_ENABLED && HECI_CL_DISCONNECTED == cl->state),
 			heci_secs_to_jiffies(HECI_CL_CONNECT_TIMEOUT));
 
-	/*
-	 * If FW reset arrived, this will happen. Don't check cl->,
-	 * as 'cl' may be freed already
-	 */
+	/* If FW reset arrived, this will happen. Don't check cl->, as 'cl' may be freed already */
 	if (dev->dev_state != HECI_DEV_ENABLED) {
 		rets = -ENODEV;
 		goto	free;
@@ -619,16 +562,15 @@ bool heci_cl_is_other_connecting(struct heci_cl *cl)
 
 	dev = cl->dev;
 
-	spin_lock_irqsave(&dev->cl_list_lock, flags);
+	spin_lock_irqsave(&dev->device_lock, flags);
 	list_for_each_entry_safe(pos, next, &dev->cl_list, link) {
-		if ((pos->state == HECI_CL_CONNECTING) && (pos != cl) &&
-				cl->me_client_id == pos->me_client_id) {
-			spin_unlock_irqrestore(&dev->cl_list_lock, flags);
+		if ((pos->state == HECI_CL_CONNECTING) && (pos != cl) && cl->me_client_id == pos->me_client_id) {
+			spin_unlock_irqrestore(&dev->device_lock, flags);
 			return true;
 		}
 
 	}
-	spin_unlock_irqrestore(&dev->cl_list_lock, flags);
+	spin_unlock_irqrestore(&dev->device_lock, flags);
 
 	return false;
 }
@@ -674,10 +616,7 @@ int heci_cl_connect(struct heci_cl *cl)
 				  cl->state == HECI_CL_DISCONNECTED)),
 				 timeout * HZ);
 
-	/*
-	 * If FW reset arrived, this will happen. Don't check cl->,
-	 * as 'cl' may be freed already
-	 */
+	/* If FW reset arrived, this will happen. Don't check cl->, as 'cl' may be freed already */
 	if (dev->dev_state != HECI_DEV_ENABLED) {
 		rets = -EFAULT;
 		goto	out;
@@ -714,6 +653,7 @@ int heci_cl_connect(struct heci_cl *cl)
 	}
 
 	/* Upon successful connection and allocation, emit flow-control */
+dev->print_log(dev, "%s(): call heci_cl_read_start, out_flow_ctrl_creds is 0\n", __func__);
 	rets = heci_cl_read_start(cl);
 out:
 	dev_dbg(&dev->pdev->dev, "rpm: autosuspend\n");
@@ -723,6 +663,7 @@ out:
 	return rets;
 }
 EXPORT_SYMBOL(heci_cl_connect);
+
 
 /**
  * heci_cl_read_start - the start read client message function.
@@ -774,8 +715,8 @@ int heci_cl_read_start(struct heci_cl *cl)
 	/* The current rb is the head of the free rb list */
 	spin_lock_irqsave(&cl->free_list_spinlock, flags);
 	if (list_empty(&cl->free_rb_list.list)) {
-		dev_warn(&dev->pdev->dev, "[heci-ish] rb pool is empty\n");
-		rets = -ENOMEM;
+		dev_warn(&dev->pdev->dev, "[heci-ish]: rb pool is empty\n");
+		rets = -1;
 		rb = NULL;
 		spin_unlock_irqrestore(&cl->free_list_spinlock, flags);
 		goto out;
@@ -793,10 +734,7 @@ int heci_cl_read_start(struct heci_cl *cl)
 
 	/*cl->read_rb = rb;*/
 
-	/*
-	 * This must be BEFORE sending flow control -
-	 * response in ISR may come too fast...
-	 */
+	/* This must be BEFORE sending flow control - response in ISR may come too fast... */
 	spin_lock_irqsave(&dev->read_list_spinlock, dev_flags);
 	list_add_tail(&rb->list, &dev->read_list.list);
 	spin_unlock_irqrestore(&dev->read_list_spinlock, dev_flags);
@@ -810,16 +748,8 @@ out:
 	pm_runtime_mark_last_busy(&dev->pdev->dev);
 	pm_runtime_put_autosuspend(&dev->pdev->dev);
 
-	/* heci_hbm_cl_flow_control_req failed, return rb to free list */
-	if (rets && rb) {
-		spin_lock_irqsave(&dev->read_list_spinlock, dev_flags);
-		list_del(&rb->list);
-		spin_unlock_irqrestore(&dev->read_list_spinlock, dev_flags);
-
-		spin_lock_irqsave(&cl->free_list_spinlock, flags);
-		list_add_tail(&rb->list, &cl->free_rb_list.list);
-		spin_unlock_irqrestore(&cl->free_list_spinlock, flags);
-	}
+	if (rets)
+		heci_io_rb_free(rb);
 
 	return rets;
 }
@@ -832,7 +762,7 @@ int heci_cl_send(struct heci_cl *cl, u8 *buf, size_t length)
 	int id;
 	struct heci_cl_tx_ring  *cl_msg;
 	int	have_msg_to_send = 0;
-	unsigned long	me_flags, tx_flags, tx_free_flags;
+	unsigned long	tx_flags, tx_free_flags;
 
 	ISH_DBG_PRINT(KERN_ALERT "%s(): +++\n", __func__);
 	if (WARN_ON(!cl || !cl->dev))
@@ -840,15 +770,19 @@ int heci_cl_send(struct heci_cl *cl, u8 *buf, size_t length)
 
 	dev = cl->dev;
 
+	dev->print_log(dev, KERN_ALERT "%s(): cl && cl->dev OK\n", __func__);
+
 	if (cl->state != HECI_CL_CONNECTED) {
 		++cl->err_send_msg;
 		return -EPIPE;
 	}
+	dev->print_log(dev, KERN_ALERT "%s(): cl->state is HECI_CL_CONNECTED\n", __func__);
 
 	if (dev->dev_state != HECI_DEV_ENABLED) {
 		++cl->err_send_msg;
 		return -ENODEV;
 	}
+	dev->print_log(dev, KERN_ALERT "%s(): dev->dev_state is HECI_DEV_ENABLED\n", __func__);
 
 	/* Check if we have an ME client device */
 	id = heci_me_cl_by_id(dev, cl->me_client_id);
@@ -856,43 +790,32 @@ int heci_cl_send(struct heci_cl *cl, u8 *buf, size_t length)
 		++cl->err_send_msg;
 		return -ENOENT;
 	}
+	dev->print_log(dev, KERN_ALERT "%s(): have ME client device, id=%d\n", __func__, id);
 
-	spin_lock_irqsave(&dev->me_clients_lock, me_flags);
 	if (length > dev->me_clients[id].props.max_msg_length) {
 		/* If the client supports DMA, try to use it */
-		if (host_dma_enabled && dev->me_clients[id].props.dma_hdr_len &
-				HECI_CLIENT_DMA_ENABLED) {
+		if (host_dma_enabled && dev->me_clients[id].props.dma_hdr_len & HECI_CLIENT_DMA_ENABLED) {
 			struct heci_msg_hdr	hdr;
 			struct hbm_client_dma_request	heci_dma_request_msg;
 			unsigned	len = sizeof(struct hbm_client_dma_request);
-			int	preview_len =
-				dev->me_clients[id].props.dma_hdr_len & 0x7F;
-			spin_unlock_irqrestore(&dev->me_clients_lock, me_flags);
+			int	preview_len = dev->me_clients[id].props.dma_hdr_len & 0x7F;
+
 			/* DMA max msg size is 1M */
 			if (length > host_dma_buf_size) {
 				++cl->err_send_msg;
 				return	-EMSGSIZE;
 			}
 
-			/*
-			 * Client for some reason specified
-			 * props.dma_hdr_len > 12, mistake?
-			 */
+			/* Client for some reason specified props.dma_hdr_len > 12, mistake? */
 			if (preview_len > 12) {
 				++cl->err_send_msg;
 				return	-EINVAL;
 			}
 
-			/*If previous DMA transfer is in progress, go to sleep*/
-			wait_event_timeout(dev->wait_dma_ready, dma_ready,
-				10 * HZ);
+			/* If previous DMA transfer is in progress, go to sleep */
+			wait_event(dev->wait_dma_ready, dma_ready);
 			dma_ready = 0;
-			/*
-			 * First 'preview_len' bytes of buffer are preview
-			 * bytes, omitted from DMA message
-			 */
-			memcpy(host_dma_buf, buf + preview_len,
-				length - preview_len);
+			memcpy(host_dma_buf, buf + preview_len, length - preview_len);	/* First 'preview_len' bytes of buffer are preview bytes, omitted from DMA message */
 			heci_hbm_hdr(&hdr, len);
 			heci_dma_request_msg.hbm_cmd = CLIENT_DMA_REQ_CMD;
 			heci_dma_request_msg.me_addr = cl->me_client_id;
@@ -901,18 +824,12 @@ int heci_cl_send(struct heci_cl *cl, u8 *buf, size_t length)
 			heci_dma_request_msg.msg_addr = host_dma_buf_phys;
 			heci_dma_request_msg.msg_len = length - preview_len;
 			heci_dma_request_msg.reserved2 = 0;
-			memcpy(heci_dma_request_msg.msg_preview, buf,
-				preview_len);
-			heci_write_message(dev, &hdr,
-				(uint8_t *)&heci_dma_request_msg);
-			return 0;
+			memcpy(heci_dma_request_msg.msg_preview, buf, preview_len);
+			heci_write_message(dev, &hdr, (uint8_t *)&heci_dma_request_msg);
 		} else {
-			spin_unlock_irqrestore(&dev->me_clients_lock, me_flags);
 			++cl->err_send_msg;
 			return -EINVAL;		/* -EMSGSIZE? */
 		}
-	} else {
-		spin_unlock_irqrestore(&dev->me_clients_lock, me_flags);
 	}
 
 	/* No free bufs */
@@ -923,17 +840,16 @@ int heci_cl_send(struct heci_cl *cl, u8 *buf, size_t length)
 		++cl->err_send_msg;
 		return	-ENOMEM;
 	}
+	dev->print_log(dev, KERN_ALERT "%s(): have client TX free bufs\n", __func__);
 
-	cl_msg = list_first_entry(&cl->tx_free_list.list,
-		struct heci_cl_tx_ring, list);
-	if (!cl_msg->send_buf.data)
-		return	-EIO;		/* Should not happen,
-					as free list is pre-allocated */
+	cl_msg = list_first_entry(&cl->tx_free_list.list, struct heci_cl_tx_ring, list);
+	if (!cl_msg->send_buf.data) {
+		return	-EIO;		/* Should not happen, as free list is pre-allocated */
+	}
+	dev->print_log(dev, KERN_ALERT "%s(): have send_buf.data OK\n", __func__);
 	++cl->send_msg_cnt;
-	/*
-	 * This is safe, as 'length' is already checked for not exceeding max.
-	 * HECI message size per client
-	 */
+
+	/* This is safe, as 'length' is already checked for not exceeding max. HECI message size per client */
 	list_del_init(&cl_msg->list);
 	spin_unlock_irqrestore(&cl->tx_free_list_spinlock, tx_free_flags);
 	memcpy(cl_msg->send_buf.data, buf, length);
@@ -942,6 +858,10 @@ int heci_cl_send(struct heci_cl *cl, u8 *buf, size_t length)
 	have_msg_to_send = !list_empty(&cl->tx_list.list);
 	list_add_tail(&cl_msg->list, &cl->tx_list.list);
 	spin_unlock_irqrestore(&cl->tx_list_spinlock, tx_flags);
+	dev->print_log(dev, KERN_ALERT "%s(): have send_buf.data OK.\n",
+		__func__);
+	dev->print_log(dev, "have_msg_to_send=%d FC creds=%d\n",
+		have_msg_to_send, (int)cl->heci_flow_ctrl_creds);
 
 	if (!have_msg_to_send && cl->heci_flow_ctrl_creds > 0)
 		heci_cl_send_msg(dev, cl);
@@ -968,11 +888,7 @@ void heci_cl_read_complete(struct heci_cl_rb *rb)
 		wake_up_interruptible(&cl->rx_wait);
 	} else {
 		spin_lock_irqsave(&cl->in_process_spinlock, flags);
-		/*
-		 * if in-process list is empty, then need to schedule
-		 * the processing thread
-		 */
-		schedule_work_flag = list_empty(&cl->in_process_list.list);
+		schedule_work_flag = list_empty(&cl->in_process_list.list);/*if in-process list is empty, then need to schedule the processing thread*/
 		list_add_tail(&rb->list, &cl->in_process_list.list);
 		spin_unlock_irqrestore(&cl->in_process_spinlock, flags);
 
@@ -993,13 +909,13 @@ void heci_cl_all_disconnect(struct heci_device *dev)
 	struct heci_cl *cl, *next;
 	unsigned long	flags;
 
-	spin_lock_irqsave(&dev->cl_list_lock, flags);
+	spin_lock_irqsave(&dev->device_lock, flags);
 	list_for_each_entry_safe(cl, next, &dev->cl_list, link) {
 		cl->state = HECI_CL_DISCONNECTED;
 		cl->heci_flow_ctrl_creds = 0;
 		cl->read_rb = NULL;
 	}
-	spin_unlock_irqrestore(&dev->cl_list_lock, flags);
+	spin_unlock_irqrestore(&dev->device_lock, flags);
 }
 
 
@@ -1013,14 +929,14 @@ void heci_cl_all_read_wakeup(struct heci_device *dev)
 	struct heci_cl *cl, *next;
 	unsigned long	flags;
 
-	spin_lock_irqsave(&dev->cl_list_lock, flags);
+	spin_lock_irqsave(&dev->device_lock, flags);
 	list_for_each_entry_safe(cl, next, &dev->cl_list, link) {
 		if (waitqueue_active(&cl->rx_wait)) {
 			dev_dbg(&dev->pdev->dev, "Waking up client!\n");
 			wake_up_interruptible(&cl->rx_wait);
 		}
 	}
-	spin_unlock_irqrestore(&dev->cl_list_lock, flags);
+	spin_unlock_irqrestore(&dev->device_lock, flags);
 }
 
 /*##################################*/
@@ -1035,18 +951,18 @@ static void	ipc_tx_callback(void *prm)
 	unsigned long	flags, tx_flags, tx_free_flags;
 	unsigned char	*pmsg;
 
+	dev->print_log(dev, KERN_ALERT "%s() +++\n", __func__);
 	if (!dev)
 		return;
+	dev->print_log(dev, KERN_ALERT "%s() dev OK\n", __func__);
 
-	/*
-	 * FIXME: there may be other conditions if some critical error has
-	 * ocurred before this callback is called
-	 */
+	/* FIXME: there may be other conditions if some critical error has ocurred before this callback is called */
 	spin_lock_irqsave(&cl->tx_list_spinlock, tx_flags);
 	if (list_empty(&cl->tx_list.list)) {
 		spin_unlock_irqrestore(&cl->tx_list_spinlock, tx_flags);
 		return;
 	}
+	dev->print_log(dev, KERN_ALERT "%s() TX list is not empty, sending\n", __func__);
 
 	/* Last call check for fc credits */
 	if (cl->heci_flow_ctrl_creds != 1 && !cl->sending) {
@@ -1059,8 +975,7 @@ static void	ipc_tx_callback(void *prm)
 		cl->sending = 1;
 	}
 
-	cl_msg = list_entry(cl->tx_list.list.next, struct heci_cl_tx_ring,
-		list);
+	cl_msg = list_entry(cl->tx_list.list.next, struct heci_cl_tx_ring, list);
 	rem = cl_msg->send_buf.size - cl->tx_offs;
 
 	heci_hdr.host_addr = cl->host_client_id;
@@ -1094,7 +1009,7 @@ static void	ipc_tx_callback(void *prm)
 void heci_cl_send_msg(struct heci_device *dev, struct heci_cl *cl)
 {
 	cl->tx_offs = 0;
-	ipc_tx_callback(cl);
+	ipc_tx_callback(cl);	
 }
 EXPORT_SYMBOL(heci_cl_send_msg);
 /*##################################*/
@@ -1116,44 +1031,41 @@ void	recv_heci_cl_msg(struct heci_device *dev, struct heci_msg_hdr *heci_hdr)
 	unsigned long	flags;
 	int	rb_count;
 
+dev->print_log(dev, "%s(): +++\n", __func__);
 
 	if (heci_hdr->reserved) {
 		dev_err(&dev->pdev->dev, "corrupted message header.\n");
 		goto	eoi;
 	}
+dev->print_log(dev, "%s(): msg header OK\n", __func__);
 
 	if (heci_hdr->length > IPC_PAYLOAD_SIZE) {
 		dev_err(&dev->pdev->dev, "HECI message length in hdr is too big for IPC MTU. Broken message\n");
 		goto	eoi;
 	}
+dev->print_log(dev, "%s(): msg length OK\n", __func__);
 
 	spin_lock_irqsave(&dev->read_list_spinlock, dev_flags);
 	rb_count = -1;
 	list_for_each_entry_safe(rb, next, &dev->read_list.list, list) {
 		++rb_count;
 		cl = rb->cl;
-		if (!cl || !(cl->host_client_id == heci_hdr->host_addr &&
-				cl->me_client_id == heci_hdr->me_addr) ||
+
+		if (!cl || !(cl->host_client_id == heci_hdr->host_addr && cl->me_client_id == heci_hdr->me_addr) ||
 				!(cl->state == HECI_CL_CONNECTED))
 			continue;
 
-		/*
-		 * FIXME: in both if() closes rb must return to free pool
-		 * and/or disband and/or disconnect client
-		 */
+		/* FIXME: in both if() closes rb must return to free pool and/or disband and/or disconnect client */
 		if (rb->buffer.size == 0 || rb->buffer.data == NULL) {
-			spin_unlock_irqrestore(&dev->read_list_spinlock,
-				dev_flags);
+			spin_unlock_irqrestore(&dev->read_list_spinlock, dev_flags);
 			dev_err(&dev->pdev->dev, "response buffer is not allocated.\n");
 			list_del(&rb->list);
 			goto	eoi;
 		}
 
 		if (rb->buffer.size < heci_hdr->length + rb->buf_idx) {
-			spin_unlock_irqrestore(&dev->read_list_spinlock,
-				dev_flags);
-			dev_err(&dev->pdev->dev, "message overflow. size %d len %d idx %ld\n",
-				rb->buffer.size, heci_hdr->length, rb->buf_idx);
+			spin_unlock_irqrestore(&dev->read_list_spinlock, dev_flags);
+			dev_err(&dev->pdev->dev, "message overflow. size %d len %d idx %ld\n", rb->buffer.size, heci_hdr->length, rb->buf_idx);
 			list_del(&rb->list);
 			goto	eoi;
 		}
@@ -1179,10 +1091,8 @@ void	recv_heci_cl_msg(struct heci_device *dev, struct heci_msg_hdr *heci_hdr)
 			}
 
 			--cl->out_flow_ctrl_creds;
-			/*
-			 * the whole msg arrived, send a new FC, and add a new
-			 * rb buffer for the next coming msg
-			 */
+dev->print_log(dev,"%s(): rb[%p] content %02X %02X %02X %02X\n", __func__, rb, rb->buffer.data[0], rb->buffer.data[1], rb->buffer.data[2], rb->buffer.data[3]);
+			/* the whole msg arrived, send a new FC, and add a new rb buffer for the next coming msg */
 			spin_lock_irqsave(&cl->free_list_spinlock, flags);
 
 			if (!list_empty(&cl->free_rb_list.list)) {
@@ -1193,26 +1103,26 @@ void	recv_heci_cl_msg(struct heci_device *dev, struct heci_msg_hdr *heci_hdr)
 					flags);
 				new_rb->cl = cl;
 				new_rb->buf_idx = 0;
-				INIT_LIST_HEAD(&new_rb->list);
+				INIT_LIST_HEAD(&rb->list);
+dev->print_log(dev, "%s(): add cd = %p to read_list\n", __func__, new_rb);
 				list_add_tail(&new_rb->list,
 					&dev->read_list.list);
+dev->print_log(dev, "%s(): call heci_hbm_cl_flow_control_req\n", __func__);
 
-				heci_hbm_cl_flow_control_req(dev, cl);
+				/* will work properly just after the transmit path fixes (which sends hbm command without sleeping) */
+				heci_hbm_cl_flow_control_req(dev, cl); 
 			} else {
 				/*cl->send_fc_flag = 1;*/
-				spin_unlock_irqrestore(&cl->free_list_spinlock,
-					flags);
+				spin_unlock_irqrestore(&cl->free_list_spinlock, flags);
 			}
 		}
 		/* One more fragment in message (even if this was last) */
 		++cl->recv_msg_num_frags;
 
-		/*
-		 * We can safely break here (and in BH too),
-		 * a single input message can go only to a single request!
-		 */
+		/* We can safely break here (and in BH too), a single input message can go only to a single request! */
 		break;
 	}
+dev->print_log(dev, "%s(): buffer=%p complete_rb=%p\n", __func__, buffer, complete_rb);
 
 	spin_unlock_irqrestore(&dev->read_list_spinlock, dev_flags);
 	/* If it's nobody's message, just read and discard it */
@@ -1236,6 +1146,7 @@ void	recv_heci_cl_msg(struct heci_device *dev, struct heci_msg_hdr *heci_hdr)
 	}
 
 eoi:
+dev->print_log(dev, "%s(): ---\n", __func__);
 	return;
 }
 EXPORT_SYMBOL(recv_heci_cl_msg);

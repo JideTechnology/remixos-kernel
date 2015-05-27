@@ -18,7 +18,9 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program;
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110,
+ * USA
  *
  * The full GNU General Public License is included in this distribution
  * in the file called LICENSE.GPL.
@@ -82,8 +84,7 @@
  * (FW protocol version and max message size).
  *
  */
-#define IOCTL_HECI_CONNECT_CLIENT	_IOWR('H', 0x01,	\
-				struct heci_connect_client_data)
+#define IOCTL_HECI_CONNECT_CLIENT	_IOWR('H', 0x01, struct heci_connect_client_data)
 
 /* Configuration: set number of Rx/Tx buffers. Must be used before conneciton */
 #define IOCTL_HECI_SET_RX_FIFO_SIZE	_IOWR('H', 0x02, long)

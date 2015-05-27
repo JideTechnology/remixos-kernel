@@ -38,19 +38,16 @@
  * @dev: heci device
  * returns me client index or -ENOENT if not found
  */
-int heci_me_cl_by_uuid(struct heci_device *dev, const uuid_le *uuid)
+int heci_me_cl_by_uuid(const struct heci_device *dev, const uuid_le *uuid)
 {
 	int i, res = -ENOENT;
-	unsigned long	flags;
-	spin_lock_irqsave(&dev->me_clients_lock, flags);
+
 	for (i = 0; i < dev->me_clients_num; ++i) {
-		if (uuid_le_cmp(*uuid, dev->me_clients[i].props.protocol_name)
-				== 0) {
+		if (uuid_le_cmp(*uuid, dev->me_clients[i].props.protocol_name) == 0) {
 			res = i;
 			break;
 		}
 	}
-	spin_unlock_irqrestore(&dev->me_clients_lock, flags);
 	return res;
 }
 EXPORT_SYMBOL(heci_me_cl_by_uuid);
@@ -68,21 +65,15 @@ EXPORT_SYMBOL(heci_me_cl_by_uuid);
 int heci_me_cl_by_id(struct heci_device *dev, u8 client_id)
 {
 	int i;
-	unsigned long	flags;
-	spin_lock_irqsave(&dev->me_clients_lock, flags);
 	for (i = 0; i < dev->me_clients_num; i++)
 		if (dev->me_clients[i].client_id == client_id)
 			break;
-	if (WARN_ON(dev->me_clients[i].client_id != client_id)) {
-		spin_unlock_irqrestore(&dev->me_clients_lock, flags);
+	if (WARN_ON(dev->me_clients[i].client_id != client_id))
 		return -ENOENT;
-	}
 
-	if (i == dev->me_clients_num) {
-		spin_unlock_irqrestore(&dev->me_clients_lock, flags);
+	if (i == dev->me_clients_num)
 		return -ENOENT;
-	}
-	spin_unlock_irqrestore(&dev->me_clients_lock, flags);
+
 	return i;
 }
 
@@ -92,8 +83,7 @@ static int heci_cl_device_match(struct device *dev, struct device_driver *drv)
 
 	/*
 	 * DD -- return true and let driver's probe() routine decide.
-	 * If this solution lives up, we can rearrange it
-	 * by simply removing match() routine at all
+	 * If this solution lives up, we can rearrange it by simply removing match() routine at all
 	 */
 	return	1;
 }
@@ -115,8 +105,7 @@ static int heci_cl_device_probe(struct device *dev)
 
 	dev_dbg(dev, "Device probe\n");
 
-	strncpy(id.name, dev_name(dev), HECI_CL_NAME_SIZE-1);
-	id.name[HECI_CL_NAME_SIZE-1] = '\0';
+	strncpy(id.name, dev_name(dev), HECI_CL_NAME_SIZE);
 
 	return driver->probe(device, &id);
 }
@@ -145,8 +134,7 @@ static int heci_cl_device_remove(struct device *dev)
 	return driver->remove(device);
 }
 
-static ssize_t modalias_show(struct device *dev, struct device_attribute *a,
-	char *buf)
+static ssize_t modalias_show(struct device *dev, struct device_attribute *a, char *buf)
 {
 	int len;
 
@@ -190,14 +178,12 @@ static struct device_type heci_cl_device_type = {
 /*
  * Allocate HECI bus client device, attach it to uuid and register with HECI bus
  */
-struct heci_cl_device *heci_bus_add_device(struct heci_device *dev,
-	uuid_le uuid, char *name, struct heci_cl_dev_ops *ops)
+struct heci_cl_device *heci_bus_add_device(struct heci_device *dev, uuid_le uuid, char *name, struct heci_cl_dev_ops *ops)
 {
 	struct heci_cl_device *device;
 	int status;
-	unsigned long flags;
 
-	device = kzalloc(sizeof(struct heci_cl_device), GFP_ATOMIC);
+	device = kzalloc(sizeof(struct heci_cl_device), GFP_KERNEL);
 	if (!device)
 		return NULL;
 
@@ -207,22 +193,14 @@ struct heci_cl_device *heci_bus_add_device(struct heci_device *dev,
 	device->dev.bus = &heci_cl_bus_type;
 	device->dev.type = &heci_cl_device_type;
 	device->heci_dev = dev;
-
-	/* no need for spin lock here, the caller locked me_clients_lock */
-	device->fw_client =
-		&dev->me_clients[dev->me_client_presentation_num - 1];
+	device->fw_client = &dev->me_clients[dev->me_client_presentation_num - 1];
 
 	dev_set_name(&device->dev, "%s", name);
-
-	spin_lock_irqsave(&dev->device_list_lock, flags);
 	list_add_tail(&device->device_link, &dev->device_list);
-	spin_unlock_irqrestore(&dev->device_list_lock, flags);
 
 	status = device_register(&device->dev);
 	if (status) {
-		spin_lock_irqsave(&dev->device_list_lock, flags);
 		list_del(&device->device_link);
-		spin_unlock_irqrestore(&dev->device_list_lock, flags);
 		dev_err(&dev->pdev->dev, "Failed to register HECI device\n");
 		kfree(device);
 		return NULL;
@@ -237,8 +215,7 @@ EXPORT_SYMBOL_GPL(heci_bus_add_device);
 
 
 /*
- * This is a counterpart of heci_bus_add_device.
- * Device is unregistered and its structure is also freed
+ * This is a counterpart of heci_bus_add_device. Device is unregistered and its structure is also freed
  */
 void heci_bus_remove_device(struct heci_cl_device *device)
 {
@@ -253,31 +230,27 @@ EXPORT_SYMBOL_GPL(heci_bus_remove_device);
  */
 void	heci_bus_remove_all_clients(struct heci_device *heci_dev)
 {
-	ISH_DBG_PRINT(KERN_ALERT "%s(): +++\n", __func__);
-
-	struct heci_cl_device	*cl_device, *next_device;
+	struct heci_cl_device *heci_cl_dev;
 	struct heci_cl	*cl, *next;
 	unsigned long	flags;
 
-	spin_lock_irqsave(&heci_dev->cl_list_lock, flags);
+	spin_lock_irqsave(&heci_dev->device_lock, flags);
 	list_for_each_entry_safe(cl, next, &heci_dev->cl_list, link) {
 		list_del(&cl->link);
-		cl->state = HECI_CL_DISCONNECTED;
+		spin_unlock_irqrestore(&heci_dev->device_lock, flags);
+		heci_cl_dev = cl->device;
 
 		/*
-		 * Wake any pending process. The waiter would check dev->state
-		 * and determine that it's not enabled already,
-		 * and will return error to its caller
+		 * Wake any pending process. The waiter would check dev->state and determine that it's not enabled already, and will return error to its caller
 		 */
 		if (waitqueue_active(&cl->rx_wait))
 			wake_up_interruptible(&cl->rx_wait);
 		if (waitqueue_active(&cl->wait_ctrl_res))
 			wake_up(&cl->wait_ctrl_res);
 
-		/* Disband any pending read/write requests and free RB */
+		/* Disband any pending read/write requests */
 		heci_cl_flush_queues(cl);
 
-		/* Remove read_rb for user-mode API clients */
 		if (cl->read_rb) {
 			struct heci_cl_rb *rb = NULL;
 
@@ -295,30 +268,20 @@ void	heci_bus_remove_all_clients(struct heci_device *heci_dev)
 			}
 		}
 
-		/* Remove all free and in_process rings, both Rx and Tx */
-		heci_cl_free_rx_ring(cl);
-		heci_cl_free_tx_ring(cl);
+		/* Unregister HECI bus client device */
+		heci_bus_remove_device(heci_cl_dev);
 
 		/* Free client and HECI bus client device structures */
-		/* don't free host client because it is part of the OS fd
-		   structure */
+		kfree(cl);
+		spin_lock_irqsave(&heci_dev->device_lock, flags);
 	}
-	spin_unlock_irqrestore(&heci_dev->cl_list_lock, flags);
-
-	/* remove bus clients */
-	spin_lock_irqsave(&heci_dev->device_list_lock, flags);
-	list_for_each_entry_safe(cl_device, next_device,
-		&heci_dev->device_list, device_link) {
-			list_del(&cl_device->device_link);
-			spin_unlock_irqrestore(&heci_dev->device_list_lock,
-				flags);
-			heci_bus_remove_device(cl_device);
-			spin_lock_irqsave(&heci_dev->device_list_lock, flags);
-		}
-	spin_unlock_irqrestore(&heci_dev->device_list_lock, flags);
+	spin_unlock_irqrestore(&heci_dev->device_lock, flags);
+#if 0
+	if (waitqueue_active(&heci_dev->wait_recvd_msg))
+		wake_up(&heci_dev->wait_recvd_msg);
+#endif
 
 	/* Free all client structures */
-	spin_lock_irqsave(&heci_dev->me_clients_lock, flags);
 	kfree(heci_dev->me_clients);
 	heci_dev->me_clients = NULL;
 	heci_dev->me_clients_num = 0;
@@ -327,14 +290,11 @@ void	heci_bus_remove_all_clients(struct heci_device *heci_dev)
 	bitmap_zero(heci_dev->me_clients_map, HECI_CLIENTS_MAX);
 	bitmap_zero(heci_dev->host_clients_map, HECI_CLIENTS_MAX);
 	bitmap_set(heci_dev->host_clients_map, 0, 3);
-	spin_unlock_irqrestore(&heci_dev->me_clients_lock, flags);
-	ISH_DBG_PRINT(KERN_ALERT "%s(): ---\n", __func__);
 }
 EXPORT_SYMBOL_GPL(heci_bus_remove_all_clients);
 
 
-int __heci_cl_driver_register(struct heci_cl_driver *driver,
-	struct module *owner)
+int __heci_cl_driver_register(struct heci_cl_driver *driver, struct module *owner)
 {
 	int err;
 
@@ -346,8 +306,7 @@ int __heci_cl_driver_register(struct heci_cl_driver *driver,
 	if (err)
 		return err;
 
-	ISH_DBG_PRINT(KERN_ALERT "%s(): heci: driver [%s] registered\n",
-		__func__, driver->driver.name);
+	ISH_DBG_PRINT(KERN_ALERT "%s(): heci: driver [%s] registered\n", __func__, driver->driver.name);
 	pr_debug("heci: driver [%s] registered\n", driver->driver.name);
 	return 0;
 }
@@ -375,8 +334,7 @@ static void heci_bus_event_work(struct work_struct *work)
 	/*device->events = 0;*/
 }
 
-int heci_register_event_cb(struct heci_cl_device *device,
-	void (*event_cb)(struct heci_cl_device *, u32, void *), void *context)
+int heci_register_event_cb(struct heci_cl_device *device, void (*event_cb)(struct heci_cl_device *, u32, void *), void *context)
 {
 	if (device->event_cb)
 		return -EALREADY;
@@ -454,66 +412,54 @@ ISH_DBG_PRINT(KERN_ALERT "%s(): Unregistering HECI bus\n", __func__);
 }
 
 
-ssize_t cl_prop_read(struct device *dev, struct device_attribute *dev_attr,
-	char *buf)
+ssize_t cl_prop_read(struct device *dev, struct device_attribute *dev_attr, char *buf)
 {
 	ssize_t	rv = -EINVAL;
 	struct heci_cl_device	*cl_device = to_heci_cl_device(dev);
 	unsigned long	flags;
 
 	if (!strcmp(dev_attr->attr.name, "max_msg_length")) {
-		scnprintf(buf, PAGE_SIZE, "%u\n",
-			(unsigned)cl_device->fw_client->props.max_msg_length);
+		sprintf(buf, "%u\n", (unsigned)cl_device->fw_client->props.max_msg_length);
 		rv = strlen(buf);
 	} else if (!strcmp(dev_attr->attr.name, "protocol_version")) {
-		scnprintf(buf, PAGE_SIZE, "%u\n",
-			(unsigned)cl_device->fw_client->props.protocol_version);
+		sprintf(buf, "%u\n", (unsigned)cl_device->fw_client->props.protocol_version);
 		rv = strlen(buf);
 	} else if (!strcmp(dev_attr->attr.name,  "max_number_of_connections")) {
-		scnprintf(buf, PAGE_SIZE, "%u\n",
-(unsigned)cl_device->fw_client->props.max_number_of_connections);
+		sprintf(buf, "%u\n", (unsigned)cl_device->fw_client->props.max_number_of_connections);
 		rv = strlen(buf);
 	} else if (!strcmp(dev_attr->attr.name,  "fixed_address")) {
-		scnprintf(buf, PAGE_SIZE, "%u\n",
-			(unsigned)cl_device->fw_client->props.fixed_address);
+		sprintf(buf, "%u\n", (unsigned)cl_device->fw_client->props.fixed_address);
 		rv = strlen(buf);
 	} else if (!strcmp(dev_attr->attr.name,  "single_recv_buf")) {
-		scnprintf(buf, PAGE_SIZE, "%u\n",
-			(unsigned)cl_device->fw_client->props.single_recv_buf);
+		sprintf(buf, "%u\n", (unsigned)cl_device->fw_client->props.single_recv_buf);
 		rv = strlen(buf);
 	} else if (!strcmp(dev_attr->attr.name,  "dma_hdr_len")) {
-		scnprintf(buf, PAGE_SIZE, "%u\n",
-			(unsigned)cl_device->fw_client->props.dma_hdr_len);
+		sprintf(buf, "%u\n", (unsigned)cl_device->fw_client->props.dma_hdr_len);
 		rv = strlen(buf);
 	} else if (!strcmp(dev_attr->attr.name,  "num_active_connections")) {
 		struct heci_cl	*cl, *next;
 		unsigned	count = 0;
 
-		spin_lock_irqsave(&cl_device->heci_dev->cl_list_lock, flags);
-		list_for_each_entry_safe(cl, next,
-				&cl_device->heci_dev->cl_list, link) {
-			if (cl->state == HECI_CL_CONNECTED &&
-					cl->device == cl_device)
+		spin_lock_irqsave(&cl_device->heci_dev->device_lock, flags);
+		list_for_each_entry_safe(cl, next, &cl_device->heci_dev->cl_list, link) {
+			if (cl->state == HECI_CL_CONNECTED && cl->device == cl_device)
 				++count;
 		}
-		spin_unlock_irqrestore(&cl_device->heci_dev->cl_list_lock,
-			flags);
+		spin_unlock_irqrestore(&cl_device->heci_dev->device_lock, flags);
 
-		scnprintf(buf, PAGE_SIZE, "%u\n", count);
+		sprintf(buf, "%u\n", count);
 		rv = strlen(buf);
 	} else if (!strcmp(dev_attr->attr.name,  "client_id")) {
-		scnprintf(buf, PAGE_SIZE, "%u\n",
-			(unsigned)cl_device->fw_client->client_id);
+		sprintf(buf, "%u\n", (unsigned)cl_device->fw_client->client_id);
 		rv = strlen(buf);
 	}
-
+	
 	return	rv;
 }
 
-ssize_t	cl_prop_write(struct device *dev, struct device_attribute *dev_attr,
-	const char *buf, size_t count)
+ssize_t	cl_prop_write(struct device *dev, struct device_attribute *dev_attr, const char *buf, size_t count)
 {
-	return	-EINVAL;
+        return	-EINVAL;
 }
 
 static struct device_attribute	max_msg_length = {
@@ -599,23 +545,17 @@ int	heci_bus_new_client(struct heci_device *dev)
 	uuid_le	device_uuid;
 
 	/*
-	 * For all reported clients, create an unconnected client and add its
-	 * device to HECI bus.
-	 * If appropriate driver has loaded, this will trigger its probe().
-	 * Otherwise, probe() will be called when driver is loaded
+	 * For all reported clients, create an unconnected client and add its device to HECI bus.
+	 * If appropriate driver has loaded, this will trigger its probe(). Otherwise, probe() will be called when driver is loaded
 	 */
-	/* no need for spinlock here - the caller locked me_clients_lock */
-
 	i = dev->me_client_presentation_num - 1;
 	device_uuid = dev->me_clients[i].props.protocol_name;
-	dev_name = kasprintf(GFP_ATOMIC,
-		"{%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X}",
-		device_uuid.b[3], device_uuid.b[2], device_uuid.b[1],
-		device_uuid.b[0], device_uuid.b[5], device_uuid.b[4],
-		device_uuid.b[7], device_uuid.b[6], device_uuid.b[8],
-		device_uuid.b[9], device_uuid.b[10], device_uuid.b[11],
-		device_uuid.b[12], device_uuid.b[13], device_uuid.b[14],
-		device_uuid.b[15]);
+	dev_name = kasprintf(GFP_ATOMIC, "{%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X}",
+		device_uuid.b[3], device_uuid.b[2], device_uuid.b[1], device_uuid.b[0],
+		device_uuid.b[5], device_uuid.b[4],
+		device_uuid.b[7], device_uuid.b[6],
+		device_uuid.b[8], device_uuid.b[9],
+		device_uuid.b[10], device_uuid.b[11], device_uuid.b[12], device_uuid.b[13], device_uuid.b[14], device_uuid.b[15]);
 	if (!dev_name)
 		return	-ENOMEM;
 
@@ -660,8 +600,7 @@ int	heci_can_client_connect(struct heci_device *heci_dev, uuid_le *uuid)
 {
 	int	rv;
 
-	rv = bus_for_each_dev(&heci_cl_bus_type, NULL, uuid,
-		does_driver_bind_uuid);
+	rv = bus_for_each_dev(&heci_cl_bus_type, NULL, uuid, does_driver_bind_uuid);
 	return	!rv;
 }
 
@@ -671,21 +610,19 @@ int	heci_cl_device_bind(struct heci_cl *cl)
 {
 	int	rv;
 	struct heci_cl_device	*cl_device, *next;
-	unsigned long flags;
+
 	if (!cl->me_client_id || cl->state != HECI_CL_CONNECTED)
 		return	-EFAULT;
 
 	rv = -ENOENT;
-	spin_lock_irqsave(&cl->dev->device_list_lock, flags);
-	list_for_each_entry_safe(cl_device, next, &cl->dev->device_list,
-			device_link) {
+	list_for_each_entry_safe(cl_device, next, &cl->dev->device_list, device_link) {
 		if (cl_device->fw_client->client_id == cl->me_client_id) {
 			cl->device = cl_device;
 			rv = 0;
 			break;
 		}
 	}
-	spin_unlock_irqrestore(&cl->dev->device_list_lock, flags);
+
 	return	rv;
 }
 

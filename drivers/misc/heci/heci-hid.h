@@ -19,9 +19,7 @@
  * Constraint 1: currently we support only 1 ISS HW controller in a system
  */
 
-static const uuid_le ish_heci_guid = UUID_LE(0x33AECD58, 0xB679, 0x4E54,
-						0x9B, 0xD9, 0xA0, 0x4D, 0x34,
-						0xF0, 0xC2, 0x26);
+const static	uuid_le ish_heci_guid = UUID_LE(0x33AECD58, 0xB679, 0x4E54, 0x9B, 0xD9, 0xA0, 0x4D, 0x34, 0xF0, 0xC2, 0x26);
 
 extern wait_queue_head_t	heci_hid_wait;
 
@@ -36,30 +34,30 @@ struct hostif_msg_hdr {
 	uint8_t	status;
 	uint8_t	flags;
 	uint16_t	size;
-} __packed;
+} __attribute__((packed));
 
 struct hostif_msg {
 	struct hostif_msg_hdr	hdr;
-} __packed;
+} __attribute__((packed));
 
 struct hostif_msg_to_sensor {
 	struct hostif_msg_hdr	hdr;
 	uint8_t	report_id;
-} __packed;
+} __attribute__((packed));
 
 struct device_info {
 	uint32_t	dev_id;
 	uint8_t		dev_class;
 	uint16_t	pid;
 	uint16_t	vid;
-} __packed;
+} __attribute__((packed));
 
 #if 0
 /* Needed? */
 struct heci_client {
 	uint32_t	max_msg_len;
 	uint8_t		proto_ver;
-} __packed;
+} __attribute__((packed));
 #endif
 
 struct heci_version {
@@ -67,7 +65,7 @@ struct heci_version {
 	uint8_t	minor;
 	uint8_t	hotfix;
 	uint16_t	build;
-} __packed;
+} __attribute__((packed));
 
 /*
  * struct for heci aggregated input data
@@ -79,8 +77,8 @@ struct report_list {
 	struct {
 		uint16_t  size_of_report;
 		uint8_t report[1];
-	} __packed reports[1];
-} __packed;
+	} __attribute__((packed)) reports[1];
+} __attribute__((packed));
 
 /* HOSTIF commands */
 #define	HOSTIF_HID_COMMAND_BASE		0
@@ -104,30 +102,8 @@ struct report_list {
 
 #include "utils.h"
 
-extern unsigned char	*report_descr[MAX_HID_DEVICES];
-extern int	report_descr_size[MAX_HID_DEVICES];
-extern struct device_info	*hid_devices;
-extern int	may_send;
-extern int	get_report_done; /* Get Feature/Input report complete flag */
-extern unsigned	cur_hid_dev;
-extern struct hid_device	*hid_sensor_hubs[MAX_HID_DEVICES];
-extern unsigned	num_hid_devices;
-extern struct heci_cl  *hid_heci_cl;	/* HECI client */
-
-void hid_heci_set_feature(struct hid_device *hid, char *buf, unsigned len,
-	int report_id);
-void hid_heci_get_report(struct hid_device *hid, int report_id,
-	int report_type);
-
-int	heci_hid_probe(unsigned cur_hid_dev);
-void	heci_hid_remove(void);
-
 /*flush notification*/
 void register_flush_cb(void (*flush_cb_func)(void));
-
-/*********** Locally redirect ISH_DBG_PRINT **************/
-void g_ish_print_log(char *format, ...);
-/*********************************************************/
 
 #endif	/* HECI_HID__H */
 

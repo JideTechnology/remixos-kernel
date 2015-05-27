@@ -58,10 +58,10 @@ static bool nomsi;
 module_param_named(nomsi, nomsi, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(nomsi, "don't use msi (default = false)");
 
-/* Currently this driver works as long as there is only a single HECI device. */
+/* Currently this driver works as long as there is only a single AMT device. */
 static struct pci_dev *heci_pci_device;
 
-static const struct pci_device_id ish_pci_tbl[] = {
+static DEFINE_PCI_DEVICE_TABLE(ish_pci_tbl) = {
 	{PCI_DEVICE(PCI_VENDOR_ID_INTEL, 0x22D8)},
 	{0, }
 };
@@ -97,8 +97,7 @@ void	ish_poll_timer_fn(unsigned long unused)
 	irqreturn_t	rv;
 
 	rv = ish_irq_handler(0, timer_data);
-	/*ISH_DBG_PRINT(KERN_ALERT "%s(): ish_irq_handler() returned %08X\n",
-		__func__, rv);*/
+	/*ISH_DBG_PRINT(KERN_ALERT "%s(): ish_irq_handler() returned %08X\n", __func__, rv);*/
 
 	/* Reschedule timer */
 	ish_poll_timer.expires += 2;
@@ -125,16 +124,14 @@ static int ishdbg_release(struct inode *inode, struct file *file)
 static char	dbg_resp_buf[2048];
 static int	resp_buf_read;
 
-static ssize_t ishdbg_read(struct file *file, char __user *ubuf, size_t length,
-	loff_t *offset)
+static ssize_t ishdbg_read(struct file *file, char __user *ubuf, size_t length, loff_t *offset)
 {
 	int rv;
 	int copy_len;
 
 	if (resp_buf_read)
 		return	0;	/* EOF */
-	copy_len = (length > strlen(dbg_resp_buf)) ?
-		strlen(dbg_resp_buf) : length;
+	copy_len = (length > strlen(dbg_resp_buf)) ? strlen(dbg_resp_buf) : length;
 	rv = copy_to_user(ubuf, dbg_resp_buf, copy_len);
 	if (rv)
 		return  -EINVAL;
@@ -142,15 +139,13 @@ static ssize_t ishdbg_read(struct file *file, char __user *ubuf, size_t length,
 	return  copy_len;
 }
 
-static ssize_t ishdbg_write(struct file *file, const char __user *ubuf,
-	size_t length, loff_t *offset)
+static ssize_t ishdbg_write(struct file *file, const char __user *ubuf, size_t length, loff_t *offset)
 {
 	char    dbg_req_buf[768];
 	char    cmd[768];
 	int     rv;
-	unsigned     addr, count;
-	int	sscanf_match, i, cur_index;
-	uint32_t __iomem *reg_data;
+	int     addr, count, sscanf_match, i, cur_index;
+	volatile uint32_t *reg_data;
 
 	if (length > sizeof(dbg_req_buf))
 		length = sizeof(dbg_req_buf);
@@ -158,46 +153,41 @@ static ssize_t ishdbg_write(struct file *file, const char __user *ubuf,
 	if (rv)
 		return  -EINVAL;
 	if (sscanf(dbg_req_buf, "%s ", cmd) != 1) {
-		dev_err(&heci_pci_device->dev, "[ish-dbg]) sscanf failed\n");
+		printk(KERN_ERR "[ish-dbg]) sscanf failed\n");
 		return  -EINVAL;
 	}
-	sscanf_match = sscanf(dbg_req_buf + 2, "%x %u", &addr, &count);
+	sscanf_match = sscanf(dbg_req_buf + 2, "%x %d", &addr, &count);
 	if (!strcmp(cmd, "d")) {
 		/* Dump values: d <addr> [count] */
 		if (sscanf_match == 1)
 			count = 1;
 		else if (sscanf_match != 2) {
-			dev_err(&heci_pci_device->dev, "[ish-dbg] sscanf failed, sscanf_match = %d\n",
-				sscanf_match);
+			printk(KERN_ERR "[ish-dbg] sscanf failed, sscanf_match = %d\n", sscanf_match);
 			return  -EINVAL;
 		}
 		if (addr % 4) {
-			dev_err(&heci_pci_device->dev, "[ish-dbg] address isn't aligned to 4 bytes\n");
+			printk(KERN_ERR "[ish-dbg] address isn't aligned to 4 bytes\n");
 			return -EINVAL;
 		}
 		cur_index = 0;
 		for (i = 0; i < count; i++) {
-			reg_data = (uint32_t __iomem *)
-				((char *)hw_dbg->mem_addr + addr + i*4);
-			cur_index += sprintf(dbg_resp_buf + cur_index, "%08X ",
-				readl(reg_data));
+			reg_data = (volatile uint32_t *)((char *)hw_dbg->mem_addr + addr + i*4);
+			cur_index += sprintf(dbg_resp_buf + cur_index, "%08X ", *reg_data);
 		}
 		cur_index += sprintf(dbg_resp_buf + cur_index, "\n");
 		resp_buf_read = 0;
 	} else if (!strcmp(cmd, "e")) {
 		/* Enter values e <addr> <value> */
 		if (sscanf_match != 2) {
-			dev_err(&heci_pci_device->dev, "[ish-dbg] sscanf failed, sscanfMatch = %d\n",
-				sscanf_match);
+			printk(KERN_ERR "[ish-dbg] sscanf failed, sscanfMatch = %d\n", sscanf_match);
 			return  -EINVAL;
 		}
 		if (addr % 4) {
-			dev_err(&heci_pci_device->dev, "[ish-dbg] address isn't aligned to 4 bytes\n");
+			printk(KERN_ERR "[ish-dbg] address isn't aligned to 4 bytes\n");
 			return -EINVAL;
 		}
-		reg_data = (uint32_t __iomem *)((char *)hw_dbg->mem_addr
-			+ addr);
-		writel(count, reg_data);
+		reg_data = (volatile uint32_t *)((char *)hw_dbg->mem_addr + addr);
+		*reg_data = count;
 		sprintf(dbg_resp_buf, "OK\n");
 		resp_buf_read = 0;
 	}
@@ -205,8 +195,7 @@ static ssize_t ishdbg_write(struct file *file, const char __user *ubuf,
 	return  length;
 }
 
-static long ishdbg_ioctl(struct file *file, unsigned int cmd,
-	unsigned long data)
+static long ishdbg_ioctl(struct file *file, unsigned int cmd, unsigned long data)
 {
 	return	0;
 }
@@ -240,10 +229,9 @@ static struct miscdevice  ishdbg_misc_device = {
 void delete_from_log(struct heci_device *dev, size_t min_chars)
 {
 	int i;
-	/* set log_tail to point at the last char to be deleted */
-	dev->log_tail = (dev->log_tail + min_chars - 1) % PRINT_BUFFER_SIZE;
-	for (i = dev->log_tail; dev->log_buffer[i] != '\n';
-			i = (i+1) % PRINT_BUFFER_SIZE)
+
+	dev->log_tail = (dev->log_tail + min_chars - 1) % PRINT_BUFFER_SIZE;    /* log_tail points now on the last char to be deleted */
+	for (i = dev->log_tail; dev->log_buffer[i] != '\n'; i = (i+1) % PRINT_BUFFER_SIZE)
 		;
 	dev->log_tail = (i+1) % PRINT_BUFFER_SIZE;
 }
@@ -266,12 +254,11 @@ static void ish_print_log(struct heci_device *dev, char *format, ...)
 	i = sprintf(tmp_buf, "[%ld.%06ld] ", tv.tv_sec, tv.tv_usec);
 
 	va_start(args, format);
-	length = vsnprintf(tmp_buf + i, sizeof(tmp_buf)-i, format, args);
+	length = vsprintf(tmp_buf + i, format, args);
 	va_end(args);
 
 	length = length + i;
-	/* if the msg does not end with \n, add it */
-	if (tmp_buf[length-1] != '\n') {
+	if (tmp_buf[length-1] != '\n') {        /* if the msg does not end with \n, add it*/
 		tmp_buf[length] = '\n';
 		length++;
 	}
@@ -284,21 +271,13 @@ static void ish_print_log(struct heci_device *dev, char *format, ...)
 	free_space = PRINT_BUFFER_SIZE - full_space;
 
 	if (free_space <= length)
-		/*
-		 * not enougth space.
-		 * needed at least 1 empty char to recognize
-		 * whether buffer is full or empty
-		 */
-		delete_from_log(dev, (length - free_space) + 1);
+		delete_from_log(dev, (length - free_space)+1);  /* needed at least 1 empty char to recognize whether buffer is full or empty */
 
-	if (dev->log_head + length <= PRINT_BUFFER_SIZE) {
+	if (dev->log_head + length <= PRINT_BUFFER_SIZE)
 		memcpy(dev->log_buffer + dev->log_head, tmp_buf, length);
-	} else {
-		memcpy(dev->log_buffer + dev->log_head, tmp_buf,
-			PRINT_BUFFER_SIZE - dev->log_head);
-		memcpy(dev->log_buffer,
-			tmp_buf + PRINT_BUFFER_SIZE - dev->log_head,
-			length - (PRINT_BUFFER_SIZE - dev->log_head));
+	else {
+		memcpy(dev->log_buffer + dev->log_head, tmp_buf,  PRINT_BUFFER_SIZE - dev->log_head);
+		memcpy(dev->log_buffer, tmp_buf + PRINT_BUFFER_SIZE - dev->log_head, length - (PRINT_BUFFER_SIZE - dev->log_head));
 	}
 	dev->log_head = (dev->log_head + length) % PRINT_BUFFER_SIZE;
 
@@ -332,7 +311,7 @@ void	g_ish_print_log(char *fmt, ...)
 
 	dev = pci_get_drvdata(heci_pci_device);
 	va_start(args, fmt);
-	vsnprintf(tmp_buf, sizeof(tmp_buf), fmt, args);
+	vsprintf(tmp_buf, fmt, args);
 	va_end(args);
 	ish_print_log(dev, tmp_buf);
 }
@@ -342,9 +321,14 @@ EXPORT_SYMBOL(g_ish_print_log);
 static ssize_t ish_read_log(struct heci_device *dev, char *buf, size_t size)
 {
 	int i, full_space, ret_val;
+	unsigned long	flags;
 
-	if (dev->log_head == dev->log_tail) /* log is empty */
+	spin_lock_irqsave(&dev->log_spinlock, flags);
+
+	if (dev->log_head == dev->log_tail) {/* log is empty */
+		spin_unlock_irqrestore(&dev->log_spinlock, flags);
 		return 0;
+	}
 
 	/* read size the minimum between full_space and the buffer size */
 	full_space = dev->log_head - dev->log_tail;
@@ -352,8 +336,7 @@ static ssize_t ish_read_log(struct heci_device *dev, char *buf, size_t size)
 		full_space = PRINT_BUFFER_SIZE + full_space;
 
 	if (full_space < size)
-		i = (dev->log_tail + full_space) % PRINT_BUFFER_SIZE;
-		/* log has less than 'size' bytes, i = dev->log_head */
+		i = (dev->log_tail + full_space) % PRINT_BUFFER_SIZE; /* =dev->log_head */
 	else
 		i = (dev->log_tail + size) % PRINT_BUFFER_SIZE;
 	/* i is the last character to be readen */
@@ -364,50 +347,41 @@ static ssize_t ish_read_log(struct heci_device *dev, char *buf, size_t size)
 		;
 
 	if (dev->log_tail < i) {
-		memcpy(buf, dev->log_buffer + dev->log_tail,
-			i - dev->log_tail + 1);
+		memcpy(buf, dev->log_buffer + dev->log_tail, i - dev->log_tail + 1);
 		ret_val = i - dev->log_tail + 1;
 	} else {
-		memcpy(buf, dev->log_buffer + dev->log_tail,
-			PRINT_BUFFER_SIZE - dev->log_tail);
-		memcpy(buf + PRINT_BUFFER_SIZE - dev->log_tail,
-			dev->log_buffer, i + 1);
+		memcpy(buf, dev->log_buffer + dev->log_tail, PRINT_BUFFER_SIZE - dev->log_tail);
+		memcpy(buf + PRINT_BUFFER_SIZE - dev->log_tail, dev->log_buffer, i + 1);
 		ret_val = PRINT_BUFFER_SIZE - dev->log_tail + i + 1;
 	}
+	spin_unlock_irqrestore(&dev->log_spinlock, flags);
 	return ret_val;
 }
 
-static ssize_t ish_read_flush_log(struct heci_device *dev, char *buf,
-	size_t size)
+static ssize_t ish_read_flush_log(struct heci_device *dev, char *buf, size_t size)
 {
 	int ret;
 	unsigned long	flags;
 
 	ret = ish_read_log(dev, buf, size);
+	spin_lock_irqsave(&dev->log_spinlock, flags);
 	delete_from_log(dev, ret);
+	spin_unlock_irqrestore(&dev->log_spinlock, flags);
 	return ret;
 }
 
 /* show & store functions for both read and flush char devices*/
-ssize_t show_read(struct device *dev, struct device_attribute *dev_attr,
-	char *buf)
+ssize_t show_read(struct device *dev, struct device_attribute *dev_attr, char *buf)
 {
 	struct pci_dev *pdev;
 	struct heci_device *heci_dev;
-	ssize_t retval;
-	unsigned long	flags;
 
 	pdev = container_of(dev, struct pci_dev, dev);
 	heci_dev = pci_get_drvdata(pdev);
-	spin_lock_irqsave(&heci_dev->log_spinlock, flags);
-	retval = ish_read_log(heci_dev, buf, PAGE_SIZE);
-	spin_unlock_irqrestore(&heci_dev->log_spinlock, flags);
-
-	return retval;
+	return ish_read_log(heci_dev, buf, PAGE_SIZE);
 }
 
-ssize_t store_read(struct device *dev, struct device_attribute *dev_attr,
-	const char *buf, size_t count)
+ssize_t store_read(struct device *dev, struct device_attribute *dev_attr, const char *buf, size_t count)
 {
 	return count;
 }
@@ -421,25 +395,17 @@ static struct device_attribute read_attr = {
 	.store = store_read
 };
 
-ssize_t show_flush(struct device *dev, struct device_attribute *dev_attr,
-	char *buf)
+ssize_t show_flush(struct device *dev, struct device_attribute *dev_attr, char *buf)
 {
 	struct pci_dev *pdev;
 	struct heci_device *heci_dev;
-	unsigned long	flags;
-	ssize_t retval;
 
 	pdev = container_of(dev, struct pci_dev, dev);
 	heci_dev = pci_get_drvdata(pdev);
-	spin_lock_irqsave(&heci_dev->log_spinlock, flags);
-	retval = ish_read_flush_log(heci_dev, buf, PAGE_SIZE);
-	spin_unlock_irqrestore(&heci_dev->log_spinlock, flags);
-
-	return retval;
+	return ish_read_flush_log(heci_dev, buf, PAGE_SIZE);
 }
 
-ssize_t store_flush(struct device *dev, struct device_attribute *dev_attr,
-	const char *buf, size_t count)
+ssize_t store_flush(struct device *dev, struct device_attribute *dev_attr, const char *buf, size_t count)
 {
 	struct pci_dev *pdev;
 	struct heci_device *heci_dev;
@@ -464,6 +430,7 @@ static struct device_attribute flush_attr = {
 	.show = show_flush,
 	.store = store_flush
 };
+
 #else
 
 static void ish_print_log_nolog(struct heci_device *dev, char *format, ...)
@@ -477,8 +444,7 @@ EXPORT_SYMBOL(g_ish_print_log);
 
 #endif /* ISH_LOG */
 
-ssize_t show_heci_dev_props(struct device *dev,
-	struct device_attribute *dev_attr, char *buf)
+ssize_t show_heci_dev_props(struct device *dev, struct device_attribute *dev_attr, char *buf)
 {
 	struct pci_dev *pdev;
 	struct heci_device *heci_dev;
@@ -490,16 +456,13 @@ ssize_t show_heci_dev_props(struct device *dev,
 	heci_dev = pci_get_drvdata(pdev);
 
 	if (!strcmp(dev_attr->attr.name, "heci_dev_state")) {
-		scnprintf(buf, PAGE_SIZE, "%u\n",
-			(unsigned)heci_dev->dev_state);
+		sprintf(buf, "%u\n", (unsigned)heci_dev->dev_state);
 		ret = strlen(buf);
 	} else if (!strcmp(dev_attr->attr.name, "hbm_state")) {
-		scnprintf(buf, PAGE_SIZE, "%u\n",
-			(unsigned)heci_dev->hbm_state);
+		sprintf(buf, "%u\n", (unsigned)heci_dev->hbm_state);
 		ret = strlen(buf);
 	} else if (!strcmp(dev_attr->attr.name, "fw_status")) {
-		scnprintf(buf, PAGE_SIZE, "%08X\n",
-			heci_dev->ops->get_fw_status(heci_dev));
+		sprintf(buf, "%08X\n", heci_dev->ops->get_fw_status(heci_dev));
 		ret = strlen(buf);
 	} else if (!strcmp(dev_attr->attr.name, "ipc_buf")) {
 		struct wr_msg_ctl_info *ipc_link, *ipc_link_next;
@@ -511,7 +474,7 @@ ssize_t show_heci_dev_props(struct device *dev,
 			++count;
 		spin_unlock_irqrestore(&heci_dev->wr_processing_spinlock,
 			flags);
-		scnprintf(buf, PAGE_SIZE, "outstanding %u messages\n", count);
+		sprintf(buf, "outstanding %u messages\n", count);
 		ret = strlen(buf);
 	} else if (!strcmp(dev_attr->attr.name, "host_clients")) {
 		struct heci_cl *cl, *next;
@@ -521,26 +484,24 @@ ssize_t show_heci_dev_props(struct device *dev,
 		struct heci_cl_rb	*rb, *next_rb;
 		struct heci_cl_tx_ring	*tx_rb, *next_tx_rb;
 
-		scnprintf(buf, PAGE_SIZE, "Host clients:\n"
+		sprintf(buf, "Host clients:\n"
 				"------------\n");
 		spin_lock_irqsave(&heci_dev->device_lock, flags);
 		list_for_each_entry_safe(cl, next, &heci_dev->cl_list, link) {
 			sprintf(buf + strlen(buf), "id: %d\n",
 				cl->host_client_id);
-			scnprintf(buf + strlen(buf), PAGE_SIZE - strlen(buf),
-				"state: %s\n", cl->state < 0 || cl->state >
+			sprintf(buf + strlen(buf), "state: %s\n",
+				cl->state < 0 || cl->state >
 					HECI_CL_DISCONNECTED ?
 					"unknown" : cl_states[cl->state]);
 			if (cl->state == HECI_CL_CONNECTED) {
-				scnprintf(buf + strlen(buf),
-					PAGE_SIZE - strlen(buf),
-					"FW client id: %d\n", cl->me_client_id);
-				scnprintf(buf + strlen(buf),
-					PAGE_SIZE - strlen(buf),
-					"RX ring size: %u\n", cl->rx_ring_size);
-				scnprintf(buf + strlen(buf),
-					PAGE_SIZE - strlen(buf),
-					"TX ring size: %u\n", cl->tx_ring_size);
+				sprintf(buf + strlen(buf),
+					"FW client id: %d\n",
+					cl->me_client_id);
+				sprintf(buf + strlen(buf), "RX ring size: %u\n",
+					cl->rx_ring_size);
+				sprintf(buf + strlen(buf), "TX ring size: %u\n",
+					cl->tx_ring_size);
 
 				count = 0;
 				spin_lock_irqsave(&cl->in_process_spinlock,
@@ -550,9 +511,8 @@ ssize_t show_heci_dev_props(struct device *dev,
 					++count;
 				spin_unlock_irqrestore(&cl->in_process_spinlock,
 					flags2);
-				scnprintf(buf + strlen(buf),
-					PAGE_SIZE - strlen(buf),
-					"RX in work: %u\n", count);
+				sprintf(buf + strlen(buf), "RX in work: %u\n",
+					count);
 
 				count = 0;
 				spin_lock_irqsave(&cl->in_process_spinlock,
@@ -562,9 +522,8 @@ ssize_t show_heci_dev_props(struct device *dev,
 					++count;
 				spin_unlock_irqrestore(&cl->in_process_spinlock,
 					flags2);
-				scnprintf(buf + strlen(buf),
-					PAGE_SIZE - strlen(buf),
-					"RX free: %u\n", count);
+				sprintf(buf + strlen(buf), "RX free: %u\n",
+					count);
 
 				count = 0;
 				spin_lock_irqsave(&cl->tx_list_spinlock,
@@ -574,10 +533,8 @@ ssize_t show_heci_dev_props(struct device *dev,
 					++count;
 				spin_unlock_irqrestore(&cl->tx_list_spinlock,
 					tx_flags);
-
-				scnprintf(buf + strlen(buf),
-					PAGE_SIZE - strlen(buf),
-					"TX pending: %u\n", count);
+				sprintf(buf + strlen(buf), "TX pending: %u\n",
+					count);
 				count = 0;
 				spin_lock_irqsave(
 					&cl->tx_free_list_spinlock,
@@ -588,76 +545,50 @@ ssize_t show_heci_dev_props(struct device *dev,
 				spin_unlock_irqrestore(
 					&cl->tx_free_list_spinlock,
 					tx_free_flags);
-				scnprintf(buf + strlen(buf),
-					PAGE_SIZE - strlen(buf),
-					"TX free: %u\n", count);
-				scnprintf(buf + strlen(buf),
-					PAGE_SIZE - strlen(buf),
-					"FC: %u\n",
+				sprintf(buf + strlen(buf), "TX free: %u\n",
+					count);
+				sprintf(buf + strlen(buf), "FC: %u\n",
 					(unsigned)cl->heci_flow_ctrl_creds);
-				scnprintf(buf + strlen(buf),
-					PAGE_SIZE - strlen(buf),
-					 "out FC: %u\n",
+				sprintf(buf + strlen(buf), "out FC: %u\n",
 					(unsigned)cl->out_flow_ctrl_creds);
-				scnprintf(buf + strlen(buf),
-					PAGE_SIZE - strlen(buf),
-					"Err snd msg: %u\n",
+				sprintf(buf + strlen(buf), "Err snd msg: %u\n",
 					(unsigned)cl->err_send_msg);
-				scnprintf(buf + strlen(buf),
-					PAGE_SIZE - strlen(buf),
-					"Err snd FC: %u\n",
+				sprintf(buf + strlen(buf), "Err snd FC: %u\n",
 					(unsigned)cl->err_send_fc);
-				scnprintf(buf + strlen(buf),
-					PAGE_SIZE - strlen(buf),
-					"Tx count: %u\n",
+				sprintf(buf + strlen(buf), "Tx count: %u\n",
 					(unsigned)cl->send_msg_cnt);
-				scnprintf(buf + strlen(buf),
-					PAGE_SIZE - strlen(buf),
-					"Rx count: %u\n",
+				sprintf(buf + strlen(buf), "Rx count: %u\n",
 					(unsigned)cl->recv_msg_cnt);
-				scnprintf(buf + strlen(buf),
-					PAGE_SIZE - strlen(buf),
-					"FC count: %u\n",
+				sprintf(buf + strlen(buf), "FC count: %u\n",
 					(unsigned)cl->heci_flow_ctrl_cnt);
-				scnprintf(buf + strlen(buf),
-					PAGE_SIZE - strlen(buf),
-					"out FC cnt: %u\n",
+				sprintf(buf + strlen(buf), "out FC cnt: %u\n",
 					(unsigned)cl->out_flow_ctrl_cnt);
-				scnprintf(buf + strlen(buf),
-					PAGE_SIZE - strlen(buf),
+				sprintf(buf + strlen(buf),
 					"Max FC delay: %lu.%06lu\n",
 					cl->max_fc_delay_sec,
 					cl->max_fc_delay_usec);
 			}
 		}
-		scnprintf(buf + strlen(buf), PAGE_SIZE - strlen(buf),
-			"IPC HID out FC: %u\n",
+		sprintf(buf + strlen(buf), "IPC HID out FC: %u\n",
 			(unsigned)heci_dev->ipc_hid_out_fc);
-		scnprintf(buf + strlen(buf), PAGE_SIZE - strlen(buf),
-			"IPC HID out FC count: %u\n",
+		sprintf(buf + strlen(buf), "IPC HID out FC count: %u\n",
 			(unsigned)heci_dev->ipc_hid_out_fc_cnt);
-		scnprintf(buf + strlen(buf), PAGE_SIZE - strlen(buf),
-			"IPC HID in msg: %u\n",
+		sprintf(buf + strlen(buf), "IPC HID in msg: %u\n",
 			(unsigned)heci_dev->ipc_hid_in_msg);
-		scnprintf(buf + strlen(buf), PAGE_SIZE - strlen(buf),
-			"IPC HID in FC: %u\n",
+		sprintf(buf + strlen(buf), "IPC HID in FC: %u\n",
 			(unsigned)heci_dev->ipc_hid_in_fc);
-		scnprintf(buf + strlen(buf), PAGE_SIZE - strlen(buf),
-			"IPC HID in FC count: %u\n",
+		sprintf(buf + strlen(buf), "IPC HID in FC count: %u\n",
 			(unsigned)heci_dev->ipc_hid_in_fc_cnt);
-		scnprintf(buf + strlen(buf), PAGE_SIZE - strlen(buf),
-			"IPC HID out msg: %u\n",
+		sprintf(buf + strlen(buf), "IPC HID out msg: %u\n",
 			(unsigned)heci_dev->ipc_hid_out_msg);
 		spin_unlock_irqrestore(&heci_dev->device_lock, flags);
 		ret = strlen(buf);
 	} else if (!strcmp(dev_attr->attr.name, "stats")) {
-		scnprintf(buf, PAGE_SIZE, "Max. log time: %lu.%06lu\n",
+		sprintf(buf, "Max. log time: %lu.%06lu\n",
 			heci_dev->max_log_sec, heci_dev->max_log_usec);
-		scnprintf(buf + strlen(buf), PAGE_SIZE - strlen(buf),
-			"IPC Rx frames: %u; bytes: %llu\n",
+		sprintf(buf + strlen(buf), "IPC Rx frames: %u; bytes: %llu\n",
 			heci_dev->ipc_rx_cnt, heci_dev->ipc_rx_bytes_cnt);
-		scnprintf(buf + strlen(buf), PAGE_SIZE - strlen(buf),
-			"IPC Tx frames: %u; bytes: %llu\n",
+		sprintf(buf + strlen(buf), "IPC Tx frames: %u; bytes: %llu\n",
 			heci_dev->ipc_tx_cnt, heci_dev->ipc_tx_bytes_cnt);
 		ret = strlen(buf);
 	}
@@ -665,8 +596,7 @@ ssize_t show_heci_dev_props(struct device *dev,
 	return	ret;
 }
 
-ssize_t store_heci_dev_props(struct device *dev,
-	struct device_attribute *dev_attr, const char *buf, size_t count)
+ssize_t store_heci_dev_props(struct device *dev, struct device_attribute *dev_attr, const char *buf, size_t count)
 {
 	return	-EINVAL;
 }
@@ -715,6 +645,7 @@ ssize_t store_force_hid_fc(struct device *dev,
 
 	return	 strlen(buf);
 }
+/*******************/
 
 static struct device_attribute heci_dev_state_attr = {
 	.attr = {
@@ -778,21 +709,20 @@ static struct device_attribute force_hid_fc_attr = {
 	.show = show_force_hid_fc,
 	.store = store_force_hid_fc
 };
+
 /**********************************/
 
-struct my_work_t {
-	struct work_struct my_work;
-	struct heci_device *dev;
-};
+typedef struct {
+  struct work_struct my_work;
+  struct heci_device *dev;
+} my_work_t;
 
 void workqueue_init_function(struct work_struct *work)
 {
-	struct heci_device *dev = ((struct my_work_t *)work)->dev;
+	struct heci_device *dev = ((my_work_t *)work)->dev;
 	int err;
 
-	ISH_DBG_PRINT(KERN_ALERT
-		"[pci driver] %s() in workqueue func, continue initialization process\n",
-		__func__);
+	ISH_DBG_PRINT(KERN_ALERT "[pci driver] %s() in workqueue func, continue initialization process\n", __func__);
 
 	pci_set_drvdata(dev->pdev, dev);
 /*	dev_dbg(&dev->pdev->dev, "heci: after pci_set_drvdata\n");*/
@@ -815,10 +745,8 @@ void workqueue_init_function(struct work_struct *work)
 
 	spin_lock_init(&dev->log_spinlock);
 
-	dev->print_log(dev, "[heci-ish]: %s():+++ [Build "BUILD_ID "]\n",
-		__func__);
-	dev->print_log(dev, "[heci-ish] %s() running on %s revision [%02X]\n",
-		__func__,
+	dev->print_log(dev, "[heci-ish]: %s():+++ [Build "BUILD_ID "]\n", __func__);
+	dev->print_log(dev, "[heci-ish] %s() running on %s revision [%02X]\n", __func__,
 		dev->pdev->revision == REVISION_ID_CHT_A0 ||
 		(dev->pdev->revision & REVISION_ID_SI_MASK) ==
 		REVISION_ID_CHT_A0_SI ? "CHT Ax" :
@@ -828,6 +756,7 @@ void workqueue_init_function(struct work_struct *work)
 		(dev->pdev->revision & REVISION_ID_SI_MASK) ==
 		REVISION_ID_CHT_Kx_SI ? "CHT Kx/Cx" : "Unknown",
 		dev->pdev->revision);
+
 #else
 	dev->print_log = ish_print_log_nolog;
 #endif /*ISH_LOG*/
@@ -850,9 +779,7 @@ void workqueue_init_function(struct work_struct *work)
 
 	mutex_unlock(&heci_mutex);
 
-	ISH_DBG_PRINT(KERN_ALERT
-		"[pci driver] %s() in workqueue func, finished initialization process\n",
-		__func__);
+	ISH_DBG_PRINT(KERN_ALERT "[pci driver] %s() in workqueue func, finished initialization process\n", __func__);
 	kfree((void *)work);
 	return;
 
@@ -877,29 +804,23 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	struct ish_hw *hw;
 	int err;
 	int	rv;
-	struct my_work_t *work;
+	my_work_t *work;
 
-	ISH_INFO_PRINT(KERN_ERR "[heci-ish]: %s():+++ [Build "BUILD_ID "]\n",
-		__func__);
-	ISH_INFO_PRINT(KERN_ERR
-		"[heci-ish] %s() running on %s revision [%02X]\n", __func__,
-		pdev->revision == REVISION_ID_CHT_A0 ||
-		(pdev->revision & REVISION_ID_SI_MASK) ==
-			REVISION_ID_CHT_A0_SI ? "CHT A0" :
+	ISH_INFO_PRINT(KERN_ERR "[heci-ish]: %s():+++ [Build "BUILD_ID "]\n", __func__);
+	ISH_INFO_PRINT(KERN_ERR "[heci-ish] %s() running on %s revision [%02X]\n", __func__,
+		pdev->revision == REVISION_ID_CHT_A0 || (pdev->revision & REVISION_ID_SI_MASK) == REVISION_ID_CHT_A0_SI ? "CHT A0" :
 		pdev->revision == REVISION_ID_CHT_B0 ||
 		(pdev->revision & REVISION_ID_SI_MASK) ==
 			REVISION_ID_CHT_Bx_SI ? "CHT B0" :
 		(pdev->revision & REVISION_ID_SI_MASK) ==
 			REVISION_ID_CHT_Kx_SI ? "CHT Kx/Cx" : "Unknown",
-		pdev->revision);
-#if defined(SUPPORT_Ax_ONLY)
+		 pdev->revision);
+#if defined (SUPPORT_Ax_ONLY)
 	pdev->revision = REVISION_ID_CHT_A0;
-	ISH_DBG_PRINT(KERN_ALERT "[heci-ish] %s() revision forced to A0\n",
-		__func__);
-#elif defined(SUPPORT_Bx_ONLY)
+	ISH_DBG_PRINT(KERN_ALERT "[heci-ish] %s() revision forced to A0\n", __func__);
+#elif defined (SUPPORT_Bx_ONLY)
 	pdev->revision = REVISION_ID_CHT_B0;
-	ISH_DBG_PRINT(KERN_ALERT "[heci-ish] %s() revision forced to B0\n",
-		__func__);
+	ISH_DBG_PRINT(KERN_ALERT "[heci-ish] %s() revision forced to B0\n", __func__);
 #endif
 	mutex_lock(&heci_mutex);
 	if (heci_pci_device) {
@@ -921,7 +842,7 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto disable_device;
 	}
 
-	/* allocates and initializes the heci dev structure */
+	/* allocates and initializes the heci_dev structure */
 	dev = ish_dev_init(pdev);
 	if (!dev) {
 		err = -ENOMEM;
@@ -945,33 +866,27 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 			"error starting ISS debugger (misc_register): %d\n",
 			rv);
 	hw_dbg = hw;
-#endif /*ISH_DEBUGGER*/
+#endif
 
 	heci_pci_device = pdev;
 
 	/* request and enable interrupt   */
 #ifndef TIMER_POLLING
-	err = request_irq(pdev->irq, ish_irq_handler, IRQF_SHARED,
-		KBUILD_MODNAME, dev);
+	err = request_irq(pdev->irq, ish_irq_handler, IRQF_SHARED, KBUILD_MODNAME, dev);
 	if (err) {
-		dev_err(&pdev->dev, "heci: request_irq failure. irq = %d\n",
-			pdev->irq);
+		dev_err(&pdev->dev, "heci: request_irq failure. irq = %d\n", pdev->irq);
 		goto free_device;
 	}
-	dev_alert(&pdev->dev, "[heci-ish]: uses IRQ %d\n", pdev->irq);
+	printk(KERN_ALERT "[heci-ish]: uses IRQ %d\n", pdev->irq);
 
 	/* Diagnostic output */
 	do {
 		uint32_t	msg_addr;
 		uint32_t	msg_data;
 
-		pci_read_config_dword(pdev, pdev->msi_cap + PCI_MSI_ADDRESS_LO,
-			&msg_addr);
-		pci_read_config_dword(pdev, pdev->msi_cap + PCI_MSI_DATA_32,
-			&msg_data);
-		ISH_DBG_PRINT(KERN_ALERT
-			"[heci-ish] %s(): assigned IRQ = %d, [PCI_MSI_ADDRESS_LO] = %08X [PCI_MSI_DATA_32] = %08X\n",
-			__func__, pdev->irq, msg_addr, msg_data);
+		pci_read_config_dword(pdev, pdev->msi_cap + PCI_MSI_ADDRESS_LO, &msg_addr);
+		pci_read_config_dword(pdev, pdev->msi_cap + PCI_MSI_DATA_32, &msg_data);
+		ISH_DBG_PRINT(KERN_ALERT "[heci-ish] %s(): assigned IRQ = %d, [PCI_MSI_ADDRESS_LO] = %08X [PCI_MSI_DATA_32] = %08X\n", __func__, pdev->irq, msg_addr, msg_data);
 	} while (0);
 	/*********************/
 #else
@@ -993,26 +908,16 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	pdev->dev_flags |= PCI_DEV_FLAGS_NO_D3;
 
 
-	/*
-	 * 7/7/2014: in order to not stick Android boot,
-	 * from here & below needs to run in work queue
-	 * and here we should return success
-	 */
+	/* 7/7/2014: in order to not stick Android boot, from here & below needs to run in work queue and here we should return success */
 	/****************************************************************/
-	work = kmalloc(sizeof(struct my_work_t), GFP_KERNEL);
-	if (!work)
-		return -ENOMEM;
+	work = (my_work_t *)kmalloc(sizeof(my_work_t), GFP_KERNEL);
+
 	work->dev = dev;
 	workqueue_for_init = create_workqueue("workqueue_for_init");
-	if (!workqueue_for_init) {
-		kfree(work);
-		return -ENOMEM;
-	}
 	INIT_WORK(&work->my_work, workqueue_init_function);
 	queue_work(workqueue_for_init, &work->my_work);
 
-	ISH_DBG_PRINT("[pci driver] %s() enqueue init_work function\n",
-		__func__);
+	ISH_DBG_PRINT("[pci driver] %s() enqueue init_work function\n", __func__);
 
 	mutex_unlock(&heci_mutex);
 	return 0;
@@ -1044,10 +949,7 @@ static void ish_remove(struct pci_dev *pdev)
 	struct heci_device *dev;
 	struct ish_hw *hw;
 
-	/*
-	 *** If this case of removal is viable,
-	 * also go through HECI clients removal ***
-	 */
+	/*** If this case of removal is viable, also go through HECI clients removal ***/
 
 	if (heci_pci_device != pdev) {
 		dev_err(&pdev->dev, "heci: heci_pci_device != pdev\n");
