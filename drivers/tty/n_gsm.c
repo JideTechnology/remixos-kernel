@@ -2102,6 +2102,72 @@ close_this_dlci:
 	}
 }
 
+static void gsm_remove_one_mux_entry(struct gsm_mux *gsm)
+{
+	if (gsm->num >= MAX_MUX)
+		return;
+
+	spin_lock(&gsm_mux_lock);
+	if (gsm_mux[gsm->num] == gsm)
+		gsm_mux[gsm->num] = NULL;
+	spin_unlock(&gsm_mux_lock);
+}
+
+static int gsm_add_one_mux_entry(struct gsm_mux *gsm)
+{
+	int i = 0;
+	char *p = NULL;
+
+	/*XXX: might want to clean that up ... and prolly move some checks*/
+	/* in mux_base_conf_set*/
+	if (mux_base_config[0]) {
+		pr_debug(DRVNAME": Config exists\n");
+		p = strstr(mux_base_config, gsm->tty->name);
+		if (p != NULL) {
+			if (sscanf(p+strlen(gsm->tty->name)+1, "%d", &i) != 1) {
+				pr_err(DRVNAME": Config not correct, abort : %s - %s - %s\n",
+						gsm->tty->name,
+						p,
+						p+strlen(gsm->tty->name) + 1);
+				return -EINVAL;
+			}
+			if (i >= MAX_MUX) {
+				pr_err(DRVNAME": Base > MAX_MUX (%d)\n",
+						MAX_MUX);
+				return -EINVAL;
+			}
+			spin_lock(&gsm_mux_lock);
+			if (gsm_mux[i] != NULL) {
+				spin_unlock(&gsm_mux_lock);
+				pr_err(DRVNAME": Mux base %d already taken, abort\n",
+						i);
+				return -EBUSY;
+			}
+			gsm->num = i;
+			gsm_mux[i] = gsm;
+			spin_unlock(&gsm_mux_lock);
+		} else {
+			pr_err(DRVNAME": Config doesn't exists for tty: %s\n",
+			 gsm->tty->name);
+			return -EINVAL;
+		}
+	} else {
+		pr_debug(DRVNAME": No config, default behavior\n");
+		spin_lock(&gsm_mux_lock);
+		for (i = 0; i < MAX_MUX; i++) {
+			if (gsm_mux[i] == NULL) {
+				gsm->num = i;
+				gsm_mux[i] = gsm;
+				break;
+			}
+		}
+		spin_unlock(&gsm_mux_lock);
+	}
+	if (i == MAX_MUX)
+		return -EBUSY;
+	return 0;
+}
+
 /**
  *	gsm_cleanup_mux		-	generic GSM protocol cleanup
  *	@gsm: our mux
@@ -2122,10 +2188,6 @@ void gsm_cleanup_mux(struct gsm_mux *gsm)
 	unsigned long flags;
 
 	gsm->dead = 1;
-
-	spin_lock(&gsm_mux_lock);
-	gsm_mux[gsm->num] = NULL;
-	spin_unlock(&gsm_mux_lock);
 
 	del_timer_sync(&gsm->t2_timer);
 	/* Now we are sure T2 has stopped */
@@ -2148,20 +2210,10 @@ void gsm_cleanup_mux(struct gsm_mux *gsm)
 	spin_unlock_irqrestore(&gsm->tx_lock, flags);
 }
 
-/**
- *	gsm_activate_mux	-	generic GSM setup
- *	@gsm: our mux
- *
- *	Set up the bits of the mux which are the same for all framing
- *	protocols. Add the mux to the mux table so it can be opened and
- *	finally kick off connecting to DLCI 0 on the modem.
- */
-
-static int gsm_activate_mux(struct gsm_mux *gsm)
+static int __gsm_activate_mux(struct gsm_mux *gsm, bool assign_new_mux_entry)
 {
 	struct gsm_dlci *dlci;
-	int i = 0;
-	char *p = NULL;
+	int ret;
 
 	init_timer(&gsm->t2_timer);
 	gsm->t2_timer.function = gsm_control_retransmit;
@@ -2176,52 +2228,11 @@ static int gsm_activate_mux(struct gsm_mux *gsm)
 		gsm->receive = gsm1_receive;
 	gsm->error = gsm_error;
 
-	/*XXX: might want to clean that up ... and prolly move some checks*/
-	/* in mux_base_conf_set*/
-	if (mux_base_config[0]) {
-		pr_debug(DRVNAME": Config exists\n");
-		p = strstr(mux_base_config, gsm->tty->name);
-		if (p != NULL) {
-			if (sscanf(p+strlen(gsm->tty->name)+1, "%d", &i) != 1) {
-				pr_err(DRVNAME": Config not correct, abort : %s - %s - %s\n",
-						gsm->tty->name, p,
-						p+strlen(gsm->tty->name) + 1);
-				return -EINVAL;
-			}
-			if (i >= MAX_MUX) {
-				pr_err(DRVNAME": Base > MAX_MUX (%d)\n",
-						MAX_MUX);
-				return -EINVAL;
-			}
-			spin_lock(&gsm_mux_lock);
-			if (gsm_mux[i] != NULL) {
-				spin_unlock(&gsm_mux_lock);
-				pr_err(DRVNAME": Mux base %d already taken, abort\n",
-						i);
-				return -EBUSY;
-			}
-			gsm->num = i;
-			gsm_mux[i] = gsm;
-			spin_unlock(&gsm_mux_lock);
-		} else {
-			pr_err(DRVNAME": Config doesn't exists for tty: %s\n",
-					gsm->tty->name);
-			return -EINVAL;
-		}
-	} else {
-		pr_debug(DRVNAME": No config, default behavior\n");
-		spin_lock(&gsm_mux_lock);
-		for (i = 0; i < MAX_MUX; i++) {
-			if (gsm_mux[i] == NULL) {
-				gsm->num = i;
-				gsm_mux[i] = gsm;
-				break;
-			}
-		}
-		spin_unlock(&gsm_mux_lock);
+	if (assign_new_mux_entry) {
+		ret = gsm_add_one_mux_entry(gsm);
+		if (ret != 0)
+			return ret;
 	}
-	if (i == MAX_MUX)
-		return -EBUSY;
 
 	dlci = gsm_dlci_alloc(gsm, 0);
 	if (dlci == NULL)
@@ -2229,6 +2240,19 @@ static int gsm_activate_mux(struct gsm_mux *gsm)
 	activated++;
 	gsm->dead = 0;		/* Tty opens are now permissible */
 	return 0;
+}
+
+/**
+ *	gsm_activate_mux	-	generic GSM setup
+ *	@gsm: our mux
+ *
+ *	Set up the bits of the mux which are the same for all framing
+ *	protocols. Add the mux to the mux table so it can be opened and
+ *	finally kick off connecting to DLCI 0 on the modem.
+ */
+static int gsm_activate_mux(struct gsm_mux *gsm)
+{
+	return __gsm_activate_mux(gsm, 1);
 }
 
 /**
@@ -2276,6 +2300,7 @@ static void gsm_free_mux(struct gsm_mux *gsm)
 		else
 			gsm_mux_buf_free(2 * gsm->mtu + 2, gsm->txframe);
 	}
+	gsm_remove_one_mux_entry(gsm);
 	kfree(gsm);
 }
 
@@ -2784,10 +2809,8 @@ static int gsmld_config(struct tty_struct *tty, struct gsm_mux *gsm,
 	if (c->t2)
 		gsm->t2 = c->t2;
 
-	/* FIXME: We need to separate activation/deactivation from adding
-	   and removing from the mux array */
 	if (need_restart)
-		gsm_activate_mux(gsm);
+		__gsm_activate_mux(gsm, 0);
 	if (gsm->initiator && need_close)
 		gsm_dlci_begin_open(gsm->dlci[0]);
 	return 0;
