@@ -208,12 +208,26 @@ static int ss_rsa_decrypt(struct ablkcipher_request *req)
 }
 #endif
 
+#ifdef SS_DH_ENABLE
+static int ss_dh_encrypt(struct ablkcipher_request *req)
+{
+	return ss_aes_crypt(req, SS_DIR_ENCRYPT, SS_METHOD_DH, CE_RSA_OP_M_EXP);
+}
+
+static int ss_dh_decrypt(struct ablkcipher_request *req)
+{
+	return ss_aes_crypt(req, SS_DIR_DECRYPT, SS_METHOD_DH, CE_RSA_OP_M_EXP);
+}
+#endif
+
 #ifdef SS_HMAC_SHA1_ENABLE
 static int ss_hmac_sha1_encrypt(struct ablkcipher_request *req)
 {
 	return ss_aes_crypt(req, SS_DIR_ENCRYPT, SS_METHOD_HMAC_SHA1, SS_AES_MODE_ECB);
 }
 #endif
+
+
 
 #ifdef SS_HMAC_SHA256_ENABLE
 static int ss_hmac_sha256_encrypt(struct ablkcipher_request *req)
@@ -413,6 +427,7 @@ static int ss_sha256_init(struct ahash_request *req)
 	}, \
 }
 #define DECLARE_SS_RSA_ALG(type, bitwidth)	DECLARE_SS_ASYM_ALG(type, bitwidth, (bitwidth/8), (bitwidth/8))
+#define DECLARE_SS_DH_ALG(type, bitwidth)	DECLARE_SS_RSA_ALG(type, bitwidth)
 
 #define DECLARE_SS_RNG_ALG(ltype) \
 { \
@@ -450,7 +465,15 @@ static struct crypto_alg sunxi_ss_algs[] =
 #ifdef SS_RSA2048_ENABLE
 	DECLARE_SS_RSA_ALG(rsa, 2048),
 #endif
-
+#ifdef SS_DH512_ENABLE
+	DECLARE_SS_DH_ALG(dh, 512),
+#endif
+#ifdef SS_DH1024_ENABLE
+	DECLARE_SS_DH_ALG(dh, 1024),
+#endif
+#ifdef SS_DH2048_ENABLE
+	DECLARE_SS_DH_ALG(dh, 2048),
+#endif
 #ifdef SS_TRNG_ENABLE
 	DECLARE_SS_RNG_ALG(trng),
 #endif

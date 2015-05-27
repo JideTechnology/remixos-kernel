@@ -87,7 +87,6 @@ int ss_trng_get_random(struct crypto_rng *tfm, u8 *rdata, u32 dlen)
 #endif
 
 #if defined(SS_SHA_SWAP_PRE_ENABLE) || defined(SS_SHA_SWAP_FINAL_ENABLE)
-/* A bug of SS controller, need fix it by software. */
 void ss_hash_swap(char *data, int len)
 {
 	int i;

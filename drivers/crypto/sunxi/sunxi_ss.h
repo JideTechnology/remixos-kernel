@@ -48,6 +48,10 @@
 #define SS_RSA1024_ENABLE		1
 #define SS_RSA2048_ENABLE		1
 
+#define SS_DH512_ENABLE			1
+#define SS_DH1024_ENABLE		1
+#define SS_DH2048_ENABLE		1
+
 #ifdef CONFIG_EVB_PLATFORM
 #define SS_TRNG_ENABLE				1
 #define SS_TRNG_POSTPROCESS_ENABLE	1
@@ -67,6 +71,12 @@
 	|| defined(SS_RSA2048_ENABLE) || defined(SS_RSA3072_ENABLE) \
 	|| defined(SS_RSA4096_ENABLE)
 #define SS_RSA_ENABLE			1
+#endif
+
+#if defined(SS_DH512_ENABLE) || defined(SS_DH1024_ENABLE) \
+	|| defined(SS_DH2048_ENABLE) || defined(SS_DH3072_ENABLE) \
+	|| defined(SS_DH4096_ENABLE)
+#define SS_DH_ENABLE			1
 #endif
 
 #define SS_PRNG_SEED_LEN		(192/8) /* 192 bits */
