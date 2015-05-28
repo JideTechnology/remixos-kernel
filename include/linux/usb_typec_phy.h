@@ -147,12 +147,6 @@ struct typec_ops {
 					enum typec_state state);
 };
 
-struct bmc_ops {
-	int pd_revision;
-	int (*send_packet)(struct typec_phy *phy, void *msg, int len);
-	int (*recv_packet)(struct typec_phy *phy, void *msg);
-};
-
 struct typec_phy {
 	const char *label;
 	struct device *dev;
@@ -184,6 +178,7 @@ struct typec_phy {
 	int (*setup_role)(struct typec_phy *phy, int data_role, int pwr_role);
 	int (*notify_protocol)(struct typec_phy *phy, unsigned long event);
 	bool (*is_pd_capable)(struct typec_phy *phy);
+	int (*enable_autocrc)(struct typec_phy *phy, bool en);
 };
 
 extern struct typec_phy *typec_get_phy(int type);
@@ -271,6 +266,14 @@ static inline int typec_setup_cc(struct typec_phy *phy, enum typec_cc_pin cc,
 {
 	if (phy && phy->ops.setup_cc)
 		return phy->ops.setup_cc(phy, cc, state);
+	return -ENOTSUPP;
+}
+
+static inline int typec_enable_autocrc(struct typec_phy *phy, bool en)
+{
+	if (phy && phy->enable_autocrc)
+		return phy->enable_autocrc(phy, en);
+
 	return -ENOTSUPP;
 }
 
