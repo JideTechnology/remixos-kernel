@@ -287,6 +287,7 @@ static void detect_lock_ufp_work(struct work_struct *work)
 	unsigned long timeout = msecs_to_jiffies(TYPEC_DRPLOCK_TIMEOUT);
 
 	phy = detect->phy;
+	typec_enable_autocrc(detect->phy, false);
 	typec_switch_mode(detect->phy, TYPEC_MODE_UFP);
 	ret = wait_for_completion_timeout(&detect->lock_ufp_complete, timeout);
 	if (ret == 0) {
@@ -398,6 +399,7 @@ static void update_phy_state(struct work_struct *work)
 			mutex_unlock(&detect->lock);
 			typec_setup_cc(phy, use_cc, TYPEC_STATE_ATTACHED_UFP);
 			extcon_set_cable_state(detect->edev, "USB", true);
+			typec_enable_autocrc(detect->phy, true);
 
 			/* notify power supply */
 			cable_props.chrg_evt =
@@ -429,6 +431,7 @@ static void update_phy_state(struct work_struct *work)
 			atomic_notifier_call_chain(&power_supply_notifier,
 							PSY_CABLE_EVENT,
 							&cable_props);
+			typec_enable_autocrc(detect->phy, false);
 		} else {
 			/* state = DFP; disable VBUS */
 			/* [WA] Since neccessary pmic-gpio isn't exposed
