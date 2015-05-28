@@ -195,6 +195,13 @@ void dump_trace(struct task_struct *task, struct pt_regs *regs,
 }
 EXPORT_SYMBOL(dump_trace);
 
+static int bad_stack_address(void *sp)
+{
+	unsigned long dummy;
+
+	return probe_kernel_address((unsigned long *)sp, dummy);
+}
+
 void
 show_stack_log_lvl(struct task_struct *task, struct pt_regs *regs,
 		   unsigned long *sp, unsigned long bp, char *log_lvl)
@@ -220,6 +227,15 @@ show_stack_log_lvl(struct task_struct *task, struct pt_regs *regs,
 			sp = (unsigned long *)task->thread.sp;
 		else
 			sp = (unsigned long *)&sp;
+	}
+
+	if (bad_stack_address(sp)) {
+		/* stack corrupted, prevent the wrong stack
+		 * access and unwinding and finally the double fault
+		 */
+		preempt_enable();
+		pr_cont("Wrong stack pointer %016lx!\n", (unsigned long)sp);
+		return;
 	}
 
 	stack = sp;
