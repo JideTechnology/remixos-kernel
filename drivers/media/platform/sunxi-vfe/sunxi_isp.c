@@ -28,7 +28,11 @@
 #include "vfe.h"
 
 #define ISP_MODULE_NAME "sunxi_isp"
+#if defined CONFIG_ARCH_SUN50I
+#define ISP_HEIGHT_16B_ALIGN 0
+#else
 #define ISP_HEIGHT_16B_ALIGN 1
+#endif
 struct isp_dev *isp_gbl;
 static int isp_dbg_en = 0; 
 static int isp_dbg_lv = 1;
