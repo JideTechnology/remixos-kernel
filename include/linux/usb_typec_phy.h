@@ -178,7 +178,7 @@ struct typec_phy {
 	int (*send_packet)(struct typec_phy *phy, u8 *msg, int len);
 	int (*recv_packet)(struct typec_phy *phy, u8 *msg);
 	int (*setup_role)(struct typec_phy *phy, int data_role, int pwr_role);
-	int (*notify_protocol)(struct typec_phy *phy, unsigned long event);
+	void (*notify_protocol)(struct typec_phy *phy, unsigned long event);
 	bool (*is_pd_capable)(struct typec_phy *phy);
 	int (*enable_autocrc)(struct typec_phy *phy, bool en);
 };
