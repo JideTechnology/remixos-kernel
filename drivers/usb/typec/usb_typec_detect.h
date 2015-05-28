@@ -63,11 +63,14 @@ struct typec_detect {
 	struct completion lock_ufp_complete;
 	int timer_evt;
 	bool got_vbus;
+	bool is_pd_capable;
 	wait_queue_head_t wq;
 	struct mutex lock;
 };
 
 extern int typec_bind_detect(struct typec_phy *phy);
 extern int typec_unbind_detect(struct typec_phy *phy);
+extern void typec_notify_cable_state(struct typec_phy *phy,
+				char *type, bool state);
 
 #endif /* __USB_TYPEC_DETECT_H__ */

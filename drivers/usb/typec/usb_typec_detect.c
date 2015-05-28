@@ -48,17 +48,53 @@
 
 #define TYPEC_CABLE_USB		"USB"
 #define TYPEC_CABLE_USB_HOST	"USB-Host"
-
+#define TYPEC_CABLE_USB_DFP	"USB_TYPEC_DFP"
+#define TYPEC_CABLE_USB_UFP	"USB_TYPEC_UFP"
 
 static const char *detect_extcon_cable[] = {
 	TYPEC_CABLE_USB,
 	TYPEC_CABLE_USB_HOST,
+	TYPEC_CABLE_USB_UFP,
+	TYPEC_CABLE_USB_DFP,
 	NULL,
 };
 
 static LIST_HEAD(typec_detect_list);
 static DEFINE_SPINLOCK(slock);
-static void detect_remove(struct typec_detect *detect);
+
+static struct typec_detect *get_typec_detect(struct typec_phy *phy)
+{
+	struct typec_detect *detect;
+
+	spin_lock(&slock);
+	list_for_each_entry(detect, &typec_detect_list, list) {
+		if (!strncmp(detect->phy->label, phy->label, MAX_LABEL_SIZE)) {
+			spin_unlock(&slock);
+			return detect;
+		}
+	}
+	spin_unlock(&slock);
+
+	return NULL;
+}
+
+static void typec_detect_notify_extcon(struct typec_detect *detect,
+						char *type, bool state)
+{
+	dev_dbg(detect->phy->dev, "%s: type = %s state = %d\n",
+				 __func__, type, state);
+	extcon_set_cable_state(detect->edev, type, state);
+}
+
+void typec_notify_cable_state(struct typec_phy *phy, char *type, bool state)
+{
+	struct typec_detect *detect;
+
+	detect = get_typec_detect(phy);
+	if (detect)
+		typec_detect_notify_extcon(detect, type, state);
+}
+EXPORT_SYMBOL_GPL(typec_notify_cable_state);
 
 static int detect_kthread(void *data)
 {
@@ -192,6 +228,7 @@ static void detect_dfp_work(struct work_struct *work)
 			mutex_lock(&detect->lock);
 			detect->state = DETECT_STATE_ATTACH_DFP_DRP_WAIT;
 			mutex_unlock(&detect->lock);
+
 			usleep_range(100000, 150000);
 			mutex_lock(&detect->lock);
 			detect->state = DETECT_STATE_ATTACHED_DFP;
@@ -199,7 +236,13 @@ static void detect_dfp_work(struct work_struct *work)
 			use_cc = get_active_cc(&cc1, &cc2);
 			typec_setup_cc(phy, use_cc, TYPEC_STATE_ATTACHED_DFP);
 
-			extcon_set_cable_state(detect->edev, "USB-Host", true);
+			/* enable VBUS */
+			if (detect->is_pd_capable)
+				extcon_set_cable_state(detect->edev,
+						TYPEC_CABLE_USB_DFP, true);
+			else
+				extcon_set_cable_state(detect->edev,
+						TYPEC_CABLE_USB_HOST, true);
 
 			atomic_notifier_call_chain(&detect->otg->notifier,
 				USB_EVENT_ID, NULL);
@@ -386,7 +429,7 @@ static void update_phy_state(struct work_struct *work)
 					cc2_psy.cur = TYPEC_CURRENT_UNKNOWN;
 				}
 			}
-			dev_info(detect->phy->dev, "evt_vbus-retry cc1 = %d cc2 = %d",
+			dev_info(detect->phy->dev, "evt_vbus cc1 = %d cc2 = %d",
 					cc1_psy.v_rd, cc2_psy.v_rd);
 		}
 
@@ -399,7 +442,13 @@ static void update_phy_state(struct work_struct *work)
 			detect->state = DETECT_STATE_ATTACHED_UFP;
 			mutex_unlock(&detect->lock);
 			typec_setup_cc(phy, use_cc, TYPEC_STATE_ATTACHED_UFP);
-			extcon_set_cable_state(detect->edev, "USB", true);
+
+			if (detect->is_pd_capable)
+				extcon_set_cable_state(detect->edev,
+						TYPEC_CABLE_USB_UFP, true);
+			else
+				extcon_set_cable_state(detect->edev,
+						TYPEC_CABLE_USB, true);
 			typec_enable_autocrc(detect->phy, true);
 
 			/* notify power supply */
@@ -415,14 +464,22 @@ static void update_phy_state(struct work_struct *work)
 		}
 		break;
 	case TYPEC_EVENT_NONE:
+		dev_dbg(phy->dev, "EVENT NONE");
 		mutex_lock(&detect->lock);
 		detect->got_vbus = false;
+
+		/* setup Switches0 Setting */
 		if (!phy->support_drp_toggle)
 			typec_setup_cc(phy, 0, TYPEC_STATE_UNATTACHED_UFP);
 		mutex_unlock(&detect->lock);
 
 		if (detect->state == DETECT_STATE_ATTACHED_UFP) {
-			extcon_set_cable_state(detect->edev, "USB", false);
+			if (detect->is_pd_capable)
+				extcon_set_cable_state(detect->edev,
+						TYPEC_CABLE_USB_UFP, false);
+			else
+				extcon_set_cable_state(detect->edev,
+						TYPEC_CABLE_USB, false);
 			/* notify power supply */
 			cable_props.chrg_evt =
 				POWER_SUPPLY_CHARGER_EVENT_DISCONNECT;
@@ -439,7 +496,12 @@ static void update_phy_state(struct work_struct *work)
 			 * as of now, this is a w/a to write directly.
 			 */
 			intel_soc_pmic_writeb(0x6e2d, 0x30);
-			extcon_set_cable_state(detect->edev, "USB-Host", false);
+			if (detect->is_pd_capable)
+				extcon_set_cable_state(detect->edev,
+						TYPEC_CABLE_USB_DFP, false);
+			else
+				extcon_set_cable_state(detect->edev,
+						TYPEC_CABLE_USB_HOST, false);
 
 			reinit_completion(&detect->lock_ufp_complete);
 			mutex_lock(&detect->lock);
@@ -503,6 +565,26 @@ static int detect_otg_notifier(struct notifier_block *nb, unsigned long event,
 	return NOTIFY_DONE;
 }
 
+static void detect_remove(struct typec_detect *detect)
+{
+	if (!detect)
+		return;
+
+	cancel_work_sync(&detect->phy_ntf_work);
+	cancel_work_sync(&detect->dfp_work);
+	del_timer(&detect->drp_timer);
+	detect->timer_evt = TIMER_EVENT_QUIT;
+	wake_up(&detect->wq);
+
+	if (detect->otg) {
+		usb_unregister_notifier(detect->otg, &detect->otg_nb);
+		usb_put_phy(detect->otg);
+	}
+	if (detect->edev)
+		extcon_dev_unregister(detect->edev);
+	kfree(detect);
+}
+
 int typec_bind_detect(struct typec_phy *phy)
 {
 	struct typec_detect *detect;
@@ -521,6 +603,8 @@ int typec_bind_detect(struct typec_phy *phy)
 	}
 
 	detect->phy = phy;
+	if (phy->is_pd_capable)
+		detect->is_pd_capable = phy->is_pd_capable(phy);
 	detect->nb.notifier_call = typec_handle_phy_ntf;
 
 	ret = typec_register_notifier(phy, &detect->nb);
@@ -578,28 +662,6 @@ int typec_bind_detect(struct typec_phy *phy)
 error:
 	detect_remove(detect);
 	return ret;
-}
-
-static void detect_remove(struct typec_detect *detect)
-{
-	if (detect) {
-		cancel_work_sync(&detect->phy_ntf_work);
-		cancel_work_sync(&detect->dfp_work);
-		del_timer(&detect->drp_timer);
-		detect->timer_evt = TIMER_EVENT_QUIT;
-		wake_up(&detect->wq);
-
-		if (detect->otg) {
-			usb_unregister_notifier(detect->otg, &detect->otg_nb);
-			usb_put_phy(detect->otg);
-			detect->otg = NULL;
-		}
-		if (detect->edev)
-			extcon_dev_unregister(detect->edev);
-		kfree(detect);
-	}
-
-	return;
 }
 
 int typec_unbind_detect(struct typec_phy *phy)
