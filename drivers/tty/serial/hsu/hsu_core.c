@@ -1506,6 +1506,9 @@ static void hsu_regs_context(struct uart_hsu_port *up, int op)
 	if (op == context_load) {
 		usleep_range(10, 100);
 
+		if (cfg->hw_reset)
+			cfg->hw_reset(up->port.membase);
+
 		serial_out(up, UART_LCR, up->lcr);
 		serial_out(up, UART_LCR, up->lcr | UART_LCR_DLAB);
 		serial_out(up, UART_DLL, up->dll);
