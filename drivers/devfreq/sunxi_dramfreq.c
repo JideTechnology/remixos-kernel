@@ -1069,6 +1069,8 @@ static struct notifier_block reboot_notifier = {
 
 static void sunxi_dramfreq_hw_init(struct sunxi_dramfreq *dramfreq)
 {
+	volatile unsigned int reg_val;
+
 	if (dramfreq->mode == DFS_MODE)
 		writel(0xFFFFFFFF, dramfreq->dramcom_base + MC_MDFSMRMR);
 
@@ -1078,6 +1080,12 @@ static void sunxi_dramfreq_hw_init(struct sunxi_dramfreq *dramfreq)
 
 	/* set master idle period: 255ms */
 	writel(0xfe, dramfreq->dramcom_base + MDFS_BWC_PRD);
+
+	/* set DFS time */
+	reg_val = readl(dramfreq->dramctl_base + PTR2);
+	reg_val &= ~0x7fff;
+	reg_val |= (0x7<<10 | 0x7<<5 | 0x7<<0);
+	writel(reg_val, dramfreq->dramctl_base + PTR2);
 }
 
 static int sunxi_dramfreq_probe(struct platform_device *pdev)

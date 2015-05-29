@@ -29,6 +29,7 @@
 #define MDFS_BWC_PRD                (0x124)
 #define CCMU_DRAM_CFG               (0x0f4)
 
+#define PTR2                        (0x04c)
 #define RFSHTMG                     (0x090)
 #define PGCR0                       (0x100)
 #define ODTMAP                      (0x120)
