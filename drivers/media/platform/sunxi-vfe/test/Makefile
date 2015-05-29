@@ -1,4 +1,4 @@
-CC:=~/workspace/aw1689/lichee/out/external-toolchain/gcc-aarch64/bin/aarch64-linux-gnu-gcc
+CC:=~/workspace/aw1689/lichee/out/external-toolchain/gcc-aarch64/bin/aarch64-linux-gnueabihf-gcc
 #LINUX_DIR = $(shell pwd)/../../../../../include/:$(shell pwd)/../../../../../arch/arm64/include
 ARCH_DIR=../../../../../arch/arm64/include/
 CFLAGS := -I $(LINUX_DIR)
