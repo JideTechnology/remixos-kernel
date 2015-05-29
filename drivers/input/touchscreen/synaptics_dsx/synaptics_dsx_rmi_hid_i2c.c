@@ -32,7 +32,7 @@
 
 #define SYNP_S7300_CHTCR_ID	"SYNP1000"
 
-#define SYN_I2C_RETRY_TIMES 10
+#define SYN_I2C_RETRY_TIMES 3
 
 #define REPORT_ID_GET_BLOB 0x07
 #define REPORT_ID_WRITE 0x09
@@ -159,7 +159,6 @@ static int do_i2c_transfer(struct i2c_client *client, struct i2c_msg *msg)
 		dev_err(&client->dev,
 				"%s: I2C retry %d\n",
 				__func__, retry + 1);
-		msleep(20);
 	}
 
 	if (retry == SYN_I2C_RETRY_TIMES) {
@@ -444,7 +443,7 @@ static int hid_i2c_init(struct synaptics_rmi4_data *rmi4_data)
 	struct i2c_client *i2c = to_i2c_client(rmi4_data->pdev->dev.parent);
 	const struct synaptics_dsx_board_data *bdata =
 			rmi4_data->hw_if->board_data;
-	int wait_times = 100;
+	int wait_times = 2000;
 
 	mutex_lock(&rmi4_data->rmi4_io_ctrl_mutex);
 
@@ -486,7 +485,7 @@ static int hid_i2c_init(struct synaptics_rmi4_data *rmi4_data)
 		goto exit;
 
 	while (wait_times-- > 0 && gpio_get_value(bdata->irq_gpio))
-		msleep(20);
+		usleep_range(1000, 1100);
 
 	retval = generic_read(i2c, hid_dd.input_report_max_length);
 	if (retval < 0)
@@ -504,7 +503,7 @@ static int hid_i2c_init(struct synaptics_rmi4_data *rmi4_data)
 	if (retval < 0)
 		goto exit;
 
-	msleep(20);
+	usleep_range(2000, 3000);
 
 	retval = generic_read(i2c, hid_report.blob_size + 3);
 	if (retval < 0)
@@ -596,7 +595,6 @@ recover:
 			goto exit;
 		}
 
-		msleep(20);
 		retry++;
 	} while (retry < SYN_I2C_RETRY_TIMES);
 
