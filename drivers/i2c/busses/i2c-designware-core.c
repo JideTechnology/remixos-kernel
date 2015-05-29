@@ -64,6 +64,7 @@
 #define DW_IC_CLR_GEN_CALL	0x68
 #define DW_IC_ENABLE		0x6c
 #define DW_IC_STATUS		0x70
+#define DW_IC_STATUS_ACTIVE	BIT(0)
 #define DW_IC_TXFLR		0x74
 #define DW_IC_RXFLR		0x78
 #define DW_IC_SDA_HOLD		0x7c
@@ -318,8 +319,10 @@ int i2c_dw_init(struct dw_i2c_dev *dev)
 	do {
 		/*
 		 * We need to reset the controller if it's not accessible
+		 * or in active state.
 		 */
-		if (dw_readl(dev, DW_IC_COMP_TYPE) == DW_IC_COMP_TYPE_VALUE)
+		if (dw_readl(dev, DW_IC_COMP_TYPE) == DW_IC_COMP_TYPE_VALUE &&
+		    !(dw_readl(dev, DW_IC_STATUS) & DW_IC_STATUS_ACTIVE))
 			break;
 		/*
 		 * reset apb and clock domain
