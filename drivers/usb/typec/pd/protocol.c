@@ -29,7 +29,6 @@
 #include <linux/errno.h>
 #include "message.h"
 #include "protocol.h"
-#include "devpolicy_mgr.h"
 
 static LIST_HEAD(protocol_list);
 static DEFINE_SPINLOCK(protocol_lock);
@@ -105,6 +104,10 @@ static int pd_prot_handle_reset(struct pd_prot *pd, enum typec_phy_evts evt)
 	pd_reset_counters(pd);
 	/*TODO: check if the the work is completed */
 	pd->event = PROT_PHY_EVENT_NONE;
+
+	if (evt == PROT_PHY_EVENT_HARD_RST)
+		/* notify policy */
+		pe_send_cmd(pd->pe, PD_CMD_HARD_RESET);
 
 	return 0;
 }
@@ -189,7 +192,7 @@ static void pd_prot_rx_work(struct pd_prot *pd)
 		wait_for_completion(&pd->tx_complete);
 
 	if (pd->event == PROT_PHY_EVENT_RESET)
-		goto end;
+		return;
 
 	buf = &pd->cached_rx_buf;
 
@@ -200,10 +203,9 @@ static void pd_prot_rx_work(struct pd_prot *pd)
 		pd_tx_discard_msg(pd);
 		pd->rx_msg_id = msg_id;
 
+		/* notify policy */
+		pe_send_msg(pd->pe, buf);
 	}
-end:
-	if (!pd->phy->support_auto_goodcrc)
-		reinit_completion(&pd->tx_complete);
 }
 
 static inline void prot_rx_reset(struct pd_prot *pd)
@@ -263,6 +265,9 @@ static void pd_prot_phy_rcv(struct pd_prot *pd)
 		}
 		memcpy(&pd->cached_rx_buf, &rcv_buf, len);
 		pd_prot_rx_work(pd);
+
+		if (!pd->phy->support_auto_goodcrc)
+			reinit_completion(&pd->tx_complete);
 	}
 end:
 	mutex_unlock(&pd->rx_data_lock);
@@ -312,6 +317,8 @@ static void pd_notify_protocol(struct typec_phy *phy, unsigned long event)
 	case PROT_PHY_EVENT_SOFT_RST_FAIL:
 		break;
 	case PROT_PHY_EVENT_TX_HARD_RST: /* sent HRD_RST */
+		/* Hard reset complete signaling */
+		pe_send_cmd(pd->pe, PD_CMD_HARD_RESET_COMPLETE);
 		break;
 	default:
 		break;
@@ -325,6 +332,42 @@ static void prot_cable_worker(struct work_struct *work)
 
 	pd_prot_setup_role(prot, prot->new_data_role, prot->new_pwr_role);
 }
+
+static void *to_prot(struct typec_phy *phy)
+{
+	struct pd_prot *prot, *temp;
+	list_for_each_entry_safe(prot, temp, &protocol_list, list) {
+		if (prot->phy == phy)
+			return prot;
+	}
+	return NULL;
+}
+
+int protocol_bind_pe(struct policy_engine *pe)
+{
+	struct typec_phy *phy = pe_get_phy(pe);
+	struct pd_prot *prot = to_prot(phy);
+
+	if (!prot)
+		return -ENODEV;
+	pe->prot = prot;
+	prot->pe = pe;
+	return 0;
+}
+EXPORT_SYMBOL_GPL(protocol_bind_pe);
+
+void protocol_unbind_pe(struct policy_engine *pe)
+{
+	struct typec_phy *phy = pe_get_phy(pe);
+	struct pd_prot *prot = to_prot(phy);
+
+	if (!prot)
+		return;
+
+	pe->prot = NULL;
+	prot->pe = NULL;
+}
+EXPORT_SYMBOL_GPL(protocol_unbind_pe);
 
 int protocol_bind_dpm(struct typec_phy *phy)
 {

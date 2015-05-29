@@ -33,7 +33,7 @@
 #include <linux/extcon.h>
 #include <linux/usb_typec_phy.h>
 #include "devpolicy_mgr.h"
-#include "protocol.h"
+#include "policy_engine.h"
 
 static struct power_cap spcaps[] = {
 	{
@@ -541,8 +541,16 @@ struct devpolicy_mgr *dpm_register_syspolicy(struct typec_phy *phy,
 		goto error2;
 	}
 
+	ret = policy_engine_bind_dpm(dpm);
+	if (ret < 0) {
+		pr_err("DPM: failed in binding policy engine\n");
+		goto error3;
+	}
+
 	return dpm;
 
+error3:
+	protocol_unbind_dpm(dpm->phy);
 error2:
 	extcon_unregister_interest(&dpm->provider_cable_nb);
 error1:
@@ -556,6 +564,7 @@ EXPORT_SYMBOL(dpm_register_syspolicy);
 void dpm_unregister_syspolicy(struct devpolicy_mgr *dpm)
 {
 	if (dpm) {
+		policy_engine_unbind_dpm(dpm);
 		protocol_unbind_dpm(dpm->phy);
 		extcon_unregister_interest(&dpm->provider_cable_nb);
 		extcon_unregister_interest(&dpm->consumer_cable_nb);
