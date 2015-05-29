@@ -671,11 +671,19 @@ static void pe_init_policy(struct work_struct *work)
 							policy_init_work);
 
 	struct pd_policy *supported_policy = pe->supported_policies;
+	struct policy *policy;
 	int i;
 
 	for (i = 0; i < supported_policy->num_policies; i++) {
 		switch (supported_policy->policies[i]) {
 		case POLICY_TYPE_SINK:
+			policy = sink_port_policy_init(pe);
+			if (IS_ERR_OR_NULL(policy)) {
+				pr_err("%s: unable to init SINK_POLICY\n",
+								__func__);
+				continue;
+			}
+			list_add_tail(&policy->list, &pe->policy_list);
 			break;
 		/* TODO: Should be handled POLICY_TYPE_SINK and
 		 * POLICY_TYPE_DISPLAY policies as well */
@@ -808,7 +816,6 @@ int policy_engine_bind_dpm(struct devpolicy_mgr *dpm)
 	if (retval < 0)
 		goto error3;
 
-
 	INIT_WORK(&pe->policy_init_work, pe_init_policy);
 	INIT_WORK(&pe->policy_work, pe_policy_work);
 	mutex_init(&pe->pe_lock);
@@ -833,9 +840,18 @@ EXPORT_SYMBOL_GPL(policy_engine_bind_dpm);
 
 static void remove_pe(struct policy_engine *pe)
 {
+	struct pd_policy *supported_policy = pe->supported_policies;
+	struct policy *p;
+	int i;
+
 	if (!pe)
 		return;
 
+	for (i = 0; i < supported_policy->num_policies; i++) {
+		p = __pe_find_policy(&pe->policy_list,
+					supported_policy->policies[i]);
+		p->exit(p);
+	}
 	extcon_unregister_interest(&pe->source_cable_nb);
 	extcon_unregister_interest(&pe->sink_cable_nb);
 	protocol_unbind_pe(pe);

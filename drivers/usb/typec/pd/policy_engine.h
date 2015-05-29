@@ -303,6 +303,7 @@ struct policy {
 	int (*rcv_pkt)(struct policy *p, struct pd_packet *pkt,
 				enum pe_event evt);
 	int (*rcv_cmd)(struct policy *p, enum pe_event evt);
+	void (*exit)(struct policy *p);
 };
 
 struct policy_engine {
