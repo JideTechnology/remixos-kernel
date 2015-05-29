@@ -184,7 +184,7 @@ static int camera_init(int sel, int mode)
 
 	fd = open (dev_name, O_RDWR /* required */ | O_NONBLOCK, 0);
 	
-	if(!fd) {
+	if(fd < 0) {
 		printf("open falied\n");
 		return -1;	
 	}
@@ -322,6 +322,11 @@ static int main_test (int sel, int mode)
 			}
 			if (0 == r) {
 				fprintf (stderr, "select timeout\n");
+				if (-1 == ioctl (fd, VIDIOC_STREAMOFF, &type))
+					printf ("VIDIOC_STREAMOFF failed\n");		
+				else
+					printf ("VIDIOC_STREAMOFF ok\n");
+				free_frame_buffers();
 				return -1;
 			}
 			
@@ -342,8 +347,6 @@ static int main_test (int sel, int mode)
 			
 	if ( -1 == free_frame_buffers())
 		return -1;
-	
-	close (fd);	
 	
 	return 0;
 }
@@ -417,7 +420,7 @@ int main(int argc,char *argv[])
         printf("please input the frame saving path......\n");		//input the frame saving path
 		scanf("%15s", path_name);
 
-        printf("please input the test mode: 1~4......\n");		//input the test mode
+        printf("please input the test mode: 0~3......\n");		//input the test mode
 		scanf("%d", &mode);
 
 		printf("please input the test_cnt: >=1......\n");		//input the test count
@@ -440,6 +443,7 @@ int main(int argc,char *argv[])
 			printf("*************************mode %d test done at the %d time!!\n", mode, i);
 		else
 			printf("*************************mode %d test failed at the %d time!!\n", mode, i);
+		close (fd);
 	}
 	return 0;
 }
