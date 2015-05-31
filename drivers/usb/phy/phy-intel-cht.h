@@ -30,4 +30,5 @@ struct cht_otg {
 	struct work_struct fsm_work;
 	void __iomem *regs;
 	int compliance:1;
+	struct dentry *root;
 };
