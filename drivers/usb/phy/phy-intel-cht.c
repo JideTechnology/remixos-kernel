@@ -28,6 +28,8 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/hcd.h>
 #include <linux/extcon.h>
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
 
 #include "../host/xhci.h"
 #include "../host/xhci-intel-cap.h"
@@ -370,26 +372,17 @@ static void cht_otg_fsm_work(struct work_struct *work)
 	otg_statemachine(&cht_otg_dev->fsm);
 }
 
-static ssize_t show_cht_otg_state(struct device *dev,
-				struct device_attribute *attr, char *buf)
+static int fsm_show(struct seq_file *s, void *unused)
 {
-	struct otg_fsm *fsm = &cht_otg_dev->fsm;
-	char *next = buf;
-	unsigned size = PAGE_SIZE;
-	int t;
+	struct cht_otg *otg_dev = s->private;
+	struct otg_fsm *fsm = &otg_dev->fsm;
 
 	mutex_lock(&fsm->lock);
 
-	/* OTG state */
-	t = scnprintf(next, size,
-		      "OTG state: %s\n\n",
-		      usb_otg_state_string(cht_otg_dev->phy.state));
-	size -= t;
-	next += t;
+	seq_printf(s, "OTG state: %s\n\n",
+			usb_otg_state_string(otg_dev->phy.state));
 
-	/* State Machine Variables */
-	t = scnprintf(next, size,
-			"a_bus_req: %d\n"
+	seq_printf(s, "a_bus_req: %d\n"
 			"b_bus_req: %d\n"
 			"a_bus_resume: %d\n"
 			"a_bus_suspend: %d\n"
@@ -420,38 +413,70 @@ static ssize_t show_cht_otg_state(struct device *dev,
 			fsm->b_sess_vld,
 			fsm->id);
 
-	size -= t;
-	next += t;
-
 	mutex_unlock(&fsm->lock);
 
-	return PAGE_SIZE - size;
+	return 0;
 }
 
-static DEVICE_ATTR(cht_otg_state, S_IRUGO, show_cht_otg_state, NULL);
+static int fsm_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, fsm_show, inode->i_private);
+}
 
-static ssize_t store_vbus_evt(struct device *_dev,
-		struct device_attribute *attr, const char *buf, size_t count)
+static const struct file_operations fsm_fops = {
+	.open			= fsm_open,
+	.read			= seq_read,
+	.llseek			= seq_lseek,
+	.release		= single_release,
+};
+
+
+static int vbus_evt_show(struct seq_file *s, void *unused)
 {
 	struct otg_fsm *fsm;
+	struct cht_otg *otg_dev = s->private;
 
-	if (!cht_otg_dev)
+	if (!otg_dev)
 		return -EINVAL;
 
-	fsm = &cht_otg_dev->fsm;
+	fsm = &otg_dev->fsm;
+
+	if (otg_dev->fsm.b_sess_vld)
+		seq_puts(s, "VBUS high\n");
+	else
+		seq_puts(s, "VBUS low\n");
+
+	return 0;
+}
+
+static int vbus_evt_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, vbus_evt_show, inode->i_private);
+}
+
+static ssize_t vbus_evt_write(struct file *file,
+		const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file		*s = file->private_data;
+	struct cht_otg		*otg_dev = s->private;
+	char			buf;
 
 	if (count != 2)
 		return -EINVAL;
 
-	switch (buf[0]) {
+	/* only need the first character */
+	if (copy_from_user(&buf, ubuf, 1))
+		return -EFAULT;
+
+	switch (buf) {
 	case '1':
-		dev_info(cht_otg_dev->phy.dev, "VBUS = 1\n");
-		atomic_notifier_call_chain(&cht_otg_dev->phy.notifier,
+		dev_info(otg_dev->phy.dev, "VBUS = 1\n");
+		atomic_notifier_call_chain(&otg_dev->phy.notifier,
 			USB_EVENT_VBUS, NULL);
 		return count;
 	case '0':
-		dev_info(cht_otg_dev->phy.dev, "VBUS = 0\n");
-		atomic_notifier_call_chain(&cht_otg_dev->phy.notifier,
+		dev_info(otg_dev->phy.dev, "VBUS = 0\n");
+		atomic_notifier_call_chain(&otg_dev->phy.notifier,
 			USB_EVENT_NONE, NULL);
 		return count;
 	default:
@@ -459,34 +484,59 @@ static ssize_t store_vbus_evt(struct device *_dev,
 	}
 	return count;
 }
-static DEVICE_ATTR(vbus_evt, S_IWUSR|S_IWGRP, NULL, store_vbus_evt);
 
-static ssize_t store_otg_id(struct device *_dev,
-		struct device_attribute *attr, const char *buf, size_t count)
+static const struct file_operations vbus_evt_fops = {
+	.open			= vbus_evt_open,
+	.write			= vbus_evt_write,
+	.read			= seq_read,
+	.llseek			= seq_lseek,
+	.release		= single_release,
+};
+
+static int otg_id_show(struct seq_file *s, void *unused)
 {
-	struct otg_fsm *fsm;
+	struct cht_otg		*otg_dev = s->private;
 
-	if (!cht_otg_dev)
-		return -EINVAL;
+	if (otg_dev->fsm.id)
+		seq_puts(s, "ID float\n");
+	else
+		seq_puts(s, "ID gnd\n");
 
-	fsm = &cht_otg_dev->fsm;
+	return 0;
+}
+
+static int otg_id_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, otg_id_show, inode->i_private);
+}
+
+static ssize_t otg_id_write(struct file *file,
+		const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file		*s = file->private_data;
+	struct cht_otg		*otg_dev = s->private;
+	char			buf;
 
 	if (count != 2)
 		return -EINVAL;
 
-	switch (buf[0]) {
+	/* only need the first character */
+	if (copy_from_user(&buf, ubuf, 1))
+		return -EFAULT;
+
+	switch (buf) {
 	case '0':
 	case 'a':
 	case 'A':
-		dev_info(cht_otg_dev->phy.dev, "ID = 0\n");
-		atomic_notifier_call_chain(&cht_otg_dev->phy.notifier,
+		dev_info(otg_dev->phy.dev, "ID = 0\n");
+		atomic_notifier_call_chain(&otg_dev->phy.notifier,
 			USB_EVENT_ID, NULL);
 		return count;
 	case '1':
 	case 'b':
 	case 'B':
-		dev_info(cht_otg_dev->phy.dev, "ID = 1\n");
-		atomic_notifier_call_chain(&cht_otg_dev->phy.notifier,
+		dev_info(otg_dev->phy.dev, "ID = 1\n");
+		atomic_notifier_call_chain(&otg_dev->phy.notifier,
 			USB_EVENT_NONE, NULL);
 		return count;
 	default:
@@ -495,7 +545,14 @@ static ssize_t store_otg_id(struct device *_dev,
 
 	return count;
 }
-static DEVICE_ATTR(otg_id, S_IWUSR|S_IWGRP, NULL, store_otg_id);
+
+static const struct file_operations otg_id_fops = {
+	.open			= otg_id_open,
+	.write			= otg_id_write,
+	.read			= seq_read,
+	.llseek			= seq_lseek,
+	.release		= single_release,
+};
 
 static int cht_handle_extcon_otg_event(struct notifier_block *nb,
 					unsigned long event, void *param)
@@ -531,6 +588,8 @@ static int cht_otg_probe(struct platform_device *pdev)
 	struct cht_otg *cht_otg;
 	struct em_config_oem1_data em_config;
 	unsigned compliance_bit = 0;
+	struct dentry *root;
+	struct dentry *file;
 	int status;
 
 	cht_otg = kzalloc(sizeof(struct cht_otg), GFP_KERNEL);
@@ -602,30 +661,39 @@ static int cht_otg_probe(struct platform_device *pdev)
 		goto err2;
 	}
 
-	status = device_create_file(&pdev->dev, &dev_attr_cht_otg_state);
-	if (status) {
-		dev_err(&pdev->dev, "failed to create fsm sysfs attribute\n");
+	root = debugfs_create_dir(dev_name(&pdev->dev), NULL);
+	if (!root) {
+		status = -ENOMEM;
 		goto err2;
 	}
 
-	status = device_create_file(&pdev->dev, &dev_attr_vbus_evt);
-	if (status) {
-		dev_err(&pdev->dev, "failed to create vbus sysfs attribute\n");
+	cht_otg_dev->root = root;
+
+	file = debugfs_create_file("fsm", S_IRUGO, root,
+					cht_otg_dev, &fsm_fops);
+	if (!file) {
+		status = -ENOMEM;
 		goto err3;
 	}
 
-	status = device_create_file(&pdev->dev, &dev_attr_otg_id);
-	if (status) {
-		dev_err(&pdev->dev, "failed to create id sysfs attribute\n");
-		goto err4;
+	file = debugfs_create_file("otg_id", S_IRUGO | S_IWUSR | S_IWGRP, root,
+					cht_otg_dev, &otg_id_fops);
+	if (!file) {
+		status = -ENOMEM;
+		goto err3;
+	}
+
+	file = debugfs_create_file("vbus_evt", S_IRUGO | S_IWUSR | S_IWGRP,
+					root, cht_otg_dev, &vbus_evt_fops);
+	if (!file) {
+		status = -ENOMEM;
+		goto err3;
 	}
 
 	return 0;
 
-err4:
-	device_remove_file(&pdev->dev, &dev_attr_vbus_evt);
 err3:
-	device_remove_file(&pdev->dev, &dev_attr_cht_otg_state);
+	debugfs_remove_recursive(root);
 err2:
 	cht_otg_stop(pdev);
 	extcon_unregister_interest(&cht_otg_dev->cable_nb);
@@ -638,9 +706,7 @@ err1:
 
 static int cht_otg_remove(struct platform_device *pdev)
 {
-	device_remove_file(&pdev->dev, &dev_attr_otg_id);
-	device_remove_file(&pdev->dev, &dev_attr_vbus_evt);
-	device_remove_file(&pdev->dev, &dev_attr_cht_otg_state);
+	debugfs_remove_recursive(cht_otg_dev->root);
 
 	cht_otg_stop(pdev);
 	extcon_unregister_interest(&cht_otg_dev->cable_nb);
