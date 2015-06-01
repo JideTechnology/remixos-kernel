@@ -1316,6 +1316,9 @@ static int sst_send_speech_path(struct sst_data *sst, u16 switch_state)
 		cmd.cfg.rate = 0;
 		cmd.cfg.bwx = 1;
 		break;
+	default:
+		cmd.cfg.rate = 0;
+		break;
 	}
 	return sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
 				     SST_TASK_SBA, 0, &cmd,
