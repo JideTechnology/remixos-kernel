@@ -528,7 +528,6 @@ struct intel_crtc {
 	 * been sent before disable sequence.
 	 */
 	u32 hw_frm_cnt_at_enable;
-	bool skip_check_state;
 };
 
 struct intel_plane_wm_parameters {
