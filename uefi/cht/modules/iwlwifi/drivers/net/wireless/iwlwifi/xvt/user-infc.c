@@ -6,7 +6,7 @@
  * GPL LICENSE SUMMARY
  *
  * Copyright(c) 2007 - 2014 Intel Corporation. All rights reserved.
- * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
+ * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -32,7 +32,7 @@
  * BSD LICENSE
  *
  * Copyright(c) 2005 - 2014 Intel Corporation. All rights reserved.
- * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
+ * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1078,6 +1078,33 @@ static int iwl_xvt_get_chip_id(struct iwl_xvt *xvt,
 	return 0;
 }
 
+static int iwl_xvt_get_fw_info(struct iwl_xvt *xvt,
+			       struct iwl_tm_data *data_out)
+{
+	struct iwl_tm_get_fw_info *fw_info;
+	u32 api_len, capa_len;
+
+	api_len = IWL_API_ARRAY_SIZE * sizeof(u32);
+	capa_len = IWL_CAPABILITIES_ARRAY_SIZE * sizeof(u32);
+
+	fw_info = kmalloc(sizeof(*fw_info) + api_len + capa_len, GFP_KERNEL);
+	if (!fw_info)
+		return -ENOMEM;
+
+	fw_info->fw_major_ver = xvt->fw_major_ver;
+	fw_info->fw_minor_ver = xvt->fw_minor_ver;
+	fw_info->fw_capa_api_len = api_len;
+	fw_info->fw_capa_flags = xvt->fw->ucode_capa.flags;
+	fw_info->fw_capa_len = capa_len;
+	memcpy(fw_info->data, xvt->fw->ucode_capa.api, api_len);
+	memcpy(fw_info->data + api_len, xvt->fw->ucode_capa.capa, capa_len);
+
+	data_out->data = fw_info;
+	data_out->len = sizeof(*fw_info) + api_len + capa_len;
+
+	return 0;
+}
+
 int iwl_xvt_user_cmd_execute(struct iwl_op_mode *op_mode, u32 cmd,
 			     struct iwl_tm_data *data_in,
 			     struct iwl_tm_data *data_out)
@@ -1117,6 +1144,9 @@ int iwl_xvt_user_cmd_execute(struct iwl_op_mode *op_mode, u32 cmd,
 
 	case IWL_TM_USER_CMD_SV_IO_TOGGLE:
 		ret = iwl_xvt_sdio_io_toggle(xvt, data_in, data_out);
+		break;
+	case IWL_TM_USER_CMD_GET_FW_INFO:
+		ret = iwl_xvt_get_fw_info(xvt, data_out);
 		break;
 
 	/* xVT cases */

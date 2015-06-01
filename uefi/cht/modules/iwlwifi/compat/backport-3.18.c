@@ -14,6 +14,7 @@
 #include <scsi/fc/fc_fcoe.h>
 #include <linux/skbuff.h>
 #include <linux/errqueue.h>
+#include <linux/wait.h>
 
 /**
  * eth_get_headlen - determine the the length of header for an ethernet frame
@@ -193,4 +194,30 @@ void skb_complete_wifi_ack(struct sk_buff *skb, bool acked)
 	sock_put(sk);
 }
 EXPORT_SYMBOL_GPL(skb_complete_wifi_ack);
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0)
+int __sched out_of_line_wait_on_bit_timeout(
+	void *word, int bit, wait_bit_action_f *action,
+	unsigned mode, unsigned long timeout)
+{
+	wait_queue_head_t *wq = bit_waitqueue(word, bit);
+	DEFINE_WAIT_BIT(wait, word, bit);
+
+	wait.key.private = jiffies + timeout;
+	return __wait_on_bit(wq, &wait, action, mode);
+}
+EXPORT_SYMBOL_GPL(out_of_line_wait_on_bit_timeout);
+
+__sched int bit_wait_timeout(struct wait_bit_key *word)
+{
+	unsigned long now = ACCESS_ONCE(jiffies);
+	if (signal_pending_state(current->state, current))
+		return 1;
+	if (time_after_eq(now, word->private))
+		return -EAGAIN;
+	schedule_timeout(word->private - now);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(bit_wait_timeout);
 #endif

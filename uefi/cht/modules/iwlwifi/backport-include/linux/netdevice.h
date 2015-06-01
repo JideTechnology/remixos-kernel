@@ -163,6 +163,22 @@ static inline void netdev_reset_queue(struct net_device *dev_queue)
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,17,0)
+#ifndef NET_NAME_UNKNOWN
+#define NET_NAME_UNKNOWN	0
+#endif
+#ifndef NET_NAME_ENUM
+#define NET_NAME_ENUM		1
+#endif
+#ifndef NET_NAME_PREDICTABLE
+#define NET_NAME_PREDICTABLE	2
+#endif
+#ifndef NET_NAME_USER
+#define NET_NAME_USER		3
+#endif
+#ifndef NET_NAME_RENAMED
+#define NET_NAME_RENAMED	4
+#endif
+
 #define alloc_netdev_mqs(sizeof_priv, name, name_assign_type, setup, txqs, rxqs) \
 	alloc_netdev_mqs(sizeof_priv, name, setup, txqs, rxqs)
 
@@ -233,5 +249,9 @@ static inline struct sk_buff *napi_alloc_skb(struct napi_struct *napi,
 	return netdev_alloc_skb_ip_align(napi->dev, length);
 }
 #endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0) */
+
+#ifndef IFF_TX_SKB_SHARING
+#define IFF_TX_SKB_SHARING 0
+#endif
 
 #endif /* __BACKPORT_NETDEVICE_H */

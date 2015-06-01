@@ -6,7 +6,7 @@
  * GPL LICENSE SUMMARY
  *
  * Copyright(c) 2010 - 2014 Intel Corporation. All rights reserved.
- * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
+ * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -32,7 +32,7 @@
  * BSD LICENSE
  *
  * Copyright(c) 2010 - 2014 Intel Corporation. All rights reserved.
- * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
+ * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -111,6 +111,7 @@ enum {
 	IWL_TM_USER_CMD_SWITCH_OP_MODE,
 	IWL_TM_USER_CMD_GET_SIL_STEP,
 	IWL_TM_USER_CMD_GET_DRIVER_BUILD_INFO,
+	IWL_TM_USER_CMD_GET_FW_INFO,
 
 	IWL_TM_USER_CMD_NOTIF_UCODE_RX_PKT = TM_CMD_NOTIF_BASE,
 	IWL_TM_USER_CMD_NOTIF_DRIVER,
@@ -284,7 +285,7 @@ struct iwl_tm_dev_info {
  * @pkt_end: end time of triggering pkt
  * @msrmnt: the tx latency of the pkt
  * @tid: tid of the pkt
- * @mode: recording mode (internal buffer or continuos recording).
+ * @mode: recording mode (internal buffer or continuous recording).
  */
 struct iwl_tm_thrshld_md {
 	__u16 monitor_collec_wind;
@@ -327,7 +328,26 @@ struct iwl_tm_build_info {
 	__u8 build_time[MAX_BUILD_DATE_LEN];
 } __packed __aligned(4);
 
-/* xVT defeinitions */
+/**
+ * struct iwl_tm_get_fw_info - get the FW info
+ * @fw_major_ver: the fw major version
+ * @fw_minor_ver: the fw minor version
+ * @fw_capa_flags: the fw capabilities flags
+ * @fw_capa_api_len: the fw capabilities api length in data
+ * @fw_capa_len: the fw capabilities length in data
+ * @data: fw_capa_api and fa_capa data (length defined by fw_capa_api_len
+ *	+ fw_capa_len)
+ */
+struct iwl_tm_get_fw_info {
+	__u32 fw_major_ver;
+	__u32 fw_minor_ver;
+	__u32 fw_capa_flags;
+	__u32 fw_capa_api_len;
+	__u32 fw_capa_len;
+	__u8 data[];
+} __packed __aligned(4);
+
+/* xVT definitions */
 
 #define IWL_XVT_RFKILL_OFF	0
 #define IWL_XVT_RFKILL_ON	1

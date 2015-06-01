@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2014  Hauke Mehrtens <hauke@hauke-m.de>
  *
- * Backport functionality introduced in Linux 3.18.
+ * Backport functionality introduced in Linux 3.19.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as

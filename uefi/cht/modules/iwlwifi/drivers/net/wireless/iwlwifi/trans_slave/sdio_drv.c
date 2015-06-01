@@ -155,7 +155,7 @@ static int iwl_sdio_resume(struct device *dev)
 
 /*
  * Probe flow function for SDIO.
- * The transport layer shouldl be initialized after this call.
+ * The transport layer should be initialized after this call.
  *
  *@func - SDIO bus function struct.
  *@id - SDIO Device id (one that was registered).
@@ -225,7 +225,7 @@ static void iwl_sdio_remove(struct sdio_func *func)
 	/* Clear data in SDIO bus driver */
 	sdio_set_drvdata(func, NULL);
 
-	/* Release all BUS allocated memroy */
+	/* Release all BUS allocated memory */
 	iwl_trans_sdio_free(trans);
 
 	__iwl_info(&func->dev, "SDIO remove completed successfully\n");

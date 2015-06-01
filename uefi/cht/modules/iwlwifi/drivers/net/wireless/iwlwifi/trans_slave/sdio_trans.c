@@ -6,7 +6,7 @@
  * GPL LICENSE SUMMARY
  *
  * Copyright(c) 2007 - 2014 Intel Corporation. All rights reserved.
- * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
+ * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -32,7 +32,7 @@
  * BSD LICENSE
  *
  * Copyright(c) 2005 - 2014 Intel Corporation. All rights reserved.
- * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
+ * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -101,42 +101,24 @@
 #define IWL_SDIO_POLL_INTERVAL			1000 /* usec */
 #define IWL_SDIO_ENABLE_TIMEOUT		100 /* msec */
 
-static const struct iwl_sdio_sf_mem_addresses iwl8000b_sf_addresses = {
-	.tfd_base_addr = IWL_SDIO_8000B_SF_MEM_BASE_ADDR +
+static const struct iwl_sdio_sf_mem_addresses iwl_sf_addresses = {
+	.tfd_base_addr = IWL_SDIO_SF_MEM_BASE_ADDR +
 			 IWL_SDIO_SF_MEM_TFD_OFFSET,
-	.tfdi_base_addr = IWL_SDIO_8000B_SF_MEM_BASE_ADDR +
+	.tfdi_base_addr = IWL_SDIO_SF_MEM_BASE_ADDR +
 			  IWL_SDIO_SF_MEM_TFDI_OFFSET,
-	.bc_base_addr = IWL_SDIO_8000B_SF_MEM_BASE_ADDR +
+	.bc_base_addr = IWL_SDIO_SF_MEM_BASE_ADDR +
 			IWL_SDIO_SF_MEM_BC_OFFSET,
-	.tg_buf_base_addr = IWL_SDIO_8000B_SF_MEM_BASE_ADDR +
+	.tg_buf_base_addr = IWL_SDIO_SF_MEM_BASE_ADDR +
 			    IWL_SDIO_SF_MEM_TG_BUF_OFFSET,
-	.adma_dsc_mem_base = IWL_SDIO_8000B_SF_MEM_BASE_ADDR +
+	.adma_dsc_mem_base = IWL_SDIO_SF_MEM_BASE_ADDR +
 			     IWL_SDIO_SF_MEM_ADMA_DSC_OFFSET,
-	.tb_base_addr = IWL_SDIO_8000B_SF_MEM_BASE_ADDR +
+	.tb_base_addr = IWL_SDIO_SF_MEM_BASE_ADDR +
 			IWL_SDIO_SF_MEM_TB_OFFSET,
-};
-
-static const struct iwl_sdio_sf_mem_addresses iwl8000_sf_addresses = {
-	.tfd_base_addr = IWL_SDIO_8000_SF_MEM_TFD_BASE_ADDR,
-	.tfdi_base_addr = IWL_SDIO_8000_SF_MEM_TFDI_BASE_ADDR,
-	.bc_base_addr = IWL_SDIO_8000_SF_MEM_BC_BASE_ADDR,
-	.tg_buf_base_addr = IWL_SDIO_8000_SF_MEM_TG_BUF_BASE_ADDR,
-	.adma_dsc_mem_base = IWL_SDIO_8000_SF_MEM_ADMA_DSC_MEM_BASE,
-	.tb_base_addr = IWL_SDIO_8000_SF_MEM_TB_BASE_ADDR,
-};
-
-static const struct iwl_sdio_sf_mem_addresses iwl7000_sf_addresses = {
-	.tfd_base_addr = IWL_SDIO_7000_SF_MEM_TFD_BASE_ADDR,
-	.tfdi_base_addr = IWL_SDIO_7000_SF_MEM_TFDI_BASE_ADDR,
-	.bc_base_addr = IWL_SDIO_7000_SF_MEM_BC_BASE_ADDR,
-	.tg_buf_base_addr = IWL_SDIO_7000_SF_MEM_TG_BUF_BASE_ADDR,
-	.adma_dsc_mem_base = IWL_SDIO_7000_SF_MEM_ADMA_DSC_MEM_BASE,
-	.tb_base_addr = IWL_SDIO_7000_SF_MEM_TB_BASE_ADDR,
 };
 
 /*
  * Returns the correct flag for the access control field in the target
- * access commnad according to the given address.
+ * access command according to the given address.
  */
 static u32 iwl_sdio_get_addr_auto_inc_flag(u32 address)
 {
@@ -381,7 +363,7 @@ static int iwl_sdio_ta_read(struct iwl_trans *trans,
 	 * and shared resources with the TA write are in use */
 	WARN_ON(test_and_set_bit(STATUS_TA_ACTIVE, &trans->status));
 
-	/* Fill target acess command */
+	/* Fill target access command */
 	ta_read_cmd = &trans_sdio->ta_buff.ta_cmd;
 	ta_read_cmd->hdr.op_code = IWL_SDIO_OP_CODE_READ | IWL_SDIO_EOT_BIT;
 	seq_number = iwl_sdio_get_cmd_seq(trans_sdio, false);
@@ -431,17 +413,16 @@ static int iwl_sdio_ta_read(struct iwl_trans *trans,
 	} else {
 		ret = 0; /* Clear the time left after waiting */
 
-	IWL_DEBUG_INFO(trans,
-		"### TA READ COMMAND: addr 0x%x, length 0x%x, seq %d, val %d\n",
-		ta_read_cmd->address, ta_read_cmd->length,
-		ta_read_cmd->hdr.seq_number,
-		*((u32 *)trans_sdio->ta_read_buff));
-
+		IWL_DEBUG_INFO(trans,
+			       "### TA READ COMMAND: addr 0x%x, length 0x%x, seq %d, val %d\n",
+			       ta_read_cmd->address, ta_read_cmd->length,
+			       ta_read_cmd->hdr.seq_number,
+			       *((u32 *)trans_sdio->ta_read_buff));
 	}
 
 	/*
 	 * Clear the buffer before next use.
-	 * The actuall data has already been copied to the given buffer
+	 * The actual data has already been copied to the given buffer
 	 */
 	trans_sdio->ta_read_buff = NULL;
 	IWL_DEBUG_INFO(trans, "Target access read has successfully finished\n");
@@ -461,7 +442,7 @@ static void iwl_trans_sdio_write8(struct iwl_trans *trans, u32 ofs, u8 val)
 
 	sdio_claim_host(func);
 
-	/* Use target acces through the SDTM for indirect write */
+	/* Use target access through the SDTM for indirect write */
 	ret = iwl_sdio_ta_write(trans, ofs, sizeof(u8), &val,
 				IWL_SDIO_TA_AC_INDIRECT);
 	if (ret)
@@ -524,7 +505,7 @@ static u32 iwl_trans_sdio_read32(struct iwl_trans *trans, u32 ofs)
 
 /*
  * Perform peripheral access write to the NIC.
- * Uses the SDTM in ordr to perform the access.
+ * Uses the SDTM in order to perform the access.
  * No need to grab NIC access before, it will be performed by the SDTM.
  *
  * Since it's an API function assumes that the host is not claimed.
@@ -537,7 +518,7 @@ static void iwl_trans_sdio_write_prph(struct iwl_trans *trans, u32 addr,
 
 	sdio_claim_host(func);
 
-	/* Use standard target access - The SDTM will perfrom the prph flow */
+	/* Use standard target access - The SDTM will perform the prph flow */
 	ret = iwl_sdio_ta_write(trans, addr, sizeof(u32), &val,
 				IWL_SDIO_TA_AC_PRPH);
 	if (ret)
@@ -554,13 +535,13 @@ static void iwl_trans_sdio_write_prph(struct iwl_trans *trans, u32 addr,
 
 /*
  * Perform peripheral access write to the NIC.
- * Uses the SDTM in ordr to perform the access.
+ * Uses the SDTM in order to perform the access.
  * No need to grab NIC access before, it will be performed by the SDTM.
  */
 static void iwl_sdio_write_prph_no_claim(struct iwl_trans *trans, u32 addr,
 					 u32 val)
 {
-	/* Use standard target access - The SDTM will perfrom the prph flow */
+	/* Use standard target access - The SDTM will perform the prph flow */
 	int ret = iwl_sdio_ta_write(trans, addr, sizeof(u32), &val,
 				IWL_SDIO_TA_AC_PRPH);
 	if (ret) {
@@ -576,7 +557,7 @@ static void iwl_sdio_write_prph_no_claim(struct iwl_trans *trans, u32 addr,
 
 /*
  * Perform peripheral access read to the NIC.
- * Uses the SDTM in ordr to perform the access.
+ * Uses the SDTM in order to perform the access.
  * No need to grab NIC access before, it will be performed by the SDTM.
  *
  * Since it's an API function assumes that the host is not claimed.
@@ -610,7 +591,7 @@ static u32 iwl_trans_sdio_read_prph(struct iwl_trans *trans, u32 addr)
 
 /*
  * Perform peripheral access read to the NIC.
- * Uses the SDTM in ordr to perform the access.
+ * Uses the SDTM in order to perform the access.
  * No need to grab NIC access before, it will be performed by the SDTM.
  */
  static u32 iwl_sdio_read_prph_no_claim(struct iwl_trans *trans, u32 addr)
@@ -618,7 +599,7 @@ static u32 iwl_trans_sdio_read_prph(struct iwl_trans *trans, u32 addr)
 	u32 ret_val;
 	int ret;
 
-	/* Use standard target access - The SDTM will perfrom the prph flow */
+	/* Use standard target access - The SDTM will perform the prph flow */
 	ret = iwl_sdio_ta_read(trans, addr, sizeof(u32), &ret_val,
 			       IWL_SDIO_TA_AC_PRPH);
 
@@ -638,7 +619,7 @@ static u32 iwl_trans_sdio_read_prph(struct iwl_trans *trans, u32 addr)
 /*
  * Generic method to read and write consecutive memory in the NIC.
  *
- * The access is done in bytes accroding to the nubmer of DWORDS given.
+ * The access is done in bytes according to the number of DWORDS given.
  * The register lock should not be held when calling to this function.
  */
 static int iwl_sdio_access_cons_mem(struct iwl_trans *trans, u32 addr,
@@ -794,9 +775,9 @@ static int iwl_sdio_clear_interrupts(struct iwl_trans *trans)
  * The host should be claimed before calling this function.
  *
  *@trans - the generic transport layer.
- * If succesded returns 0, else return a negative value desribing the error.
+ * If succeeded returns 0, else return a negative value describing the error.
  */
-static int iwl_sdio_release_hw(struct iwl_trans *trans)
+static int iwl_sdio_release_hw(struct iwl_trans *trans, bool low_power)
 {
 	int ret = 0;
 	struct sdio_func *func = IWL_TRANS_SDIO_GET_FUNC(trans);
@@ -820,7 +801,8 @@ static int iwl_sdio_release_hw(struct iwl_trans *trans)
 
 	/* Release Bus function access from the driver */
 	sdio_release_host(func);
-	iwl_sdio_set_power(trans, false);
+	if (low_power)
+		iwl_sdio_set_power(trans, false);
 
 	return ret;
 }
@@ -975,14 +957,7 @@ static int iwl_sdio_config_sdtm(struct iwl_trans *trans)
 	}
 
 	/* No default ADMA addr has been given in FW - use driver defaults */
-	if (trans->cfg->device_family == IWL_DEVICE_FAMILY_8000) {
-		if (CSR_HW_REV_STEP(trans->hw_rev) == SILICON_A_STEP)
-			trans_sdio->sf_mem_addresses = &iwl8000_sf_addresses;
-		else
-			trans_sdio->sf_mem_addresses = &iwl8000b_sf_addresses;
-	} else {
-		trans_sdio->sf_mem_addresses = &iwl7000_sf_addresses;
-	}
+	trans_sdio->sf_mem_addresses = &iwl_sf_addresses;
 
 	ret = iwl_sdio_config_sdtm_register(trans);
 
@@ -1027,7 +1002,7 @@ static int iwl_sdio_config_adma(struct iwl_trans *trans)
  * Polls the requested bits with the requested mask waiting for the
  * value to be changed to the given value.
  *
- * returns 0 if the polling was successfull, else the error value or ETIMEDOUT.
+ * returns 0 if the polling was successful, else the error value or ETIMEDOUT.
  */
 static int iwl_sdio_poll_bits(struct iwl_trans *trans,
 			      unsigned int reg_addr, u8 value,
@@ -1175,25 +1150,23 @@ static inline int iwl_sdio_update_hw_rev(struct iwl_trans *trans)
 	 * "dash" value). To keep hw_rev backwards compatible - we'll store it
 	 * in the old format.
 	 */
-	if (trans->cfg->device_family == IWL_DEVICE_FAMILY_8000) {
-		trans->hw_rev = (trans->hw_rev & 0xfff0) |
-				((trans->hw_rev << 2) & 0xc);
+	trans->hw_rev = (trans->hw_rev & 0xfff0) | ((trans->hw_rev << 2) & 0xc);
 
-		/*
-		 * in-order to recognize C step driver should read chip version
-		 * id located at the AUX bus MISC address space.
-		 */
-		hw_step = iwl_sdio_read_prph_no_claim(trans, WFPM_CTRL_REG);
-		hw_step |= ENABLE_WFPM;
-		iwl_sdio_write_prph_no_claim(trans, WFPM_CTRL_REG, hw_step);
-		hw_step = iwl_sdio_read_prph_no_claim(trans, AUX_MISC_REG);
-		hw_step = (hw_step >> HW_STEP_LOCATION_BITS) & 0xF;
-		if (hw_step == 0x3)
-			trans->hw_rev = (trans->hw_rev & 0xFFFFFFF3) |
-					(SILICON_C_STEP << 2);
+	/*
+	 * in-order to recognize C step driver should read chip version
+	 * id located at the AUX bus MISC address space.
+	 */
+	hw_step = iwl_sdio_read_prph_no_claim(trans, WFPM_CTRL_REG);
+	hw_step |= ENABLE_WFPM;
+	iwl_sdio_write_prph_no_claim(trans, WFPM_CTRL_REG, hw_step);
+	hw_step = iwl_sdio_read_prph_no_claim(trans, AUX_MISC_REG);
+	hw_step = (hw_step >> HW_STEP_LOCATION_BITS) & 0xF;
+	if (hw_step == 0x3)
+		trans->hw_rev = (trans->hw_rev & 0xFFFFFFF3) |
+				 (SILICON_C_STEP << 2);
 
-		IWL_INFO(trans, "Device HW revision 0x%x\n", trans->hw_rev);
-	}
+	IWL_INFO(trans, "Device HW revision 0x%x\n", trans->hw_rev);
+
 	return 0;
 }
 
@@ -1202,8 +1175,6 @@ static inline int iwl_sdio_update_hw_rev(struct iwl_trans *trans)
  *
  * Run a series of operations which when done the core is able to go
  * into retention.
- *
- * This can be called only in family 8000 B0.
  *
  * Disables interrupts.
  *
@@ -1304,11 +1275,12 @@ clear_locks:
  *
  *@trans - the generic transport layer.
  */
-static int iwl_trans_sdio_start_hw(struct iwl_trans *trans)
+static int iwl_trans_sdio_start_hw(struct iwl_trans *trans, bool low_power)
 {
-	int ret;
 	struct iwl_trans_sdio *trans_sdio = IWL_TRANS_GET_SDIO_TRANS(trans);
 	struct sdio_func *func = IWL_TRANS_SDIO_GET_FUNC(trans);
+	u32 val;
+	int ret;
 
 	/*
 	 * keep sdio on until fw is loaded (after that the runtime pm
@@ -1317,7 +1289,8 @@ static int iwl_trans_sdio_start_hw(struct iwl_trans *trans)
 	 */
 	pm_runtime_get_sync(trans->dev);
 
-	iwl_sdio_set_power(trans, true);
+	if (low_power)
+		iwl_sdio_set_power(trans, true);
 	mutex_lock(&trans_sdio->target_access_mtx);
 	sdio_claim_host(func);
 	func->enable_timeout = IWL_SDIO_ENABLE_TIMEOUT;
@@ -1364,30 +1337,18 @@ static int iwl_trans_sdio_start_hw(struct iwl_trans *trans)
 		goto release_hw;
 
 	/*
-	 * In the 8000 HW family the format of the 4 bytes of CSR_HW_REV have
-	 * changed, and now the revision step also includes bit 0-1 (no more
-	 * "dash" value). To keep hw_rev backwards compatible - we'll store it
-	 * in the old format.
+	 * Set SDTM CSR register to disabled read optimization on 8000
+	 * family B/C-step, as the optimization currently causes issues
 	 */
-	if (trans->cfg->device_family == IWL_DEVICE_FAMILY_8000) {
-		/*
-		 * Set SDTM CSR register to disabled read optimization on 8000
-		 * family B/C-step, as the optimization currently causes issues
-		 */
-		if (CSR_HW_REV_STEP(trans->hw_rev) != SILICON_A_STEP) {
-			u32 val = 0x0;
-
-			ret = iwl_sdio_ta_write(trans, CSR_SDTM_REG,
-						sizeof(u32), &val,
-						IWL_SDIO_TA_AC_DIRECT);
-			if (ret) {
-				IWL_ERR(trans,
-					"Failed to set SDIO to optimized reading\n");
-				goto release_hw;
-			}
-		}
+	ret = iwl_sdio_ta_write(trans, CSR_SDTM_REG, sizeof(u32), &val,
+				IWL_SDIO_TA_AC_DIRECT);
+	if (ret) {
+		IWL_ERR(trans,
+			"Failed to set SDIO to optimized reading\n");
+		goto release_hw;
 	}
 
+	/* Enable the retention */
 	ret = iwl_sdio_enter_retention_flow(trans);
 	if (ret)
 		goto release_hw;
@@ -1411,7 +1372,7 @@ static int iwl_trans_sdio_start_hw(struct iwl_trans *trans)
 	return ret;
 
 release_hw:
-	iwl_sdio_release_hw(trans);
+	iwl_sdio_release_hw(trans, true);
 	mutex_unlock(&trans_sdio->target_access_mtx);
 	pm_runtime_put(trans->dev);
 	return ret;
@@ -1502,25 +1463,12 @@ static int iwl_sdio_load_fw_chunk(struct iwl_trans *trans,
 	dtu_hdr->hdr.seq_number = iwl_sdio_get_cmd_seq(trans_sdio, true);
 	dtu_hdr->hdr.signature = cpu_to_le16(IWL_SDIO_CMD_HEADER_SIGNATURE);
 
-	/*
-	 * From 8000 HW family B-step the dma_desc is enlarged by 4 bytes on
-	 * the expense of the reserved field that comes right after that
-	 */
-	if ((trans->cfg->device_family != IWL_DEVICE_FAMILY_8000) ||
-	    (CSR_HW_REV_STEP(trans->hw_rev) == SILICON_A_STEP))
-		dtu_hdr->dma_desc =
-			cpu_to_le32(FDL_DMA_DESC_ADDRESS |
-				    ((FDL_NUM_OF_DMA_DESC *
-				      sizeof(struct iwl_sdio_adma_desc)) <<
-				     IWL_SDIO_DMA_DESC_LEN_SHIFT));
-	else
-		*((__le64 *)&(dtu_hdr->dma_desc)) =
-			cpu_to_le64(
-			    ((u64)FDL_DMA_DESC_ADDRESS_B <<
-			     IWL_SDIO_DMA_DESC_8000_ADDR_SHIFT) |
-			    ((FDL_NUM_OF_DMA_DESC *
-			      sizeof(struct iwl_sdio_adma_desc)) <<
-			     IWL_SDIO_DMA_DESC_8000_LEN_SHIFT));
+	*((__le64 *)&dtu_hdr->dma_desc) = cpu_to_le64(
+		    ((u64)FDL_DMA_DESC_ADDRESS <<
+		     IWL_SDIO_DMA_DESC_ADDR_SHIFT) |
+		    ((FDL_NUM_OF_DMA_DESC *
+		      sizeof(struct iwl_sdio_adma_desc)) <<
+		     IWL_SDIO_DMA_DESC_LEN_SHIFT));
 
 	adma_list = dtu_hdr->adma_list;
 
@@ -1530,11 +1478,7 @@ static int iwl_sdio_load_fw_chunk(struct iwl_trans *trans,
 		IWL_SDIO_ADMA_ATTR_VALID | IWL_SDIO_ADMA_ATTR_ACT2;
 	adma_list[desc_idx].reserved = 0;
 	adma_list[desc_idx].length = cpu_to_le16(data_len);
-	if ((trans->cfg->device_family != IWL_DEVICE_FAMILY_8000) ||
-	    (CSR_HW_REV_STEP(trans->hw_rev) == SILICON_A_STEP))
-		adma_list[desc_idx].addr = cpu_to_le32(FDL_DATA_ADDRESS);
-	else
-		adma_list[desc_idx].addr = cpu_to_le32(FDL_DATA_ADDRESS_B);
+	adma_list[desc_idx].addr = cpu_to_le32(FDL_DATA_ADDRESS);
 	desc_idx++;
 
 	adma_list[desc_idx].attr =
@@ -1615,11 +1559,7 @@ static int iwl_sdio_load_fw_chunk(struct iwl_trans *trans,
 	/* fh control */
 	fh_desc = (struct iwl_sdio_fh_desc *)(data_ptr + data_len/4);
 	fh_desc->fh_first_word = cpu_to_le32(0);
-	if ((trans->cfg->device_family != IWL_DEVICE_FAMILY_8000) ||
-	    (CSR_HW_REV_STEP(trans->hw_rev) == SILICON_A_STEP))
-		fh_desc->ptr_in_sf = cpu_to_le32(FDL_DATA_ADDRESS);
-	else
-		fh_desc->ptr_in_sf = cpu_to_le32(FDL_DATA_ADDRESS_B);
+	fh_desc->ptr_in_sf = cpu_to_le32(FDL_DATA_ADDRESS);
 	fh_desc->image_size_in_byte = cpu_to_le32(data_len);
 	fh_desc->ptr_in_sram = cpu_to_le32(sram_address);
 	fh_desc->fh_cmd = cpu_to_le32(FDL_FH_CONTROL_CMD1);
@@ -1719,7 +1659,7 @@ static int iwl_sdio_rsa_race_bug_wa(struct iwl_trans *trans)
 		return 0;
 	}
 
-	/* if not, take ownership on the AUX IF */
+	/* take ownership on the AUX IF */
 	iwl_sdio_write_prph_no_claim(trans, WFPM_CTRL_REG,
 				     WFPM_AUX_CTL_AUX_IF_MAC_OWNER_MSK);
 	/* enable the AUX access */
@@ -1747,10 +1687,43 @@ static int iwl_sdio_rsa_race_bug_wa(struct iwl_trans *trans)
 	return -EIO;
 }
 
-static int iwl_sdio_load_cpu_sections_8000b(struct iwl_trans *trans,
-					    const struct fw_img *image,
-					    int cpu,
-					    int *first_ucode_section)
+#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+static int iwl_sdio_override_secure_boot_cfg(struct iwl_trans *trans)
+{
+	u32 val;
+
+	if (!trans->dbg_cfg.secure_boot_cfg)
+		return 0;
+
+	/* Verify AUX address space is not locked */
+	val = iwl_sdio_read_prph_no_claim(trans, PREG_AUX_BUS_WPROT_0);
+	if (val & BIT((SB_CFG_OVERRIDE_ADDR - SB_CFG_BASE_OVERRIDE) >> 10)) {
+		IWL_ERR(trans, "AUX address space is locked for override\n");
+		return -EIO;
+	}
+
+	/* take ownership on the AUX IF */
+	val = iwl_sdio_read_prph_no_claim(trans, WFPM_CTRL_REG);
+	iwl_sdio_write_prph_no_claim(trans, WFPM_CTRL_REG,
+				     WFPM_AUX_CTL_AUX_IF_MAC_OWNER_MSK | val);
+
+	/* indicate secure boot cfg override */
+	val = iwl_sdio_read_prph_no_claim(trans, SB_CFG_OVERRIDE_ADDR);
+	iwl_sdio_write_prph_no_claim(trans, SB_CFG_OVERRIDE_ADDR,
+				     SB_CFG_OVERRIDE_ENABLE | val);
+
+	/* Modify secure boot cfg flags */
+	iwl_sdio_write_prph_no_claim(trans, SB_MODIFY_CFG_FLAG,
+				     trans->dbg_cfg.secure_boot_cfg);
+
+	return 0;
+}
+#endif
+
+static int iwl_sdio_load_cpu_sections(struct iwl_trans *trans,
+				      const struct fw_img *image,
+				      int cpu,
+				      int *first_ucode_section)
 {
 	int shift_param;
 	u32 load_status;
@@ -1808,56 +1781,6 @@ static int iwl_sdio_load_cpu_sections_8000b(struct iwl_trans *trans,
 				IWL_SDIO_TA_AC_DIRECT);
 	if (ret)
 		return ret;
-
-	return 0;
-}
-
-static int iwl_sdio_load_cpu_sections(struct iwl_trans *trans,
-				      const struct fw_img *image,
-				      int cpu, int *first_ucode_section)
-{
-	int shift_param;
-	u32 load_status;
-	int i, ret = 0;
-	u32 last_read_idx = 0;
-
-	if (cpu == 1) {
-		shift_param = 0;
-		*first_ucode_section = 0;
-	} else {
-		shift_param = 16;
-		(*first_ucode_section)++;
-	}
-
-
-	for (i = *first_ucode_section; i < IWL_UCODE_SECTION_MAX; i++) {
-		last_read_idx = i;
-
-		if (!image->sec[i].data ||
-		    image->sec[i].offset == CPU1_CPU2_SEPARATOR_SECTION) {
-			IWL_DEBUG_FW(trans,
-				     "Break since Data not valid or Empty section, sec = %d\n",
-				     i);
-			break;
-		}
-
-		ret = iwl_sdio_load_fw_section(trans, i, &image->sec[i]);
-		if (ret)
-			return ret;
-	}
-
-	if (trans->cfg->device_family == IWL_DEVICE_FAMILY_8000) {
-		load_status = iwl_sdio_read_prph_no_claim(trans, CSR_UCODE_LOAD_STATUS_ADDR);
-		iwl_sdio_write_prph_no_claim(trans,
-					     CSR_UCODE_LOAD_STATUS_ADDR,
-					     load_status |
-					     (LMPM_CPU_UCODE_LOADING_COMPLETED |
-					      LMPM_CPU_HDRS_LOADING_COMPLETED |
-					      LMPM_CPU_UCODE_LOADING_STARTED)
-					     << shift_param);
-	}
-
-	*first_ucode_section = last_read_idx;
 
 	return 0;
 }
@@ -1962,84 +1885,7 @@ static int iwl_sdio_load_given_ucode(struct iwl_trans *trans,
 {
 	struct iwl_trans_sdio *trans_sdio = IWL_TRANS_GET_SDIO_TRANS(trans);
 	int ret = 0;
-	u32 rodata_addr;
-	u32 val = 0;
-	int index = 0;
 	int first_ucode_section;
-	u32 write_data = 0;
-	u32 size_of_zero_mem = 23;
-
-	if (!image)
-		return -EINVAL;
-
-	IWL_DEBUG_FW(trans, "working with %s CPU\n",
-		     image->is_dual_cpus ? "Dual" : "Single");
-
-	/* load to FW the binary NoN secured sections of CPU1 */
-	ret = iwl_sdio_load_cpu_sections(trans, image, 1, &first_ucode_section);
-	if (ret)
-		goto exit_err;
-
-	if (image->is_dual_cpus) {
-		/* set CPU2 header address */
-		iwl_sdio_write_prph_no_claim(trans,
-					LMPM_SECURE_UCODE_LOAD_CPU2_HDR_ADDR,
-					LMPM_SECURE_CPU2_HDR_MEM_SPACE);
-
-		/* load to FW the binary sections of CPU2 */
-		ret = iwl_sdio_load_cpu_sections(trans, image, 2,
-						 &first_ucode_section);
-		if (ret)
-			goto exit_err;
-	}
-
-#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
-	/*
-	 * The unlocking is required otherwise the writing to periphery
-	 * registers will get stuck due to being unable to grab nic access
-	 */
-	sdio_release_host(trans_sdio->func);
-	mutex_unlock(&trans_sdio->target_access_mtx);
-	iwl_dnt_configure(trans, image);
-	mutex_lock(&trans_sdio->target_access_mtx);
-	sdio_claim_host(trans_sdio->func);
-#endif
-
-	if (trans->dbg_dest_tlv)
-		iwl_sdio_apply_destination(trans);
-
-	/* Remove CSR reset to allow NIC to operate */
-	if (trans->cfg->device_family == IWL_DEVICE_FAMILY_8000) {
-		/*
-		 * Workaround for a bug in the ROM for LNP A0 Only
-		 * The Read Only addresses in the rom have to be Zero
-		 */
-		rodata_addr = LMPM_ROM_READ_ONLY_DATA_ADDR;
-		for (index = 0; index < size_of_zero_mem; index++) {
-			iwl_sdio_ta_write(trans, rodata_addr, sizeof(u32),
-					  &val, IWL_SDIO_TA_AC_INDIRECT);
-			rodata_addr += sizeof(u32);
-		}
-		iwl_sdio_write_prph_no_claim(trans, RELEASE_CPU_RESET,
-					     RELEASE_CPU_RESET_BIT);
-	} else {
-		ret = iwl_sdio_ta_write(trans, CSR_RESET, sizeof(u32),
-					&write_data, IWL_SDIO_TA_AC_DIRECT);
-		if (ret)
-			goto exit_err;
-	}
-
-exit_err:
-	return ret;
-}
-
-static int iwl_sdio_load_given_ucode_8000b(struct iwl_trans *trans,
-					   const struct fw_img *image)
-{
-	struct iwl_trans_sdio *trans_sdio = IWL_TRANS_GET_SDIO_TRANS(trans);
-	int ret = 0;
-	int first_ucode_section;
-	u32 write_data;
 
 	if (!image)
 		return -EINVAL;
@@ -2063,41 +1909,32 @@ static int iwl_sdio_load_given_ucode_8000b(struct iwl_trans *trans,
 		iwl_sdio_apply_destination(trans);
 
 	/* configure the ucode to be ready to get the secured image */
-	if (trans->cfg->device_family == IWL_DEVICE_FAMILY_8000) {
-		/* TODO: remove in the next Si step */
-		ret = iwl_sdio_rsa_race_bug_wa(trans);
-		if (ret)
-			goto exit_err;
+	/* TODO: remove in the next Si step */
+	ret = iwl_sdio_rsa_race_bug_wa(trans);
+	if (ret)
+		goto exit_err;
 
-		/* Remove CSR reset to allow NIC to operate */
-		iwl_sdio_write_prph_no_claim(trans, RELEASE_CPU_RESET,
-					     RELEASE_CPU_RESET_BIT);
+#ifdef CPTCFG_IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+	ret = iwl_sdio_override_secure_boot_cfg(trans);
+	if (ret)
+		return ret;
+#endif
 
-		/* load to FW the binary Secured sections of CPU1 */
-		ret = iwl_sdio_load_cpu_sections_8000b(trans, image, 1,
-						       &first_ucode_section);
-		if (ret)
-			goto exit_err;
+	/* Remove CSR reset to allow NIC to operate */
+	iwl_sdio_write_prph_no_claim(trans, RELEASE_CPU_RESET,
+				     RELEASE_CPU_RESET_BIT);
 
-		/* load to FW the binary sections of CPU2 */
-		ret = iwl_sdio_load_cpu_sections_8000b(trans, image, 2,
-						       &first_ucode_section);
-		if (ret)
-			goto exit_err;
-	} else {
-		/* load to FW the binary NoN secured sections of CPU1 */
-		ret = iwl_sdio_load_cpu_sections(trans, image, 1,
-						 &first_ucode_section);
-		if (ret)
-			goto exit_err;
+	/* load to FW the binary Secured sections of CPU1 */
+	ret = iwl_sdio_load_cpu_sections(trans, image, 1,
+					 &first_ucode_section);
+	if (ret)
+		goto exit_err;
 
-		/* Remove CSR reset to allow NIC to operate */
-		write_data = 0;
-		ret = iwl_sdio_ta_write(trans, CSR_RESET, sizeof(u32),
-					&write_data, IWL_SDIO_TA_AC_DIRECT);
-		if (ret)
-			goto exit_err;
-	}
+	/* load to FW the binary sections of CPU2 */
+	ret = iwl_sdio_load_cpu_sections(trans, image, 2,
+					 &first_ucode_section);
+	if (ret)
+		goto exit_err;
 
 exit_err:
 	return ret;
@@ -2300,20 +2137,7 @@ static int iwl_trans_sdio_start_fw(struct iwl_trans *trans,
 	/* really make sure rfkill handshake bits are cleared */
 
 	/* Load the given image to the HW */
-	if (trans->cfg->device_family == IWL_DEVICE_FAMILY_8000) {
-		IWL_INFO(trans,
-			 "Silicon Step = %X\n",
-			 ((trans->hw_rev>>2) & 0x3) + 0xA);
-
-		if (CSR_HW_REV_STEP(trans->hw_rev) == SILICON_A_STEP)
-			/* A step */
-			ret = iwl_sdio_load_given_ucode(trans, fw);
-		else
-			ret = iwl_sdio_load_given_ucode_8000b(trans, fw);
-	} else {
-		ret = iwl_sdio_load_given_ucode(trans, fw);
-	}
-
+	ret = iwl_sdio_load_given_ucode(trans, fw);
 	if (ret) {
 		IWL_ERR(trans, "Failed to load given FW Image\n");
 		goto free_tx;
@@ -2356,20 +2180,9 @@ static int iwl_trans_sdio_update_sf(struct iwl_trans *trans,
 
 	/* in case that alive ver2 doesn't update the memory space */
 	if (!st_fwrd_space->size) {
-		if (trans->cfg->device_family == IWL_DEVICE_FAMILY_8000) {
-			if (CSR_HW_REV_STEP(trans->hw_rev) == SILICON_A_STEP)
-				st_fwrd_space->addr =
-					IWL_SDIO_8000_SF_MEM_TFD_BASE_ADDR;
-			else
-				st_fwrd_space->addr =
-					IWL_SDIO_8000B_SF_MEM_BASE_ADDR +
-					IWL_SDIO_SF_MEM_TFD_OFFSET;
-			st_fwrd_space->size = IWL_SDIO_8000_SF_MEM_SIZE;
-		} else {
-			st_fwrd_space->addr =
-				IWL_SDIO_7000_SF_MEM_TFD_BASE_ADDR;
-			st_fwrd_space->size = IWL_SDIO_7000_SF_MEM_SIZE;
-		}
+		st_fwrd_space->addr =
+			IWL_SDIO_SF_MEM_BASE_ADDR + IWL_SDIO_SF_MEM_TFD_OFFSET;
+		st_fwrd_space->size = IWL_SDIO_SF_MEM_SIZE;
 	}
 
 	mutex_lock(&trans_sdio->target_access_mtx);
@@ -2457,7 +2270,7 @@ static void iwl_trans_sdio_fw_alive(struct iwl_trans *trans, u32 scd_addr)
 	iwl_sdio_tx_start(trans, scd_addr);
 }
 
-static void iwl_trans_sdio_stop_device(struct iwl_trans *trans)
+static void iwl_trans_sdio_stop_device(struct iwl_trans *trans, bool low_power)
 {
 	struct sdio_func *func = IWL_TRANS_SDIO_GET_FUNC(trans);
 
@@ -2479,7 +2292,7 @@ static void iwl_trans_sdio_stop_device(struct iwl_trans *trans)
 
 	/* Stop HW and power down */
 	sdio_claim_host(func);
-	iwl_sdio_release_hw(trans);
+	iwl_sdio_release_hw(trans, low_power);
 
 	/* we no longer need the sdio card active - release it */
 	pm_runtime_put(trans->dev);

@@ -1531,12 +1531,12 @@ int iwl_trans_slv_tx_data_send(struct iwl_trans *trans, struct sk_buff *skb,
 
 	/* verify that this skb doesn't belong to any other queue */
 	if (WARN_ON(skb->next != NULL || skb->prev != NULL)) {
-		IWL_ERR(trans, "Inavlid skb\n");
+		IWL_ERR(trans, "Invalid skb\n");
 		return -EINVAL;
 	}
 
 	if (WARN_ON(txq_id >= trans_slv->config.max_queues_num)) {
-		IWL_ERR(trans, "Inavlid txq id (%d)\n", txq_id);
+		IWL_ERR(trans, "Invalid txq id (%d)\n", txq_id);
 		return -EINVAL;
 	}
 

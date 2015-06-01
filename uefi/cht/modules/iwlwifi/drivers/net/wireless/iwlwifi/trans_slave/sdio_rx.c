@@ -408,7 +408,7 @@ void iwl_sdio_d2h_work(struct work_struct *work)
 	}
 	sdio_release_host(func);
 
-	/* D2H messages must be acklowedged, even if they are unhandled, or all
+	/* D2H messages must be acknowledged, even if they are unhandled, or all
 	 * messages will be masked.
 	 * This is done by clearing the matching bits from CSR_INT by writing to
 	 * them. Not all D2H messages have corresponding bits in CSR_INT, but

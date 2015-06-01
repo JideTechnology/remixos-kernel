@@ -6,7 +6,7 @@
  * GPL LICENSE SUMMARY
  *
  * Copyright(c) 2012 - 2014 Intel Corporation. All rights reserved.
- * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
+ * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -32,7 +32,7 @@
  * BSD LICENSE
  *
  * Copyright(c) 2012 - 2014 Intel Corporation. All rights reserved.
- * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
+ * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -132,6 +132,10 @@ static bool iwl_alive_fn(struct iwl_notif_wait_data *notif_wait,
 
 		alive_data->valid = le16_to_cpu(palive1->status) ==
 				    IWL_ALIVE_STATUS_OK;
+#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+		mvm->fw_major_ver = palive1->ucode_major;
+		mvm->fw_minor_ver = palive1->ucode_minor;
+#endif
 		IWL_DEBUG_FW(mvm,
 			     "Alive VER1 ucode status 0x%04x revision 0x%01X 0x%01X flags 0x%01X\n",
 			     le16_to_cpu(palive1->status), palive1->ver_type,
@@ -154,6 +158,10 @@ static bool iwl_alive_fn(struct iwl_notif_wait_data *notif_wait,
 		if (mvm->umac_error_event_table)
 			mvm->support_umac_log = true;
 
+#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+		mvm->fw_major_ver = palive2->ucode_major;
+		mvm->fw_minor_ver = palive2->ucode_minor;
+#endif
 		IWL_DEBUG_FW(mvm,
 			     "Alive VER2 ucode status 0x%04x revision 0x%01X 0x%01X flags 0x%01X\n",
 			     le16_to_cpu(palive2->status), palive2->ver_type,
@@ -180,6 +188,10 @@ static bool iwl_alive_fn(struct iwl_notif_wait_data *notif_wait,
 		if (mvm->umac_error_event_table)
 			mvm->support_umac_log = true;
 
+#ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
+		mvm->fw_major_ver = le32_to_cpu(palive->ucode_major);
+		mvm->fw_minor_ver = le32_to_cpu(palive->ucode_minor);
+#endif
 		IWL_DEBUG_FW(mvm,
 			     "Alive VER3 ucode status 0x%04x revision 0x%01X 0x%01X flags 0x%01X\n",
 			     le16_to_cpu(palive->status), palive->ver_type,
@@ -398,7 +410,7 @@ int iwl_run_init_mvm_ucode(struct iwl_mvm *mvm, bool read_nvm)
 
 	lockdep_assert_held(&mvm->mutex);
 
-	if (WARN_ON_ONCE(mvm->init_ucode_complete || mvm->calibrating))
+	if (WARN_ON_ONCE(mvm->calibrating))
 		return 0;
 
 	iwl_init_notification_wait(&mvm->notif_wait,
@@ -475,8 +487,6 @@ int iwl_run_init_mvm_ucode(struct iwl_mvm *mvm, bool read_nvm)
 	 */
 	ret = iwl_wait_notification(&mvm->notif_wait, &calib_wait,
 			MVM_UCODE_CALIB_TIMEOUT);
-	if (!ret)
-		mvm->init_ucode_complete = true;
 
 	if (ret && iwl_mvm_is_radio_killed(mvm)) {
 		IWL_DEBUG_RF_KILL(mvm, "RFKILL while calibrating.\n");
@@ -596,16 +606,33 @@ int iwl_mvm_fw_dbg_collect(struct iwl_mvm *mvm, enum iwl_fw_dbg_trigger trig,
 
 int iwl_mvm_fw_dbg_collect_trig(struct iwl_mvm *mvm,
 				struct iwl_fw_dbg_trigger_tlv *trigger,
-				const char *str, size_t len)
+				const char *fmt, ...)
 {
 	unsigned int delay = msecs_to_jiffies(le32_to_cpu(trigger->stop_delay));
 	u16 occurrences = le16_to_cpu(trigger->occurrences);
-	int ret;
+	int ret, len = 0;
+	char buf[64];
 
 	if (!occurrences)
 		return 0;
 
-	ret = iwl_mvm_fw_dbg_collect(mvm, le32_to_cpu(trigger->id), str,
+	if (fmt) {
+		va_list ap;
+
+		buf[sizeof(buf) - 1] = '\0';
+
+		va_start(ap, fmt);
+		vsnprintf(buf, sizeof(buf), fmt, ap);
+		va_end(ap);
+
+		/* check for truncation */
+		if (WARN_ON_ONCE(buf[sizeof(buf) - 1]))
+			buf[sizeof(buf) - 1] = '\0';
+
+		len = strlen(buf) + 1;
+	}
+
+	ret = iwl_mvm_fw_dbg_collect(mvm, le32_to_cpu(trigger->id), buf,
 				     len, delay);
 	if (ret)
 		return ret;
@@ -711,25 +738,24 @@ int iwl_mvm_up(struct iwl_mvm *mvm)
 	 * module loading, load init ucode now
 	 * (for example, if we were in RFKILL)
 	 */
-	if (!mvm->init_ucode_complete) {
-		ret = iwl_run_init_mvm_ucode(mvm, false);
-		if (ret && !iwlmvm_mod_params.init_dbg) {
-			IWL_ERR(mvm, "Failed to run INIT ucode: %d\n", ret);
-			/* this can't happen */
-			if (WARN_ON(ret > 0))
-				ret = -ERFKILL;
-			goto error;
-		}
-		if (!iwlmvm_mod_params.init_dbg) {
-			/*
-			 * should stop and start HW since that INIT
-			 * image just loaded
-			 */
-			iwl_trans_stop_device(mvm->trans);
-			ret = iwl_trans_start_hw(mvm->trans);
-			if (ret)
-				return ret;
-		}
+	ret = iwl_run_init_mvm_ucode(mvm, false);
+	if (ret && !iwlmvm_mod_params.init_dbg) {
+		IWL_ERR(mvm, "Failed to run INIT ucode: %d\n", ret);
+		/* this can't happen */
+		if (WARN_ON(ret > 0))
+			ret = -ERFKILL;
+		goto error;
+	}
+	if (!iwlmvm_mod_params.init_dbg) {
+		/*
+		 * Stop and start the transport without entering low power
+		 * mode. This will save the state of other components on the
+		 * device that are triggered by the INIT firwmare (MFUART).
+		 */
+		_iwl_trans_stop_device(mvm->trans, false);
+		_iwl_trans_start_hw(mvm->trans, false);
+		if (ret)
+			return ret;
 	}
 
 	if (iwlmvm_mod_params.init_dbg)
@@ -911,21 +937,6 @@ int iwl_mvm_rx_card_state_notif(struct iwl_mvm *mvm,
 			  (flags & CT_KILL_CARD_DISABLED) ?
 			  "Reached" : "Not reached");
 
-	return 0;
-}
-
-int iwl_mvm_rx_radio_ver(struct iwl_mvm *mvm, struct iwl_rx_cmd_buffer *rxb,
-			 struct iwl_device_cmd *cmd)
-{
-	struct iwl_rx_packet *pkt = rxb_addr(rxb);
-	struct iwl_radio_version_notif *radio_version = (void *)pkt->data;
-
-	/* TODO: what to do with that? */
-	IWL_DEBUG_INFO(mvm,
-		       "Radio version: flavor: 0x%08x, step 0x%08x, dash 0x%08x\n",
-		       le32_to_cpu(radio_version->radio_flavor),
-		       le32_to_cpu(radio_version->radio_step),
-		       le32_to_cpu(radio_version->radio_dash));
 	return 0;
 }
 

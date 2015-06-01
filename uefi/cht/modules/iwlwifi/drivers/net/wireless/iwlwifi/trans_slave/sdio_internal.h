@@ -217,7 +217,7 @@ struct iwl_trans_sdio {
  * A RX buffer memory descriptor.
  *
  * Used to keep a RX buffer memory allocation pointer and required fields.
- * @page: The allocated page for theeee buffer.
+ * @page: The allocated page for the buffer.
  * @length: The length of the buffer, also used to calculate the page_order.
  */
 struct iwl_sdio_rx_mem_desc {

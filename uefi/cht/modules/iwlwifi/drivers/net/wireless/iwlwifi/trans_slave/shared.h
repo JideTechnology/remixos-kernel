@@ -254,7 +254,7 @@ void iwl_slv_set_rx_page_order(struct iwl_trans_slv *trans_slv,
 	container_of((void *)_slv_trans, struct iwl_trans, trans_specific)
 
 /**
- * struct iwl_slv_tx_hcmd_meta - meta data for host comamnds
+ * struct iwl_slv_tx_hcmd_meta - meta data for host commands
  * @source:	the original host command
  * @dup_buf:	the duplicated part of HCMD (with DUP flag)
  * @flags:
@@ -305,7 +305,7 @@ struct iwl_slv_txq_entry {
  * @txq_entry:		common data
  * @hcmd_meta:		meta data for a host command
  * @cmd_specific:	holds the device_command and other bus specific data.
- *	This implemntation is for the sake of IDI, where we need to have
+ *	This implementation is for the sake of IDI, where we need to have
  *	headroom just before the device command. See iwl_cmd_entry_get_dev_cmd.
  */
 struct iwl_slv_tx_cmd_entry {

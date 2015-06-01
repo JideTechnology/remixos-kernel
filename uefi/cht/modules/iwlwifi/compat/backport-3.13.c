@@ -14,6 +14,8 @@
 #include <net/genetlink.h>
 #include <linux/delay.h>
 #include <linux/pci.h>
+#include <linux/device.h>
+#include <linux/hwmon.h>
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0))
 #ifdef CONFIG_REGULATOR
@@ -252,3 +254,53 @@ bool pci_device_is_present(struct pci_dev *pdev)
 }
 EXPORT_SYMBOL_GPL(pci_device_is_present);
 #endif /* CONFIG_PCI */
+
+#ifdef CONFIG_HWMON
+struct device*
+hwmon_device_register_with_groups(struct device *dev, const char *name,
+				  void *drvdata,
+				  const struct attribute_group **groups)
+{
+	struct device *hwdev;
+
+	hwdev = hwmon_device_register(dev);
+	hwdev->groups = groups;
+	dev_set_drvdata(hwdev, drvdata);
+	return hwdev;
+}
+
+static void devm_hwmon_release(struct device *dev, void *res)
+{
+	struct device *hwdev = *(struct device **)res;
+
+	hwmon_device_unregister(hwdev);
+}
+
+struct device *
+devm_hwmon_device_register_with_groups(struct device *dev, const char *name,
+				       void *drvdata,
+				       const struct attribute_group **groups)
+{
+	struct device **ptr, *hwdev;
+
+	if (!dev)
+		return ERR_PTR(-EINVAL);
+
+	ptr = devres_alloc(devm_hwmon_release, sizeof(*ptr), GFP_KERNEL);
+	if (!ptr)
+		return ERR_PTR(-ENOMEM);
+
+	hwdev = hwmon_device_register_with_groups(dev, name, drvdata, groups);
+	if (IS_ERR(hwdev))
+		goto error;
+
+	*ptr = hwdev;
+	devres_add(dev, ptr);
+	return hwdev;
+
+error:
+	devres_free(ptr);
+	return hwdev;
+}
+EXPORT_SYMBOL_GPL(devm_hwmon_device_register_with_groups);
+#endif

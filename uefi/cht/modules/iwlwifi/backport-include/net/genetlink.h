@@ -172,13 +172,4 @@ static inline int genl_has_listeners(struct genl_family *family,
 }
 #endif /* < 3.17 */
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,0,0)
-static inline int backport_genlmsg_end(struct sk_buff *skb, void *hdr)
-{
-	genlmsg_end(skb, hdr);
-	return 0;
-}
-#define genlmsg_end	backport_genlmsg_end
-#endif /* >= 4.0 */
-
 #endif /* __BACKPORT_NET_GENETLINK_H */

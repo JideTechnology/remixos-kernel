@@ -2,6 +2,7 @@
 #define __BACKPORT_NET_NETLINK_H
 #include_next <net/netlink.h>
 #include <linux/version.h>
+#include <linux/in6.h>
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
 /**
@@ -136,5 +137,34 @@ static inline int nla_put_be64(struct sk_buff *skb, int attrtype, __be64 value)
 #undef NLA_TYPE_MAX
 #define NLA_TYPE_MAX (__NLA_TYPE_MAX - 1)
 #endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
+#define nla_put_in_addr LINUX_BACKPORT(nla_put_in_addr)
+static inline int nla_put_in_addr(struct sk_buff *skb, int attrtype,
+				  __be32 addr)
+{
+	return nla_put_be32(skb, attrtype, addr);
+}
+
+#define nla_put_in6_addr LINUX_BACKPORT(nla_put_in6_addr)
+static inline int nla_put_in6_addr(struct sk_buff *skb, int attrtype,
+				   const struct in6_addr *addr)
+{
+	return nla_put(skb, attrtype, sizeof(*addr), addr);
+}
+
+static inline __be32 nla_get_in_addr(const struct nlattr *nla)
+{
+	return *(__be32 *) nla_data(nla);
+}
+
+static inline struct in6_addr nla_get_in6_addr(const struct nlattr *nla)
+{
+	struct in6_addr tmp;
+
+	nla_memcpy(&tmp, nla, sizeof(tmp));
+	return tmp;
+}
+#endif /* < 4.1 */
 
 #endif /* __BACKPORT_NET_NETLINK_H */

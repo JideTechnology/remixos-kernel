@@ -82,17 +82,12 @@
  *	be intersected with the current one.
  * @REG_REQ_ALREADY_SET: the regulatory request will not change the current
  *	regulatory settings, and no further processing is required.
- * @REG_REQ_USER_HINT_HANDLED: a non alpha2  user hint was handled and no
- *	further processing is required, i.e., not need to update last_request
- *	etc. This should be used for user hints that do not provide an alpha2
- *	but some other type of regulatory hint, i.e., indoor operation.
  */
 enum reg_request_treatment {
 	REG_REQ_OK,
 	REG_REQ_IGNORE,
 	REG_REQ_INTERSECT,
 	REG_REQ_ALREADY_SET,
-	REG_REQ_USER_HINT_HANDLED,
 };
 
 static struct regulatory_request core_request_world = {
@@ -133,21 +128,17 @@ static int reg_num_devs_support_basehint;
  * State variable indicating if the platform on which the devices
  * are attached is operating in an indoor environment. The state variable
  * is relevant for all registered devices.
- * If the NO_IR relaxation is enabled, and a device driver supports the
- * relaxation, operation in an indoor environment allows instantiation of a P2P
- * GO on channels that have %IEEE80211_CHAN_INDOOR_ONLY set, and in addition
- * allows a P2P GO to continue operation on a channel that has
- * %IEEE80211_CHAN_IR_CONCURRENT set even if there is no longer a station
- * interface connection that enables the NO_IR relaxation.
- * (protected by RTNL)
  */
 static bool reg_is_indoor;
 static spinlock_t reg_indoor_lock;
 
-/*
- * Used to track the userspace process that is controlling the indoor setting
- */
+/* Used to track the userspace process controlling the indoor setting */
 static u32 reg_is_indoor_portid;
+
+/* Max number of consecutive attempts to communicate with CRDA  */
+#define REG_MAX_CRDA_TIMEOUTS 10
+
+static u32 reg_crda_timeouts;
 
 static const struct ieee80211_regdomain *get_cfg80211_regdom(void)
 {
@@ -240,7 +231,7 @@ static DECLARE_DELAYED_WORK(reg_timeout, reg_timeout_work);
 
 /* We keep a static world regulatory domain in case of the absence of CRDA */
 static const struct ieee80211_regdomain world_regdom = {
-	.n_reg_rules = 6,
+	.n_reg_rules = 8,
 	.alpha2 =  "00",
 	.reg_rules = {
 		/* IEEE 802.11b/g, channels 1..11 */
@@ -499,7 +490,7 @@ static void reg_regdb_search(struct work_struct *work)
 	mutex_unlock(&reg_regdb_search_mutex);
 
 	if (!IS_ERR_OR_NULL(regdom))
-		set_regdom(regdom);
+		set_regdom(regdom, REGD_SOURCE_INTERNAL_DB);
 
 	rtnl_unlock();
 }
@@ -549,14 +540,19 @@ static int call_crda(const char *alpha2)
 	snprintf(country, sizeof(country), "COUNTRY=%c%c",
 		 alpha2[0], alpha2[1]);
 
+	/* query internal regulatory database (if it exists) */
+	reg_regdb_query(alpha2);
+
+	if (reg_crda_timeouts > REG_MAX_CRDA_TIMEOUTS) {
+		pr_info("Exceeded CRDA call max attempts. Not calling CRDA\n");
+		return -EINVAL;
+	}
+
 	if (!is_world_regdom((char *) alpha2))
 		pr_info("Calling CRDA for country: %c%c\n",
 			alpha2[0], alpha2[1]);
 	else
 		pr_info("Calling CRDA to update world regulatory domain\n");
-
-	/* query internal regulatory database (if it exists) */
-	reg_regdb_query(alpha2);
 
 	return kobject_uevent_env(&reg_pdev->dev.kobj, KOBJ_CHANGE, env);
 }
@@ -1755,15 +1751,6 @@ static void handle_channel_custom(struct wiphy *wiphy,
 	}
 
 	chan->max_power = chan->max_reg_power;
-
-	if (chan->flags & IEEE80211_CHAN_RADAR) {
-		if (reg_rule->dfs_cac_ms)
-			chan->dfs_cac_ms = reg_rule->dfs_cac_ms;
-		else
-			chan->dfs_cac_ms = IEEE80211_DFS_MIN_CAC_TIME_MS;
-	}
-
-	chan->max_power = chan->max_reg_power;
 }
 
 static void handle_band_custom(struct wiphy *wiphy,
@@ -1896,8 +1883,7 @@ reg_process_hint_user(struct regulatory_request *user_request)
 
 	treatment = __reg_process_hint_user(user_request);
 	if (treatment == REG_REQ_IGNORE ||
-	    treatment == REG_REQ_ALREADY_SET ||
-	    treatment == REG_REQ_USER_HINT_HANDLED) {
+	    treatment == REG_REQ_ALREADY_SET) {
 		reg_free_request(user_request);
 		return treatment;
 	}
@@ -1958,7 +1944,6 @@ reg_process_hint_driver(struct wiphy *wiphy,
 	case REG_REQ_OK:
 		break;
 	case REG_REQ_IGNORE:
-	case REG_REQ_USER_HINT_HANDLED:
 		reg_free_request(driver_request);
 		return treatment;
 	case REG_REQ_INTERSECT:
@@ -2058,7 +2043,6 @@ reg_process_hint_country_ie(struct wiphy *wiphy,
 	case REG_REQ_OK:
 		break;
 	case REG_REQ_IGNORE:
-	case REG_REQ_USER_HINT_HANDLED:
 		/* fall through */
 	case REG_REQ_ALREADY_SET:
 		reg_free_request(country_ie_request);
@@ -2097,8 +2081,7 @@ static void reg_process_hint(struct regulatory_request *reg_request)
 	case NL80211_REGDOM_SET_BY_USER:
 		treatment = reg_process_hint_user(reg_request);
 		if (treatment == REG_REQ_IGNORE ||
-		    treatment == REG_REQ_ALREADY_SET ||
-		    treatment == REG_REQ_USER_HINT_HANDLED)
+		    treatment == REG_REQ_ALREADY_SET)
 			return;
 		return;
 	case NL80211_REGDOM_SET_BY_DRIVER:
@@ -2186,6 +2169,13 @@ static void reg_process_pending_hints(void)
 	}
 
 	reg_process_hint(reg_request);
+
+	lr = get_last_request();
+
+	spin_lock(&reg_requests_lock);
+	if (!list_empty(&reg_requests_list) && lr && lr->processed)
+		schedule_work(&reg_work);
+	spin_unlock(&reg_requests_lock);
 }
 
 /* Processes beacon hints -- this has nothing to do with country IEs */
@@ -2313,6 +2303,9 @@ int regulatory_hint_user(const char *alpha2,
 	request->initiator = NL80211_REGDOM_SET_BY_USER;
 	request->user_reg_hint_type = user_reg_hint_type;
 
+	/* Allow calling CRDA again */
+	reg_crda_timeouts = 0;
+
 	queue_regulatory_request(request);
 
 	return 0;
@@ -2322,21 +2315,20 @@ int regulatory_hint_indoor(bool is_indoor, u32 portid)
 {
 	spin_lock(&reg_indoor_lock);
 
-	/*
-	 * Process only if there is a real change, so the original port ID is
-	 * saved (to handle cases that several processes try to change the
-	 * indoor setting).
+	/* It is possible that more than one user space process is trying to
+	 * configure the indoor setting. To handle such cases, clear the indoor
+	 * setting in case that some process does not think that the device
+	 * is operating in an indoor environment. In addition, if a user space
+	 * process indicates that it is controlling the indoor setting, save its
+	 * portid, i.e., make it the owner.
 	 */
-	if (reg_is_indoor == is_indoor) {
-		spin_unlock(&reg_indoor_lock);
-		return 0;
-	}
-
 	reg_is_indoor = is_indoor;
-	if (reg_is_indoor)
-		reg_is_indoor_portid = portid;
-	else
+	if (reg_is_indoor) {
+		if (!reg_is_indoor_portid)
+			reg_is_indoor_portid = portid;
+	} else {
 		reg_is_indoor_portid = 0;
+	}
 
 	spin_unlock(&reg_indoor_lock);
 
@@ -2382,6 +2374,9 @@ int regulatory_hint(struct wiphy *wiphy, const char *alpha2)
 	request->alpha2[0] = alpha2[0];
 	request->alpha2[1] = alpha2[1];
 	request->initiator = NL80211_REGDOM_SET_BY_DRIVER;
+
+	/* Allow calling CRDA again */
+	reg_crda_timeouts = 0;
 
 	queue_regulatory_request(request);
 
@@ -2435,6 +2430,9 @@ void regulatory_hint_country_ie(struct wiphy *wiphy, enum ieee80211_band band,
 	request->alpha2[1] = alpha2[1];
 	request->initiator = NL80211_REGDOM_SET_BY_COUNTRY_IE;
 	request->country_ie_env = env;
+
+	/* Allow calling CRDA again */
+	reg_crda_timeouts = 0;
 
 	queue_regulatory_request(request);
 	request = NULL;
@@ -2528,6 +2526,18 @@ static void restore_regulatory_settings(bool reset_user)
 	struct cfg80211_registered_device *rdev;
 
 	ASSERT_RTNL();
+
+	/*
+	 * Clear the indoor setting in case that it is not controlled by user
+	 * space, as otherwise there is no guarantee that the device is still
+	 * operating in an indoor environment.
+	 */
+	spin_lock(&reg_indoor_lock);
+	if (reg_is_indoor && !reg_is_indoor_portid) {
+		reg_is_indoor = false;
+		reg_check_channels();
+	}
+	spin_unlock(&reg_indoor_lock);
 
 	reset_regdomains(true, &world_regdom);
 	restore_alpha2(alpha2, reset_user);
@@ -2902,7 +2912,8 @@ static int reg_set_rd_country_ie(const struct ieee80211_regdomain *rd,
  * multiple drivers can be ironed out later. Caller must've already
  * kmalloc'd the rd structure.
  */
-int set_regdom(const struct ieee80211_regdomain *rd)
+int set_regdom(const struct ieee80211_regdomain *rd,
+	       enum ieee80211_regd_source regd_src)
 {
 	struct regulatory_request *lr;
 	bool user_reset = false;
@@ -2912,6 +2923,9 @@ int set_regdom(const struct ieee80211_regdomain *rd)
 		kfree(rd);
 		return -EINVAL;
 	}
+
+	if (regd_src == REGD_SOURCE_CRDA)
+		reg_crda_timeouts = 0;
 
 	lr = get_last_request();
 
@@ -3072,6 +3086,7 @@ static void reg_timeout_work(struct work_struct *work)
 {
 	REG_DBG_PRINT("Timeout while waiting for CRDA to reply, restoring regulatory settings\n");
 	rtnl_lock();
+	reg_crda_timeouts++;
 	restore_regulatory_settings(true);
 	rtnl_unlock();
 }

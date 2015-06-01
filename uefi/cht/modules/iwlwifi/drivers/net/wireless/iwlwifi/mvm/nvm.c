@@ -77,8 +77,7 @@
 /* Default NVM size to read */
 #define IWL_NVM_DEFAULT_CHUNK_SIZE (2*1024)
 #define IWL_MAX_NVM_SECTION_SIZE	0x1b58
-#define IWL_MAX_NVM_8000A_SECTION_SIZE	0xffc
-#define IWL_MAX_NVM_8000B_SECTION_SIZE	0x1ffc
+#define IWL_MAX_NVM_8000_SECTION_SIZE	0x1ffc
 
 #define NVM_WRITE_OPCODE 1
 #define NVM_READ_OPCODE 0
@@ -267,7 +266,7 @@ iwl_parse_nvm_sections(struct iwl_mvm *mvm)
 {
 	struct iwl_nvm_section *sections = mvm->nvm_sections;
 	const __le16 *hw, *sw, *calib, *regulatory, *mac_override, *phy_sku;
-	bool is_family_8000_a_step = false, lar_enabled;
+	bool lar_enabled;
 	u32 mac_addr0, mac_addr1;
 
 	/* Checking for required sections */
@@ -293,12 +292,8 @@ iwl_parse_nvm_sections(struct iwl_mvm *mvm)
 			return NULL;
 		}
 
-		if (CSR_HW_REV_STEP(mvm->trans->hw_rev) == SILICON_A_STEP)
-			is_family_8000_a_step = true;
-
 		/* PHY_SKU section is mandatory in B0 */
-		if (!is_family_8000_a_step &&
-		    !mvm->nvm_sections[NVM_SECTION_TYPE_PHY_SKU].data) {
+		if (!mvm->nvm_sections[NVM_SECTION_TYPE_PHY_SKU].data) {
 			IWL_ERR(mvm,
 				"Can't parse phy_sku in B0, empty sections\n");
 			return NULL;
@@ -327,8 +322,7 @@ iwl_parse_nvm_sections(struct iwl_mvm *mvm)
 	return iwl_parse_nvm_data(mvm->trans->dev, mvm->cfg, hw, sw, calib,
 				  regulatory, mac_override, phy_sku,
 				  mvm->fw->valid_tx_ant, mvm->fw->valid_rx_ant,
-				  lar_enabled, is_family_8000_a_step,
-				  mac_addr0, mac_addr1);
+				  lar_enabled, mac_addr0, mac_addr1);
 }
 
 #define MAX_NVM_FILE_LEN	16384
@@ -381,10 +375,8 @@ static int iwl_mvm_read_external_nvm(struct iwl_mvm *mvm)
 	/* Maximal size depends on HW family and step */
 	if (mvm->trans->cfg->device_family != IWL_DEVICE_FAMILY_8000)
 		max_section_size = IWL_MAX_NVM_SECTION_SIZE;
-	else if (CSR_HW_REV_STEP(mvm->trans->hw_rev) == SILICON_A_STEP)
-		max_section_size = IWL_MAX_NVM_8000A_SECTION_SIZE;
-	else /* Family 8000 B-step or C-step */
-		max_section_size = IWL_MAX_NVM_8000B_SECTION_SIZE;
+	else
+		max_section_size = IWL_MAX_NVM_8000_SECTION_SIZE;
 
 	/*
 	 * Obtain NVM image via request_firmware. Since we already used
@@ -681,9 +673,9 @@ iwl_mvm_update_mcc(struct iwl_mvm *mvm, const char *alpha2,
 
 	n_channels =  __le32_to_cpu(mcc_resp->n_channels);
 	IWL_DEBUG_LAR(mvm,
-		"MCC response status: 0x%x. new MCC: 0x%x ('%c%c') change: %d n_chans: %d\n",
-		 status, mcc, mcc >> 8, mcc & 0xff,
-		 !!(status == MCC_RESP_NEW_CHAN_PROFILE), n_channels);
+		      "MCC response status: 0x%x. new MCC: 0x%x ('%c%c') change: %d n_chans: %d\n",
+		      status, mcc, mcc >> 8, mcc & 0xff,
+		      !!(status == MCC_RESP_NEW_CHAN_PROFILE), n_channels);
 
 	resp_len = sizeof(*mcc_resp) + n_channels * sizeof(__le32);
 	resp_cp = kmemdup(mcc_resp, resp_len, GFP_KERNEL);

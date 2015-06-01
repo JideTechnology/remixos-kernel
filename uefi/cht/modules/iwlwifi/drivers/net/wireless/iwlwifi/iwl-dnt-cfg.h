@@ -177,7 +177,7 @@ struct dnt_collect_db {
  * @dbgm: monitor data pointer
  * @rx: rx fifo data pointer
  * @tx: tx fifo data pointer
- * @periph: perhphey registers data pointer
+ * @periph: periphery registers data pointer
  */
 struct dnt_crash_data {
 	u8 *sram;
@@ -223,8 +223,8 @@ struct iwl_dnt_dispatch {
  * @cfg: pointer to user configuration
  * @dev: pointer to struct device for printing purposes
  * @iwl_dnt_status: represents the DnT status
- * @is_configuration_valid: inidcates rather or not the persistent configuration
- *	is valid
+ * @is_configuration_valid: indicates whether the persistent configuration
+ *	is valid or not
  * @cur_input_mask: current mode mask
  * @cur_output_mask: current output mask
  * @cur_mon_type: current monitor type

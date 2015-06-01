@@ -64,6 +64,16 @@ static inline int of_property_read_u32(const struct device_node *np,
 {
 	return of_property_read_u32_array(np, propname, out_value, 1);
 }
+#ifndef CONFIG_OF
+#define of_get_property LINUX_BACKPORT(of_get_property)
+static inline const void *of_get_property(const struct device_node *node,
+				const char *name,
+				int *lenp)
+{
+	return NULL;
+}
+
+#endif
 #endif /* LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0) */
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)

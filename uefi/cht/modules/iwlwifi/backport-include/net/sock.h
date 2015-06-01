@@ -38,4 +38,9 @@
 #define SOCK_SELECT_ERR_QUEUE (SOCK_QUEUE_SHRUNK + 14)
 #endif
 
+#ifndef sock_skb_cb_check_size
+#define sock_skb_cb_check_size(size) \
+	BUILD_BUG_ON((size) > FIELD_SIZEOF(struct sk_buff, cb))
+#endif
+
 #endif /* __BACKPORT_NET_SOCK_H */

@@ -206,44 +206,8 @@ enum iwl_sdio_d2h_gpr_msg {
 #define IWL_SDIO_SF_MEM_ADMA_DSC_OFFSET		0x3A00
 #define IWL_SDIO_SF_MEM_TB_OFFSET		0x3B00
 
-/* this is Silicon issue will fix in B0 step */
-#define FAMILY_8000_REDUCED_MEM_SIZE	32768
-
-#define IWL_SDIO_8000_SF_MEM_SIZE	0x20000
-
-#define IWL_SDIO_8000_SF_MEM_BASE_ADDR		0x93000
-#define IWL_SDIO_8000B_SF_MEM_BASE_ADDR	0x400000
-
-#define IWL_SDIO_8000_SF_MEM_TFD_BASE_ADDR \
-	(IWL_SDIO_8000_SF_MEM_BASE_ADDR + IWL_SDIO_SF_MEM_TFD_OFFSET)
-#define IWL_SDIO_8000_SF_MEM_TFDI_BASE_ADDR \
-	(IWL_SDIO_8000_SF_MEM_BASE_ADDR + IWL_SDIO_SF_MEM_TFDI_OFFSET)
-#define IWL_SDIO_8000_SF_MEM_BC_BASE_ADDR \
-	(IWL_SDIO_8000_SF_MEM_BASE_ADDR + IWL_SDIO_SF_MEM_BC_OFFSET)
-#define IWL_SDIO_8000_SF_MEM_TG_BUF_BASE_ADDR \
-	(IWL_SDIO_8000_SF_MEM_BASE_ADDR + IWL_SDIO_SF_MEM_TG_BUF_OFFSET)
-#define IWL_SDIO_8000_SF_MEM_ADMA_DSC_MEM_BASE \
-	(IWL_SDIO_8000_SF_MEM_BASE_ADDR + IWL_SDIO_SF_MEM_ADMA_DSC_OFFSET)
-#define IWL_SDIO_8000_SF_MEM_TB_BASE_ADDR \
-	(IWL_SDIO_8000_SF_MEM_BASE_ADDR + IWL_SDIO_SF_MEM_TB_OFFSET)
-
-/* SF adresses for device 7000 */
-#define IWL_SDIO_7000_SF_MEM_SIZE	0x20000
-
-#define IWL_SDIO_7000_SF_MEM_BASE_ADDR		0x80000
-
-#define IWL_SDIO_7000_SF_MEM_TFD_BASE_ADDR \
-	(IWL_SDIO_7000_SF_MEM_BASE_ADDR + IWL_SDIO_SF_MEM_TFD_OFFSET)
-#define IWL_SDIO_7000_SF_MEM_TFDI_BASE_ADDR \
-	(IWL_SDIO_7000_SF_MEM_BASE_ADDR + IWL_SDIO_SF_MEM_TFDI_OFFSET)
-#define IWL_SDIO_7000_SF_MEM_BC_BASE_ADDR \
-	(IWL_SDIO_7000_SF_MEM_BASE_ADDR + IWL_SDIO_SF_MEM_BC_OFFSET)
-#define IWL_SDIO_7000_SF_MEM_TG_BUF_BASE_ADDR \
-	(IWL_SDIO_7000_SF_MEM_BASE_ADDR + IWL_SDIO_SF_MEM_TG_BUF_OFFSET)
-#define IWL_SDIO_7000_SF_MEM_ADMA_DSC_MEM_BASE \
-	(IWL_SDIO_7000_SF_MEM_BASE_ADDR + IWL_SDIO_SF_MEM_ADMA_DSC_OFFSET)
-#define IWL_SDIO_7000_SF_MEM_TB_BASE_ADDR \
-	(IWL_SDIO_7000_SF_MEM_BASE_ADDR + IWL_SDIO_SF_MEM_TB_OFFSET)
+#define IWL_SDIO_SF_MEM_SIZE			0x20000
+#define IWL_SDIO_SF_MEM_BASE_ADDR		0x400000
 
 #define IWL_SDIO_TFD_POOL_SIZE 128
 #define IWL_SDIO_DEFAULT_TB_POOL_SIZE 325
@@ -316,14 +280,11 @@ struct iwl_sdio_sf_mem_addresses {
 #define IWL_SDIO_EOT_BIT			BIT(7)
 #define IWL_SDIO_CMD_HEADER_SIGNATURE		0x5057
 #define IWL_SDIO_OP_CODE_MASK			0xF
-#define IWL_SDIO_DMA_DESC_LEN_SHIFT		20
-#define IWL_SDIO_MAX_ORDER			(8 * sizeof(u32) - \
-						 IWL_SDIO_DMA_DESC_LEN_SHIFT)
-#define IWL_SDIO_DMA_DESC_8000_ADDR_SHIFT	32
-#define IWL_SDIO_DMA_DESC_8000_LEN_SHIFT	16
-#define IWL_SDIO_MAX_ORDER_8000	(8 * sizeof(u32) - \
-					 IWL_SDIO_DMA_DESC_8000_LEN_SHIFT)
-
+#define IWL_SDIO_DMA_DESC_ADDR_SHIFT		32
+#define IWL_SDIO_DMA_DESC_LEN_SHIFT		16
+#define IWL_SDIO_DMA_TB_LEN_SHIFT		20
+#define IWL_SDIO_MAX_ORDER		(8 * sizeof(u32) - \
+					 IWL_SDIO_DMA_DESC_LEN_SHIFT)
 
 /*
  * Target Access command structs
@@ -356,8 +317,8 @@ enum iwl_sdio_ta_width {
 };
 
 /*
- * This flag defines the three mode of the accesss control that can be
- * done by the SDTM in the tarrrget access command.
+ * This flag defines the three mode of the access control that can be
+ * done by the SDTM in the target access command.
 */
 enum iwl_sdio_ta_ac_flags {
 	IWL_SDIO_TA_AC_DIRECT,
@@ -403,7 +364,7 @@ struct iwl_sdio_ta_cmd {
 	__le32 access_control;
 } __packed;
 
-/* Max payload for a single transaction - dependant in the SDIO BLOCK SIZE */
+/* Max payload for a single transaction - dependent in the SDIO BLOCK SIZE */
 #define IWL_SDIO_MAX_PAYLOAD_SIZE \
 		(IWL_SDIO_BLOCK_SIZE - sizeof(struct iwl_sdio_ta_cmd))
 

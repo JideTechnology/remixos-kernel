@@ -12,7 +12,6 @@
 
 #include <linux/export.h>
 #include <linux/etherdevice.h>
-#include <linux/time.h>
 #include <net/mac80211.h>
 #include <asm/unaligned.h>
 #include "ieee80211_i.h"
@@ -514,6 +513,7 @@ static void ieee80211_report_used_skb(struct ieee80211_local *local,
 	}
 }
 
+#ifdef CPTCFG_MAC80211_LATENCY_MEASUREMENTS
 static void update_consec_bins(u32 *bins, u32 *bin_ranges, int bin_range_count,
 			       int msrmnt)
 {
@@ -656,6 +656,29 @@ tx_latency_threshold(struct ieee80211_local *local, struct sk_buff *skb,
 	}
 }
 
+static u32 ieee80211_calc_tx_latency(struct ieee80211_local *local,
+				     ktime_t skb_arv,
+				     struct ieee80211_tx_latency_bin_ranges
+				     *tx_lat)
+{
+	s64 tmp;
+	s64 ts[IEEE80211_TX_LAT_MAX_POINT];
+	u32 msrmnt;
+
+	ts[IEEE80211_TX_LAT_DEL] = ktime_to_ms(ktime_get());
+
+	/* extract previous time stamps */
+	ts[IEEE80211_TX_LAT_ENTER] = skb_arv.tv64 >> 32;
+	tmp = skb_arv.tv64 & 0xFFFFFFFF;
+	ts[IEEE80211_TX_LAT_WRITE] = (tmp >> 16) + ts[IEEE80211_TX_LAT_ENTER];
+	ts[IEEE80211_TX_LAT_ACK] = (tmp & 0xFFFF) + ts[IEEE80211_TX_LAT_ENTER];
+
+	/* calculate packet latency */
+	msrmnt = ts[tx_lat->points[1]] - ts[tx_lat->points[0]];
+
+	return msrmnt;
+}
+
 /*
  * 1) Measure Tx frame completion and removal time for Tx latency statistics
  * calculation. A single Tx frame latency should be measured from when it
@@ -702,7 +725,7 @@ static void ieee80211_collect_tx_timing_stats(struct ieee80211_local *local,
 	}
 
 	/* Calculate the latency */
-	msrmnt = ktime_to_ms(ktime_sub(ktime_get(), skb_arv));
+	msrmnt = ieee80211_calc_tx_latency(local, skb_arv, tx_latency);
 
 	/* update statistic regarding consecutive lost packets */
 	tx_consec_loss_msrmnt(tx_consec, sta, tid, msrmnt, pkt_loss,
@@ -719,6 +742,7 @@ static void ieee80211_collect_tx_timing_stats(struct ieee80211_local *local,
 	tx_latency_threshold(local, skb, tx_latency, sta, tid, msrmnt);
 #endif
 }
+#endif /* CPTCFG_MAC80211_LATENCY_MEASUREMENTS */
 
 /*
  * Use a static threshold for now, best value to be determined
@@ -861,7 +885,8 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
 	struct ieee80211_supported_band *sband;
 	struct ieee80211_sub_if_data *sdata;
 	struct net_device *prev_dev = NULL;
-	struct sta_info *sta, *tmp;
+	struct sta_info *sta;
+	struct rhash_head *tmp;
 	int retry_count;
 	int rates_idx;
 	bool send_to_cooked;
@@ -870,6 +895,7 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
 	int rtap_len;
 	int shift = 0;
 	int tid = IEEE80211_NUM_TIDS;
+	const struct bucket_table *tbl;
 	int prev_loss_pkt;
 	bool send_fail = true;
 
@@ -880,7 +906,9 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
 	sband = local->hw.wiphy->bands[info->band];
 	fc = hdr->frame_control;
 
-	for_each_sta_info(local, hdr->addr1, sta, tmp) {
+	tbl = rht_dereference_rcu(local->sta_hash.tbl, &local->sta_hash);
+
+	for_each_sta_info(local, tbl, hdr->addr1, sta, tmp) {
 		/* skip wrong virtual interface */
 		if (!ether_addr_equal(hdr->addr2, sta->sdata->vif.addr))
 			continue;
@@ -985,11 +1013,13 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
 			if (info->flags & IEEE80211_TX_STAT_ACK) {
 				send_fail = false;
 				if (sta->lost_packets) {
+#ifdef CPTCFG_MAC80211_LATENCY_MEASUREMENTS
 					/*
 					 * need to keep track of the amount for
 					 * timing statistics later on
 					 */
 					prev_loss_pkt = sta->lost_packets;
+#endif /* CPTCFG_MAC80211_LATENCY_MEASUREMENTS */
 					sta->lost_packets = 0;
 				}
 
@@ -1004,9 +1034,11 @@ void ieee80211_tx_status(struct ieee80211_hw *hw, struct sk_buff *skb)
 		if (acked)
 			sta->last_ack_signal = info->status.ack_signal;
 
+#ifdef CPTCFG_MAC80211_LATENCY_MEASUREMENTS
 		/* Measure Tx latency & Tx consecutive loss statistics */
 		ieee80211_collect_tx_timing_stats(local, skb, sta, hdr,
 						  prev_loss_pkt, send_fail);
+#endif /* CPTCFG_MAC80211_LATENCY_MEASUREMENTS */
 	}
 
 	rcu_read_unlock();

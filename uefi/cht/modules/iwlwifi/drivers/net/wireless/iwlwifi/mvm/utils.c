@@ -125,7 +125,7 @@ int iwl_mvm_send_cmd_pdu(struct iwl_mvm *mvm, u8 id,
 }
 
 /*
- * We assume that the caller set the status to the sucess value
+ * We assume that the caller set the status to the success value
  */
 int iwl_mvm_send_cmd_status(struct iwl_mvm *mvm, struct iwl_host_cmd *cmd,
 			    u32 *status)
@@ -740,7 +740,7 @@ int iwl_mvm_send_lq_cmd(struct iwl_mvm *mvm, struct iwl_lq_cmd *lq, bool init)
 }
 
 /**
- * iwl_mvm_update_smps - Get a requst to change the SMPS mode
+ * iwl_mvm_update_smps - Get a request to change the SMPS mode
  * @req_type: The part of the driver who call for a change.
  * @smps_requests: The request to change the SMPS mode.
  *
@@ -929,6 +929,74 @@ struct ieee80211_vif *iwl_mvm_get_bss_vif(struct iwl_mvm *mvm)
 	return bss_iter_data.vif;
 }
 
+unsigned int iwl_mvm_get_wd_timeout(struct iwl_mvm *mvm,
+				    struct ieee80211_vif *vif,
+				    bool tdls, bool cmd_q)
+{
+	struct iwl_fw_dbg_trigger_tlv *trigger;
+	struct iwl_fw_dbg_trigger_txq_timer *txq_timer;
+	unsigned int default_timeout =
+		cmd_q ? IWL_DEF_WD_TIMEOUT : mvm->cfg->base_params->wd_timeout;
+
+	if (!iwl_fw_dbg_trigger_enabled(mvm->fw, FW_DBG_TRIGGER_TXQ_TIMERS))
+		return iwlmvm_mod_params.tfd_q_hang_detect ?
+			default_timeout : IWL_WATCHDOG_DISABLED;
+
+	trigger = iwl_fw_dbg_get_trigger(mvm->fw, FW_DBG_TRIGGER_TXQ_TIMERS);
+	txq_timer = (void *)trigger->data;
+
+	if (tdls)
+		return le32_to_cpu(txq_timer->tdls);
+
+	if (cmd_q)
+		return le32_to_cpu(txq_timer->command_queue);
+
+	if (WARN_ON(!vif))
+		return default_timeout;
+
+	switch (ieee80211_vif_type_p2p(vif)) {
+	case NL80211_IFTYPE_ADHOC:
+		return le32_to_cpu(txq_timer->ibss);
+	case NL80211_IFTYPE_STATION:
+		return le32_to_cpu(txq_timer->bss);
+	case NL80211_IFTYPE_AP:
+		return le32_to_cpu(txq_timer->softap);
+	case NL80211_IFTYPE_P2P_CLIENT:
+		return le32_to_cpu(txq_timer->p2p_client);
+	case NL80211_IFTYPE_P2P_GO:
+		return le32_to_cpu(txq_timer->p2p_go);
+	case NL80211_IFTYPE_P2P_DEVICE:
+		return le32_to_cpu(txq_timer->p2p_device);
+	default:
+		WARN_ON(1);
+		return mvm->cfg->base_params->wd_timeout;
+	}
+}
+
+void iwl_mvm_connection_loss(struct iwl_mvm *mvm, struct ieee80211_vif *vif,
+			     const char *errmsg)
+{
+	struct iwl_fw_dbg_trigger_tlv *trig;
+	struct iwl_fw_dbg_trigger_mlme *trig_mlme;
+
+	if (!iwl_fw_dbg_trigger_enabled(mvm->fw, FW_DBG_TRIGGER_MLME))
+		goto out;
+
+	trig = iwl_fw_dbg_get_trigger(mvm->fw, FW_DBG_TRIGGER_MLME);
+	trig_mlme = (void *)trig->data;
+	if (!iwl_fw_dbg_trigger_check_stop(mvm, vif, trig))
+		goto out;
+
+	if (trig_mlme->stop_connection_loss &&
+	    --trig_mlme->stop_connection_loss)
+		goto out;
+
+	iwl_mvm_fw_dbg_collect_trig(mvm, trig, "%s", errmsg);
+
+out:
+	ieee80211_connection_loss(vif);
+}
+
 #ifdef CPTCFG_IWLMVM_TCM
 u8 iwl_mvm_tcm_load_percentage(u32 airtime, u32 elapsed)
 {
@@ -1031,7 +1099,8 @@ static void iwl_mvm_tcm_uapsd_nonagg_detected_wk(struct work_struct *wk)
 	if (mvm->uapsd_noagg_bssid_write_idx >= IWL_MVM_UAPSD_NOAGG_LIST_LEN)
 		mvm->uapsd_noagg_bssid_write_idx = 0;
 
-	ieee80211_connection_loss(vif);
+	iwl_mvm_connection_loss(mvm, vif,
+				"AP isn't using AMPDU with uAPSD enabled");
 }
 
 static void iwl_mvm_uapsd_agg_disconnect_iter(void *data, u8 *mac,

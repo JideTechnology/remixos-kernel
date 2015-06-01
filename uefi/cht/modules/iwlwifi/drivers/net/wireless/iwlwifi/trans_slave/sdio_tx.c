@@ -508,18 +508,8 @@ iwl_sdio_tx_get_resources(struct iwl_trans *trans, u8 txq_id,
 	int free_tfds, free_tbs, ret;
 	u8 tbs_to_allocate = DIV_ROUND_UP(txq_entry->dtu_meta.total_len,
 				       trans_slv->config.tb_size);
+	u32 max_order = IWL_SDIO_MAX_ORDER;
 	u8 order;
-	u32 max_order;
-
-	/*
-	 * The length range is different in 8000 HW family starting from B-step
-	 * than the other NICs
-	 */
-	if ((trans->cfg->device_family != IWL_DEVICE_FAMILY_8000) ||
-	    (CSR_HW_REV_STEP(trans->hw_rev) == SILICON_A_STEP))
-		max_order = IWL_SDIO_MAX_ORDER;
-	else
-		max_order = IWL_SDIO_MAX_ORDER_8000;
 
 	spin_lock_bh(&trans_sdio->slv_tx.mem_rsrc_lock);
 
@@ -624,7 +614,7 @@ static int iwl_sdio_alloc_dtu_mem(struct iwl_trans *trans,
 
 }
 
-/* set ADMA descriptors defining the distination of the data stream */
+/* set ADMA descriptors defining the destination of the data stream */
 static void iwl_sdio_config_adma(struct iwl_trans *trans,
 				 struct iwl_slv_txq_entry *txq_entry, u8 txq_id)
 {
@@ -641,25 +631,12 @@ static void iwl_sdio_config_adma(struct iwl_trans *trans,
 		trans_sdio->sf_mem_addresses->adma_dsc_mem_base;
 	int i;
 
-	/*
-	 * From 8000 HW family B-step the dma_desc is enlarged by 4 bytes on
-	 * the expense of the reserved field that comes right after that
-	 */
-	if ((trans->cfg->device_family != IWL_DEVICE_FAMILY_8000) ||
-	    (CSR_HW_REV_STEP(trans->hw_rev) == SILICON_A_STEP))
-		dtu_hdr->dma_desc =
-			cpu_to_le32(
-			    adma_dsc_mem_base |
+	*((__le64 *)&(dtu_hdr->dma_desc)) =
+		cpu_to_le64(((u64)adma_dsc_mem_base <<
+			    IWL_SDIO_DMA_DESC_ADDR_SHIFT) |
 			    ((dtu_info->adma_desc_num *
-			      sizeof(struct iwl_sdio_adma_desc)) << 20));
-	else
-		*((__le64 *)&(dtu_hdr->dma_desc)) =
-			cpu_to_le64(
-			    ((u64)adma_dsc_mem_base <<
-			     IWL_SDIO_DMA_DESC_8000_ADDR_SHIFT) |
-			    ((dtu_info->adma_desc_num *
-			      sizeof(struct iwl_sdio_adma_desc)) <<
-			     IWL_SDIO_DMA_DESC_8000_LEN_SHIFT));
+			    sizeof(struct iwl_sdio_adma_desc)) <<
+			    IWL_SDIO_DMA_DESC_LEN_SHIFT));
 
 	tfd = (void *)((u8 *)dtu_info->ctrl_buf +
 		       sizeof(struct iwl_sdio_tx_dtu_hdr) +
@@ -687,7 +664,7 @@ static void iwl_sdio_config_adma(struct iwl_trans *trans,
 			IWL_SDIO_ADMA_ATTR_VALID | IWL_SDIO_ADMA_ATTR_ACT2;
 		adma_list[desc_idx].reserved = 0;
 		tb_len = le32_to_cpu(tfd->tbs[i]) >>
-			IWL_SDIO_DMA_DESC_LEN_SHIFT;
+			IWL_SDIO_DMA_TB_LEN_SHIFT;
 		aligned_len = round_up(tb_len, 4);
 		dtu_info->data_pad_len = aligned_len - tb_len;
 		adma_list[desc_idx].length = cpu_to_le16(aligned_len);
@@ -880,14 +857,8 @@ static void iwl_sdio_config_tfd(struct iwl_trans *trans,
 	int cur_len;
 	int idx;
 
-	/*
-	 * In 8000 HW family starting from B/C-step the tb_base is relative
-	 * rather than absolute as the other NICs and steps.
-	 */
-	tb_base = trans_sdio->sf_mem_addresses->tb_base_addr;
-	if ((trans->cfg->device_family == IWL_DEVICE_FAMILY_8000) &&
-	    (CSR_HW_REV_STEP(trans->hw_rev) != SILICON_A_STEP))
-		tb_base -= IWL_SDIO_8000B_SF_MEM_BASE_ADDR;
+	tb_base = trans_sdio->sf_mem_addresses->tb_base_addr -
+		IWL_SDIO_SF_MEM_BASE_ADDR;
 
 	tfd = (void *)((u8 *)dtu_info->ctrl_buf +
 		       sizeof(struct iwl_sdio_tx_dtu_hdr) +
@@ -908,7 +879,7 @@ static void iwl_sdio_config_tfd(struct iwl_trans *trans,
 			cur_len -= IWL_SDIO_TB_SIZE;
 			cur_len += last_tb;
 		}
-		tb_len = cur_len << IWL_SDIO_DMA_DESC_LEN_SHIFT;
+		tb_len = cur_len << IWL_SDIO_DMA_TB_LEN_SHIFT;
 		tb_addr = tb_base +
 			  dtu_info->sram_alloc.fragments[idx].index *
 			  IWL_SDIO_TB_SIZE;
@@ -967,23 +938,11 @@ int iwl_sdio_flush_dtus(struct iwl_trans *trans)
 		dtu_hdr->hdr.seq_number = iwl_sdio_get_cmd_seq(trans_sdio, true);
 		dtu_hdr->hdr.signature = cpu_to_le16(IWL_SDIO_CMD_HEADER_SIGNATURE);
 		memset(dtu_hdr->reserved, 0, sizeof(dtu_hdr->reserved));
-		/*
-		 * From 8000 HW family B-step the dma_desc is enlarged by 4
-		 * bytes on the expense of the reserved field that comes right
-		 * after that
-		 */
-		if ((trans->cfg->device_family != IWL_DEVICE_FAMILY_8000) ||
-		    (CSR_HW_REV_STEP(trans->hw_rev) == SILICON_A_STEP))
-			dtu_hdr->dma_desc =
-				cpu_to_le32(adma_dsc_mem_base |
-					    (sizeof(*dma_desc) <<
-					     IWL_SDIO_DMA_DESC_LEN_SHIFT));
-		else
-			*((__le64 *)&(dtu_hdr->dma_desc)) =
-				cpu_to_le64(((u64)adma_dsc_mem_base <<
-					    IWL_SDIO_DMA_DESC_8000_ADDR_SHIFT) |
-					    (sizeof(*dma_desc) <<
-					     IWL_SDIO_DMA_DESC_8000_LEN_SHIFT));
+		*((__le64 *)&(dtu_hdr->dma_desc)) =
+			cpu_to_le64(((u64)adma_dsc_mem_base <<
+				    IWL_SDIO_DMA_DESC_ADDR_SHIFT) |
+				    (sizeof(*dma_desc) <<
+				     IWL_SDIO_DMA_DESC_LEN_SHIFT));
 
 		cur += sizeof(*dtu_hdr);
 		dma_desc = (struct iwl_sdio_adma_desc *)cur;

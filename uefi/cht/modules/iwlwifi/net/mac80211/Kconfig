@@ -305,3 +305,17 @@ config MAC80211_DEBUG_COUNTERS
 	  and show them in debugfs.
 
 	  If unsure, say N.
+
+config MAC80211_LATENCY_MEASUREMENTS
+	bool "Enable latency measurements in mac80211"
+	depends on MAC80211_DEBUGFS
+	default y
+	---help---
+	  Selecting this option causes mac80211 to keep additional
+	  and very verbose statistics about TX. The purpose is to
+	  measure the latency of the TX and classify the packets
+	  into categories based on the time they have been waiting
+	  from the time they entered mac80211 until they have been
+	  freed in mac80211.
+
+	  If unsure, say N.

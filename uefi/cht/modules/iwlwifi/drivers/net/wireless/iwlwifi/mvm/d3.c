@@ -6,7 +6,7 @@
  * GPL LICENSE SUMMARY
  *
  * Copyright(c) 2012 - 2014 Intel Corporation. All rights reserved.
- * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
+ * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -32,7 +32,7 @@
  * BSD LICENSE
  *
  * Copyright(c) 2012 - 2014 Intel Corporation. All rights reserved.
- * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
+ * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -981,7 +981,8 @@ iwl_mvm_netdetect_config(struct iwl_mvm *mvm,
 	if (ret)
 		return ret;
 
-	ret = iwl_mvm_scan_offload_start(mvm, vif, nd_config, &mvm->nd_ies);
+	ret = iwl_mvm_sched_scan_start(mvm, vif, nd_config, &mvm->nd_ies,
+				       IWL_MVM_SCAN_NETDETECT);
 	if (ret)
 		return ret;
 
@@ -1600,7 +1601,7 @@ iwl_mvm_get_wakeup_status(struct iwl_mvm *mvm, struct ieee80211_vif *vif)
 
 	/* RF-kill already asserted again... */
 	if (!cmd.resp_pkt) {
-		ret = -ERFKILL;
+		fw_status = ERR_PTR(-ERFKILL);
 		goto out_free_resp;
 	}
 
@@ -1609,7 +1610,7 @@ iwl_mvm_get_wakeup_status(struct iwl_mvm *mvm, struct ieee80211_vif *vif)
 	len = iwl_rx_packet_payload_len(cmd.resp_pkt);
 	if (len < status_size) {
 		IWL_ERR(mvm, "Invalid WoWLAN status response!\n");
-		ret = -EIO;
+		fw_status = ERR_PTR(-EIO);
 		goto out_free_resp;
 	}
 
@@ -1617,7 +1618,7 @@ iwl_mvm_get_wakeup_status(struct iwl_mvm *mvm, struct ieee80211_vif *vif)
 	if (len != (status_size +
 		    ALIGN(le32_to_cpu(status->wake_packet_bufsize), 4))) {
 		IWL_ERR(mvm, "Invalid WoWLAN status response!\n");
-		ret = -EIO;
+		fw_status = ERR_PTR(-EIO);
 		goto out_free_resp;
 	}
 
@@ -1625,7 +1626,7 @@ iwl_mvm_get_wakeup_status(struct iwl_mvm *mvm, struct ieee80211_vif *vif)
 
 out_free_resp:
 	iwl_free_resp(&cmd);
-	return ret ? ERR_PTR(ret) : fw_status;
+	return fw_status;
 }
 
 /* releases the MVM mutex */
@@ -1726,6 +1727,10 @@ iwl_mvm_netdetect_query_results(struct iwl_mvm *mvm,
 	results->matched_profiles = le32_to_cpu(query->matched_profiles);
 	memcpy(results->matches, query->matches, sizeof(results->matches));
 
+#ifdef CPTCFG_IWLWIFI_DEBUGFS
+	mvm->last_netdetect_scans = le32_to_cpu(query->n_scans_done);
+#endif
+
 out_free_resp:
 	iwl_free_resp(&cmd);
 	return ret;
@@ -1778,7 +1783,7 @@ static void iwl_mvm_query_netdetect_reasons(struct iwl_mvm *mvm,
 	for_each_set_bit(i, &matched_profiles, mvm->n_nd_match_sets) {
 		struct iwl_scan_offload_profile_match *fw_match;
 		struct cfg80211_wowlan_nd_match *match;
-		int n_channels = 0;
+		int idx, n_channels = 0;
 
 		fw_match = &query.matches[i];
 
@@ -1793,8 +1798,12 @@ static void iwl_mvm_query_netdetect_reasons(struct iwl_mvm *mvm,
 
 		net_detect->matches[net_detect->n_matches++] = match;
 
-		match->ssid.ssid_len = mvm->nd_match_sets[i].ssid.ssid_len;
-		memcpy(match->ssid.ssid, mvm->nd_match_sets[i].ssid.ssid,
+		/* We inverted the order of the SSIDs in the scan
+		 * request, so invert the index here.
+		 */
+		idx = mvm->n_nd_match_sets - i - 1;
+		match->ssid.ssid_len = mvm->nd_match_sets[idx].ssid.ssid_len;
+		memcpy(match->ssid.ssid, mvm->nd_match_sets[idx].ssid.ssid,
 		       match->ssid.ssid_len);
 
 		if (mvm->n_nd_channels < n_channels)
@@ -1864,15 +1873,15 @@ static int __iwl_mvm_resume(struct iwl_mvm *mvm, bool test)
 	/* get the BSS vif pointer again */
 	vif = iwl_mvm_get_bss_vif(mvm);
 	if (IS_ERR_OR_NULL(vif))
-		goto out_unlock;
+		goto err;
 
 	ret = iwl_trans_d3_resume(mvm->trans, &d3_status, test);
 	if (ret)
-		goto out_unlock;
+		goto err;
 
 	if (d3_status != IWL_D3_STATUS_ALIVE) {
 		IWL_INFO(mvm, "Device was reset during suspend\n");
-		goto out_unlock;
+		goto err;
 	}
 
 	/* query SRAM first in case we want event logging */
@@ -1898,7 +1907,8 @@ static int __iwl_mvm_resume(struct iwl_mvm *mvm, bool test)
 		goto out_iterate;
 	}
 
- out_unlock:
+err:
+	iwl_mvm_free_nd(mvm);
 	mutex_unlock(&mvm->mutex);
 
 out_iterate:
@@ -1911,6 +1921,14 @@ out:
 	/* return 1 to reconfigure the device */
 	set_bit(IWL_MVM_STATUS_IN_HW_RESTART, &mvm->status);
 	set_bit(IWL_MVM_STATUS_D3_RECONFIG, &mvm->status);
+
+	/* We always return 1, which causes mac80211 to do a reconfig
+	 * with IEEE80211_RECONFIG_TYPE_RESTART.  This type of
+	 * reconfig calls iwl_mvm_restart_complete(), where we unref
+	 * the IWL_MVM_REF_UCODE_DOWN, so we need to take the
+	 * reference here.
+	 */
+	iwl_mvm_ref(mvm, IWL_MVM_REF_UCODE_DOWN);
 	return 1;
 }
 
@@ -2017,7 +2035,6 @@ static int iwl_mvm_d3_test_release(struct inode *inode, struct file *file)
 	__iwl_mvm_resume(mvm, true);
 	rtnl_unlock();
 	iwl_abort_notification_waits(&mvm->notif_wait);
-	iwl_mvm_ref(mvm, IWL_MVM_REF_UCODE_DOWN);
 	ieee80211_restart_hw(mvm->hw);
 
 	/* wait for restart and disconnect all interfaces */

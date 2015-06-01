@@ -103,6 +103,8 @@ static bool iwl_alive_fn(struct iwl_notif_wait_data *notif_wait,
 						palive->scd_base_ptr);
 		alive_data->valid = le16_to_cpu(palive->status) ==
 							IWL_ALIVE_STATUS_OK;
+		xvt->fw_major_ver = palive->ucode_major;
+		xvt->fw_minor_ver = palive->ucode_minor;
 
 		IWL_DEBUG_FW(xvt, "Alive ucode status 0x%04x revision 0x%01X "
 			     "0x%01X\n", le16_to_cpu(palive->status),
@@ -119,6 +121,8 @@ static bool iwl_alive_fn(struct iwl_notif_wait_data *notif_wait,
 
 		alive_data->valid = le16_to_cpu(palive2->status) ==
 				    IWL_ALIVE_STATUS_OK;
+		xvt->fw_major_ver = palive2->ucode_major;
+		xvt->fw_minor_ver = palive2->ucode_minor;
 
 		IWL_DEBUG_FW(xvt,
 			     "Alive VER2 ucode status 0x%04x revision 0x%01X "
@@ -140,6 +144,8 @@ static bool iwl_alive_fn(struct iwl_notif_wait_data *notif_wait,
 
 		alive_data->valid = le16_to_cpu(palive3->status) ==
 				    IWL_ALIVE_STATUS_OK;
+		xvt->fw_major_ver = le32_to_cpu(palive3->ucode_major);
+		xvt->fw_minor_ver = le32_to_cpu(palive3->ucode_minor);
 
 		IWL_DEBUG_FW(xvt,
 			     "Alive VER3 ucode status 0x%04x revision 0x%01X 0x%01X flags 0x%01X\n",

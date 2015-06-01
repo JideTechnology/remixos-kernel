@@ -392,7 +392,7 @@ static u32 iwl_dnt_dispatch_create_crash_tlv(struct iwl_trans *trans,
 	crash = &dnt->dispatch.crash;
 
 	/*
-	 * data will be represetned as TLV - each buffer is represented as
+	 * data will be represented as TLV - each buffer is represented as
 	 * follow:
 	 * u32 - type (SRAM/DBGM/RX/TX/PERIPHERY)
 	 * u32 - length

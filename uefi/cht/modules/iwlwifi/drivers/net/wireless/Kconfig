@@ -57,6 +57,7 @@ config LIBERTAS_THINFIRM_USB
 	  A driver for Marvell Libertas 8388 USB devices using thinfirm.
 
 config AIRO
+	depends on !KERNEL_3_9
 	depends on n
 	tristate "Cisco/Aironet 34X/35X/4500/4800 ISA and PCI cards"
 	depends on m
@@ -130,6 +131,7 @@ config AT76C50X_USB
           at76c505 or at76c505a chips.
 
 config AIRO_CS
+	depends on !KERNEL_3_9
 	depends on n
 	tristate "Cisco/Aironet 34X/35X/4500/4800 PCMCIA cards"
 	depends on m

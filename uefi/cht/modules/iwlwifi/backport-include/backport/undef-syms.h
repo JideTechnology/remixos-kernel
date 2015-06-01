@@ -77,17 +77,6 @@
 #undef cfg80211_unlink_bss
 #undef cfg80211_unregister_wdev
 #undef cfg80211_vendor_cmd_reply
-#undef cfg80211_wext_giwfrag
-#undef cfg80211_wext_giwmode
-#undef cfg80211_wext_giwname
-#undef cfg80211_wext_giwrange
-#undef cfg80211_wext_giwretry
-#undef cfg80211_wext_giwrts
-#undef cfg80211_wext_giwscan
-#undef cfg80211_wext_siwfrag
-#undef cfg80211_wext_siwmode
-#undef cfg80211_wext_siwrts
-#undef cfg80211_wext_siwscan
 #undef freq_reg_info
 #undef ieee80211_aes_cmac_calculate_k1_k2
 #undef ieee80211_alloc_hw_nm
@@ -134,6 +123,7 @@
 #undef ieee80211_gtk_rekey_notify
 #undef ieee80211_hdrlen
 #undef ieee80211_ie_split
+#undef ieee80211_ie_split_ric
 #undef ieee80211_iter_chan_contexts_atomic
 #undef ieee80211_iter_keys
 #undef ieee80211_iterate_active_interfaces_atomic
@@ -190,6 +180,7 @@
 #undef ieee80211_stop_tx_ba_cb_irqsafe
 #undef ieee80211_stop_tx_ba_session
 #undef ieee80211_tdls_oper_request
+#undef ieee80211_tx_dequeue
 #undef ieee80211_tx_prepare_skb
 #undef ieee80211_tx_status
 #undef ieee80211_tx_status_irqsafe
@@ -197,6 +188,7 @@
 #undef ieee80211_unregister_hw
 #undef ieee80211_unreserve_tid
 #undef ieee80211_update_p2p_noa
+#undef ieee80211_vif_to_wdev
 #undef ieee80211_wake_queue
 #undef ieee80211_wake_queues
 #undef iw_handler_get_spy

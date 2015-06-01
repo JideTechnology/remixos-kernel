@@ -24,10 +24,16 @@
 #define __vlan_find_dev_deep_rcu(real_dev, vlan_proto, vlan_id) __vlan_find_dev_deep(real_dev, vlan_proto, vlan_id)
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,0,0)
-#define vlan_tx_tag_present	skb_vlan_tag_present
-#define vlan_tx_tag_get		skb_vlan_tag_get
-#define vlan_tx_tag_get_id	skb_vlan_tag_get_id
-#endif /* >= 4.0 */
+#ifndef skb_vlan_tag_present
+#define skb_vlan_tag_present(__skb)	((__skb)->vlan_tci & VLAN_TAG_PRESENT)
+#endif
+
+#ifndef skb_vlan_tag_get
+#define skb_vlan_tag_get(__skb)		((__skb)->vlan_tci & ~VLAN_TAG_PRESENT)
+#endif
+
+#ifndef skb_vlan_tag_get_id
+#define skb_vlan_tag_get_id(__skb)	((__skb)->vlan_tci & VLAN_VID_MASK)
+#endif
 
 #endif /* __BACKPORT_LINUX_IF_VLAN_H_ */

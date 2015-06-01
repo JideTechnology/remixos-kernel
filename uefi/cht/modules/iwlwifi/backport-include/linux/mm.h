@@ -25,4 +25,26 @@
 int vm_iomap_memory(struct vm_area_struct *vma, phys_addr_t start, unsigned long len);
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0)
+#define kvfree LINUX_BACKPORT(kvfree)
+void kvfree(const void *addr);
+#endif /* < 3.15 */
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,20,0))
+#define get_user_pages_unlocked LINUX_BACKPORT(get_user_pages_unlocked)
+static inline long
+get_user_pages_unlocked(struct task_struct *tsk, struct mm_struct *mm,
+			unsigned long start, unsigned long nr_pages,
+			int write, int force, struct page **pages)
+{
+	long err;
+
+	down_read(&mm->mmap_sem);
+	err = get_user_pages(tsk, mm, start, nr_pages, write, force, pages,
+			     NULL);
+	up_read(&mm->mmap_sem);
+
+	return err;
+}
+#endif
 #endif /* __BACKPORT_MM_H */

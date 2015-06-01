@@ -137,3 +137,12 @@ config BPAUTO_BUILD_WANT_DEV_COREDUMP
 	default y if BPAUTO_WANT_DEV_COREDUMP
 	#h-file linux/devcoredump.h
 	#c-file drivers/base/devcoredump.c
+
+config BPAUTO_RHASHTABLE
+	bool
+	# current API of rhashtable was introduced in version 4.1
+	depends on KERNEL_4_1
+	# not very nice - but better than always having it
+	default y if MAC80211
+	#h-file linux/rhashtable.h
+	#c-file lib/rhashtable.c

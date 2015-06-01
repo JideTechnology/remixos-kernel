@@ -238,6 +238,8 @@ struct iwl_xvt {
 	u32 error_event_table;
 	bool fw_running;
 	struct iwl_sf_region sf_space;
+	u32 fw_major_ver;
+	u32 fw_minor_ver;
 
 	struct iwl_sw_stack_config sw_stack_cfg;
 	bool rx_hdr_enabled;

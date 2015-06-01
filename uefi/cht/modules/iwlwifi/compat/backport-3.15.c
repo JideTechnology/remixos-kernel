@@ -13,6 +13,8 @@
 #include <linux/device.h>
 #include <linux/of.h>
 #include <linux/string.h>
+#include <linux/mm.h>
+#include <linux/slab.h>
 #include <net/net_namespace.h>
 
 #if IS_ENABLED(CPTCFG_IEEE802154_6LOWPAN)
@@ -88,3 +90,12 @@ int of_property_count_elems_of_size(const struct device_node *np,
 }
 EXPORT_SYMBOL_GPL(of_property_count_elems_of_size);
 #endif
+
+void kvfree(const void *addr)
+{
+	if (is_vmalloc_addr(addr))
+		vfree(addr);
+	else
+		kfree(addr);
+}
+EXPORT_SYMBOL_GPL(kvfree);

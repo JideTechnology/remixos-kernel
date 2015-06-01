@@ -6,7 +6,7 @@
  * GPL LICENSE SUMMARY
  *
  * Copyright(c) 2008 - 2014 Intel Corporation. All rights reserved.
- * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
+ * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -32,7 +32,7 @@
  * BSD LICENSE
  *
  * Copyright(c) 2005 - 2014 Intel Corporation. All rights reserved.
- * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
+ * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -191,7 +191,7 @@ struct iwl_ucode_capa {
  * enum iwl_ucode_tlv_flag - ucode API flags
  * @IWL_UCODE_TLV_FLAGS_PAN: This is PAN capable microcode; this previously
  *	was a separate TLV but moved here to save space.
- * @IWL_UCODE_TLV_FLAGS_NEWSCAN: new uCode scan behaviour on hidden SSID,
+ * @IWL_UCODE_TLV_FLAGS_NEWSCAN: new uCode scan behavior on hidden SSID,
  *	treats good CRC threshold as a boolean
  * @IWL_UCODE_TLV_FLAGS_MFP: This uCode image supports MFP (802.11w).
  * @IWL_UCODE_TLV_FLAGS_P2P: This uCode image supports P2P.
@@ -243,8 +243,6 @@ enum iwl_ucode_tlv_flag {
 /**
  * enum iwl_ucode_tlv_api - ucode api
  * @IWL_UCODE_TLV_API_BT_COEX_SPLIT: new API for BT Coex
- * @IWL_UCODE_TLV_API_DISABLE_STA_TX: ucode supports tx_disable bit.
- * @IWL_UCODE_TLV_API_SF_NO_DUMMY_NOTIF: ucode supports disabling dummy notif.
  * @IWL_UCODE_TLV_API_FRAGMENTED_SCAN: This ucode supports active dwell time
  *	longer than the passive one, which is essential for fragmented scan.
  * @IWL_UCODE_TLV_API_WIFI_MCC_UPDATE: ucode supports MCC updates with source.
@@ -263,8 +261,6 @@ enum iwl_ucode_tlv_flag {
  */
 enum iwl_ucode_tlv_api {
 	IWL_UCODE_TLV_API_BT_COEX_SPLIT         = BIT(3),
-	IWL_UCODE_TLV_API_DISABLE_STA_TX	= BIT(5),
-	IWL_UCODE_TLV_API_SF_NO_DUMMY_NOTIF	= BIT(7),
 	IWL_UCODE_TLV_API_FRAGMENTED_SCAN	= BIT(8),
 	IWL_UCODE_TLV_API_WIFI_MCC_UPDATE	= BIT(9),
 	IWL_UCODE_TLV_API_HDC_PHASE_0		= BIT(10),
@@ -300,6 +296,10 @@ enum iwl_ucode_tlv_api {
  * @IWL_UCODE_TLV_CAPA_2G_COEX_SUPPORT: supports 2G coex Command
  * @IWL_UCODE_TLV_CAPA_RADIO_BEACON_STATS: support radio and beacon statistics
  * @IWL_UCODE_TLV_CAPA_BT_COEX_PLCR: enabled BT Coex packet level co-running
+ * @IWL_UCODE_TLV_CAPA_LAR_MULTI_MCC: ucode supports LAR updates with different
+ *	sources for the MCC. This TLV bit is a future replacement to
+ *	IWL_UCODE_TLV_API_WIFI_MCC_UPDATE. When either is set, multi-source LAR
+ *	is supported.
  * @IWL_UCODE_TLV_CAPA_BT_COEX_RRC: supports BT Coex RRC
  */
 enum iwl_ucode_tlv_capa {
@@ -318,6 +318,7 @@ enum iwl_ucode_tlv_capa {
 	IWL_UCODE_TLV_CAPA_2G_COEX_SUPPORT		= BIT(20),
 	IWL_UCODE_TLV_CAPA_RADIO_BEACON_STATS		= BIT(22),
 	IWL_UCODE_TLV_CAPA_BT_COEX_PLCR			= BIT(28),
+	IWL_UCODE_TLV_CAPA_LAR_MULTI_MCC		= BIT(29),
 	IWL_UCODE_TLV_CAPA_BT_COEX_RRC			= BIT(30),
 };
 
@@ -444,6 +445,7 @@ enum iwl_fw_dbg_monitor_mode {
  *
  * @version: version of the TLV - currently 0
  * @monitor_mode: %enum iwl_fw_dbg_monitor_mode
+ * @size_power: buffer size will be 2^(size_power + 11)
  * @base_reg: addr of the base addr register (PRPH)
  * @end_reg:  addr of the end addr register (PRPH)
  * @write_ptr_reg: the addr of the reg of the write pointer
@@ -457,7 +459,8 @@ enum iwl_fw_dbg_monitor_mode {
 struct iwl_fw_dbg_dest_tlv {
 	u8 version;
 	u8 monitor_mode;
-	u8 reserved[2];
+	u8 size_power;
+	u8 reserved;
 	__le32 base_reg;
 	__le32 end_reg;
 	__le32 write_ptr_reg;
@@ -567,43 +570,6 @@ struct iwl_fw_dbg_trigger_cmd {
 } __packed;
 
 /**
- * struct iwl_fw_dbg_trigger_mlme - configures trigger for mlme events
- * @stop_auth_denied: number of denied authentication to collect
- * @stop_auth_timeout: number of authentication timeout to collect
- * @stop_rx_deauth: number of Rx deauth before to collect
- * @stop_tx_deauth: number of Tx deauth before to collect
- * @stop_assoc_denied: number of denied association to collect
- * @stop_assoc_timeout: number of association timeout to collect
- * @start_auth_denied: number of denied authentication to start recording
- * @start_auth_timeout: number of authentication timeout to start recording
- * @start_rx_deauth: number of Rx deauth to start recording
- * @start_tx_deauth: number of Tx deauth to start recording
- * @start_assoc_denied: number of denied association to start recording
- * @start_assoc_timeout: number of association timeout to start recording
- * @reserved2: reserved
- * @reserved4: reserved
- */
-struct iwl_fw_dbg_trigger_mlme {
-	u8 stop_auth_denied;
-	u8 stop_auth_timeout;
-	u8 stop_rx_deauth;
-	u8 stop_tx_deauth;
-
-	u8 stop_assoc_denied;
-	u8 stop_assoc_timeout;
-	__le16 reserved2;
-
-	u8 start_auth_denied;
-	u8 start_auth_timeout;
-	u8 start_rx_deauth;
-	u8 start_tx_deauth;
-
-	u8 start_assoc_denied;
-	u8 start_assoc_timeout;
-	__le16 reserved4;
-} __packed;
-
-/**
  * iwl_fw_dbg_trigger_stats - configures trigger for statistics
  * @stop_offset: the offset of the value to be monitored
  * @stop_threshold: the threshold above which to collect
@@ -623,6 +589,111 @@ struct iwl_fw_dbg_trigger_stats {
  */
 struct iwl_fw_dbg_trigger_low_rssi {
 	__le32 rssi;
+} __packed;
+
+/**
+ * struct iwl_fw_dbg_trigger_mlme - configures trigger for mlme events
+ * @stop_auth_denied: number of denied authentication to collect
+ * @stop_auth_timeout: number of authentication timeout to collect
+ * @stop_rx_deauth: number of Rx deauth before to collect
+ * @stop_tx_deauth: number of Tx deauth before to collect
+ * @stop_assoc_denied: number of denied association to collect
+ * @stop_assoc_timeout: number of association timeout to collect
+ * @stop_connection_loss: number of connection loss to collect
+ * @start_auth_denied: number of denied authentication to start recording
+ * @start_auth_timeout: number of authentication timeout to start recording
+ * @start_rx_deauth: number of Rx deauth to start recording
+ * @start_tx_deauth: number of Tx deauth to start recording
+ * @start_assoc_denied: number of denied association to start recording
+ * @start_assoc_timeout: number of association timeout to start recording
+ * @start_connection_loss: number of connection loss to start recording
+ */
+struct iwl_fw_dbg_trigger_mlme {
+	u8 stop_auth_denied;
+	u8 stop_auth_timeout;
+	u8 stop_rx_deauth;
+	u8 stop_tx_deauth;
+
+	u8 stop_assoc_denied;
+	u8 stop_assoc_timeout;
+	u8 stop_connection_loss;
+	u8 reserved;
+
+	u8 start_auth_denied;
+	u8 start_auth_timeout;
+	u8 start_rx_deauth;
+	u8 start_tx_deauth;
+
+	u8 start_assoc_denied;
+	u8 start_assoc_timeout;
+	u8 start_connection_loss;
+	u8 reserved2;
+} __packed;
+
+/**
+ * struct iwl_fw_dbg_trigger_txq_timer - configures the Tx queue's timer
+ * @command_queue: timeout for the command queue in ms
+ * @bss: timeout for the queues of a BSS (except for TDLS queues) in ms
+ * @softap: timeout for the queues of a softAP in ms
+ * @p2p_go: timeout for the queues of a P2P GO in ms
+ * @p2p_client: timeout for the queues of a P2P client in ms
+ * @p2p_device: timeout for the queues of a P2P device in ms
+ * @ibss: timeout for the queues of an IBSS in ms
+ * @tdls: timeout for the queues of a TDLS station in ms
+ */
+struct iwl_fw_dbg_trigger_txq_timer {
+	__le32 command_queue;
+	__le32 bss;
+	__le32 softap;
+	__le32 p2p_go;
+	__le32 p2p_client;
+	__le32 p2p_device;
+	__le32 ibss;
+	__le32 tdls;
+	__le32 reserved[4];
+} __packed;
+
+/**
+ * struct iwl_fw_dbg_trigger_time_event - configures a time event trigger
+ * time_Events: a list of tuples <id, action_bitmap>. The driver will issue a
+ *	trigger each time a time event notification that relates to time event
+ *	id with one of the actions in the bitmap is received and
+ *	BIT(notif->status) is set in status_bitmap.
+ *
+ */
+struct iwl_fw_dbg_trigger_time_event {
+	struct {
+		__le32 id;
+		__le32 action_bitmap;
+		__le32 status_bitmap;
+	} __packed time_events[16];
+} __packed;
+
+/**
+ * struct iwl_fw_dbg_trigger_ba - configures BlockAck related trigger
+ * rx_ba_start: tid bitmap to configure on what tid the trigger should occur
+ *	when an Rx BlockAck session is started.
+ * rx_ba_stop: tid bitmap to configure on what tid the trigger should occur
+ *	when an Rx BlockAck session is stopped.
+ * tx_ba_start: tid bitmap to configure on what tid the trigger should occur
+ *	when a Tx BlockAck session is started.
+ * tx_ba_stop: tid bitmap to configure on what tid the trigger should occur
+ *	when a Tx BlockAck session is stopped.
+ * rx_bar: tid bitmap to configure on what tid the trigger should occur
+ *	when a BAR is received (for a Tx BlockAck session).
+ * tx_bar: tid bitmap to configure on what tid the trigger should occur
+ *	when a BAR is send (for an Rx BlocAck session).
+ * frame_timeout: tid bitmap to configure on what tid the trigger should occur
+ *	when a frame times out in the reodering buffer.
+ */
+struct iwl_fw_dbg_trigger_ba {
+	__le16 rx_ba_start;
+	__le16 rx_ba_stop;
+	__le16 tx_ba_start;
+	__le16 tx_ba_stop;
+	__le16 rx_bar;
+	__le16 tx_bar;
+	__le16 frame_timeout;
 } __packed;
 
 /**

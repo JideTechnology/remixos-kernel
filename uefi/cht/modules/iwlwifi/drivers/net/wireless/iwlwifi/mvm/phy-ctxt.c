@@ -67,7 +67,7 @@
 #include "fw-api.h"
 #include "mvm.h"
 
-/* Maps the driver specific channel width definition to the the fw values */
+/* Maps the driver specific channel width definition to the fw values */
 u8 iwl_mvm_get_channel_width(struct cfg80211_chan_def *chandef)
 {
 	switch (chandef->width) {
@@ -175,7 +175,6 @@ static void iwl_mvm_phy_ctxt_cmd_data(struct iwl_mvm *mvm,
 	cmd->rxchain_info |= cpu_to_le32(idle_cnt << PHY_RX_CHAIN_CNT_POS);
 	cmd->rxchain_info |= cpu_to_le32(active_cnt <<
 					 PHY_RX_CHAIN_MIMO_CNT_POS);
-
 #ifdef CPTCFG_IWLWIFI_DEBUGFS
 	if (unlikely(mvm->dbgfs_rx_phyinfo))
 		cmd->rxchain_info = cpu_to_le32(mvm->dbgfs_rx_phyinfo);
@@ -226,6 +225,10 @@ int iwl_mvm_phy_ctxt_add(struct iwl_mvm *mvm, struct iwl_mvm_phy_ctxt *ctxt,
 	lockdep_assert_held(&mvm->mutex);
 
 	ctxt->channel = chandef->chan;
+
+#ifdef CPTCFG_IWLWIFI_FRQ_MGR
+	ctxt->fm_tx_power_limit = IWL_DEFAULT_MAX_TX_POWER;
+#endif
 
 	return iwl_mvm_phy_ctxt_apply(mvm, ctxt, chandef,
 				      chains_static, chains_dynamic,

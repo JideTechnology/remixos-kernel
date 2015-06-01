@@ -6,17 +6,11 @@ ifeq ($(INTEL_COMPAT_INTEGRATED_BUILD),)
 
 # Run only this build if variant define the needed configuration
 # e.g. Enabling iwlwifi for XMM6321
-#BOARD_USING_INTEL_IWL := true      - this will enable iwlwifi building
-#INTEL_IWL_BOARD_CONFIG := xmm6321  - the configuration, defconfig-xmm6321
-INTEL_IWL_BOARD_CONFIG := iwlwifi-public-android
-#INTEL_IWL_USE_COMPAT_INSTALL := y  - this will use kernel modules installation
-INTEL_IWL_USE_COMPAT_INSTALL := y
-#INTEL_IWL_COMPAT_INSTALL_DIR := updates - the folder that the modules will be installed in
-INTEL_IWL_COMPAT_INSTALL_DIR := updates
-#INTEL_IWL_COMPAT_INSTALL_PATH ?= $(ANDROID_BUILD_TOP)/$(TARGET_OUT) - the install path for the modules
-INTEL_IWL_COMPAT_INSTALL_PATH ?= $(ANDROID_BUILD_TOP)/$(KERNEL_OUT_MODINSTALL)
-CUSTOM_CROSS_COMPILE := $(ANDROID_BUILD_TOP)/prebuilts/gcc/$(HOST_PREBUILT_TAG)/host/$(KERNEL_TOOLCHAIN_ARCH)-linux-glibc2.11-4.8/bin/$(KERNEL_TOOLCHAIN_ARCH)-linux-
-
+# BOARD_USING_INTEL_IWL := true      - this will enable iwlwifi building
+# INTEL_IWL_BOARD_CONFIG := xmm6321  - the configuration, defconfig-xmm6321
+# INTEL_IWL_USE_COMPAT_INSTALL := y  - this will use kernel modules installation
+# INTEL_IWL_COMPAT_INSTALL_DIR := updates - the folder that the modules will be installed in
+# INTEL_IWL_COMPAT_INSTALL_PATH ?= $(ANDROID_BUILD_TOP)/$(TARGET_OUT) - the install path for the modules
 ifeq ($(BOARD_USING_INTEL_IWL),true)
 
 .PHONY: iwlwifi
@@ -98,19 +92,25 @@ else
 KERNEL_OUT_ABS_DIR := $(ANDROID_BUILD_TOP)/$(KERNEL_OUT_DIR)
 endif
 
-.PHONY: iwlwifi
 iwlwifi: iwlwifi_build $(INTEL_IWL_COMPAT_INSTALL) $(INTEL_IWL_MOD_DEP)
 
-iwlwifi_build: $(PRODUCT_OUT)/kernel
-	@$(info Cleaning and building kernel module iwlwifi in $(INTEL_IWL_OUT_DIR))
-	rm -rf $(INTEL_IWL_OUT_DIR)
+$(INTEL_IWL_OUT_DIR): $(INTEL_IWL_SRC_DIR)
+	@echo Copying directory $(INTEL_IWL_SRC_DIR) to $(INTEL_IWL_OUT_DIR)
+	@rm -rf $(INTEL_IWL_OUT_DIR)
 	@mkdir -p $(INTEL_IWL_OUT_DIR)
 	@cp -rfl $(INTEL_IWL_SRC_DIR)/. $(INTEL_IWL_OUT_DIR)/
-	$(MAKE) -C $(INTEL_IWL_OUT_DIR)/ ARCH=x86_64 INSTALL_MOD_PATH=$(INTEL_IWL_COMPAT_INSTALL_PATH) CROSS_COMPILE=$(CUSTOM_CROSS_COMPILE) KLIB_BUILD=$(KERNEL_OUT_ABS_DIR) modules
+
+$(IWLWIFI_CONFIGURE): $(INTEL_IWL_KERNEL_DEPEND) | $(INTEL_IWL_OUT_DIR)
+	@echo Configuring kernel module iwlwifi with defconfig-$(INTEL_IWL_BOARD_CONFIG)
+	@$(MAKE) -C $(INTEL_IWL_OUT_DIR)/ ARCH=$(TARGET_ARCH) $(CROSS_COMPILE) KLIB_BUILD=$(KERNEL_OUT_ABS_DIR) defconfig-$(INTEL_IWL_BOARD_CONFIG)
+
+iwlwifi_build: $(IWLWIFI_CONFIGURE)
+	@$(info Building kernel module iwlwifi in $(INTEL_IWL_OUT_DIR))
+	@$(MAKE) -C $(INTEL_IWL_OUT_DIR)/ ARCH=$(TARGET_ARCH) $(CROSS_COMPILE) KLIB_BUILD=$(KERNEL_OUT_ABS_DIR)
 
 iwlwifi_install: iwlwifi_build $(INTEL_IWL_RM_MAC_CFG_DEPEND)
 	@$(info Installing kernel modules in $(INTEL_IWL_COMPAT_INSTALL_PATH))
-	$(MAKE) -C $(KERNEL_OUT_ABS_DIR) M=$(INTEL_IWL_OUT_DIR)/ INSTALL_MOD_PATH=$(INTEL_IWL_COMPAT_INSTALL_PATH) $(INTEL_IWL_INSTALL_MOD_STRIP) modules_install
+	@$(MAKE) -C $(KERNEL_OUT_ABS_DIR) M=$(INTEL_IWL_OUT_DIR)/ INSTALL_MOD_DIR=$(INTEL_IWL_COMPAT_INSTALL_DIR) INSTALL_MOD_PATH=$(INTEL_IWL_COMPAT_INSTALL_PATH) $(INTEL_IWL_INSTALL_MOD_STRIP) modules_install
 
 iwlwifi_rm_mac_cfg: iwlwifi_build
 	$(info Remove kernel cfg80211.ko and mac80211.ko)

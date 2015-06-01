@@ -223,8 +223,7 @@ static int iwl_mvm_sf_config(struct iwl_mvm *mvm, u8 sta_id,
 	if (IWL_UCODE_API(mvm->fw->ucode_ver) < 13)
 		sf_cmd.state = cpu_to_le32(new_state);
 
-	if (mvm->fw->ucode_capa.api[0] & IWL_UCODE_TLV_API_SF_NO_DUMMY_NOTIF &&
-	    mvm->cfg->disable_dummy_notification)
+	if (mvm->cfg->disable_dummy_notification)
 		sf_cmd.state |= cpu_to_le32(SF_CFG_DUMMY_NOTIF_OFF);
 
 	/*

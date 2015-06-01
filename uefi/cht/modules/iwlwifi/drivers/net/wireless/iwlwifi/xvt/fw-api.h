@@ -187,8 +187,8 @@ struct xvt_alive_resp_ver2 {
 struct xvt_alive_resp_ver3 {
 	__le16 status;
 	__le16 flags;
-	u32 ucode_minor;
-	u32 ucode_major;
+	__le32 ucode_minor;
+	__le32 ucode_major;
 
 	u8 ver_subtype;
 	u8 ver_type;

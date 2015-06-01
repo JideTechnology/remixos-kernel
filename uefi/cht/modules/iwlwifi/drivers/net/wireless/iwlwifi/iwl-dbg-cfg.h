@@ -6,7 +6,7 @@
  * GPL LICENSE SUMMARY
  *
  * Copyright(c) 2013 - 2014 Intel Corporation. All rights reserved.
- * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
+ * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -32,7 +32,7 @@
  * BSD LICENSE
  *
  * Copyright(c) 2013 - 2014 Intel Corporation. All rights reserved.
- * Copyright(c) 2013 - 2014 Intel Mobile Communications GmbH
+ * Copyright(c) 2013 - 2015 Intel Mobile Communications GmbH
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -177,6 +177,9 @@ struct iwl_dbg_cfg {
 	IWL_DBG_CFG(u16, MVM_RS_TPC_SR_NO_INCREASE)
 	IWL_DBG_CFG(u8, MVM_RS_TPC_TX_POWER_STEP)
 #endif /* CPTCFG_IWLMVM */
+#ifdef CPTCFG_IWLWIFI_FRQ_MGR_TEST
+	IWL_DBG_CFG_NODEF(u8, fm_debug_mode)
+#endif
 #ifdef CPTCFG_IWLWIFI_DEVICE_TESTMODE
 	IWL_DBG_CFG_NODEF(u32, dnt_out_mode)
 	/* XXX: should be dbgm_ or dbg_mon_ for consistency? */
@@ -214,6 +217,7 @@ struct iwl_dbg_cfg {
 	IWL_DBG_CFG_NODEF(u32, dbgc_hb_base_addr)
 	IWL_DBG_CFG_NODEF(u32, dbgc_hb_end_addr)
 	IWL_DBG_CFG_NODEF(u32, dbgc_dram_wrptr_addr)
+	IWL_DBG_CFG_NODEF(u32, dbgc_wrap_count_addr)
 	IWL_DBG_CFG_NODEF(u32, dbg_mipi_conf_reg)
 	IWL_DBG_CFG_NODEF(u32, dbg_mipi_conf_mask)
 	IWL_DBG_CFG_NODEF(u32, dbgc_hb_base_val_smem)
@@ -231,6 +235,7 @@ struct iwl_dbg_cfg {
 	IWL_DBG_CFG_NODEF(u8, wakelock_mode)
 	IWL_DBG_CFG_NODEF(u32, d0i3_debug)
 	IWL_DBG_CFG_NODEF(u32, valid_ants)
+	IWL_DBG_CFG_NODEF(u32, secure_boot_cfg)
 #ifdef CONFIG_HAS_WAKELOCK
 	IWL_DBG_CFG(u32, WAKELOCK_TIMEOUT_MS)
 #endif /* CONFIG_HAS_WAKELOCK */
