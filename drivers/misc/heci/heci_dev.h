@@ -229,7 +229,7 @@ struct heci_device {
 	spinlock_t	wr_msg_spinlock;
 */
 	struct hbm_version version;
-	struct heci_me_client *me_clients; /* Note: memory has to be allocated */
+	struct heci_me_client *me_clients; /* Note: memory has to be allocated*/
 	DECLARE_BITMAP(me_clients_map, HECI_CLIENTS_MAX);
 	DECLARE_BITMAP(host_clients_map, HECI_CLIENTS_MAX);
 	u8 me_clients_num;

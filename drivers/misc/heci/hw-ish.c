@@ -21,6 +21,7 @@
 #include "heci_dev.h"
 #include "hbm.h"
 #include <linux/spinlock.h>
+#include <linux/jiffies.h>
 
 #ifdef dev_dbg
 #undef dev_dbg
@@ -292,6 +293,20 @@ int write_ipc_from_queue(struct heci_device *dev)
 	doorbell_val = *(u32 *)ipc_link->inline_data;
 	r_buf = (u32 *)(ipc_link->inline_data + sizeof(u32));
 
+	/* If sending MNG_SYNC_FW_CLOCK, update clock again */
+	if (IPC_HEADER_GET_PROTOCOL(doorbell_val) == IPC_PROTOCOL_MNG &&
+		IPC_HEADER_GET_MNG_CMD(doorbell_val) == MNG_SYNC_FW_CLOCK) {
+
+		struct timespec	ts;
+		uint64_t	usec;
+
+		get_monotonic_boottime(&ts);
+		usec = (uint64_t)ts.tv_sec * 1000000 +
+			(uint64_t)ts.tv_nsec / 1000;
+		r_buf[0] = (u32)(usec & 0xFFFFFFFF);
+		r_buf[1] = (u32)(usec >> 32);
+	}
+
 	for (i = 0, reg_addr = IPC_REG_HOST2ISH_MSG; i < length >> 2; i++,
 			reg_addr += 4)
 		ish_reg_write(dev, reg_addr, r_buf[i]);
@@ -380,7 +395,7 @@ static int	ish_fw_reset_handler(struct heci_device *dev)
 	spin_unlock_irqrestore(&dev->rd_msg_spinlock, flags);
 
 	/* Handle ISS FW reset against upper layers */
-	heci_bus_remove_all_clients(dev);			/* Remove all client devices */
+	heci_bus_remove_all_clients(dev);	/* Remove all client devices */
 
 	/* Send RESET_NOTIFY_ACK (with reset_id) */
 /*#####################################*/
@@ -453,6 +468,23 @@ static void	fw_reset_work_fn(struct work_struct *unused)
 		printk(KERN_ERR "[heci-ish]: FW reset failed (%d)\n", rv);
 }
 
+
+static void	sync_fw_clock(struct heci_device *dev)
+{
+	static unsigned long	prev_sync;
+	struct timespec	ts;
+	uint64_t	usec;
+
+	if (prev_sync && jiffies - prev_sync < 120 * HZ)
+		return;
+
+	prev_sync = jiffies;
+	get_monotonic_boottime(&ts);
+	usec = (uint64_t)ts.tv_sec * 1000000 + (uint64_t)ts.tv_nsec / 1000;
+	ipc_send_mng_msg(dev, MNG_SYNC_FW_CLOCK, &usec, sizeof(uint64_t));
+}
+
+
 /*
  *	Receive and process IPC management messages
  *
@@ -501,8 +533,6 @@ static void	recv_ipc(struct heci_device *dev, uint32_t doorbell_val)
 		break;
 	}
 }
-
-
 
 
 /**
@@ -570,6 +600,8 @@ irqreturn_t ish_irq_handler(int irq, void *dev_id)
 	if (!msg_hdr)
 		goto	eoi;
 
+	sync_fw_clock(dev);
+
 	heci_hdr = (struct heci_msg_hdr *)&msg_hdr;
 
 	/* Sanity check: HECI frag. length in header */
@@ -597,6 +629,7 @@ irqreturn_t ish_irq_handler(int irq, void *dev_id)
 	}
 
 eoi:
+
 	ISH_DBG_PRINT(KERN_ALERT
 		"%s(): Doorbell cleared, busy reading cleared\n", __func__);
 	/* Update IPC counters */

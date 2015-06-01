@@ -73,7 +73,7 @@ struct heci_cl {
 	struct heci_cl_tx_ring	tx_list, tx_free_list;
 	spinlock_t      tx_list_spinlock;
 	spinlock_t      tx_free_list_spinlock;
-	size_t	tx_offs;			/* Offset in buffer at head of 'tx_list' */
+	size_t	tx_offs;	/* Offset in buffer at head of 'tx_list' */
 	/*#############################*/
 	/* if we get a FC, and the list is not empty, we must know whether we
 	 * are at the middle of sending.
@@ -185,8 +185,8 @@ void heci_cl_read_complete(struct heci_cl_rb *rb);
 void heci_cl_all_disconnect(struct heci_device *dev);
 void heci_cl_all_read_wakeup(struct heci_device *dev);
 void heci_cl_send_msg(struct heci_device *dev, struct heci_cl *cl);
-void	heci_cl_alloc_dma_buf(void);
-void	recv_heci_cl_msg(struct heci_device *dev, struct heci_msg_hdr *heci_hdr);
+void heci_cl_alloc_dma_buf(void);
+void recv_heci_cl_msg(struct heci_device *dev, struct heci_msg_hdr *heci_hdr);
 
 #endif /* _HECI_CLIENT_H_ */
 

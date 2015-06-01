@@ -1118,6 +1118,9 @@ void atomisp_buf_done(struct atomisp_sub_device *asd, int error,
 
 		/* free the parameters */
 		if (pipe->frame_params[vb->i]) {
+			if (asd->params.dvs_6axis ==
+			    pipe->frame_params[vb->i]->params.dvs_6axis)
+				asd->params.dvs_6axis = NULL;
 			atomisp_free_css_parameters(
 				&pipe->frame_params[vb->i]->params);
 			atomisp_kernel_free(pipe->frame_params[vb->i]);
@@ -1199,6 +1202,38 @@ void atomisp_buf_done(struct atomisp_sub_device *asd, int error,
 			WARN_ON(frame->exp_id > ATOMISP_MAX_EXP_ID);
 		}
 
+		if (asd->params.css_update_params_needed) {
+			atomisp_apply_css_parameters(asd,
+				&asd->params.css_param);
+			if (asd->params.css_param.update_flag.dz_config)
+				atomisp_css_set_dz_config(asd,
+					&asd->params.css_param.dz_config);
+			/* New global dvs 6axis config should be blocked
+			 * here if there's a buffer with per-frame parameters
+			 * pending in CSS frame buffer queue.
+			 * This is to aviod zooming vibration since global
+			 * parameters take effect immediately while
+			 * per-frame parameters are taken after previous
+			 * buffers in CSS got processed.
+			 */
+			if (asd->params.dvs_6axis)
+				atomisp_css_set_dvs_6axis(asd,
+					asd->params.dvs_6axis);
+			else
+				asd->params.css_update_params_needed = false;
+			/* The update flag should not be cleaned here
+			 * since it is still going to be used to make up
+			 * following per-frame parameters.
+			 * This will introduce more copy work since each
+			 * time when updating global parameters, the whole
+			 * parameter set are applied.
+			 * FIXME: A new set of parameter copy functions can
+			 * be added to make up per-frame parameters based on
+			 * solid structures stored in asd->params.css_param
+			 * instead of using shadow pointers in update flag.
+			 */
+			atomisp_css_update_isp_params(asd);
+		}
 		break;
 	default:
 		break;
@@ -1735,19 +1770,6 @@ irqreturn_t atomisp_isr_thread(int irq, void *isp_ptr)
 		asd = &isp->asd[i];
 		if (asd->streaming != ATOMISP_DEVICE_STREAMING_ENABLED)
 			continue;
-		if (frame_done_found[asd->index] &&
-		    asd->params.css_update_params_needed) {
-			atomisp_apply_css_parameters(asd,
-				&asd->params.css_param);
-			if (asd->params.css_param.update_flag.dz_config)
-				atomisp_css_set_dz_config(asd,
-					&asd->params.css_param.dz_config);
-			atomisp_css_update_isp_params(asd);
-			asd->params.css_update_params_needed = false;
-			memset(&asd->params.css_param.update_flag, 0,
-			       sizeof(struct atomisp_parameters));
-			frame_done_found[asd->index] = false;
-		}
 		atomisp_setup_flash(asd);
 
 	}

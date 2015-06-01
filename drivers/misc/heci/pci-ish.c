@@ -179,10 +179,12 @@ static ssize_t ishdbg_write(struct file *file, const char __user *ubuf,
 		for (i = 0; i < count; i++) {
 			reg_data = (uint32_t __iomem *)
 				((char *)hw_dbg->mem_addr + addr + i*4);
-			cur_index += sprintf(dbg_resp_buf + cur_index, "%08X ",
+			cur_index += scnprintf(dbg_resp_buf + cur_index,
+				sizeof(dbg_resp_buf) - cur_index, "%08X ",
 				readl(reg_data));
 		}
-		cur_index += sprintf(dbg_resp_buf + cur_index, "\n");
+		cur_index += scnprintf(dbg_resp_buf + cur_index,
+			sizeof(dbg_resp_buf) - cur_index, "\n");
 		resp_buf_read = 0;
 	} else if (!strcmp(cmd, "e")) {
 		/* Enter values e <addr> <value> */
@@ -198,7 +200,7 @@ static ssize_t ishdbg_write(struct file *file, const char __user *ubuf,
 		reg_data = (uint32_t __iomem *)((char *)hw_dbg->mem_addr
 			+ addr);
 		writel(count, reg_data);
-		sprintf(dbg_resp_buf, "OK\n");
+		scnprintf(dbg_resp_buf, sizeof(dbg_resp_buf), "OK\n");
 		resp_buf_read = 0;
 	}
 
@@ -263,7 +265,8 @@ static void ish_print_log(struct heci_device *dev, char *format, ...)
 		return;
 
 	do_gettimeofday(&tv);
-	i = sprintf(tmp_buf, "[%ld.%06ld] ", tv.tv_sec, tv.tv_usec);
+	i = scnprintf(tmp_buf, sizeof(tmp_buf), "[%ld.%06ld] ",
+		tv.tv_sec, tv.tv_usec);
 
 	va_start(args, format);
 	length = vsnprintf(tmp_buf + i, sizeof(tmp_buf)-i, format, args);
@@ -381,7 +384,6 @@ static ssize_t ish_read_flush_log(struct heci_device *dev, char *buf,
 	size_t size)
 {
 	int ret;
-	unsigned long	flags;
 
 	ret = ish_read_log(dev, buf, size);
 	delete_from_log(dev, ret);
@@ -525,7 +527,8 @@ ssize_t show_heci_dev_props(struct device *dev,
 				"------------\n");
 		spin_lock_irqsave(&heci_dev->device_lock, flags);
 		list_for_each_entry_safe(cl, next, &heci_dev->cl_list, link) {
-			sprintf(buf + strlen(buf), "id: %d\n",
+			scnprintf(buf + strlen(buf), PAGE_SIZE - strlen(buf),
+				"id: %d\n",
 				cl->host_client_id);
 			scnprintf(buf + strlen(buf), PAGE_SIZE - strlen(buf),
 				"state: %s\n", cl->state < 0 || cl->state >
@@ -677,7 +680,7 @@ static unsigned	num_force_hid_fc;
 ssize_t show_force_hid_fc(struct device *dev, struct device_attribute *dev_attr,
 	char *buf)
 {
-	sprintf(buf, "%u\n", num_force_hid_fc);
+	scnprintf(buf, PAGE_SIZE, "%u\n", num_force_hid_fc);
 	return	 strlen(buf);
 }
 
@@ -785,6 +788,8 @@ struct my_work_t {
 	struct heci_device *dev;
 };
 
+struct my_work_t *work;
+
 void workqueue_init_function(struct work_struct *work)
 {
 	struct heci_device *dev = ((struct my_work_t *)work)->dev;
@@ -815,7 +820,8 @@ void workqueue_init_function(struct work_struct *work)
 
 	spin_lock_init(&dev->log_spinlock);
 
-	dev->print_log(dev, "[heci-ish]: %s():+++ [Build "BUILD_ID "]\n",
+	dev->print_log(dev,
+		"[heci-ish]: %s():+++ [Build "BUILD_ID "]\n",
 		__func__);
 	dev->print_log(dev, "[heci-ish] %s() running on %s revision [%02X]\n",
 		__func__,
@@ -877,9 +883,9 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	struct ish_hw *hw;
 	int err;
 	int	rv;
-	struct my_work_t *work;
 
-	ISH_INFO_PRINT(KERN_ERR "[heci-ish]: %s():+++ [Build "BUILD_ID "]\n",
+	ISH_INFO_PRINT(
+	KERN_ERR "[heci-ish]: %s():+++ [Build "BUILD_ID "]\n",
 		__func__);
 	ISH_INFO_PRINT(KERN_ERR
 		"[heci-ish] %s() running on %s revision [%02X]\n", __func__,

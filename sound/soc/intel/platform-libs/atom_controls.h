@@ -62,8 +62,9 @@
 #define SST_MIX_PCM4		SST_MIX(22)
 #define SST_MIX_HF_SNS_3	SST_MIX(23)
 #define SST_MIX_HF_SNS_4	SST_MIX(24)
+#define SST_MIX_LL_PCM0		SST_MIX(25)
 
-#define SST_NUM_MIX		(SST_MIX_HF_SNS_4 + 1)
+#define SST_NUM_MIX		(SST_MIX_LL_PCM0 + 1)
 
 #define SST_MIX_SWITCH		(SST_NUM_MIX + 1)
 #define SST_OUT_SWITCH		(SST_NUM_MIX + 2)
@@ -76,7 +77,11 @@
 
 #define SST_BT_FM_MUX_SHIFT	0
 #define SST_VOICE_MODE_SHIFT	1
-#define SST_BT_MODE_SHIFT	2
+#define SST_BT_SHIFT		2 /* without bwx */
+#define SST_BT_MODE_SHIFT	3 /* with bwx */
+
+#define SST_MODE_LEN		1 /* 1bit wide: SST_MAX_SSP_MUX */
+#define SST_DOMAIN_LEN		2 /* 2bit wide: SST_MAX_SSP_DOMAINS */
 
 /* in each mixer register we will define one bit for each input */
 #define SST_MIX_IP(x)		(x)

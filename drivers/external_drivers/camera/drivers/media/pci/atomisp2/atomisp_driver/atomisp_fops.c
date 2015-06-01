@@ -266,6 +266,8 @@ int atomisp_q_video_buffers_to_css(struct atomisp_sub_device *asd,
 						vm_mem->vaddr);
 			atomisp_css_update_isp_params_on_pipe(asd,
 				asd->stream_env[stream_id].pipes[css_pipe_id]);
+			asd->params.dvs_6axis = (struct atomisp_css_dvs_6axis *)
+				param->params.dvs_6axis;
 
 			/*
 			 * WORKAROUND:

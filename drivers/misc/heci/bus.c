@@ -253,8 +253,6 @@ EXPORT_SYMBOL_GPL(heci_bus_remove_device);
  */
 void	heci_bus_remove_all_clients(struct heci_device *heci_dev)
 {
-	ISH_DBG_PRINT(KERN_ALERT "%s(): +++\n", __func__);
-
 	struct heci_cl_device	*cl_device, *next_device;
 	struct heci_cl	*cl, *next;
 	unsigned long	flags;

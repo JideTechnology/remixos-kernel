@@ -811,6 +811,17 @@ static struct snd_soc_dai_link cht_dailink[] = {
 		.ops = &cht_8k_16k_ops,
 		.dynamic = 1,
 	},
+	[CHT_DPCM_LL] = {
+		.name = "Cherrytrail LL Audio Port",
+		.stream_name = "Low Latency Audio",
+		.cpu_dai_name = "Lowlatency-cpu-dai",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.platform_name = "sst-platform",
+		.ignore_suspend = 1,
+		.dynamic = 1,
+		.ops = &cht_aif1_ops,
+	},
 	[CHT_DPCM_PROBE] = {
 		.name = "Cherrytrail Probe Port",
 		.stream_name = "Cherrytrail Probe",

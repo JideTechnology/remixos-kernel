@@ -118,7 +118,7 @@ void	process_recv(void *recv_buf, size_t data_len)
 						payload_len) {
 					dev_err(NULL,
 						"[hid-ish]: [ENUM_DEVICES]:");
-					dev_err(NULL, " content size %u ", 1 +
+					dev_err(NULL, " content size %lu ", 1 +
 						sizeof(struct device_info) *
 						i);
 					dev_err(NULL, "is bigger than ");
@@ -713,7 +713,8 @@ static int __init ish_init(void)
 
 	ISH_INFO_PRINT(KERN_ERR "[hid-ish]: %s():+++ [Build " BUILD_ID "]\n",
 		__func__);
-	g_ish_print_log(KERN_ERR "[hid-ish]: %s():+++ [Build " BUILD_ID "]\n",
+	g_ish_print_log(
+		"[hid-ish]: %s():+++ [Build " BUILD_ID "]\n",
 		__func__);
 
 	init_waitqueue_head(&init_wait);

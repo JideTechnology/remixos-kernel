@@ -875,6 +875,27 @@ EXPORT_SYMBOL(ospm_power_using_hw_begin);
 
 void ospm_power_using_hw_end(int hw_island)
 {
+	struct drm_connector *connector;
+	struct drm_device *dev = gdev;
+
+	if (!dev)
+		return;
+
+	/*
+	 * For DP and HDMI, we ignore the DPMS off if Audio is
+	 * running. Once Audio playback is done, Audio driver comes
+	 * here to drop the rpm reference that it had taken for
+	 * playback. Now, execute our (once ignored) DPMS OFF
+	 * so that Display can enter D0i3.
+	 */
+	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
+		if (connector &&
+			to_intel_connector(connector)->dpms_off_pending) {
+			DRM_DEBUG_KMS("Running the pending DPMS OFF\n");
+			intel_connector_dpms(connector, DRM_MODE_DPMS_OFF);
+		}
+	}
+
 	intel_runtime_pm_put(gdev->dev_private);
 }
 EXPORT_SYMBOL(ospm_power_using_hw_end);

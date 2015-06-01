@@ -1540,6 +1540,7 @@ int serial_hsu_do_suspend(struct uart_hsu_port *up)
 	struct circ_buf *xmit = &up->port.state->xmit;
 	char cmd;
 	unsigned long flags;
+	char *hsu_rpm_uevent[4];
 
 	/* Should check the RX FIFO is not empty */
 	if (test_bit(flag_startup, &up->flags) && (up->hw_type == hsu_dw)
@@ -1594,6 +1595,18 @@ int serial_hsu_do_suspend(struct uart_hsu_port *up)
 	if (up->hw_type == hsu_dw)
 		enable_irq(up->port.irq);
 
+	hsu_rpm_uevent[0] = kasprintf(GFP_KERNEL, "MAJOR=%d",
+		serial_hsu_reg.major);
+	hsu_rpm_uevent[1] = kasprintf(GFP_KERNEL, "MINOR=%d",
+		(serial_hsu_reg.minor + up->port.line));
+	hsu_rpm_uevent[2] = kasprintf(GFP_KERNEL, "%s",
+		"UART_STATE=SUSPENDED");
+	hsu_rpm_uevent[3] = NULL;
+	kobject_uevent_env(&up->dev->kobj, KOBJ_CHANGE, hsu_rpm_uevent);
+	kfree(hsu_rpm_uevent[0]);
+	kfree(hsu_rpm_uevent[1]);
+	kfree(hsu_rpm_uevent[2]);
+
 	return 0;
 err:
 	if (cfg->hw_set_rts)
@@ -1616,6 +1629,7 @@ int serial_hsu_do_resume(struct uart_hsu_port *up)
 {
 	struct hsu_port_cfg *cfg = up->port_cfg;
 	unsigned long flags;
+	char *hsu_rpm_uevent[4];
 
 	if (!test_and_clear_bit(flag_suspend, &up->flags))
 		return 0;
@@ -1639,6 +1653,18 @@ int serial_hsu_do_resume(struct uart_hsu_port *up)
 	serial_sched_cmd(up, qcmd_get_msr);
 	spin_unlock_irqrestore(&up->port.lock, flags);
 	serial_sched_sync(up);
+
+	hsu_rpm_uevent[0] = kasprintf(GFP_KERNEL, "MAJOR=%d",
+		serial_hsu_reg.major);
+	hsu_rpm_uevent[1] = kasprintf(GFP_KERNEL, "MINOR=%d",
+		(serial_hsu_reg.minor + up->port.line));
+	hsu_rpm_uevent[2] = kasprintf(GFP_KERNEL, "%s",
+		"UART_STATE=RESUMED");
+	hsu_rpm_uevent[3] = NULL;
+	kobject_uevent_env(&up->dev->kobj, KOBJ_CHANGE, hsu_rpm_uevent);
+	kfree(hsu_rpm_uevent[0]);
+	kfree(hsu_rpm_uevent[1]);
+	kfree(hsu_rpm_uevent[2]);
 	return 0;
 }
 EXPORT_SYMBOL(serial_hsu_do_resume);

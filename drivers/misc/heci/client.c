@@ -234,7 +234,7 @@ void heci_cl_init(struct heci_cl *cl, struct heci_device *dev)
 
 int	heci_cl_free_rx_ring(struct heci_cl *cl)
 {
-	struct heci_cl_rb * rb;
+	struct heci_cl_rb *rb;
 	unsigned long	flags;
 
 	/* relese allocated mem- pass over free_rb_list */
@@ -864,7 +864,7 @@ int heci_cl_send(struct heci_cl *cl, u8 *buf, size_t length)
 				HECI_CLIENT_DMA_ENABLED) {
 			struct heci_msg_hdr	hdr;
 			struct hbm_client_dma_request	heci_dma_request_msg;
-			unsigned	len = sizeof(struct hbm_client_dma_request);
+			unsigned len = sizeof(struct hbm_client_dma_request);
 			int	preview_len =
 				dev->me_clients[id].props.dma_hdr_len & 0x7F;
 			spin_unlock_irqrestore(&dev->me_clients_lock, me_flags);

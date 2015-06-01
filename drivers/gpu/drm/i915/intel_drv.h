@@ -243,6 +243,9 @@ struct intel_connector {
 	/* since POLL and HPD connectors may use the same HPD line keep the native
 	   state of connector->polled in case hotplug storm detection changes it */
 	u8 polled;
+
+	/* Whether DPMS off is pending on this ? */
+	bool dpms_off_pending;
 };
 
 typedef struct dpll {
@@ -525,6 +528,7 @@ struct intel_crtc {
 	 * been sent before disable sequence.
 	 */
 	u32 hw_frm_cnt_at_enable;
+	bool skip_check_state;
 };
 
 struct intel_plane_wm_parameters {

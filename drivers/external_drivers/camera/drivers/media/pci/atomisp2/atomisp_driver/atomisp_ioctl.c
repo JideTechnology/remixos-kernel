@@ -1806,6 +1806,7 @@ static int atomisp_streamon(struct file *file, void *fh,
 		memset(&asd->params.css_param.update_flag, 0,
 		       sizeof(struct atomisp_parameters));
 	}
+	asd->params.dvs_6axis = NULL;
 
 	ret = atomisp_css_start(asd, css_pipe_id, false);
 	if (ret)
@@ -2205,6 +2206,7 @@ static int atomisp_g_ctrl(struct file *file, void *fh,
 	case V4L2_CID_2A_STATUS:
 	case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
 	case V4L2_CID_EXPOSURE:
+	case V4L2_CID_EXPOSURE_AUTO:
 	case V4L2_CID_SCENE_MODE:
 	case V4L2_CID_ISO_SENSITIVITY:
 	case V4L2_CID_ISO_SENSITIVITY_AUTO:
@@ -2278,6 +2280,7 @@ static int atomisp_s_ctrl(struct file *file, void *fh,
 	switch (control->id) {
 	case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
 	case V4L2_CID_EXPOSURE:
+	case V4L2_CID_EXPOSURE_AUTO:
 	case V4L2_CID_EXPOSURE_AUTO_PRIORITY:
 	case V4L2_CID_SCENE_MODE:
 	case V4L2_CID_ISO_SENSITIVITY:
@@ -2383,6 +2386,7 @@ static int atomisp_camera_g_ext_ctrls(struct file *file, void *fh,
 		ctrl.value = c->controls[i].value;
 		switch (ctrl.id) {
 		case V4L2_CID_EXPOSURE_ABSOLUTE:
+		case V4L2_CID_EXPOSURE_AUTO:
 		case V4L2_CID_IRIS_ABSOLUTE:
 		case V4L2_CID_FNUMBER_ABSOLUTE:
 		case V4L2_CID_BIN_FACTOR_HORZ:
@@ -2492,6 +2496,7 @@ static int atomisp_camera_s_ext_ctrls(struct file *file, void *fh,
 		ctrl.value = c->controls[i].value;
 		switch (ctrl.id) {
 		case V4L2_CID_EXPOSURE_ABSOLUTE:
+		case V4L2_CID_EXPOSURE_AUTO:
 		case V4L2_CID_EXPOSURE_METERING:
 		case V4L2_CID_IRIS_ABSOLUTE:
 		case V4L2_CID_FNUMBER_ABSOLUTE:

@@ -27,13 +27,13 @@ static int die_counter;
 
 static void printk_stack_address(unsigned long address, int reliable)
 {
-	pr_cont(" [<%p>] %s%pB\n",
+	printk(KERN_DEFAULT " [<%p>] %s%pB\n",
 		(void *)address, reliable ? "" : "? ", (void *)address);
 }
 
 void printk_address(unsigned long address)
 {
-	pr_cont(" [<%p>] %pS\n", (void *)address, (void *)address);
+	printk(KERN_DEFAULT " [<%p>] %pS\n", (void *)address, (void *)address);
 }
 
 #ifdef CONFIG_FUNCTION_GRAPH_TRACER
