@@ -176,23 +176,8 @@ static int lm3554_set_config1(struct lm3554 *flash)
 }
 
 /* -----------------------------------------------------------------------------
- * Hardware reset and trigger
+ * Hardware trigger
  */
-
-static void lm3554_hw_reset(struct i2c_client *client)
-{
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct lm3554 *flash = to_lm3554(sd);
-	struct lm3554_platform_data *pdata = flash->pdata;
-
-	gpio_set_value(pdata->gpio_reset, 0);
-	msleep(50);
-
-	gpio_set_value(pdata->gpio_reset, 1);
-	msleep(50);
-	dev_info(&client->dev, "flash led reset successfully\n");
-}
-
 static void lm3554_flash_off_delay(long unsigned int arg)
 {
 	struct v4l2_subdev *sd = i2c_get_clientdata((struct i2c_client *)arg);
@@ -621,6 +606,24 @@ static int lm3554_setup(struct lm3554 *flash)
 
 static int __lm3554_s_power(struct lm3554 *flash, int power)
 {
+	struct lm3554_platform_data *pdata = flash->pdata;
+	int ret;
+
+	/*initialize flash driver*/
+	gpio_set_value(pdata->gpio_reset, power);
+	usleep_range(100, 100 + 1);
+
+	if (power) {
+		/* Setup default values. This makes sure that the chip
+		 * is in a known state.
+		 */
+		ret = lm3554_setup(flash);
+		if (ret < 0) {
+			__lm3554_s_power(flash, 0);
+			return ret;
+		}
+	}
+
 	return 0;
 }
 
@@ -670,24 +673,13 @@ static int lm3554_detect(struct v4l2_subdev *sd)
 
 	/* Power up the flash driver and reset it */
 	ret = lm3554_s_power(&flash->sd, 1);
-	if (ret < 0)
-		return ret;
+	if (ret < 0) {
+		dev_err(&client->dev, "Failed to power on lm3554 LED flash\n");
+	} else {
+		dev_dbg(&client->dev, "Successfully detected lm3554 LED flash\n");
+		lm3554_s_power(&flash->sd, 0);
+	}
 
-	lm3554_hw_reset(client);
-
-	/* Setup default values. This makes sure that the chip is in a known
-	 * state.
-	 */
-	ret = lm3554_setup(flash);
-	if (ret < 0)
-		goto fail;
-
-	dev_dbg(&client->dev, "Successfully detected lm3554 LED flash\n");
-	lm3554_s_power(&flash->sd, 0);
-	return 0;
-
-fail:
-	lm3554_s_power(&flash->sd, 0);
 	return ret;
 }
 
@@ -769,9 +761,10 @@ static int lm3554_gpio_init(struct i2c_client *client)
 		return ret;
 #endif
 
-	ret = gpio_direction_output(pdata->gpio_reset, 1);
+	ret = gpio_direction_output(pdata->gpio_reset, 0);
 	if (ret < 0)
 		goto err_gpio_reset;
+	dev_info(&client->dev, "flash led reset successfully\n");
 
 #ifdef CONFIG_GMIN_INTEL_MID
 	if (!gpio_is_valid(pdata->gpio_strobe)) {
