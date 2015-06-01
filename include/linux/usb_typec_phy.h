@@ -130,6 +130,8 @@ struct typec_cc_psy {
 	enum typec_current cur;
 };
 
+#define MAX_LABEL_SIZE		16
+
 struct typec_phy;
 
 struct typec_ops {

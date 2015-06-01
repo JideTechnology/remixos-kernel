@@ -1466,7 +1466,7 @@ static int fusb300_remove(struct i2c_client *client)
 	struct fusb300_chip *chip = i2c_get_clientdata(client);
 	struct typec_phy *phy = &chip->phy;
 
-	typec_unbind_detect(&chip->phy);
+	typec_unbind_detect(phy);
 	typec_remove_phy(phy);
 	return 0;
 }

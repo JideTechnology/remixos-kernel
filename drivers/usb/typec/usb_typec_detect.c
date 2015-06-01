@@ -57,6 +57,7 @@ static const char *detect_extcon_cable[] = {
 };
 
 static LIST_HEAD(typec_detect_list);
+static DEFINE_SPINLOCK(slock);
 static void detect_remove(struct typec_detect *detect);
 
 static int detect_kthread(void *data)
@@ -603,13 +604,16 @@ static void detect_remove(struct typec_detect *detect)
 
 int typec_unbind_detect(struct typec_phy *phy)
 {
-	struct typec_detect *detect;
+	struct typec_detect *detect, *temp;
 
-	list_for_each_entry(detect, &typec_detect_list, list) {
-		if (strcmp(detect->phy->label, phy->label)) {
+	spin_lock(&slock);
+	list_for_each_entry_safe(detect, temp, &typec_detect_list, list) {
+		if (!strncmp(detect->phy->label, phy->label, MAX_LABEL_SIZE)) {
 			list_del(&detect->list);
 			detect_remove(detect);
 		}
 	}
+	spin_unlock(&slock);
+
 	return 0;
 }
