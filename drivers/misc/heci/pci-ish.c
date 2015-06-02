@@ -1054,8 +1054,6 @@ static void ish_remove(struct pci_dev *pdev)
 	 *** If this case of removal is viable,
 	 * also go through HECI clients removal ***
 	 */
-	kfree(work);
-
 	if (heci_pci_device != pdev) {
 		dev_err(&pdev->dev, "heci: heci_pci_device != pdev\n");
 		return;
