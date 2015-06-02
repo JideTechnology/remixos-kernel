@@ -4200,11 +4200,10 @@ int drm_mode_obj_set_property_ioctl(struct drm_device *dev, void *data,
 			DRM_ERROR("CRTC from connector,CRTC={id=%d props=%d}\n",
 				crtc->base.id, crtc->base.properties ?
 					crtc->base.properties->count : 0);
-			drm_modeset_lock(&crtc->mutex, NULL);
 			mutex_lock(&config->mutex);
+			drm_modeset_lock(&crtc->mutex, NULL);
 			ret = drm_mode_connector_set_obj_prop(arg_obj, property,
 							arg->value);
-			mutex_unlock(&config->mutex);
 		} else {
 			DRM_ERROR("No crtc from connector, lock all\n");
 			drm_modeset_lock_all(dev);
@@ -4227,8 +4226,11 @@ int drm_mode_obj_set_property_ioctl(struct drm_device *dev, void *data,
 		break;
 	}
 
-	if (crtc)
+	if (crtc) {
 		drm_modeset_unlock(&crtc->mutex);
+		if (arg_obj->type == DRM_MODE_OBJECT_CONNECTOR)
+			mutex_unlock(&config->mutex);
+	}
 	else
 		drm_modeset_unlock_all(dev);
 out:
