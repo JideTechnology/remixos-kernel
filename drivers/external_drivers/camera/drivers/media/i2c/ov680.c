@@ -571,9 +571,15 @@ static int __flisclk_ctrl(struct v4l2_subdev *sd, int on)
 
 static int __ov680_s_power(struct v4l2_subdev *sd, int on, int load_fw)
 {
-	struct ov680_device *dev = to_ov680_device(sd);
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct ov680_device *dev = NULL;
+	struct i2c_client *client = NULL;
 	int ret;
+
+	if (!sd)
+		return -ENODEV;
+
+	dev = to_ov680_device(sd);
+	client = v4l2_get_subdevdata(sd);
 
 	dev_info(&client->dev, "%s - on-%d.\n", __func__, on);
 
