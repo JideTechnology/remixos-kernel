@@ -318,6 +318,7 @@ static int dw_i2c_probe(struct platform_device *pdev)
 	if (IS_ERR(dev->clk))
 		return PTR_ERR(dev->clk);
 	clk_prepare_enable(dev->clk);
+	dev->clk_rate_khz = dev->get_clk_rate_khz(dev);
 
 	if (pdev->dev.of_node) {
 		u32 ht = 0;

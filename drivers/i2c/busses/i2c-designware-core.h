@@ -85,6 +85,7 @@ struct dw_i2c_dev {
 	struct mutex		lock;
 	struct clk		*clk;
 	u32			(*get_clk_rate_khz) (struct dw_i2c_dev *dev);
+	u32			clk_rate_khz;
 	struct dw_pci_controller *controller;
 	int			cmd_err;
 	struct i2c_msg		*msgs;

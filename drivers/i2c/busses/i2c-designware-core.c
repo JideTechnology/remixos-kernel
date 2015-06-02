@@ -294,28 +294,10 @@ static bool __i2c_dw_enable(struct dw_i2c_dev *dev, bool enable)
  */
 int i2c_dw_init(struct dw_i2c_dev *dev)
 {
-	u32 input_clock_khz;
+	u32 input_clock_khz = dev->clk_rate_khz;
 	u32 hcnt, lcnt;
 	u32 reg;
-	int timeout = TIMEOUT, ret;
-
-	/*
-	 * acquire_ownership may disable local irq.
-	 * So release it first and do operations that might sleep.
-	 */
-	if (dev->shared_host && dev->release_ownership)
-		dev->release_ownership();
-
-	input_clock_khz = dev->get_clk_rate_khz(dev);
-
-	if (dev->shared_host && dev->acquire_ownership) {
-		ret = dev->acquire_ownership();
-		if (ret < 0) {
-			dev_WARN(dev->dev, "%s couldn't acquire ownership\n",
-					__func__);
-			return ret;
-		}
-	}
+	int timeout = TIMEOUT;
 
 	do {
 		/*
