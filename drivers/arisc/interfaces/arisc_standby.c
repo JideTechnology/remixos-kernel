@@ -76,17 +76,17 @@ EXPORT_SYMBOL(arisc_query_standby_power_cfg);
 int arisc_query_set_standby_info(struct standby_info_para *para, arisc_rw_type_e op)
 {
 	int result;
-	u32 paras[22];
+	u32 temp_paras[22];
 
 	/* check standby_info_para size valid or not */
-	if (sizeof(struct standby_info_para) > sizeof(paras)) {
+	if (sizeof(struct standby_info_para) > sizeof(temp_paras)) {
 		ARISC_ERR("standby info parameters number too long\n");
 		return -EINVAL;
 	}
 
 	/* initialize message */
 	if (ARISC_WRITE == op) {
-		memcpy((void *)paras, (const void *)para, sizeof(struct standby_info_para));
+		memcpy((void *)temp_paras, (const void *)para, sizeof(struct standby_info_para));
 		memcpy((void *)&arisc_powchk_back, (const void *)para, sizeof(struct standby_info_para));
 		/* send query sst info request to arisc */
 		/* FIXME: if the runtime sever enable the mmu & dcache,
@@ -96,9 +96,9 @@ int arisc_query_set_standby_info(struct standby_info_para *para, arisc_rw_type_e
 
 
 	/* send message use hwmsgbox */
-	result = invoke_scp_fn_smc(ARM_SVC_ARISC_STANDBY_INFO_REQ, virt_to_phys(paras), 0, 0);
+	result = invoke_scp_fn_smc(ARM_SVC_ARISC_STANDBY_INFO_REQ, virt_to_phys(temp_paras), op, 0);
 	if (ARISC_READ == op) {
-		memcpy((void *)para, (void *)paras, sizeof(struct standby_info_para));
+		memcpy((void *)para, (void *)temp_paras, sizeof(struct standby_info_para));
 	}
 
 	return result;

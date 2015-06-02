@@ -778,7 +778,7 @@ static int  sunxi_arisc_pin_cfg(struct platform_device *pdev)
 }
 
 #if 0
-void hexdump(char* name, u32 * base, int len)
+void hexdump(char* name, char * base, int len)
 {
 	u32 i;
 	printk("%s :\n", name);
