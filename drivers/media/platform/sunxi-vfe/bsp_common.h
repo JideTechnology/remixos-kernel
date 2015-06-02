@@ -8,7 +8,7 @@
 #define __BSP_COMMON__H__
 
 #include <linux/videodev2.h>
-#include <media/v4l2-mediabus.h>
+//#include <media/v4l2-mediabus.h>
 
 enum field {
   FIELD_ANY           = 0, /* driver can choose from none,
@@ -208,7 +208,6 @@ extern enum bit_width find_bus_width(enum bus_pixelcode code);
 extern enum bit_width find_bus_precision(enum bus_pixelcode code);
 extern enum pixel_fmt_type  find_pixel_fmt_type(enum pixel_fmt code);
 extern enum pixel_fmt pix_fmt_v4l2_to_common(unsigned int pix_fmt);
-extern enum bus_pixelcode bus_pix_code_v4l2_to_common(enum v4l2_mbus_pixelcode pix_code);
 extern enum field field_fmt_v4l2_to_common(enum v4l2_field field);
 
 #endif //__BSP_COMMON__H__

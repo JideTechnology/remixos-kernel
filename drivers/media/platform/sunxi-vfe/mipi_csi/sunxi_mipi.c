@@ -101,7 +101,7 @@ static int sunxi_mipi_subdev_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_
 	mipi->mipi_para.dphy_freq = DPHY_CLK; //TODO
 	
 	for(i = 0; i < mipi->mipi_para.total_rx_ch; i++) {//TODO 
-		mipi->mipi_fmt.packet_fmt[i] = get_pkt_fmt(bus_pix_code_v4l2_to_common(fmt->format.code));
+		mipi->mipi_fmt.packet_fmt[i] = get_pkt_fmt((enum bus_pixelcode)fmt->format.code);
 		mipi->mipi_fmt.field[i] = field_fmt_v4l2_to_common(fmt->format.field);
 		mipi->mipi_fmt.vc[i] = i;
 	}

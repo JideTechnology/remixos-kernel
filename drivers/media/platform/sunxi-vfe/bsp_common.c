@@ -311,11 +311,6 @@ enum pixel_fmt pix_fmt_v4l2_to_common(unsigned int pix_fmt)
 	}
 } 
 
-enum bus_pixelcode bus_pix_code_v4l2_to_common(enum v4l2_mbus_pixelcode pix_code)
-{
-	return (enum bus_pixelcode)pix_code;
-} 
-
 enum field field_fmt_v4l2_to_common(enum v4l2_field field)
 {
 	return (enum field)field;

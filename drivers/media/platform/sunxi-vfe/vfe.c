@@ -1912,7 +1912,7 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	if(dev->is_isp_used) {
 		main_cfg.pix = f->fmt.pix;
 		main_cfg.win_cfg = win_cfg;
-		main_cfg.bus_code = find_bus_type(bus_pix_code_v4l2_to_common(*bus_pix_code));
+		main_cfg.bus_code = find_bus_type((enum bus_pixelcode)(*bus_pix_code));
 		ret = v4l2_subdev_call(dev->isp_sd, core, ioctl,VIDIOC_SUNXI_ISP_MAIN_CH_CFG , &main_cfg);
 		if(ret < 0)
 		{
@@ -2356,7 +2356,7 @@ static int internal_s_input(struct vfe_dev *dev, unsigned int i)
 			sunxi_isp_set_mirror(SUB_CH, ENABLE);
 		}
 	} else {
-		bsp_isp_exit();
+		//bsp_isp_exit();
 		/* Set the initial flip */
 		ctrl.id = V4L2_CID_VFLIP;
 		ctrl.value = dev->ccm_cfg[i]->vflip;
@@ -3051,7 +3051,8 @@ static int vfe_close(struct file *file)
 		bsp_mipi_csi_dphy_disable(dev->mipi_sel);
 		bsp_mipi_csi_dphy_exit(dev->mipi_sel);
 	}
-	bsp_isp_exit();
+	if(dev->is_isp_used)
+		bsp_isp_exit();
 	flush_delayed_work(&dev->probe_work);
 
 	if(dev->ccm_cfg[0]->is_isp_used || dev->ccm_cfg[1]->is_isp_used) {

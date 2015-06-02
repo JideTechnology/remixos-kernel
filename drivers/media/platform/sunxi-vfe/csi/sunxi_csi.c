@@ -81,7 +81,7 @@ static int sunxi_csi_subdev_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_f
 	int i,ret;
 
 	for(i = 0; i < csi->bus_info.ch_total_num; i++)
-		csi->bus_info.bus_ch_fmt[i] = bus_pix_code_v4l2_to_common(fmt->format.code);
+		csi->bus_info.bus_ch_fmt[i] = (enum bus_pixelcode)fmt->format.code;
     
 	for(i = 0; i < csi->bus_info.ch_total_num; i++) {
 		csi->frame_info.pix_ch_fmt[i] = pix_fmt_v4l2_to_common(fmt->reserved[0]);
