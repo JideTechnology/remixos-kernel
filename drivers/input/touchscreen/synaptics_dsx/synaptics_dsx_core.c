@@ -3401,6 +3401,8 @@ static int synaptics_rmi4_suspend(struct device *dev)
 
 	mutex_lock(&rmi4_data->input_dev->mutex);
 
+	rmi4_data->kernel_suspend = true;
+
 	if (rmi4_data->suspend)
 		goto exit;
 
@@ -3474,6 +3476,18 @@ static int synaptics_rmi4_resume(struct device *dev)
 			rmi4_data->hw_if->ui_hw_init(rmi4_data);
 	}
 
+	if (rmi4_data->kernel_suspend) {
+		rmi4_data->kernel_suspend = false;
+		if (rmi4_data->hw_if->ui_hw_init) {
+			retval = rmi4_data->hw_if->ui_hw_init(rmi4_data);
+			if (retval < 0) {
+				dev_err(dev, "%s: Failed to ui_hw_init\n",
+					__func__);
+				goto exit;
+			}
+		}
+	}
+
 	synaptics_rmi4_sensor_wake(rmi4_data);
 	synaptics_rmi4_irq_enable(rmi4_data, true, false);
 
@@ -3496,9 +3510,45 @@ exit:
 static void synaptics_rmi4_power_hal_suspend(struct device *dev)
 {
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+	struct synaptics_rmi4_exp_fhandler *exp_fhandler;
+
+	mutex_lock(&rmi4_data->input_dev->mutex);
 
 	rmi4_data->power_hal_want_suspend = true;
-	synaptics_rmi4_suspend(&rmi4_data->pdev->dev);
+
+	if (rmi4_data->suspend)
+		goto exit;
+
+	if (rmi4_data->stay_awake)
+		goto exit;
+
+	if (rmi4_data->enable_wakeup_gesture) {
+		synaptics_rmi4_wakeup_gesture(rmi4_data, true);
+		goto exit;
+	}
+
+	if (!rmi4_data->suspend) {
+		synaptics_rmi4_irq_enable(rmi4_data, false, false);
+		synaptics_rmi4_sensor_sleep(rmi4_data);
+		synaptics_rmi4_free_fingers(rmi4_data);
+	}
+
+	mutex_lock(&exp_data.mutex);
+	if (!list_empty(&exp_data.list)) {
+		list_for_each_entry(exp_fhandler, &exp_data.list, link)
+			if (exp_fhandler->exp_fn->suspend != NULL)
+				exp_fhandler->exp_fn->suspend(rmi4_data);
+	}
+	mutex_unlock(&exp_data.mutex);
+
+	if (rmi4_data->pwr_reg)
+		regulator_disable(rmi4_data->pwr_reg);
+
+	rmi4_data->suspend = true;
+	dev_info(dev, "Synaptic suspend complete\n");
+exit:
+	mutex_unlock(&rmi4_data->input_dev->mutex);
+	return;
 }
 
 static void synaptics_rmi4_power_hal_resume(struct device *dev)
