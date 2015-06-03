@@ -359,6 +359,10 @@ static int __ov2685_s_wb(struct v4l2_subdev *sd, int wb)
 	struct ov2685_device *dev = to_ov2685_sensor(sd);
 	int ret;
 
+	/* Not to set awb when awb is locked */
+	if (dev->ae_lock & V4L2_LOCK_WHITE_BALANCE)
+		return 0;
+
 	switch (wb) {
 	case V4L2_WHITE_BALANCE_MANUAL:
 		ret = ov2685_write_reg_array(client, ov2685_AWB_manual);
@@ -712,7 +716,16 @@ static int ov2685_g_ae_lock(struct v4l2_subdev *sd, s32 *value)
 
 static int ov2685_s_ae_lock(struct v4l2_subdev *sd, int value)
 {
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov2685_device *dev = to_ov2685_sensor(sd);
+	int ret;
+
+	/* only awb lock is supported by ov2685 */
+	if (value & V4L2_LOCK_WHITE_BALANCE) {
+		ret = ov2685_write_reg_array(client, ov2685_AWB_manual);
+		if (ret)
+			return ret;
+	}
 
 	dev->ae_lock = value;
 	return 0;
