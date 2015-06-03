@@ -5079,8 +5079,7 @@ static void atomisp_get_dis_envelop(struct atomisp_sub_device *asd,
 		asd->params.video_dis_en = 0;
 
 	if (asd->params.video_dis_en &&
-	    asd->run_mode->val == ATOMISP_RUN_MODE_VIDEO &&
-	    !asd->continuous_mode->val) {
+	    asd->run_mode->val == ATOMISP_RUN_MODE_VIDEO) {
 		/* envelope is 20% of the output resolution */
 		/*
 		 * dvs envelope cannot be round up.
