@@ -50,9 +50,6 @@ static int cht_hw_set_rts(struct uart_hsu_port *up, int value)
 {
 	struct hsu_port_pin_cfg *pin_cfg = &up->port_cfg->pin_cfg;
 
-	if (!pin_cfg || pin_cfg->wake_src == no_wake)
-		return 0;
-
 	if (value) {
 		if (!pin_cfg->rts_gpio) {
 			pin_cfg->rts_gpio = gpiod_get_index(up->dev, "hsu_rts",
@@ -79,7 +76,7 @@ static int cht_hsu_hw_suspend(struct uart_hsu_port *up)
 	struct hsu_port_pin_cfg *pin_cfg = &up->port_cfg->pin_cfg;
 	int ret;
 
-	if (!pin_cfg || pin_cfg->wake_src == no_wake)
+	if (pin_cfg->wake_src == no_wake)
 		return 0;
 
 	switch (pin_cfg->wake_src) {
