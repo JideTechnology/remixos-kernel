@@ -526,6 +526,8 @@ void i915_scheduler_kill_all(struct drm_device *dev)
 		}
 	}
 
+	memset(scheduler->last_irq_seqno, 0, sizeof(scheduler->last_irq_seqno));
+
 	spin_unlock_irqrestore(&scheduler->lock, flags);
 
 	queue_work(dev_priv->wq, &dev_priv->mm.scheduler_work);
@@ -605,7 +607,6 @@ int i915_scheduler_handle_irq(struct intel_engine_cs *ring)
 	struct drm_i915_private *dev_priv = ring->dev->dev_private;
 	struct i915_scheduler   *scheduler = dev_priv->scheduler;
 	unsigned long       flags;
-	static uint32_t     last_seqno;
 	uint32_t            seqno;
 
 	seqno = ring->get_seqno(ring, false);
@@ -615,11 +616,11 @@ int i915_scheduler_handle_irq(struct intel_engine_cs *ring)
 	if (i915.scheduler_override & i915_so_direct_submit)
 		return 0;
 
-	if (seqno == last_seqno) {
+	if (seqno == scheduler->last_irq_seqno[ring->id]) {
 		/* Why are there sometimes multiple interrupts per seqno? */
 		return 0;
 	}
-	last_seqno = seqno;
+	scheduler->last_irq_seqno[ring->id] = seqno;
 
 	spin_lock_irqsave(&scheduler->lock, flags);
 	i915_scheduler_seqno_complete(ring, seqno);

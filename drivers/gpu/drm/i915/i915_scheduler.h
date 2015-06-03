@@ -112,6 +112,7 @@ struct i915_scheduler {
 	uint32_t            flags[I915_NUM_RINGS];
 	spinlock_t          lock;
 	uint32_t            index;
+	uint32_t            last_irq_seqno[I915_NUM_RINGS];
 
 	/* Tuning parameters: */
 	uint32_t            priority_level_max;
