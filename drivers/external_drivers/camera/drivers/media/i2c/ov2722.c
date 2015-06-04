@@ -724,11 +724,11 @@ static int power_ctrl(struct v4l2_subdev *sd, bool flag)
 
 #ifdef CONFIG_GMIN_INTEL_MID
 	if (flag) {
-		ret = dev->platform_data->v2p8_ctrl(sd, 1);
+		ret = dev->platform_data->v1p8_ctrl(sd, 1);
 		if (ret == 0) {
-			ret = dev->platform_data->v1p8_ctrl(sd, 1);
+			ret = dev->platform_data->v2p8_ctrl(sd, 1);
 			if (ret)
-				dev->platform_data->v2p8_ctrl(sd, 0);
+				dev->platform_data->v1p8_ctrl(sd, 0);
 		}
 	} else {
 		ret = dev->platform_data->v1p8_ctrl(sd, 0);
