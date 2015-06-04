@@ -1200,7 +1200,11 @@ err_measure:
 
 static bool fusb300_pd_capable(struct typec_phy *phy)
 {
-	if (phy->type == USB_TYPE_C)
+	struct fusb300_chip *chip;
+
+	chip = dev_get_drvdata(phy->dev);
+	/* set the paltform is pd capable only if the phy is fusb302 */
+	if (phy->type == USB_TYPE_C && !chip->is_fusb300)
 		return true;
 	else
 		return false;
