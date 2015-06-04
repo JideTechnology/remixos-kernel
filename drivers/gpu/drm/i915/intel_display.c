@@ -2341,7 +2341,6 @@ static void intel_enable_primary_hw_plane(struct drm_i915_private *dev_priv,
 
 	intel_crtc->primary_enabled = true;
 	dev_priv->pipe_plane_stat |= VLV_UPDATEPLANE_STAT_PRIM_PER_PIPE(pipe);
-	intel_crtc->enableprimary = true;
 	dev_priv->display.update_primary_plane(crtc, crtc->primary->fb,
 					       crtc->x, crtc->y);
 
@@ -2762,11 +2761,7 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 		intel_crtc->pri_update = false;
 	} else {
 		dspcntr = I915_READ(reg);
-		if ((atomic_read(&dev_priv->psr.update_pending)) ||
-			(intel_crtc->enableprimary)) {
-			dspcntr |= DISPLAY_PLANE_ENABLE;
-			intel_crtc->enableprimary = false;
-		}
+		dspcntr |= DISPLAY_PLANE_ENABLE;
 	}
 
 	/*
@@ -2935,6 +2930,9 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 		intel_crtc->dspaddr_offset = linear_offset;
 	}
 
+	DRM_DEBUG_KMS("Writing base %08lX %08lX %d %d %d\n",
+		      i915_gem_obj_ggtt_offset(obj), linear_offset, x, y,
+		      fb->pitches[0]);
 	intel_crtc->reg.stride = fb->pitches[0];
 	if (!dev_priv->atomic_update)
 		I915_WRITE(DSPSTRIDE(plane), intel_crtc->reg.stride);
@@ -5852,7 +5850,6 @@ void intel_crtc_control(struct drm_crtc *crtc, bool enable)
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	enum intel_display_power_domain domain;
 	unsigned long domains;
-	int ret;
 
 	if (enable) {
 		if (!intel_crtc->active) {
@@ -5861,13 +5858,7 @@ void intel_crtc_control(struct drm_crtc *crtc, bool enable)
 				intel_display_power_get(dev_priv, domain);
 			intel_crtc->enabled_power_domains = domains;
 
-			/* Enable PLLs before enabling crtc */
-			ret = dev_priv->display.crtc_mode_set(
-					&intel_crtc->base, 0, 0, NULL);
-			if (ret)
-				DRM_ERROR("Enabling PLL for DPMS ON failed\n");
-			else
-				dev_priv->display.crtc_enable(crtc);
+			dev_priv->display.crtc_enable(crtc);
 		}
 	} else {
 		if (intel_crtc->active)
@@ -5979,11 +5970,8 @@ static void intel_connector_check_state(struct intel_connector *connector)
 			      connector->base.base.id,
 			      connector->base.name);
 
-		if ((encoder->base.crtc) && (!to_intel_crtc(
-			encoder->base.crtc)->skip_check_state)) {
-			WARN(connector->base.dpms == DRM_MODE_DPMS_OFF,
-			     "wrong connector dpms state\n");
-		}
+		WARN(connector->base.dpms == DRM_MODE_DPMS_OFF,
+		     "wrong connector dpms state\n");
 		WARN(connector->base.encoder != &encoder->base,
 		     "active connector not linked to encoder\n");
 		WARN(!encoder->connectors_active,
@@ -12078,12 +12066,9 @@ check_encoder_state(struct drm_device *dev)
 		WARN(active && !encoder->base.crtc,
 		     "active encoder with no crtc\n");
 
-		if ((encoder->base.crtc) && (!to_intel_crtc(
-			encoder->base.crtc)->skip_check_state)) {
-			WARN(encoder->connectors_active != active,
-	"encoder's computed active state doesn't match tracked one (%i, %i)\n",
-			     active, encoder->connectors_active);
-		}
+		WARN(encoder->connectors_active != active,
+		     "active state not matched (expected %i, found %i)\n",
+				 active, encoder->connectors_active);
 
 		active = encoder->get_hw_state(encoder, &pipe);
 		WARN(active != encoder->connectors_active,
@@ -12422,7 +12407,7 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 
 		intel_crtc = to_intel_crtc(connector->encoder->crtc);
 
-		if ((!intel_crtc->active)
+		if ((connector->dpms != DRM_MODE_DPMS_OFF)
 			&& (prepare_pipes & (1 << (intel_crtc)->pipe))) {
 			/*
 			 * Now enable the clocks, plane, pipe, and
@@ -12442,16 +12427,6 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 			update_scanline_offset(intel_crtc);
 			to_intel_encoder(connector->encoder)->connectors_active = true;
 			dev_priv->display.crtc_enable(&intel_crtc->base);
-
-			/*
-			 * As we are updating crtc active state before
-			 * connector's DPMS state (which will be done by
-			 * subsequent DPMS ON call), hence we can ignore
-			 * conenctor's dpms state and encoder's active state
-			 * checks after crtc mode set.
-			 */
-			if (connector->dpms != DRM_MODE_DPMS_ON)
-				intel_crtc->skip_check_state = true;
 		}
 	}
 
@@ -12481,8 +12456,6 @@ static int intel_set_mode(struct drm_crtc *crtc,
 
 	if (ret == 0)
 		intel_modeset_check_state(crtc->dev);
-
-	(to_intel_crtc(crtc))->skip_check_state = false;
 
 	return ret;
 }
@@ -13067,11 +13040,9 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	intel_attach_pipe_color_correction(intel_crtc);
 
 	intel_crtc->rotate180 = false;
-	intel_crtc->skip_check_state = false;
-
 	/* Flag for wake from sleep */
 	dev_priv->is_resuming = false;
-	intel_crtc->enableprimary = false;
+
 	WARN_ON(drm_crtc_index(&intel_crtc->base) != intel_crtc->pipe);
 }
 
