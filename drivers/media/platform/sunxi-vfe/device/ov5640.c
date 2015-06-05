@@ -80,7 +80,6 @@ static int A80_VERSION = 0 ;
 #define FLASH_MODE_POL 1
 #ifdef _FLASH_FUNC_
 #include "../flash_light/flash.h"
-static struct flash_dev_info fl_info;
 static unsigned int to_flash=0;
 static unsigned int flash_auto_level=0x1c;
 #endif
@@ -3119,7 +3118,7 @@ static int sensor_g_single_af(struct v4l2_subdev *sd)
     if(info->flash_mode!=V4L2_FLASH_LED_MODE_NONE)
     {
       vfe_dev_print("shut flash when af fail/ok\n");
-      io_set_flash_ctrl(sd, SW_CTRL_FLASH_OFF, info->fl_dev_info);
+      io_set_flash_ctrl(sd, SW_CTRL_FLASH_OFF);
     }
     #endif
     return ret;
@@ -3132,7 +3131,7 @@ static int sensor_g_single_af(struct v4l2_subdev *sd)
     if(info->flash_mode!=V4L2_FLASH_LED_MODE_NONE)
     {
       vfe_dev_print("shut flash when af idle 2\n");
-      io_set_flash_ctrl(sd, SW_CTRL_FLASH_OFF, info->fl_dev_info);
+      io_set_flash_ctrl(sd, SW_CTRL_FLASH_OFF);
     }
     #endif
     return V4L2_AUTO_FOCUS_STATUS_IDLE;
@@ -3266,7 +3265,7 @@ static int sensor_s_single_af(struct v4l2_subdev *sd)
     if(to_flash==1)
     {
       vfe_dev_print("open torch when start single af\n");
-      io_set_flash_ctrl(sd, SW_CTRL_TORCH_ON, info->fl_dev_info);
+      io_set_flash_ctrl(sd, SW_CTRL_TORCH_ON);
     }
   }
   #endif
@@ -3973,10 +3972,6 @@ static int sensor_s_flash_mode(struct v4l2_subdev *sd,
   struct sensor_info *info = to_state(sd);
   vfe_dev_dbg("sensor_s_flash_mode[0x%d]!\n",value);
   
-  #ifdef _FLASH_FUNC_
-  //vfe_dev_print("config flash mode[0x%d]------------\n",value);
-  config_flash_mode(sd, value, info->fl_dev_info);
-  #endif
   info->flash_mode = value;
   return 0;
 }
@@ -3997,7 +3992,7 @@ static int sensor_power(struct v4l2_subdev *sd, int on)
     case CSI_SUBDEV_STBY_ON:
       vfe_dev_dbg("CSI_SUBDEV_STBY_ON!\n");
       #ifdef _FLASH_FUNC_
-      io_set_flash_ctrl(sd, SW_CTRL_FLASH_OFF, to_state(sd)->fl_dev_info);
+      io_set_flash_ctrl(sd, SW_CTRL_FLASH_OFF);
       #endif
       sensor_s_release_af(sd);
       //software standby
@@ -4214,19 +4209,7 @@ static int sensor_init(struct v4l2_subdev *sd, u32 val)
   #ifdef _FLASH_FUNC_
   if(dev->flash_used==1)
   {
-    info->fl_dev_info=&fl_info;
-    info->fl_dev_info->dev_if=0;
-    info->fl_dev_info->en_pol=FLASH_EN_POL;
-    info->fl_dev_info->fl_mode_pol=FLASH_MODE_POL;
-    info->fl_dev_info->light_src=0x01;
-    info->fl_dev_info->flash_intensity=400;
-    info->fl_dev_info->flash_level=0x01;
-    info->fl_dev_info->torch_intensity=200;
-    info->fl_dev_info->torch_level=0x01;
-    info->fl_dev_info->timeout_counter=300*1000;
-    config_flash_mode(sd, V4L2_FLASH_LED_MODE_NONE,
-                      info->fl_dev_info);
-    io_set_flash_ctrl(sd, SW_CTRL_FLASH_OFF, info->fl_dev_info);
+	sunxi_flash_info_init(dev->flash_sd);
   }
   #endif
   return 0;
@@ -4633,7 +4616,7 @@ static int sensor_s_fmt(struct v4l2_subdev *sd,
     if(info->flash_mode!=V4L2_FLASH_LED_MODE_NONE)
     {
       //printk("shut flash when preview\n");
-      io_set_flash_ctrl(sd, SW_CTRL_FLASH_OFF, info->fl_dev_info);
+      io_set_flash_ctrl(sd, SW_CTRL_FLASH_OFF);
     }
     #endif
   }
@@ -4666,7 +4649,7 @@ static int sensor_s_fmt(struct v4l2_subdev *sd,
       if(to_flash==1)
       {
         vfe_dev_cap_dbg("open flash when capture\n");
-        io_set_flash_ctrl(sd, SW_CTRL_FLASH_ON, info->fl_dev_info);
+        io_set_flash_ctrl(sd, SW_CTRL_FLASH_ON);
         sensor_get_lum(sd);
         sensor_get_preview_exposure(sd);
         sensor_get_fps(sd);

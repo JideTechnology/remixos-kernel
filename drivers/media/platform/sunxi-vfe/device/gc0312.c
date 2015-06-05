@@ -62,20 +62,6 @@ MODULE_LICENSE("GPL");
 #define VAL_TERM 0xff
 #define REG_DLY  0xffff
 
-
-
-#define _FLASH_FUNC_
-#define FLASH_EN_POL 1
-#define FLASH_MODE_POL 1
-#ifdef _FLASH_FUNC_
-#include "../flash_light/flash.h"
-static struct flash_dev_info fl_info;
-static unsigned int to_flash=0;
-static unsigned int flash_auto_level=0x13c;
-#endif
-
-
-
 /*
  * Our nominal (default) frame rate.
  */
@@ -1365,37 +1351,28 @@ static int sensor_write_array(struct v4l2_subdev *sd, struct regval_list *regs, 
   return 0;
 }
 
-#ifdef _FLASH_FUNC_
-static unsigned int current_lum=0xffff;
-static unsigned char sensor_get_lum(struct v4l2_subdev *sd)
+static unsigned int flash_auto_level=0x13c;
+static void sensor_get_lum(struct v4l2_subdev *sd, unsigned int *lum)
 {
-	unsigned char temp = 0xff;
-	sensor_read(sd, 0x03, &temp);
-	current_lum = temp << 8;
+	unsigned char temp = 0;
 	
+	sensor_read(sd, 0x03, &temp);
+	*lum = temp << 8;	
 	sensor_read(sd, 0x04, &temp);
-	current_lum |= temp;
-	vfe_dev_dbg("check luminance=0x%x\n",current_lum);
-	return current_lum;
+	*lum |= temp;
+	vfe_dev_dbg("check luminance=0x%x\n", *lum);
 }
-
-static void check_to_flash(struct v4l2_subdev *sd)
+static void sensor_g_flash_flag(struct v4l2_subdev *sd, unsigned int *flash_flag)
 {
-	struct sensor_info *info = to_state(sd);
-	if(info->flash_mode==V4L2_FLASH_LED_MODE_FLASH) {
-		to_flash=1;
-	} else if(info->flash_mode==V4L2_FLASH_LED_MODE_AUTO) {
-		sensor_get_lum(sd);
-		if( current_lum>flash_auto_level )
-			to_flash=1;
-		else
-			to_flash=0;
-	} else {
-		to_flash=0;
-	}
-	printk("to_flash=%d\n",to_flash);
+	unsigned int current_lum = 0; 
+	
+	sensor_get_lum(sd, &current_lum);
+	
+	if(current_lum > flash_auto_level)
+		*flash_flag = 1;
+	else
+		*flash_flag = 0;
 }
-#endif
 
 static int sensor_g_hflip(struct v4l2_subdev *sd, __s32 *value)
 {
@@ -1903,9 +1880,6 @@ static int sensor_s_flash_mode(struct v4l2_subdev *sd,
 //  default:
 //    return -EINVAL;
 //  }
-  #ifdef _FLASH_FUNC_
-	config_flash_mode(sd, value, info->fl_dev_info);
-  #endif
   info->flash_mode = value;
   return 0;
 }
@@ -1946,9 +1920,6 @@ static int sensor_power(struct v4l2_subdev *sd, int on)
   {
     case CSI_SUBDEV_STBY_ON:
       vfe_dev_dbg("CSI_SUBDEV_STBY_ON\n");
-     #ifdef _FLASH_FUNC_
-	   io_set_flash_ctrl(sd, SW_CTRL_FLASH_OFF, to_state(sd)->fl_dev_info);
-     #endif
       //standby on io
       vfe_gpio_write(sd,PWDN,CSI_STBY_ON);
       usleep_range(30000,31000);
@@ -2078,9 +2049,6 @@ static int sensor_init(struct v4l2_subdev *sd, u32 val)
 {
 	int ret;
 	struct sensor_info *info = to_state(sd);
-#ifdef _FLASH_FUNC_
-	struct vfe_dev *dev=(struct vfe_dev *)dev_get_drvdata(sd->v4l2_dev->dev);
-#endif
 	vfe_dev_dbg("sensor_init\n");
 	
 	/*Make sure it is a target sensor*/
@@ -2090,30 +2058,20 @@ static int sensor_init(struct v4l2_subdev *sd, u32 val)
 		return ret;
 	}
 	sensor_write_array(sd, sensor_default_regs , ARRAY_SIZE(sensor_default_regs));
-#ifdef _FLASH_FUNC_
-	if(dev->flash_used==1) {
-		info->fl_dev_info=&fl_info;
-		info->fl_dev_info->dev_if=0;
-		info->fl_dev_info->en_pol=FLASH_EN_POL;
-		info->fl_dev_info->fl_mode_pol=FLASH_MODE_POL;
-		info->fl_dev_info->light_src=0x01;
-		info->fl_dev_info->flash_intensity=400;
-		info->fl_dev_info->flash_level=0x01;
-		info->fl_dev_info->torch_intensity=200;
-		info->fl_dev_info->torch_level=0x01;
-		info->fl_dev_info->timeout_counter=300*1000;
-		config_flash_mode(sd, V4L2_FLASH_LED_MODE_NONE,
-		                  info->fl_dev_info);
-		io_set_flash_ctrl(sd, SW_CTRL_FLASH_OFF, info->fl_dev_info);
-	}
-#endif
+
 	return 0;
   }
 
 static long sensor_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
-	int ret=0;
-		return ret;
+  	int ret=0;
+	switch(cmd) {
+		case GET_FLASH_FLAG:
+			sensor_g_flash_flag(sd,(unsigned int *)arg);
+		default:
+			return -EINVAL;
+	}
+	return ret;
 }
 
 
@@ -2293,33 +2251,14 @@ static int sensor_s_fmt(struct v4l2_subdev *sd,
 	}
 	if(info->capture_mode == V4L2_MODE_VIDEO) {
 	//video
-#ifdef _FLASH_FUNC_
-		if(info->flash_mode!=V4L2_FLASH_LED_MODE_NONE) {
-			//printk("shut flash when preview\n");
-			io_set_flash_ctrl(sd, SW_CTRL_FLASH_OFF, info->fl_dev_info);
-		}
-#endif
-	} else if(info->capture_mode == V4L2_MODE_IMAGE) {
-#ifdef _FLASH_FUNC_
-		check_to_flash(sd);
-#endif
 
-#ifdef _FLASH_FUNC_
-		if(info->flash_mode!=V4L2_FLASH_LED_MODE_NONE) {
-			if(to_flash==1) {
-				vfe_dev_dbg("open flash when capture\n");
-				io_set_flash_ctrl(sd, SW_CTRL_FLASH_ON, info->fl_dev_info);
-				msleep(50);
-			}
-		}
-#endif
+	} else if(info->capture_mode == V4L2_MODE_IMAGE) {
 
 		ret = sensor_s_autowb(sd,0); //lock wb
 		if (ret < 0)
 		  vfe_dev_err("sensor_s_autowb off err when capturing image!\n");
 	}
 	
-		
 	sensor_write_array(sd, sensor_fmt->regs , sensor_fmt->regs_size);
 	
 	ret = 0;

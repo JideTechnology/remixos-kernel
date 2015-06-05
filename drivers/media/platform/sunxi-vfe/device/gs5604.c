@@ -79,14 +79,6 @@ MODULE_LICENSE("GPL");
 #define VAL_TERM 0xfe
 #define REG_DLY  0xffff
 
-#define FLASH_EN_POL 1
-#define FLASH_MODE_POL 1
-#ifdef _FLASH_FUNC_
-#include "../flash_light/flash.h"
-static struct flash_dev_info fl_info;
-static unsigned int to_flash=0;
-static unsigned int flash_auto_level=0x1c;
-#endif
 #define CONTINUEOUS_AF
 
 //#define QSXGA_HEIGHT 1944
@@ -2965,9 +2957,6 @@ static int sensor_s_flash_mode(struct v4l2_subdev *sd,
 	struct sensor_info *info = to_state(sd);
 	vprintk("sensor_s_flash_mode[0x%d]!\n",value);
 
-	#ifdef _FLASH_FUNC_
-		config_flash_mode(sd, value, info->fl_dev_info);
-	#endif
 	info->flash_mode = value;
 	return 0;
 }
@@ -3109,10 +3098,6 @@ static int sensor_init(struct v4l2_subdev *sd, u32 val)
 	unsigned char value;
 	struct sensor_info *info = to_state(sd);
 
-	#ifdef _FLASH_FUNC_
-	struct vfe_dev *dev=(struct vfe_dev *)dev_get_drvdata(sd->v4l2_dev->dev);
-	#endif
-
 	vprintk("sensor_init 0x%x\n",val);
 
 	/*Make sure it is a target sensor*/
@@ -3172,24 +3157,6 @@ static int sensor_init(struct v4l2_subdev *sd, u32 val)
 	night_mode=0;
 	Nfrms = MAX_FRM_CAP;
 
-	#ifdef _FLASH_FUNC_
-	if(dev->flash_used==1)
-		{
-			info->fl_dev_info=&fl_info;
-    		info->fl_dev_info->dev_if=0;
-    		info->fl_dev_info->en_pol=FLASH_EN_POL;
-    		info->fl_dev_info->fl_mode_pol=FLASH_MODE_POL;
-    		info->fl_dev_info->light_src=0x01;
-    		info->fl_dev_info->flash_intensity=400;
-    		info->fl_dev_info->flash_level=0x01;
-    		info->fl_dev_info->torch_intensity=200;
-    		info->fl_dev_info->torch_level=0x01;
-    		info->fl_dev_info->timeout_counter=300*1000;
-			config_flash_mode(sd, V4L2_FLASH_LED_MODE_NONE,
-                      info->fl_dev_info);
-			io_set_flash_ctrl(sd, SW_CTRL_FLASH_OFF, info->fl_dev_info);
-		}
-	#endif
 	return 0;
 }
 
@@ -3451,17 +3418,10 @@ static int sensor_s_fmt(struct v4l2_subdev *sd,
 
 	if(info->capture_mode == V4L2_MODE_VIDEO)
 		{
-			printk("[gs5604] entry video mode--------------------------------------!!!!!!!!!!\n");
-			#ifdef _FLASH_FUNC_
-			if(info->flash_mode!=V4L2_FLASH_LED_MODE_NONE)
-				{
-					io_set_flash_ctrl(sd, SW_CTRL_FLASH_OFF, info->fl_dev_info);
-				}
-			#endif
+
 		}
 	else if(info->capture_mode == V4L2_MODE_IMAGE)
 		{
-			printk("[gs5604]entry capture mode-------------------------------------!!!!!!!!!!\n");//add 8.18
 			sensor_s_pause_af(sd);
 
 			ret = sensor_s_autoexp(sd,V4L2_EXPOSURE_MANUAL);
@@ -3473,26 +3433,8 @@ static int sensor_s_fmt(struct v4l2_subdev *sd,
 				vfe_dev_err("sensor_s_autogain off err when capturing image!\n");
 
 			if (wsize->width > SVGA_WIDTH) {
-				#ifdef _FLASH_FUNC_
-				check_to_flash(sd);
-				#endif
-				}
 
-			#ifdef _FLASH_FUNC_
-			if(info->flash_mode!=V4L2_FLASH_LED_MODE_NONE)
-				{
-					if(to_flash==1)
-						{
-							vfe_dev_cap_dbg("open flash when capture\n");
-							io_set_flash_ctrl(sd, SW_CTRL_FLASH_ON, info->fl_dev_info);
-							sensor_get_lum(sd);
-							sensor_get_preview_exposure(sd);
-							sensor_get_fps(sd);
-							msleep(50);
-						}
 				}
-			#endif
-
 		}
 
 /**************** start set resolution ******************/

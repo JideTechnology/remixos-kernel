@@ -126,10 +126,12 @@ struct vfe_power {
 	struct regulator   *avdd;     /* analog voltage source of sensor module */
 	struct regulator   *dvdd;     /* core voltage source of sensor module */
 	struct regulator   *afvdd;    /* vcm sink voltage source of sensor module */
-	unsigned int			 iovdd_vol; /* voltage of sensor module for interface */
-	unsigned int			 avdd_vol;  /* voltage of sensor module for analog */
-	unsigned int			 dvdd_vol;	/* voltage of sensor module for core */
-	unsigned int			 afvdd_vol; /* voltage of sensor module for vcm sink */
+	struct regulator   *flvdd;    /* flash led voltage source of sensor module */
+	unsigned int		iovdd_vol; /* voltage of sensor module for interface */
+	unsigned int		avdd_vol; /* voltage of sensor module for analog */
+	unsigned int		dvdd_vol; /* voltage of sensor module for core */
+	unsigned int		afvdd_vol; /* voltage of sensor module for vcm sink */	
+	unsigned int		flvdd_vol; /* voltage of sensor module for flash led */
 };
 struct camera_instance {
 	char name[I2C_NAME_SIZE];
@@ -174,7 +176,7 @@ struct ccm_config {
 	unsigned int            is_bayer_raw;
 	struct vfe_gpio_cfg     gpio[MAX_GPIO_NUM];
 	struct vfe_power        power;
-	struct vfe_clk_freq	  clk_freq;
+	struct vfe_clk_freq	    clk_freq;
 	int                     act_used;
 	char                    act_name[I2C_NAME_SIZE];
 	unsigned int            act_slave;
@@ -182,6 +184,7 @@ struct ccm_config {
 	struct v4l2_subdev      *sd_act;
 	int                     flash_used;
 	__flash_driver_ic_type  flash_type;
+	char                    flvdd_str[32];
 };
 
 struct sunxi_vip_platform_data {
@@ -197,6 +200,7 @@ struct vfe_dev {
 	struct v4l2_subdev 		*isp_sd;
 	struct v4l2_subdev 		*csi_sd;
 	struct v4l2_subdev 		*mipi_sd;
+	struct v4l2_subdev 		*flash_sd;
 	int                     flash_used;
 	__flash_driver_ic_type 	flash_type;
 	int                     vip_define_sensor_list;

@@ -17,6 +17,7 @@ vfe_io-y					+= device/sensor_helper.o
 obj-$(CONFIG_CSI_VFE) += vfe_v4l2.o
 vfe_v4l2-y					:= csi/sunxi_csi.o
 vfe_v4l2-y					+= mipi_csi/sunxi_mipi.o
+vfe_v4l2-y					+= flash_light/flash.o
 vfe_v4l2-y					+= sunxi_isp.o
 vfe_v4l2-y					+= csi/csi_reg.o
 vfe_v4l2-y					+= csi/bsp_csi.o 

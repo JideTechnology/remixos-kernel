@@ -2479,6 +2479,38 @@ static int sensor_g_exif(struct v4l2_subdev *sd, struct sensor_exif_attribute *e
 	return ret;
 }
 
+static void sensor_get_lum(struct v4l2_subdev *sd, unsigned int *lum)
+{
+	data_type temp = 0;
+	
+	sensor_read(sd, 0x03, &temp);
+	*lum = temp << 8;	
+	sensor_read(sd, 0x04, &temp);
+	*lum |= temp;
+
+//	sensor_write(sd, 0xfe, 0x01);
+//	sensor_read(sd, 0x14, &temp);
+//	*lum = temp;
+	vfe_dev_dbg("check luminance=0x%x\n", *lum);
+}
+
+static void sensor_g_flash_flag(struct v4l2_subdev *sd, unsigned int *flash_flag)
+{
+	unsigned int current_lum = 0; 
+	
+	sensor_get_lum(sd, &current_lum);
+	
+	if(current_lum > 0x13c)
+		*flash_flag = 1;
+	else
+		*flash_flag = 0;
+	
+//	if(current_lum < 0x1c)
+//		*flash_flag = 1;
+//	else
+//		*flash_flag = 0;
+}
+
 static long sensor_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
 	int ret=0;
@@ -2487,6 +2519,8 @@ static long sensor_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		case GET_SENSOR_EXIF:
 			sensor_g_exif(sd, (struct sensor_exif_attribute *)arg);
 			break;
+		case GET_FLASH_FLAG:
+			sensor_g_flash_flag(sd,(unsigned int *)arg);
 		default:
 			return -EINVAL;
 	}
@@ -2889,7 +2923,6 @@ static int sensor_queryctrl(struct v4l2_subdev *sd,
 	}
 	return -EINVAL;
 }
-
 
 static int sensor_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 {

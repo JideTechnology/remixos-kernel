@@ -13,6 +13,7 @@ enum pmic_channel {
   DVDD,
   AVDD,
   AFVDD,
+  FLVDD,
 };
 
 enum gpio_type {

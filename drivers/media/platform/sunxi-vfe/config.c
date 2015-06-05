@@ -334,6 +334,7 @@ struct ccm_config ccm0_def_cfg[] = {
 			[FLASH_MODE] =  {GPIO_INDEX_INVALID, 	 0, 0, 0, 0,},
 			[AF_PWDN] =  {GPIO_INDEX_INVALID, 	 0, 0, 0, 0,},
 		},
+		.flash_used = 0,
 		.flash_type = 0,	
 		.act_used = 0,
 		.act_name = "ad5820_act",
@@ -411,8 +412,12 @@ static int get_afvdd_vol(struct device_node *np, const char *name, struct ccm_co
 static int get_power_en(struct device_node *np, const char *name, struct ccm_config *cc){return get_gpio_info(np,name,&cc->gpio[POWER_EN]);}
 static int get_reset(struct device_node *np, const char *name, struct ccm_config *cc){return get_gpio_info(np,name,&cc->gpio[RESET]);}
 static int get_pwdn(struct device_node *np, const char *name, struct ccm_config *cc){return get_gpio_info(np,name,&cc->gpio[PWDN]);}
+static int get_flash_used(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_int(np,name,&cc->flash_used);}
+static int get_flash_type(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_int(np,name,&cc->flash_type);}
 static int get_flash_en(struct device_node *np, const char *name, struct ccm_config *cc){return get_gpio_info(np,name,&cc->gpio[FLASH_EN]);}
 static int get_flash_mode(struct device_node *np, const char *name, struct ccm_config *cc){return get_gpio_info(np,name,&cc->gpio[FLASH_MODE]);}
+static int get_flvdd(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_string(np,name,cc->flvdd_str);}
+static int get_flvdd_vol(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_int(np,name,&cc->power.flvdd_vol);}
 static int get_af_pwdn(struct device_node *np, const char *name, struct ccm_config *cc){return get_gpio_info(np,name,&cc->gpio[AF_PWDN]);}
 static int get_act_used(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_int(np,name,&cc->act_used);}
 static int get_act_name(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_string(np,name,cc->act_name);}
@@ -446,8 +451,12 @@ static struct FetchFunArr fetch_fun[] =
 	{"power_en"		, 1			,get_power_en,		},
 	{"reset"		, 1			,get_reset,			},
 	{"pwdn"			, 1			,get_pwdn,			},
+	{"flash_used"	, 1			,get_flash_used,	},
+	{"flash_type"	, 1			,get_flash_type,	},
 	{"flash_en"		, 1			,get_flash_en,		},
 	{"flash_mode"	, 1			,get_flash_mode,	},
+	{"flvdd"		, 1			,get_flvdd,			},
+	{"flvdd_vol"	, 1			,get_flvdd_vol,		},
 	{"af_pwdn"		, 1			,get_af_pwdn,		},
 	{"act_used"		, 1			,get_act_used,		},
 	{"act_name"		, 0			,get_act_name,		},
@@ -490,6 +499,11 @@ int fetch_config(struct vfe_dev *dev)
 		dev->ccm_cfg[i]->power.dvdd_vol = ccm_def_cfg[i].power.dvdd_vol;
 		strcpy(dev->ccm_cfg[i]->afvdd_str, ccm_def_cfg[i].afvdd_str);
 		dev->ccm_cfg[i]->power.afvdd_vol = ccm_def_cfg[i].power.afvdd_vol;
+		strcpy(dev->ccm_cfg[i]->flvdd_str, ccm_def_cfg[i].flvdd_str);
+		dev->ccm_cfg[i]->power.flvdd_vol = ccm_def_cfg[i].power.flvdd_vol;
+		
+		dev->ccm_cfg[i]->flash_used = ccm_def_cfg[i].flash_used;
+		dev->ccm_cfg[i]->flash_type = ccm_def_cfg[i].flash_type;
 
 		dev->ccm_cfg[i]->act_used = ccm_def_cfg[i].act_used;
 		if(dev->ccm_cfg[i]->act_slave == 0xff) //when insmod without parm
@@ -564,6 +578,8 @@ int fetch_config(struct vfe_dev *dev)
 		vfe_dbg(0,"dev->ccm_cfg[%d]->avdd_str = %s\n",i,dev->ccm_cfg[i]->avdd_str);
 		vfe_dbg(0,"dev->ccm_cfg[%d]->dvdd_str = %s\n",i,dev->ccm_cfg[i]->dvdd_str);
 		vfe_dbg(0,"dev->ccm_cfg[%d]->afvdd_str = %s\n",i,dev->ccm_cfg[i]->afvdd_str);
+		vfe_dbg(0,"dev->ccm_cfg[%d]->flvdd_str = %s\n",i,dev->ccm_cfg[i]->flvdd_str);		
+		vfe_dbg(0,"dev->ccm_cfg[%d]->flash_used = %d\n",i,dev->ccm_cfg[i]->flash_used);
 		vfe_dbg(0,"dev->ccm_cfg[%d]->act_used = %d\n",i,dev->ccm_cfg[i]->act_used);
 		vfe_dbg(0,"dev->ccm_cfg[%d]->act_name = %s\n",i,dev->ccm_cfg[i]->act_name);
 		vfe_dbg(0,"dev->ccm_cfg[%d]->act_slave = 0x%x\n",i,dev->ccm_cfg[i]->act_slave);

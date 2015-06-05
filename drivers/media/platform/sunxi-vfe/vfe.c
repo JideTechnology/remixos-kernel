@@ -1104,7 +1104,7 @@ static int isp_s_ctrl_torch_open(struct vfe_dev *dev)
 			dev->isp_gen_set_pt->exp_settings.flash_mode == FLASH_MODE_ON))
 	{
 		vfe_dbg(0,"open flash when nigth mode\n");
-		io_set_flash_ctrl(dev->sd, SW_CTRL_TORCH_ON, dev->fl_dev_info);         
+		io_set_flash_ctrl(dev->flash_sd, SW_CTRL_TORCH_ON);    
 		touch_flash_flag = 1;
 	}
 	return 0;
@@ -1118,7 +1118,7 @@ static int isp_s_ctrl_torch_close(struct vfe_dev *dev)
 	if(touch_flash_flag == 1)
 	{
 		vfe_dbg(0,"close flash when nigth mode\n");
-		io_set_flash_ctrl(dev->sd, SW_CTRL_FLASH_OFF, dev->fl_dev_info);
+		io_set_flash_ctrl(dev->flash_sd, SW_CTRL_FLASH_OFF);    
 		touch_flash_flag = 0;
 	}
 	return 0;
@@ -1132,7 +1132,7 @@ static int isp_streamoff_torch_and_flash_close(struct vfe_dev *dev)
 	if(touch_flash_flag == 1 || dev->isp_gen_set_pt->exp_settings.flash_open == 1)
 	{
 		vfe_dbg(0,"close flash when nigth mode\n");
-		io_set_flash_ctrl(dev->sd, SW_CTRL_FLASH_OFF, dev->fl_dev_info);
+		io_set_flash_ctrl(dev->flash_sd, SW_CTRL_FLASH_OFF);    
 		touch_flash_flag = 0;
 	}
 	return 0;
@@ -1150,7 +1150,7 @@ static int isp_set_capture_flash(struct vfe_dev *dev)
 				dev->isp_gen_set_pt->exp_settings.flash_mode == FLASH_MODE_ON)
 		{
 			vfe_dbg(0,"open torch when nigth mode\n");
-			io_set_flash_ctrl(dev->sd, SW_CTRL_TORCH_ON, dev->fl_dev_info);
+			io_set_flash_ctrl(dev->sd, SW_CTRL_TORCH_ON);
 			dev->isp_gen_set_pt->exp_settings.flash_open = 1;
 		}
 	}
@@ -1184,17 +1184,17 @@ static int isp_set_capture_flash(struct vfe_dev *dev)
 						dev->isp_gen_set_pt->exp_settings.tbl_max_ind);
 			}
 			config_sensor_next_exposure(dev->isp_gen_set_pt,dev->isp_3a_result_pt);
-			io_set_flash_ctrl(dev->sd, SW_CTRL_FLASH_OFF, dev->fl_dev_info);
+			io_set_flash_ctrl(dev->sd, SW_CTRL_FLASH_OFF);
 	}
 	if(dev->isp_gen_set_pt->exp_settings.flash_open == 1 && dev->isp_gen_set_pt->take_pic_start_cnt == 
 					dev->isp_gen_set_pt->isp_ini_cfg.isp_tunning_settings.flash_delay_frame + 1)
 	{
-		io_set_flash_ctrl(dev->sd, SW_CTRL_FLASH_ON, dev->fl_dev_info);
+		io_set_flash_ctrl(dev->sd, SW_CTRL_FLASH_ON);
 	}
 	if(dev->isp_gen_set_pt->take_pic_start_cnt == 7 + dev->isp_gen_set_pt->isp_ini_cfg.isp_tunning_settings.flash_delay_frame)
 	{
 		vfe_dbg(0,"close flash when nigth mode\n");
-		io_set_flash_ctrl(dev->sd, SW_CTRL_FLASH_OFF, dev->fl_dev_info);
+		io_set_flash_ctrl(dev->sd, SW_CTRL_FLASH_OFF);
 		dev->isp_gen_set_pt->exp_settings.tbl_cnt = CLIP(dev->isp_gen_set_pt->exp_settings.expect_tbl_cnt,
 			1,dev->isp_gen_set_pt->exp_settings.tbl_max_ind);
 		dev->isp_gen_set_pt->exp_settings.exposure_lock = ISP_FALSE;
@@ -1207,7 +1207,7 @@ static int isp_set_capture_flash(struct vfe_dev *dev)
 			dev->isp_3a_result_pt->af_status == AUTO_FOCUS_STATUS_FINDED))
 	{
 		vfe_dbg(0,"close flash when touch nigth mode \n");            
-		io_set_flash_ctrl(dev->sd, SW_CTRL_FLASH_OFF, dev->fl_dev_info);            
+		io_set_flash_ctrl(dev->sd, SW_CTRL_FLASH_OFF);
 		touch_flash_flag = 0;
 	}
 	return 0;
@@ -1218,9 +1218,7 @@ static void isp_isr_set_sensor_handle(struct work_struct *work)
 	if(dev->is_bayer_raw)
 	{
 		mutex_lock(&dev->isp_3a_result_mutex);
-#ifdef _FLASH_FUNC_
 		isp_set_capture_flash(dev);
-#endif
 		if(dev->isp_gen_set_pt->isp_ini_cfg.isp_3a_settings.adaptive_frame_rate == 1 ||
 				dev->isp_gen_set_pt->isp_ini_cfg.isp_3a_settings.force_frame_rate == 1||
 				dev->isp_gen_set_pt->isp_ini_cfg.isp_3a_settings.high_quality_mode_en == 1)
@@ -1886,6 +1884,12 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	ccm_fmt.height = f->fmt.pix.height;
 	ccm_fmt.field = f->fmt.pix.field;
 
+	if (dev->capture_mode == V4L2_MODE_IMAGE) {
+		sunxi_flash_check_to_start(dev->flash_sd,SW_CTRL_FLASH_ON);
+	} else {
+		sunxi_flash_stop(dev->flash_sd);
+	}
+
 	ret = v4l2_subdev_call(dev->sd,video,s_mbus_fmt,&ccm_fmt);
 	if (ret < 0) {
 		vfe_err("v4l2 sub device sensor s_mbus_fmt error!\n");
@@ -2145,9 +2149,7 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 		ret = 0;
 		goto streamoff_unlock;
 	}
-#ifdef _FLASH_FUNC_
 	isp_streamoff_torch_and_flash_close(dev);
-#endif
 	vfe_stop_generating(dev);
 	/* Resets frame counters */
 	dev->ms = 0;
@@ -2280,28 +2282,8 @@ static int internal_s_input(struct vfe_dev *dev, unsigned int i)
 		isp_param_init(dev->isp_gen_set_pt);
 	}  
 
-#ifdef _FLASH_FUNC_
-	if(dev->flash_used==1)
-	{
-		dev->fl_dev_info=&fl_info;
-		dev->fl_dev_info->dev_if=0;
-		dev->fl_dev_info->en_pol=FLASH_EN_POL;
-		dev->fl_dev_info->fl_mode_pol=FLASH_MODE_POL;
-		dev->fl_dev_info->light_src=0x01;
-		dev->fl_dev_info->flash_intensity=400;
-		dev->fl_dev_info->flash_level=0x01;
-		dev->fl_dev_info->torch_intensity=200;
-		dev->fl_dev_info->torch_level=0x01;
-		dev->fl_dev_info->timeout_counter=300*1000;
-		
-		dev->fl_dev_info->flash_driver_ic = dev->flash_type;
-		
-		vfe_print("init flash mode[V4L2_FLASH_LED_MODE_NONE]\n");
-		config_flash_mode(dev->sd, V4L2_FLASH_LED_MODE_FLASH,
-		dev->fl_dev_info);
-		io_set_flash_ctrl(dev->sd, SW_CTRL_FLASH_OFF, dev->fl_dev_info);
-	}
-#endif
+	sunxi_flash_info_init(dev->flash_sd);
+
 	/* Initial target device */
 	ret = vfe_set_sensor_power_on(dev);
 #ifdef USE_SPECIFIC_CCI
@@ -3156,17 +3138,25 @@ static int vfe_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 		vfe_dbg(0,"vfe_g_volatile_ctrl: %s, last value: 0x%x\n",ctrl->name,ctrl->val);		
 		return 0;
 	} else {  
-		if(V4L2_CID_SENSOR_TYPE == ctrl->id)
-		{
-			ctrl->val = dev->is_bayer_raw;
-		}
-		else
-		{
+		switch (ctrl->id) {
+		case V4L2_CID_SENSOR_TYPE: 
+			c.value = dev->is_bayer_raw;
+			break;
+		case V4L2_CID_FLASH_LED_MODE:
+			ret = v4l2_subdev_call(dev->flash_sd,core,g_ctrl,&c);
+			break;
+		case V4L2_CID_AUTO_FOCUS_STATUS:
 			ret = v4l2_subdev_call(dev->sd,core,g_ctrl,&c);
-			if (ret < 0)
-				vfe_warn("v4l2 sub device g_ctrl error!\n");
-			ctrl->val = c.value;
+			if(c.value != V4L2_AUTO_FOCUS_STATUS_BUSY)
+				sunxi_flash_stop(dev->flash_sd);
+			break;
+		default:
+			ret = v4l2_subdev_call(dev->sd,core,g_ctrl,&c);
+			break;			
 		}
+		ctrl->val = c.value;
+		if (ret < 0)
+			vfe_warn("v4l2 sub device g_ctrl fail!\n");
 	}
 	return ret;
 }
@@ -3174,7 +3164,7 @@ static int vfe_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 static int vfe_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct vfe_dev *dev = container_of(ctrl->handler, struct vfe_dev, ctrl_handler);
-	int ret;
+	int ret = 0;
 	struct actuator_ctrl_word_t vcm_ctrl;
 	struct v4l2_control c;
 	c.id = ctrl->id;
@@ -3316,17 +3306,13 @@ static int vfe_s_ctrl(struct v4l2_ctrl *ctrl)
 		case V4L2_CID_AUTO_FOCUS_START:
 			dev->isp_3a_result_pt->af_status = AUTO_FOCUS_STATUS_REFOCUS;
 			bsp_isp_s_auto_focus_start(dev->isp_gen_set_pt, ctrl->val);
-#ifdef _FLASH_FUNC_
 			isp_s_ctrl_torch_open(dev);
-#endif
 			break;
 		case V4L2_CID_AUTO_FOCUS_STOP:
 			//if(dev->ctrl_para.auto_focus == 0)
 			vfe_dbg(0,"V4L2_CID_AUTO_FOCUS_STOP\n");
 			bsp_isp_s_auto_focus_stop(dev->isp_gen_set_pt, ctrl->val);
-#ifdef _FLASH_FUNC_
 			isp_s_ctrl_torch_close(dev);
-#endif
 			break;
 		case V4L2_CID_AUTO_FOCUS_RANGE:
 			bsp_isp_s_auto_focus_range(dev->isp_gen_set_pt, vfe_v4l2_isp(VFE_AF_RANGE,ctrl->val, V4L2_TO_ISP));
@@ -3335,11 +3321,11 @@ static int vfe_s_ctrl(struct v4l2_ctrl *ctrl)
 			bsp_isp_s_flash_mode(dev->isp_gen_set_pt, vfe_v4l2_isp(VFE_FLASH_MODE,ctrl->val, V4L2_TO_ISP));
 			if(ctrl->val == V4L2_FLASH_LED_MODE_TORCH)
 			{
-				io_set_flash_ctrl(dev->sd, SW_CTRL_TORCH_ON, dev->fl_dev_info);
+				io_set_flash_ctrl(dev->flash_sd, SW_CTRL_TORCH_ON);
 			}
 			else if(ctrl->val == V4L2_FLASH_LED_MODE_NONE)
 			{
-				io_set_flash_ctrl(dev->sd, SW_CTRL_FLASH_OFF, dev->fl_dev_info);
+				io_set_flash_ctrl(dev->flash_sd, SW_CTRL_FLASH_OFF);
 			}
 			break;
 		case V4L2_CID_AUTO_FOCUS_INIT:
@@ -3367,15 +3353,27 @@ static int vfe_s_ctrl(struct v4l2_ctrl *ctrl)
 		}
 		return 0;
 	} else {
-		if(ctrl->id == V4L2_CID_FOCUS_ABSOLUTE)
-		{
-			//TO DO !
+		switch (ctrl->id) {
+		case V4L2_CID_FOCUS_ABSOLUTE: 
 			vcm_ctrl.code = ctrl->val;	
 			vcm_ctrl.sr = 0x0;  
-			//printk("ACT_SET_CODE start code = %d!\n",vcm_ctrl.code);	
-			v4l2_subdev_call(dev->sd_act,core,ioctl,ACT_SET_CODE,&vcm_ctrl);	
+			ret = v4l2_subdev_call(dev->sd_act,core,ioctl,ACT_SET_CODE,&vcm_ctrl);
+			break;
+		case V4L2_CID_FLASH_LED_MODE:
+			ret = v4l2_subdev_call(dev->flash_sd, core, s_ctrl, &c);
+			break;			
+		case V4L2_CID_AUTO_FOCUS_START:
+			sunxi_flash_check_to_start(dev->flash_sd, SW_CTRL_TORCH_ON);			
+			ret = v4l2_subdev_call(dev->sd, core, s_ctrl, &c);
+			break;
+		case V4L2_CID_AUTO_FOCUS_STOP:
+			sunxi_flash_stop(dev->flash_sd);			
+			ret = v4l2_subdev_call(dev->sd, core, s_ctrl, &c);
+			break;
+		default:
+			ret = v4l2_subdev_call(dev->sd, core, s_ctrl, &c);
+			break;			
 		}
-		ret = v4l2_subdev_call(dev->sd,core,s_ctrl,&c);
 		if (ret < 0)
 			vfe_warn("v4l2 sub device s_ctrl fail!\n");
 	}
@@ -3791,6 +3789,7 @@ static int vfe_device_regulator_get(struct ccm_config  *ccm_cfg)
 	ccm_cfg->power.avdd = NULL;
 	ccm_cfg->power.dvdd = NULL;
 	ccm_cfg->power.afvdd = NULL;
+	ccm_cfg->power.flvdd = NULL;
 	  
 	if(strcmp(ccm_cfg->iovdd_str,"")) {
 		ccm_cfg->power.iovdd = regulator_get(NULL, ccm_cfg->iovdd_str);
@@ -3820,6 +3819,13 @@ static int vfe_device_regulator_get(struct ccm_config  *ccm_cfg)
 			goto regulator_get_err;
 		}
 	}
+	if(strcmp(ccm_cfg->flvdd_str,"")) {
+		ccm_cfg->power.flvdd = regulator_get(NULL, ccm_cfg->flvdd_str);
+		if (IS_ERR_OR_NULL(ccm_cfg->power.flvdd)) {
+			vfe_err("get regulator csi_flvdd error!\n");
+			goto regulator_get_err;
+		}
+	}
 	return 0;
 regulator_get_err:
 	return -1;
@@ -3839,6 +3845,8 @@ static int vfe_device_regulator_put(struct ccm_config  *ccm_cfg)
 		regulator_put(ccm_cfg->power.dvdd);
 	if(!IS_ERR_OR_NULL(ccm_cfg->power.afvdd))
 		regulator_put(ccm_cfg->power.afvdd);
+	if(!IS_ERR_OR_NULL(ccm_cfg->power.flvdd))
+		regulator_put(ccm_cfg->power.flvdd);
 	return 0;
 }
 static int vfe_sensor_check(struct vfe_dev *dev)
@@ -4356,6 +4364,9 @@ static void probe_work_handle(struct work_struct *work)
 	/*Register MIPI subdev*/	
 	sunxi_mipi_get_subdev(&dev->mipi_sd, dev->id);
 	sunxi_mipi_register_subdev(&dev->v4l2_dev, dev->mipi_sd);
+	/*Register flash subdev*/	
+	sunxi_flash_get_subdev(&dev->flash_sd, dev->id);
+	sunxi_flash_register_subdev(&dev->v4l2_dev, dev->flash_sd);
 	/*Register Sensor subdev*/
 	dev->is_same_module = 0;
 #ifdef CONFIG_PM_RUNTIME
@@ -4623,9 +4634,8 @@ static int vfe_release(void)
 
 static int vfe_remove(struct platform_device *pdev)
 {
-	struct vfe_dev *dev;
+	struct vfe_dev *dev = (struct vfe_dev *)dev_get_drvdata(&pdev->dev);
 	int input_num;
-	dev=(struct vfe_dev *)dev_get_drvdata(&(pdev)->dev);
 	/*Unegister ISP subdev*/
 	sunxi_isp_unregister_subdev(dev->isp_sd);
 	sunxi_isp_put_subdev(&dev->isp_sd, dev->id);
@@ -4635,6 +4645,9 @@ static int vfe_remove(struct platform_device *pdev)
 	/*Unegister MIPI subdev*/	
 	sunxi_mipi_unregister_subdev(dev->mipi_sd);
 	sunxi_mipi_put_subdev(&dev->mipi_sd, dev->id);	
+	/*Unegister flash subdev*/	
+	sunxi_flash_unregister_subdev(dev->flash_sd);
+	sunxi_flash_put_subdev(&dev->flash_sd, dev->id);
 	mutex_destroy(&dev->stream_lock);
 	mutex_destroy(&dev->opened_lock);
 	mutex_destroy(&dev->buf_lock);
@@ -4797,6 +4810,7 @@ static int __init vfe_init(void)
 	sunxi_csi_platform_register();
 	sunxi_isp_platform_register();
 	sunxi_mipi_platform_register();
+	sunxi_flash_platform_register();
 	ret = platform_driver_register(&vfe_driver);
 	if (ret) {
 		vfe_err("platform driver register failed\n");
@@ -4816,6 +4830,7 @@ static void __exit vfe_exit(void)
 	sunxi_csi_platform_unregister();
 	sunxi_isp_platform_unregister();
 	sunxi_mipi_platform_unregister();
+	sunxi_flash_platform_unregister();
 	vfe_print("vfe_exit end\n");
 }
 

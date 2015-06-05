@@ -50,6 +50,13 @@ int vfe_set_pmu_channel(struct v4l2_subdev *sd, enum pmic_channel pmic_ch, enum 
 				vfe_dbg(0,"set regulator afvdd = %d,return %x\n",dev->power->afvdd_vol,ret);
 			}
 			break;
+		case FLVDD:
+			pmic = dev->power->flvdd;			
+			if(pmic) {
+				ret = regulator_set_voltage(pmic,dev->power->flvdd_vol,3300000);
+				vfe_dbg(0,"set regulator flvdd = %d,return %x\n",dev->power->flvdd_vol,ret);
+			}
+			break;
 		default:
 			pmic = NULL;
 	}
@@ -215,119 +222,6 @@ void vfe_get_standby_mode(struct v4l2_subdev *sd, enum standby_mode *stby_mode)
 	*stby_mode = dev->power->stby_mode;
 }
 EXPORT_SYMBOL_GPL(vfe_get_standby_mode);
-
-int io_set_flash_ctrl(struct v4l2_subdev *sd, enum sunxi_flash_ctrl ctrl,
-                      struct flash_dev_info *fls_info)
-{
-	int ret=0;
-	unsigned int flash_en, flash_dis, flash_mode, torch_mode;
-	//fl_prn("io_set_flash_ctrl!\n");
-  
-	if(NULL == fls_info || NULL == sd)
-	{
-		fl_err("error flash config!\n");
-		return -1;
-	}
-	flash_en=(fls_info->en_pol!=0)?1:0;       
-	flash_dis=!flash_en;                      
-	flash_mode=(fls_info->fl_mode_pol!=0)?1:0;
-	torch_mode=!flash_mode;                   
-  
-	//fl_dbg("flash_en=%d\n",flash_en);
-	//fl_dbg("flash_mode=%d\n",flash_mode);
-  
-	if(FLASH_RELATING == fls_info->flash_driver_ic)
-	{
-		switch(ctrl) {
-			case SW_CTRL_FLASH_OFF:
-				fl_dbg("FLASH_RELATING SW_CTRL_FLASH_OFF\n");
-				vfe_gpio_set_status(sd,FLASH_EN,1);//set the gpio to output
-				vfe_gpio_set_status(sd,FLASH_MODE,1);//set the gpio to output
-				ret|=vfe_gpio_write(sd, FLASH_EN, flash_dis);
-				ret|=vfe_gpio_write(sd, FLASH_MODE, torch_mode);
-				//vfe_gpio_set_status(sd,FLASH_EN,0);//set the gpio to hi-z
-				//vfe_gpio_set_status(sd,FLASH_MODE,0);//set the gpio to hi-z
-				break;
-			case SW_CTRL_FLASH_ON:
-				fl_dbg("FLASH_RELATING SW_CTRL_FLASH_ON\n");
-				vfe_gpio_set_status(sd,FLASH_EN,1);//set the gpio to output
-				vfe_gpio_set_status(sd,FLASH_MODE,1);//set the gpio to output
-				ret|=vfe_gpio_write(sd, FLASH_MODE, flash_mode);
-				ret|=vfe_gpio_write(sd, FLASH_EN, flash_en);
-				break;
-			case SW_CTRL_TORCH_ON:
-				fl_dbg("FLASH_RELATING SW_CTRL_TORCH_ON\n");
-				vfe_gpio_set_status(sd,FLASH_EN,1);//set the gpio to output
-				vfe_gpio_set_status(sd,FLASH_MODE,1);//set the gpio to output
-				ret|=vfe_gpio_write(sd, FLASH_MODE, torch_mode);
-				ret|=vfe_gpio_write(sd, FLASH_EN, flash_en);
-				break;
-			default:
-				return -EINVAL;
-		}
-	}
-	else 
-	{
-		switch(ctrl) {
-			case SW_CTRL_FLASH_OFF:
-				fl_dbg("FLASH_EN_INDEPEND SW_CTRL_FLASH_OFF\n");
-				vfe_gpio_set_status(sd,FLASH_EN,1);//set the gpio to output
-				vfe_gpio_set_status(sd,FLASH_MODE,1);//set the gpio to output
-				ret|=vfe_gpio_write(sd, FLASH_EN, 0);
-				ret|=vfe_gpio_write(sd, FLASH_MODE, 0);
-				//vfe_gpio_set_status(sd,FLASH_EN,0);//set the gpio to hi-z
-				//vfe_gpio_set_status(sd,FLASH_MODE,0);//set the gpio to hi-z
-				break;
-			case SW_CTRL_FLASH_ON:
-				fl_dbg("FLASH_EN_INDEPEND SW_CTRL_FLASH_ON\n");
-				vfe_gpio_set_status(sd,FLASH_EN,1);//set the gpio to output
-				vfe_gpio_set_status(sd,FLASH_MODE,1);//set the gpio to output
-
-				ret|=vfe_gpio_write(sd, FLASH_MODE, 1);
-				ret|=vfe_gpio_write(sd, FLASH_EN, 0);
-				break;
-			case SW_CTRL_TORCH_ON:
-				fl_dbg("FLASH_EN_INDEPEND SW_CTRL_TORCH_ON\n");
-				vfe_gpio_set_status(sd,FLASH_EN,1);//set the gpio to output
-				vfe_gpio_set_status(sd,FLASH_MODE,1);//set the gpio to output
-
-				ret|=vfe_gpio_write(sd, FLASH_MODE, 0);
-				ret|=vfe_gpio_write(sd, FLASH_EN, 1);
-				break;
-			default:
-				return -EINVAL;
-				
-		}
-	}
-	if(ret!=0)
-	{
-		fl_dbg("flash set ctrl fail, force shut off\n");
-		ret|=vfe_gpio_write(sd, FLASH_EN, flash_dis);
-		ret|=vfe_gpio_write(sd, FLASH_MODE, torch_mode);
-	}
-	return ret;
-}
-EXPORT_SYMBOL_GPL(io_set_flash_ctrl);
-
-
-int config_flash_mode(struct v4l2_subdev *sd, enum v4l2_flash_led_mode mode,
-                      struct flash_dev_info *fls_info)
-{
-	if(fls_info==NULL)
-	{
-		fl_err("camera flash not support!\n");
-		return -1;
-	}
-	if((fls_info->light_src!=0x01)&&(fls_info->light_src!=0x02)&&
-			(fls_info->light_src!=0x10))
-	{
-		fl_err("unsupported light source, force LEDx1\n");
-		fls_info->light_src=0x01;
-	}
-	fls_info->flash_mode = (enum sunxi_flash_mode)mode;
-	return 0;
-}
-EXPORT_SYMBOL_GPL(config_flash_mode);
 
 MODULE_AUTHOR("raymonxiu");
 MODULE_LICENSE("Dual BSD/GPL");

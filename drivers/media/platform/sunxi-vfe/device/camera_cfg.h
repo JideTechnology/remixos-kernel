@@ -13,6 +13,7 @@ typedef enum tag_CAMERA_IO_CMD {
 	GET_SENSOR_EXIF,
 	SET_AUTO_FOCUS_WIN,
 	SET_AUTO_EXPOSURE_WIN,
+	GET_FLASH_FLAG,
 }__camera_cmd_t;
 
 struct sensor_exp_gain {
