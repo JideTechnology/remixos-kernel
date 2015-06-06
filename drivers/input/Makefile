@@ -29,4 +29,4 @@ obj-$(CONFIG_INPUT_APMPOWER)	+= apm-power.o
 obj-$(CONFIG_INPUT_KEYRESET)	+= keyreset.o
 obj-$(CONFIG_INPUT_KEYCOMBO)	+= keycombo.o
 obj-$(CONFIG_INPUT_SW_DEVICE)	+= sw-device.o
-obj-y				+= init-input.o
+obj-$(CONFIG_INPUT_TOUCHSCREEN)	+= init-input.o
