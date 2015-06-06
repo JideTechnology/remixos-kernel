@@ -349,6 +349,19 @@ config ARCH_VERSATILE
 	help
 	  This enables support for ARM Ltd Versatile board.
 
+config ARCH_SUNXI
+	bool "Allwinner Ltd. SUNXI family"
+	#select ARM_AMBA
+	select CLKSRC_MMIO
+	select GENERIC_CLOCKEVENTS
+	select HAVE_CLK
+	select NEED_MACH_MEMORY_H
+	select ARCH_HAVE_CUSTOM_GPIO_H
+	select ARCH_HAS_CPUFREQ
+	select ARCH_HAS_SG_CHAIN
+	help
+	  This enables support for systems based on sunxi soc.
+
 config ARCH_AT91
 	bool "Atmel AT91"
 	select ARCH_REQUIRE_GPIOLIB
