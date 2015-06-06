@@ -97,7 +97,7 @@ void __init sunxi_map_io(void)
 
 static void __init sunxi_timer_init(void)
 {
-	sunxi_init_clocks();
+//	sunxi_init_clocks();
 	clocksource_of_init();
 }
 
