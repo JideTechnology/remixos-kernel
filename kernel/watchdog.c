@@ -30,6 +30,7 @@
 #include <linux/kvm_para.h>
 #include <linux/perf_event.h>
 #include <linux/sched.h>
+#include "../drivers/soc/allwinner/pm/pm.h"
 
 int watchdog_enabled = 1;
 int __read_mostly watchdog_thresh = 10;
@@ -56,6 +57,8 @@ static DEFINE_PER_CPU(struct perf_event *, watchdog_ev);
 #endif
 
 static void __iomem *base = NULL;
+static void __iomem *gicd_base = NULL;
+static void __iomem *gicc_base = NULL;
 static u32 cpu_reset_status = 0;
 
 /* boot commands */
@@ -278,8 +281,10 @@ static void watchdog_check_hardlockup_other_cpu(void)
 		}
 		else{
 			WARN(1, "Watchdog detected hard LOCKUP on cpu %u", next_cpu);
-			show_state();
 			local_reset_cpu(next_cpu);
+			printk(KERN_INFO "gicd_base = 0x%p. \n", gicd_base);
+			printk(KERN_INFO "gicc_base = 0x%p. \n", gicc_base);
+			busy_waiting();
 		}
 
 		per_cpu(hard_watchdog_warn, next_cpu) = true;
@@ -419,10 +424,12 @@ static enum hrtimer_restart watchdog_timer_fn(struct hrtimer *hrtimer)
 			current->comm, task_pid_nr(current));
 		print_modules();
 		print_irqtrace_events(current);
-		if (regs)
+		if (regs){
 			show_regs(regs);
-		else
+			show_state();
+		}else{
 			dump_stack();
+		}
 
 		if (softlockup_panic)
 			panic("softlockup: hung tasks");
@@ -689,6 +696,9 @@ void __init lockup_detector_init(void)
 
 	base = ioremap(0x01700000, 0x1000);
 	printk(KERN_INFO "virtual base = 0x%p. \n", base);
-//	local_reset_cpu(0x0);
+	gicd_base = ioremap(0x01c81000, 0x1000);
+	gicc_base = ioremap(0x01c82000, 0x1000);
+	printk(KERN_INFO "gicd_base = 0x%p. \n", gicd_base);
+	printk(KERN_INFO "gicc_base = 0x%p. \n", gicc_base);
 
 }

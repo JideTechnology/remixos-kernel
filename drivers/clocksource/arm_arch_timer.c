@@ -243,6 +243,7 @@ static __always_inline void set_next_event(const int access, unsigned long evt,
 		retry++;
 	}
 	/* set tval fail, just let timer running */
+	printk("notice: set tval failed.\n");
 	arch_timer_reg_write(access, ARCH_TIMER_REG_CTRL, ctrl, clk);
 }
 #else

@@ -89,7 +89,7 @@ __u32 get_mem_status(void);
 void show_mem_status(void);
 __u32 save_sun5i_mem_status_nommu(volatile __u32 val);
 __u32 save_sun5i_mem_status(volatile __u32 val);
-
+void save_irq_status(volatile __u32 val);
 
 /*for secure debug, add by huangshr
  *data: 2014-10-20

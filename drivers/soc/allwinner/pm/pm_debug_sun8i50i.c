@@ -1,10 +1,11 @@
 #include "pm_i.h"
 
 #define CPUX_STATUS_CODE_INDEX (1)
-#define CPUS_STATUS_CODE_INDEX (2)
+#define CPUX_IRQ_STATUS_CODE_INDEX (2)
+#define CPUS_STATUS_CODE_INDEX (3)
 static u32 *base;
 static u32 len;
-
+static u32 mem_status_init_done = 0;
 void mem_status_init(char *name)
 {
     u32 gpr_offset;
@@ -25,8 +26,8 @@ void mem_status_init(char *name)
 	    }
 	}
     }
-
-    return  ;
+	mem_status_init_done = 1;
+	return  ;
 }
 
 void mem_status_init_nommu(void)
@@ -49,6 +50,16 @@ void mem_status_clear(void)
 void mem_status_exit(void)
 {
 	return ;
+}
+
+void save_irq_status(volatile __u32 val)
+{
+	if(likely(1 == mem_status_init_done)){
+		*(volatile __u32 *)((phys_addr_t)(base  + CPUX_IRQ_STATUS_CODE_INDEX)) = val;
+		//	asm volatile ("dsb");
+		//	asm volatile ("isb");
+	}
+	return;
 }
 
 void save_mem_status(volatile __u32 val)
@@ -77,18 +88,18 @@ void parse_cpus_status_code(__u32 code)
 
 void parse_status_code(__u32 code, __u32 index)
 {
-    switch(index){
-	case CPUX_STATUS_CODE_INDEX:
-	    parse_cpux_status_code(code);
-	    break;
-	case CPUS_STATUS_CODE_INDEX: 
-	    parse_cpus_status_code(code);
-	    break;
-	default:
-	    printk(KERN_INFO "notice: para err, index = %x.\n", index);
-    }
+	switch(index){
+		case CPUX_STATUS_CODE_INDEX:
+			parse_cpux_status_code(code);
+			break;
+		case CPUS_STATUS_CODE_INDEX: 
+			parse_cpus_status_code(code);
+			break;
+		default:
+			printk(KERN_INFO "notice: para err, index = %x.\n", index);
+	}
 
-    return ;
+	return ;
 }
 
 void show_mem_status(void)
