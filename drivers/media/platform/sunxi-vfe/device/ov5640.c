@@ -76,8 +76,6 @@ static int A80_VERSION = 0 ;
 
 #define SENSOR_NAME "ov5640"
 
-#define FLASH_EN_POL 1
-#define FLASH_MODE_POL 1
 #ifdef _FLASH_FUNC_
 #include "../flash_light/flash.h"
 static unsigned int to_flash=0;

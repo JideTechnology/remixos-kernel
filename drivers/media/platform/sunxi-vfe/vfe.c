@@ -66,13 +66,7 @@
 #define DUMP_CSI       (1 << 0)
 #define DUMP_ISP      (1 << 1)
 
-#define FLASH_EN_POL 1
-#define FLASH_MODE_POL 1 
-  
-#define _FLASH_FUNC_
 //#define _REGULATOR_CHANGE_
-
-static struct flash_dev_info fl_info;
 
 static char ccm[I2C_NAME_SIZE] = "";
 static uint i2c_addr = 0xff;
