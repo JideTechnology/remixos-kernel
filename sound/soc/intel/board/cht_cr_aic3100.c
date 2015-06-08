@@ -38,6 +38,7 @@
 #include <sound/soc.h>
 #include <sound/jack.h>
 #include "../../codecs/tlv320aic31xx.h"
+#include <linux/delay.h>
 
 #define CHT_PLAT_CLK_3_HZ	25000000
 
@@ -169,6 +170,7 @@ static int cht_hs_detection(void *data)
 {
 	int status, jack_type = 0;
 	int ret, val, instantaneous;
+	int max_retry_count = 5;
 	struct snd_soc_jack_gpio *gpio = &hs_gpio;
 	struct snd_soc_jack *jack = gpio->jack;
 	struct snd_soc_codec *codec = jack->codec;
@@ -177,6 +179,15 @@ static int cht_hs_detection(void *data)
 
 	/* Ack interrupt first */
 	val = snd_soc_read(codec, AIC31XX_INTRDACFLAG);
+	while (val == -1) {
+		mdelay(10);
+		max_retry_count--;
+		if (max_retry_count < 0) {
+			pr_err("%s: failed to read codec register", __func__);
+			return -1;
+		}
+		val = snd_soc_read(codec, AIC31XX_INTRDACFLAG);
+	}
 	instantaneous = snd_soc_read(codec, AIC31XX_INTRFLAG);
 
 	mutex_lock(&ctx->jack_mlock);
