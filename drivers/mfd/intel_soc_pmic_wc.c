@@ -423,6 +423,12 @@ static struct mfd_cell whiskey_cove_dev[] = {
 	},
 	{
 		.name = "wcove_regulator",
+		.id = WCOVE_ID_V1P2A + 1,
+		.num_resources = 0,
+		.resources = NULL,
+	},
+	{
+		.name = "wcove_regulator",
 		.id = WCOVE_ID_V1P8SX + 1,
 		.num_resources = 0,
 		.resources = NULL,
@@ -430,6 +436,12 @@ static struct mfd_cell whiskey_cove_dev[] = {
 	{
 		.name = "wcove_regulator",
 		.id = WCOVE_ID_V2P8SX + 1,
+		.num_resources = 0,
+		.resources = NULL,
+	},
+	{
+		.name = "wcove_regulator",
+		.id = WCOVE_ID_VPROG4B + 1,
 		.num_resources = 0,
 		.resources = NULL,
 	},
@@ -643,6 +655,10 @@ static void wc_set_thermal_pdata(void)
 				sizeof(whiskey_cove_thermal_data), 0);
 }
 
+static struct regulator_consumer_supply v1p2a_consumer[] = {
+	REGULATOR_SUPPLY("v1p2a", "INT3477:00"),
+};
+
 static struct regulator_consumer_supply v1p8sx_consumer[] = {
 	REGULATOR_SUPPLY("v1p8sx", "INT33BE:00"),
 	REGULATOR_SUPPLY("v1p8sx", "INT33FB:00"),
@@ -653,16 +669,34 @@ static struct regulator_consumer_supply v2p8sx_consumer[] = {
 	REGULATOR_SUPPLY("v2p8sx", "INT33FB:00"),
 };
 
+static struct regulator_consumer_supply vprog4b_consumer[] = {
+	REGULATOR_SUPPLY("v2p8sx", "INT3477:00"),
+};
+
+/* v1p2a regulator */
+static struct regulator_init_data v1p2a_data = {
+	.constraints = {
+		.min_uV = 1178000,
+		.max_uV = 1277000,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE |
+				REGULATOR_CHANGE_STATUS,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(v1p8sx_consumer),
+	.consumer_supplies	= v1p8sx_consumer,
+};
+
 /* v1p8sx regulator */
 static struct regulator_init_data v1p8sx_data = {
 	.constraints = {
 		.min_uV = 1620000,
 		.max_uV = 1980000,
-		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE |
+				REGULATOR_CHANGE_STATUS,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
 	},
-	.num_consumer_supplies	= ARRAY_SIZE(v1p8sx_consumer),
-	.consumer_supplies	= v1p8sx_consumer,
+	.num_consumer_supplies	= ARRAY_SIZE(v1p2a_consumer),
+	.consumer_supplies	= v1p2a_consumer,
 };
 
 /* v2p8sx regulator */
@@ -678,14 +712,32 @@ static struct regulator_init_data v2p8sx_data = {
 	.consumer_supplies	= v2p8sx_consumer,
 };
 
+/* vprog4b regulator */
+static struct regulator_init_data vprog4b_data = {
+	.constraints = {
+		.min_uV			= 800000,
+		.max_uV			= 3300000,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE |
+					REGULATOR_CHANGE_STATUS,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(vprog4b_consumer),
+	.consumer_supplies	= vprog4b_consumer,
+};
 
 /*************************************************************
 *
 * WCOVE Camera related regulator
 *
 *************************************************************/
+static struct regulator_init_data wcove_v1p2a_data;
 static struct regulator_init_data wcove_v1p8sx_data;
 static struct regulator_init_data wcove_v2p8sx_data;
+static struct regulator_init_data wcove_vprog4b_data;
+
+static struct wcove_regulator_info wcove_v1p2a_info = {
+	.init_data = &wcove_v1p2a_data,
+};
 
 static struct wcove_regulator_info wcove_v1p8sx_info = {
 	.init_data = &wcove_v1p8sx_data,
@@ -694,6 +746,20 @@ static struct wcove_regulator_info wcove_v1p8sx_info = {
 static struct wcove_regulator_info wcove_v2p8sx_info = {
 	.init_data = &wcove_v2p8sx_data,
 };
+
+static struct wcove_regulator_info wcove_vprog4b_info = {
+	.init_data = &wcove_vprog4b_data,
+};
+
+static void wc_set_v1p2_pdata(void)
+{
+	memcpy((void *)&wcove_v1p2a_data, (void *)&v1p2a_data,
+			sizeof(struct regulator_init_data));
+
+	intel_soc_pmic_set_pdata("wcove_regulator", &wcove_v1p2a_info,
+		sizeof(struct wcove_regulator_info), WCOVE_ID_V1P2A + 1);
+
+}
 
 static void wc_set_v1p8_pdata(void)
 {
@@ -714,6 +780,17 @@ static void wc_set_v2p8_pdata(void)
 	intel_soc_pmic_set_pdata("wcove_regulator", &wcove_v2p8sx_info,
 		sizeof(struct wcove_regulator_info), WCOVE_ID_V2P8SX + 1);
 }
+
+static void wc_set_vprog4b_pdata(void)
+{
+	memcpy((void *)&wcove_vprog4b_data, (void *)&vprog4b_data,
+			sizeof(struct regulator_init_data));
+
+	/* register camera regulator for whiskey cove PMIC */
+	intel_soc_pmic_set_pdata("wcove_regulator", &wcove_vprog4b_info,
+		sizeof(struct wcove_regulator_info), WCOVE_ID_VPROG4B + 1);
+}
+
 
 static void wc_set_gpio_pdata(void)
 {
@@ -846,8 +923,10 @@ static int whiskey_cove_init(void)
 	wcove_set_bcu_pdata();
 	wc_set_adc_pdata();
 	wc_set_gpio_pdata();
+	wc_set_v1p2_pdata();
 	wc_set_v1p8_pdata();
 	wc_set_v2p8_pdata();
+	wc_set_vprog4b_pdata();
 	wc_set_thermal_pdata();
 	wcove_init_done = true;
 
