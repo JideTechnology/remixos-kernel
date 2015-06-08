@@ -721,6 +721,7 @@ void rtl8723b_init_dm_priv(IN PADAPTER Adapter)
 	struct dm_priv	*pdmpriv = &pHalData->dmpriv;
 	PDM_ODM_T 		podmpriv = &pHalData->odmpriv;
 	_rtw_memset(pdmpriv, 0, sizeof(struct dm_priv));
+	_rtw_spinlock_init(&pdmpriv->IQKSpinLock);
 	Init_ODM_ComInfo_8723b(Adapter);
 	ODM_InitAllTimers(podmpriv );
 }
@@ -731,5 +732,6 @@ void rtl8723b_deinit_dm_priv(IN PADAPTER Adapter)
 	struct dm_priv	*pdmpriv = &pHalData->dmpriv;
 	PDM_ODM_T 		podmpriv = &pHalData->odmpriv;
 	ODM_CancelAllTimers(podmpriv);
+	_rtw_spinlock_free(&pdmpriv->IQKSpinLock);
 }
 
