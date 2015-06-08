@@ -1571,6 +1571,10 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	if (ret)
 		goto err;
 
+	/* XXX: Reserve has possibly change PDEs which means we must do a
+	 * context switch before we can coherently read some of the reserved
+	 * VMAs. */
+
 	/* The objects are in their final locations, apply the relocations. */
 	if (need_relocs)
 		ret = i915_gem_execbuffer_relocate(eb);

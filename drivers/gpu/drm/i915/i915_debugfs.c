@@ -2433,8 +2433,6 @@ static void gen8_ppgtt_info(struct seq_file *m, struct drm_device *dev)
 
 
 	if (ppgtt) {
-		seq_printf(m, "Page directories: %d\n", ppgtt->num_pd_pages);
-		seq_printf(m, "Page tables: %d\n", ppgtt->num_pd_entries);
 		for_each_ring(ring, dev_priv, unused) {
 			seq_printf(m, "%s\n", ring->name);
 			for (i = 0; i < 4; i++) {
@@ -2453,10 +2451,6 @@ static void gen8_ppgtt_info(struct seq_file *m, struct drm_device *dev)
 			i++;
 			ppgtt = i915_vm_to_ppgtt(vm);
 			seq_printf(m, "PPGTT %p - references\n", ppgtt);
-			seq_printf(m, "Page directories: %d\n",
-							ppgtt->num_pd_pages);
-			seq_printf(m, "Page tables: %d\n",
-							ppgtt->num_pd_entries);
 		}
 		seq_printf(m, "Number of PPGTTs active: %d\n", i);
 	}
@@ -2480,11 +2474,13 @@ static void gen6_ppgtt_info(struct seq_file *m, struct drm_device *dev)
 		seq_printf(m, "PP_DIR_BASE_READ: 0x%08x\n", I915_READ(RING_PP_DIR_BASE_READ(ring)));
 		seq_printf(m, "PP_DIR_DCLV: 0x%08x\n", I915_READ(RING_PP_DIR_DCLV(ring)));
 	}
+	seq_printf(m, "ECOCHK: 0x%08x\n\n", I915_READ(GAM_ECOCHK));
+
 	if (dev_priv->mm.aliasing_ppgtt) {
 		struct i915_hw_ppgtt *ppgtt = dev_priv->mm.aliasing_ppgtt;
 
 		seq_puts(m, "aliasing PPGTT:\n");
-		seq_printf(m, "pd gtt offset: 0x%08x\n", ppgtt->pd_offset);
+		seq_printf(m, "pd gtt offset: 0x%08x\n", ppgtt->pd.pd_offset);
 
 		ppgtt->debug_dump(ppgtt, m);
 	}
@@ -2496,7 +2492,6 @@ static void gen6_ppgtt_info(struct seq_file *m, struct drm_device *dev)
 			   get_pid_task(file->pid, PIDTYPE_PID)->comm);
 		idr_for_each(&file_priv->context_idr, per_file_ctx, m);
 	}
-	seq_printf(m, "ECOCHK: 0x%08x\n", I915_READ(GAM_ECOCHK));
 }
 
 static int i915_ppgtt_info(struct seq_file *m, void *data)

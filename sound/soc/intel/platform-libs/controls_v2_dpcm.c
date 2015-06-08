@@ -152,7 +152,8 @@ int sst_byte_control_get(struct snd_kcontrol *kcontrol,
 	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
 
 	pr_debug("in %s\n", __func__);
-	memcpy(ucontrol->value.bytes.data, sst->byte_stream, SST_MAX_BIN_BYTES);
+	memcpy(ucontrol->value.bytes.data, sst->byte_stream,
+			SST_MAX_BYTES_CTRL_SIZE);
 	print_hex_dump_bytes(__func__, DUMP_PREFIX_OFFSET,
 			     (const void *)sst->byte_stream, 32);
 	return 0;
@@ -162,7 +163,7 @@ static int sst_check_binary_input(char *stream)
 {
 	struct snd_sst_bytes_v2 *bytes = (struct snd_sst_bytes_v2 *)stream;
 
-	if (bytes->len == 0 || bytes->len > 1000) {
+	if (bytes->len == 0 || bytes->len > SST_MAX_BYTES_CTRL_SIZE) {
 		pr_err("length out of bounds %d\n", bytes->len);
 		return -EINVAL;
 	}
@@ -192,7 +193,9 @@ int sst_byte_control_set(struct snd_kcontrol *kcontrol,
 
 	pr_debug("in %s\n", __func__);
 	mutex_lock(&sst->lock);
-	memcpy(sst->byte_stream, ucontrol->value.bytes.data, SST_MAX_BIN_BYTES);
+	memcpy(sst->byte_stream, ucontrol->value.bytes.data,
+			SST_MAX_BYTES_CTRL_SIZE);
+
 	if (0 != sst_check_binary_input(sst->byte_stream)) {
 		mutex_unlock(&sst->lock);
 		return -EINVAL;
@@ -620,19 +623,10 @@ int sst_algo_bytes_ctl_info(struct snd_kcontrol *kcontrol,
 {
 	struct soc_bytes_ext *sb = (void *) kcontrol->private_value;
 	struct sst_algo_data *bc = (struct sst_algo_data *)sb->pvt_data;
-	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
 
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_BYTES;
 	uinfo->count = bc->max;
 
-	/* allocate space to cache the algo parameters in the driver */
-	if (bc->params == NULL) {
-		bc->params = devm_kzalloc(platform->dev, bc->max, GFP_KERNEL);
-		if (bc->params == NULL) {
-			pr_err("kzalloc failed\n");
-			return -ENOMEM;
-		}
-	}
 	return 0;
 }
 
@@ -683,6 +677,91 @@ static int sst_algo_control_set(struct snd_kcontrol *kcontrol,
 	/*if pipe is enabled, need to send the algo params from here */
 	if (bc->w && bc->w->power)
 		sst_send_algo_cmd(sst, bc);
+
+	return 0;
+}
+
+static int sst_algo_tlv_get(struct snd_kcontrol *kcontrol,
+			unsigned int __user *data, unsigned int size)
+{
+	struct soc_bytes_ext *sb = (void *) kcontrol->private_value;
+	struct sst_algo_data *bc = (struct sst_algo_data *)sb->pvt_data;
+
+	pr_debug("%s: size =%d\n", __func__, size);
+
+	if (bc->params == NULL) {
+		pr_err("param is NULL\n");
+		return -EINVAL;
+	}
+
+	if (bc->type == SST_ALGO_PARAMS) {
+		if (copy_to_user(data, bc->params, bc->max))
+			return -EFAULT;
+
+		print_hex_dump_bytes("bc->params:", DUMP_PREFIX_OFFSET,
+					bc->params, bc->max);
+	} else {
+		pr_err("Invalid Input- algo type:%d\n", bc->type);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int sst_algo_tlv_put(struct snd_kcontrol *kcontrol,
+			const unsigned int __user *data, unsigned int size)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+	struct soc_bytes_ext *sb = (void *) kcontrol->private_value;
+	struct sst_algo_data *bc = (struct sst_algo_data *)sb->pvt_data;
+
+	pr_debug("%s:cntrl name=%s size %#x\n", __func__,
+			kcontrol->id.name, size);
+
+	/* Not required to copy data into bc->params */
+	pr_debug("%s: bc type %#x max %#x\n", __func__,
+				bc->type, bc->max);
+
+	/* Update a copy */
+	if (bc->params) {
+		if (copy_from_user(bc->params, data, bc->max))
+			return -EFAULT;
+
+		print_hex_dump_bytes("bc->params:", DUMP_PREFIX_OFFSET,
+					bc->params, bc->max);
+	} else {
+		pr_err("%s: bc param is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	/*if pipe is enabled, need to send the algo params from here */
+	if (bc->w && bc->w->power) {
+		int len;
+		struct sst_cmd_set_params *cmd;
+
+		/* bc->max includes sizeof algos + length field */
+		len = sizeof(cmd->dst) + sizeof(cmd->command_id) + bc->max;
+
+		cmd = kzalloc(len, GFP_KERNEL);
+		if (cmd == NULL) {
+			pr_err("%s, Failed to send cmd, kzalloc failed\n",
+					__func__);
+			return -EINVAL;
+		}
+
+		SST_FILL_DESTINATION(2, cmd->dst, bc->pipe_id, bc->module_id);
+		cmd->command_id = bc->cmd_id;
+		memcpy(cmd->params, bc->params, bc->max);
+
+		print_hex_dump_bytes(__func__, DUMP_PREFIX_OFFSET,
+					cmd->params, size);
+
+		sst_fill_and_send_cmd(sst, SST_IPC_IA_SET_PARAMS,
+					SST_FLAG_BLOCKED,
+					bc->task_id, 0, cmd, len);
+		kfree(cmd);
+	}
 
 	return 0;
 }
@@ -2250,8 +2329,26 @@ static int sst_fill_module_list(struct snd_kcontrol *kctl,
 		struct soc_bytes_ext *sb = (void *) kctl->private_value;
 		struct sst_algo_data *bc = (struct sst_algo_data *)sb->pvt_data;
 
+		if (bc == NULL) {
+			pr_err("%s: bc pointer is NULL\n", __func__);
+			return -EINVAL;
+		}
+
 		bc->w = w;
 		module->kctl = kctl;
+
+		/* allocate space to cache the algo parameters in the driver */
+		if (bc->params == NULL) {
+
+			bc->params = devm_kzalloc(w->platform->dev, bc->max,
+							GFP_KERNEL);
+			if (bc->params == NULL) {
+				pr_err("%s: kzalloc failed\n", __func__);
+				return -ENOMEM;
+			}
+			pr_debug("%s allocated bc->params size 0x%x\n",
+					__func__, bc->max);
+		}
 		list_add_tail(&module->node, &ids->algo_list);
 	}
 
@@ -2383,11 +2480,16 @@ const struct snd_soc_fw_widget_events sst_widget_ops[] = {
 	{SST_EVENT_VTSV, sst_vtsv_event},
 };
 
+const struct snd_soc_fw_tlv_ops tlv_control_ops[] = {
+	{SOC_CONTROL_IO_SST_TLV, sst_algo_tlv_get, sst_algo_tlv_put},
+};
+
 static int sst_copy_algo_control(struct snd_soc_platform *platform,
 		struct soc_bytes_ext *be, struct snd_soc_fw_bytes_ext *mbe)
 {
 	struct sst_algo_data *ac;
 	struct sst_dfw_algo_data *fw_ac = (struct sst_dfw_algo_data *)mbe->pvt_data;
+
 	ac = devm_kzalloc(platform->dev, sizeof(*ac), GFP_KERNEL);
 	if (!ac) {
 		pr_err("kzalloc failed\n");
@@ -2413,6 +2515,7 @@ static int sst_copy_algo_control(struct snd_soc_platform *platform,
 	}
 	be->pvt_data  = (char *)ac;
 	be->pvt_data_len = sizeof(struct sst_algo_data) + ac->max;
+
 	return 0;
 }
 
@@ -2454,6 +2557,7 @@ static int sst_copy_gain_control(struct snd_soc_platform *platform,
 	sm->pvt_data_len = sizeof(*mc_pvt);
 	return 0;
 }
+
 static int sst_fw_kcontrol_find_io(struct snd_soc_platform *platform,
 		u32 io_type, const struct snd_soc_fw_kcontrol_ops *ops,
 		int num_ops, unsigned long sm, unsigned long mc)
@@ -2461,12 +2565,16 @@ static int sst_fw_kcontrol_find_io(struct snd_soc_platform *platform,
 	int i;
 
 	pr_debug("number of ops = %d %x io_type\n", num_ops, io_type);
+
 	for (i = 0; i < num_ops; i++) {
+
 		if ((SOC_CONTROL_GET_ID_PUT(ops[i].id) ==
 			SOC_CONTROL_GET_ID_PUT(io_type) && ops[i].put)
 			&& (SOC_CONTROL_GET_ID_GET(ops[i].id) ==
 			 SOC_CONTROL_GET_ID_GET(io_type) && ops[i].get)) {
+
 			switch (SOC_CONTROL_GET_ID_PUT(ops[i].id)) {
+
 			case SOC_CONTROL_TYPE_SST_GAIN:
 				sst_copy_gain_control(platform, (struct soc_mixer_control *)sm,
 						(struct snd_soc_fw_mixer_control *)mc);
@@ -2478,6 +2586,32 @@ static int sst_fw_kcontrol_find_io(struct snd_soc_platform *platform,
 			default:
 				break;
 			}
+		}
+	}
+
+	return 0;
+}
+
+static int sst_fw_tlv_find_io(struct snd_soc_platform *platform,
+		u32 io_type, const struct snd_soc_fw_tlv_ops *ops,
+		int num_ops, unsigned long sm, unsigned long mc)
+{
+	int i;
+
+	pr_debug("tlv ops = %d %x io_type\n", num_ops, io_type);
+
+	for (i = 0; i < num_ops; i++) {
+
+		if ((SOC_CONTROL_GET_ID_TLV_PUT(ops[i].id) ==
+			SOC_CONTROL_GET_ID_TLV_PUT(io_type) && ops[i].put)
+			&& (SOC_CONTROL_GET_ID_TLV_GET(ops[i].id) ==
+			 SOC_CONTROL_GET_ID_TLV_GET(io_type) && ops[i].get)) {
+
+			if (SOC_CONTROL_GET_ID_TLV_PUT(ops[i].id) ==
+					SOC_CONTROL_TYPE_SST_TLV)
+				sst_copy_algo_control(platform,
+					(struct soc_bytes_ext *)sm,
+					(struct snd_soc_fw_bytes_ext *)mc);
 		}
 	}
 
@@ -2531,8 +2665,13 @@ bind_event:
 static int sst_pvt_load(struct snd_soc_platform *platform,
 			u32 io_type, unsigned long sm, unsigned long mc)
 {
-	return sst_fw_kcontrol_find_io(platform, io_type,
-			control_ops, ARRAY_SIZE(control_ops), sm, mc);
+	if (io_type == SOC_CONTROL_IO_SST_TLV) {
+		return sst_fw_tlv_find_io(platform, io_type,
+			tlv_control_ops, ARRAY_SIZE(tlv_control_ops), sm, mc);
+	} else {
+		return sst_fw_kcontrol_find_io(platform, io_type,
+				control_ops, ARRAY_SIZE(control_ops), sm, mc);
+	}
 }
 
 static int sst_verify_plgn_version(u32 version)
@@ -2554,6 +2693,8 @@ static struct snd_soc_fw_platform_ops soc_fw_ops = {
 	.io_ops = control_ops,
 	.io_ops_count = ARRAY_SIZE(control_ops),
 	.version_check = sst_verify_plgn_version,
+	.tlv_ops = tlv_control_ops,
+	.tlv_ops_count = ARRAY_SIZE(tlv_control_ops),
 };
 
 int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform)
@@ -2626,6 +2767,7 @@ int sst_dsp_init_v2_dpcm_dfw(struct snd_soc_platform *platform)
 		pr_err("%s: kzalloc failed\n", __func__);
 		return -ENOMEM;
 	}
+
 	sst->widget = devm_kzalloc(platform->dev,
 				   SST_NUM_WIDGETS * sizeof(*sst->widget),
 				   GFP_KERNEL);

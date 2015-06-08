@@ -213,8 +213,7 @@ static void intel_dsi_device_ready(struct intel_encoder *encoder)
 		val |= pipe ? DELAY_180_PHASE_SHIFT_MIPIC :
 				DELAY_180_PHASE_SHIFT_MIPIA;
 
-	intel_dsi_write_dev_rdy_on_A_and_C(encoder,
-			DEVICE_READY | ULPS_STATE_ENTER);
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_ENTER);
 
 	/* wait for LP state to go 00 */
 	usleep_range(2500, 3000);
@@ -226,8 +225,7 @@ static void intel_dsi_device_ready(struct intel_encoder *encoder)
 
 	I915_WRITE(MIPI_PORT_CTRL(0), val | LP_OUTPUT_HOLD);
 	usleep_range(1000, 1500);
-	intel_dsi_write_dev_rdy_on_A_and_C(encoder,
-			DEVICE_READY | ULPS_STATE_EXIT);
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_EXIT);
 
 	/* wait for LP state to goto 11 */
 	usleep_range(2500, 3000);
@@ -707,6 +705,9 @@ static void intel_dsi_post_disable(struct intel_encoder *encoder)
 	u32 val;
 
 	DRM_DEBUG_KMS("\n");
+
+	/* Wait for DPI and DBI FIFO empty */
+	wait_for_dpi_dbi_fifo_empty(intel_dsi);
 
 	intel_dsi_disable(encoder);
 
@@ -1199,6 +1200,12 @@ static int intel_dsi_set_property(struct drm_connector *connector,
 		DRM_DEBUG_DRIVER("src size = %u", intel_crtc->scaling_src_size);
 		return 0;
 	}
+
+	if (property == dev_priv->force_ddr_low_freq_property) {
+		vlv_force_ddr_low_frequency(dev_priv, val);
+		return 0;
+	}
+
 done:
 	if (intel_dsi->base.base.crtc)
 		intel_crtc_restore_mode(intel_dsi->base.base.crtc);
@@ -1272,6 +1279,7 @@ intel_dsi_add_properties(struct intel_dsi *intel_dsi,
 {
 	intel_attach_force_pfit_property(connector);
 	intel_attach_scaling_src_size_property(connector);
+	intel_attach_force_ddr_low_freq_property(connector);
 }
 
 bool intel_dsi_init(struct drm_device *dev)

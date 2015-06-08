@@ -449,6 +449,7 @@ struct intel_crtc {
 	bool active;
 	unsigned long enabled_power_domains;
 	bool primary_enabled; /* is the primary plane (partially) visible? */
+	bool enableprimary;
 	bool lowfreq_avail;
 	bool pri_update;
 	struct intel_overlay *overlay;
@@ -527,6 +528,7 @@ struct intel_crtc {
 	 * been sent before disable sequence.
 	 */
 	u32 hw_frm_cnt_at_enable;
+	bool skip_check_state;
 };
 
 struct intel_plane_wm_parameters {
@@ -1087,6 +1089,7 @@ void intel_attach_broadcast_rgb_property(struct drm_connector *connector);
 void intel_attach_force_pfit_property(struct drm_connector *connector);
 extern void
 	intel_attach_scaling_src_size_property(struct drm_connector *connector);
+void intel_attach_force_ddr_low_freq_property(struct drm_connector *connector);
 
 
 /* intel_overlay.c */

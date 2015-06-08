@@ -167,6 +167,14 @@ static int cht_otg_set_power(struct usb_phy *phy, unsigned mA)
 	if (!cht_otg_dev)
 		return -ENODEV;
 
+	/* VBUS drop event from EM part may come firstly to phy-intel-cht and
+	 * suspend event from device stack may come later than the VBUS drop
+	 * event. suspend event will trigger usb_gadget_vbus_draw 2mA when
+	 * b_sess_vld is already clear to 0. It will cause conflict events
+	 * received by other components, (e.g otg-wakelock) */
+	if (!cht_otg_dev->fsm.b_sess_vld)
+		return -ENODEV;
+
 	if (phy->state != OTG_STATE_B_PERIPHERAL)
 		dev_err(phy->dev, "ERR: Draw %d mA in state %s\n",
 			mA, usb_otg_state_string(cht_otg_dev->phy.state));
@@ -292,18 +300,21 @@ static void cht_otg_stop(struct platform_device *pdev)
 		iounmap(cht_otg_dev->regs);
 }
 
+static int cht_host_gadget_ready(struct cht_otg *otg_dev)
+{
+	if (otg_dev && otg_dev->phy.otg->host && otg_dev->phy.otg->gadget)
+		return 1;
+
+	return 0;
+}
+
 static int cht_otg_handle_notification(struct notifier_block *nb,
 				unsigned long event, void *data)
 {
-	struct usb_bus *host;
-	struct usb_gadget *gadget;
 	int state;
 
 	if (!cht_otg_dev)
 		return NOTIFY_BAD;
-
-	host = cht_otg_dev->phy.otg->host;
-	gadget = cht_otg_dev->phy.otg->gadget;
 
 	switch (event) {
 	/* USB_EVENT_VBUS: vbus valid event */
@@ -314,7 +325,7 @@ static int cht_otg_handle_notification(struct notifier_block *nb,
 		/* don't kick the state machine if host or device controller
 		 * is not registered. Just wait to kick it when set_host or
 		 * set_peripheral.*/
-		if (host && gadget)
+		if (cht_host_gadget_ready(cht_otg_dev))
 			schedule_work(&cht_otg_dev->fsm_work);
 		state = NOTIFY_OK;
 		break;
@@ -323,7 +334,7 @@ static int cht_otg_handle_notification(struct notifier_block *nb,
 		dev_info(cht_otg_dev->phy.dev, "USB_EVENT_ID id ground\n");
 		cht_otg_dev->fsm.id = 0;
 		/* Same as above */
-		if (host && gadget)
+		if (cht_host_gadget_ready(cht_otg_dev))
 			schedule_work(&cht_otg_dev->fsm_work);
 		state = NOTIFY_OK;
 		break;
@@ -338,7 +349,7 @@ static int cht_otg_handle_notification(struct notifier_block *nb,
 		else
 			dev_err(cht_otg_dev->phy.dev, "why USB_EVENT_NONE?\n");
 		/* Same as above */
-		if (host && gadget)
+		if (cht_host_gadget_ready(cht_otg_dev))
 			schedule_work(&cht_otg_dev->fsm_work);
 		state = NOTIFY_OK;
 		break;
