@@ -3,7 +3,7 @@
 #
 
 # Multipart objects.
-wacom-objs	:= wacom_wac.o wacom_sys.o
+wacom-objs	:= wacom_wac.o wacom_sys.o wacom_flash.o wacom_sysfs.o
 
 obj-$(CONFIG_TABLET_USB_ACECAD)	+= acecad.o
 obj-$(CONFIG_TABLET_USB_AIPTEK)	+= aiptek.o

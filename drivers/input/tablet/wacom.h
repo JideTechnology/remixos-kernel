@@ -11,7 +11,7 @@
  *  Copyright (c) 2000 Daniel Egger		<egger@suse.de>
  *  Copyright (c) 2001 Frederic Lepied		<flepied@mandrakesoft.com>
  *  Copyright (c) 2004 Panagiotis Issaris	<panagiotis.issaris@mech.kuleuven.ac.be>
- *  Copyright (c) 2002-2011 Ping Cheng		<pingc@wacom.com>
+ *  Copyright (c) 2002-2009 Ping Cheng		<pingc@wacom.com>
  *
  *  ChangeLog:
  *      v0.1 (vp)  - Initial release
@@ -88,14 +88,107 @@
 #include <linux/mod_devicetable.h>
 #include <linux/init.h>
 #include <linux/usb/input.h>
-#include <linux/power_supply.h>
 #include <asm/unaligned.h>
+
+/* maximum packet length for USB devices */
+#define WACOM_PKGLEN_MAX	32
+
+/* packet length for individual models */
+#define WACOM_PKGLEN_PENPRTN	 7
+#define WACOM_PKGLEN_GRAPHIRE	 8
+#define WACOM_PKGLEN_BBFUN	 9
+#define WACOM_PKGLEN_INTUOS	10
+#define WACOM_PKGLEN_TPC1FG	 5
+#define WACOM_PKGLEN_TPC2FG	14
+#define WACOM_PKGLEN_BBTOUCH	20
+
+/* device IDs */
+#define STYLUS_DEVICE_ID	0x02
+#define TOUCH_DEVICE_ID		0x03
+#define CURSOR_DEVICE_ID	0x06
+#define ERASER_DEVICE_ID	0x0A
+#define PAD_DEVICE_ID		0x0F
+
+/* wacom data packet report IDs */
+#define WACOM_REPORT_PENABLED		2
+#define WACOM_REPORT_INTUOSREAD		5
+#define WACOM_REPORT_INTUOSWRITE	6
+#define WACOM_REPORT_INTUOSPAD		12
+#define WACOM_REPORT_TPC1FG		6
+#define WACOM_REPORT_TPC2FG		13
+
+/* device quirks */
+#define WACOM_QUIRK_MULTI_INPUT		0x0001
+#define WACOM_QUIRK_BBTOUCH_LOWRES	0x0002
+
+enum {
+	PENPARTNER = 0,
+	GRAPHIRE,
+	WACOM_G4,
+	PTU,
+	PL,
+	DTU,
+	BAMBOO_PT,
+	INTUOS,
+	INTUOS3S,
+	INTUOS3,
+	INTUOS3L,
+	INTUOS4S,
+	INTUOS4,
+	INTUOS4L,
+	WACOM_21UX2,
+	CINTIQ,
+	WACOM_BEE,
+	WACOM_MO,
+	TABLETPC,
+	TABLETPC2FG,
+	MAX_TYPE
+};
+
+struct wacom_features {
+	const char *name;
+	int pktlen;
+	int x_max;
+	int y_max;
+	int pressure_max;
+	int distance_max;
+	int type;
+	int x_resolution;
+	int y_resolution;
+	unsigned int pid;
+	int device_type;
+	int x_phy;
+	int y_phy;
+	unsigned char unit;
+	unsigned char unitExpo;
+	int x_fuzz;
+	int y_fuzz;
+	int pressure_fuzz;
+	int distance_fuzz;
+	unsigned quirks;
+};
+
+struct wacom_shared {
+	bool stylus_in_proximity;
+	bool touch_down;
+};
+
+struct wacom_wac {
+	char name[64];
+	unsigned char *data;
+	int tool[2];
+	int id[2];
+	__u32 serial[2];
+	struct wacom_features features;
+	struct wacom_shared *shared;
+	struct input_dev *input;
+};
 
 /*
  * Version Information
  */
-#define DRIVER_VERSION "v1.53"
-#define DRIVER_AUTHOR "Vojtech Pavlik <vojtech@ucw.cz>"
+#define DRIVER_VERSION "v1.52"
+#define DRIVER_AUTHOR "Vojtech Pavlik <vojech@ucw.cz>"
 #define DRIVER_DESC "USB Wacom tablet driver"
 #define DRIVER_LICENSE "GPL"
 
@@ -106,6 +199,48 @@ MODULE_LICENSE(DRIVER_LICENSE);
 #define USB_VENDOR_ID_WACOM	0x056a
 #define USB_VENDOR_ID_LENOVO	0x17ef
 
+/* defines to get HID report descriptor */
+#define HID_DEVICET_HID		(USB_TYPE_CLASS | 0x01)
+#define HID_DEVICET_REPORT	(USB_TYPE_CLASS | 0x02)
+#define HID_USAGE_UNDEFINED		0x00
+#define HID_USAGE_PAGE			0x05
+#define HID_USAGE_PAGE_DIGITIZER	0x0d
+#define HID_USAGE_PAGE_DESKTOP		0x01
+#define HID_USAGE			0x09
+#define HID_USAGE_X			0x30
+#define HID_USAGE_Y			0x31
+#define HID_USAGE_X_TILT		0x3d
+#define HID_USAGE_Y_TILT		0x3e
+#define HID_USAGE_FINGER		0x22
+#define HID_USAGE_STYLUS		0x20
+#define HID_COLLECTION			0xc0
+
+enum {
+	WCM_UNDEFINED = 0,
+	WCM_DESKTOP,
+	WCM_DIGITIZER,
+};
+
+struct hid_descriptor {
+	struct usb_descriptor_header header;
+	__le16   bcdHID;
+	u8       bCountryCode;
+	u8       bNumDescriptors;
+	u8       bDescriptorType;
+	__le16   wDescriptorLength;
+} __attribute__ ((packed));
+
+/* defines to get/set USB message */
+#define USB_REQ_GET_REPORT	0x01
+#define USB_REQ_SET_REPORT	0x09
+#define WAC_HID_FEATURE_REPORT	0x03
+
+#define MAX_SYSFS_SIZE 4095
+#define MAX_ELEMENT_SIZE 10
+#define DATASIZE_IN_ONESHOT (MAX_SYSFS_SIZE - MAX_ELEMENT_SIZE)
+#define MAX_DATASIZE  (65536 * 5)
+#define REST_OF_DATA (MAX_DATASIZE % MAX_SYSFS_SIZE)
+
 struct wacom {
 	dma_addr_t data_dma;
 	struct usb_device *usbdev;
@@ -113,28 +248,44 @@ struct wacom {
 	struct urb *irq;
 	struct wacom_wac wacom_wac;
 	struct mutex lock;
-	struct work_struct work;
 	bool open;
 	char phys[32];
-	struct wacom_led {
-		u8 select[2]; /* status led selector (0..3) */
-		u8 llv;       /* status led brightness no button (1..127) */
-		u8 hlv;       /* status led brightness button pressed (1..127) */
-		u8 img_lum;   /* OLED matrix display brightness */
-	} led;
-	struct power_supply battery;
 };
 
-static inline void wacom_schedule_work(struct wacom_wac *wacom_wac)
-{
-	struct wacom *wacom = container_of(wacom_wac, struct wacom, wacom_wac);
-	schedule_work(&wacom->work);
-}
+struct wacom_boot {
+	dma_addr_t data_dma;
+	struct usb_device *usbdev;
+	struct usb_interface *intf;
+	struct urb *irq;
+};
 
+struct wacom_sysfs {
+	struct device *dev;
+	struct class *class;
+	struct usb_interface intf[127];
+	struct mutex lock;
+	unsigned long data_count;
+	unsigned int pid[127];
+	dev_t dev_t;
+	u8 *data;
+	bool storing_started;
+};
+
+extern bool sysfs_enabled;
+extern unsigned char counter;
+extern struct wacom_sysfs *wacom_sysfs;
 extern const struct usb_device_id wacom_ids[];
 
 void wacom_wac_irq(struct wacom_wac *wacom_wac, size_t len);
 void wacom_setup_device_quirks(struct wacom_features *features);
 void wacom_setup_input_capabilities(struct input_dev *input_dev,
 				    struct wacom_wac *wacom_wac);
+int wacom_enter(struct wacom_sysfs *wac_boot, int intf_index);
+int wacom_out(struct wacom_sysfs *wac_boot, int intf_index);
+int wacom_flash(struct wacom_sysfs *wac_boot, int index, u8 *data);
+int register_sysfs(struct wacom_sysfs *wacom);
+void remove_sysfs(struct wacom_sysfs *wacom);
+#define SYSFS_ENABLED 1
+#define ERR_REGISTER_SYSFS 2
+#define NOBOOTDEV 3
 #endif
