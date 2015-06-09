@@ -834,8 +834,13 @@ static unsigned int serial_hsu_get_mctrl(struct uart_port *port)
 {
 	struct uart_hsu_port *up =
 		container_of(port, struct uart_hsu_port, port);
-	unsigned char status = up->msr;
+	unsigned char status;
 	unsigned int ret = 0;
+
+	if (likely(!test_bit(flag_suspend, &up->flags)))
+		up->msr = serial_in(up, UART_MSR);
+
+	status = up->msr;
 
 	if (status & UART_MSR_DCD)
 		ret |= TIOCM_CAR;
@@ -1225,10 +1230,9 @@ serial_hsu_do_set_termios(struct uart_port *port, struct ktermios *termios,
 
 	serial_out(up, UART_IER, up->ier);
 
-	if (termios->c_cflag & CRTSCTS) {
+	if (termios->c_cflag & CRTSCTS)
 		up->mcr |= UART_MCR_AFE | UART_MCR_RTS;
-		up->prev_mcr = up->mcr;
-	} else
+	else
 		up->mcr &= ~UART_MCR_AFE;
 
 	up->dll	= quot & 0xff;

@@ -175,6 +175,7 @@ static void cht_hsu_set_clk(unsigned int m, unsigned int n,
 static void hsu_set_termios(struct uart_port *p, struct ktermios *termios,
 				struct ktermios *old)
 {
+	struct tty_port *tport = &p->state->port;
 	u32 reg;
 
 	/*
@@ -186,6 +187,12 @@ static void hsu_set_termios(struct uart_port *p, struct ktermios *termios,
 	if (!(termios->c_cflag & CRTSCTS))
 		reg |= CHT_GENERAL_DIS_RTS_N_OVERRIDE;
 	writel(reg, p->membase + CHT_GENERAL_REG);
+
+	/* DesignWare UART CTS is auto controlled by HW IP,
+	 * ignore sw-assisted CTS flow control
+	 */
+	if (termios->c_cflag & CRTSCTS)
+		clear_bit(ASYNCB_CTS_FLOW, &tport->flags);
 
 	serial_hsu_do_set_termios(p, termios, old);
 }
