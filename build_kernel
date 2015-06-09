@@ -2,10 +2,10 @@
 
 M=$(pwd -P)
 M="${M%/*}"
-MOUT=out/target/product/macallan
+MOUT=out/target/product/sk1w
 MKBOOTIMG=$M/out/host/linux-x86/bin/mkbootimg
-CROSS=$M/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin/arm-eabi-
-KERNEL_CONFIG=tegra11_homecare_android_defconfig
+CROSS=$M/prebuilts/gcc/linux-x86/arm/arm-eabi-4.8/bin/arm-eabi-
+KERNEL_CONFIG=T4_50_defconfig
 OUT_DIR=
 SRC_DIR=
 
