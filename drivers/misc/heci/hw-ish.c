@@ -260,6 +260,10 @@ int write_ipc_from_queue(struct heci_device *dev)
 	unsigned long	out_ipc_flags;
 
 	ISH_DBG_PRINT(KERN_ALERT "%s(): +++\n", __func__);
+
+	if (dev->dev_state == HECI_DEV_DISABLED)
+		return	-EINVAL;
+
 	spin_lock_irqsave(&dev->out_ipc_spinlock, out_ipc_flags);
 	if (out_ipc_locked) {
 		spin_unlock_irqrestore(&dev->out_ipc_spinlock, out_ipc_flags);
@@ -553,6 +557,10 @@ irqreturn_t ish_irq_handler(int irq, void *dev_id)
 	u32	msg_hdr;
 
 	ISH_DBG_PRINT(KERN_ALERT "%s(): irq=%d +++\n", __func__, irq);
+
+	/* CHECKME: double check this */
+	if (dev->dev_state == HECI_DEV_DISABLED)
+		return	IRQ_NONE;
 
 	/* Check that it's interrupt from ISH (may be shared) */
 	pisr_val = ish_reg_read(dev, IPC_REG_PISR);
@@ -891,5 +899,20 @@ struct heci_device *ish_dev_init(struct pci_dev *pdev)
 	dev->pdev = pdev;
 	dev->mtu = IPC_PAYLOAD_SIZE - sizeof(struct heci_msg_hdr);
 	return dev;
+}
+
+
+void	heci_device_disable(struct heci_device *dev)
+{
+	unsigned long	flags;
+	struct wr_msg_ctl_info	*ipc_link;
+	struct heci_cl	*cl;
+
+	dev->dev_state = HECI_DEV_DISABLED;
+	ish_clr_host_rdy(dev);
+	ish_intr_disable(dev);
+
+	/* Free all other allocations */
+	kfree(dev->me_clients);
 }
 
