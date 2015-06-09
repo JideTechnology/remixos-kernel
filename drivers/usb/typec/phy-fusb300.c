@@ -1358,7 +1358,7 @@ static int fusb300_probe(struct i2c_client *client,
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
 	struct fusb300_chip *chip;
 	int ret;
-	unsigned int val;
+	unsigned int val, stat;
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_WORD_DATA))
 		return -EIO;
@@ -1454,6 +1454,17 @@ static int fusb300_probe(struct i2c_client *client,
 
 	if (!chip->i_vbus) {
 		fusb300_wake_on_cc_change(chip);
+		regmap_read(chip->map, FUSB300_STAT0_REG, &stat);
+
+		if (stat &  FUSB300_STAT0_WAKE) {
+			if (chip->is_fusb300)
+				atomic_notifier_call_chain(&chip->phy.notifier,
+					TYPEC_EVENT_DRP, &chip->phy);
+			else
+				atomic_notifier_call_chain(&chip->phy.notifier,
+					TYPEC_EVENT_DFP, &chip->phy);
+		}
+
 	} else
 		atomic_notifier_call_chain(&chip->phy.notifier,
 				TYPEC_EVENT_VBUS, &chip->phy);
