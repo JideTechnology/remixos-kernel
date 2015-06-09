@@ -64,6 +64,10 @@
 #define ATOMISP_INTERNAL_PM	(IS_MOFD || IS_BYT || IS_CHT)
 #endif
 
+static uint skip_fwload = 0;
+module_param(skip_fwload, uint, 0644);
+MODULE_PARM_DESC(skip_fwload, "Skip atomisp firmware load for COS");
+
 /* set reserved memory pool size in page */
 unsigned int repool_pgnr;
 module_param(repool_pgnr, uint, 0644);
@@ -1147,6 +1151,9 @@ atomisp_load_firmware(struct atomisp_device *isp)
 	const struct firmware *fw;
 	int rc;
 	char *fw_path = NULL;
+
+	if (skip_fwload)
+		return NULL;
 
 #if defined(ATOMISP_FWNAME)
 	fw_path = ATOMISP_FWNAME;
