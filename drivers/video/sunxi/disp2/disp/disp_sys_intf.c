@@ -164,6 +164,17 @@ void disp_sys_disable_irq(u32 IrqNo)
 	//disable_irq(IrqNo);
 }
 
+void * disp_sys_malloc(u32 Size)
+{
+	return kmalloc(Size, GFP_KERNEL | __GFP_ZERO);
+}
+
+void disp_sys_free(void *Addr)
+{
+	kfree(Addr);
+}
+
+
 /* type: 0:invalid, 1: int; 2:str, 3: gpio */
 int disp_sys_script_get_item(char *main_name, char *sub_name, int value[], int type)
 {

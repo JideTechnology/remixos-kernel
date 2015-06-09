@@ -294,7 +294,6 @@ static struct attribute_group disp_attribute_group = {
 unsigned int disp_boot_para_parse(const char *name)
 {
 	unsigned int value = 0;
-
 	if (of_property_read_u32(g_disp_drv.dev->of_node, name, &value) < 0)
 		__wrn("of_property_read disp.%s fail\n", name);
 
@@ -626,7 +625,7 @@ s32 disp_register_sync_proc(void (*proc)(u32))
 {
 	struct proc_list *new_proc;
 
-	new_proc = (struct proc_list*)kmalloc(sizeof(struct proc_list), GFP_KERNEL | __GFP_ZERO);
+	new_proc = (struct proc_list*)disp_sys_malloc(sizeof(struct proc_list));
 	if (new_proc) {
 		new_proc->proc = proc;
 		list_add_tail(&(new_proc->list), &(g_disp_drv.sync_proc_list.list));
@@ -648,7 +647,7 @@ s32 disp_unregister_sync_proc(void (*proc)(u32))
 	list_for_each_entry(ptr, &g_disp_drv.sync_proc_list.list, list) {
 		if (ptr->proc == proc) {
 			list_del(&ptr->list);
-			kfree((void*)ptr);
+			disp_sys_free((void*)ptr);
 			return 0;
 		}
 	}
@@ -660,7 +659,7 @@ s32 disp_register_sync_finish_proc(void (*proc)(u32))
 {
 	struct proc_list *new_proc;
 
-	new_proc = (struct proc_list*)kmalloc(sizeof(struct proc_list), GFP_KERNEL | __GFP_ZERO);
+	new_proc = (struct proc_list*)disp_sys_malloc(sizeof(struct proc_list));
 	if (new_proc) {
 		new_proc->proc = proc;
 		list_add_tail(&(new_proc->list), &(g_disp_drv.sync_finish_proc_list.list));
@@ -682,7 +681,7 @@ s32 disp_unregister_sync_finish_proc(void (*proc)(u32))
 	list_for_each_entry(ptr, &g_disp_drv.sync_finish_proc_list.list, list) {
 		if (ptr->proc == proc) {
 			list_del(&ptr->list);
-			kfree((void*)ptr);
+			disp_sys_free((void*)ptr);
 			return 0;
 		}
 	}
@@ -706,7 +705,7 @@ s32 disp_register_ioctl_func(unsigned int cmd, int (*proc)(unsigned int cmd, uns
 {
 	struct ioctl_list *new_proc;
 
-	new_proc = (struct ioctl_list*)kmalloc(sizeof(struct ioctl_list), GFP_KERNEL | __GFP_ZERO);
+	new_proc = (struct ioctl_list*)disp_sys_malloc(sizeof(struct ioctl_list));
 	if (new_proc) {
 		new_proc->cmd = cmd;
 		new_proc->func = proc;
@@ -725,7 +724,7 @@ s32 disp_unregister_ioctl_func(unsigned int cmd)
 	list_for_each_entry(ptr, &g_disp_drv.ioctl_extend_list.list, list) {
 		if (ptr->cmd == cmd) {
 			list_del(&ptr->list);
-			kfree((void*)ptr);
+			disp_sys_free((void*)ptr);
 			return 0;
 		}
 	}
@@ -750,7 +749,7 @@ s32 disp_register_compat_ioctl_func(unsigned int cmd, int (*proc)(unsigned int c
 {
 	struct ioctl_list *new_proc;
 
-	new_proc = (struct ioctl_list*)kmalloc(sizeof(struct ioctl_list), GFP_KERNEL | __GFP_ZERO);
+	new_proc = (struct ioctl_list*)disp_sys_malloc(sizeof(struct ioctl_list));
 	if (new_proc) {
 		new_proc->cmd = cmd;
 		new_proc->func = proc;
@@ -769,7 +768,7 @@ s32 disp_unregister_compat_ioctl_func(unsigned int cmd)
 	list_for_each_entry(ptr, &g_disp_drv.compat_ioctl_extend_list.list, list) {
 		if (ptr->cmd == cmd) {
 			list_del(&ptr->list);
-			kfree((void*)ptr);
+			disp_sys_free((void*)ptr);
 			return 0;
 		}
 	}
@@ -794,7 +793,7 @@ s32 disp_register_standby_func(int (*suspend)(void), int (*resume)(void))
 {
 	struct standby_cb_list *new_proc;
 
-	new_proc = (struct standby_cb_list*)kmalloc(sizeof(struct standby_cb_list), GFP_KERNEL | __GFP_ZERO);
+	new_proc = (struct standby_cb_list*)disp_sys_malloc(sizeof(struct standby_cb_list));
 	if (new_proc) {
 		new_proc->suspend = suspend;
 		new_proc->resume = resume;
@@ -813,7 +812,7 @@ s32 disp_unregister_standby_func(int (*suspend)(void), int (*resume)(void))
 	list_for_each_entry(ptr, &g_disp_drv.stb_cb_list.list, list) {
 		if ((ptr->suspend == suspend) && (ptr->resume == resume)) {
 			list_del(&ptr->list);
-			kfree((void*)ptr);
+			disp_sys_free((void*)ptr);
 			return 0;
 		}
 	}

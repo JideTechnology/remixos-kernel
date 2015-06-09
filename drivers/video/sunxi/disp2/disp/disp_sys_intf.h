@@ -41,6 +41,9 @@ void disp_sys_unregister_irq(u32 IrqNo, void * Handler, void *pArg);
 void disp_sys_disable_irq(u32 IrqNo);
 void disp_sys_enable_irq(u32 IrqNo);
 
+void * disp_sys_malloc(u32 Size);
+void disp_sys_free(void *Addr);
+
 /* returns: 0:invalid, 1: int; 2:str, 3: gpio */
 int disp_sys_script_get_item(char *main_name, char *sub_name, int value[], int count);
 
