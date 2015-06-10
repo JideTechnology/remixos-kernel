@@ -1613,6 +1613,14 @@ void vlv_update_dsparb(struct intel_crtc *intel_crtc)
 	u32 pa = 0, sa = 0, sb = 0, sr = 0;
 	int fifo_size = 0;
 
+	/*REVERT ME:
+	 * As udpating of DSPARB is not atomic, vblack timeout is seen with
+	 * dynamic updating.
+	 * So here not dynamically udpate DSPARB on CHT-CR.
+	 **/
+	if (IS_CHERRYVIEW(dev) && dev->pdev->revision == CHT_CR_REVISION)
+		return;
+
 	if (hweight32(plane_stat) == 1) {
 		/* Allocate the entire fifo to the plane that is enabled */
 		dsparb |=  (0xFFFF << ((ffs(plane_stat) - 1) * 8));
@@ -1638,7 +1646,7 @@ void vlv_update_dsparb(struct intel_crtc *intel_crtc)
 					intel_crtc->vlv_wm.sr);
 		}
 	} else {
-		/* all 3 planes enabled, fifo allocation 50:25:25 */
+		/* multiplane mode, fifo allocation 50:25:25 */
 		dsparb |= DSPARB_50_25_25;
 		dsparb_h |= DSPARB2_50_25_25;
 
@@ -1861,6 +1869,14 @@ void valleyview_update_wm_pm5(struct intel_crtc *crtc)
 	int prev_plane_stat = VLV_PLANE_STATS(dev_priv->prev_pipe_plane_stat,
 								pipe);
 	int sa, sb, pa, dsparb, dsparb_h;
+
+	/*REVERT ME:
+	 * As udpating of DSPARB is not atomic, vblack timeout is seen with
+	 * dynamic updating.
+	 * So here not dynamically udpate DSPARB on CHT-CR.
+	 **/
+	if (IS_CHERRYVIEW(dev) && dev->pdev->revision == CHT_CR_REVISION)
+		return;
 
 	if (prev_plane_stat == plane_stat)
 		return;

@@ -2125,22 +2125,22 @@ static int gsm_add_one_mux_entry(struct gsm_mux *gsm)
 		p = strstr(mux_base_config, gsm->tty->name);
 		if (p != NULL) {
 			if (sscanf(p+strlen(gsm->tty->name)+1, "%d", &i) != 1) {
-				pr_err(
-			DRVNAME": Config not correct, abort : %s - %s - %s\n",
-			gsm->tty->name, p, p+strlen(gsm->tty->name) + 1);
+				pr_err(DRVNAME": Config not correct, abort : %s - %s - %s\n",
+						gsm->tty->name,
+						p,
+						p+strlen(gsm->tty->name) + 1);
 				return -EINVAL;
 			}
 			if (i >= MAX_MUX) {
 				pr_err(DRVNAME": Base > MAX_MUX (%d)\n",
-								MAX_MUX);
+						MAX_MUX);
 				return -EINVAL;
 			}
 			spin_lock(&gsm_mux_lock);
 			if (gsm_mux[i] != NULL) {
 				spin_unlock(&gsm_mux_lock);
-				pr_err(
-				DRVNAME": Mux base %d already taken, abort\n",
-				i);
+				pr_err(DRVNAME": Mux base %d already taken, abort\n",
+						i);
 				return -EBUSY;
 			}
 			gsm->num = i;
@@ -2148,7 +2148,7 @@ static int gsm_add_one_mux_entry(struct gsm_mux *gsm)
 			spin_unlock(&gsm_mux_lock);
 		} else {
 			pr_err(DRVNAME": Config doesn't exists for tty: %s\n",
-								gsm->tty->name);
+			 gsm->tty->name);
 			return -EINVAL;
 		}
 	} else {
@@ -2261,7 +2261,7 @@ static int __gsm_activate_mux(struct gsm_mux *gsm)
  *	protocols. Add the mux to the mux table so it can be opened and
  *	finally kick off connecting to DLCI 0 on the modem.
  */
-int gsm_activate_mux(struct gsm_mux *gsm)
+static int gsm_activate_mux(struct gsm_mux *gsm)
 {
 	int ret;
 
