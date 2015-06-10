@@ -428,7 +428,6 @@ static int ov8858_set_exposure(struct v4l2_subdev *sd, int exposure, int gain,
 				int dig_gain)
 {
 	struct ov8858_device *dev = to_ov8858_sensor(sd);
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	const struct ov8858_resolution *res;
 	u16 hts, vts;
 	int ret;
@@ -444,13 +443,6 @@ static int ov8858_set_exposure(struct v4l2_subdev *sd, int exposure, int gain,
 	/* Validate digital gain: must not exceed 12 bit value*/
 	dig_gain = clamp_t(int, dig_gain, 0, OV8858_MWB_GAIN_MAX);
 
-	/* Group hold is valid only if sensor is streaming. */
-	if (dev->streaming) {
-		ret = ov8858_write_reg_array(client, ov8858_param_hold);
-		if (ret)
-			goto out;
-	}
-
 	res = &dev->curr_res_table[dev->fmt_idx];
 	/*
 	 * Vendor: HTS reg value is half the total pixel line
@@ -459,13 +451,6 @@ static int ov8858_set_exposure(struct v4l2_subdev *sd, int exposure, int gain,
 	vts = res->fps_options[dev->fps_index].lines_per_frame;
 
 	ret = __ov8858_set_exposure(sd, exposure, gain, dig_gain, &hts, &vts);
-	if (ret)
-		goto out;
-out:
-	/* Group hold launch - delayed launch */
-	if (dev->streaming)
-		ret = ov8858_write_reg_array(client, ov8858_param_update);
-
 
 	mutex_unlock(&dev->input_lock);
 
