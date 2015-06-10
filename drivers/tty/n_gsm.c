@@ -2186,7 +2186,6 @@ void gsm_cleanup_mux(struct gsm_mux *gsm)
 	int i;
 	struct gsm_msg *txq, *ntxq;
 	unsigned long flags;
-	struct gsm_dlci *dlci;
 
 	gsm->dead = 1;
 
@@ -2197,14 +2196,9 @@ void gsm_cleanup_mux(struct gsm_mux *gsm)
 		gsm_closeall_dlci(gsm);
 
 	mutex_lock(&gsm->mutex);
-	for (i = NUM_DLCI-1; i >= 0; i--) {
-		dlci = gsm->dlci[i];
-		if (dlci) {
-			if (!gsm->tty_dead) /*only put it when gsm close*/
-				dlci_get(dlci);
-			gsm_dlci_release(dlci);
-		}
-	}
+	for (i = NUM_DLCI-1; i >= 0; i--)
+		if (gsm->dlci[i])
+			gsm_dlci_release(gsm->dlci[i]);
 	activated--;
 	mutex_unlock(&gsm->mutex);
 
@@ -2216,19 +2210,17 @@ void gsm_cleanup_mux(struct gsm_mux *gsm)
 	spin_unlock_irqrestore(&gsm->tx_lock, flags);
 }
 
-static inline int __gsm_init_mux(struct gsm_mux *gsm)
+static int __gsm_activate_mux(struct gsm_mux *gsm, bool assign_new_mux_entry)
 {
-	setup_timer(&gsm->t2_timer, gsm_control_retransmit, (unsigned long)gsm);
+	struct gsm_dlci *dlci;
+	int ret;
+
+	init_timer(&gsm->t2_timer);
+	gsm->t2_timer.function = gsm_control_retransmit;
+	gsm->t2_timer.data = (unsigned long)gsm;
 	init_waitqueue_head(&gsm->event);
 	spin_lock_init(&gsm->control_lock);
 	spin_lock_init(&gsm->tx_lock);
-
-	return gsm_add_one_mux_entry(gsm);
-}
-
-static int __gsm_activate_mux(struct gsm_mux *gsm)
-{
-	struct gsm_dlci *dlci;
 
 	if (gsm->encoding == 0)
 		gsm->receive = gsm0_receive;
@@ -2236,18 +2228,15 @@ static int __gsm_activate_mux(struct gsm_mux *gsm)
 		gsm->receive = gsm1_receive;
 	gsm->error = gsm_error;
 
-	mutex_lock(&gsm->mutex);
-	dlci = gsm->dlci[0];
-	if (dlci == NULL) {
-		dlci = gsm_dlci_alloc(gsm, 0);
-		if (dlci == NULL) {
-			mutex_unlock(&gsm->mutex);
-			return -ENOMEM;
-		}
+	if (assign_new_mux_entry) {
+		ret = gsm_add_one_mux_entry(gsm);
+		if (ret != 0)
+			return ret;
 	}
-	dlci->dead = 0;
-	mutex_unlock(&gsm->mutex);
 
+	dlci = gsm_dlci_alloc(gsm, 0);
+	if (dlci == NULL)
+		return -ENOMEM;
 	activated++;
 	gsm->dead = 0;		/* Tty opens are now permissible */
 	return 0;
@@ -2263,12 +2252,7 @@ static int __gsm_activate_mux(struct gsm_mux *gsm)
  */
 int gsm_activate_mux(struct gsm_mux *gsm)
 {
-	int ret;
-
-	ret = __gsm_init_mux(gsm);
-	if (ret != 0)
-		return ret;
-	return __gsm_activate_mux(gsm);
+	return __gsm_activate_mux(gsm, 1);
 }
 
 /**
@@ -2808,10 +2792,8 @@ static int gsmld_config(struct tty_struct *tty, struct gsm_mux *gsm,
 		if (signal_pending(current))
 			return -EINTR;
 	}
-	if (need_restart) {
+	if (need_restart)
 		gsm_cleanup_mux(gsm);
-		wake_up(&gsm->event);
-	}
 
 	gsm->initiator = c->initiator;
 	gsm->mru = c->mru;
@@ -2833,7 +2815,7 @@ static int gsmld_config(struct tty_struct *tty, struct gsm_mux *gsm,
 		gsm->t2 = c->t2;
 
 	if (need_restart)
-		__gsm_activate_mux(gsm);
+		__gsm_activate_mux(gsm, 0);
 	if (gsm->initiator && need_close)
 		gsm_dlci_begin_open(gsm->dlci[0]);
 	return 0;
@@ -3572,10 +3554,8 @@ static void gsmtty_remove(struct tty_driver *driver, struct tty_struct *tty)
 	struct gsm_dlci *dlci = tty->driver_data;
 	struct gsm_mux *gsm = dlci->gsm;
 
-	mutex_lock(&gsm->mutex);
 	dlci_put(dlci);
 	dlci_put(gsm->dlci[0]);
-	mutex_unlock(&gsm->mutex);
 	mux_put(gsm);
 	tty->driver_data = NULL;
 	tty->port = NULL;
