@@ -17,7 +17,7 @@
 #define PLATFORM_CONFIG__H
 
 /* Build ID string */
-#define	BUILD_ID	"0174-imin-reset-flow-private-prop"
+#define	BUILD_ID	"0178-poweroff-fix"
 
 #define	ISH_DEBUG	0
 #if ISH_DEBUG
@@ -33,7 +33,7 @@
 #define	ISH_INFO_PRINT	no_printk
 #endif
 
-#define ISH_LOG		1
+#define ISH_LOG		0
 
 #if 0
 /*

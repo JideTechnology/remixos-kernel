@@ -92,6 +92,9 @@
 /* Get FW status */
 #define IOCTL_GET_FW_STATUS             _IO('H', 0x04)
 
+/* Get kernel timer used to sync FW clock */
+#define IOCTL_HECI_GET_SYNC_TIMER	_IOWR('H', 0x05, long)
+
 /*
  * Intel HECI client information struct
  */
