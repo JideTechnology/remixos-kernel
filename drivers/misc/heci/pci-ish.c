@@ -1051,8 +1051,8 @@ static void ish_remove(struct pci_dev *pdev)
 	struct ish_hw *hw;
 
 	/*
-	 *** If this case of removal is viable,
-	 * also go through HECI clients removal ***
+	 * This happens during power-off/reboot and may be at the same time as
+	 * a lot of bi-directional communication happens
 	 */
 	if (heci_pci_device != pdev) {
 		dev_err(&pdev->dev, "heci: heci_pci_device != pdev\n");
@@ -1067,8 +1067,12 @@ static void ish_remove(struct pci_dev *pdev)
 
 	hw = to_ish_hw(dev);
 
-	/* disable interrupts */
-	ish_intr_disable(dev);
+	/*
+	 * Set HECI device state to disabled.
+	 * Invalidate all other possible communication in both directions
+	 */
+	heci_device_disable(dev);
+
 	free_irq(pdev->irq, dev);
 	pci_disable_msi(pdev);
 	pci_iounmap(pdev, hw->mem_addr);

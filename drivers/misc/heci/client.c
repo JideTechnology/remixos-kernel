@@ -400,6 +400,7 @@ void	heci_cl_free(struct heci_cl *cl)
 	heci_cl_free_tx_ring(cl);
 	kfree(cl);
 }
+EXPORT_SYMBOL(heci_cl_free);
 
 
 /**
