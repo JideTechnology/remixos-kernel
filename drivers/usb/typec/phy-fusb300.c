@@ -741,6 +741,7 @@ static irqreturn_t fusb300_interrupt(int id, void *dev)
 	unsigned int reg_start;
 	size_t count;
 
+	memset(&int_stat, 0x00, sizeof(int_stat));
 	pm_runtime_get_sync(chip->dev);
 
 	if (chip->is_fusb300) {
