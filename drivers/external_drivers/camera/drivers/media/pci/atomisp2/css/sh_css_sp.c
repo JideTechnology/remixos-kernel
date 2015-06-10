@@ -1372,10 +1372,13 @@ sh_css_write_host2sp_command(enum host2sp_commands host2sp_command)
 	unsigned int HIVE_ADDR_host_sp_com = sh_css_sp_fw.info.sp.host_sp_com;
 	unsigned int offset = (unsigned int)offsetof(struct host_sp_communication, host2sp_command)
 				/ sizeof(int);
+	enum host2sp_commands last_cmd = host2sp_cmd_error;
 	(void)HIVE_ADDR_host_sp_com; /* Suppres warnings in CRUN */
 
 	/* Previous command must be handled by SP (by design) */
-	assert(load_sp_array_uint(host_sp_com, offset) == host2sp_cmd_ready);
+	last_cmd = load_sp_array_uint(host_sp_com, offset);
+	if (last_cmd != host2sp_cmd_ready)
+		IA_CSS_ERROR("last host command not handled by SP(%d)", last_cmd);
 
 	store_sp_array_uint(host_sp_com, offset, host2sp_command);
 }
