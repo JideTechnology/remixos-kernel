@@ -184,7 +184,15 @@ static struct sh_css_save my_css_save;
 #define MAX_HMM_BUFFER_NUM	\
 	(SH_CSS_MAX_NUM_QUEUES * (IA_CSS_NUM_ELEMS_SP2HOST_BUFFER_QUEUE + 2))
 
-static struct ia_css_rmgr_vbuf_handle *hmm_buffer_record_h[MAX_HMM_BUFFER_NUM];
+struct sh_css_hmm_buffer_record {
+	bool in_use;
+	enum ia_css_buffer_type type;
+	struct ia_css_rmgr_vbuf_handle *h_vbuf;
+	hrt_address kernel_ptr;
+};
+
+static struct sh_css_hmm_buffer_record hmm_buffer_record[MAX_HMM_BUFFER_NUM];
+
 
 #define GPIO_FLASH_PIN_MASK (1 << HIVE_GPIO_STROBE_TRIGGER_PIN)
 
@@ -333,6 +341,24 @@ ia_css_pipe_get_s3a_binary(const struct ia_css_pipe *pipe);
 
 static struct ia_css_binary *
 ia_css_pipe_get_sdis_binary(const struct ia_css_pipe *pipe);
+
+static void
+sh_css_hmm_buffer_record_init(void);
+
+static void
+sh_css_hmm_buffer_record_uninit(void);
+
+static void
+sh_css_hmm_buffer_record_reset(struct sh_css_hmm_buffer_record *buffer_record);
+
+static bool
+sh_css_hmm_buffer_record_acquire(struct ia_css_rmgr_vbuf_handle *h_vbuf,
+			enum ia_css_buffer_type type,
+			hrt_address kernel_ptr);
+
+static struct sh_css_hmm_buffer_record
+*sh_css_hmm_buffer_record_validate(hrt_vaddress ddr_buffer_addr,
+		enum ia_css_buffer_type type);
 
 void
 ia_css_get_acc_configs(
@@ -3347,10 +3373,8 @@ static void sh_css_setup_queues(void)
 {
 	const struct ia_css_fw_info *fw;
 	unsigned int HIVE_ADDR_host_sp_queues_initialized;
-	int i;
 
-	for (i = 0; i < MAX_HMM_BUFFER_NUM; i++)
-		hmm_buffer_record_h[i] = NULL;
+	sh_css_hmm_buffer_record_init();
 
 	sh_css_event_init_irq_mask();
 
@@ -4140,7 +4164,7 @@ ia_css_pipe_enqueue_buffer(struct ia_css_pipe *pipe,
 			   const struct ia_css_buffer *buffer)
 {
 	enum ia_css_err return_err = IA_CSS_SUCCESS;
-	unsigned int thread_id, i;
+	unsigned int thread_id;
 	enum sh_css_queue_id queue_id;
 	struct ia_css_pipeline *pipeline;
 	struct ia_css_pipeline_stage *stage;
@@ -4360,23 +4384,22 @@ ia_css_pipe_enqueue_buffer(struct ia_css_pipe *pipe,
 	}
 
 	if (return_err == IA_CSS_SUCCESS) {
-		for (i = 0; i < MAX_HMM_BUFFER_NUM; i++) {
-			if (hmm_buffer_record_h[i] == NULL) {
-				hmm_buffer_record_h[i] = h_vbuf;
-				ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE,
-					     "ia_css_pipe_enqueue_buffer()"
-					     " send vbuf=%x\n",h_vbuf);
-				break;
-			}
+		bool found_record = false;
+		found_record = sh_css_hmm_buffer_record_acquire(
+					h_vbuf, buf_type,
+					HOST_ADDRESS(ddr_buffer.kernel_ptr));
+		if (found_record == true) {
+			IA_CSS_LOG("send vbuf=0x%x", h_vbuf);
+		} else {
+			return_err = IA_CSS_ERR_INTERNAL_ERROR;
+			IA_CSS_ERROR("hmm_buffer_record[]: no available slots\n");
 		}
-	} else {
-		ia_css_rmgr_rel_vbuf(hmm_buffer_pool, &h_vbuf);
 	}
 
-		/*
-		 * Tell the SP which queues are not empty,
-		 * by sending the software event.
-		 */
+	/*
+	 * Tell the SP which queues are not empty,
+	 * by sending the software event.
+	 */
 	if (return_err == IA_CSS_SUCCESS) {
 		if (!sh_css_sp_is_running()) {
 			/* SP is not running. The queues are not valid */
@@ -4389,7 +4412,11 @@ ia_css_pipe_enqueue_buffer(struct ia_css_pipe *pipe,
 				(uint8_t)thread_id,
 				queue_id,
 				0);
+	} else {
+		ia_css_rmgr_rel_vbuf(hmm_buffer_pool, &h_vbuf);
+		IA_CSS_ERROR("buffer not enqueued");
 	}
+
 	IA_CSS_LEAVE("return value = %d", return_err);
 
 	return return_err;
@@ -4406,10 +4433,10 @@ ia_css_pipe_dequeue_buffer(struct ia_css_pipe *pipe,
 	enum sh_css_queue_id queue_id;
 	hrt_vaddress ddr_buffer_addr = (hrt_vaddress)0;
 	struct sh_css_hmm_buffer ddr_buffer;
-	unsigned int i, found_record;
 	enum ia_css_buffer_type buf_type;
 	enum ia_css_pipe_id pipe_id;
 	unsigned int thread_id;
+	hrt_address kernel_ptr = 0;
 	bool ret_err;
 
 	IA_CSS_ENTER("pipe=%p, buffer=%p", pipe, buffer);
@@ -4456,20 +4483,24 @@ ia_css_pipe_dequeue_buffer(struct ia_css_pipe *pipe,
 
 	if (return_err == IA_CSS_SUCCESS) {
 		struct ia_css_frame *frame;
+		struct sh_css_hmm_buffer_record *hmm_buffer_record = NULL;
+
 		IA_CSS_LOG("receive vbuf=%x", (int)ddr_buffer_addr);
 
-		found_record = 0;
-		for (i = 0; i < MAX_HMM_BUFFER_NUM; i++) {
-			if (hmm_buffer_record_h[i] != NULL && hmm_buffer_record_h[i]->vptr == ddr_buffer_addr) {
-				ia_css_rmgr_rel_vbuf(hmm_buffer_pool, &hmm_buffer_record_h[i]);
-				hmm_buffer_record_h[i] = NULL;
-				found_record = 1;
-				break;
-			}
-		}
-
-		if (found_record == 0)
-		{
+		/* Validate the ddr_buffer_addr and buf_type */
+		hmm_buffer_record = sh_css_hmm_buffer_record_validate(
+				ddr_buffer_addr, buf_type);
+		if (hmm_buffer_record != NULL) {
+			/* valid hmm_buffer_record found. Save the kernel_ptr
+			 * for validation after performing mmgr_load.  The
+			 * vbuf handle and buffer_record can be released.
+			 */
+			kernel_ptr = hmm_buffer_record->kernel_ptr;
+			ia_css_rmgr_rel_vbuf(hmm_buffer_pool, &hmm_buffer_record->h_vbuf);
+			sh_css_hmm_buffer_record_reset(hmm_buffer_record);
+		} else {
+			IA_CSS_ERROR("hmm_buffer_record not found (0x%p) buf_type(%d)",
+				 ddr_buffer_addr, buf_type);
 			IA_CSS_LEAVE_ERR(IA_CSS_ERR_INTERNAL_ERROR);
 			return IA_CSS_ERR_INTERNAL_ERROR;
 		}
@@ -4478,14 +4509,20 @@ ia_css_pipe_dequeue_buffer(struct ia_css_pipe *pipe,
 				&ddr_buffer,
 				sizeof(struct sh_css_hmm_buffer));
 
-		assert(ddr_buffer.kernel_ptr != 0);
+		/* if the kernel_ptr is 0 or an invalid, return an error.
+		 * do not access the buffer via the kernal_ptr.
+		 */
+		if ((ddr_buffer.kernel_ptr == 0) ||
+		    (kernel_ptr != HOST_ADDRESS(ddr_buffer.kernel_ptr))) {
+			IA_CSS_ERROR("kernel_ptr invalid");
+			IA_CSS_ERROR("expected: (0x%p)", kernel_ptr);
+			IA_CSS_ERROR("actual: (0x%p)", HOST_ADDRESS(ddr_buffer.kernel_ptr));
+			IA_CSS_ERROR("buf_type: %d\n", buf_type);
+			IA_CSS_LEAVE_ERR(IA_CSS_ERR_INTERNAL_ERROR);
+			return IA_CSS_ERR_INTERNAL_ERROR;
+		}
 
-		/* if the pointer is 0 we only want to return an error;
-		   we do not want to touch buffer
-		*/
-		if (ddr_buffer.kernel_ptr == 0)
-			return_err = IA_CSS_ERR_INTERNAL_ERROR;
-		else {
+		if (ddr_buffer.kernel_ptr != 0) {
 			/* buffer->exp_id : all instances to be removed later once the driver change
 			 * is completed. See patch #5758 for reference */
 			buffer->exp_id = 0;
@@ -10054,7 +10091,6 @@ sh_css_stop_sp1(void)
 enum ia_css_err
 ia_css_stop_sp(void)
 {
-	unsigned int i;
 	unsigned long timeout;
 	enum ia_css_err err = IA_CSS_SUCCESS;
 
@@ -10094,11 +10130,7 @@ ia_css_stop_sp(void)
 		ia_css_debug_dump_sp_sw_debug_info();
 	}
 
-	for (i = 0; i < MAX_HMM_BUFFER_NUM; i++) {
-		if (hmm_buffer_record_h[i] != NULL) {
-			ia_css_rmgr_rel_vbuf(hmm_buffer_pool, &hmm_buffer_record_h[i]);
-		}
-	}
+	sh_css_hmm_buffer_record_uninit();
 
 	/* clear pending param sets from refcount */
 	sh_css_param_clear_param_sets();
@@ -10404,4 +10436,96 @@ ia_css_pipe_get_qos_ext_state(struct ia_css_pipe *pipe, uint32_t fw_handle, bool
 	}
 	IA_CSS_LEAVE("err:%d handle:%u enable:%d", err, fw_handle, *enable);
 	return err;
+}
+
+static void
+sh_css_hmm_buffer_record_init(void)
+{
+	int i;
+
+	for (i = 0; i < MAX_HMM_BUFFER_NUM; i++) {
+		sh_css_hmm_buffer_record_reset(&hmm_buffer_record[i]);
+	}
+}
+
+static void
+sh_css_hmm_buffer_record_uninit(void)
+{
+	int i;
+	struct sh_css_hmm_buffer_record *buffer_record = NULL;
+
+	buffer_record = &hmm_buffer_record[0];
+	for (i = 0; i < MAX_HMM_BUFFER_NUM; i++) {
+		if (buffer_record->in_use) {
+			if (buffer_record->h_vbuf != NULL)
+				ia_css_rmgr_rel_vbuf(hmm_buffer_pool, &buffer_record->h_vbuf);
+			sh_css_hmm_buffer_record_reset(buffer_record);
+		}
+		buffer_record++;
+	}
+}
+
+static void
+sh_css_hmm_buffer_record_reset(struct sh_css_hmm_buffer_record *buffer_record)
+{
+	assert(buffer_record != NULL);
+	buffer_record->in_use = false;
+	buffer_record->type = IA_CSS_BUFFER_TYPE_INVALID;
+	buffer_record->h_vbuf = NULL;
+	buffer_record->kernel_ptr = 0;
+}
+
+static bool
+sh_css_hmm_buffer_record_acquire(struct ia_css_rmgr_vbuf_handle *h_vbuf,
+			enum ia_css_buffer_type type,
+			hrt_address kernel_ptr)
+{
+	int i;
+	struct sh_css_hmm_buffer_record *buffer_record = NULL;
+	bool found_record = false;
+
+	assert(h_vbuf != NULL);
+	assert((type > IA_CSS_BUFFER_TYPE_INVALID) && (type < IA_CSS_NUM_DYNAMIC_BUFFER_TYPE));
+	assert(kernel_ptr != 0);
+
+	buffer_record = &hmm_buffer_record[0];
+	for (i = 0; i < MAX_HMM_BUFFER_NUM; i++) {
+		if (buffer_record->in_use == false) {
+			buffer_record->in_use = true;
+			buffer_record->type = type;
+			buffer_record->h_vbuf = h_vbuf;
+			buffer_record->kernel_ptr = kernel_ptr;
+			found_record = true;
+			break;
+		}
+		buffer_record++;
+	}
+
+	return found_record;
+}
+
+static struct sh_css_hmm_buffer_record
+*sh_css_hmm_buffer_record_validate(hrt_vaddress ddr_buffer_addr,
+		enum ia_css_buffer_type type)
+{
+	int i;
+	struct sh_css_hmm_buffer_record *buffer_record = NULL;
+	bool found_record = false;
+
+	buffer_record = &hmm_buffer_record[0];
+	for (i = 0; i < MAX_HMM_BUFFER_NUM; i++) {
+		if ((buffer_record->in_use == true) &&
+		    (buffer_record->type == type) &&
+		    (buffer_record->h_vbuf != NULL) &&
+		    (buffer_record->h_vbuf->vptr == ddr_buffer_addr)) {
+			found_record = true;
+			break;
+		}
+		buffer_record++;
+	}
+
+	if (found_record == true)
+		return buffer_record;
+	else
+		return NULL;
 }
