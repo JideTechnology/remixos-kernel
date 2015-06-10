@@ -1,0 +1,22 @@
+--- a/drivers/net/wireless/wl/Makefile
++++ b/drivers/net/wireless/wl/Makefile
+@@ -126,7 +126,7 @@
+ EXTRA_CFLAGS       += -I$(src)/src/shared/bcmwifi/include
+ #EXTRA_CFLAGS       += -DBCMDBG_ASSERT
+ 
+-EXTRA_LDFLAGS      := $(src)/lib/wlc_hybrid.o_shipped
++EXTRA_LDFLAGS      := $(srctree)/$(src)/lib/wlc_hybrid.o_shipped
+ 
+ KBASE              ?= /lib/modules/`uname -r`
+ KBUILD_DIR         ?= $(KBASE)/build
+--- a/drivers/net/wireless/wl/src/wl/sys/wl_linux.c
++++ b/drivers/net/wireless/wl/src/wl/sys/wl_linux.c
+@@ -235,7 +235,7 @@
+ #define to_str(s) #s
+ #define quote_str(s) to_str(s)
+ 
+-#define BRCM_WLAN_IFNAME eth%d
++#define BRCM_WLAN_IFNAME wlan%d
+ 
+ static char intf_name[IFNAMSIZ] = quote_str(BRCM_WLAN_IFNAME);
+ 
