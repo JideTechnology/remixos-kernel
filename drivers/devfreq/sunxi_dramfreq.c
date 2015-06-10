@@ -84,6 +84,22 @@ int dramfreq_set_vb_time_ops(struct dramfreq_vb_time_ops *ops)
 EXPORT_SYMBOL(dramfreq_set_vb_time_ops);
 #endif
 
+#ifdef CONFIG_DEVFREQ_DRAM_FREQ_WITH_GPU_NOTIFY
+int dramfreq_gpu_access(bool access)
+{
+	if (dramfreq == NULL)
+		return -EINVAL;
+
+	dramfreq->key_masters[MASTER_GPU] = access ? 1 : 0;
+
+	if (!dramfreq->pause)
+		wake_up_process(sunxi_dramfreq_task);
+
+	return 0;
+}
+EXPORT_SYMBOL(dramfreq_gpu_access);
+#endif
+
 #ifdef CONFIG_DEVFREQ_DRAM_FREQ_BUSFREQ
 static DEFINE_MUTEX(busfreq_lock);
 
@@ -722,6 +738,10 @@ static void sunxi_dramfreq_irq_state_update(struct sunxi_dramfreq *dramfreq,
 	access_value = readl(dramfreq->dramcom_base + MDFS_IRQ_MASK_STATUS0);
 	idle_value   = readl(dramfreq->dramcom_base + MDFS_IRQ_MASK_STATUS1);
 	for (i = 0; i < MASTER_MAX; i++) {
+#ifdef CONFIG_DEVFREQ_DRAM_FREQ_WITH_GPU_NOTIFY
+		if (i == MASTER_GPU)
+			continue;
+#endif
 		if (enable) {
 			access_value &= (~(0x1 << key_masters_int_idx[i][1]));
 			idle_value   &= (~(0x1 << key_masters_int_idx[i][1]));
@@ -744,6 +764,10 @@ static void sunxi_dramfreq_masters_state_update(struct sunxi_dramfreq *dramfreq,
 	spin_lock_irqsave(&dramfreq->master_lock, flags);
 	value = readl(dramfreq->dramcom_base + MASTER_ACCESS_ENABLE);
 	for (i = 0; i < MASTER_MAX; i++) {
+#ifdef CONFIG_DEVFREQ_DRAM_FREQ_WITH_GPU_NOTIFY
+		if (i == MASTER_GPU)
+			continue;
+#endif
 		if (access) {
 			dramfreq->key_masters[i] = 1;
 			value |= (0x1 << key_masters_int_idx[i][1]);
@@ -1032,6 +1056,10 @@ static irqreturn_t sunxi_dramfreq_irq_handler(int irq, void *data)
 	irq_idle     = readl(dramfreq->dramcom_base + MDFS_IRQ_STATUS1);
 
 	for (i = 0; i < MASTER_MAX; i++) {
+#ifdef CONFIG_DEVFREQ_DRAM_FREQ_WITH_GPU_NOTIFY
+		if (i == MASTER_GPU)
+			continue;
+#endif
 		idx = key_masters_int_idx[i][1];
 		if ((irq_access >> idx) & 0x1) {
 			handled = true;
