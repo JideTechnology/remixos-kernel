@@ -15,6 +15,7 @@
 #include <linux/gpio.h>
 #include <linux/irqdomain.h>
 #include <linux/irqchip/chained_irq.h>
+#include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -33,7 +34,6 @@
 #include <linux/power/scenelock.h>
 #include "../core.h"
 #include "pinctrl-sunxi.h"
-
 static struct irq_chip sunxi_pinctrl_edge_irq_chip;
 static struct irq_chip sunxi_pinctrl_level_irq_chip;
 
@@ -917,6 +917,7 @@ static struct irq_chip sunxi_pinctrl_edge_irq_chip = {
 	.irq_unmask	= sunxi_pinctrl_irq_unmask,
 	.irq_set_type	= sunxi_pinctrl_irq_set_type,
 	.irq_set_wake	= sunxi_pinctrl_irq_set_wake,
+	.irq_disable	= sunxi_pinctrl_irq_mask,
 };
 
 static struct irq_chip sunxi_pinctrl_level_irq_chip = {
@@ -926,39 +927,40 @@ static struct irq_chip sunxi_pinctrl_level_irq_chip = {
 	/* Define irq_enable / disable to avoid spurious irqs for drivers
 	 * using these to suppress irqs while they clear the irq source */
 	.irq_enable	= sunxi_pinctrl_irq_ack_unmask,
-	//.irq_disable	= sunxi_pinctrl_irq_mask,
+	.irq_disable	= sunxi_pinctrl_irq_mask,
 	.irq_set_type	= sunxi_pinctrl_irq_set_type,
 	.flags		= IRQCHIP_EOI_IF_HANDLED ,
 	.irq_set_wake	= sunxi_pinctrl_irq_set_wake,
 };
 
-static void sunxi_pinctrl_irq_handler(unsigned irq, struct irq_desc *desc)
+static irqreturn_t sunxi_pinctrl_irq_handler(int irq, void *dev_id)
 {
-	struct irq_chip *chip = irq_get_chip(irq);
-	struct sunxi_pinctrl *pctl = irq_get_handler_data(irq);
+	//struct irq_chip *chip = irq_get_chip(irq);
+	struct sunxi_pinctrl *pctl = dev_id;
 	unsigned long bank, reg, val;
+	unsigned long flags;
 
 	for (bank = 0; bank < pctl->desc->irq_banks; bank++)
 		if (irq == pctl->irq[bank])
 			break;
 
 	if (bank == pctl->desc->irq_banks)
-		return;
+		return IRQ_NONE;
 
+	spin_lock_irqsave(&pctl->lock, flags);
 	reg = sunxi_irq_status_reg_from_bank(bank);
 	val = readl(pctl->membase + reg);
-
+	spin_unlock_irqrestore(&pctl->lock, flags);
 	if (val) {
 		int irqoffset;
-
-		chained_irq_enter(chip, desc);
 		for_each_set_bit(irqoffset, &val, IRQ_PER_BANK) {
-			int pin_irq = irq_find_mapping(pctl->domain,
-						       bank * IRQ_PER_BANK + irqoffset);
+			int pin_irq = irq_find_mapping(pctl->domain, bank * IRQ_PER_BANK + irqoffset);
 			generic_handle_irq(pin_irq);
 		}
-		chained_irq_exit(chip, desc);
+	}else{
+		pr_err("notice:%s found no pending......\n", __func__);
 	}
+	return val ? IRQ_HANDLED : IRQ_NONE;
 }
 
 static int sunxi_pinctrl_add_function(struct sunxi_pinctrl *pctl,
@@ -1080,7 +1082,6 @@ int sunxi_pinctrl_init(struct platform_device *pdev,
 	struct resource *res;
 	int i, ret, last_pin;
 	struct clk *clk;
-    	
 	pctl = devm_kzalloc(&pdev->dev, sizeof(*pctl), GFP_KERNEL);
 	if (!pctl)
 		return -ENOMEM;
@@ -1226,12 +1227,18 @@ int sunxi_pinctrl_init(struct platform_device *pdev,
 	for (i = 0; i < pctl->desc->irq_banks; i++) {
 		/* Mask and clear all IRQs before registering a handler */
 		writel(0, pctl->membase + sunxi_irq_ctrl_reg_from_bank(i));
-		writel(0xffffffff,
-			pctl->membase + sunxi_irq_status_reg_from_bank(i));
-
-		irq_set_chained_handler(pctl->irq[i],
-					sunxi_pinctrl_irq_handler);
-		irq_set_handler_data(pctl->irq[i], pctl);
+		writel(0xffffffff, pctl->membase + sunxi_irq_status_reg_from_bank(i));
+		if(pctl->desc->pin_base >= PL_BASE){
+			ret = devm_request_irq(&pdev->dev, pctl->irq[i], sunxi_pinctrl_irq_handler,
+						       IRQF_SHARED | IRQF_NO_SUSPEND, "PIN_GRP", pctl);
+		}else{
+			ret = devm_request_irq(&pdev->dev, pctl->irq[i], sunxi_pinctrl_irq_handler,
+						       IRQF_SHARED, "PIN_GRP", pctl);
+		}
+		if (IS_ERR_VALUE(ret)) {
+				pr_err("unable to request eint irq %d\n", pctl->irq[i]);
+				return ret;
+		}
 	}
 
 	dev_info(&pdev->dev, "initialized sunXi PIO driver\n");
