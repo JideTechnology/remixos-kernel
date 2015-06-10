@@ -101,8 +101,6 @@ int dw9718_vcm_power_up(struct v4l2_subdev *sd)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
 	u8 value;
-	int i;
-	int step = DW9718_CLICK_REDUCTION_STEP;
 
 	if (dw9718_dev.power_on)
 		return 0;
@@ -114,8 +112,8 @@ int dw9718_vcm_power_up(struct v4l2_subdev *sd)
 	ret = dw9718_i2c_wr8(client, DW9718_PD, 0);
 	if (ret < 0)
 		goto fail_powerdown;
-	/* Wait t_OPR for VBAT to stabilize */
-	usleep_range(100, 110);
+	/* Wait for VBAT to stabilize */
+	udelay(100);
 
 	/* Detect device */
 	ret = dw9718_i2c_rd8(client, DW9718_SACT, &value);
@@ -147,25 +145,9 @@ int dw9718_vcm_power_up(struct v4l2_subdev *sd)
 	if (ret < 0)
 		goto fail_powerdown;
 
-	/* Wait t_MODE after changing from switching to linear mode */
-	usleep_range(85, 95);
-
-	/* Minimize the click sounds from the lens during power up */
-	i = DW9718_LENS_MOVE_POSITION;
-	while (i <= dw9718_dev.focus) {
-		ret = dw9718_i2c_wr16(client, DW9718_DATA_M, i);
-		if (ret) {
-			dev_err(&client->dev, "%s: write failed\n", __func__);
-			break;
-		}
-		msleep(DW9718_CLICK_REDUCTION_SLEEP);
-		i += step;
-	}
-
 	ret = dw9718_t_focus_abs(sd, dw9718_dev.focus);
 	if (ret)
 		return ret;
-
 	dw9718_dev.initialized = true;
 	dw9718_dev.power_on = 1;
 
@@ -181,23 +163,9 @@ int dw9718_vcm_power_down(struct v4l2_subdev *sd)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
-	int i;
-	int step = DW9718_CLICK_REDUCTION_STEP;
 
 	if (!dw9718_dev.power_on)
 		return 0;
-
-	/* Minimize the click sounds from the lens during power down */
-	i = min(dw9718_dev.focus, DW9718_DEFAULT_FOCUS_POSITION) - step;
-	while (i >= DW9718_LENS_MOVE_POSITION) {
-		ret = dw9718_i2c_wr16(client, DW9718_DATA_M, i);
-		if (ret) {
-			dev_err(&client->dev, "%s: write failed\n", __func__);
-			break;
-		}
-		msleep(DW9718_CLICK_REDUCTION_SLEEP);
-		i -= step;
-	}
 
 	ret = dw9718_i2c_wr8(client, DW9718_PD, 1);
 	if (ret)
