@@ -97,7 +97,7 @@ void __init sunxi_map_io(void)
 
 static void __init sunxi_timer_init(void)
 {
-//	sunxi_init_clocks();
+	//sunxi_init_clocks();
 	clocksource_of_init();
 }
 
@@ -111,10 +111,19 @@ static void __init sunxi_dt_init(void)
 static const char * const sunxi_board_dt_compat[] = {
 	"allwinner,sun4i-a10",
 	"allwinner,sun5i-a13",
+	"arm,sun8iw10p1",
 	NULL,
 };
 
 DT_MACHINE_START(SUNXI_DT, "Allwinner A1X (Device Tree)")
+	.init_machine	= sunxi_dt_init,
+	.map_io		= sunxi_map_io,
+	.init_irq	= irqchip_init,
+	.init_time	= sunxi_timer_init,
+	.dt_compat	= sunxi_board_dt_compat,
+MACHINE_END
+
+DT_MACHINE_START(SUN8IW10P1_DT, "arm,sun8iw10p1")
 	.init_machine	= sunxi_dt_init,
 	.map_io		= sunxi_map_io,
 	.init_irq	= irqchip_init,
