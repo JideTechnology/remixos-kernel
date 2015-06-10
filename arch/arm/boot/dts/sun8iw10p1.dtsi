@@ -85,22 +85,6 @@
 			clock-frequency = <1008000000>;
 			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0 &SYS_SLEEP_0>;
 		};
-		cpu@2 {
-			device_type = "cpu";
-			compatible = "arm,cortex-a53","arm,armv8";
-			reg = <0x0 0x2>;
-			enable-method = "psci";
-			clock-frequency = <1008000000>;
-			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0 &SYS_SLEEP_0>;
-		};
-		cpu@3 {
-			device_type = "cpu";
-			compatible = "arm,cortex-a53","arm,armv8";
-			reg = <0x0 0x3>;
-			enable-method = "psci";
-			clock-frequency = <1008000000>;
-			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0 &SYS_SLEEP_0>;
-		};
 		idle-states {
 			entry-method = "arm,psci";
 
@@ -241,8 +225,8 @@
 		interrupt-controller;
 		reg = <0x0 0x01c81000 0 0x1000>, /* GIC Dist */
 		      <0x0 0x01c82000 0 0x2000>, /* GIC CPU */
-		      <0x0 0x01c84000 0 0x2000>, /* GIC VCPU Control */
-		      <0x0 0x01c86000 0 0x2000>; /* GIC VCPU */
+			  <0x0 0x01c84000 0 0x2000>, /* GIC VCPU Control */
+			  <0x0 0x01c86000 0 0x2000>; /* GIC VCPU */
 		interrupts = <GIC_PPI 9 0xf04>; /* GIC Maintenence IRQ */
 	};
 
@@ -253,7 +237,7 @@
 	};
 
 	timer {
-		compatible = "arm,armv8-timer";
+		compatible = "arm,armv7-timer";
 		interrupts = <GIC_PPI 13 0xff01>, /* Secure Phys IRQ */
 			     <GIC_PPI 14 0xff01>, /* Non-secure Phys IRQ */
 			     <GIC_PPI 11 0xff01>, /* Virt IRQ */

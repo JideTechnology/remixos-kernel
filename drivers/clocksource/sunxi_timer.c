@@ -178,6 +178,7 @@ static void __init sunxi_timer_init(struct device_node *node)
 #ifndef CONFIG_EVB_PLATFORM
 	rate = 32000;
 	prescale  = 1;
+	irq = 38;
 #endif
 
 	writel(rate / (prescale * HZ),
