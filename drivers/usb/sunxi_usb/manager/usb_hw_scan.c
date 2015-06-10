@@ -44,9 +44,7 @@ static struct usb_scan_info g_usb_scan_info;
 #if defined(CONFIG_AW_AXP)
 extern int axp_usb_det(void);
 #endif
-#ifdef CONFIG_USB_SUNXI_USB0_OTG
-extern atomic_t thread_suspend_flag;
-#endif
+
 int device_insmod_delay = 0;
 static void (*__usb_hw_scan) (struct usb_scan_info *);
 
