@@ -3567,7 +3567,7 @@ static int gsmtty_break_ctl(struct tty_struct *tty, int state)
 	return gsmtty_modem_update(dlci, encode);
 }
 
-static void gsmtty_cleanup(struct tty_struct *tty)
+static void gsmtty_remove(struct tty_driver *driver, struct tty_struct *tty)
 {
 	struct gsm_dlci *dlci = tty->driver_data;
 	struct gsm_mux *gsm = dlci->gsm;
@@ -3579,6 +3579,7 @@ static void gsmtty_cleanup(struct tty_struct *tty)
 	mux_put(gsm);
 	tty->driver_data = NULL;
 	tty->port = NULL;
+	driver->ttys[tty->index] = NULL;
 }
 
 /* Virtual ttys for the demux */
@@ -3603,7 +3604,7 @@ static const struct tty_operations gsmtty_ops = {
 	.tiocmget		= gsmtty_tiocmget,
 	.tiocmset		= gsmtty_tiocmset,
 	.break_ctl		= gsmtty_break_ctl,
-	.cleanup		= gsmtty_cleanup,
+	.remove			= gsmtty_remove,
 };
 
 
