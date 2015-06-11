@@ -1169,7 +1169,7 @@ static inline int bq24192_set_inlmt(struct bq24192_chip *chip, int inlmt)
 {
 	int regval, regval_prev, timeout, ret = 0;
 
-	dev_warn(&chip->client->dev, "%s:%d %d\n", __func__, __LINE__, inlmt);
+	dev_dbg(&chip->client->dev, "%s:%d %d\n", __func__, __LINE__, inlmt);
 	chip->inlmt = inlmt;
 
 	regval_prev = bq24192_read_reg(chip->client,
@@ -1332,7 +1332,7 @@ static inline int bq24192_enable_charger(
 #endif
 
 
-	dev_warn(&chip->client->dev, "%s:%d %d\n", __func__, __LINE__, val);
+	dev_dbg(&chip->client->dev, "%s:%d %d\n", __func__, __LINE__, val);
 
 	return ret;
 }
@@ -1341,7 +1341,7 @@ static inline int bq24192_set_cc(struct bq24192_chip *chip, int cc)
 {
 	u8 regval;
 
-	dev_warn(&chip->client->dev, "%s:%d %d\n", __func__, __LINE__, cc);
+	dev_dbg(&chip->client->dev, "%s:%d %d\n", __func__, __LINE__, cc);
 	regval = chrg_cur_to_reg(cc);
 
 	return bq24192_write_reg(chip->client, BQ24192_CHRG_CUR_CNTL_REG,
@@ -1352,7 +1352,7 @@ static inline int bq24192_set_cv(struct bq24192_chip *chip, int cv)
 {
 	u8 regval;
 
-	dev_warn(&chip->client->dev, "%s:%d %d\n", __func__, __LINE__, cv);
+	dev_dbg(&chip->client->dev, "%s:%d %d\n", __func__, __LINE__, cv);
 	regval = chrg_volt_to_reg(cv);
 
 	return bq24192_write_reg(chip->client, BQ24192_CHRG_VOLT_CNTL_REG,
@@ -2326,11 +2326,11 @@ static int bq24192_probe(struct i2c_client *client,
 				bq24192_irq_isr, bq24192_irq_thread,
 				IRQF_TRIGGER_FALLING, "BQ24192", chip);
 		if (ret) {
-			dev_warn(&bq24192_client->dev,
+			dev_err(&bq24192_client->dev,
 				"failed to register irq for pin %d\n",
 				chip->irq);
 		} else {
-			dev_warn(&bq24192_client->dev,
+			dev_dbg(&bq24192_client->dev,
 				"registered charger irq for pin %d\n",
 				chip->irq);
 		}
@@ -2416,7 +2416,7 @@ static int bq24192_probe(struct i2c_client *client,
 		/* Register cooling device to control the vbus */
 		ret = register_cooling_device(chip);
 		if (ret) {
-			dev_warn(&chip->client->dev,
+			dev_err(&chip->client->dev,
 				"Register cooling device Failed (%d)\n", ret);
 		}
 	}
@@ -2434,7 +2434,7 @@ static int bq24192_probe(struct i2c_client *client,
 		ret = bq24192_reg_read_modify(chip->client,
 			BQ24192_MISC_OP_CNTL_REG, MISC_OP_CNTL_DPDM_EN, true);
 		if (ret < 0)
-			dev_warn(&chip->client->dev,
+			dev_err(&chip->client->dev,
 				"Failed to trigger DPDM detection during probe\n");
 	}
 
