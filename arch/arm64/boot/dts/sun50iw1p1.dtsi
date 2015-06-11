@@ -750,12 +750,12 @@
 		};
 
 		snddaudio0:sound@1{
-			compatible = "allwinner,sunxi-duaio0-machine";
+			compatible = "allwinner,sunxi-daudio0-machine";
 			sunxi,daudio0-controller = <&daudio0>;
 			status = "okay";
 		};
 		snddaudio1:sound@2{
-			compatible = "allwinner,sunxi-duaio1-machine";
+			compatible = "allwinner,sunxi-daudio1-machine";
 			sunxi,daudio1-controller = <&daudio1>;
 			status = "okay";
 		};

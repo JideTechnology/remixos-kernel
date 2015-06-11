@@ -160,7 +160,7 @@ static int  sunxi_snddaudio0_dev_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id sunxi_daudio0_of_match[] = {
-	{ .compatible = "allwinner,sunxi-duaio0-machine", },
+	{ .compatible = "allwinner,sunxi-daudio0-machine", },
 	{},
 };
 

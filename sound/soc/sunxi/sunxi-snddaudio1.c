@@ -131,7 +131,7 @@ static int  sunxi_snddaudio1_dev_probe(struct platform_device *pdev)
 				"sunxi,daudio1-controller", 0);
 	if (!sunxi_snddaudio_dai_link.cpu_of_node) {
 		dev_err(&pdev->dev,
-			"Property 'sunxi,daudio0-controller' missing or invalid\n");
+			"Property 'sunxi,daudio1-controller' missing or invalid\n");
 			ret = -EINVAL;
 	}
 	sunxi_snddaudio_dai_link.platform_name = NULL;
@@ -159,7 +159,7 @@ static int  sunxi_snddaudio1_dev_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id sunxi_daudio1_of_match[] = {
-	{ .compatible = "allwinner,sunxi-duaio1-machine", },
+	{ .compatible = "allwinner,sunxi-daudio1-machine", },
 	{},
 };
 
