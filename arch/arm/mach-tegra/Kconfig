@@ -134,6 +134,8 @@ config ARCH_TEGRA_11x_SOC
 	select ARM_ERRATA_799270
 	select ARM_ERRATA_798181
 	select TEGRA_WDT_FIQ_WAR if !TRUSTED_FOUNDATIONS && TEGRA_FIQ_DEBUGGER
+	select ARM_PLD_64BYTE
+	select USE_LDRDSTRD_OVER_LDMSTM
 	help
 	  Support for NVIDIA Tegra 11x family of SoCs, based upon the
 	  ARM Cortex-A15MP CPU
