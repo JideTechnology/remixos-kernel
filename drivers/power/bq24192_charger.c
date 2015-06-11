@@ -1782,8 +1782,13 @@ static void bq24192_irq_worker(struct work_struct *work)
 			mutex_lock(&chip->event_lock);
 			bq24192_resume_charging(chip);
 			mutex_unlock(&chip->event_lock);
-		} else
-			dev_info(&chip->client->dev, "No charger connected\n");
+		} else {
+			mutex_lock(&chip->event_lock);
+			ret = bq24192_enable_charging(chip, false);
+			if (ret < 0)
+				dev_err(&chip->client->dev, "charging disable failed\n");
+			mutex_unlock(&chip->event_lock);
+		}
 	}
 	if ((reg_fault & FAULT_STAT_CHRG_TMR_FLT) == FAULT_STAT_CHRG_TMR_FLT) {
 		dev_info(&chip->client->dev, "Safety timer expired\n");
@@ -2466,10 +2471,24 @@ static int bq24192_remove(struct i2c_client *client)
 #ifdef CONFIG_PM
 static int bq24192_suspend(struct device *dev)
 {
+	int ret;
 	struct bq24192_chip *chip = dev_get_drvdata(dev);
 
 	dev_dbg(&chip->client->dev, "bq24192 suspend\n");
-	return 0;
+	if (chip->is_charging_enabled) {
+		mutex_lock(&chip->event_lock);
+		ret = bq24192_enable_charging(chip, true);
+		if (ret < 0)
+			dev_err(&chip->client->dev, "charging enable failed\n");
+		mutex_unlock(&chip->event_lock);
+	} else {
+		mutex_lock(&chip->event_lock);
+		ret = bq24192_enable_charging(chip, false);
+		if (ret < 0)
+			dev_err(&chip->client->dev, "charging disable failed\n");
+		mutex_unlock(&chip->event_lock);
+	}
+	return ret;
 }
 
 static int bq24192_resume(struct device *dev)
