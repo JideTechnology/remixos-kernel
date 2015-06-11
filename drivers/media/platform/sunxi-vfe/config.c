@@ -318,12 +318,14 @@ struct ccm_config ccm0_def_cfg[] = {
 		.avdd_str = "",
 		.dvdd_str = "",
 		.afvdd_str = "",
+		.flvdd_str = "",
 		.power = {
 			.stby_mode = 1,
 			.iovdd_vol =2800000, /* voltage of sensor module for interface */
 			.avdd_vol =2800000,  /* voltage of sensor module for analog */
 			.dvdd_vol =1500000,	 /* voltage of sensor module for core */
 			.afvdd_vol =2800000, /* voltage of sensor module for vcm sink */
+			.flvdd_vol = 3300000,/* voltage of sensor module for flash led */
 		},
 		.gpio = {
 			[MCLK_PIN] = {.gpio = GPIOE(1)/*129*/, .mul_sel = 1, .pull = 0, .drv_level = 1, .data = 0,},

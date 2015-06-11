@@ -433,6 +433,10 @@ int main(int argc,char *argv[])
 	subch_size.width = input_size.width >> 1;
 	subch_size.height = input_size.height >> 1;
 	
+	input_size.width = ALIGN_16B(input_size.width/2)*2;
+	subch_size.width = ALIGN_16B(subch_size.width/2)*2;
+	subch_size.height = ALIGN_16B(subch_size.height/2)*2;
+	
 	buf_size[0] = ALIGN_16B(input_size.width)*input_size.height*3/2;
 	buf_size[1] = ALIGN_16B(subch_size.width)*subch_size.height*3/2;
 	buf_size[2] = ALIGN_16B(subch_size.height)*subch_size.width*3/2;
