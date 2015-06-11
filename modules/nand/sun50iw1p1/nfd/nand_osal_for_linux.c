@@ -58,8 +58,8 @@
 #endif
 
 #define  NAND_DRV_VERSION_0		0x2
-#define  NAND_DRV_VERSION_1		0x24
-#define  NAND_DRV_DATE			0x20150402
+#define  NAND_DRV_VERSION_1		0x25
+#define  NAND_DRV_DATE			0x20150611
 #define  NAND_DRV_TIME			0x1122
 
 #define GPIO_BASE_ADDR			0x01c20800
