@@ -7945,7 +7945,7 @@ static int mxt_regulator_configure(struct himax_ts_data *ts, bool state)
 			pr_err("%s: couldn't get regulator vdd_touch_5v0: %ld\n",
 				__func__, PTR_ERR(keenhi_t40_touch_vddio));
 			keenhi_t40_touch_vddio = NULL;
-			return;
+			return -1;
 		}
   	}
 
@@ -7969,6 +7969,7 @@ static int mxt_regulator_configure(struct himax_ts_data *ts, bool state)
 	}
 
   }
+  return ret;
 }
 
 static int reg_set_optimum_mode_check(struct regulator *reg, int load_uA)
