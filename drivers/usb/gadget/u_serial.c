@@ -414,8 +414,11 @@ __acquires(&port->port_lock)
 			break;
 	}
 
-	if (do_tty_wake && port->port.tty)
+	if (do_tty_wake && port->port.tty) {
+		spin_unlock(&port->port_lock);
 		tty_wakeup(port->port.tty);
+		spin_lock(&port->port_lock);
+	}
 	return status;
 }
 
