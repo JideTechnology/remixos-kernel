@@ -36,6 +36,7 @@ struct dw9718_device {
 	struct timespec focus_time;	/* Time when focus was last time set */
 	__u8 buffer[4];			/* Used for i2c transactions */
 	const struct camera_af_platform_data *platform_data;
+	__u8 power_on;
 };
 
 #define DW9718_MAX_FOCUS_POS	1023

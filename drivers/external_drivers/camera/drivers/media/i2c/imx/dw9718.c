@@ -104,6 +104,9 @@ int dw9718_vcm_power_up(struct v4l2_subdev *sd)
 	int i;
 	int step = DW9718_CLICK_REDUCTION_STEP;
 
+	if (dw9718_dev.power_on)
+		return 0;
+
 	/* Enable power */
 	ret = dw9718_dev.platform_data->power_ctrl(sd, 1);
 	if (ret)
@@ -164,6 +167,7 @@ int dw9718_vcm_power_up(struct v4l2_subdev *sd)
 		return ret;
 
 	dw9718_dev.initialized = true;
+	dw9718_dev.power_on = 1;
 
 	return 0;
 
@@ -179,6 +183,9 @@ int dw9718_vcm_power_down(struct v4l2_subdev *sd)
 	int ret;
 	int i;
 	int step = DW9718_CLICK_REDUCTION_STEP;
+
+	if (!dw9718_dev.power_on)
+		return 0;
 
 	/* Minimize the click sounds from the lens during power down */
 	i = min(dw9718_dev.focus, DW9718_DEFAULT_FOCUS_POSITION) - step;
@@ -197,7 +204,15 @@ int dw9718_vcm_power_down(struct v4l2_subdev *sd)
 		dev_err(&client->dev, "%s: write DW9718_PD to 1 failed\n",
 				__func__);
 
-	return dw9718_dev.platform_data->power_ctrl(sd, 0);
+	ret =  dw9718_dev.platform_data->power_ctrl(sd, 0);
+	if (ret) {
+		dev_err(&client->dev, "%s power_ctrl failed\n",
+				__func__);
+		return ret;
+	}
+	dw9718_dev.power_on = 0;
+
+	return 0;
 }
 
 int dw9718_q_focus_status(struct v4l2_subdev *sd, s32 *value)
@@ -251,5 +266,6 @@ int dw9718_vcm_init(struct v4l2_subdev *sd)
 {
 	dw9718_dev.platform_data = camera_get_af_platform_data();
 	dw9718_dev.focus = DW9718_DEFAULT_FOCUS_POSITION;
+	dw9718_dev.power_on = 0;
 	return (NULL == dw9718_dev.platform_data) ? -ENODEV : 0;
 }
