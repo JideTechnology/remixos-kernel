@@ -4,52 +4,6 @@
 
 / {
 	soc@01c00000{
-		r_pio: pinctrl@01f02c00 {
-			compatible = "allwinner,sun8i-r-pinctrl";
-			reg = <0x0 0x01f02c00 0x0 0x400>;
-			interrupts = <GIC_SPI 45 4>;
-			clocks = <&clk_cpurpio>;
-			device_type = "r_pio";
-			//resets = <&apb0_rst 0>;
-			gpio-controller;
-			interrupt-controller;
-			#interrupt-cells = <2>;
-			#size-cells = <0>;
-			#gpio-cells = <6>;
-
-			s_uart0_pins_a: s_uart0@0 {
-				allwinner,pins = "PL2", "PL3";
-				allwinner,function = "s_uart0";
-				allwinner,muxsel = <2>;
-				allwinner,drive = <1>;
-				allwinner,pull = <1>;
-			};
-
-			s_rsb0_pins_a: s_rsb0@0 {
-				allwinner,pins = "PL0", "PL1";
-				allwinner,function = "s_rsb0";
-				allwinner,muxsel = <2>;
-				allwinner,drive = <2>;
-				allwinner,pull = <1>;
-			};
-
-			s_jtag0_pins_a: s_jtag0@0 {
-				allwinner,pins = "PL4", "PL5", "PL6", "PL7";
-				allwinner,function = "s_jtag0";
-				allwinner,muxsel = <2>;
-				allwinner,drive = <2>;
-				allwinner,pull = <1>;
-			};
-
-			s_cir0_pins_a: s_cir0@0 {
-				allwinner,pins = "PL11";
-				allwinner,function = "s_cir0";
-				allwinner,muxsel = <2>;
-				allwinner,drive = <2>;
-				allwinner,pull = <1>;
-			};
-		};
-
 		pio: pinctrl@01c20800 {
 			compatible = "allwinner,sun8i-pinctrl";
 			reg = <0x0 0x01c20800 0x0 0x400>;

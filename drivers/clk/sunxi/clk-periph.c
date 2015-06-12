@@ -580,12 +580,12 @@ struct clk *sunxi_clk_register_periph(const char *name,
 	periph->hw.init = &init;
 	periph->flags = init.flags;
 	/* fix registers */
-	periph->mux.reg = periph->mux.reg ? (base + (u64 __force)periph->mux.reg) : NULL;
-	periph->divider.reg = periph->divider.reg ? (base + (u64 __force)periph->divider.reg) : NULL;
-	periph->gate.enable = periph->gate.enable ? (base + (u64 __force)periph->gate.enable) : NULL;
-	periph->gate.reset = periph->gate.reset ? (base + (u64 __force)periph->gate.reset) : NULL;
-	periph->gate.bus = periph->gate.bus ? (base + (u64 __force)periph->gate.bus) : NULL;
-	periph->gate.dram = periph->gate.dram ? (base + (u64 __force)periph->gate.dram) : NULL;
+	periph->mux.reg = periph->mux.reg ? (base + (unsigned long __force)periph->mux.reg) : NULL;
+	periph->divider.reg = periph->divider.reg ? (base + (unsigned long __force)periph->divider.reg) : NULL;
+	periph->gate.enable = periph->gate.enable ? (base + (unsigned long __force)periph->gate.enable) : NULL;
+	periph->gate.reset = periph->gate.reset ? (base + (unsigned long __force)periph->gate.reset) : NULL;
+	periph->gate.bus = periph->gate.bus ? (base + (unsigned long __force)periph->gate.bus) : NULL;
+	periph->gate.dram = periph->gate.dram ? (base + (unsigned long __force)periph->gate.dram) : NULL;
 
 	clk = clk_register(NULL, &periph->hw);
 	if (IS_ERR(clk))

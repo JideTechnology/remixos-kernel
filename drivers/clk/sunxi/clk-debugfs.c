@@ -42,7 +42,7 @@ static void clktest_reg_dump(void)
 {
 	unsigned int i;
 	char dumpline[256];
-	printk("Dump Base 0x%llx Regs %d as Follow:\n",(u64 __force)sunxi_clk_base, (unsigned int __force)sunxi_clk_maxreg);
+	printk("Dump Base 0x%lx Regs %d as Follow:\n",(unsigned long __force)sunxi_clk_base, (unsigned int __force)sunxi_clk_maxreg);
 	for(i=0;i<=sunxi_clk_maxreg;)
 	{
 		if(i+12 <= sunxi_clk_maxreg)
@@ -70,7 +70,7 @@ static void clktest_reg_dump(void)
 
 	if(cpus_clk_maxreg)
 	{
-		printk("Dump CPUS Base 0x%llx Regs %d as Follow:\n",(u64 __force)sunxi_clk_cpus_base,(unsigned int)cpus_clk_maxreg);
+		printk("Dump CPUS Base 0x%lx Regs %d as Follow:\n",(unsigned long __force)sunxi_clk_cpus_base,(unsigned int)cpus_clk_maxreg);
 		for(i=0;i<=cpus_clk_maxreg;)
 		{
 			if(i+12 <= cpus_clk_maxreg)
@@ -297,7 +297,8 @@ static ssize_t ccudbg_command_read(struct file *file, char __user *buf, size_t c
 			count = len;
 		if(count > (len - *ppos))
 			count = (len - *ppos);
-		copy_to_user((void __user *)buf,(const void *)testclk_priv.tmpbuf,(unsigned long)len);
+		if(copy_to_user((void __user *)buf,(const void *)testclk_priv.tmpbuf,(unsigned long)len))
+			return -EFAULT;
 		*ppos += count;
 	}
 	else
@@ -309,7 +310,8 @@ static ssize_t ccudbg_command_write(struct file *file, const char __user *buf, s
 {
 	if( count >= sizeof(testclk_priv.command) )
 		return 0;
-	copy_from_user(testclk_priv.command, buf, count);
+	if(copy_from_user(testclk_priv.command, buf, count))
+		return -EFAULT;
 	if(testclk_priv.command[count-1]==0x0A)
 		testclk_priv.command[count-1]=0;
 	else
@@ -340,7 +342,8 @@ static ssize_t ccudbg_name_read(struct file *file, char __user *buf, size_t coun
 			count = len;
 		if(count > (len - *ppos))
 			count = (len - *ppos);
-		copy_to_user((void __user *)buf,(const void *)testclk_priv.tmpbuf,(unsigned long)len);
+		if(copy_to_user((void __user *)buf,(const void *)testclk_priv.tmpbuf,(unsigned long)len))
+			return -EFAULT;
 		*ppos += count;
 	}
 	else
@@ -352,7 +355,8 @@ static ssize_t ccudbg_name_write(struct file *file, const char __user *buf, size
 {
 	if( count >= sizeof(testclk_priv.name) )
 		return 0;
-	copy_from_user(testclk_priv.name, buf, count);
+	if(copy_from_user(testclk_priv.name, buf, count))
+		return -EFAULT;
 	if(testclk_priv.name[count-1]==0x0A)
 		testclk_priv.name[count-1]=0;
 	else
@@ -383,7 +387,8 @@ static ssize_t ccudbg_start_read(struct file *file, char __user *buf, size_t cou
 			count = len;
 		if(count > (len - *ppos))
 			count = (len - *ppos);
-		copy_to_user((void __user *)buf,(const void *)testclk_priv.tmpbuf,(unsigned long)len);
+		if(copy_to_user((void __user *)buf,(const void *)testclk_priv.tmpbuf,(unsigned long)len))
+			return -EFAULT;
 		*ppos += count;
 	}
 	else
@@ -394,7 +399,8 @@ static ssize_t ccudbg_start_write(struct file *file, const char __user *buf, siz
 {
 	if( count >= sizeof(testclk_priv.start) )
 		return 0;
-	copy_from_user(testclk_priv.start, buf, count);
+	if(copy_from_user(testclk_priv.start, buf, count))
+		return -EFAULT;
 	if(testclk_priv.start[count-1]==0x0A)
 		testclk_priv.start[count-1]=0;
 	else
@@ -426,7 +432,8 @@ static ssize_t ccudbg_param_read(struct file *file, char __user *buf, size_t cou
 			count = len;
 		if(count > (len - *ppos))
 			count = (len - *ppos);
-		copy_to_user((void __user *)buf,(const void *)testclk_priv.tmpbuf,(unsigned long)len);
+		if(copy_to_user((void __user *)buf,(const void *)testclk_priv.tmpbuf,(unsigned long)len))
+			return -EFAULT;
 		*ppos += count;
 	}
 	else
@@ -437,7 +444,8 @@ static ssize_t ccudbg_param_write(struct file *file, const char __user *buf, siz
 {
 	if( count >= sizeof(testclk_priv.param) )
 		return 0;
-	copy_from_user(testclk_priv.param, buf, count);
+	if(copy_from_user(testclk_priv.param, buf, count))
+		return -EFAULT;
 	if(testclk_priv.param[count-1]==0x0A)
 		testclk_priv.param[count-1]=0;
 	else
@@ -468,7 +476,8 @@ static ssize_t ccudbg_info_read(struct file *file, char __user *buf, size_t coun
 			count = len;
 		if(count > (len - *ppos))
 			count = (len - *ppos);
-		copy_to_user((void __user *)buf,(const void *)testclk_priv.tmpbuf,(unsigned long)len);
+		if(copy_to_user((void __user *)buf,(const void *)testclk_priv.tmpbuf,(unsigned long)len))
+			return -EFAULT;
 		*ppos += count;
 	}
 	else
@@ -479,7 +488,8 @@ static ssize_t ccudbg_info_write(struct file *file, const char __user *buf, size
 {
 	if( count >= sizeof(testclk_priv.info) )
 		return 0;
-	copy_from_user(testclk_priv.info, buf, count);
+	if(copy_from_user(testclk_priv.info, buf, count))
+		return -EFAULT;
 	if(testclk_priv.info[count-1]==0x0A)
 		testclk_priv.info[count-1]=0;
 	else

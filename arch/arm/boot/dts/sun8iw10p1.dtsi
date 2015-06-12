@@ -44,7 +44,6 @@
 		nand0 =&nand0;
 		disp = &disp;
 		lcd0 = &lcd0;
-		hdmi = &hdmi;
 		pwm = &pwm;
 		boot_disp = &boot_disp;
 	};
@@ -334,62 +333,6 @@
 			space1 = <0x41020000 0x00000000 0x00000800>; /* super standby para space        */
 		};
 
-		msgbox: msgbox@1c17000 {
-			compatible = "allwinner,msgbox";
-			clocks = <&clk_msgbox>;
-		     	clock-names = "clk_msgbox";
-		    	reg = <0x0 0x01c17000 0x0 0x1000>;
-		    	interrupts = <GIC_SPI 49 IRQ_TYPE_EDGE_RISING>;
-		    	status = "okay";
-		};
-
-		hwspinlock: hwspinlock@1c18000 {
-			compatible = "allwinner,sunxi-hwspinlock";
-			clocks = <&clk_hwspinlock_rst>, <&clk_hwspinlock_bus>;
-			clock-names = "clk_hwspinlock_rst" , "clk_hwspinlock_bus";
-			reg = <0x0 0x01c18000 0x0 0x1000>;
-			status = "okay";
-			num-locks = <8>; /* the number hwspinlock we needed, max 32 */
-		};
-
-		s_cir0: s_cir@1f02000 {
-			compatible = "allwinner,s_cir";
-			reg = <0x0 0x01f02000 0x0 0x400>;
-			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&s_cir0_pins_a>;
-			clocks = <&clk_hosc>,<&clk_cpurcir>;
-			supply = "vcc-pl";
-			ir_power_key_code = <0>;
-			ir_addr_code = <0>;
-			status = "okay";
-		};
-
-		s_uart0: s_uart@1f02800 {
-			compatible = "allwinner,s_uart";
-			reg = <0x0 0x01f02800 0x0 0x400>;
-			interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&s_uart0_pins_a>;
-			status = "okay";
-		};
-
-		s_rsb0: s_rsb@1f03400 {
-			compatible = "allwinner,s_rsb";
-			reg = <0x0 0x01f03400 0x0 0x400>;
-			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&s_rsb0_pins_a>;
-			status = "okay";
-		};
-
-		s_jtag0: s_jtag0 {
-			compatible = "allwinner,s_jtag";
-			pinctrl-names = "default";
-			pinctrl-0 = <&s_jtag0_pins_a>;
-			status = "disable";
-		};
-
 		soc_timer0: timer@1c20c00 {
 			compatible = "allwinner,sunxi-timer";
 			device_type = "timer";
@@ -406,17 +349,6 @@
 			interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
 			gpr_offset = <0x100>;
 			gpr_len	   = <4>;
-		};
-
-		ve@01c0e000 {
-			compatible = "allwinner,sunxi-cedar-ve";
-			reg = <0x0 0x01c0e000 0x0 0x1000>,
-					<0x0 0x01c00000 0x0 0x10>,
-					<0x0 0x01c20000 0x0 0x800>;
-			interrupts = <GIC_SPI 58 4>;
-			clocks = <&clk_pll_ve>,
-							<&clk_ve>;
-
 		};
 
 		uart0: uart@01c28000 {
@@ -603,27 +535,6 @@
 			status              = "okay";
 		};
 
-		ehci1:ehci1-controller@0x01c1b000 {
-			compatible          = "allwinner,sun50i-ehci1";
-			reg                 = <0x0 0x01c1b000 0x0 0xFFF>,/*hci1 base*/
-			                      <0x0 0x01c00000 0x0 0x100>, /*sram base*/
-			                      <0x0 0x01c19000 0x0 0x1000>; /*otg base*/
-			interrupts          = <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>;
-			clocks              = <&clk_usbphy1>, <&clk_usbehci1>, <&clk_usbhsic>, <&clk_usbhsic12m>, <&clk_pll_hsic>;
-			hci_ctrl_no         = <1>;
-			status              = "okay";
-		};
-
-		ohci1:ohci1-controller@0x01c1b400 {
-			compatible          = "allwinner,sun50i-ohci1";
-			reg                 = <0x0 0x01c1b000 0x0 0xFFF>, /*hci1 base*/
-			                      <0x0 0x01c00000 0x0 0x100>, /*sram base*/
-			                      <0x0 0x01c19000 0x0 0x1000>; /*otg base*/
-			interrupts          = <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH>;
-			clocks              = <&clk_usbphy1>, <&clk_usbohci1>;
-			hci_ctrl_no         = <1>;
-			status              = "okay";
-		};
 		codec:codec@0x01c22c00 {
 			compatible = "allwinner,sunxi-internal-codec";
 			reg = <0x0 0x01c22c00 0x0 0x478>,/*digital baseadress*/
@@ -709,7 +620,7 @@
 		daudio2:daudio@0x01c22800{
 			compatible = "allwinner,sunxi-tdmhdmi";
 			reg = <0x0 0x01c22800 0x0 0x58>;
-			clocks = <&clk_pll_audio>,<&clk_i2s2>;
+			clocks = <&clk_pll_audio>;
 			status = "okay";
 		};
 		spdif:spdif-controller@0x01c21000{
@@ -938,8 +849,7 @@
 				<0x0 0x01ca0000 0x0 0x10fc>;/*dsi*/
 			interrupts = <GIC_SPI 86 0x0104>, <GIC_SPI 87 0x0104>,
 				<GIC_SPI 89 0x0104>;/* for dsi */
-			clocks = <&clk_de>,<&clk_tcon0>,
-				<&clk_lvds>,<&clk_mipidsi>,<&clk_tcon1>;
+			clocks = <&clk_de>,<&clk_tcon0>;
 
 			status = "okay";
 		};
@@ -949,12 +859,6 @@
 			pinctrl-names = "active","sleep";
 
 			status = "okay";
-		};
-
-		hdmi: hdmi@01ee0000 {
-			compatible = "allwinner,sunxi-hdmi";
-			reg = <0x0 0x01ee0000 0x0 0x20000>;
-			clocks = <&clk_hdmi>,<&clk_hdmi_slow>;
 		};
 
 		soc_tr: tr@01000000 {
@@ -1060,7 +964,6 @@
 			compatible = "allwinner,sun50i-vdevice";
 			pinctrl-names = "default";
 			pinctrl-0 = <&vdevice_pins_a>;
-			test-gpios = <&r_pio PL 0 1 2 3 4>;
 			status = "okay";
 		};
 		cryptoengine: ce@1c15000 {
@@ -1071,28 +974,7 @@
 						 <GIC_SPI 80 0xff01>; /* secure space */
 			clock-frequency = <300000000>, /* 300MHz */
 							  <200000000>; /* 200MHz for RSA */
-			clocks = <&clk_ce>, <&clk_pll_periph0x2>;
-		};
-		di:deinterlace@0x01e00000{
-			#address-cells = <1>;
-			#size-cells = <0>;
-			compatible = "allwinner,sunxi-deinterlace";
-			reg = <0x0 0x01e00000 0x0 0x77c>;
-			interrupts = <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk_deinterlace> ,<&clk_pll_periph0>;
-			status = "okay";
-		};
-		smc:smartcard@0x01c2c400{
-			#address-cells = <1>;
-			#size-cells = <0>;
-			compatible = "allwinner,sunxi-scr";
-			reg = <0x0 0x01c2c400 0x0 0x100>;
-			interrupts = <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk_scr>, <&clk_apb2>;
-			clock-frequency = <24000000>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&scr_pins_a>;
-			status = "okay";
+			clocks = <&clk_pll_periph0x2>;
 		};
 		nmi:nmi@0x01f00c00{
 			#address-cells = <1>;
@@ -1297,25 +1179,6 @@
 			key3 = <700 139>;
 			key4 = <890 28>;
 			key5 = <2000 102>;
-		};
-
-		gmac0: eth@01c30000 {
-			compatible = "allwinner,sunxi-gmac";
-			reg = <0x0 0x01c30000 0x0 0x40000>,
-			    <0x0 0x01c00000 0x0 0x30>;
-			pinctrl-names = "default";
-			pinctrl-0     = <&gmac_pins_a>;
-			interrupts      = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "gmacirq";
-			clocks   = <&clk_gmac>;
-			clock-names = "gmac";
-			phy-mode = "rgmii";
-			tx-delay = <7>;
-			rx-delay = <31>;
-			gmac_power1 = "axp81x_dldo2:2500000";
-			gmac_power2 = "axp81x_eldo2:1800000";
-			gmac_power3 = "axp81x_fldo1:1200000";
-			status = "disable";
 		};
 	};
 };

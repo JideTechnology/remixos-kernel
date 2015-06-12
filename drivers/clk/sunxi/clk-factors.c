@@ -507,7 +507,7 @@ struct clk *sunxi_clk_register_factors(struct device *dev, void __iomem *base,
 	factors->lock_en_bit = init_data->lock_en_bit;
 	factors->lock_mode = init_data->lock_mode;
 	factors->config = init_data->config;
-	factors->config->sdmpat = (u64 __force)(base + factors->config->sdmpat);
+	factors->config->sdmpat = (unsigned long __force)(base + factors->config->sdmpat);
 	factors->lock = lock;
 	factors->hw.init = &init;
 	factors->get_factors = init_data->get_factors;

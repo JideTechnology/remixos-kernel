@@ -14,4 +14,5 @@ obj-${CONFIG_COMMON_CLK_DEBUG} += clk-debugfs.o
 # obj-${CONFIG_ARCH_SUN8IW9} += clk-sun8iw9.o
 # obj-${CONFIG_ARCH_SUN9IW1} += clk-sun9iw1.o
 obj-${CONFIG_ARCH_SUN50IW1P1} += clk-sun50iw1.o
+obj-${CONFIG_ARCH_SUN8IW10} += clk-sun8iw10.o
 obj-$(CONFIG_SUNXI_AC100_CLK) +=clk-ac100.o

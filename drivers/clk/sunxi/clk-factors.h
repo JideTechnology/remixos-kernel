@@ -102,7 +102,7 @@ struct sunxi_clk_factors_config {
 	u8 sdmshift;
 	u8 sdmwidth;
 
-	u64 sdmpat;
+	unsigned long sdmpat;
 	u32 sdmval;
 
 	u32 updshift;
@@ -192,11 +192,11 @@ struct sunxi_clk_pat_item
 };
 static inline u32 factor_readl(struct sunxi_clk_factors * factor, void __iomem * reg)
 {
-	return (((u64*)factor->priv_regops)?factor->priv_regops->reg_readl(reg):readl(reg));
+	return (((unsigned long*)factor->priv_regops)?factor->priv_regops->reg_readl(reg):readl(reg));
 }
 static inline void factor_writel(struct sunxi_clk_factors * factor, unsigned int val, void __iomem * reg)
 {
-	(((u64*)factor->priv_regops)?factor->priv_regops->reg_writel(val,reg):writel(val,reg));
+	(((unsigned long*)factor->priv_regops)?factor->priv_regops->reg_writel(val,reg):writel(val,reg));
 }
 void sunxi_clk_get_factors_ops(struct clk_ops* ops);
 struct clk *sunxi_clk_register_factors(struct device *dev,void __iomem *base,spinlock_t *lock,struct factor_init_data* init_data);

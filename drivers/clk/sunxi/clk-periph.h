@@ -134,11 +134,11 @@ struct sunxi_clk_periph {
 };
 static inline u32 periph_readl(struct sunxi_clk_periph * periph, void __iomem * reg)
 {
-	return (((u64)periph->priv_regops)?periph->priv_regops->reg_readl(reg):readl(reg));
+	return (((unsigned long)periph->priv_regops)?periph->priv_regops->reg_readl(reg):readl(reg));
 }
 static inline void periph_writel(struct sunxi_clk_periph * periph, unsigned int val, void __iomem * reg)
 {
-	(((u64)periph->priv_regops)?periph->priv_regops->reg_writel(val,reg):writel(val,reg));
+	(((unsigned long)periph->priv_regops)?periph->priv_regops->reg_writel(val,reg):writel(val,reg));
 }
 struct clk *sunxi_clk_register_periph(const char *name, const char **parent_names,
 			int num_parents, unsigned long flags, void __iomem  *base, struct sunxi_clk_periph *periph);
