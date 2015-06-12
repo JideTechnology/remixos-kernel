@@ -84,6 +84,12 @@
 #include<linux/himax_ts_data.h>
 #endif
 
+
+#if defined CONFIG_TOUCHSCREEN_FT5X06
+#include<linux/input/ft5x06_ts.h>
+#endif
+
+
 #if defined(CONFIG_SND_SOC_TEGRA_SOC_TLV320AIC325X) && defined(CONFIG_MACH_HAS_SND_SOC_TEGRA_TLV320AIC325X)
   #include <mach/tegra_aic325x_pdata.h>
 #else
@@ -721,6 +727,35 @@ static int __init Himax_touch_init(void)
 }
 
 #endif
+
+#if defined (CONFIG_TOUCHSCREEN_FT5X06)
+
+static struct ft5x06_ts_platform_data ft5x06_pdata={
+	.irq_gpio =TEGRA_GPIO_PK2,
+	.reset_gpio=TEGRA_GPIO_PK4,
+    .x_max = 1920,
+    .y_max = 1080,
+    .num_max_touches = 10,
+    .soft_rst_dly = 50,
+    .irqflags = IRQF_TRIGGER_FALLING,//IRQF_TRIGGER_LOW,
+    .family_id = 0x59,
+};
+
+static const struct i2c_board_info ventana_i2c_bus1_ft5x06[] = {
+	{
+	 I2C_BOARD_INFO("ft5x06_ts", (0x70 >> 1)),
+	.platform_data = &ft5x06_pdata,
+	},
+};
+static int __init Ft5x06_touch_init(void)
+{
+	i2c_register_board_info(1, ventana_i2c_bus1_ft5x06, 1);
+	return 0;
+}
+
+#endif
+
+
 static void macallan_usb_init(void)
 {
 	int usb_port_owner_info = tegra_get_usb_port_owner_info();
@@ -1012,6 +1047,9 @@ static void __init tegra_macallan_init(void)
 #endif
 #ifdef CONFIG_TOUCHSCREEN_HIMAX
 	Himax_touch_init();
+#endif
+#ifdef CONFIG_TOUCHSCREEN_FT5X06
+    Ft5x06_touch_init();
 #endif
 	macallan_modem_init();
 #ifdef CONFIG_TEGRA_WDT_RECOVERY

@@ -924,4 +924,16 @@ config TOUCHSCREEN_HIMAX
 	  To compile this driver as a module, choose M here: the module will
 	  be called Himax_touch.			  
 
+config TOUCHSCREEN_FT5X06
+        tristate "FocalTech I2C touchscreen driver"
+        depends on I2C
+        default n
+        help
+          Say Y here to enable FocalTech I2C capacitive touchscreen support
+
+          If unsure, say N
+
+          To compile this driver as a module, choose M here: the module will
+          be called ft5x06_ts.
+
 endif
