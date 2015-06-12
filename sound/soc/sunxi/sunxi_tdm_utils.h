@@ -97,24 +97,99 @@
 
 #define SUNXI_DAUDIORXCNT  							(0x2C)
 
-#define SUNXI_TXCHCFG								(0x30)
+#define SUNXI_CHCFG								(0x30)
 	#define SUNXI_TXCHCFG_TX_SLOT_HIZ				(1<<9)
 	#define SUNXI_TXCHCFG_TX_STATE					(1<<8)
+#ifdef CONFIG_ARCH_SUN8IW10
+	#define SUNXI_TXCHCFG_RX_SLOT_NUM				(15<<4)
+	#define SUNXI_TXCHCFG_TX_SLOT_NUM				(15<<0)
+#else
 	#define SUNXI_TXCHCFG_RX_SLOT_NUM				(7<<4)
 	#define SUNXI_TXCHCFG_TX_SLOT_NUM				(7<<0)
+#endif
 
 #define SUNXI_DAUDIOTX0CHSEL							(0x34)
 #define SUNXI_DAUDIOTX1CHSEL							(0x38)
 #define SUNXI_DAUDIOTX2CHSEL							(0x3C)
 #define SUNXI_DAUDIOTX3CHSEL							(0x40)
-	#define SUNXI_DAUDIOTXn_OFFSET					(3<<12)
-	#define SUNXI_DAUDIOTXn_CHEN					((v)<<4)
-	#define SUNXI_DAUDIOTXn_CHSEL					((v)<<0)
+#ifdef CONFIG_ARCH_SUN8IW10
+	#define SUNXI_DAUDIOTXn_OFFSET(v)					((v)<<20)
+	#define SUNXI_DAUDIOTXn_CHSEL(v)					((v)<<16)
+	#define SUNXI_DAUDIOTXn_CHEN(v)						((v)<<0)
+	#define CHEN_MASK								0xffff
+	#define CHSEL_MASK								0xf
+	#define CH_MAX									16
+#else
+	#define SUNXI_DAUDIOTXn_OFFSET(v)					((v)<<12)
+	#define SUNXI_DAUDIOTXn_CHEN(v)					((v)<<4)
+	#define SUNXI_DAUDIOTXn_CHSEL(v)					((v)<<0)
+	#define CHEN_MASK								0xff
+	#define CHSEL_MASK								0x7
+	#define CH_MAX									8
+#endif
+	
+#ifdef CONFIG_ARCH_SUN8IW10
+#define SUNXI_DAUDIOTX0CHMAP0							(0x44)
+#define SUNXI_DAUDIOTX1CHMAP0							(0x4c)
+#define SUNXI_DAUDIOTX2CHMAP0							(0x54)
+#define SUNXI_DAUDIOTX3CHMAP0							(0x5c)
+#define SUNXI_TXCHANMAP0_DEFAULT						(0xfedcba98)
+	#define SUNXI_DAUDIOTXn_CH15_MAP				(15<<28)
+	#define SUNXI_DAUDIOTXn_CH14_MAP				(15<<24)
+	#define SUNXI_DAUDIOTXn_CH13_MAP				(15<<20)
+	#define SUNXI_DAUDIOTXn_CH12_MAP				(15<<16)
+	#define SUNXI_DAUDIOTXn_CH11_MAP				(15<<12)
+	#define SUNXI_DAUDIOTXn_CH10_MAP				(15<<8)
+	#define SUNXI_DAUDIOTXn_CH9_MAP					(15<<4)
+	#define SUNXI_DAUDIOTXn_CH8_MAP					(15<<0)
 
+#define SUNXI_DAUDIOTX0CHMAP1							(0x48)
+#define SUNXI_DAUDIOTX1CHMAP1							(0x50)
+#define SUNXI_DAUDIOTX2CHMAP1							(0x58)
+#define SUNXI_DAUDIOTX3CHMAP1							(0x60)
+#define SUNXI_TXCHANMAP1_DEFAULT						(0x76543210)
+	#define SUNXI_DAUDIOTXn_CH7_MAP					(15<<28)
+	#define SUNXI_DAUDIOTXn_CH6_MAP					(15<<24)
+	#define SUNXI_DAUDIOTXn_CH5_MAP					(15<<20)
+	#define SUNXI_DAUDIOTXn_CH4_MAP					(15<<16)
+	#define SUNXI_DAUDIOTXn_CH3_MAP					(15<<12)
+	#define SUNXI_DAUDIOTXn_CH2_MAP					(15<<8)
+	#define SUNXI_DAUDIOTXn_CH1_MAP					(15<<4)
+	#define SUNXI_DAUDIOTXn_CH0_MAP					(15<<0)
+
+	#define SUNXI_DAUDIORXCHSEL							(0x64)
+	#define SUNXI_DAUDIORXCHSEL_RXOFFSET(v)			((v)<<20)
+	#define SUNXI_DAUDIORXCHSEL_RXCHSET(v)				((v)<<0)
+
+	#define SUNXI_DAUDIORXCHMAP0						(0x68)
+	#define SUNXI_RXCHANMAP0_DEFAULT				(0xfedcba98)
+	#define SUNXI_DAUDIORXCHMAP_CH15				(15<<28)
+	#define SUNXI_DAUDIORXCHMAP_CH14				(15<<24)
+	#define SUNXI_DAUDIORXCHMAP_CH13				(15<<20)
+	#define SUNXI_DAUDIORXCHMAP_CH12				(15<<16)
+	#define SUNXI_DAUDIORXCHMAP_CH11				(15<<12)
+	#define SUNXI_DAUDIORXCHMAP_CH10				(15<<8)
+	#define SUNXI_DAUDIORXCHMAP_CH9					(15<<4)
+	#define SUNXI_DAUDIORXCHMAP_CH8					(15<<0)
+
+	#define SUNXI_DAUDIORXCHMAP1					(0x6c)
+	#define SUNXI_RXCHANMAP1_DEFAULT				(0x76543210)
+	#define SUNXI_DAUDIORXCHMAP_CH7					(15<<28)
+	#define SUNXI_DAUDIORXCHMAP_CH6					(15<<24)
+	#define SUNXI_DAUDIORXCHMAP_CH5					(15<<20)
+	#define SUNXI_DAUDIORXCHMAP_CH4					(15<<16)
+	#define SUNXI_DAUDIORXCHMAP_CH3					(15<<12)
+	#define SUNXI_DAUDIORXCHMAP_CH2					(15<<8)
+	#define SUNXI_DAUDIORXCHMAP_CH1					(15<<4)
+	#define SUNXI_DAUDIORXCHMAP_CH0					(15<<0)
+
+#define SUNXI_DAUDIODBG								(0x70)
+#else
 #define SUNXI_DAUDIOTX0CHMAP							(0x44)
 #define SUNXI_DAUDIOTX1CHMAP							(0x48)
 #define SUNXI_DAUDIOTX2CHMAP							(0x4C)
 #define SUNXI_DAUDIOTX3CHMAP							(0x50)
+#define SUNXI_TXCHANMAP_DEFAULT							(0x76543210)
 	#define SUNXI_DAUDIOTXn_CH7_MAP					(7<<28)
 	#define SUNXI_DAUDIOTXn_CH6_MAP					(7<<24)
 	#define SUNXI_DAUDIOTXn_CH5_MAP					(7<<20)
@@ -123,11 +198,13 @@
 	#define SUNXI_DAUDIOTXn_CH2_MAP					(7<<8)
 	#define SUNXI_DAUDIOTXn_CH1_MAP					(7<<4)
 	#define SUNXI_DAUDIOTXn_CH0_MAP					(7<<0)
+
 #define SUNXI_DAUDIORXCHSEL							(0x54)
-	#define SUNXI_DAUDIORXCHSEL_RXOFFSET				(3<<12)
-	#define SUNXI_DAUDIORXCHSEL_RXCHSET				(7<<0)
+	#define SUNXI_DAUDIORXCHSEL_RXOFFSET(v)				((v)<<12)
+	#define SUNXI_DAUDIORXCHSEL_RXCHSET(v)				((v)<<0)
 
 #define SUNXI_DAUDIORXCHMAP							(0x58)
+#define SUNXI_RXCHANMAP_DEFAULT							(0x76543210)
 	#define SUNXI_DAUDIORXCHMAP_CH7					(7<<28)
 	#define SUNXI_DAUDIORXCHMAP_CH6					(7<<24)
 	#define SUNXI_DAUDIORXCHMAP_CH5					(7<<20)
@@ -138,7 +215,7 @@
 	#define SUNXI_DAUDIORXCHMAP_CH0					(7<<0)
 
 #define SUNXI_DAUDIODBG								(0x5C)
-
+#endif
 
 #define SUNXI_DAUDIOCLKD_MCLK_MASK   0x0f
 #define SUNXI_DAUDIOCLKD_MCLK_OFFS   0
@@ -179,8 +256,6 @@ struct sunxi_tdm_info {
 	u32 clk_enable_cnt;
 	bool tdm_config;	/*1:i2s 0:pcm*/
 	bool frametype;	/*pcm format: 0-short frame,1-long frame*/
-
-
 };
 
 extern int txctrl_tdm(int on,int hub_en,struct sunxi_tdm_info *sunxi_tdm);
