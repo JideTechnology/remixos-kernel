@@ -4321,6 +4321,11 @@ enum punit_power_well {
 #define VLV_FW_PIPEB_WM1_MASK1	0xff00
 #define VLV_FW_PIPEB_WM1_MASK2	0xff000000
 
+#define FW1_SR_WM 23
+#define NUM_SR_BITS 9
+#define SHOWM_SR_WM_HO 24
+#define NIBBLE_HIGH 8
+
 #define VLV_FW_SR_MASK		0xff800000
 #define VLV_FW_SR_WM1_MASK	0xff
 #define VLV_DSPHOWM_SR_MASK	0x3000000
