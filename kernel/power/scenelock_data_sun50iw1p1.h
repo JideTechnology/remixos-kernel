@@ -40,7 +40,8 @@ scene_extended_standby_t extended_standby[] = {
 		//note: vcc_io for phy;	
 		.soc_pwr_dep.soc_pwr_dm_state.state	   = BITMAP(VCC_DRAM_BIT) | BITMAP(VDD_CPUS_BIT) |\
 							     BITMAP(VCC_LPDDR_BIT) | BITMAP(VCC_PL_BIT) | \
-							     BITMAP(VDD_SYS_BIT) | BITMAP(VCC_IO_BIT),
+							     BITMAP(VDD_SYS_BIT) | BITMAP(VCC_IO_BIT) | \
+							     BITMAP(VCC_PLL_BIT),
 		.soc_pwr_dep.soc_pwr_dm_state.volt[0]      = 0x0,	//mean: donot need care about the voltage.
 		.soc_pwr_dep.cpux_clk_state.osc_en         = BITMAP(OSC_LOSC_BIT) | BITMAP(OSC_HOSC_BIT) | BITMAP(OSC_LDO1_BIT) | BITMAP(OSC_LDO0_BIT),	// mean all osc is off. +losc, +hosc
 		.soc_pwr_dep.cpux_clk_state.init_pll_dis   = BITMAP(PM_PLL_DRAM) | BITMAP(PM_PLL_PERIPH), //mean pll5 is shutdowned & open by dram driver.
@@ -153,8 +154,11 @@ scene_extended_standby_t extended_standby[] = {
 		//mean dram, cpus,dram_pll,vcc_pl, vcc_io, vcc_ldoin is on.
 		//note: vcc_pm is marked on, just for cross-platform reason.
 		//at a83: with the sys_mask's help, we know we do not need care about vcc_pm state.
+		//Because disable AVCC/VCC_PLL will lead to pll stable time extended, and enable AVCC/VCC_PLL only
+		//increase power consumption 60uA. So keeping AVCC/VCC_PLL enable when standby.
 		.soc_pwr_dep.soc_pwr_dm_state.state	   = BITMAP(VCC_DRAM_BIT) | BITMAP(VDD_CPUS_BIT) |\
-							     BITMAP(VCC_LPDDR_BIT) | BITMAP(VCC_PL_BIT),
+							     BITMAP(VCC_LPDDR_BIT) | BITMAP(VCC_PL_BIT) |\
+							     BITMAP(VCC_PLL_BIT),
 		//mean care about cpua, dram, sys, cpus, dram_pll, vdd_adc, vcc_pl, vcc_io, vcc_cpvdd, vcc_ldoin, vcc_pll 
 		.soc_pwr_dep.soc_pwr_dm_state.volt[0]      = 0x0,	//mean: donot need care about the voltage.
 		.soc_pwr_dep.cpux_clk_state.osc_en         = 0x0,	// mean all osc is off.
