@@ -5,11 +5,12 @@
 / {
 	soc@01c00000{
 		pio: pinctrl@01c20800 {
-			compatible = "allwinner,sun8i-pinctrl";
+			compatible = "allwinner,sun8iw10p1-pinctrl";
 			reg = <0x0 0x01c20800 0x0 0x400>;
-			interrupts = <GIC_SPI 11 4>,
-				     <GIC_SPI 17 4>,
-				     <GIC_SPI 21 4>;
+			interrupts = <GIC_SPI 15 4>,
+				     <GIC_SPI 16 4>,
+				     <GIC_SPI 21 4>,
+				     <GIC_SPI 17 4>;
 			device_type = "pio";
 			clocks = <&clk_pio>;
 			gpio-controller;

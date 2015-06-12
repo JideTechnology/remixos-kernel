@@ -43,6 +43,10 @@ config PINCTRL_SUN8I_A23_R
 	depends on RESET_CONTROLLER
 	select PINCTRL_SUNXI_COMMON
 
+config PINCTRL_SUN8IW10P1
+        bool "Pinctrl sun8iw10p1 PIO controller"
+	select PINCTRL_SUNXI_COMMON
+	
 config PINCTRL_SUN50IW1P1
         bool "Pinctrl sun50i PIO controller"
 	select PINCTRL_SUNXI_COMMON
