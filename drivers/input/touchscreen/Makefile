@@ -78,3 +78,5 @@ obj-$(CONFIG_TOUCHSCREEN_SYN_RMI4_SPI)  += rmi4/
 obj-$(CONFIG_TOUCHSCREEN_MAXIM_STI)     += maxim_sti.o
 obj-$(CONFIG_TOUCHSCREEN_HIMAX)		+= Himax_touch.o
 obj-$(CONFIG_TOUCHSCREEN_FT5X06)	+= ft5x06_ts.o
+obj-$(CONFIG_TOUCHSCREEN_FT5X06)	+= focaltech_flash.o
+obj-$(CONFIG_TOUCHSCREEN_FT5X06)	+= focaltech_ex_fun.o
