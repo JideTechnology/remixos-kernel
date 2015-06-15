@@ -269,7 +269,6 @@ struct synaptics_rmi4_data {
 	bool suspend;
 #ifdef CONFIG_PM_SLEEP
 	bool power_hal_want_suspend;
-	bool kernel_suspend;
 #endif
 	bool sensor_sleep;
 	bool stay_awake;
