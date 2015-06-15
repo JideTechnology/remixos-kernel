@@ -691,7 +691,7 @@ static long ov8858_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 	case ATOMISP_IOC_G_DEPTH_SYNC_COMP:
 		return ov8858_g_comp_delay(sd, (unsigned int *)arg);
 	default:
-		dev_err(&client->dev, "Unhandled command 0x%X\n", cmd);
+		dev_dbg(&client->dev, "Unhandled command 0x%X\n", cmd);
 		return -EINVAL;
 	}
 }
@@ -712,6 +712,16 @@ static int __power_ctrl(struct v4l2_subdev *sd, bool flag)
 		return dev->platform_data->power_ctrl(sd, flag);
 
 #ifdef CONFIG_GMIN_INTEL_MID
+	if (dev->platform_data->v1p2_ctrl) {
+		ret = dev->platform_data->v1p2_ctrl(sd, flag);
+		if (ret) {
+			dev_err(&client->dev,
+				"failed to power %s 1.2v power rail\n",
+				flag ? "up" : "down");
+			return ret;
+		}
+	}
+
 	if (dev->platform_data->v2p8_ctrl) {
 		ret = dev->platform_data->v2p8_ctrl(sd, flag);
 		if (ret) {

@@ -80,7 +80,7 @@ static struct rt5670_init_reg init_list[] = {
 	{ RT5670_CHARGE_PUMP	, 0x0c00 },
 	{ RT5670_GPIO_CTRL3	, 0x0d00 }, /* for stereo SPK */
 	/* record */
-	{ RT5670_GEN_CTRL3	, 0x0084},
+	{ RT5670_GEN_CTRL3	, 0x0884},
 	{ RT5670_REC_L2_MIXER	, 0x007d }, /* Mic1 -> RECMIXL */
 	{ RT5670_REC_R2_MIXER	, 0x007d }, /* Mic1 -> RECMIXR */
 	{ RT5670_STO1_ADC_MIXER	, 0x5940 }, /* DMIC2 setting */

@@ -553,6 +553,17 @@ err:
 		return strlen(fw_stat_buf);
 	}
 
+	if (cmd == IOCTL_HECI_GET_SYNC_TIMER) {
+		uint64_t	usec;
+		struct timespec	ts;
+
+		get_monotonic_boottime(&ts);
+		usec = (uint64_t)ts.tv_sec * 1000000 +
+			(uint64_t)ts.tv_nsec / 1000;
+		copy_to_user((char __user *)data, &usec,
+			sizeof(uint64_t));
+	}
+
 	if (cmd != IOCTL_HECI_CONNECT_CLIENT)
 		return -EINVAL;
 

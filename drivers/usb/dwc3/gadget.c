@@ -1588,20 +1588,13 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 
 	pm_runtime_get_sync(dwc->dev);
 
-	spin_lock_irqsave(&dwc->lock, flags);
-	ret = dwc3_gadget_run_stop(dwc, is_on);
-	spin_unlock_irqrestore(&dwc->lock, flags);
-
-	pm_runtime_put_autosuspend(dwc->dev);
-
 	/**
-	 * WORKAROUND: The dwc3 controller doesn't issue disconnect
-	 * event after pullups is disabled. Thus gadget dissconnect callback
-	 * is not invoked when do soft dissconnect. Call dissconnect here
-	 * to workaround this issue.
+	 * WORKAROUND: The dwc3 controller doesn't issue disconnect.
+	 * Thus gadget dissconnect callback is not invoked when do
+	 * soft dissconnect. Call dissconnect here to workaround
+	 * this issue.
 	 */
-	if (!ret && !is_on
-		&& dwc->gadget_driver && dwc->gadget_driver->disconnect) {
+	if (!is_on && dwc->gadget_driver && dwc->gadget_driver->disconnect) {
 		if (dwc->gadget.speed != USB_SPEED_UNKNOWN) {
 			dev_dbg(dwc->dev, "fake dissconnect event\n");
 			irq = platform_get_irq(to_platform_device(dwc->dev), 0);
@@ -1611,6 +1604,12 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 			enable_irq(irq);
 		}
 	}
+
+	spin_lock_irqsave(&dwc->lock, flags);
+	ret = dwc3_gadget_run_stop(dwc, is_on);
+	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	pm_runtime_put_autosuspend(dwc->dev);
 
 	return ret;
 }

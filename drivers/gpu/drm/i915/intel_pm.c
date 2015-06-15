@@ -1613,14 +1613,6 @@ void vlv_update_dsparb(struct intel_crtc *intel_crtc)
 	u32 pa = 0, sa = 0, sb = 0, sr = 0;
 	int fifo_size = 0;
 
-	/*REVERT ME:
-	 * As udpating of DSPARB is not atomic, vblack timeout is seen with
-	 * dynamic updating.
-	 * So here not dynamically udpate DSPARB on CHT-CR.
-	 **/
-	if (IS_CHERRYVIEW(dev) && dev->pdev->revision == CHT_CR_REVISION)
-		return;
-
 	if (hweight32(plane_stat) == 1) {
 		/* Allocate the entire fifo to the plane that is enabled */
 		dsparb |=  (0xFFFF << ((ffs(plane_stat) - 1) * 8));
@@ -1740,34 +1732,58 @@ void vlv_update_dsparb(struct intel_crtc *intel_crtc)
 	}
 }
 
-void vlv_set_ddr_dvfs(struct drm_i915_private *dev_priv, bool enable)
+void vlv_set_ddr_dvfs(struct drm_i915_private *dev_priv,
+		bool enable_ddr_dvfs)
 {
-	unsigned int val = CHV_DDR_DVFS_DOORBELL;
+	unsigned int val = 0x0;
+	unsigned int freq_mask = CHV_FORCE_DDR_LOW_FREQ |
+						CHV_FORCE_DDR_HIGH_FREQ;
+	int pipe_stat = VLV_PIPE_STATS(dev_priv->pipe_plane_stat);
+	struct drm_crtc *crtc;
+	struct intel_crtc_config *config;
+	unsigned int cur_dvfs_mode;
+
+	/* Set higher DDR frequency if DDR DVFS is being disabled */
+	if (!enable_ddr_dvfs)
+		val = CHV_FORCE_DDR_HIGH_FREQ;
+
+	/* Force DDR freq to low if userspace is requesting for it */
+	if (dev_priv->force_low_ddr_freq)
+		val = CHV_FORCE_DDR_LOW_FREQ;
+
+	/* DDR freq should be high if more than one pipe is active */
+	if (!single_pipe_enabled(pipe_stat))
+		val = CHV_FORCE_DDR_HIGH_FREQ;
+	else {
+		crtc = single_enabled_crtc(dev_priv->dev);
+		config = &((to_intel_crtc(crtc))->config);
+
+		/* DDR freq should be high for resolution greater than 19x12 */
+		if ((config->pipe_src_w * config->pipe_src_h) > (1920 * 1200))
+			val = CHV_FORCE_DDR_HIGH_FREQ;
+	}
 
 	mutex_lock(&dev_priv->rps.hw_lock);
 
-	vlv_punit_write(dev_priv, CHV_DDR_DVFS, val);
+	/* Return if required mode is already set */
+	cur_dvfs_mode = vlv_punit_read(dev_priv, CHV_DDR_DVFS);
+	if ((cur_dvfs_mode & freq_mask) == val)
+		goto out;
+
+	/* First set the DDR DVFS frequency to auto */
+	vlv_punit_write(dev_priv, CHV_DDR_DVFS, CHV_DDR_DVFS_DOORBELL);
 	if (wait_for((vlv_punit_read(dev_priv, CHV_DDR_DVFS) &
 				CHV_DDR_DVFS_DOORBELL) == 0, 3))
 		DRM_ERROR("timed out for punit change req\n");
 
-	if (enable) {
-		if (dev_priv->force_low_ddr_freq) {
-			val |= CHV_FORCE_DDR_LOW_FREQ;
-			vlv_punit_write(dev_priv, CHV_DDR_DVFS, val);
-
-			if (wait_for((vlv_punit_read(dev_priv, CHV_DDR_DVFS) &
-						CHV_DDR_DVFS_DOORBELL) == 0, 3))
-				DRM_ERROR("timed out for punit change req\n");
-		}
-	} else {
-		val |= CHV_FORCE_DDR_HIGH_FREQ;
+	if (val) {
 		vlv_punit_write(dev_priv, CHV_DDR_DVFS, val);
-
 		if (wait_for((vlv_punit_read(dev_priv, CHV_DDR_DVFS) &
 					CHV_DDR_DVFS_DOORBELL) == 0, 3))
 			DRM_ERROR("timed out for punit change req\n");
 	}
+
+out:
 	mutex_unlock(&dev_priv->rps.hw_lock);
 }
 
@@ -1775,22 +1791,18 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv,
 				struct drm_crtc *crtc, bool enable)
 {
 	unsigned int val = 0;
-	struct intel_crtc_config *config =
-				&((to_intel_crtc(crtc))->config);
-	int pipe_stat = VLV_PIPE_STATS(dev_priv->pipe_plane_stat);
 
 	if (!IS_VALLEYVIEW(dev_priv->dev))
 		return;
 
 	if (enable) {
 		if (IS_CHERRYVIEW(dev_priv->dev)) {
+
 			/*
-			 * cannot enable ddr dvfs if
-			 * resolution greater than 19x12
+			 * When display is in single plane maxfifo mode,
+			 * DDR DVFS can be enabled for better power saving.
 			 */
-			if ((config->pipe_src_w * config->pipe_src_h)
-					<= (1920 * 1200))
-				vlv_set_ddr_dvfs(dev_priv, true);
+			vlv_set_ddr_dvfs(dev_priv, true);
 
 			I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
 			mutex_lock(&dev_priv->rps.hw_lock);
@@ -1805,12 +1817,11 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv,
 	} else {
 		if (IS_CHERRYVIEW(dev_priv->dev)) {
 
-			/* Enable high DVFS frequency only if force flag is not
-			 * set or more than one pipe is active
+			/*
+			 * If display is in multiplane/multidisplay mode,
+			 * disable DDR DVFS and set higher frequency.
 			 */
-			if (!dev_priv->force_low_ddr_freq ||
-					!single_pipe_enabled(pipe_stat))
-				vlv_set_ddr_dvfs(dev_priv, false);
+			vlv_set_ddr_dvfs(dev_priv, false);
 
 			mutex_lock(&dev_priv->rps.hw_lock);
 			val = vlv_punit_read(dev_priv, CHV_DPASSC);
@@ -1830,33 +1841,11 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv,
 }
 
 void
-vlv_force_ddr_low_frequency(struct drm_i915_private *dev_priv, bool enabled)
+vlv_force_ddr_low_frequency(struct drm_i915_private *dev_priv, bool mode)
 {
-	struct drm_crtc *crtc;
-	struct intel_crtc_config *config;
-
-	if (enabled) {
-		if (dev_priv->force_low_ddr_freq)
-			return;
-
-		crtc = single_enabled_crtc(dev_priv->dev);
-		/* Cannot force DVFS to low if more than one pipe is active */
-		if (crtc == NULL)
-			return;
-
-		config = &((to_intel_crtc(crtc))->config);
-		/* Cannot force DVFS to low if resolution is greater
-		 * than 19x12 */
-		if ((config->pipe_src_w * config->pipe_src_h) > (1920 * 1200))
-			return;
-
-		dev_priv->force_low_ddr_freq = true;
-		vlv_set_ddr_dvfs(dev_priv, true);
-	} else {
-		if (!dev_priv->force_low_ddr_freq)
-			return;
-		dev_priv->force_low_ddr_freq = false;
-		vlv_set_ddr_dvfs(dev_priv, false);
+	if (mode != dev_priv->force_low_ddr_freq) {
+		dev_priv->force_low_ddr_freq = mode;
+		vlv_set_ddr_dvfs(dev_priv, mode);
 	}
 }
 
@@ -1869,14 +1858,6 @@ void valleyview_update_wm_pm5(struct intel_crtc *crtc)
 	int prev_plane_stat = VLV_PLANE_STATS(dev_priv->prev_pipe_plane_stat,
 								pipe);
 	int sa, sb, pa, dsparb, dsparb_h;
-
-	/*REVERT ME:
-	 * As udpating of DSPARB is not atomic, vblack timeout is seen with
-	 * dynamic updating.
-	 * So here not dynamically udpate DSPARB on CHT-CR.
-	 **/
-	if (IS_CHERRYVIEW(dev) && dev->pdev->revision == CHT_CR_REVISION)
-		return;
 
 	if (prev_plane_stat == plane_stat)
 		return;

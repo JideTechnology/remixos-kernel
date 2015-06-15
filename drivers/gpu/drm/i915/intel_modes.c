@@ -193,6 +193,11 @@ intel_attach_scaling_src_size_property(struct drm_connector *connector)
 	drm_object_attach_property(obj, prop, 0);
 }
 
+/*
+ * Userspace can force low DDR frequency using connector property for power
+ * optimization in certain cases or delegate the control to kernel for default
+ * DVFS policy.
+ */
 static const struct drm_prop_enum_list ddr_freq_names[] = {
 	{0, "default"},
 	{1, "low"},

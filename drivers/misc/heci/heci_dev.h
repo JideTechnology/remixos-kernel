@@ -278,6 +278,7 @@ void heci_device_init(struct heci_device *dev);
 void heci_reset(struct heci_device *dev, int interrupts);
 int heci_start(struct heci_device *dev);
 void heci_stop(struct heci_device *dev);
+void	heci_device_disable(struct heci_device *dev);
 
 static inline unsigned long heci_secs_to_jiffies(unsigned long sec)
 {

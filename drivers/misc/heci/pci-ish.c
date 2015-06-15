@@ -815,6 +815,11 @@ void workqueue_init_function(struct work_struct *work)
 	device_create_file(&dev->pdev->dev, &read_attr);
 	device_create_file(&dev->pdev->dev, &flush_attr);
 
+	dev->log_head = dev->log_tail = 0;
+	dev->print_log = ish_print_log;
+
+	spin_lock_init(&dev->log_spinlock);
+
 	dev->print_log(dev,
 		"[heci-ish]: %s():+++ [Build "BUILD_ID "]\n",
 		__func__);
@@ -829,6 +834,8 @@ void workqueue_init_function(struct work_struct *work)
 		(dev->pdev->revision & REVISION_ID_SI_MASK) ==
 		REVISION_ID_CHT_Kx_SI ? "CHT Kx/Cx" : "Unknown",
 		dev->pdev->revision);
+#else
+	dev->print_log = ish_print_log_nolog;
 #endif /*ISH_LOG*/
 
 	init_waitqueue_head(&suspend_wait);
@@ -1007,15 +1014,6 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		kfree(work);
 		return -ENOMEM;
 	}
-
-#if ISH_LOG
-	spin_lock_init(&dev->log_spinlock);
-	dev->log_head = dev->log_tail = 0;
-	dev->print_log = ish_print_log;
-#else
-	dev->print_log = ish_print_log_nolog;
-#endif /*ISH_LOG*/
-
 	INIT_WORK(&work->my_work, workqueue_init_function);
 	queue_work(workqueue_for_init, &work->my_work);
 
@@ -1053,8 +1051,8 @@ static void ish_remove(struct pci_dev *pdev)
 	struct ish_hw *hw;
 
 	/*
-	 *** If this case of removal is viable,
-	 * also go through HECI clients removal ***
+	 * This happens during power-off/reboot and may be at the same time as
+	 * a lot of bi-directional communication happens
 	 */
 	if (heci_pci_device != pdev) {
 		dev_err(&pdev->dev, "heci: heci_pci_device != pdev\n");
@@ -1069,8 +1067,12 @@ static void ish_remove(struct pci_dev *pdev)
 
 	hw = to_ish_hw(dev);
 
-	/* disable interrupts */
-	ish_intr_disable(dev);
+	/*
+	 * Set HECI device state to disabled.
+	 * Invalidate all other possible communication in both directions
+	 */
+	heci_device_disable(dev);
+
 	free_irq(pdev->irq, dev);
 	pci_disable_msi(pdev);
 	pci_iounmap(pdev, hw->mem_addr);

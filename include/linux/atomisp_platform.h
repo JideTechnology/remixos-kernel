@@ -229,6 +229,7 @@ struct camera_sensor_platform_data {
 	int (*gpio1_ctrl)(struct v4l2_subdev *subdev, int on);
 	int (*v1p8_ctrl)(struct v4l2_subdev *subdev, int on);
 	int (*v2p8_ctrl)(struct v4l2_subdev *subdev, int on);
+	int (*v1p2_ctrl)(struct v4l2_subdev *subdev, int on);
 	struct camera_vcm_control * (*get_vcm_ctrl)(struct v4l2_subdev *subdev,
 						    char *module_id);
 #endif

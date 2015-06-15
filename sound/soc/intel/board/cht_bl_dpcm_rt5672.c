@@ -115,8 +115,13 @@ static inline void cht_set_codec_power(struct snd_soc_codec *codec,
 	case 0:
 		cht_force_enable_pin(codec, "JD Power", false);
 		cht_force_enable_pin(codec, "Mic Det Power", false);
-		cht_force_enable_pin(codec, "micbias2", false);
-	       break;
+		board_name = dmi_get_system_info(DMI_BOARD_NAME);
+		pr_debug("Turn Off the micbias for %s\n", board_name);
+		if (strcmp(board_name, "Cherry Trail FFD") == 0)
+			cht_force_enable_pin(codec, "micbias1", false);
+		else
+			cht_force_enable_pin(codec, "micbias2", false);
+		break;
 	default:
 		return;
 	}
