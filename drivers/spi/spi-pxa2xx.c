@@ -1378,8 +1378,8 @@ static int pxa2xx_spi_resume(struct device *dev)
 	if (!pm_runtime_suspended(dev))
 		clk_prepare_enable(ssp->clk);
 
-	/* Restore LPSS private register bits */
-	lpss_ssp_setup(drv_data);
+	/* Init LPSS private register bits */
+	lpss_ssp_init(drv_data);
 
 	/* Start the queue running */
 	status = spi_master_resume(drv_data->master);
