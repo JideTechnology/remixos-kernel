@@ -464,8 +464,7 @@ static int ov8858_s_exposure(struct v4l2_subdev *sd,
 				exposure->gain[0], exposure->gain[1]);
 }
 
-static int ov8858_g_priv_int_data(struct v4l2_subdev *sd,
-				  struct v4l2_private_int_data *priv)
+static int ov8858_priv_int_data_init(struct v4l2_subdev *sd)
 {
 	struct ov8858_device *dev = to_ov8858_sensor(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
@@ -473,7 +472,6 @@ static int ov8858_g_priv_int_data(struct v4l2_subdev *sd,
 	int r;
 	u16 isp_ctrl2 = 0;
 
-	mutex_lock(&dev->input_lock);
 	if (!dev->otp_data) {
 		dev->otp_data = devm_kzalloc(&client->dev, size, GFP_KERNEL);
 		if (!dev->otp_data) {
@@ -550,14 +548,6 @@ static int ov8858_g_priv_int_data(struct v4l2_subdev *sd,
 		}
 	}
 
-	if (copy_to_user(priv->data, dev->otp_data,
-			 min_t(__u32, priv->size, size))) {
-		r = -EFAULT;
-		goto error3;
-	}
-
-	priv->size = size;
-	mutex_unlock(&dev->input_lock);
 
 	return 0;
 
@@ -570,19 +560,51 @@ error2:
 	devm_kfree(&client->dev, dev->otp_data);
 	dev->otp_data = NULL;
 error3:
-	mutex_unlock(&dev->input_lock);
 	dev_err(&client->dev, "%s: OTP reading failed\n", __func__);
 	return r;
+}
+
+static int ov8858_g_priv_int_data(struct v4l2_subdev *sd,
+				  struct v4l2_private_int_data *priv)
+{
+	struct ov8858_device *dev = to_ov8858_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	u32 size = OV8858_OTP_END_ADDR - OV8858_OTP_START_ADDR + 1;
+	int r;
+
+	mutex_lock(&dev->input_lock);
+
+	if (!dev->otp_data) {
+		dev_err(&client->dev, "%s: otp data is NULL\n", __func__);
+		mutex_unlock(&dev->input_lock);
+		return -EFAULT;
+	}
+
+	if (copy_to_user(priv->data, dev->otp_data,
+			 min_t(__u32, priv->size, size))) {
+		r = -EFAULT;
+		dev_err(&client->dev, "%s: OTP reading failed\n", __func__);
+		mutex_unlock(&dev->input_lock);
+		return r;
+	}
+
+	priv->size = size;
+	mutex_unlock(&dev->input_lock);
+
+	return 0;
 }
 
 static int __ov8858_init(struct v4l2_subdev *sd)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov8858_device *dev = to_ov8858_sensor(sd);
+	int ret;
 	dev_dbg(&client->dev, "%s\n", __func__);
 
+#ifndef CONFIG_GMIN_INTEL_MID
 	if (dev->sensor_id == OV8858_ID_DEFAULT)
 		return 0;
+#endif
 
 	/* Sets the default FPS */
 	dev->fps_index = 0;
@@ -601,7 +623,11 @@ static int __ov8858_init(struct v4l2_subdev *sd)
 #endif
 	dev_dbg(&client->dev, "%s: Writing basic settings to ov8858\n",
 		__func__);
-	return ov8858_write_reg_array(client, ov8858_BasicSettings);
+	ret = ov8858_write_reg_array(client, ov8858_BasicSettings);
+	if (ret)
+		return ret;
+
+	return ov8858_priv_int_data_init(sd);
 }
 
 static int ov8858_init(struct v4l2_subdev *sd, u32 val)
