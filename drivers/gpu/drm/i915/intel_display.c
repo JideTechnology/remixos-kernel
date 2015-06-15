@@ -11263,6 +11263,10 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 
 	/* Calculation for Flips */
 	ret = intel_set_disp_calc_flip(disp, dev, file_priv, intel_crtc);
+	if (ret) {
+		DRM_ERROR("flip calculation failed %d\n", ret);
+		goto out;
+	}
 
 	prev_plane_stat = VLV_PLANE_STATS(dev_priv->prev_pipe_plane_stat, pipe);
 	plane_stat = VLV_PLANE_STATS(dev_priv->pipe_plane_stat, pipe);
@@ -11303,6 +11307,7 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 
 	dev_priv->prev_pipe_plane_stat = dev_priv->pipe_plane_stat;
 
+out:
 	dev_priv->atomic_update = false;
 
 	intel_runtime_pm_put(dev_priv);
