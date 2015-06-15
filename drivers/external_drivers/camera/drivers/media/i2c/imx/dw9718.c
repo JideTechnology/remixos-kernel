@@ -86,7 +86,7 @@ int dw9718_t_focus_abs(struct v4l2_subdev *sd, s32 value)
 
 	value = clamp(value, 0, DW9718_MAX_FOCUS_POS);
 	ret = dw9718_i2c_wr16(client, DW9718_DATA_M, value);
-	pr_info("%s: value = %d\n", __func__, value);
+	/*pr_info("%s: value = %d\n", __func__, value);*/
 	if (ret < 0)
 		return ret;
 
