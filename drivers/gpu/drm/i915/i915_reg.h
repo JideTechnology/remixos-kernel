@@ -4337,7 +4337,6 @@ enum punit_power_well {
 #define DDL_SPRITEB_PRECISION_H		(1<<23)
 #define DDL_SPRITEB_PRECISION_L		(0<<23)
 #define DDL_SPRITEA_SHIFT	8
-#define DDL_MULTI_PIPE_CHV	0x82
 
 #define DDL_PLANEA_PRECISION_H		(1<<7)
 #define DDL_PLANEA_PRECISION_L		(0<<7)
