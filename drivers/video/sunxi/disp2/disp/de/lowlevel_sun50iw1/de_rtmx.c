@@ -998,7 +998,7 @@ int de_rtmx_set_overlay_size(unsigned int sel, unsigned int chno, unsigned int w
 	return 0;
 }
 
-static int de_rtmx_get_coarse_fac(unsigned int ovl_w, unsigned int ovl_h,unsigned int vsu_outw, unsigned int vsu_outh, unsigned int fmt,
+static int de_rtmx_get_coarse_fac(unsigned int sel, unsigned int ovl_w, unsigned int ovl_h,unsigned int vsu_outw, unsigned int vsu_outh, unsigned int fmt,
 						   unsigned int lcd_fps, unsigned int lcd_height, unsigned int de_freq_MHz,
 						   unsigned int *yhm, unsigned int *yhn, unsigned int *yvm, unsigned int *yvn,
 						   unsigned int *chm, unsigned int *chn, unsigned int *cvm, unsigned int *cvn,
@@ -1066,6 +1066,27 @@ static int de_rtmx_get_coarse_fac(unsigned int ovl_w, unsigned int ovl_h,unsigne
 	if (ovl_w > 8*vsu_outw)
 	{
 		tmpyhn = 8*vsu_outw;
+		tmpyhn = tmpyhn & (~((1<<wshift)-1));
+		tmpyhm = ovl_w;
+		*yhm   = tmpyhm;
+		*yhn   = tmpyhn;
+		*chm   = *yhm;
+		*chn   = *yhn;
+
+		//actually fetch horizontal pixel Y channel
+		*midyw = tmpyhn;
+
+		//actually fetch horizontal pixel C channel
+		*midcw = tmpyhn>>wshift;
+		status = 0x1;
+	}
+	/* Because the linebuffer of disp1 is only 2048 pixels,
+	 * so if the width of input buffer is larger than the 2048 pixles,
+	 * we should fetch only 2048 well-balancedly.
+	 */
+	else if ((sel == 1) && (ovl_w > 2048))
+	{
+		tmpyhn = 2048;
 		tmpyhn = tmpyhn & (~((1<<wshift)-1));
 		tmpyhm = ovl_w;
 		*yhm   = tmpyhm;
@@ -1182,7 +1203,7 @@ int de_rtmx_set_coarse_fac(unsigned int sel, unsigned char chno, unsigned int fm
 	unsigned int yhm,yhn,yvm,yvn,chm,chn,cvm,cvn;
 	int status;
 
-	status = de_rtmx_get_coarse_fac(ovl_w, ovl_h,vsu_outw, vsu_outh, fmt, lcd_fps, lcd_height, de_freq_MHz,
+	status = de_rtmx_get_coarse_fac(sel, ovl_w, ovl_h,vsu_outw, vsu_outh, fmt, lcd_fps, lcd_height, de_freq_MHz,
 						   &yhm, &yhn, &yvm, &yvn, &chm, &chn, &cvm, &cvn, midyw, midyh, midcw, midch);
 
 	de200_rtmx[sel].vi_ovl[chno]->vi_hori_ds[0].bits.m = yhm;
