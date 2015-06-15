@@ -4266,7 +4266,6 @@ EXhalbtc8812a2ant_DisplayCoexInfo(
 		pBtCoexist->btInfo.rpwmVal);
 	CL_PRINTF(cliBuf);
 
-	pBtCoexist->fBtcDispDbgMsg(pBtCoexist, BTC_DBG_DISP_FW_PWR_MODE_CMD);
 
 	// Sw mechanism	
 	CL_SPRINTF(cliBuf, BT_TMP_BUF_SIZE, "\r\n %-35s", "============[Sw mechanism]============");

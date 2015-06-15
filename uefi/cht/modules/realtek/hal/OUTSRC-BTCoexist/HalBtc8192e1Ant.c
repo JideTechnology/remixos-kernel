@@ -2626,7 +2626,7 @@ EXhalbtc8192e1ant_DisplayCoexInfo(
 		pBtCoexist->btInfo.lpsVal, 
 		pBtCoexist->btInfo.rpwmVal);
 	CL_PRINTF(cliBuf);
-	pBtCoexist->fBtcDispDbgMsg(pBtCoexist, BTC_DBG_DISP_FW_PWR_MODE_CMD);
+	//pBtCoexist->fBtcDispDbgMsg(pBtCoexist, BTC_DBG_DISP_FW_PWR_MODE_CMD);
 
 	CL_SPRINTF(cliBuf, BT_TMP_BUF_SIZE, "\r\n %-35s = 0x%x ", "SS Type", \
 		pCoexDm->curSsType);

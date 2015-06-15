@@ -947,6 +947,8 @@ struct iwl_mvm {
 	u32 fw_major_ver;
 	u32 fw_minor_ver;
 #endif
+
+	u32 ciphers[6];
 };
 
 /* Extract MVM priv from op_mode and _hw */

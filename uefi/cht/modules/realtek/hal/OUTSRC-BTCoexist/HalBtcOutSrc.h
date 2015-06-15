@@ -167,9 +167,11 @@ typedef struct _BTC_BOARD_INFO{
 	u1Byte				btChipType;
 	u1Byte				pgAntNum;	// pg ant number
 	u1Byte				btdmAntNum;	// ant number for btdm
+	u1Byte				btdmAntNumByAntDet;	// ant number for btdm after antenna detection
 	u1Byte				btdmAntPos;		//Bryant Add to indicate Antenna Position for (pgAntNum = 2) && (btdmAntNum =1)  (DPDT+1Ant case)
 	u1Byte				singleAntPath;	// current used for 8723b only, 1=>s0,  0=>s1
-	//BOOLEAN				bBtExist;
+	u1Byte				bTfbgaPackage;    //for Antenna detect threshold 
+	u1Byte				btdmAntDetFinish;
 } BTC_BOARD_INFO, *PBTC_BOARD_INFO;
 
 typedef enum _BTC_DBG_OPCODE{
@@ -203,6 +205,11 @@ typedef enum _BTC_WIFI_ROLE{
 	BTC_ROLE_MAX
 }BTC_WIFI_ROLE,*PBTC_WIFI_ROLE;
 
+typedef enum _BTC_WIRELESS_FREQ{
+	BTC_FREQ_2_4G					= 0x0,
+	BTC_FREQ_5G						= 0x1,
+	BTC_FREQ_MAX	
+}BTC_WIRELESS_FREQ,*PBTC_WIRELESS_FREQ;
 typedef enum _BTC_WIFI_BW_MODE{
 	BTC_WIFI_BW_LEGACY					= 0x0,
 	BTC_WIFI_BW_HT20					= 0x1,
@@ -222,6 +229,28 @@ typedef enum _BTC_WIFI_PNP{
 	BTC_WIFI_PNP_MAX
 }BTC_WIFI_PNP,*PBTC_WIFI_PNP;
 
+typedef enum _BTC_IOT_PEER
+{
+	BTC_IOT_PEER_UNKNOWN = 0,
+	BTC_IOT_PEER_REALTEK = 1,
+	BTC_IOT_PEER_REALTEK_92SE = 2,
+	BTC_IOT_PEER_BROADCOM = 3,
+	BTC_IOT_PEER_RALINK = 4,
+	BTC_IOT_PEER_ATHEROS = 5,
+	BTC_IOT_PEER_CISCO = 6,
+	BTC_IOT_PEER_MERU = 7,	
+	BTC_IOT_PEER_MARVELL = 8,
+	BTC_IOT_PEER_REALTEK_SOFTAP = 9,// peer is RealTek SOFT_AP, by Bohn, 2009.12.17
+	BTC_IOT_PEER_SELF_SOFTAP = 10, // Self is SoftAP
+	BTC_IOT_PEER_AIRGO = 11,
+	BTC_IOT_PEER_INTEL 				= 12, 
+	BTC_IOT_PEER_RTK_APCLIENT 		= 13, 
+	BTC_IOT_PEER_REALTEK_81XX 		= 14,	
+	BTC_IOT_PEER_REALTEK_WOW 		= 15,
+	BTC_IOT_PEER_REALTEK_JAGUAR_BCUTAP = 16,
+	BTC_IOT_PEER_REALTEK_JAGUAR_CCUTAP = 17,
+	BTC_IOT_PEER_MAX,
+}BTC_IOT_PEER, *PBTC_IOT_PEER;
 //for 8723b-d cut large current issue
 typedef enum _BT_WIFI_COEX_STATE{
 	BTC_WIFI_STAT_INIT,
@@ -250,6 +279,7 @@ typedef enum _BTC_GET_TYPE{
 	BTC_GET_BL_WIFI_UNDER_B_MODE,
 	BTC_GET_BL_EXT_SWITCH,
 	BTC_GET_BL_WIFI_IS_IN_MP_MODE,
+	BTC_GET_BL_IS_ASUS_8723B,
 
 	// type s4Byte
 	BTC_GET_S4_WIFI_RSSI,
@@ -268,6 +298,8 @@ typedef enum _BTC_GET_TYPE{
 	BTC_GET_U1_WIFI_HS_CHNL,
 	BTC_GET_U1_MAC_PHY_MODE,
 	BTC_GET_U1_AP_NUM,
+	BTC_GET_U1_ANT_TYPE,
+	BTC_GET_U1_IOT_PEER,
 
 	//===== for 1Ant ======
 	BTC_GET_U1_LPS_MODE,
@@ -320,7 +352,7 @@ typedef enum _BTC_SET_TYPE{
 typedef enum _BTC_DBG_DISP_TYPE{
 	BTC_DBG_DISP_COEX_STATISTICS				= 0x0,
 	BTC_DBG_DISP_BT_LINK_INFO				= 0x1,
-	BTC_DBG_DISP_FW_PWR_MODE_CMD			= 0x2,
+	BTC_DBG_DISP_WIFI_STATUS				= 0x2,
 	BTC_DBG_DISP_MAX
 }BTC_DBG_DISP_TYPE,*PBTC_DBG_DISP_TYPE;
 
@@ -471,6 +503,12 @@ typedef VOID
 	IN	u4Byte			offset,
 	IN	u4Byte			value
 	);
+typedef BOOLEAN
+(*BFP_BTC_SET_BT_ANT_DETECTION)(
+	IN 	PVOID			pBtcContext,
+	IN	u1Byte			txTime,
+	IN	u1Byte			btChnl
+	);
 typedef u4Byte 
 (*BFP_BTC_GET_BT_REG)(
 	IN 	PVOID			pBtcContext,
@@ -489,6 +527,7 @@ typedef struct _BTC_BT_INFO{
 	u1Byte					rssiAdjustFor1AntCoexType;
 	BOOLEAN					bPreBtCtrlAggBufSize;
 	BOOLEAN					bBtCtrlAggBufSize;
+	BOOLEAN					bPreRejectAggPkt;
 	BOOLEAN					bRejectAggPkt;
 	BOOLEAN					bIncreaseScanDevNum;
 	BOOLEAN					bBtTxRxMask;
@@ -529,6 +568,7 @@ typedef struct _BTC_STACK_INFO{
 
 typedef struct _BTC_BT_LINK_INFO{
 	BOOLEAN					bBtLinkExist;
+	BOOLEAN					bBtHiPriLinkExist;
 	BOOLEAN					bScoExist;
 	BOOLEAN					bScoOnly;
 	BOOLEAN					bA2dpExist;
@@ -603,6 +643,7 @@ typedef struct _BTC_COEXIST{
 
 	BFP_BTC_GET_BT_REG	fBtcGetBtReg;
 	BFP_BTC_SET_BT_REG	fBtcSetBtReg;
+	BFP_BTC_SET_BT_ANT_DETECTION	fBtcSetBtAntDetection;
 } BTC_COEXIST, *PBTC_COEXIST;
 
 extern BTC_COEXIST				GLBtCoexist;

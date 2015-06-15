@@ -3789,7 +3789,7 @@ EXhalbtc8723b2ant_DisplayCoexInfo(
 		((pCoexSta->bUnderIps? "IPS ON":"IPS OFF")),
 		((pCoexSta->bUnderLps? "LPS ON":"LPS OFF")));
 	CL_PRINTF(cliBuf);
-	pBtCoexist->fBtcDispDbgMsg(pBtCoexist, BTC_DBG_DISP_FW_PWR_MODE_CMD);
+	//pBtCoexist->fBtcDispDbgMsg(pBtCoexist, BTC_DBG_DISP_FW_PWR_MODE_CMD);
 
 	// Sw mechanism	
 	CL_SPRINTF(cliBuf, BT_TMP_BUF_SIZE, "\r\n %-35s", "============[Sw mechanism]============");

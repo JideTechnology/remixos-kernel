@@ -420,6 +420,12 @@ int iwl_mvm_mac_setup_register(struct iwl_mvm *mvm)
 {
 	struct ieee80211_hw *hw = mvm->hw;
 	int num_mac, ret, i;
+	static const u32 mvm_ciphers[] = {
+		WLAN_CIPHER_SUITE_WEP40,
+		WLAN_CIPHER_SUITE_WEP104,
+		WLAN_CIPHER_SUITE_TKIP,
+		WLAN_CIPHER_SUITE_CCMP,
+	};
 
 	/* Tell mac80211 our characteristics */
 	hw->flags = IEEE80211_HW_SIGNAL_DBM |
@@ -445,14 +451,32 @@ int iwl_mvm_mac_setup_register(struct iwl_mvm *mvm)
 	hw->uapsd_queues = IWL_MVM_UAPSD_QUEUES;
 	hw->uapsd_max_sp_len = IWL_UAPSD_MAX_SP;
 
+	BUILD_BUG_ON(ARRAY_SIZE(mvm->ciphers) < ARRAY_SIZE(mvm_ciphers) + 2);
+	memcpy(mvm->ciphers, mvm_ciphers, sizeof(mvm_ciphers));
+	hw->wiphy->n_cipher_suites = ARRAY_SIZE(mvm_ciphers);
+	hw->wiphy->cipher_suites = mvm->ciphers;
+
 	/*
 	 * Enable 11w if advertised by firmware and software crypto
 	 * is not enabled (as the firmware will interpret some mgmt
 	 * packets, so enabling it with software crypto isn't safe)
 	 */
 	if (mvm->fw->ucode_capa.flags & IWL_UCODE_TLV_FLAGS_MFP &&
-	    !iwlwifi_mod_params.sw_crypto)
+	    !iwlwifi_mod_params.sw_crypto) {
 		hw->flags |= IEEE80211_HW_MFP_CAPABLE;
+		mvm->ciphers[hw->wiphy->n_cipher_suites] =
+			WLAN_CIPHER_SUITE_AES_CMAC;
+		hw->wiphy->n_cipher_suites++;
+	}
+
+	/* currently FW API supports only one optional cipher scheme */
+	if (mvm->fw->cs[0].cipher) {
+		mvm->hw->n_cipher_schemes = 1;
+		mvm->hw->cipher_schemes = &mvm->fw->cs[0];
+		mvm->ciphers[hw->wiphy->n_cipher_suites] =
+			mvm->fw->cs[0].cipher;
+		hw->wiphy->n_cipher_suites++;
+	}
 
 	hw->flags |= IEEE80211_SINGLE_HW_SCAN_ON_ALL_BANDS;
 	hw->wiphy->features |=
@@ -575,12 +599,6 @@ int iwl_mvm_mac_setup_register(struct iwl_mvm *mvm)
 		hw->wiphy->features |= NL80211_FEATURE_WFA_TPC_IE_IN_PROBES;
 
 	mvm->rts_threshold = IEEE80211_MAX_RTS_THRESHOLD;
-
-	/* currently FW API supports only one optional cipher scheme */
-	if (mvm->fw->cs[0].cipher) {
-		mvm->hw->n_cipher_schemes = 1;
-		mvm->hw->cipher_schemes = &mvm->fw->cs[0];
-	}
 
 #ifdef CONFIG_PM_SLEEP
 	if (iwl_mvm_is_d0i3_supported(mvm) &&
@@ -4138,9 +4156,6 @@ static void iwl_mvm_event_mlme_callback(struct iwl_mvm *mvm,
 	struct iwl_fw_dbg_trigger_mlme *trig_mlme;
 
 	if (!iwl_fw_dbg_trigger_enabled(mvm->fw, FW_DBG_TRIGGER_MLME))
-		return;
-
-	if (event->u.mlme.status == MLME_SUCCESS)
 		return;
 
 	trig = iwl_fw_dbg_get_trigger(mvm->fw, FW_DBG_TRIGGER_MLME);

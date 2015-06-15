@@ -738,8 +738,11 @@ static int iwl_vendor_set_nic_txpower_limit(struct wiphy *wiphy,
 
 	mvm->txp_cmd = cmd;
 
+	mutex_lock(&mvm->mutex);
 	err = iwl_mvm_send_cmd_pdu(mvm, REDUCE_TX_POWER_CMD, 0,
 				   sizeof(cmd), &cmd);
+	mutex_unlock(&mvm->mutex);
+
 	if (err)
 		IWL_ERR(mvm, "failed to update device TX power: %d\n", err);
 	return 0;
