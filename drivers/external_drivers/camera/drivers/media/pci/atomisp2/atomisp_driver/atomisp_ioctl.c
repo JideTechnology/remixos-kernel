@@ -1353,8 +1353,9 @@ done:
 		} else {
 			atomisp_qbuffers_to_css(asd);
 
-			if (!atomisp_is_wdt_running(asd) && atomisp_buffers_queued(asd))
-				atomisp_wdt_start(asd);
+			if (!atomisp_is_wdt_running(pipe) &&
+				atomisp_buffers_queued_pipe(pipe))
+				atomisp_wdt_start(pipe);
 		}
 	}
 
@@ -1624,12 +1625,19 @@ int atomisp_stream_on_master_slave_sensor(struct atomisp_device *isp, bool isp_t
 }
 
 /* FIXME! */
-void __wdt_on_master_slave_sensor(struct atomisp_device *isp, unsigned int wdt_duration)
+void __wdt_on_master_slave_sensor(struct atomisp_video_pipe *pipe,
+				unsigned int wdt_duration, bool enable)
 {
-	if (atomisp_buffers_queued(&isp->asd[0]))
-		atomisp_wdt_refresh(&isp->asd[0], wdt_duration);
-	if (atomisp_buffers_queued(&isp->asd[1]))
-		atomisp_wdt_refresh(&isp->asd[1], wdt_duration);
+	static struct atomisp_video_pipe *pipe0;
+
+	if (enable) {
+		if (atomisp_buffers_queued_pipe(pipe0))
+			atomisp_wdt_refresh_pipe(pipe0, wdt_duration);
+		if (atomisp_buffers_queued_pipe(pipe))
+			atomisp_wdt_refresh_pipe(pipe, wdt_duration);
+	} else {
+		pipe0 = pipe;
+	}
 }
 
 static void atomisp_pause_buffer_event(struct atomisp_device *isp)
@@ -1869,10 +1877,11 @@ start_sensor:
 			dev_err(isp->dev, "master slave sensor stream on failed!\n");
 			goto out;
 		}
-		__wdt_on_master_slave_sensor(isp, wdt_duration);
+		__wdt_on_master_slave_sensor(pipe, wdt_duration, true);
 		goto start_delay_wq;
 	} else if (asd->depth_mode->val && (atomisp_streaming_count(isp) <
 		   ATOMISP_DEPTH_SENSOR_STREAMON_COUNT)) {
+		__wdt_on_master_slave_sensor(pipe, wdt_duration, false);
 		goto start_delay_wq;
 	}
 
@@ -1893,8 +1902,8 @@ start_sensor:
 		goto out;
 	}
 
-	if (atomisp_buffers_queued(asd))
-		atomisp_wdt_refresh(asd, wdt_duration);
+	if (atomisp_buffers_queued_pipe(pipe))
+		atomisp_wdt_refresh_pipe(pipe, wdt_duration);
 
 start_delay_wq:
 	if (asd->continuous_mode->val) {

@@ -110,6 +110,14 @@ struct atomisp_video_pipe {
 	 */
 	unsigned int frame_request_config_id[VIDEO_MAX_FRAME];
 	struct atomisp_css_params_with_list *frame_params[VIDEO_MAX_FRAME];
+
+	/*
+	* move wdt from asd struct to create wdt for each pipe
+	*/
+	struct timer_list wdt;
+	unsigned int wdt_duration;	/* in jiffies */
+	unsigned long wdt_expires;
+	atomic_t wdt_count;
 };
 
 struct atomisp_acc_pipe {
@@ -387,10 +395,6 @@ struct atomisp_sub_device {
 	int raw_buffer_bitmap[ATOMISP_MAX_EXP_ID/32 + 1]; /* Record each Raw Buffer lock status */
 	int raw_buffer_locked_count;
 	spinlock_t raw_buffer_bitmap_lock;
-
-	struct timer_list wdt;
-	unsigned int wdt_duration;	/* in jiffies */
-	unsigned long wdt_expires;
 
 	struct atomisp_resolution sensor_array_res;
 	bool high_speed_mode; /* Indicate whether now is a high speed mode */
