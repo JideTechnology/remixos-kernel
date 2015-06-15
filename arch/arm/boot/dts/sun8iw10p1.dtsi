@@ -355,7 +355,7 @@
 			compatible = "allwinner,sun50i-uart";
 			device_type = "uart0";
 			reg = <0x0 0x01c28000 0x0 0x400>;
-			interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>;	/* fpga */
 			clocks = <&clk_uart0>;
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&uart0_pins_a>;

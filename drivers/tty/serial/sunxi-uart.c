@@ -858,6 +858,7 @@ static void sw_uart_pm(struct uart_port *port, unsigned int state,
 
 	SERIAL_DBG("PM state %d -> %d\n", oldstate, state);
 
+#ifndef CONFIG_ARCH_SUN8IW10P1
 	switch (state) {
 	case 0: /* Power up */
 		if (sw_uport->mclk->enable_count > 0) {
@@ -881,6 +882,7 @@ static void sw_uart_pm(struct uart_port *port, unsigned int state,
 	default:
 		SERIAL_MSG("uart%d, Unknown PM state %d\n", sw_uport->id, state);
 	}
+#endif
 }
 
 static struct uart_ops sw_uart_ops = {
@@ -1285,12 +1287,16 @@ static int sw_uart_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
+#ifndef CONFIG_ARCH_SUN8IW10P1
 	sw_uport->mclk = of_clk_get(np, 0);
 	if (IS_ERR(sw_uport->mclk)) {
 		SERIAL_MSG("uart%d error to get clk\n", pdev->id);
 		return -EINVAL;
 	}
 	port->uartclk = clk_get_rate(sw_uport->mclk);
+#else
+	port->uartclk = 24000000;
+#endif
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res == NULL) {
