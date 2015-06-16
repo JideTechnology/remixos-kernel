@@ -11170,11 +11170,12 @@ int intel_set_disp_commit_regs(struct drm_mode_set_display *disp,
 static unsigned int usecs_to_scanlines(struct drm_crtc *crtc,
 				       unsigned int usecs)
 {
-	if (!crtc->mode.crtc_htotal)
+	/* paranoia */
+	if (!crtc->hwmode.crtc_htotal)
 		return 1;
 
-	return DIV_ROUND_UP(usecs * crtc->mode.clock,
-			    1000 * crtc->mode.crtc_htotal);
+	return DIV_ROUND_UP(usecs * crtc->hwmode.clock,
+			    1000 * crtc->hwmode.crtc_htotal);
 }
 
 static void intel_pipe_vblank_evade(struct drm_crtc *crtc)
@@ -11184,9 +11185,8 @@ static void intel_pipe_vblank_evade(struct drm_crtc *crtc)
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	int pipe = intel_crtc->pipe;
 	/* FIXME needs to be calibrated sensibly */
-	u32 min = crtc->mode.crtc_vdisplay - usecs_to_scanlines(crtc,
-						dev_priv->evade_delay);
-	u32 max = crtc->mode.crtc_vdisplay - 1;
+	u32 min = crtc->hwmode.crtc_vdisplay - usecs_to_scanlines(crtc, 50);
+	u32 max = crtc->hwmode.crtc_vdisplay - 1;
 	u32 val;
 
 	local_irq_disable();
