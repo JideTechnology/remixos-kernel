@@ -41,4 +41,6 @@ obj-m			+= imx214.o
 obj-m			+= ov8858_4lane.o
 obj-m			+= sp5409.o
 obj-m			+= s5k5e2yx.o
-obj-m			+= ov2710_mipi.oobj-m			+= ov2686.o
+obj-m			+= ov2710_mipi.o
+obj-m			+= ov2686.o
+
