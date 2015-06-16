@@ -1748,58 +1748,29 @@ void vlv_update_dsparb(struct intel_crtc *intel_crtc)
 	}
 }
 
-void vlv_set_ddr_dvfs(struct drm_i915_private *dev_priv, bool enable)
-{
-	unsigned int val = CHV_DDR_DVFS_DOORBELL;
-
-	mutex_lock(&dev_priv->rps.hw_lock);
-
-	vlv_punit_write(dev_priv, CHV_DDR_DVFS, val);
-	if (wait_for((vlv_punit_read(dev_priv, CHV_DDR_DVFS) &
-				CHV_DDR_DVFS_DOORBELL) == 0, 3))
-		DRM_ERROR("timed out for punit change req\n");
-
-	if (enable) {
-		if (dev_priv->force_low_ddr_freq) {
-			val |= CHV_FORCE_DDR_LOW_FREQ;
-			vlv_punit_write(dev_priv, CHV_DDR_DVFS, val);
-
-			if (wait_for((vlv_punit_read(dev_priv, CHV_DDR_DVFS) &
-						CHV_DDR_DVFS_DOORBELL) == 0, 3))
-				DRM_ERROR("timed out for punit change req\n");
-		}
-	} else {
-		val |= CHV_FORCE_DDR_HIGH_FREQ;
-		vlv_punit_write(dev_priv, CHV_DDR_DVFS, val);
-
-		if (wait_for((vlv_punit_read(dev_priv, CHV_DDR_DVFS) &
-					CHV_DDR_DVFS_DOORBELL) == 0, 3))
-			DRM_ERROR("timed out for punit change req\n");
-	}
-	mutex_unlock(&dev_priv->rps.hw_lock);
-}
-
 void intel_update_maxfifo(struct drm_i915_private *dev_priv,
 				struct drm_crtc *crtc, bool enable)
 {
 	unsigned int val = 0;
 	struct intel_crtc_config *config =
 				&((to_intel_crtc(crtc))->config);
-	int pipe_stat = VLV_PIPE_STATS(dev_priv->pipe_plane_stat);
 
 	if (!IS_VALLEYVIEW(dev_priv->dev))
 		return;
 
 	if (enable) {
 		if (IS_CHERRYVIEW(dev_priv->dev)) {
+			val = 0x0;
 			/*
 			 * cannot enable ddr dvfs if
 			 * resolution greater than 19x12
 			 */
 			if ((config->pipe_src_w * config->pipe_src_h)
-					<= (1920 * 1200))
-				vlv_set_ddr_dvfs(dev_priv, true);
-
+					<= (1920 * 1200)) {
+				mutex_lock(&dev_priv->rps.hw_lock);
+				vlv_punit_write(dev_priv, CHV_DDR_DVFS, val);
+				mutex_unlock(&dev_priv->rps.hw_lock);
+			}
 			I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
 			mutex_lock(&dev_priv->rps.hw_lock);
 			val = vlv_punit_read(dev_priv, CHV_DPASSC);
@@ -1811,14 +1782,18 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv,
 		dev_priv->maxfifo_enabled = true;
 	} else {
 		if (IS_CHERRYVIEW(dev_priv->dev)) {
-
-			/* Enable high DVFS frequency only if force flag is not
-			 * set or more than one pipe is active
+			/*
+			 * cannot enable ddr dvfs if
+			 * resolution is greater than 19x12
 			 */
-			if (!dev_priv->force_low_ddr_freq ||
-					!single_pipe_enabled(pipe_stat))
-				vlv_set_ddr_dvfs(dev_priv, false);
-
+			if ((config->pipe_src_w * config->pipe_src_h)
+					<= (1920 * 1200)) {
+				val = CHV_FORCE_DDR_HIGH_FREQ |
+						CHV_DDR_DVFS_DOORBELL;
+				mutex_lock(&dev_priv->rps.hw_lock);
+				vlv_punit_write(dev_priv, CHV_DDR_DVFS, val);
+				mutex_unlock(&dev_priv->rps.hw_lock);
+			}
 			mutex_lock(&dev_priv->rps.hw_lock);
 			val = vlv_punit_read(dev_priv, CHV_DPASSC);
 			I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
@@ -1832,37 +1807,6 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv,
 		} else
 			I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
 		dev_priv->maxfifo_enabled = false;
-	}
-}
-
-void
-vlv_force_ddr_low_frequency(struct drm_i915_private *dev_priv, bool enabled)
-{
-	struct drm_crtc *crtc;
-	struct intel_crtc_config *config;
-
-	if (enabled) {
-		if (dev_priv->force_low_ddr_freq)
-			return;
-
-		crtc = single_enabled_crtc(dev_priv->dev);
-		/* Cannot force DVFS to low if more than one pipe is active */
-		if (crtc == NULL)
-			return;
-
-		config = &((to_intel_crtc(crtc))->config);
-		/* Cannot force DVFS to low if resolution is greater
-		 * than 19x12 */
-		if ((config->pipe_src_w * config->pipe_src_h) > (1920 * 1200))
-			return;
-
-		dev_priv->force_low_ddr_freq = true;
-		vlv_set_ddr_dvfs(dev_priv, true);
-	} else {
-		if (!dev_priv->force_low_ddr_freq)
-			return;
-		dev_priv->force_low_ddr_freq = false;
-		vlv_set_ddr_dvfs(dev_priv, false);
 	}
 }
 

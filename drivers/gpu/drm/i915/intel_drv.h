@@ -1089,7 +1089,6 @@ void intel_attach_broadcast_rgb_property(struct drm_connector *connector);
 void intel_attach_force_pfit_property(struct drm_connector *connector);
 extern void
 	intel_attach_scaling_src_size_property(struct drm_connector *connector);
-void intel_attach_force_ddr_low_freq_property(struct drm_connector *connector);
 
 
 /* intel_overlay.c */

@@ -1746,7 +1746,6 @@ struct drm_i915_private {
 	bool csc_enabled[I915_MAX_PIPES];
 	bool is_resuming;
 	bool is_video_playing;  /* Indicates enabling only in videomode */
-	bool force_low_ddr_freq;
 
 	/* Track the media promotion timer update */
 	bool last_media_active_state;
@@ -1880,7 +1879,6 @@ struct drm_i915_private {
 	struct drm_property *force_audio_property;
 	struct drm_property *force_pfit_property;
 	struct drm_property *scaling_src_size_property;
-	struct drm_property *force_ddr_low_freq_property;
 
 	uint32_t hw_context_size;
 	struct list_head context_list;
@@ -3173,8 +3171,6 @@ extern void intel_detect_pch(struct drm_device *dev);
 extern int intel_trans_dp_port_sel(struct drm_crtc *crtc);
 extern int intel_enable_rc6(const struct drm_device *dev);
 extern void valleyview_update_wm_pm5(struct intel_crtc *crtc);
-void vlv_force_ddr_low_frequency(struct drm_i915_private *dev_priv,
-				 bool enabled);
 extern void vlv_update_dsparb(struct intel_crtc *crtc);
 void vlv_update_watermarks(struct drm_i915_private *dev_priv);
 
