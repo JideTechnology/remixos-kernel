@@ -52,8 +52,6 @@ static void hdmi_para_reset(void)
 	video_on = 0;
 	audio_on = 0;
 	video_enable = 0;
-	audio_enable = 0;
-	audio_cfged = false;
 }
 
 static void hdmi_para_init(void)
@@ -68,6 +66,8 @@ static void hdmi_para_init(void)
 	glb_audio_para.sample_bit = 16;
 	glb_audio_para.ch_num = 2;
 	glb_audio_para.ca = 0;
+	audio_enable = 0;
+	audio_cfged = false;
 }
 
 s32 hdmi_core_initial(bool sw_only)
