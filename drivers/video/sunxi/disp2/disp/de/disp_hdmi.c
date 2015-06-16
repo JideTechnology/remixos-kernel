@@ -251,6 +251,8 @@ s32 disp_hdmi_enable(struct disp_device* hdmi)
 		return DIS_FAIL;
 	}
 	mutex_lock(&hdmi_mlock);
+	if (hdmip->enabled == 1)
+		goto exit;
 	memcpy(&hdmi->timings, hdmip->video_info, sizeof(struct disp_video_timings));
 	if (mgr->enable)
 		mgr->enable(mgr);
@@ -352,11 +354,14 @@ static s32 disp_hdmi_disable(struct disp_device* hdmi)
 	if (hdmip->hdmi_func.disable == NULL)
 	    return -1;
 
+	mutex_lock(&hdmi_mlock);
+	if (hdmip->enabled == 0)
+		goto exit;
+
 	spin_lock_irqsave(&hdmi_data_lock, flags);
 	hdmip->enabled = 0;
 	spin_unlock_irqrestore(&hdmi_data_lock, flags);
 
-	mutex_lock(&hdmi_mlock);
 	hdmip->hdmi_func.disable();
 
 	disp_al_hdmi_disable(hdmi->disp);
@@ -367,6 +372,8 @@ static s32 disp_hdmi_disable(struct disp_device* hdmi)
 
 	disp_sys_disable_irq(hdmip->irq_no);
 	disp_sys_unregister_irq(hdmip->irq_no, disp_hdmi_event_proc,(void*)hdmi);
+
+exit:
 	mutex_unlock(&hdmi_mlock);
 
 	return 0;

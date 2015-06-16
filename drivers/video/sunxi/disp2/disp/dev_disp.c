@@ -1172,7 +1172,17 @@ static int disp_blank(bool blank)
 
 	for (screen_id=0; screen_id<num_screens; screen_id++) {
 		mgr = g_disp_drv.mgr[screen_id];
-		if (!mgr || !mgr->device)
+		/* Currently remove !mgr->device condition,
+		 * avoiding problem in the following case:
+		 *
+		 *   attach manager and device -> disp blank --> blank success
+		 *   deattach manager and device -> disp unblank --> unblank fail (don't satisfy !mgr->device)
+		 *   attach manager and device --> problem arises(manager is on unblank state)
+		 *
+		 * The real scenario is: hdmi plug in -> press power key to standy -> hdmi plug out
+		 *  -> press power key to resume -> hdmi plug in -> display blank on hdmi screen
+		 */
+		if (!mgr)
 			continue;
 
 		if (mgr->blank)
@@ -1614,6 +1624,7 @@ long disp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			else
 				pr_warn("%s, display device is null\n", __func__);
 #endif
+			suspend_status |= DISPLAY_BLANK;
 			disp_blank(true);
 		} else {
 			if (power_status_init) {
@@ -1623,6 +1634,7 @@ long disp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			}
 
 			disp_blank(false);
+			suspend_status &= ~DISPLAY_BLANK;
 #if defined(CONFIG_PM_RUNTIME)
 			if (g_disp_drv.dev) {
 				/* recover the pm_runtime status */
@@ -1640,7 +1652,11 @@ long disp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 	case DISP_DEVICE_SWITCH:
 	{
-		ret = bsp_disp_device_switch(ubuffer[0], (enum disp_output_type)ubuffer[1], (enum disp_output_type)ubuffer[2]);
+		/* if the whhole display device have already enter blank status,
+		 * DISP_DEVICE_SWITCH request will not be responsed.
+		 */
+		if (!(suspend_status & DISPLAY_BLANK))
+			ret = bsp_disp_device_switch(ubuffer[0], (enum disp_output_type)ubuffer[1], (enum disp_output_type)ubuffer[2]);
 		suspend_output_type[ubuffer[0]] = ubuffer[1];
 	#if defined(SUPPORT_TV) && defined(CONFIG_ARCH_SUN8IW7)
 		bsp_disp_tv_set_hpd(1);

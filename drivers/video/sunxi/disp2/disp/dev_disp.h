@@ -17,6 +17,7 @@ typedef enum
 	DISPLAY_NORMAL = 0,
 	DISPLAY_LIGHT_SLEEP = 1,
 	DISPLAY_DEEP_SLEEP = 2,
+	DISPLAY_BLANK = 4,
 }disp_standby_flags;
 
 struct info_mm
