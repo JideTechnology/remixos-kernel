@@ -289,6 +289,9 @@ struct mmc_host {
 #define MMC_CAP2_HS400		(MMC_CAP2_HS400_1_8V | \
 				 MMC_CAP2_HS400_1_2V)
 
+#define MMC_SUNXI_CAP3_DAT3_DET	(1 << 0)
+	u32 		sunxi_caps3;
+
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
 #ifdef CONFIG_MMC_CLKGATE

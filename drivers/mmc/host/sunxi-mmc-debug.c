@@ -87,8 +87,8 @@ static ssize_t maual_insert_store(struct device *dev, struct device_attribute *a
 	return ret;
 }
 
-/*
-static void dump_reg(struct sunxi_mmc_host *host)
+
+void dump_reg(struct sunxi_mmc_host *host)
 {
 	int i = 0;
 	void __iomem *gpio_ptr =  ioremap(GPIO_BASE_ADDR, 0x300);
@@ -151,7 +151,7 @@ static void dump_reg(struct sunxi_mmc_host *host)
 	iounmap(ccmu_ptr);
 
 }
-*/
+
 
 /*
 static ssize_t dump_register_show(struct device *dev, struct device_attribute *attr,

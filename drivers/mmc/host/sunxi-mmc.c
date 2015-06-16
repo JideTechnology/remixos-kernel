@@ -152,7 +152,7 @@ static int sunxi_mmc_init_host(struct mmc_host *mmc)
 	mmc_writel(host, REG_FTRGL, host->dma_tl?host->dma_tl:0x20070008);
 	dev_dbg(mmc_dev(host->mmc), "REG_FTRGL %x\n",mmc_readl(host,REG_FTRGL));
 	mmc_writel(host, REG_TMOUT, 0xffffffff);
-	mmc_writel(host, REG_IMASK, host->sdio_imask);
+	mmc_writel(host, REG_IMASK, host->sdio_imask|host->dat3_imask);
 	mmc_writel(host, REG_RINTR, 0xffffffff);
 	mmc_writel(host, REG_DBGC, 0xdeb);
 	//mmc_writel(host, REG_FUNS, SDXC_CEATA_ON);
@@ -161,6 +161,9 @@ static int sunxi_mmc_init_host(struct mmc_host *mmc)
 	rval = mmc_readl(host, REG_GCTRL);
 	rval |= SDXC_INTERRUPT_ENABLE_BIT;
 	rval &= ~SDXC_ACCESS_DONE_DIRECT;
+	if(host->dat3_imask){
+		rval |= SDXC_DEBOUNCE_ENABLE_BIT;
+	}
 	mmc_writel(host, REG_GCTRL, rval);
 
 	if(host->sunxi_mmc_set_acmda){
@@ -330,7 +333,7 @@ static irqreturn_t sunxi_mmc_finalize_request(struct sunxi_mmc_host *host)
 	struct mmc_data *data = mrq->data;
 	u32 rval;
 
-	mmc_writel(host, REG_IMASK, host->sdio_imask);
+	mmc_writel(host, REG_IMASK, host->sdio_imask | host->dat3_imask);
 	mmc_writel(host, REG_IDIE, 0);
 
 	if (host->int_sum & SDXC_INTERRUPT_ERROR_BIT) {
@@ -380,6 +383,11 @@ static irqreturn_t sunxi_mmc_finalize_request(struct sunxi_mmc_host *host)
 
 	mmc_writel(host, REG_RINTR, 0xffff);
 
+	if(host->dat3_imask){
+		rval = mmc_readl(host,REG_GCTRL);
+		mmc_writel(host, REG_GCTRL, rval|SDXC_DEBOUNCE_ENABLE_BIT);
+	}
+
 	host->mrq = NULL;
 	host->int_sum = 0;
 	host->wait_dma = false;
@@ -404,6 +412,20 @@ static irqreturn_t sunxi_mmc_irq(int irq, void *dev_id)
 	dev_dbg(mmc_dev(host->mmc), "irq: rq %p mi %08x idi %08x\n",
 		host->mrq, msk_int, idma_int);
 
+	if(host->dat3_imask){
+		if(msk_int & SDXC_CARD_INSERT){
+			mmc_writel(host, REG_RINTR, SDXC_CARD_INSERT);
+			mmc_detect_change(host->mmc,msecs_to_jiffies(500));	
+			goto out;
+		}
+		if(msk_int & SDXC_CARD_REMOVE){
+			mmc_writel(host, REG_RINTR, SDXC_CARD_REMOVE);
+			mmc_detect_change(host->mmc,msecs_to_jiffies(50));	
+			goto out;
+		}		
+	}
+	
+
 	mrq = host->mrq;
 	if (mrq) {
 		if (idma_int & SDXC_IDMAC_RECEIVE_INTERRUPT)
@@ -415,7 +437,7 @@ static irqreturn_t sunxi_mmc_irq(int irq, void *dev_id)
 		if ((host->int_sum & SDXC_RESP_TIMEOUT) &&
 				!(host->int_sum & SDXC_COMMAND_DONE))
 			mmc_writel(host, REG_IMASK,
-				   host->sdio_imask | SDXC_COMMAND_DONE);
+				   host->sdio_imask |host->dat3_imask| SDXC_COMMAND_DONE);
 		/* Don't wait for dma on error */
 		else if (host->int_sum & SDXC_INTERRUPT_ERROR_BIT)
 			finalize = true;
@@ -432,7 +454,7 @@ static irqreturn_t sunxi_mmc_irq(int irq, void *dev_id)
 
 	if (finalize)
 		ret = sunxi_mmc_finalize_request(host);
-
+out:
 	spin_unlock(&host->lock);
 
 	if (finalize && ret == IRQ_HANDLED)
@@ -752,7 +774,7 @@ static void sunxi_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		break;
 
 	case MMC_POWER_OFF:
-		if(!host->power_on){
+		if(!host->power_on||host->dat3_imask){
 			break;
 		}
 		
@@ -952,6 +974,7 @@ static void sunxi_mmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	u32 cmd_val = SDXC_START | (cmd->opcode & 0x3f);
 	bool wait_dma = host->wait_dma;
 	int ret;
+	int rval = 0;
 
 	/* Check for set_ios errors (should never happen) */
 	if (host->ferror) {
@@ -1043,7 +1066,12 @@ static void sunxi_mmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	host->mrq = mrq;
 	host->wait_dma = wait_dma;
-	mmc_writel(host, REG_IMASK, host->sdio_imask | imask);
+	if(host->dat3_imask){
+		rval = mmc_readl(host,REG_GCTRL);
+		rval &= ~SDXC_DEBOUNCE_ENABLE_BIT;
+		mmc_writel(host, REG_GCTRL, rval);
+	}	
+	mmc_writel(host, REG_IMASK, host->sdio_imask | host->dat3_imask | imask);
 	mmc_writel(host, REG_CARG, cmd->arg);
 	mmc_writel(host, REG_CMDR, cmd_val);
 
@@ -1514,6 +1542,10 @@ static int sunxi_mmc_probe(struct platform_device *pdev)
 #endif
 
 	mmc_of_parse(mmc);
+	if(mmc->sunxi_caps3&MMC_SUNXI_CAP3_DAT3_DET){
+		host->dat3_imask = SDXC_CARD_INSERT|SDXC_CARD_REMOVE;
+		dev_info(mmc_dev(host->mmc), "*************enable data3 detect****************\n");
+	}
 
 	ret = mmc_add_host(mmc);
 	if (ret)
@@ -1617,6 +1649,7 @@ static int sunxi_mmc_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct mmc_host *mmc = platform_get_drvdata(pdev);
+	struct sunxi_mmc_host *host = mmc_priv(mmc);
 	int ret = 0;
 
 	if (mmc) {
@@ -1630,8 +1663,7 @@ static int sunxi_mmc_suspend(struct device *dev)
 					}
 			}
 
-			if(mmc_card_keep_power(mmc)){
-				struct sunxi_mmc_host *host = mmc_priv(mmc);
+			if(mmc_card_keep_power(mmc)||host->dat3_imask){
 				disable_irq(host->irq);
 				sunxi_mmc_regs_save(host);
 
@@ -1656,7 +1688,8 @@ static int sunxi_mmc_suspend(struct device *dev)
 					ret = mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, 0);
 					return ret;
 				}
-					
+				dev_info(mmc_dev(mmc),"dat3_imask %x\n",host->dat3_imask);
+				//dump_reg(host);	
 			}
 		}
       }
@@ -1669,12 +1702,11 @@ static int sunxi_mmc_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct mmc_host *mmc = platform_get_drvdata(pdev);
+	struct sunxi_mmc_host *host = mmc_priv(mmc);	
 	int ret = 0;
 
 	if (mmc) {
-		if (mmc_card_keep_power(mmc)){
-			struct sunxi_mmc_host *host = mmc_priv(mmc);
-
+		if (mmc_card_keep_power(mmc)||host->dat3_imask){
 			if (!IS_ERR(mmc->supply.vmmc)){
 				ret = mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, mmc->ios.vdd);
 				if(ret)
@@ -1735,6 +1767,8 @@ static int sunxi_mmc_resume(struct device *dev)
 				return -1;
 
 			enable_irq(host->irq);
+			dev_info(mmc_dev(mmc),"dat3_imask %x\n",host->dat3_imask);
+			//dump_reg(host);					
 		}
 
 		//enable card detect pin power

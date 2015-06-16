@@ -366,7 +366,9 @@ void mmc_of_parse(struct mmc_host *host)
 	/* Parse Card Detection */
 	if (of_find_property(np, "non-removable", &len)) {
 		host->caps |= MMC_CAP_NONREMOVABLE;
-	} else {
+	} else if(of_find_property(np, "data3-detect", &len)){
+		host->sunxi_caps3|= MMC_SUNXI_CAP3_DAT3_DET;
+	}else{
 		bool explicit_inv_cd, gpio_inv_cd = false;
 
 		explicit_inv_cd = of_property_read_bool(np, "cd-inverted");
