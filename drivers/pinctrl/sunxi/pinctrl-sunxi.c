@@ -270,10 +270,17 @@ static int sunxi_pctrl_dt_node_to_map(struct pinctrl_dev *pctldev,
 		if (!of_property_read_u32(node, "allwinner,pull", &val)) {
 			if (val != 0xFFFFFFFF) {
 				enum pin_config_param pull = PIN_CONFIG_END;
-				if (val == 1)
+				switch (val) {
+				case 0:
+					pull = PIN_CONFIG_BIAS_PULL_PIN_DEFAULT;
+					break;
+				case 1:
 					pull = PIN_CONFIG_BIAS_PULL_UP;
-				else if (val == 2)
+					break;
+				case 2:
 					pull = PIN_CONFIG_BIAS_PULL_DOWN;
+					break;
+				}
 				pinconfig[j++] = pinconf_to_config_packed(pull, 0);
 			}
 		}
@@ -461,6 +468,12 @@ static int sunxi_pconf_group_set(struct pinctrl_dev *pctldev,
 			writel((val & ~mask)
 				| dlevel << sunxi_dlevel_offset(pin),
 				pctl->membase + sunxi_dlevel_reg(pin));
+			break;
+		case PIN_CONFIG_BIAS_PULL_PIN_DEFAULT:
+			val = readl(pctl->membase + sunxi_pull_reg(pin));
+			mask = PULL_PINS_MASK << sunxi_pull_offset(pin);
+			writel((val & ~mask) | 0 << sunxi_pull_offset(pin),
+				pctl->membase + sunxi_pull_reg(pin));
 			break;
 		case PIN_CONFIG_BIAS_PULL_UP:
 			val = readl(pctl->membase + sunxi_pull_reg(pin));
