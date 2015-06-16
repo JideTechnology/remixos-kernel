@@ -3563,7 +3563,7 @@ static int vfe_pin_config(struct vfe_dev *dev, int enable)
 	writel(0x03333333,(gpio_base+0x98));
 #else //Direct write for pin of IC 	
 	writel(0x22222222,(gpio_base+0x90));
-	writel(0x22222222,(gpio_base+0x94));
+	writel(0x10222222,(gpio_base+0x94));
 	writel(0x11111111,(gpio_base+0x98));
 #endif
 #endif

@@ -1362,32 +1362,6 @@ static int sensor_write_array(struct v4l2_subdev *sd, struct regval_list *regs, 
 	return 0;
 }
 
-static int sensor_read_array(struct v4l2_subdev *sd, struct regval_list *regs, int array_size)
-{
-	int i=0;
-	unsigned char rdval;
-
-	if(!regs)
-		return -EINVAL;
-
-	while(i<array_size)
-	{
-		if(regs->addr == REG_DLY)
-		{
-			msleep(regs->data);
-		}
-		else 
-		{
-			LOG_ERR_RET(sensor_read(sd, regs->addr, &rdval))
-			printk("0x%x, 0x%x\n", regs->addr, rdval);
-		}
-		i++;
-		regs++;
-	}
-	return 0;
-}
-
-
 /* *********************************************begin of ******************************************** */
 
 static int sensor_g_hflip(struct v4l2_subdev *sd, __s32 *value)
@@ -2016,7 +1990,7 @@ static int sensor_init(struct v4l2_subdev *sd, u32 val)
 		return ret;
 	}
 
-	//sensor_s_band_filter(sd, V4L2_CID_POWER_LINE_FREQUENCY_50HZ);
+	sensor_s_band_filter(sd, V4L2_CID_POWER_LINE_FREQUENCY_50HZ);
 
 	if(info->stby_mode == 0)
 		info->init_first_flag = 0;
@@ -2319,7 +2293,7 @@ static int sensor_queryctrl(struct v4l2_subdev *sd,
 		return v4l2_ctrl_query_fill(qc, -4, 4, 1, 0);
 	case V4L2_CID_EXPOSURE_AUTO:
 		return v4l2_ctrl_query_fill(qc, 0, 1, 1, 0);
-    	case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
+    case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
 		return v4l2_ctrl_query_fill(qc, 0, 9, 1, 1);
 	case V4L2_CID_AUTO_WHITE_BALANCE:
 		return v4l2_ctrl_query_fill(qc, 0, 1, 1, 1);
@@ -2364,6 +2338,8 @@ static int sensor_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 		return sensor_g_colorfx(sd,	&ctrl->value);
 	case V4L2_CID_FLASH_LED_MODE:
 		return sensor_g_flash_mode(sd, &ctrl->value);
+	case V4L2_CID_POWER_LINE_FREQUENCY:
+		return sensor_g_band_filter(sd, &ctrl->value);
   }
   return -EINVAL;
 }
@@ -2412,7 +2388,7 @@ static int sensor_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
   		return sensor_s_exp_bias(sd, ctrl->value);
 	case V4L2_CID_EXPOSURE_AUTO:
 		return sensor_s_autoexp(sd,(enum v4l2_exposure_auto_type) ctrl->value);
-    	case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
+    case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
 		return sensor_s_wb(sd,(enum v4l2_auto_n_preset_white_balance) ctrl->value);
 	case V4L2_CID_AUTO_WHITE_BALANCE:
 		return sensor_s_autowb(sd, ctrl->value);
@@ -2420,6 +2396,8 @@ static int sensor_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 		return sensor_s_colorfx(sd,(enum v4l2_colorfx) ctrl->value);
 	case V4L2_CID_FLASH_LED_MODE:
 	  	return sensor_s_flash_mode(sd,(enum v4l2_flash_led_mode) ctrl->value);
+	case V4L2_CID_POWER_LINE_FREQUENCY:
+		return sensor_s_band_filter(sd, (enum v4l2_power_line_frequency) ctrl->value);
 	}
   	return -EINVAL;
 }
