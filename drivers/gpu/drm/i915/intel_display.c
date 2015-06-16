@@ -5747,7 +5747,6 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 
 	intel_disable_pipe(dev_priv, pipe);
 	dev_priv->pipe_plane_stat &= ~PIPE_ENABLE(intel_crtc->pipe);
-	dev_priv->prev_pipe_plane_stat = dev_priv->pipe_plane_stat;
 
 	i9xx_pfit_disable(intel_crtc);
 
