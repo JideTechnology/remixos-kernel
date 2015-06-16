@@ -706,9 +706,6 @@ static void intel_dsi_post_disable(struct intel_encoder *encoder)
 
 	DRM_DEBUG_KMS("\n");
 
-	/* Wait for DPI and DBI FIFO empty */
-	wait_for_dpi_dbi_fifo_empty(intel_dsi);
-
 	intel_dsi_disable(encoder);
 
 	intel_dsi_clear_device_ready(encoder);
