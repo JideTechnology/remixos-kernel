@@ -1754,8 +1754,6 @@ struct drm_i915_private {
 	/* Indicates currently enabled planes */
 	unsigned int pipe_plane_stat;
 	unsigned int prev_pipe_plane_stat;
-	/* delay in us */
-	unsigned int evade_delay;
 
 	/* PCH chipset type */
 	enum intel_pch pch_type;

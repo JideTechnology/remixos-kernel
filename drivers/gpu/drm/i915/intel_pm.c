@@ -1565,7 +1565,12 @@ bool vlv_calculate_ddl(struct drm_crtc *crtc,
 
 u32 vlv_calculate_wm(struct intel_crtc *crtc, int pixel_size)
 {
+	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	const struct drm_display_mode *adjusted_mode;
+	int pipe = crtc->pipe;
+	int plane_stat = VLV_PLANE_STATS(dev_priv->pipe_plane_stat, pipe);
+	int pipe_stat = VLV_PIPE_STATS(dev_priv->pipe_plane_stat);
 	u32 line_time = 0, buffer_wm = 0;
 	int latency;
 	int hdisplay, htotal, clock;
@@ -1575,8 +1580,11 @@ u32 vlv_calculate_wm(struct intel_crtc *crtc, int pixel_size)
 	hdisplay = crtc->config.pipe_src_w;
 	clock = crtc->config.adjusted_mode.crtc_clock;
 
-	/* for now keping max latency*/
-	latency = 33000;
+	if (single_plane_enabled(plane_stat)
+			&& !(pipe_stat & PIPE_ENABLE(PIPE_C)))
+		latency = 33000;
+	else
+		latency = 20000;
 
 	if (clock)
 		line_time = (htotal * 1000) / clock;
@@ -1798,7 +1806,6 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv,
 			vlv_punit_write(dev_priv, CHV_DPASSC,
 					(val | CHV_PW_MAXFIFO_MASK));
 			mutex_unlock(&dev_priv->rps.hw_lock);
-			dev_priv->evade_delay = 2000;
 		} else
 			I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
 		dev_priv->maxfifo_enabled = true;
@@ -1822,7 +1829,6 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv,
 			I915_WRITE_BITS(DSPFW1, 0, 0xff800000);
 			I915_WRITE(DSPHOWM, (I915_READ(DSPHOWM) &
 							~(0x3000000)));
-			dev_priv->evade_delay = 2000;
 		} else
 			I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
 		dev_priv->maxfifo_enabled = false;

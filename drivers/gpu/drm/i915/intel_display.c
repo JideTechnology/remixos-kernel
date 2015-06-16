@@ -11206,7 +11206,6 @@ static void intel_pipe_vblank_evade(struct drm_crtc *crtc)
 		dev_warn(dev->dev,
 			 "Page flipping close to vblank start (DSL=%u, VBL=%u)\n",
 			 val, crtc->hwmode.crtc_vdisplay);
-	dev_priv->evade_delay = 50;
 }
 
 static int intel_crtc_set_display(struct drm_crtc *crtc,
