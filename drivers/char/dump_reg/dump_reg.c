@@ -29,12 +29,19 @@
 
 #define SUNXI_IO_PHYS_BASE      0x01000000UL
 #define SUNXI_IO_SIZE           SZ_16M          /* 16MB(Max) */
-#define SUNXI_MEM_PHYS_BASE     0x01000000UL
-#define SUNXI_MEM_SIZE          SZ_2G
+
+#ifdef CONFIG_ARM64
 #define PLAT_PHYS_OFFSET        0x40000000UL
 #define SUNXI_IOMEM_VASE        0xffffff8000000000UL
 #define SUNXI_IOMEM_SIZE        SZ_2G
 #define SUNXI_MEM_PHYS_VASE     0xffffffc000000000UL
+#define PRINT_ADDR_FMT          "0x%016lx"
+#else
+#define SUNXI_IOMEM_VASE        0xf0000000UL
+#define SUNXI_IOMEM_SIZE        SZ_256M
+#define SUNXI_MEM_PHYS_VASE     0xc0000000UL
+#define PRINT_ADDR_FMT          "0x%08lx"
+#endif
 
 typedef struct dump_reg {
 	unsigned long pst_addr;  /* start reg addr */
@@ -111,7 +118,7 @@ static void __iomem *GET_VADDR(struct dump_reg *dump, unsigned long addr)
 
 	raddr = raddr + offset;
 
-	return ( void __iomem *)raddr;
+	return (void __iomem *)raddr;
 }
 
 static const struct dump_struct dump_table[] = {
@@ -180,7 +187,7 @@ static ssize_t __dump_regs_ex(struct dump_reg *reg, char *buf)
 		goto out;
 	}
 
-	cnt += sprintf(buf, "0x%016lx: ", reg->pst_addr);
+	cnt += sprintf(buf, PRINT_ADDR_FMT": ", reg->pst_addr);
 	for (paddr = reg->pst_addr; paddr < reg->ped_addr; paddr += 4) {
 		if (paddr < reg->pst_addr || paddr > reg->ped_addr)
 			/* "0x12345678 ", 11 space */
@@ -191,13 +198,13 @@ static ssize_t __dump_regs_ex(struct dump_reg *reg, char *buf)
 
 		if ((paddr & 0xc) == 0xc) {
 			if (paddr + 4 < reg->ped_addr) {
-				cnt += sprintf(buf + cnt, "\n0x%016lx: ", \
+				cnt += sprintf(buf + cnt, "\n"PRINT_ADDR_FMT": ", \
 				               paddr + 4);
 			}
 		}
 	}
 	cnt += sprintf(buf + cnt, "\n");
-	pr_debug("%s,%d, start:0x%lx, end:0x%lx, return:%ld\n", __func__, \
+	pr_debug("%s,%d, start:0x%lx, end:0x%lx, return:%zd\n", __func__, \
 	         __LINE__, reg->pst_addr, reg->ped_addr, cnt);
 
 out:
@@ -275,8 +282,13 @@ static int __parse_dump_str(const char *buf, size_t size, \
  */
 static ssize_t __write_show(struct write_group *pgroup, char *buf)
 {
+#ifdef CONFIG_ARM64
 #define WR_PRINT_FMT "reg                 to_write    after_write \n"
-#define WR_DATA_FMT "0x%016lx  0x%08x  %s"
+#else
+#define WR_PRINT_FMT "reg         to_write    after_write \n"
+#endif
+#define WR_DATA_FMT PRINT_ADDR_FMT"  0x%08x  %s"
+
 	int i = 0;
 	ssize_t cnt = 0;
 	unsigned long reg = 0;
@@ -439,9 +451,14 @@ static void __write_item_deinit(struct write_group *pgroup)
  */
 static ssize_t __compare_regs_ex(struct compare_group *pgroup, char *buf)
 {
+#ifdef CONFIG_ARM64
 #define CMP_PRINT_FMT "reg                 expect      actual      mask        result\n"
-#define CMP_DATAO_FMT "0x%016lx  0x%08x  0x%08x  0x%08x  OK\n"
-#define CMP_DATAE_FMT "0x%016lx  0x%08x  0x%08x  0x%08x  ERR\n"
+#else
+#define CMP_PRINT_FMT "reg         expect      actual      mask        result\n"
+#endif
+#define CMP_DATAO_FMT PRINT_ADDR_FMT"  0x%08x  0x%08x  0x%08x  OK\n"
+#define CMP_DATAE_FMT PRINT_ADDR_FMT"  0x%08x  0x%08x  0x%08x  ERR\n"
+
 	int i;
 	ssize_t cnt = 0;
 	unsigned long reg;
@@ -465,11 +482,11 @@ static ssize_t __compare_regs_ex(struct compare_group *pgroup, char *buf)
 			return -EINVAL;
 		mask = pgroup->pitem[i].val_mask;
 		if ((actual & mask) == (expect & mask))
-			cnt += sprintf(buf + cnt, CMP_DATAO_FMT, reg, expect, \
-			               actual, mask);
+			cnt += sprintf(buf + cnt, CMP_DATAO_FMT, reg, \
+				       expect, actual, mask);
 		else
-			cnt += sprintf(buf + cnt, CMP_DATAE_FMT, reg, expect, \
-			               actual, mask);
+			cnt += sprintf(buf + cnt, CMP_DATAE_FMT, reg, \
+			               expect, actual, mask);
 	}
 
 end:
@@ -651,8 +668,8 @@ dump_store(struct class *class, struct class_attribute *attr, \
 
 	dump_para.pst_addr = start_reg;
 	dump_para.ped_addr = end_reg;
-	pr_debug("%s,%d, start_reg:0x%016lx, end_reg:0x%016lx\n", __func__, \
-	         __LINE__, start_reg, end_reg);
+	pr_debug("%s,%d, start_reg:"PRINT_ADDR_FMT", end_reg:"PRINT_ADDR_FMT"\n", \
+	         __func__, __LINE__, start_reg, end_reg);
 
 	return count;
 
@@ -752,9 +769,10 @@ rw_byte_store(struct class *class, struct class_attribute *attr, \
               const char *buf, size_t count)
 {
 	unsigned long value;
+	int ret;
 
-	strict_strtoul(buf, 10, &value);
-	if (value > 1) {
+	ret = strict_strtoul(buf, 10, &value);
+	if (!ret && (value > 1)) {
 		pr_err("%s,%d err, invalid para!\n", __func__, __LINE__);
 		goto out;
 	}
@@ -824,8 +842,8 @@ misc_dump_store(struct device *dev, struct device_attribute *attr, \
 
 	misc_dump_para.pst_addr = start_reg;
 	misc_dump_para.ped_addr = end_reg;
-	pr_debug("%s,%d, start_reg:0x%016lx, end_reg:0x%016lx\n", __func__, \
-	         __LINE__, start_reg, end_reg);
+	pr_debug("%s,%d, start_reg:"PRINT_ADDR_FMT", end_reg:"PRINT_ADDR_FMT"\n", \
+	         __func__, __LINE__, start_reg, end_reg);
 
 	return size;
 
