@@ -49,7 +49,7 @@
  */
 //#define SUNXI_ALARM1_USED
 
-#if CONFIG_ARCH_SUN50IW1P1
+#if (defined CONFIG_ARCH_SUN50IW1P1) || (defined CONFIG_ARCH_SUN8IW10P1)
 #define SUNXI_RTC_YMD				0x0010
 
 #define SUNXI_RTC_HMS				0x0014
@@ -532,6 +532,7 @@ static const struct rtc_class_ops sunxi_rtc_ops = {
 static const struct of_device_id sunxi_rtc_dt_ids[] = {
 	{ .compatible = "allwinner,sun4i-a10-rtc", .data = &data_year_param[0] },
 	{ .compatible = "allwinner,sun7i-a20-rtc", .data = &data_year_param[1] },
+	{ .compatible = "allwinner,sun8i-b100-rtc", .data = &data_year_param[0] },
 	{ .compatible = "allwinner,sun50i-rtc", .data = &data_year_param[0] },
 	{ /* sentinel */ },
 };
@@ -635,8 +636,13 @@ static int sunxi_rtc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "No IRQ resource\n");
 		goto fail;
 	}
+#if  (defined CONFIG_FPGA_V4_PLATFORM) || (defined CONFIG_FPGA_V7_PLATFORM)
+	ret = devm_request_irq(&pdev->dev, 14, sunxi_rtc_alarmirq,
+	                       0, dev_name(&pdev->dev), chip);
+#else
 	ret = devm_request_irq(&pdev->dev, chip->irq, sunxi_rtc_alarmirq,
 	                       0, dev_name(&pdev->dev), chip);
+#endif
 	if (ret) {
 		dev_err(&pdev->dev, "Could not request IRQ\n");
 		goto fail;
