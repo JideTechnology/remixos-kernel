@@ -94,8 +94,6 @@ struct android_dev {
 	void (*setup_complete)(struct usb_ep *ep,
 				struct usb_request *req);
 
-	/* if ffs is enabled, enable gadget until ffs is ready */
-	bool wait_ffs;
 	bool enabled;
 	struct mutex mutex;
 	bool connected;
@@ -239,6 +237,7 @@ static void functionfs_release_dev_callback(struct ffs_dev *dev);
 #define MAX_FFS_INSTANCES 1
 struct functionfs_config {
 	bool enabled;
+	bool ready;
 	int instances;
 	int instances_on;
 	struct ffs_data *data;
@@ -306,20 +305,14 @@ static void ffs_function_cleanup(struct android_usb_function *f)
 
 static void ffs_function_enable(struct android_usb_function *f)
 {
-	struct android_dev *dev = _android_dev;
 	struct functionfs_config *config = f->config;
-
 	config->enabled = true;
-	dev->wait_ffs = true;
 }
 
 static void ffs_function_disable(struct android_usb_function *f)
 {
-	struct android_dev *dev = _android_dev;
 	struct functionfs_config *config = f->config;
-
 	config->enabled = false;
-	dev->wait_ffs = false;
 }
 
 static int ffs_function_bind_config(struct android_usb_function *f,
@@ -436,7 +429,7 @@ static int functionfs_ready_callback(struct ffs_data *ffs)
 
 	config->instances++;
 	config->data = ffs;
-	dev->wait_ffs = false;
+	config->ready = true;
 
 	if (config->enabled && !dev->enabled)
 		ret = android_enable(dev);
@@ -454,12 +447,10 @@ static void functionfs_closed_callback(struct ffs_data *ffs)
 
 	--config->instances;
 	config->data = NULL;
+	config->ready = false;
 
-	if (config->enabled) {
-		if (dev->enabled)
-			android_disable(dev);
-		dev->wait_ffs = true;
-	}
+	if (config->enabled && dev->enabled)
+		android_disable(dev);
 
 	mutex_unlock(&dev->mutex);
 }
@@ -1346,6 +1337,7 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 	struct android_dev *dev = dev_get_drvdata(pdev);
 	struct usb_composite_dev *cdev = dev->cdev;
 	struct android_usb_function *f;
+	struct functionfs_config *ffs_cfg = NULL;
 	int enabled = 0;
 	int ret;
 
@@ -1374,24 +1366,27 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 		cdev->desc.bDeviceProtocol = device_desc.bDeviceProtocol;
 		list_for_each_entry(f, &dev->enabled_functions, enabled_list) {
 			pr_info("android_usb: enabling function %s\n", f->name);
+			if (!strcmp(f->name, "ffs"))
+				ffs_cfg = (struct functionfs_config *)f->config;
 			if (f->enable)
 				f->enable(f);
 		}
-		/* if ffs enabled, we enable gadget on ffs_ready_callback */
-		if (!dev->wait_ffs) {
+		/* if ffs enabled, we enable gadget when ffs get ready */
+		if (!ffs_cfg || ffs_cfg->ready) {
 			ret = android_enable(dev);
 			if (!ret) {
 				mutex_unlock(&dev->mutex);
 				return ret;
 			}
-		}
+		} else
+			pr_info("android_usb: wait ffs to be ready\n");
 	} else if (!enabled && dev->enabled) {
-		android_disable(dev);
 		list_for_each_entry(f, &dev->enabled_functions, enabled_list) {
 			pr_info("android_usb: disabling function %s\n", f->name);
 			if (f->disable)
 				f->disable(f);
 		}
+		android_disable(dev);
 	} else {
 		pr_err("android_usb: already %s\n",
 				dev->enabled ? "enabled" : "disabled");
@@ -1698,7 +1693,6 @@ static int __init init(void)
 		goto err_dev;
 	}
 
-	dev->wait_ffs = false;
 	dev->functions = supported_functions;
 	INIT_LIST_HEAD(&dev->enabled_functions);
 	INIT_WORK(&dev->work, android_work);
