@@ -296,12 +296,12 @@ static void pcie_aspm_l1ss_cfg(struct pcie_link_state *link, u32 state)
 				PCI_LNKSUB_ASPM_L11_EN
 					| PCI_LNKSUB_ASPM_L12_EN, 0);
 
-			if (state & ASPM_LNKSUB_L11) {
+			if (l1ss_state & ASPM_LNKSUB_L11) {
 				dwctrl1 |= timing->cm_mode_restore_time;
 				dwctrl2 |= timing->pwr_on_scal
 						| timing->pwr_on_val;
 			}
-			if (state & ASPM_LNKSUB_L12)
+			if (l1ss_state & ASPM_LNKSUB_L12)
 				dwctrl1 |= timing->ltr_l12_threshold_val
 					| timing->ltr_l12_threshold_scal;
 
@@ -316,9 +316,9 @@ static void pcie_aspm_l1ss_cfg(struct pcie_link_state *link, u32 state)
 				dwctrl2);
 
 			dwctrl1 = 0;
-			if (state & ASPM_LNKSUB_L11)
+			if (l1ss_state & ASPM_LNKSUB_L11)
 				dwctrl1 |= PCI_LNKSUB_ASPM_L11_EN;
-			if (state & ASPM_LNKSUB_L12)
+			if (l1ss_state & ASPM_LNKSUB_L12)
 				dwctrl1 |= PCI_LNKSUB_ASPM_L12_EN;
 
 			/* Third, update the enable bits */
@@ -331,7 +331,7 @@ static void pcie_aspm_l1ss_cfg(struct pcie_link_state *link, u32 state)
 		pcie_aspm_l1ss_clear_and_set(parent, PCI_LNKSUB_CTRL1,
 			PCI_LNKSUB_ASPM_L11_EN
 				| PCI_LNKSUB_ASPM_L12_EN, upctrl1);
-		link->aspm_l1ss_enabled = state;
+		link->aspm_l1ss_enabled = l1ss_state;
 	}
 }
 
