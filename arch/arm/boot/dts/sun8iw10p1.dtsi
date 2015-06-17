@@ -298,7 +298,7 @@
 		};
 
 		mbus0:mbus-controller@01c62000 {
-			compatible = "allwinner,sun50i-mbus";
+			compatible = "allwinner,sun8i-b100-mbus";
 			reg = <0x0 0x01c62000 0x0 0x110>;
 			#mbus-cells = <1>;
 		};

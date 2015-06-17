@@ -430,6 +430,7 @@ int notrace mbus_port_control_by_index(mbus_port_e port, bool enable)
 EXPORT_SYMBOL_GPL(mbus_port_control_by_index);
 
 static const struct of_device_id sunxi_mbus_matches[] = {
+	{.compatible = "allwinner,sun8i-b100-mbus", },
 	{.compatible = "allwinner,sun50i-mbus", },
 	{},
 };
