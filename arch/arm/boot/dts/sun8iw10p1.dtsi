@@ -8,10 +8,6 @@
 /memreserve/ 0x45000000 0x00200000; /* sun8iw10p1.dtb range       : [0x45000000~0x45200000], size = 2M */
 /memreserve/ 0x41010000 0x00010000; /* sys_config.fex range       : [0x41010000~0x41020000], size = 64K */
 /memreserve/ 0x41020000 0x00000800; /* super standby range        : [0x41020000~0x41020800], size = 2K  */
-/* tf used */
-/memreserve/ 0x40100000 0x00004000; /* arisc dram code space range: [0x40100000~0x40104000], size = 16K */
-/memreserve/ 0x40104000 0x00001000; /* arisc para cfg range       : [0x40104000~0x40105000], size = 4K  */
-/memreserve/ 0x40105000 0x00001000; /* arisc message pool range   : [0x40105000~0x40106000], size = 4K  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/gpio/gpio.h>
@@ -305,26 +301,6 @@
 			compatible = "allwinner,sun50i-mbus";
 			reg = <0x0 0x01c62000 0x0 0x110>;
 			#mbus-cells = <1>;
-		};
-
-		arisc {
-			compatible = "allwinner,sunxi-arisc";
-			#address-cells = <2>;
-			#size-cells = <2>;
-			clocks = <&clk_losc>, <&clk_iosc>, <&clk_hosc>, <&clk_pll_periph0>;
-			clock-names = "losc", "iosc", "hosc", "pll_periph0";
-			powchk_used = <0x0>;
-			power_reg = <0x02309621>;
-			system_power = <50>;
-		};
-
-		arisc_space {
-			compatible = "allwinner,arisc_space";
-			/* num    dst        offset     size                              */
-			space1 = <0x00040000 0x00000000 0x00014000>; /* srama2 code space */
-			space2 = <0x40100000 0x00018000 0x00004000>; /* dram code space   */
-			space3 = <0x40104000 0x00000000 0x00001000>; /* para space        */
-			space4 = <0x40105000 0x00000000 0x00001000>; /* msgpool space     */
 		};
 
 		standby_space {
