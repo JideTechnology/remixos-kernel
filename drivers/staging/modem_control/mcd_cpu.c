@@ -129,13 +129,6 @@ int cpu_init_gpio(void *data)
 		pr_info("No CORE_DUMP GPIO set");
 	}
 
-	pr_info(DRVNAME
-		": GPIO (rst_bbn: %d, pwr_on: %d, rst_out: %d, fcdp_rb: %d)\n",
-		desc_to_gpio(cpu_data->gpio_rst_bbn),
-		desc_to_gpio(cpu_data->gpio_pwr_on),
-		desc_to_gpio(cpu_data->gpio_rst_out),
-		desc_to_gpio(cpu_data->gpio_cdump));
-
 	return 0;
 
  free_ctx2:
