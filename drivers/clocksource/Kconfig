@@ -25,11 +25,19 @@ config DW_APB_TIMER_OF
 config ARMADA_370_XP_TIMER
 	bool
 
+choice 
+	prompt "TIMER: Select the soc timer version."
+	default SUNXI_TIMER
+	help
+	  Select the soc timer.
+
 config SUN4I_TIMER
-	bool
+	bool "SUN4I TIMER"
 
 config SUNXI_TIMER
-	bool
+	bool "SUNXI TIMER"
+
+endchoice 
 
 config VT8500_TIMER
 	bool
