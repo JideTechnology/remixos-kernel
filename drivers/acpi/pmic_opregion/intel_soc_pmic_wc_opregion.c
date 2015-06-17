@@ -24,139 +24,148 @@
 #define PWR_SOURCE_SELECT       BIT(1)
 #define PMIC_A0LOCK_REG         0xc5
 #define CURR_SRC_MULTIPLIER	130210
+#define VR_MODE_DISABLED        0
+#define VR_MODE_AUTO            BIT(0)
+#define VR_MODE_NORMAL          BIT(1)
+#define VR_MODE_SWITCH          BIT(2)
+#define VR_MODE_ECO             (BIT(0)|BIT(1))
+#define VSWITCH2_OUTPUT         BIT(5)
+#define VSWITCH1_OUTPUT         BIT(4)
+#define VUSBPHY_CHARGE          BIT(1)
+
 
 static struct pmic_pwr_table pwr_table[] = {
 	{
 		.address = 0x04,
 		.pwr_reg = {
 			.reg = 0x57,
-			.bit = 0x00,
+			.bit = VR_MODE_SWITCH,
 		},
 	}, /* V18X -> V1P8SX */
 	{
 		.address = 0x10,
 		.pwr_reg = {
 			.reg = 0x5a,
-			.bit = 0x00,
+			.bit = VR_MODE_NORMAL,
 		},
 	}, /* V12X -> V1P2SXCNT */
 	{
 		.address = 0x14,
 		.pwr_reg = {
 			.reg = 0x5d,
-			.bit = 0x00,
+			.bit = VR_MODE_NORMAL,
 		},
 	}, /* V28X -> V2P8SXCNT */
 	{
 		.address = 0x1c,
 		.pwr_reg = {
 			.reg = 0x5f,
-			.bit = 0x00,
+			.bit = VR_MODE_NORMAL,
 		},
 	}, /* V3SD -> V3P3SDCNT */
 	{
 		.address = 0x20,
 		.pwr_reg = {
 			.reg = 0x67,
-			.bit = 0x00,
+			.bit = VR_MODE_NORMAL,
 		},
 	}, /* VSD -> VSDIOCNT */
 	{
 		.address = 0x24,
 		.pwr_reg = {
 			.reg = 0x69,
-			.bit = 0x05,
+			.bit = VSWITCH2_OUTPUT,
 		},
 	}, /* VSW2 -> VLD0CNT Bit 5*/
 	{
 		.address = 0x28,
 		.pwr_reg = {
 			.reg = 0x69,
-			.bit = 0x04,
+			.bit = VSWITCH1_OUTPUT,
 		},
 	}, /* VSW1 -> VLD0CNT Bit 4 */
 	{
 		.address = 0x2C,
 		.pwr_reg = {
 			.reg = 0x69,
-			.bit = 0x01,
+			.bit = VUSBPHY_CHARGE,
 		},
 	}, /* VUPY -> VLDOCNT Bit 1 */
 	{
 		.address = 0x30,
 		.pwr_reg = {
 			.reg = 0x6B,
-			.bit = 0x00,
+			.bit = VR_MODE_NORMAL,
 		},
 	}, /* VRSO -> VREFSOCCNT*/
 	{
 		.address = 0x34,
 		.pwr_reg = {
 			.reg = 0x90,
-			.bit = 0x00,
+			.bit = VR_MODE_NORMAL,
 		},
 	}, /* VP1A -> VPROG1ACNT */
 	{
 		.address = 0x38,
 		.pwr_reg = {
 			.reg = 0x91,
-			.bit = 0x00,
+			.bit = VR_MODE_NORMAL,
 		},
 	}, /* VP1B -> VPROG1BCNT */
 	{
 		.address = 0x3c,
 		.pwr_reg = {
 			.reg = 0x95,
-			.bit = 0x00,
+			.bit = VR_MODE_NORMAL,
 		},
 	}, /* VP1F -> VPROG1FCNT */
 	{
 		.address = 0x40,
 		.pwr_reg = {
 			.reg = 0x99,
-			.bit = 0x00,
+			.bit = VR_MODE_NORMAL,
 		},
 	}, /* VP2D -> VPROG2DCNT */
 	{
 		.address = 0x44,
 		.pwr_reg = {
 			.reg = 0x9a,
-			.bit = 0x00,
+			.bit = VR_MODE_NORMAL,
 		},
 	}, /* VP3A -> VPROG3ACNT */
 	{
 		.address = 0x48,
 		.pwr_reg = {
 			.reg = 0x9b,
-			.bit = 0x00,
+			.bit = VR_MODE_NORMAL,
 		},
 	}, /* VP3B -> VPROG3BCNT */
 	{
 		.address = 0x4c,
 		.pwr_reg = {
 			.reg = 0x9c,
-			.bit = 0x00,
+			.bit = VR_MODE_NORMAL,
 		},
 	}, /* VP4A -> VPROG4ACNT */
 	{
 		.address = 0x50,
 		.pwr_reg = {
 			.reg = 0x9d,
-			.bit = 0x00,
+			.bit = VR_MODE_NORMAL,
 		},
 	}, /* VP4B -> VPROG4BCNT*/
 	{
 		.address = 0x54,
 		.pwr_reg = {
 			.reg = 0x9e,
-			.bit = 0x00,
+			.bit = VR_MODE_NORMAL,
 		},
 	}, /* VP4C -> VPROG4CCNT */
 	{
 		.address = 0x58,
 		.pwr_reg = {
 			.reg = 0x9f,
-			.bit = 0x00,
+			.bit = VR_MODE_NORMAL,
 		},
 	}, /* VP4D -> VPROG4DCNT*/
 
@@ -164,28 +173,28 @@ static struct pmic_pwr_table pwr_table[] = {
 		.address = 0x5c,
 		.pwr_reg = {
 			.reg = 0xa0,
-			.bit = 0x00,
+			.bit = VR_MODE_NORMAL,
 		},
 	}, /* VP5A -> VPROG5ACNT */
 	{
 		.address = 0x60,
 		.pwr_reg = {
 			.reg = 0xa1,
-			.bit = 0x00,
+			.bit = VR_MODE_NORMAL,
 		},
 	}, /* VP5B -> VPROG5BCNT*/
 	{
 		.address = 0x64,
 		.pwr_reg = {
 			.reg = 0xa2,
-			.bit = 0x00,
+			.bit = VR_MODE_NORMAL,
 		},
 	}, /* VP6A -> VPROG6ACNT */
 	{
 		.address = 0x68,
 		.pwr_reg = {
 			.reg = 0xa3,
-			.bit = 0x00,
+			.bit = VR_MODE_NORMAL,
 		},
 	}  /* VP6B -> VPROG6BCNT*/
 };
@@ -290,7 +299,7 @@ static int intel_wc_pmic_get_power(struct pmic_pwr_reg *preg, u64 *value)
 	}
 	data = (u8) ret;
 
-	*value = (data & PWR_SOURCE_SELECT) && (data & BIT(preg->bit)) ? 1 : 0;
+	*value = (data & preg->bit) ? 1 : 0;
 	return 0;
 }
 
@@ -306,12 +315,10 @@ static int intel_wc_pmic_update_power(struct pmic_pwr_reg *preg, bool on)
 		return -EIO;
 	}
 
-	data = (u8)ret;
+	/* clear mode bit */
+	data = ((u8)ret) & ~preg->bit;
 	if (on) {
-		data |= PWR_SOURCE_SELECT | BIT(preg->bit);
-	} else {
-		data &= ~BIT(preg->bit);
-		data |= PWR_SOURCE_SELECT;
+		data |= preg->bit;
 	}
 
 	ret = intel_soc_pmic_writeb(preg->reg, data);
