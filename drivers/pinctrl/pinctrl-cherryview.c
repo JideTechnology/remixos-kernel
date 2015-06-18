@@ -1272,7 +1272,7 @@ EXPORT_SYMBOL_GPL(chv_gpio_cfg_inv);
 
 static void chv_gpio_irq_dispatch(struct chv_gpio *cg)
 {
-	u32 intr_line, mask, offset;
+	u32 intr_line, mask, offset, irq;
 	void __iomem *reg, *mask_reg;
 	u32 pending;
 
@@ -1282,14 +1282,21 @@ static void chv_gpio_irq_dispatch(struct chv_gpio *cg)
 	while ((pending = (chv_readl(reg) & chv_readl(mask_reg) & 0xFFFF))) {
 		intr_line = __ffs(pending);
 		offset = cg->intr_lines[intr_line];
+		/*
+		* For the interrupts the kernel doens't know, do ack
+		* and mask to prevent it from entering the loop again.
+		*/
 		if (unlikely(offset < 0)) {
 			mask = BIT(intr_line);
 			chv_writel(mask, reg);
-			dev_warn(&cg->pdev->dev, "unregistered shared irq\n");
+			chv_writel(chv_readl(mask_reg) & (~mask), mask_reg);
+			dev_warn(&cg->pdev->dev,
+				"unregistered irq, line %d\n", intr_line);
 			continue;
+		} else {
+			irq = irq_find_mapping(cg->domain, offset);
+			generic_handle_irq(irq);
 		}
-
-		generic_handle_irq(irq_find_mapping(cg->domain, offset));
 	}
 }
 
