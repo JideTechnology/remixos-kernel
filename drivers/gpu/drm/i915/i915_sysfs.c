@@ -1482,15 +1482,17 @@ void i915_gem_remove_sysfs_file_entry(struct drm_device *dev,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_i915_file_private *file_priv = file->driver_priv;
 	struct drm_file *file_local;
-	int open_count = 0;
+	int open_count = 1;
 
 	if (!i915.memtrack_debug)
 		return;
 
 	/*
-	 * Check if drm file being removed is the last one for that
-	 * particular tgid. If so, remove the corresponding sysfs
-	 * file entry also
+	 * The current drm file instance is already removed from filelist at
+	 * this point.
+	 * Check if this particular drm file being removed is the last one for
+	 * that particular tgid, and no other instances for this tgid exist in
+	 * the filelist. If so, remove the corresponding sysfs file entry also.
 	 */
 	list_for_each_entry(file_local, &dev->filelist, lhead) {
 		struct drm_i915_file_private *file_priv_local =
@@ -1499,8 +1501,6 @@ void i915_gem_remove_sysfs_file_entry(struct drm_device *dev,
 		if (pid_nr(file_priv->tgid) == pid_nr(file_priv_local->tgid))
 			open_count++;
 	}
-
-	WARN_ON(open_count == 0);
 
 	if (open_count == 1) {
 		struct i915_gem_file_attr_priv *attr_priv;
