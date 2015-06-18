@@ -858,7 +858,6 @@ static void sw_uart_pm(struct uart_port *port, unsigned int state,
 
 	SERIAL_DBG("PM state %d -> %d\n", oldstate, state);
 
-#ifndef CONFIG_ARCH_SUN8IW10P1
 	switch (state) {
 	case 0: /* Power up */
 		if (sw_uport->mclk->enable_count > 0) {
@@ -882,7 +881,6 @@ static void sw_uart_pm(struct uart_port *port, unsigned int state,
 	default:
 		SERIAL_MSG("uart%d, Unknown PM state %d\n", sw_uport->id, state);
 	}
-#endif
 }
 
 static struct uart_ops sw_uart_ops = {
@@ -1287,12 +1285,12 @@ static int sw_uart_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
-#ifndef CONFIG_ARCH_SUN8IW10P1
 	sw_uport->mclk = of_clk_get(np, 0);
 	if (IS_ERR(sw_uport->mclk)) {
 		SERIAL_MSG("uart%d error to get clk\n", pdev->id);
 		return -EINVAL;
 	}
+#ifdef CONFIG_EVB_PLATFORM
 	port->uartclk = clk_get_rate(sw_uport->mclk);
 #else
 	port->uartclk = 24000000;
@@ -1423,6 +1421,7 @@ static const struct dev_pm_ops sw_uart_pm_ops = {
 #endif /* CONFIG_PM_SLEEP */
 
 static const struct of_device_id sunxi_uart_match[] = {
+	{ .compatible = "allwinner,sun8i-uart", },
 	{ .compatible = "allwinner,sun50i-uart", },
 	{},
 };

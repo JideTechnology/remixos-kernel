@@ -11,6 +11,7 @@
 
 	soc@01c00000 {
 		uart0: uart@01c28000 {
+			interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>;           /* uart0 is IRQ33 on fpga */
 			status = "okay";
 		};
 
