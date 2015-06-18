@@ -1890,6 +1890,7 @@ static const struct dev_pm_ops sunxi_spi_dev_pm_ops = {
 #endif /* CONFIG_PM */
 
 static const struct of_device_id sunxi_spi_match[] = {
+	{ .compatible = "allwinner,sun8i-spi", },
 	{ .compatible = "allwinner,sun50i-spi", },
 	{},
 };

@@ -32,6 +32,7 @@
 		twi2 = &twi2;
 		spi0 = &spi0;
 		spi1 = &spi1;
+		spi2 = &spi2;
 		global_timer0  = &soc_timer0;
 		cci0 = &csi_cci0;
 		csi_res0 = &csi_res0;
@@ -457,6 +458,57 @@
 			status = "disabled";
 		};
 
+		spi0: spi@01c68000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "allwinner,sun8i-spi";
+			device_type = "spi0";
+			reg = <0x0 0x01c68000 0x0 0x1000>;
+			interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_pll_periph0>, <&clk_spi0>;
+			clock-frequency = <100000000>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&spi0_pins_a &spi0_pins_b>;
+			pinctrl-1 = <&spi0_pins_c>;
+			spi0_cs_number = <1>;
+			spi0_cs_bitmap = <1>;
+			status = "disabled";
+		};
+
+		spi1: spi@01c69000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "allwinner,sun8i-spi";
+			device_type = "spi1";
+			reg = <0x0 0x01c69000 0x0 0x1000>;
+			interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_pll_periph0>, <&clk_spi1>;
+			clock-frequency = <100000000>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&spi1_pins_a &spi1_pins_b>;
+			pinctrl-1 = <&spi1_pins_c>;
+			spi1_cs_number = <1>;
+			spi1_cs_bitmap = <1>;
+			status = "disabled";
+		};
+
+		spi2: spi@01c6a000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "allwinner,sun8i-spi";
+			device_type = "spi2";
+			reg = <0x0 0x01c6a000 0x0 0x1000>;
+			interrupts = <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_pll_periph0>, <&clk_spi2>;
+			clock-frequency = <100000000>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&spi2_pins_a &spi2_pins_b>;
+			pinctrl-1 = <&spi2_pins_c>;
+			spi2_cs_number = <1>;
+			spi2_cs_bitmap = <1>;
+			status = "disabled";
+		};
+
 		usbc0:usbc0@0 {
 			device_type         = "usbc0";
 			compatible          = "allwinner,sun50i-otg-manager";
@@ -655,40 +707,6 @@
 			compatible = "allwinner,sunxi-spdif-machine";
 			sunxi,spdif-controller = <&spdif>;
 			status = "okay";
-		};
-
-		spi0: spi@01c68000 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			compatible = "allwinner,sun50i-spi";
-			device_type = "spi0";
-			reg = <0x0 0x01c68000 0x0 0x1000>;
-			interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk_pll_periph0>, <&clk_spi0>;
-			clock-frequency = <100000000>;
-			pinctrl-names = "default", "sleep";
-			pinctrl-0 = <&spi0_pins_a &spi0_pins_b>;
-			pinctrl-1 = <&spi0_pins_c>;
-			spi0_cs_number = <1>;
-			spi0_cs_bitmap = <1>;
-			status = "disabled";
-		};
-
-		spi1: spi@01c69000 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			compatible = "allwinner,sun50i-spi";
-			device_type = "spi1";
-			reg = <0x0 0x01c69000 0x0 0x1000>;
-			interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk_pll_periph0>, <&clk_spi1>;
-			clock-frequency = <100000000>;
-			pinctrl-names = "default", "sleep";
-			pinctrl-0 = <&spi1_pins_a &spi1_pins_b>;
-			pinctrl-1 = <&spi1_pins_c>;
-			spi1_cs_number = <1>;
-			spi1_cs_bitmap = <1>;
-			status = "disabled";
 		};
 
 		sdc2: sdmmc@01C11000 {
