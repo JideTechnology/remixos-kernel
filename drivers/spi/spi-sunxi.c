@@ -1535,14 +1535,14 @@ static ssize_t sunxi_spi_info_show(struct device *dev,
 		"pdev->id   = %d \n"
 		"pdev->name = %s \n"
 		"pdev->num_resources = %u \n"
-		"pdev->resource.mem = [0x%016llx, 0x%016llx] \n"
-		"pdev->resource.irq = %lld \n"
+		"pdev->resource.mem = [%pa, %pa] \n"
+		"pdev->resource.irq = %pa \n"
 		"pdev->dev.platform_data.cs_bitmap = %d \n"
 		"pdev->dev.platform_data.cs_num    = %d \n"
 		"pdev->dev.platform_data.regulator = 0x%p \n"
 		"pdev->dev.platform_data.regulator_id = %s \n",
 		pdev->id, pdev->name, pdev->num_resources,
-		pdev->resource[0].start, pdev->resource[0].end, pdev->resource[1].start,
+		&pdev->resource[0].start, &pdev->resource[0].end, &pdev->resource[1].start,
 		pdata->cs_bitmap, pdata->cs_num, pdata->regulator, pdata->regulator_id);
 }
 static struct device_attribute sunxi_spi_info_attr =

@@ -967,14 +967,14 @@ static ssize_t sunxi_uart_dev_info_show(struct device *dev,
 	   	"name   = %s \n"
 	   	"irq    = %d \n"
 	   	"io_num = %d \n"
-		"port->mapbase = 0x%016llx \n"
+		"port->mapbase = %pa \n"
 	   	"port->membase = 0x%p \n"
 		"port->iobase  = 0x%08lx \n"
 		"pdata->regulator    = 0x%p \n"
 		"pdata->regulator_id = %s \n",
 		sw_uport->id, sw_uport->name, port->irq,
 		sw_uport->pdata->io_num,
-		port->mapbase, port->membase, port->iobase,
+		&port->mapbase, port->membase, port->iobase,
 		pdata->regulator, pdata->regulator_id);
 }
 
