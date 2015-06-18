@@ -16,7 +16,8 @@
 		};
 
 		twi0: twi@0x01c2ac00{
-			status = "disabled";
+			interrupts = <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>;           /* twi0 is IRQ34 on fpga */
+			status = "okay";
 
 			eeprom@50 {
 				compatible = "atmel,24c16";

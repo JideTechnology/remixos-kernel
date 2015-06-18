@@ -1365,6 +1365,7 @@ static const struct dev_pm_ops sunxi_i2c_dev_pm_ops = {
 #endif
 
 static const struct of_device_id sunxi_i2c_match[] = {
+	{ .compatible = "allwinner,sun8i-twi", },
 	{ .compatible = "allwinner,sun50i-twi", },
 	{},
 };

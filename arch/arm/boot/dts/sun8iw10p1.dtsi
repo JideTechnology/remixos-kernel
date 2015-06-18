@@ -415,7 +415,7 @@
 		twi0: twi@0x01c2ac00{
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "allwinner,sun50i-twi";
+			compatible = "allwinner,sun8i-twi";
 			device_type = "twi0";
 			reg = <0x0 0x01c2ac00 0x0 0x400>;
 			interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
@@ -430,7 +430,7 @@
 		twi1: twi@0x01c2b000{
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "allwinner,sun50i-twi";
+			compatible = "allwinner,sun8i-twi";
 			device_type = "twi1";
 			reg = <0x0 0x01c2b000 0x0 0x400>;
 			interrupts = <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;

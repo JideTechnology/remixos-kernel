@@ -130,7 +130,7 @@
 			};
 
 			twi0_pins_a: twi0@0 {
-				allwinner,pins = "PH0", "PH1";
+				allwinner,pins = "PB6", "PB7";
 				allwinner,pname = "twi0_scl", "twi0_sda";
 				allwinner,function = "twi0";
 				allwinner,muxsel = <2>;
@@ -139,7 +139,7 @@
 			};
 
 			twi0_pins_b: twi0@1 {
-				allwinner,pins = "PH0", "PH1";
+				allwinner,pins = "PB6", "PB7";
 				allwinner,function = "io_disabled";
 				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
@@ -147,16 +147,16 @@
 			};
 
 			twi1_pins_a: twi1@0 {
-				allwinner,pins = "PH2", "PH3";
+				allwinner,pins = "PB8", "PB9";
 				allwinner,pname = "twi1_scl", "twi1_sda";
 				allwinner,function = "twi1";
-				allwinner,muxsel = <2>;
+				allwinner,muxsel = <4>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
 
 			twi1_pins_b: twi1@1 {
-				allwinner,pins = "PH2", "PH3";
+				allwinner,pins = "PB8", "PB9";
 				allwinner,function = "io_disabled";
 				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
@@ -164,16 +164,16 @@
 			};
 
 			twi2_pins_a: twi2@0 {
-				allwinner,pins = "PE14", "PE15";
+				allwinner,pins = "PG4", "PG5";
 				allwinner,pname = "twi2_scl", "twi2_sda";
 				allwinner,function = "twi2";
-				allwinner,muxsel = <3>;
+				allwinner,muxsel = <2>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
 
 			twi2_pins_b: twi2@1 {
-				allwinner,pins = "PE14", "PE15";
+				allwinner,pins = "PG4", "PG5";
 				allwinner,function = "io_disabled";
 				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
