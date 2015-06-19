@@ -1,0 +1,13 @@
+config USBC_SYSTEM_POLICY
+      depends on USBC_PD
+      tristate "Support for USBC Power Delivery System Policy"
+      help
+      Say Y or M here if your system has a Type-C connector support
+      for USB controller based on the USB phy IP Core and support for
+      Power Delivery with system policy which shall hold the
+      capability of each port based on the PHY registered. This shall
+      create an instance of device policy manager for each port(PHY)
+      to control the port roles.
+
+      If you choose to build this driver is a dynamically linked
+      module, the module will be called system_policy.ko.
