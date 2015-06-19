@@ -637,7 +637,7 @@ static int sunxi_rtc_probe(struct platform_device *pdev)
 		goto fail;
 	}
 #if  (defined CONFIG_FPGA_V4_PLATFORM) || (defined CONFIG_FPGA_V7_PLATFORM)
-	ret = devm_request_irq(&pdev->dev, 14, sunxi_rtc_alarmirq,
+	ret = devm_request_irq(&pdev->dev, 46, sunxi_rtc_alarmirq,
 	                       0, dev_name(&pdev->dev), chip);
 #else
 	ret = devm_request_irq(&pdev->dev, chip->irq, sunxi_rtc_alarmirq,
