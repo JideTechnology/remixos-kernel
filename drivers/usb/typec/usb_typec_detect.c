@@ -203,10 +203,6 @@ static void detect_dfp_work(struct work_struct *work)
 
 			atomic_notifier_call_chain(&detect->otg->notifier,
 				USB_EVENT_ID, NULL);
-			/* [WA] Since neccessary pmic-gpio isn't exposed
-			 * as of now, this is a w/a to write directly.
-			 */
-			intel_soc_pmic_writeb(0x6e2d, 0x31);
 
 			return;
 		} else if (CC_RA(cc1.v_rd) && CC_RA(cc2.v_rd)) {
@@ -435,12 +431,7 @@ static void update_phy_state(struct work_struct *work)
 			typec_enable_autocrc(detect->phy, false);
 		} else {
 			/* state = DFP; disable VBUS */
-			/* [WA] Since neccessary pmic-gpio isn't exposed
-			 * as of now, this is a w/a to write directly.
-			 */
-			intel_soc_pmic_writeb(0x6e2d, 0x30);
 			extcon_set_cable_state(detect->edev, "USB-Host", false);
-
 			reinit_completion(&detect->lock_ufp_complete);
 			mutex_lock(&detect->lock);
 			detect->state = DETECT_STATE_LOCK_UFP;
