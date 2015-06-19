@@ -41,6 +41,7 @@
 #include <linux/spinlock.h>
 #include <linux/usb_typec_phy.h>
 #include "usb_typec_detect.h"
+#include "pd/system_policy.h"
 
 /* Status register bits */
 #define FUSB300_STAT0_REG		0x40
@@ -1080,7 +1081,6 @@ static inline int fusb300_pd_send_hard_rst(struct typec_phy *phy)
 static inline int fusb302_pd_send_hard_rst(struct typec_phy *phy)
 {
 	struct fusb300_chip *chip;
-	int ret;
 
 	chip = dev_get_drvdata(phy->dev);
 
@@ -1358,7 +1358,7 @@ static int fusb300_probe(struct i2c_client *client,
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
 	struct fusb300_chip *chip;
 	int ret;
-	unsigned int val;
+	unsigned int val, stat;
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_WORD_DATA))
 		return -EIO;
@@ -1452,8 +1452,20 @@ static int fusb300_probe(struct i2c_client *client,
 	val &= ~FUSB300_CONTROL0_MASK_INT;
 	regmap_write(chip->map, FUSB300_CONTROL0_REG, val);
 
+	syspolicy_register_typec_phy(&chip->phy);
 	if (!chip->i_vbus) {
 		fusb300_wake_on_cc_change(chip);
+		regmap_read(chip->map, FUSB300_STAT0_REG, &stat);
+
+		if (stat &  FUSB300_STAT0_WAKE) {
+			if (chip->is_fusb300)
+				atomic_notifier_call_chain(&chip->phy.notifier,
+					TYPEC_EVENT_DRP, &chip->phy);
+			else
+				 atomic_notifier_call_chain(&chip->phy.notifier,
+					TYPEC_EVENT_DFP, &chip->phy);
+		}
+
 	} else
 		atomic_notifier_call_chain(&chip->phy.notifier,
 				TYPEC_EVENT_VBUS, &chip->phy);
@@ -1466,6 +1478,7 @@ static int fusb300_remove(struct i2c_client *client)
 	struct fusb300_chip *chip = i2c_get_clientdata(client);
 	struct typec_phy *phy = &chip->phy;
 
+	syspolicy_unregister_typec_phy(phy);
 	typec_unbind_detect(phy);
 	typec_remove_phy(phy);
 	return 0;
