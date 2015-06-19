@@ -28,7 +28,9 @@
 #include <linux/debugfs.h>
 #include <linux/err.h>
 #include <linux/cpu.h>
+#ifdef CONFIG_SUNXI_ARISC
 #include <linux/arisc/arisc.h>
+#endif
 #include <linux/clk/sunxi.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
@@ -70,11 +72,48 @@ static struct {
 	u32 ext_freq;
 	u32 boot_freq;
 	u32 last_freq;
+#ifdef CONFIG_CPU_VOLTAGE_SCALING
+	u32 last_vdd;
+#endif
 
 	struct mutex lock;
 } sunxi_cpufreq;
 
 unsigned int sunxi_boot_lock = 0;
+
+#ifdef CONFIG_CPU_VOLTAGE_SCALING
+#define TABLE_LENGTH (8)
+struct cpufreq_dvfs {
+	unsigned int freq;   /* cpu frequency */
+	unsigned int volt;   /* voltage for the frequency */
+};
+static struct cpufreq_dvfs dvfs_table_syscfg[TABLE_LENGTH];
+static unsigned int table_length_syscfg = 0;
+
+static void __vftable_show(void)
+{
+	int i;
+
+	pr_debug("-------------------V-F Table-------------------\n");
+	for (i = 0; i < table_length_syscfg; i++){
+		pr_debug("\tvoltage = %4dmv \tfrequency = %4dKHz\n",
+			dvfs_table_syscfg[i].volt, dvfs_table_syscfg[i].freq / 1000);
+	}
+	pr_debug("-----------------------------------------------\n");
+}
+
+static unsigned int __get_vdd_value(unsigned int freq)
+{
+	struct cpufreq_dvfs *dvfs_inf = NULL;
+
+	dvfs_inf = &dvfs_table_syscfg[0];
+	while ((dvfs_inf+1)->freq >= freq) {
+		dvfs_inf++;
+	}
+
+	return dvfs_inf->volt;
+}
+#endif
 
 /*
  * check if the cpu frequency policy is valid;
@@ -115,6 +154,26 @@ static unsigned int sunxi_cpufreq_get(unsigned int cpu)
 	return current_freq;
 }
 
+#ifndef CONFIG_SUNXI_ARISC
+static int __set_cpufreq_by_ccu(unsigned int freq)
+{
+	if (clk_prepare_enable(sunxi_cpufreq.clk_pll)) {
+		CPUFREQ_ERR("try to enable clk_pll failed!\n");
+		goto err;
+	}
+
+	if (clk_set_rate(sunxi_cpufreq.clk_pll, freq * 1000)) {
+		CPUFREQ_ERR("try to set clk_pll rate to %u failed!\n", freq);
+		goto err;
+	}
+
+	return 0;
+
+err:
+	return -EINVAL;
+}
+#endif
+
 /*
  * adjust the frequency that cpu is currently running;
  * policy:   cpu frequency policy;
@@ -134,6 +193,9 @@ static int sunxi_cpufreq_target(struct cpufreq_policy *policy,
 #endif
 #ifdef CONFIG_SMP
 	int i;
+#endif
+#ifdef CONFIG_CPU_VOLTAGE_SCALING
+unsigned int new_vdd;
 #endif
 
 	mutex_lock(&sunxi_cpufreq.lock);
@@ -182,14 +244,58 @@ static int sunxi_cpufreq_target(struct cpufreq_policy *policy,
 #endif
 	}
 
+#ifdef CONFIG_CPU_VOLTAGE_SCALING
+	/* get vdd value for new frequency */
+	new_vdd = __get_vdd_value(freq * 1000);
+	CPUFREQ_DBG(DEBUG_FREQ, "set cpu vdd to %dmv\n", new_vdd);
+	if (sunxi_cpufreq.vdd_cpu && (new_vdd > sunxi_cpufreq.last_vdd)) {
+		CPUFREQ_DBG(DEBUG_FREQ, "set cpu vdd to %dmv\n", new_vdd);
+		if (regulator_set_voltage(sunxi_cpufreq.vdd_cpu, new_vdd*1000, new_vdd*1000)) {
+			CPUFREQ_ERR("try to set cpu vdd failed!\n");
+
+			/* notify everyone that clock transition finish */
+			if (policy) {
+				freqs.cpu = policy->cpu;;
+				freqs.old = freqs.new;
+				freqs.new = sunxi_cpufreq.last_freq;
+#ifdef CONFIG_SMP
+				/* notifiers */
+				for_each_cpu(i, policy->cpus) {
+					freqs.cpu = i;
+					cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
+				}
+#else
+				cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
+#endif
+			}
+			return -EINVAL;
+		}
+	}
+#endif
+
 #ifdef CONFIG_DEBUG_FS
 	calltime = ktime_get();
 #endif
 
 	/* try to set cpu frequency */
-	if (arisc_dvfs_set_cpufreq(freq, ARISC_DVFS_PLL1, ARISC_DVFS_SYN,
-					NULL, NULL)) {
+#ifndef CONFIG_SUNXI_ARISC
+	if (__set_cpufreq_by_ccu(freq))
+#else
+	if (arisc_dvfs_set_cpufreq(freq, ARISC_DVFS_PLL1, ARISC_DVFS_SYN, NULL, NULL))
+#endif
+	{
 		CPUFREQ_ERR("set cpu frequency to %uKHz failed!\n", freq);
+
+#ifdef CONFIG_CPU_VOLTAGE_SCALING
+		if (sunxi_cpufreq.vdd_cpu && (new_vdd > sunxi_cpufreq.last_vdd)) {
+			if (regulator_set_voltage(sunxi_cpufreq.vdd_cpu,
+					sunxi_cpufreq.last_vdd*1000, sunxi_cpufreq.last_vdd*1000)) {
+				CPUFREQ_ERR("try to set voltage failed!\n");
+				sunxi_cpufreq.last_vdd = new_vdd;
+			}
+		}
+#endif
+
 		/* set cpu frequency failed */
 		if (policy) {
 			freqs.cpu = policy->cpu;
@@ -213,6 +319,18 @@ static int sunxi_cpufreq_target(struct cpufreq_policy *policy,
 
 #ifdef CONFIG_DEBUG_FS
 	sunxi_cpufreq.cpufreq_set_us = ktime_to_us(ktime_sub(ktime_get(), calltime));
+#endif
+
+#ifdef CONFIG_CPU_VOLTAGE_SCALING
+	if(sunxi_cpufreq.vdd_cpu && (new_vdd < sunxi_cpufreq.last_vdd)) {
+		CPUFREQ_DBG(DEBUG_FREQ, "set cpu vdd to %dmv\n", new_vdd);
+		if(regulator_set_voltage(sunxi_cpufreq.vdd_cpu, new_vdd*1000, new_vdd*1000)) {
+			CPUFREQ_ERR("try to set voltage failed!\n");
+			new_vdd = sunxi_cpufreq.last_vdd;
+		}
+	}
+
+	sunxi_cpufreq.last_vdd = new_vdd;
 #endif
 
 	/* notify that cpu clock will be adjust if needed */
@@ -314,7 +432,11 @@ static unsigned int __get_valid_freq(unsigned int target_freq)
 static int __init_freq_dt(void)
 {
 	struct device_node *np;
-	int ret = 0;
+	int ret = -1;
+#ifdef CONFIG_CPU_VOLTAGE_SCALING
+	char name[16] = {0};
+	int i;
+#endif
 
 	np = of_find_node_by_path("/dvfs_table");
 	if (!np) {
@@ -324,13 +446,11 @@ static int __init_freq_dt(void)
 
 	if (of_property_read_u32(np, "max_freq", &sunxi_cpufreq.max_freq)) {
 		CPUFREQ_ERR("get cpu max freq from dt failed\n");
-		ret = -1;
 		goto fail;
 	}
 
 	if (of_property_read_u32(np, "min_freq", &sunxi_cpufreq.min_freq)) {
 		CPUFREQ_ERR("get cpu min freq from df failed\n");
-		ret = -1;
 		goto fail;
 	}
 
@@ -345,38 +465,32 @@ static int __init_freq_dt(void)
 	if (sunxi_cpufreq.max_freq > SUNXI_CPUFREQ_MAX
 				|| sunxi_cpufreq.max_freq < SUNXI_CPUFREQ_MIN) {
 		CPUFREQ_ERR("cpu max freq from sysconfig is more than range\n");
-		ret = -1;
 		goto fail;
 	}
 
 	if (sunxi_cpufreq.min_freq < SUNXI_CPUFREQ_MIN
 				|| sunxi_cpufreq.min_freq > SUNXI_CPUFREQ_MAX) {
 		CPUFREQ_ERR("cpu min freq from sysconfig is more than range\n");
-		ret = -1;
 		goto fail;
 	}
 
 	if (sunxi_cpufreq.min_freq > sunxi_cpufreq.max_freq) {
 		CPUFREQ_ERR("cpu min freq can not be more than cpu max freq\n");
-		ret = -1;
 		goto fail;
 	}
 
 	if (sunxi_cpufreq.ext_freq < sunxi_cpufreq.max_freq) {
 		CPUFREQ_ERR("cpu ext freq can not be less than cpu max freq\n");
-		ret = -1;
 		goto fail;
 	}
 
 	if (sunxi_cpufreq.boot_freq > sunxi_cpufreq.max_freq) {
 		CPUFREQ_ERR("cpu boot freq can not be more than cpu max freq\n");
-		ret = -1;
 		goto fail;
 	}
 
 	if (sunxi_cpufreq.boot_freq < sunxi_cpufreq.min_freq) {
 		CPUFREQ_ERR("cpu boot freq can not be less than cpu min freq\n");
-		ret = -1;
 		goto fail;
 	}
 
@@ -385,6 +499,36 @@ static int __init_freq_dt(void)
 	sunxi_cpufreq.min_freq  = __get_valid_freq(sunxi_cpufreq.min_freq  / 1000);
 	sunxi_cpufreq.ext_freq  = __get_valid_freq(sunxi_cpufreq.ext_freq  / 1000);
 	sunxi_cpufreq.boot_freq = __get_valid_freq(sunxi_cpufreq.boot_freq / 1000);
+
+#ifdef CONFIG_CPU_VOLTAGE_SCALING
+	if (of_property_read_u32(np, "lv_count", &table_length_syscfg)) {
+		CPUFREQ_ERR("get lv_count failed\n");
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	if(table_length_syscfg != TABLE_LENGTH){
+		CPUFREQ_ERR("lv_count is invalid\n");
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	for (i = 1; i <= table_length_syscfg; i++) {
+		sprintf(name, "lv%d_freq", i);
+		if (of_property_read_u32(np, name, &dvfs_table_syscfg[i-1].freq)) {
+			CPUFREQ_ERR("get lv%d_freq failed\n", i);
+			ret = -EINVAL;
+			goto fail;
+		}
+
+		sprintf(name, "lv%d_volt", i);
+		if (of_property_read_u32(np, name, &dvfs_table_syscfg[i-1].volt)) {
+			CPUFREQ_ERR("get lv%d_volt failed\n", i);
+			ret = -EINVAL;
+			goto fail;
+		}
+	}
+#endif
 
 	return 0;
 
@@ -474,12 +618,21 @@ static int __init sunxi_cpufreq_initcall(void)
 
 	/* init cpu frequency from dt */
 	ret = __init_freq_dt();
-	if (ret == -ENODEV)
+	if (ret == -ENODEV
+#ifdef CONFIG_CPU_VOLTAGE_SCALING
+		|| ret == -EINVAL
+#endif
+	)
 		goto out_err_dt;
 
 	pr_debug("[cpufreq] max: %uMHz, min: %uMHz, ext: %uMHz, boot: %uMHz\n",
 				sunxi_cpufreq.max_freq / 1000, sunxi_cpufreq.min_freq / 1000,
 				sunxi_cpufreq.ext_freq / 1000, sunxi_cpufreq.boot_freq / 1000);
+
+#ifdef CONFIG_CPU_VOLTAGE_SCALING
+	__vftable_show();
+	sunxi_cpufreq.last_vdd = sunxi_cpufreq_getvolt();
+#endif
 
 	mutex_init(&sunxi_cpufreq.lock);
 

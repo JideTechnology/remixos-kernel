@@ -4,9 +4,18 @@
 
 config ARM_SUNXI_CPUFREQ
 	bool "SUNXI CPUFreq driver support"
-	depends on ARCH_SUN50I
+	depends on ARCH_SUN50I || ARCH_SUN8IW10
 	help
 	  This adds the CPUFreq driver for the Allwinner SUNXI SoC.
+
+	  If in doubt, say N.
+
+config CPU_VOLTAGE_SCALING
+	bool "CPU voltage change with frequency"
+	depends on ARM_SUNXI_CPUFREQ
+	depends on !SUNXI_ARISC
+	help
+	  This will allow cpu voltage dynamic changed when the frequency is changed.
 
 	  If in doubt, say N.
 
