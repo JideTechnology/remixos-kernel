@@ -20,8 +20,6 @@
 #include <linux/of_platform.h>
 #include <linux/io.h>
 
-#include <linux/clk/sunxi.h>
-
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
 #include <asm/system_misc.h>
@@ -97,7 +95,6 @@ void __init sunxi_map_io(void)
 
 static void __init sunxi_timer_init(void)
 {
-	//sunxi_init_clocks();
 	clocksource_of_init();
 }
 
