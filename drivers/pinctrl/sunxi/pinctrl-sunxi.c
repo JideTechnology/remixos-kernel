@@ -1192,15 +1192,15 @@ int sunxi_pinctrl_init(struct platform_device *pdev,
 			goto gpiochip_error;
 	}
 
-	//clk = devm_clk_get(&pdev->dev, NULL);
-	//if (IS_ERR(clk)) {
-	//	ret = PTR_ERR(clk);
-	//	goto gpiochip_error;
-	//}
+	clk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(clk)) {
+		ret = PTR_ERR(clk);
+		goto gpiochip_error;
+	}
 
-	//ret = clk_prepare_enable(clk);
-	//if (ret)
-	//	goto gpiochip_error;
+	ret = clk_prepare_enable(clk);
+	if (ret)
+		goto gpiochip_error;
 
 	pctl->irq = devm_kcalloc(&pdev->dev,
 				 pctl->desc->irq_banks,

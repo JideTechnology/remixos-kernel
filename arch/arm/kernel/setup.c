@@ -706,9 +706,10 @@ static int __init customize_machine(void)
 	if (machine_desc->init_machine)
 		machine_desc->init_machine();
 #ifdef CONFIG_OF
-	else
+	else {
 		of_platform_populate(NULL, of_default_bus_match_table,
 					NULL, NULL);
+	}
 #endif
 	return 0;
 }
@@ -870,6 +871,7 @@ void __init setup_arch(char **cmdline_p)
 static int __init arm_device_init(void)
 {
 	of_clk_init(NULL);
+	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
 	return 0;
 }
 arch_initcall_sync(arm_device_init);

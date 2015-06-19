@@ -104,8 +104,6 @@ static void __init sunxi_timer_init(void)
 static void __init sunxi_dt_init(void)
 {
 	sunxi_setup_restart();
-
-	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
 }
 
 static const char * const sunxi_board_dt_compat[] = {
