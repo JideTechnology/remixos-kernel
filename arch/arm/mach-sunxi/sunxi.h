@@ -17,4 +17,8 @@
 #define SUNXI_REGS_VIRT_BASE	IOMEM(0xf1c00000)
 #define SUNXI_REGS_SIZE		(SZ_2M + SZ_1M)
 
+#ifdef CONFIG_SMP
+extern struct smp_operations sunxi_smp_ops;
+#endif
+
 #endif /* __MACH_SUNXI_H */

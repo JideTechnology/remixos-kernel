@@ -120,6 +120,7 @@ MACHINE_END
 
 DT_MACHINE_START(SUN8IW10P1_DT, "arm,sun8iw10p1")
 	.init_machine	= sunxi_dt_init,
+	.smp		= smp_ops(sunxi_smp_ops),
 	.map_io		= sunxi_map_io,
 	.init_irq	= irqchip_init,
 	.init_time	= sunxi_timer_init,

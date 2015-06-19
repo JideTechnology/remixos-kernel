@@ -53,14 +53,13 @@
 	};
 
 	cpus {
-		#address-cells = <2>;
+		#address-cells = <1>;
 		#size-cells = <0>;
 
 		cpu@0 {
 			device_type = "cpu";
-			compatible = "arm,cortex-a53","arm,armv8";
-			reg = <0x0 0x0>;
-			enable-method = "psci";
+			compatible = "arm,cortex-a7";
+			reg = <0x0>;
 			cpufreq_tbl = < 480000
 					600000
 					720000
@@ -72,60 +71,15 @@
 					1344000>;
 			clock-latency = <2000000>;
 			clock-frequency = <1008000000>;
-			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0 &SYS_SLEEP_0>;
 		};
 		cpu@1 {
 			device_type = "cpu";
-			compatible = "arm,cortex-a53","arm,armv8";
-			reg = <0x0 0x1>;
-			enable-method = "psci";
+			compatible = "arm,cortex-a7";
+			reg = <0x1>;
 			clock-frequency = <1008000000>;
-			cpu-idle-states = <&CPU_SLEEP_0 &CLUSTER_SLEEP_0 &SYS_SLEEP_0>;
-		};
-		idle-states {
-			entry-method = "arm,psci";
-
-			CPU_SLEEP_0: cpu-sleep-0 {
-				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x0010000>;
-				entry-latency-us = <40>;
-				exit-latency-us = <100>;
-				min-residency-us = <150>;
-			};
-
-			CLUSTER_SLEEP_0: cluster-sleep-0 {
-				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x1010000>;
-				entry-latency-us = <500>;
-				exit-latency-us = <1000>;
-				min-residency-us = <2500>;
-			};
-
-			SYS_SLEEP_0: sys-sleep-0 {
-				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x2010000>;
-				entry-latency-us = <1000>;
-				exit-latency-us = <2000>;
-				min-residency-us = <4500>;
-			};
 		};
 	};
 
-	psci {
-	    compatible		=  "arm,psci-0.2";
-	    method		=  "smc";
-	    psci_version	=  <0x84000000>;
-	    cpu_suspend		=  <0xc4000001>;
-	    cpu_off		=  <0x84000002>;
-	    cpu_on		=  <0xc4000003>;
-	    affinity_info	=  <0xc4000004>;
-	    migrate		=  <0xc4000005>;
-	    migrate_info_type	=  <0x84000006>;
-	    migrate_info_up_cpu =  <0xc4000007>;
-	    system_off		=  <0x84000008>;
-	    system_reset	=  <0x84000009>;
-
-	};
 	n_brom {
 		compatible = "allwinner,n-brom";
 		reg = <0x0 0x0 0x0 0xc000>;
