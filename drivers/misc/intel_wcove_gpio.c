@@ -96,22 +96,19 @@ static void wcove_gpio_ctrl_worker(struct work_struct *work)
 	return;
 }
 
-static int wcgpio_event_handler(struct notifier_block *nblock,
-					unsigned long event, void *param)
+static int wcgpio_check_events(struct wcove_gpio_info *info,
+					struct extcon_dev *edev)
 {
-	struct wcove_gpio_info *info =
-			container_of(nblock, struct wcove_gpio_info, nb);
-	struct extcon_dev *edev = param;
 	struct wcove_gpio_event *evt;
 
 	if (!edev)
-		return NOTIFY_DONE;
+		return -EIO;
 
 	evt = kzalloc(sizeof(*evt), GFP_ATOMIC);
 	if (!evt) {
 		dev_err(&info->pdev->dev,
 			"failed to allocate memory for SDP/OTG event\n");
-		return NOTIFY_DONE;
+		return -ENOMEM;
 	}
 
 	evt->is_sdp_connected = extcon_get_cable_state(edev, "USB");
@@ -127,7 +124,32 @@ static int wcgpio_event_handler(struct notifier_block *nblock,
 	spin_unlock(&info->gpio_queue_lock);
 
 	queue_work(system_nrt_wq, &info->gpio_work);
+	return 0;
+}
+
+static int wcgpio_event_handler(struct notifier_block *nblock,
+					unsigned long event, void *param)
+{
+	int ret = 0;
+	struct wcove_gpio_info *info =
+			container_of(nblock, struct wcove_gpio_info, nb);
+	struct extcon_dev *edev = param;
+
+	ret = wcgpio_check_events(info, edev);
+
+	if (IS_ERR(ret))
+		return NOTIFY_DONE;
+
 	return NOTIFY_OK;
+}
+
+static void check_initial_events(struct wcove_gpio_info *info)
+{
+	struct extcon_dev *edev;
+
+	edev = extcon_get_extcon_dev("usb-typec");
+
+	wcgpio_check_events(info, edev);
 }
 
 static int wcove_gpio_probe(struct platform_device *pdev)
@@ -213,6 +235,8 @@ static int wcove_gpio_probe(struct platform_device *pdev)
 		goto error_gpio;
 	}
 	dev_dbg(&pdev->dev, "wcove gpio probed\n");
+
+	check_initial_events(info);
 
 	return 0;
 
