@@ -640,20 +640,22 @@ static void intel_dsi_clear_device_ready(struct intel_encoder *encoder)
 
 	DRM_DEBUG_KMS("\n");
 
-	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_ENTER |
-								DEVICE_READY);
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, CLEAR_DEVICE_READY);
+
+	/* wait for dsi controller to be off */
+	usleep_range(2000, 2500);
+
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_ENTER);
 
 	/* wait for LP state to go 00 */
 	usleep_range(2000, 2500);
 
-	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_EXIT |
-								DEVICE_READY);
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_EXIT);
 
 	/* wait for LP state to goto 11 */
 	usleep_range(2000, 2500);
 
-	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_ENTER |
-								DEVICE_READY);
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_ENTER);
 
 	/* wait for LP state to go 00 */
 	usleep_range(2000, 2500);

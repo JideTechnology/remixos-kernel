@@ -6804,6 +6804,7 @@ enum punit_power_well {
 #define  ULPS_STATE_EXIT				(1 << 1)
 #define  ULPS_STATE_NORMAL_OPERATION			(0 << 1)
 #define  DEVICE_READY					(1 << 0)
+#define  CLEAR_DEVICE_READY				(0 << 0)
 
 #define _MIPIA_INTR_STAT			(VLV_DISPLAY_BASE + 0xb004)
 #define _MIPIB_INTR_STAT			(VLV_DISPLAY_BASE + 0xb804)
