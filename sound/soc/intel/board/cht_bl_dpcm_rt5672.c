@@ -523,11 +523,9 @@ static const struct snd_kcontrol_new cht_mc_controls[] = {
 };
 
 
-static int cht_aif1_hw_params(struct snd_pcm_substream *substream,
-			     struct snd_pcm_hw_params *params)
+static int cht_set_slot_fmt_clk(struct snd_soc_dai *codec_dai,
+				unsigned int rate)
 {
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	unsigned int fmt;
 	int ret;
 
@@ -559,20 +557,30 @@ static int cht_aif1_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	ret = snd_soc_dai_set_pll(codec_dai, 0, RT5670_PLL1_S_MCLK,
-				  CHT_PLAT_CLK_3_HZ, params_rate(params) * 512);
+				  CHT_PLAT_CLK_3_HZ, rate * 512);
 	if (ret < 0) {
 		pr_err("can't set codec pll: %d\n", ret);
 		return ret;
 	}
 
 	ret = snd_soc_dai_set_sysclk(codec_dai, RT5670_SCLK_S_PLL1,
-				     params_rate(params) * 512,
-				     SND_SOC_CLOCK_IN);
+				     rate * 512, SND_SOC_CLOCK_IN);
 	if (ret < 0) {
 		pr_err("can't set codec sysclk: %d\n", ret);
 		return ret;
 	}
+
 	return 0;
+}
+
+static int cht_aif1_hw_params(struct snd_pcm_substream *substream,
+			     struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+
+	pr_debug("Enter:%s", __func__);
+	return cht_set_slot_fmt_clk(codec_dai, params_rate(params));
 }
 
 static int cht_compr_set_params(struct snd_compr_stream *cstream)
