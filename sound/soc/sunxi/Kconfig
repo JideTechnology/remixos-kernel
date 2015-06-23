@@ -14,19 +14,17 @@ menuconfig SND_SUNXI_SOC
 	#select SND_SOC_SUNXI_TDM
 
 if SND_SUNXI_SOC
-#config SND_SOC_SUNXI_TDM
-#	bool
-#config SND_SOC_SUNXI_RW
-#	bool
-
 config SND_SOC_INTERNAL_AUDIOCODEC
 	tristate "ASoC support for audiocodec"
+	depends on ARCH_SUN50IW1P1
 	select SND_SOC_SUNXI_RW
 	help
 	  Say Y or M if you want to add support for codecs attached to the
 	  AUDIOCODEC interface.
+
 config SND_SOC_INTERNAL_I2S
 	tristate "ASoC support for internal-i2s"
+	depends on ARCH_SUN50IW1P1
 	select SND_SOC_SUNXI_RW
 	help
 	  Say Y or M if you want to add support for codecs attached to the
@@ -34,6 +32,31 @@ config SND_SOC_INTERNAL_I2S
 
 config SND_SOC_AUDIO_CODEC_MACHINE
 	tristate "ASoC support for audiocodec machine"
+	depends on ARCH_SUN50IW1P1
+	select SND_SOC_SUNXI_RW
+	help
+	  Say Y or M if you want to add support for codecs attached to the
+	  AUDIOCODEC MACHEINE interface.
+
+config SND_SOC_INTERNAL_SUN8IW10_AUDIOCODEC
+	tristate "ASoC support for sun8iw10 audiocodec"
+	depends on ARCH_SUN8IW10
+	select SND_SOC_SUNXI_RW
+	help
+	  Say Y or M if you want to add support for codecs attached to the
+	  AUDIOCODEC interface.
+
+config SND_SOC_SUN8IW10_CODEC_CPU_DAI
+	tristate "ASoC support for sun8iw10 internal-codec cpudai"
+	depends on ARCH_SUN8IW10
+	select SND_SOC_SUNXI_RW
+	help
+	  Say Y or M if you want to add support for codecs attached to the
+	  INTERNAL I2S interface.
+
+config SND_SOC_SUN8IW10_AUDIO_CODEC_MACHINE
+	tristate "ASoC support for sun8iw10 audiocodec machine"
+	depends on ARCH_SUN8IW10
 	select SND_SOC_SUNXI_RW
 	help
 	  Say Y or M if you want to add support for codecs attached to the
@@ -63,18 +86,30 @@ config SND_SOC_DAUDIO1_MACHINE
 	help
  	  Say Y or M if you want to add the daudio1 MACHEINE interface.
 
+config SND_SOC_DMIC
+	tristate "ASoC support for dmic."
+	depends on ARCH_SUN8IW10
+	help
+ 	  Say Y or M if you want to add the dmic interface.
+
+config SND_SOC_CS4385
+	tristate "dsd codec of cs4385."
+	depends on ARCH_SUN8IW10
+	help
+ 	  Say Y or M if you want to add the cs4385 codec interface.
+
+config SND_SOC_DSD
+	tristate "ASoC support for dsd."
+	depends on ARCH_SUN8IW10
+	help
+ 	  Say Y or M if you want to add the dsd interface.
+
 config SND_SUNXI_SOC_HDMIAUDIO
 	tristate "ASoC support for hdmiaudio."
+	depends on ARCH_SUN50IW1P1
 	select SND_SOC_SUNXI_TDM
 	help
  	  Say Y or M if you want to add the hdmi platform interface.
-
-
-#config SND_SOC_HDMIAUDIO_MACHINE_CODEC
-#	tristate "ASoC support for hdmi machine and hdmi codec"
-#	select SND_SOC_SUNXI_TDM
-#	help
- #	  Say Y or M if you want to add the hdmi MACHEINE interface and codec interface.
 
 config SND_SUNXI_SOC_SPDIF
 	tristate "ASoC support for spdif soundcard"
@@ -89,7 +124,7 @@ config SND_SOC_HUB
 
 config SND_SUNXI_SOC_SUPPORT_AUDIO_RAW
 	bool "Support Audio Raw Data"
-	depends on (SND_SUNXI_SOC_HDMIAUDIO || SND_SUNXI_SOC_SPDIF) && (ARCH_SUN8IW6 || ARCH_SUN8IW7 ||ARCH_SUN9IW1 || ARCH_SUN50I)
+	depends on (SND_SUNXI_SOC_HDMIAUDIO || SND_SUNXI_SOC_SPDIF) && (ARCH_SUN8IW6 || ARCH_SUN8IW7 ||ARCH_SUN9IW1 || ARCH_SUN50IW1P1)
 	default n
 	help
 	  Say Y support Audio raw date. It's suitable for Homlet product.

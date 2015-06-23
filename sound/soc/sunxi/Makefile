@@ -14,33 +14,54 @@ endif
 obj-y += snd-sunxi-soc.o
 
 #audiocodec
-
+#sun50i
 obj-$(CONFIG_SND_SOC_INTERNAL_AUDIOCODEC) += sunxi_codec.o
 obj-$(CONFIG_SND_SOC_INTERNAL_I2S) += sunxi_i2s.o
 
+#sun8iw10
+obj-$(CONFIG_SND_SOC_INTERNAL_SUN8IW10_AUDIOCODEC) += sun8iw10_codec.o
+obj-$(CONFIG_SND_SOC_SUN8IW10_CODEC_CPU_DAI) += sun8iw10_cpudai.o
+
+#daudio
 obj-$(CONFIG_SND_SOC_VIRCODEC) += snddaudio.o
 obj-$(CONFIG_SND_SOC_DAUDIO_PLATFORM) += sunxi_daudio.o
 
+#dmic
+obj-$(CONFIG_SND_SOC_DMIC) += sunxi_dmic.o
+
+#dsd
+obj-$(CONFIG_SND_SOC_DSD) += sunxi_dsd.o
+obj-$(CONFIG_SND_SOC_CS4385) += cs4385.o
+
+#hdmi
 obj-$(CONFIG_SND_SUNXI_SOC_HDMIAUDIO) += sunxi_tdmhdmi.o
 obj-$(CONFIG_SND_SUNXI_SOC_HDMIAUDIO) += sndhdmi.o
 
+#spdif
 obj-$(CONFIG_SND_SUNXI_SOC_SPDIF) += sunxi_spdif.o
-obj-$(CONFIG_SND_SOC_AUDIO_CODEC_MACHINE) += sunxi_sndcodec.o
 
+#for sound machine
+#sun50i
+obj-$(CONFIG_SND_SOC_AUDIO_CODEC_MACHINE) += sunxi_sndcodec.o
+#sun8iw10
+obj-$(CONFIG_SND_SOC_SUN8IW10_AUDIO_CODEC_MACHINE) += sun8iw10_sndcodec.o
 
 #daudio0
-
 obj-$(CONFIG_SND_SOC_DAUDIO0_MACHINE) += sunxi-snddaudio0.o
 
 #daudio1
 obj-$(CONFIG_SND_SOC_DAUDIO1_MACHINE) += sunxi-snddaudio1.o
 
-#hdmi
+#dmic
+obj-$(CONFIG_SND_SOC_DMIC) += sunxi-snddmic.o
 
+#dsd
+obj-$(CONFIG_SND_SOC_DSD) += sunxi-snddsd.o
+
+#hdmi
 obj-$(CONFIG_SND_SUNXI_SOC_HDMIAUDIO) += sunxi-sndhdmi.o
 
 #spdif
-
 obj-$(CONFIG_SND_SUNXI_SOC_SPDIF) += sunxi-sndspdif.o
 
 ##DEBUG

@@ -22,6 +22,7 @@ u32 read_prcm_wvalue(u32 addr,void __iomem * ADDA_PR_CFG_REG)
 	return reg;
 }
 EXPORT_SYMBOL_GPL(read_prcm_wvalue);
+
 void write_prcm_wvalue(u32 addr, u32 val,void __iomem * ADDA_PR_CFG_REG)
 {
 	u32 reg;
@@ -47,7 +48,6 @@ void write_prcm_wvalue(u32 addr, u32 val,void __iomem * ADDA_PR_CFG_REG)
 	reg &= ~(0x1<<24);
 	writel(reg, ADDA_PR_CFG_REG);
 }
-
 EXPORT_SYMBOL_GPL(write_prcm_wvalue);
 
 /*digital*/
@@ -56,11 +56,13 @@ u32 codec_rdreg(void __iomem * address)
 	return readl(address);
 }
 EXPORT_SYMBOL_GPL(codec_rdreg);
+
 void codec_wrreg(void __iomem * address,u32 val)
 {
 	writel(val,address);
 }
 EXPORT_SYMBOL_GPL(codec_wrreg);
+
 /**
 * codec_wrreg_bits - update codec register bits
 * @reg: codec register
@@ -81,6 +83,7 @@ EXPORT_SYMBOL_GPL(codec_wrreg);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(codec_wrreg_prcm_bits);
+
 /**
 * codec_wrreg_bits - update codec register bits
 * @reg: codec register
@@ -111,7 +114,6 @@ u32 codec_wr_control(void __iomem *  reg, u32 mask, u32 shift, u32 val)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(codec_wr_control);
-
 
 u32 audiodebug_reg_read(u32 reg)
 {

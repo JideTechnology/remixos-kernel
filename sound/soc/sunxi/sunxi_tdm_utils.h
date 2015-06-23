@@ -159,7 +159,7 @@
 
 	#define SUNXI_DAUDIORXCHSEL							(0x64)
 	#define SUNXI_DAUDIORXCHSEL_RXOFFSET(v)			((v)<<20)
-	#define SUNXI_DAUDIORXCHSEL_RXCHSET(v)				((v)<<0)
+	#define SUNXI_DAUDIORXCHSEL_RXCHSET(v)				((v)<<16)
 
 	#define SUNXI_DAUDIORXCHMAP0						(0x68)
 	#define SUNXI_RXCHANMAP0_DEFAULT				(0xfedcba98)

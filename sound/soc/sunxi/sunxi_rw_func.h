@@ -1,6 +1,7 @@
 #ifndef __SUNXI_RW_FUNC__
 #define __SUNXI_RW_FUNC__
 #include <linux/io.h>
+#include <linux/module.h>
 extern u32 read_prcm_wvalue(u32 addr,void __iomem * ADDA_PR_CFG_REG);
 
 extern void write_prcm_wvalue(u32 addr, u32 val,void __iomem * ADDA_PR_CFG_REG);

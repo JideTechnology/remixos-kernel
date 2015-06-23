@@ -185,7 +185,7 @@ static int sunxi_pcm_hw_params(struct snd_pcm_substream *substream,
 		slave_config.src_addr =	dmap->dma_addr;
 		slave_config.slave_id = sunxi_slave_id(DRQDST_SDRAM, dmap->dma_drq_type_num);
 	}
-	pr_debug("%s,line:%d,slave_config.dst_addr:%llx,dmap->dma_addr:%llx\n",__func__,__LINE__,slave_config.dst_addr,dmap->dma_addr);
+
 	ret = dmaengine_slave_config(chan, &slave_config);
 	if (ret < 0) {
 		dev_err(dev, "dma slave config failed with err %d\n", ret);

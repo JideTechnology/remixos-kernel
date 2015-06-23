@@ -11,8 +11,8 @@
  * the License, or (at your option) any later version.
  *
  */
-#ifndef SUNXI_SPDMA_H_
-#define SUNXI_SPDMA_H_
+#ifndef SUNXI_DMA_H_
+#define SUNXI_DMA_H_
 
 struct sunxi_dma_params {
 	char *name;

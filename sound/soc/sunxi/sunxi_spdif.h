@@ -27,6 +27,9 @@
 #if defined (CONFIG_ARCH_SUN8IW1) || defined(CONFIG_ARCH_SUN8IW7) || defined(CONFIG_ARCH_SUN50I)
 	#define SUNXI_SPDIF_CTL_MCLKDIV(v)				((v)<<4)		//v even
 #endif
+#ifdef CONFIG_ARCH_SUN8IW10
+	#define SUNXI_SPDIF_CTL_LOOP					(1<<2)
+#endif
 	#define SUNXI_SPDIF_CTL_GEN					(1<<1)
 	#define SUNXI_SPDIF_CTL_RESET					(1<<0)
 
@@ -48,7 +51,8 @@
 	#define SUNXI_SPDIF_RXCFG_CHSTCP				(1<<1)
 	#define SUNXI_SPDIF_RXCFG_RXEN					(1<<0)
 #if defined(CONFIG_ARCH_SUN9IW1) \
-|| defined(CONFIG_ARCH_SUN8IW6) || defined(CONFIG_ARCH_SUN8IW7) || defined(CONFIG_ARCH_SUN50I)
+|| defined(CONFIG_ARCH_SUN8IW6) || defined(CONFIG_ARCH_SUN8IW7) || defined(CONFIG_ARCH_SUN50I) \
+|| defined(CONFIG_ARCH_SUN8IW10)
 #define SUNXI_SPDIF_TXFIFO (0x20)
 #else
 #define SUNXI_SPDIF_TXFIFO (0x0C)
@@ -58,22 +62,36 @@
 #define SUNXI_SPDIF_FCTL (0x14)
 
 #if defined(CONFIG_ARCH_SUN9IW1) \
-	|| defined(CONFIG_ARCH_SUN8IW6) || defined(CONFIG_ARCH_SUN8IW7)|| defined(CONFIG_ARCH_SUN50I)
+	|| defined(CONFIG_ARCH_SUN8IW6) || defined(CONFIG_ARCH_SUN8IW7)|| defined(CONFIG_ARCH_SUN50I) \
+	|| defined(CONFIG_ARCH_SUN8IW10)
 	#define SUNXI_SPDIFFCTL_HUBEN					(1<<31)
 #else
 	#define SUNXI_SPDIF_FCTL_FIFOSRC				(1<<31)
 #endif
+#ifdef CONFIG_ARCH_SUN8IW10
+	#define SUNXI_SPDIF_FCTL_FTX					(1<<30)
+	#define SUNXI_SPDIF_FCTL_FRX					(1<<29)
+	#define SUNXI_SPDIF_FCTL_TXTL(v)				((v)<<12)
+	#define SUNXI_SPDIF_FCTL_RXTL(v)				(((v))<<4)
+#else
 	#define SUNXI_SPDIF_FCTL_FTX					(1<<17)
 	#define SUNXI_SPDIF_FCTL_FRX					(1<<16)
 	#define SUNXI_SPDIF_FCTL_TXTL(v)				((v)<<8)
 	#define SUNXI_SPDIF_FCTL_RXTL(v)				(((v))<<3)
+#endif
 	#define SUNXI_SPDIF_FCTL_TXIM(v)				((v)<<2)
 	#define SUNXI_SPDIF_FCTL_RXOM(v)				((v)<<0)
 
 #define SUNXI_SPDIF_FSTA (0x18)
+#ifdef CONFIG_ARCH_SUN8IW10
+	#define SUNXI_SPDIF_FSTA_TXE					(1<<31)
+	#define SUNXI_SPDIF_FSTA_TXECNTSHT				(16)
+	#define SUNXI_SPDIF_FSTA_RXA					(1<<15)
+#else
 	#define SUNXI_SPDIF_FSTA_TXE					(1<<14)
 	#define SUNXI_SPDIF_FSTA_TXECNTSHT				(8)
 	#define SUNXI_SPDIF_FSTA_RXA					(1<<6)
+#endif
 	#define SUNXI_SPDIF_FSTA_RXACNTSHT				(0)
 
 #define SUNXI_SPDIF_INT (0x1C)
