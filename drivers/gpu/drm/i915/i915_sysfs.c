@@ -1325,9 +1325,11 @@ static ssize_t i915_gem_read_objects(struct file *filp,
 	}
 
 	if (!attr || !attr->private) {
+		ret = -EINVAL;
 		DRM_ERROR("attr | attr->private pointer is NULL\n");
-		return -EINVAL;
+		goto out;
 	}
+
 	attr_priv = attr->private;
 	tgid = attr_priv->tgid;
 
