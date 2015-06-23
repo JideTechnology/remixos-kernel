@@ -529,7 +529,8 @@ static int cht_set_slot_fmt_clk(struct snd_soc_dai *codec_dai,
 	unsigned int fmt;
 	int ret;
 
-	pr_debug("Enter:%s", __func__);
+	pr_debug("Enter:%s dai name %s rate %d\n", __func__,
+			codec_dai->name, rate);
 
 	/* proceed only if dai is valid */
 	if (strncmp(codec_dai->name, "rt5670-aif1", 11))
@@ -579,7 +580,7 @@ static int cht_aif1_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 
-	pr_debug("Enter:%s", __func__);
+	pr_debug("Enter:%s\n", __func__);
 	return cht_set_slot_fmt_clk(codec_dai, params_rate(params));
 }
 
@@ -595,6 +596,13 @@ static const struct snd_soc_pcm_stream cht_dai_params = {
 	.channels_min = 2,
 	.channels_max = 2,
 };
+
+static int cht_codec_loop_fixup(struct snd_soc_dai_link *dai_link,
+				struct snd_soc_dai *dai)
+{
+	pr_debug("Enter:%s\n", __func__);
+	return cht_set_slot_fmt_clk(dai, dai_link->params->rate_max);
+}
 
 static int cht_codec_fixup(struct snd_soc_pcm_runtime *rtd,
 			    struct snd_pcm_hw_params *params)
@@ -866,6 +874,7 @@ static struct snd_soc_dai_link cht_dailink[] = {
 		.dai_fmt = SND_SOC_DAIFMT_DSP_B | SND_SOC_DAIFMT_IB_NF
 			| SND_SOC_DAIFMT_CBS_CFS,
 		.params = &cht_dai_params,
+		.be_fixup = cht_codec_loop_fixup,
 		.dsp_loopback = true,
 	},
 	{
