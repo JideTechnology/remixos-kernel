@@ -193,6 +193,7 @@ static int handle_pwrsrc_event(struct dc_pwrsrc_info *info)
 static int handle_chrg_det_event(struct dc_pwrsrc_info *info)
 {
 	static bool notify_otg, notify_charger;
+	static bool wake_locked;
 	static struct power_supply_cable_props cable_props;
 	int stat, cfg, ret, vbus_mask = 0;
 	u8 chrg_type;
@@ -207,6 +208,10 @@ static int handle_chrg_det_event(struct dc_pwrsrc_info *info)
 	if ((ret & PS_STAT_VBUS_PRESENT) && !info->id_short) {
 		dev_dbg(&info->pdev->dev, "VBUS present\n");
 		vbus_attach = true;
+		if (!wake_lock_active(&info->wakelock)) {
+			wake_lock(&info->wakelock);
+			wake_locked = true;
+		}
 	} else {
 		dev_dbg(&info->pdev->dev, "VBUS NOT present\n");
 		vbus_attach = false;
@@ -223,7 +228,7 @@ static int handle_chrg_det_event(struct dc_pwrsrc_info *info)
 		cfg = ret;
 	if (cfg & BC_GLOBAL_DET_STAT) {
 		dev_dbg(&info->pdev->dev, "charger detection not complete\n");
-		goto dev_det_ret;
+		goto dev_det_progrs;
 	}
 
 	ret = intel_soc_pmic_readb(DC_BC_DET_STAT_REG);
@@ -295,11 +300,11 @@ notify_otg_em:
 					PSY_CABLE_EVENT, &cable_props);
 			notify_charger = false;
 		}
-		if (wake_lock_active(&info->wakelock))
+		if (wake_lock_active(&info->wakelock)) {
 			wake_unlock(&info->wakelock);
+			wake_locked = false;
+		}
 	} else {
-		if (!wake_lock_active(&info->wakelock))
-			wake_lock(&info->wakelock);
 		if (notify_otg) {
 			/*
 			 * By default the D+/D- will be connected to pmic
@@ -323,8 +328,15 @@ notify_otg_em:
 	return 0;
 
 dev_det_ret:
+	if (wake_locked && wake_lock_active(&info->wakelock)) {
+		wake_unlock(&info->wakelock);
+		wake_locked = false;
+	}
+
+dev_det_progrs:
 	if (ret < 0)
 		dev_err(&info->pdev->dev, "BC Mod detection error\n");
+
 	return ret;
 }
 
