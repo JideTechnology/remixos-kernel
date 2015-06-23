@@ -1043,7 +1043,6 @@ int mmc_access_rpmb(struct mmc_queue *mq)
 
 	return false;
 }
-EXPORT_SYMBOL_GPL(mmc_access_rpmb);
 
 static int mmc_blk_issue_discard_rq(struct mmc_queue *mq, struct request *req)
 {

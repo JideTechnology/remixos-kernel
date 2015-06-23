@@ -2101,7 +2101,7 @@ enum emulation_result kvm_mips_complete_mmio_load(struct kvm_vcpu *vcpu,
 		if (vcpu->mmio_needed == 2)
 			*gpr = *(int16_t *) run->mmio.data;
 		else
-			*gpr = *(int16_t *) run->mmio.data;
+			*gpr = *(uint16_t *)run->mmio.data;
 
 		break;
 	case 1:
@@ -2176,6 +2176,7 @@ enum emulation_result kvm_mips_check_privilege(unsigned long cause,
 		case T_SYSCALL:
 		case T_BREAK:
 		case T_RES_INST:
+		case T_MSADIS:
 			break;
 
 		case T_COP_UNUSABLE:

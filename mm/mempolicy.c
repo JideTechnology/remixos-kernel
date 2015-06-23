@@ -1985,7 +1985,8 @@ retry_cpuset:
 		nmask = policy_nodemask(gfp, pol);
 		if (!nmask || node_isset(node, *nmask)) {
 			mpol_cond_put(pol);
-			page = alloc_pages_exact_node(node, gfp, order);
+			page = alloc_pages_exact_node(node,
+						gfp | __GFP_THISNODE, order);
 			goto out;
 		}
 	}
@@ -2516,7 +2517,7 @@ static void __init check_numabalancing_enable(void)
 	if (numabalancing_override)
 		set_numabalancing_state(numabalancing_override == 1);
 
-	if (nr_node_ids > 1 && !numabalancing_override) {
+	if (num_online_nodes() > 1 && !numabalancing_override) {
 		pr_info("%s automatic NUMA balancing. "
 			"Configure with numa_balancing= or the "
 			"kernel.numa_balancing sysctl",
