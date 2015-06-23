@@ -3530,6 +3530,15 @@ static int snd_soc_dai_link_event(struct snd_soc_dapm_widget *w,
 
 		if (source->driver->ops && source->driver->ops->hw_params) {
 			substream.stream = SNDRV_PCM_STREAM_CAPTURE;
+
+			if (w->dai_link->be_fixup) {
+				ret =  w->dai_link->be_fixup(w->dai_link, source);
+
+				if (ret != 0) {
+					dev_err(source->dev, "ASoC: fix_up_be()	failed: %d\n", ret);
+					goto out;
+				}
+			}
 			ret = source->driver->ops->hw_params(&substream,
 							     params, source);
 			if (ret != 0) {
@@ -3541,6 +3550,15 @@ static int snd_soc_dai_link_event(struct snd_soc_dapm_widget *w,
 
 		if (sink->driver->ops && sink->driver->ops->hw_params) {
 			substream.stream = SNDRV_PCM_STREAM_PLAYBACK;
+
+			if (w->dai_link->be_fixup) {
+				ret =  w->dai_link->be_fixup(w->dai_link, sink);
+
+				if (ret != 0) {
+					dev_err(source->dev, "ASoC: fix_up_be() failed: %d\n", ret);
+					goto out;
+				}
+			}
 			ret = sink->driver->ops->hw_params(&substream, params,
 							   sink);
 			if (ret != 0) {
