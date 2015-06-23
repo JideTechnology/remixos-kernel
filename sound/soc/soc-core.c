@@ -1481,7 +1481,7 @@ static int soc_probe_link_dais(struct snd_soc_card *card, int num, int order)
 			}
 
 			if (play_w && capture_w) {
-				ret = snd_soc_dapm_new_pcm(card, dai_link->params,
+				ret = snd_soc_dapm_new_pcm(card, dai_link,
 						   capture_w, play_w);
 				if (ret != 0) {
 					dev_err(card->dev, "ASoC: Can't link %s to %s: %d\n",
@@ -1499,7 +1499,7 @@ static int soc_probe_link_dais(struct snd_soc_card *card, int num, int order)
 			}
 
 			if (play_w && capture_w) {
-				ret = snd_soc_dapm_new_pcm(card, dai_link->params,
+				ret = snd_soc_dapm_new_pcm(card, dai_link,
 						   capture_w, play_w);
 				if (ret != 0) {
 					dev_err(card->dev, "ASoC: Can't link %s to %s: %d\n",

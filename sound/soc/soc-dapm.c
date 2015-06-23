@@ -3590,7 +3590,7 @@ out:
 }
 
 int snd_soc_dapm_new_pcm(struct snd_soc_card *card,
-			 const struct snd_soc_pcm_stream *params,
+			 struct snd_soc_dai_link *dai_link,
 			 struct snd_soc_dapm_widget *source,
 			 struct snd_soc_dapm_widget *sink)
 {
@@ -3623,7 +3623,10 @@ int snd_soc_dapm_new_pcm(struct snd_soc_card *card,
 		return -ENOMEM;
 	}
 
-	w->params = params;
+	w->dai_link = dai_link;
+
+	if (dai_link->params)
+		w->params = dai_link->params;
 
 	memset(&routes, 0, sizeof(routes));
 

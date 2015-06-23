@@ -102,7 +102,7 @@ int snd_soc_dapm_new_dai_widgets(struct snd_soc_dapm_context *dapm,
 int snd_soc_dapm_link_dai_widgets(struct snd_soc_card *card);
 void snd_soc_dapm_connect_dai_link_widgets(struct snd_soc_card *card);
 int snd_soc_dapm_new_pcm(struct snd_soc_card *card,
-			 const struct snd_soc_pcm_stream *params,
+			 struct snd_soc_dai_link *dai_link,
 			 struct snd_soc_dapm_widget *source,
 			 struct snd_soc_dapm_widget *sink);
 
@@ -229,6 +229,7 @@ struct snd_soc_dapm_widget {
 	struct snd_soc_platform *platform;
 	struct list_head list;
 	struct snd_soc_dapm_context *dapm;
+	struct snd_soc_dai_link *dai_link;
 
 	int pvt_data_len;			/* Len of widget specific data*/
 	void *priv;				/* widget specific data */
