@@ -291,13 +291,13 @@ static int sunxi_flash_probe(void)
 	flash = kzalloc(sizeof(struct flash_dev), GFP_KERNEL);
 	if (!flash) {
 		ret = -ENOMEM;
+		vfe_err("sunxi flash kzalloc failed!\n");
 		goto ekzalloc;
 	}
 
 	flash_gbl = flash;	
 	sunxi_flash_subdev_init(flash);
 ekzalloc:
-	vfe_print("sunxi_flash_get_subdev err!\n");
 	return ret;
 }
 
