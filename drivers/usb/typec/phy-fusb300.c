@@ -1437,8 +1437,7 @@ static int fusb300_probe(struct i2c_client *client,
 
 		ret = devm_request_threaded_irq(&client->dev, client->irq,
 				NULL, fusb300_interrupt,
-				IRQF_ONESHOT | IRQF_TRIGGER_LOW |
-				IRQF_NO_SUSPEND,
+				IRQF_ONESHOT | IRQF_TRIGGER_LOW,
 				client->name, chip);
 		if (ret < 0) {
 			dev_err(&client->dev,
@@ -1494,6 +1493,38 @@ static int fusb300_resume(struct device *dev)
 	return 0;
 }
 
+static int fusb300_late_suspend(struct device *dev)
+{
+	struct fusb300_chip *chip;
+
+	chip = dev_get_drvdata(dev);
+
+	/* Disable the irq during suspend to prevent fusb300
+	isr executed before the i2c controller resume.*/
+	if (chip->client->irq) {
+		disable_irq(chip->client->irq);
+		enable_irq_wake(chip->client->irq);
+	}
+
+	return 0;
+}
+
+static int fusb300_early_resume(struct device *dev)
+{
+	struct fusb300_chip *chip;
+
+	chip = dev_get_drvdata(dev);
+
+	/* Enable the irq after resume to prevent fusb300
+	isr executed before the i2c controller resume.*/
+	if (chip->client->irq) {
+		disable_irq_wake(chip->client->irq);
+		enable_irq(chip->client->irq);
+	}
+
+	return 0;
+}
+
 static int fusb300_runtime_suspend(struct device *dev)
 {
 	return 0;
@@ -1515,6 +1546,8 @@ static const struct dev_pm_ops fusb300_pm_ops = {
 	SET_RUNTIME_PM_OPS(fusb300_runtime_suspend,
 			fusb300_runtime_resume,
 			fusb300_runtime_idle)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(fusb300_late_suspend,
+			fusb300_early_resume)
 };
 
 
