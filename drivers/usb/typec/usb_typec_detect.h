@@ -63,6 +63,7 @@ struct typec_detect {
 	struct completion lock_ufp_complete;
 	int timer_evt;
 	bool got_vbus;
+	int drp_counter;
 	wait_queue_head_t wq;
 	struct mutex lock;
 };
