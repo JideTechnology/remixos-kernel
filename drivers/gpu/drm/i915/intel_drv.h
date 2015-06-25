@@ -1226,4 +1226,5 @@ struct chv_sprite_csc {
 extern struct chv_sprite_csc *chv_sprite_cscs[];
 extern const uint32_t chv_sprite_csc_num_entries;
 
+extern int intel_connector_reset(struct drm_connector *connector);
 #endif /* __INTEL_DRV_H__ */

@@ -4939,6 +4939,97 @@ static const struct file_operations i915_forcewake_fops = {
 	.release = i915_forcewake_release,
 };
 
+static ssize_t i915_connector_reset_read(struct file *filp, char __user *ubuf,
+	size_t max, loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	struct intel_connector *connector;
+	char *tmpbuf;
+	int ret_count = 0;
+
+	tmpbuf = kmalloc(max + 1, GFP_KERNEL);
+	if (!tmpbuf)
+		return -ENOMEM;
+
+	mutex_lock(&dev->mode_config.mutex);
+	snprintf(&tmpbuf[ret_count], max - ret_count, "List Connectors:\n");
+	ret_count = strlen(tmpbuf);
+
+	list_for_each_entry(connector, &dev->mode_config.connector_list,
+				base.head) {
+	    switch (connector->encoder->type) {
+	    case INTEL_OUTPUT_DSI:
+		snprintf(&tmpbuf[ret_count], max - ret_count,
+			"\tID=%d; Active:%d; Type=DSI\n",
+			connector->base.base.id,
+			connector->encoder->connectors_active);
+		break;
+	    case INTEL_OUTPUT_EDP:
+		snprintf(&tmpbuf[ret_count], max - ret_count,
+			"\tID=%d; Active:%d; Type=EDP\n",
+			connector->base.base.id,
+			connector->encoder->connectors_active);
+		break;
+	    default:
+		break;
+	    }
+	    ret_count = strlen(tmpbuf);
+	}
+	ret_count = simple_read_from_buffer(ubuf, max, ppos,
+		(const void *)tmpbuf, ret_count);
+	mutex_unlock(&dev->mode_config.mutex);
+	kfree(tmpbuf);
+	return ret_count;
+}
+
+static ssize_t i915_connector_reset_write(struct file *filp,
+			const char __user *ubuf,
+			size_t cnt, loff_t *ppos)
+{
+	struct drm_device *dev = filp->private_data;
+	struct intel_connector *connector;
+	u32 connector_id;
+	char *tmpbuf;
+	ssize_t ret;
+
+	if (cnt == 0)
+		return cnt;
+	tmpbuf = kmalloc(cnt + 1, GFP_KERNEL);
+	if (!tmpbuf)
+		return -ENOMEM;
+
+	if (copy_from_user(tmpbuf, ubuf, cnt)) {
+		kfree(tmpbuf);
+		return -EFAULT;
+	}
+	tmpbuf[cnt] = '\0';
+	ret = kstrtou32(tmpbuf, 0, &connector_id);
+	kfree(tmpbuf);
+	if (ret)
+		return -EINVAL;
+
+	mutex_lock(&dev->mode_config.mutex);
+	list_for_each_entry(connector, &dev->mode_config.connector_list,
+			base.head) {
+		if (connector->base.base.id == connector_id) {
+			intel_connector_reset(&connector->base);
+			DRM_DEBUG_DRIVER("Try to reset Connector %d\n",
+				connector_id);
+		}
+	}
+	mutex_unlock(&dev->mode_config.mutex);
+
+	return cnt;
+}
+
+static const struct file_operations i915_connector_reset_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_connector_reset_read,
+	.write = i915_connector_reset_write,
+	.llseek = default_llseek,
+};
+
 static int i915_forcewake_create(struct dentry *root, struct drm_minor *minor)
 {
 	struct drm_device *dev = minor->dev;
@@ -5058,6 +5149,7 @@ static const struct i915_debugfs_files {
 	{"i915_timestamp", &i915_timestamp_fops},
 	{"i915_punit_read", &i915_punit_read_fops},
 	{"i915_fuse_read", &i915_fuse_read_fops},
+	{"i915_connector_reset", &i915_connector_reset_fops},
 };
 
 void intel_display_crc_init(struct drm_device *dev)

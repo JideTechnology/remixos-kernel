@@ -14876,3 +14876,101 @@ exit:
 				intel_dp->lane_count, intel_dp->link_bw);
 	return found;
 }
+
+int intel_connector_reset(struct drm_connector *connector)
+{
+	struct drm_device *dev;
+	struct drm_i915_private *dev_priv;
+	struct intel_crtc *intel_crtc;
+	struct intel_connector *intel_connector;
+	enum plane plane;
+	/* default refresh rate is 60Hz */
+	int mode_vrefresh = 60;
+	char *uevp[3];
+	unsigned long flags;
+
+	if (connector == NULL)
+		return -EINVAL;
+	if (connector->encoder == NULL)
+		return -EINVAL;
+	intel_crtc = to_intel_crtc(connector->encoder->crtc);
+	intel_connector = to_intel_connector(connector);
+	if (connector->dpms == DRM_MODE_DPMS_OFF) {
+		/* when connector DPMS is off, no need do reset */
+		DRM_DEBUG_DRIVER("Connector is Off. No reset needed\n");
+		return -EINVAL;
+	}
+
+	dev = connector->dev;
+	/*
+	 * According connector type, send reset message to HWC
+	 * Only support DSI and EDP connector so far
+	 */
+	switch (intel_connector->encoder->type) {
+	case INTEL_OUTPUT_EDP:
+		uevp[0] = kasprintf(GFP_KERNEL, "I915_DISPLAY_RESET=EDP");
+		break;
+	case INTEL_OUTPUT_DSI:
+		uevp[0] = kasprintf(GFP_KERNEL, "I915_DISPLAY_RESET=DSI");
+		break;
+	default:
+		/*
+		 * currently, only support DSI/EDP reset, for other
+		 * connector type, can add if needed
+		 */
+		DRM_ERROR("Unsupported Connector type = %d\n",
+			intel_connector->encoder->type);
+		return -EINVAL;
+	}
+
+	uevp[1] = kasprintf(GFP_KERNEL, "CONNECTOR_ID=%d", connector->base.id);
+	uevp[2] = NULL;
+	/* send uevent, the user space can file DSI/eDP reset process */
+	kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE, uevp);
+	DRM_DEBUG_DRIVER("Reset uevent sent: [%s][%s]\n", uevp[0], uevp[1]);
+	kfree(uevp[1]);
+	kfree(uevp[0]);
+
+	/*
+	 * Flips in the rings may been blocked by the abnormal case,
+	 * Currently, HWC have time out to wait for flip done event.
+	 * Maybe no need to trigger flip done to HWC. But to ensure
+	 * driver to complete all pending flips so that user space
+	 * will get its events and not get stuck.
+	 * We do force flip done here
+	 */
+
+	dev_priv = dev->dev_private;
+	plane = intel_crtc->plane;
+	if (intel_crtc->base.mode.vrefresh) {
+		DRM_DEBUG_DRIVER("Current Referesh rate is %d\n",
+			intel_crtc->base.mode.vrefresh);
+		mode_vrefresh = intel_crtc->base.mode.vrefresh;
+	}
+	/*
+	 * wait for 2 frame to make sure flip done is blocked by the abnormal
+	 * case, and try to do send flip done event
+	 */
+	usleep_range((1000000*2)/mode_vrefresh, (1000000*2)/mode_vrefresh + 10);
+	spin_lock_irqsave(&dev->event_lock, flags);
+	/* if primary unpin work don't get flip done IRQ, do flip done */
+	if (intel_crtc->unpin_work) {
+	    atomic_inc_not_zero(&intel_crtc->unpin_work->pending);
+	    spin_unlock_irqrestore(&dev->event_lock, flags);
+	    intel_finish_page_flip(dev, intel_crtc->pipe);
+	} else {
+	    spin_unlock_irqrestore(&dev->event_lock, flags);
+	}
+
+	spin_lock_irqsave(&dev->event_lock, flags);
+	/* if sprint unpin work don't get flip done IRQ, do flip done */
+	if (intel_crtc->sprite_unpin_work) {
+	    atomic_inc(&intel_crtc->sprite_unpin_work->pending);
+	    spin_unlock_irqrestore(&dev->event_lock, flags);
+	    intel_finish_sprite_page_flip(dev, intel_crtc->pipe);
+	} else {
+	    spin_unlock_irqrestore(&dev->event_lock, flags);
+	}
+
+	return 0;
+}
