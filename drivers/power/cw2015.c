@@ -831,7 +831,7 @@ static void athd_irq_work_func(struct work_struct *work)
 	cw_get_alt();// clear ALRT
 	if(cw2015_data->status == POWER_SUPPLY_STATUS_DISCHARGING)
 	{
-		if(chip&&chip->pdata&&chip->pdata->enable_screen_on_gpio){
+		if(chip&&chip->pdata&&chip->pdata->enable_screen_on_gpio>0){
 			displayed = (gpio_get_value_cansleep(chip->pdata->enable_screen_on_gpio) ? 0 : 1)^chip->pdata->active_state;
 			printk("displayed = %d\n",displayed);			
 			if(!displayed){
