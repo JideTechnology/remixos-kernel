@@ -1847,6 +1847,7 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv,
 			vlv_punit_write(dev_priv, CHV_DPASSC,
 					(val | CHV_PW_MAXFIFO_MASK));
 			mutex_unlock(&dev_priv->rps.hw_lock);
+			dev_priv->evade_delay = 2000;
 		} else
 			I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
 		dev_priv->maxfifo_enabled = true;
@@ -1869,6 +1870,7 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv,
 			I915_WRITE_BITS(DSPFW1, 0, 0xff800000);
 			I915_WRITE(DSPHOWM, (I915_READ(DSPHOWM) &
 							~(0x3000000)));
+			dev_priv->evade_delay = 2000;
 		} else
 			I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
 		dev_priv->maxfifo_enabled = false;

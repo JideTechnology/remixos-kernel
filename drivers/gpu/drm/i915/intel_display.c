@@ -11198,7 +11198,8 @@ static void intel_pipe_vblank_evade(struct drm_crtc *crtc)
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	int pipe = intel_crtc->pipe;
 	/* FIXME needs to be calibrated sensibly */
-	u32 min = crtc->mode.crtc_vdisplay - usecs_to_scanlines(crtc, 50);
+	u32 min = crtc->mode.crtc_vdisplay - usecs_to_scanlines(crtc,
+						dev_priv->evade_delay);
 	u32 max = crtc->mode.crtc_vdisplay - 1;
 	u32 val;
 
@@ -11219,6 +11220,7 @@ static void intel_pipe_vblank_evade(struct drm_crtc *crtc)
 		dev_warn(dev->dev,
 			 "Page flipping close to vblank start (DSL=%u, VBL=%u)\n",
 			 val, crtc->hwmode.crtc_vdisplay);
+	dev_priv->evade_delay = 2000;
 }
 
 static int intel_crtc_set_display(struct drm_crtc *crtc,
