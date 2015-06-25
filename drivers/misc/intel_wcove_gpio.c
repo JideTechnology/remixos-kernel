@@ -78,12 +78,13 @@ static void wcove_gpio_ctrl_worker(struct work_struct *work)
 		mutex_lock(&info->lock);
 		/* set high only when otg connected */
 		if (!evt->is_sdp_connected)
-			gpiod_set_value(info->gpio_otg, evt->is_otg_connected);
+			gpiod_set_value_cansleep(info->gpio_otg,
+							evt->is_otg_connected);
 		/**
 		 * set high when sdp/otg connected and set low when sdp/otg
 		 * disconnected
 		 */
-		gpiod_set_value(info->gpio_vchgrin,
+		gpiod_set_value_cansleep(info->gpio_vchgrin,
 			(evt->is_sdp_connected ||
 				evt->is_otg_connected) ? 1 : 0);
 		mutex_unlock(&info->lock);
