@@ -59,6 +59,8 @@ static const char *detect_extcon_cable[] = {
 	NULL,
 };
 
+#define MAX_DRP_TOGGLING 10
+
 static LIST_HEAD(typec_detect_list);
 static DEFINE_SPINLOCK(slock);
 
@@ -116,6 +118,21 @@ static int detect_kthread(void *data)
 
 		if (detect->timer_evt == TIMER_EVENT_QUIT)
 			break;
+
+		/*
+		 * try the toggling logic for 5secs
+		 * if we cant resolve, it means nothing connected
+		 * make the phy to wakeup only on CC change.
+		 */
+		if (++detect->drp_counter > MAX_DRP_TOGGLING) {
+			mutex_lock(&detect->lock);
+			detect->drp_counter = 0;
+			del_timer(&detect->drp_timer); /* disable timer */
+			detect->state = DETECT_STATE_UNATTACHED_DRP;
+			typec_switch_mode(phy, TYPEC_MODE_DRP);
+			mutex_unlock(&detect->lock);
+			continue;
+		}
 
 		mutex_lock(&detect->lock);
 		if (detect->got_vbus) {
@@ -232,6 +249,7 @@ static void detect_dfp_work(struct work_struct *work)
 			usleep_range(100000, 150000);
 			mutex_lock(&detect->lock);
 			detect->state = DETECT_STATE_ATTACHED_DFP;
+			detect->drp_counter = 0;
 			mutex_unlock(&detect->lock);
 			use_cc = get_active_cc(&cc1, &cc2);
 			typec_setup_cc(phy, use_cc, TYPEC_STATE_ATTACHED_DFP);
@@ -251,10 +269,12 @@ static void detect_dfp_work(struct work_struct *work)
 			 */
 			intel_soc_pmic_writeb(0x6e2d, 0x31);
 
+
 			return;
 		} else if (CC_RA(cc1.v_rd) && CC_RA(cc2.v_rd)) {
 			mutex_lock(&detect->lock);
 			detect->state = DETECT_STATE_ATTACHED_DFP;
+			detect->drp_counter = 0;
 			mutex_unlock(&detect->lock);
 			/* TODO: Need to set the phy state */
 			del_timer(&detect->drp_timer); /* disable timer */
@@ -265,6 +285,7 @@ static void detect_dfp_work(struct work_struct *work)
 		} else if (CC_RD(cc1.v_rd) && CC_RD(cc2.v_rd)) {
 			mutex_lock(&detect->lock);
 			detect->state = DETECT_STATE_ATTACHED_DFP;
+			detect->drp_counter = 0;
 			mutex_unlock(&detect->lock);
 			del_timer(&detect->drp_timer); /* disable timer */
 			/* Debug Accessory */
@@ -365,11 +386,11 @@ static void update_phy_state(struct work_struct *work)
 	case TYPEC_EVENT_VBUS:
 		mutex_lock(&detect->lock);
 		detect->got_vbus = true;
+		detect->drp_counter = 0;
 		state = detect->state;
 		if (state == DETECT_STATE_LOCK_UFP)
 			complete(&detect->lock_ufp_complete);
 		mutex_unlock(&detect->lock);
-
 
 		cancel_work_sync(&detect->dfp_work);
 		del_timer(&detect->drp_timer); /* disable timer */
@@ -435,6 +456,8 @@ static void update_phy_state(struct work_struct *work)
 
 		use_cc = get_active_cc(&cc1_psy, &cc2_psy);
 		if (CC_OPEN(cc1_psy.v_rd) && CC_OPEN(cc2_psy.v_rd)) {
+			detect->state = DETECT_STATE_UNATTACHED_DRP;
+			typec_switch_mode(detect->phy, TYPEC_MODE_DRP);
 			/* nothing connected */
 		} else if (use_cc) {
 			/* valid cc found; UFP_ATTACHED */
@@ -469,6 +492,7 @@ static void update_phy_state(struct work_struct *work)
 		detect->got_vbus = false;
 
 		/* setup Switches0 Setting */
+		detect->drp_counter = 0;
 		if (!phy->support_drp_toggle)
 			typec_setup_cc(phy, 0, TYPEC_STATE_UNATTACHED_UFP);
 		mutex_unlock(&detect->lock);

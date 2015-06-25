@@ -64,6 +64,7 @@ struct typec_detect {
 	int timer_evt;
 	bool got_vbus;
 	bool is_pd_capable;
+	int drp_counter;
 	wait_queue_head_t wq;
 	struct mutex lock;
 };
