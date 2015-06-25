@@ -1294,12 +1294,14 @@ static inline int bq24192_enable_charging(
 		if (ret < 0) {
 			dev_warn(&chip->client->dev,
 				"read reg failed %s\n", __func__);
-		}
-
-		/* If no charger connected, cancel the workers */
-		if (!(ret & SYSTEM_STAT_VBUS_OTG)) {
-			dev_info(&chip->client->dev, "NO charger connected\n");
-			cancel_delayed_work_sync(&chip->chrg_task_wrkr);
+		} else {
+			/* If no charger connected, cancel the workers */
+			if (!(ret & SYSTEM_STAT_VBUS_OTG)) {
+				dev_info(&chip->client->dev,
+				"NO charger connected\n");
+				cancel_delayed_work_sync(&chip->chrg_task_wrkr);
+			}
+			ret = 0;
 		}
 	}
 
