@@ -55,6 +55,7 @@ struct pi3usb30532_mux {
 	struct work_struct mux_work;
 	struct mutex event_lock;
 	struct typec_phy *phy;
+	u8 cur_config;
 };
 
 /* read/write/modify pi3usb30532 register values */
@@ -140,9 +141,11 @@ static void pi3usb30532_mux_event_worker(struct work_struct *work)
 		break;
 	case TYPEC_POS_DISCONNECT:
 	default:
-		conf = PI3USBMUX_OPEN_ONLYNOPD;
+		conf = PI3USBMUX_OPEN_WITHPD;
 		break;
 	}
+
+	chip->cur_config = conf;
 
 	ret = pi3usb30532_mux_sel_ctrl(chip, conf);
 	mutex_unlock(&chip->event_lock);
@@ -245,13 +248,24 @@ static int pi3usb30532_suspend(struct device *dev)
 {
 	struct pi3usb30532_mux *chip = dev_get_drvdata(dev);
 
+	int ret;
+
+	mutex_lock(&chip->event_lock);
+	ret = pi3usb30532_mux_write_reg(chip->client,
+				PI3USB30532_SEL_CTRL_REG,
+				PI3USBMUX_OPEN_WITHPD);
+	mutex_unlock(&chip->event_lock);
 	dev_dbg(&chip->client->dev, "pi3usb30532 suspend\n");
-	return 0;
+	return ret;
 }
 
 static int pi3usb30532_resume(struct device *dev)
 {
 	struct pi3usb30532_mux *chip = dev_get_drvdata(dev);
+
+	mutex_lock(&chip->event_lock);
+	pi3usb30532_mux_sel_ctrl(chip, chip->cur_config);
+	mutex_unlock(&chip->event_lock);
 
 	dev_dbg(&chip->client->dev, "pi3usb30532 resume\n");
 	return 0;
