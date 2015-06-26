@@ -277,7 +277,7 @@ typedef struct {
 
 #define ATOMIC64_INIT(i) { (i) }
 
-#ifdef CONFIG_ARM_LPAE
+#ifdef CONFIG_USE_LDRDSTRD_OVER_LDMSTM
 static inline u64 atomic64_read(const atomic64_t *v)
 {
 	u64 result;
