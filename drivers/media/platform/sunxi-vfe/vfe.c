@@ -31,6 +31,9 @@
 #include <media/videobuf2-dma-contig.h>
 
 #include <linux/regulator/consumer.h>
+#ifdef CONFIG_DEVFREQ_DRAM_FREQ_WITH_SOFT_NOTIFY
+#include <linux/sunxi_dramfreq.h>
+#endif
 
 #include "vfe.h"
 
@@ -2955,6 +2958,9 @@ static int vfe_open(struct file *file)
 		ret = -EBUSY;
 		goto open_end;
 	}
+#ifdef CONFIG_DEVFREQ_DRAM_FREQ_WITH_SOFT_NOTIFY
+	dramfreq_master_access(MASTER_CSI, true);	//Notification for DRAM dynamic frequency
+#endif
 	vfe_resume_trip(dev);
 #ifdef USE_SPECIFIC_CCI
 	csi_cci_init_helper(dev->vip_sel);
@@ -3047,6 +3053,9 @@ static int vfe_close(struct file *file)
 	vfe_suspend_trip(dev);	
 	vfe_print("vfe_close end\n");
 	vfe_exit_isp_log(dev);
+#ifdef CONFIG_DEVFREQ_DRAM_FREQ_WITH_SOFT_NOTIFY
+	dramfreq_master_access(MASTER_CSI, false);	//Notification for DRAM dynamic frequency
+#endif
 	return 0;
 }
 

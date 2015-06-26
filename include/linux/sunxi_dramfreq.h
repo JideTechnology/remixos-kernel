@@ -19,15 +19,8 @@
 
 /* register define */
 #define MC_WORK_MODE                (0x000)
-#define MASTER_ACCESS_ENABLE        (0x094)
 #define MC_MDFSCR                   (0x100)
 #define MC_MDFSMRMR                 (0x108)
-#define MDFS_IRQ_STATUS0            (0x114)
-#define MDFS_IRQ_STATUS1            (0x118)
-#define MDFS_IRQ_MASK_STATUS0       (0x11C)
-#define MDFS_IRQ_MASK_STATUS1       (0x120)
-#define MDFS_BWC_PRD                (0x124)
-#define CCMU_DRAM_CFG               (0x0f4)
 
 #define PTR2                        (0x04c)
 #define RFSHTMG                     (0x090)
@@ -101,7 +94,9 @@ struct dram_para_t {
 struct sunxi_dramfreq {
 	unsigned int max;
 	unsigned int min;
+#ifndef CONFIG_DEVFREQ_DRAM_FREQ_WITH_SOFT_NOTIFY
 	unsigned int irq;
+#endif
 	unsigned int pause;
 	unsigned int key_masters[MASTER_MAX];
 	enum DRAM_MDFS_MODE mode;
@@ -128,5 +123,9 @@ struct sunxi_dramfreq {
 };
 
 extern struct sunxi_dramfreq *dramfreq;
+
+#ifdef CONFIG_DEVFREQ_DRAM_FREQ_WITH_SOFT_NOTIFY
+extern int dramfreq_master_access(enum DRAM_KEY_MASTER master, bool access);
+#endif
 
 #endif /* __SUNXI_DRAMFREQ_H__ */

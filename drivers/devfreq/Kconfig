@@ -113,13 +113,14 @@ config DEVFREQ_DRAM_FREQ_BUSFREQ
 
 	  If in doubt, say N.
 
-config DEVFREQ_DRAM_FREQ_WITH_GPU_NOTIFY
-	bool "Use gpu driver notify access or idle"
+config DEVFREQ_DRAM_FREQ_WITH_SOFT_NOTIFY
+	bool "Use dram master notify access or idle in software"
 	depends on ARM_SUNXI_DRAM_DEVFREQ
 	depends on ARCH_SUN50I
 	help
-	  This will allow gpu driver notify access or idle instead of hardware interrupt.
+	  This will allow dram master notify access or idle instead of hardware interrupt.
 
 	  If in doubt, say N.
+
 
 endif # PM_DEVFREQ

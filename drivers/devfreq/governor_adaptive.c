@@ -12,8 +12,8 @@
 
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/sunxi_dramfreq.h>
 #include "governor.h"
-#include "sunxi_dramfreq.h"
 
 static ssize_t show_pause(struct device *dev, struct device_attribute *attr,
 			char *buf)

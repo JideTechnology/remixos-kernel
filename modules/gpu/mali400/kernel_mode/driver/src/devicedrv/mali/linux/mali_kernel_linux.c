@@ -24,6 +24,9 @@
 #include <linux/miscdevice.h>
 #include <linux/bug.h>
 #include <linux/of.h>
+#ifdef CONFIG_DEVFREQ_DRAM_FREQ_WITH_SOFT_NOTIFY
+#include <linux/sunxi_dramfreq.h>
+#endif
 
 #include <linux/mali/mali_utgard.h>
 #include "mali_kernel_common.h"
@@ -598,6 +601,9 @@ static int mali_driver_runtime_suspend(struct device *dev)
 					      0,
 					      0, 0, 0);
 		disable_gpu_clk();
+#ifdef CONFIG_DEVFREQ_DRAM_FREQ_WITH_SOFT_NOTIFY
+		dramfreq_master_access(MASTER_GPU, false);
+#endif
 
 		return 0;
 	} else {
@@ -607,6 +613,9 @@ static int mali_driver_runtime_suspend(struct device *dev)
 
 static int mali_driver_runtime_resume(struct device *dev)
 {
+#ifdef CONFIG_DEVFREQ_DRAM_FREQ_WITH_SOFT_NOTIFY
+	dramfreq_master_access(MASTER_GPU, true);
+#endif
 	enable_gpu_clk();
 	/* Tracing the frequency and voltage after mali is resumed */
 #if defined(CONFIG_MALI400_PROFILING) && defined(CONFIG_MALI_DVFS)

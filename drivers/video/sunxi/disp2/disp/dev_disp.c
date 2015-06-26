@@ -12,6 +12,9 @@
 
 #include "dev_disp.h"
 #include <linux/pm_runtime.h>
+#if defined(CONFIG_DEVFREQ_DRAM_FREQ_WITH_SOFT_NOTIFY)
+#include <linux/sunxi_dramfreq.h>
+#endif
 
 disp_drv_info g_disp_drv;
 
@@ -1168,6 +1171,12 @@ static int disp_blank(bool blank)
 	int num_screens;
 	struct disp_manager *mgr = NULL;
 
+#if defined(CONFIG_DEVFREQ_DRAM_FREQ_WITH_SOFT_NOTIFY)
+	/* notify dramfreq module that DE will access DRAM in a short time */
+	if (!blank) {
+		dramfreq_master_access(MASTER_DE, true);
+	}
+#endif
 	num_screens = bsp_disp_feat_get_num_screens();
 
 	for (screen_id=0; screen_id<num_screens; screen_id++) {
@@ -1188,6 +1197,13 @@ static int disp_blank(bool blank)
 		if (mgr->blank)
 			mgr->blank(mgr, blank);
 	}
+
+#if defined(CONFIG_DEVFREQ_DRAM_FREQ_WITH_SOFT_NOTIFY)
+	/* notify dramfreq module that DE will not access DRAM any more */
+	if (blank) {
+		dramfreq_master_access(MASTER_DE, false);
+	}
+#endif
 
 	return 0;
 }
