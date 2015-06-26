@@ -587,6 +587,7 @@ static int wcove_bcu_remove(struct platform_device *pdev)
 
 static const struct platform_device_id wcove_bcu_id_table[] = {
 	{DRIVER_NAME, 1},
+	{ }
 };
 
 static struct platform_driver wcpmic_bcu_driver = {
