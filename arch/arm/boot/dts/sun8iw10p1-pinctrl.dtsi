@@ -378,9 +378,9 @@
 			};
 
 			csi0_pins_a: csi0@0 {
-				allwinner,pins = "PE0","PE2","PE3","PE4","PE5","PE6","PE7","PE8","PE9","PE10","PE11","PE12","PE13";
-				allwinner,pname = "csi0_pck","csi0_hsync","csi0_vsync","csi0_d0","csi0_d1","csi0_d2",
-								"csi0_d3","csi0_d4","csi0_d5","csi0_d6","csi0_d7","csi0_sck","csi0_sda";
+				allwinner,pins = "PD0","PD1","PD13","PD14","PD15","PD16","PD17","PD18","PD19","PD20","PD21","PD22","PD23";
+				allwinner,pname = "csi0_sck","csi0_sda","csi0_hsync","csi0_vsync","csi0_pck","csi0_d0","csi0_d1","csi0_d2",
+								"csi0_d3","csi0_d4","csi0_d5","csi0_d6","csi0_d7";
 				allwinner,function = "csi0";
 				allwinner,muxsel = <2>;
 				allwinner,drive = <1>;
@@ -388,9 +388,9 @@
 				allwinner,data = <0>;
 			};
 			csi0_pins_b: csi0_sleep@0 {
-				allwinner,pins = "PE0","PE2","PE3","PE4","PE5","PE6","PE7","PE8","PE9","PE10","PE11","PE12","PE13";
-				allwinner,pname = "csi0_pck","csi0_hsync","csi0_vsync","csi0_d0","csi0_d1","csi0_d2",
-								"csi0_d3","csi0_d4","csi0_d5","csi0_d6","csi0_d7","csi0_sck","csi0_sda";
+				allwinner,pins = "PD0","PD1","PD13","PD14","PD15","PD16","PD17","PD18","PD19","PD20","PD21","PD22","PD23";
+				allwinner,pname = "csi0_sck","csi0_sda","csi0_hsync","csi0_vsync","csi0_pck","csi0_d0","csi0_d1","csi0_d2",
+								"csi0_d3","csi0_d4","csi0_d5","csi0_d6","csi0_d7";
 				allwinner,function = "io_disabled";
 				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;

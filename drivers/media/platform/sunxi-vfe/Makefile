@@ -27,7 +27,11 @@ vfe_v4l2-y					+= utility/sensor_info.o
 vfe_v4l2-y					+= isp_cfg/isp_cfg.o
 vfe_v4l2-y					+= utility/cfg_op.o
 vfe_v4l2-y					+= vfe.o
+ifneq ($(strip $(CONFIG_ARCH_SUN8IW10)),)
+vfe_v4l2-y					+= lib/bsp_isp_null.o
+else
 vfe_v4l2-y					+= lib/libisp
+endif
 
 ifneq ($(strip $(CONFIG_ARCH_SUN9I)),)
 vfe_v4l2-y					+= lib/lib_mipicsi2_v2

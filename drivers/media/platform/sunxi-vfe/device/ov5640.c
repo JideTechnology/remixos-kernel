@@ -3042,7 +3042,6 @@ static int sensor_download_af_fw(struct v4l2_subdev *sd)
     vfe_dev_err("download af fw error\n");
     return ret;
   }
-  vfe_dev_print("sizeof(af_fw_start_reg)=%ld\n",sizeof(af_fw_start_reg));
   //start af firmware
   ret = sensor_write_array(sd, af_fw_start_reg ,ARRAY_SIZE(af_fw_start_reg));
   if(ret < 0) {

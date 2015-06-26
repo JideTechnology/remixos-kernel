@@ -858,7 +858,7 @@ static inline void vfe_set_addr(struct vfe_dev *dev,struct vfe_buffer *buffer)
 	} else {
 		bsp_csi_set_addr(dev->vip_sel, addr_org);
 	}
-	vfe_dbg(3,"csi_buf_addr_orginal=%llx\n", addr_org);
+	vfe_dbg(3,"csi_buf_addr_orginal=%pa\n", &addr_org);//=>vfe_dbg(3,"csi_buf_addr_orginal=0x%016llx\n", addr_org);
 }
 
 static void vfe_dump_csi_regs(struct vfe_dev *dev)
@@ -4492,7 +4492,7 @@ snesor_register_end:
 		goto probe_hdl_rel_vdev;	
 	}
 
-	sysfs_create_group(&dev->pdev->dev.kobj, &vfe_attribute_group);
+	ret = sysfs_create_group(&dev->pdev->dev.kobj, &vfe_attribute_group);
 	vfe_suspend_trip(dev);
 	vfe_print("probe_work_handle end!\n");
 	mutex_unlock(&probe_hdl_lock);
