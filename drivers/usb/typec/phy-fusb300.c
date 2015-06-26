@@ -1616,6 +1616,7 @@ static const struct dev_pm_ops fusb300_pm_ops = {
 #ifdef CONFIG_ACPI
 static struct acpi_device_id fusb300_acpi_match[] = {
 	{"FUSB0300", 0},
+	{ }
 };
 MODULE_DEVICE_TABLE(acpi, fusb300_acpi_match);
 #endif
