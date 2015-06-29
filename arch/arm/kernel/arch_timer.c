@@ -31,6 +31,7 @@
 static unsigned long arch_timer_rate;
 static int arch_timer_ppi;
 static int arch_timer_ppi2;
+static bool arch_timer_c3stop;
 
 static struct clock_event_device __percpu **arch_timer_evt;
 static struct delay_timer arch_delay_timer;
@@ -182,7 +183,11 @@ static int __cpuinit arch_timer_setup(struct clock_event_device *clk)
 	/* Be safe... */
 	arch_timer_disable();
 
-	clk->features = CLOCK_EVT_FEAT_ONESHOT | CLOCK_EVT_FEAT_C3STOP;
+	clk->features = CLOCK_EVT_FEAT_ONESHOT;
+	if (arch_timer_c3stop)
+	{
+		clk->features |= CLOCK_EVT_FEAT_C3STOP;
+	}
 	clk->name = "arch_sys_timer";
 	clk->rating = 450;
 	clk->set_mode = arch_timer_set_mode;
@@ -262,7 +267,7 @@ static struct clocksource clocksource_counter = {
 	.rating	= 400,
 	.read	= arch_counter_read,
 	.mask	= CLOCKSOURCE_MASK(56),
-	.flags	= CLOCK_SOURCE_IS_CONTINUOUS,
+	.flags	= CLOCK_SOURCE_IS_CONTINUOUS | CLOCK_SOURCE_SUSPEND_NONSTOP,
 };
 
 static void __cpuinit arch_timer_stop(struct clock_event_device *clk)
@@ -408,6 +413,8 @@ int __init arch_timer_of_register(void)
 	arch_timer_ppi2 = irq_of_parse_and_map(np, 1);
 	pr_info("arch_timer: found %s irqs %d %d\n",
 		np->name, arch_timer_ppi, arch_timer_ppi2);
+
+	arch_timer_c3stop = !of_property_read_bool(np, "always-on");
 
 	return arch_timer_common_register();
 }
