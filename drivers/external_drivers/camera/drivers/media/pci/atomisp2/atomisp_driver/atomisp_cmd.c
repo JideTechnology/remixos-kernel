@@ -4688,7 +4688,7 @@ static int __enable_continuous_mode(struct atomisp_sub_device *asd,
 		"continuous mode %d, raw buffers %d, stop preview %d\n",
 		enable, asd->continuous_raw_buffer_size->val,
 		!asd->continuous_viewfinder->val);
-	atomisp_css_capture_set_mode(asd, CSS_CAPTURE_MODE_PRIMARY);
+	atomisp_update_capture_mode(asd);
 	/* in case of ANR, force capture pipe to offline mode */
 	atomisp_css_capture_enable_online(asd, ATOMISP_INPUT_STREAM_GENERAL,
 			asd->params.low_light ? false : !enable);
