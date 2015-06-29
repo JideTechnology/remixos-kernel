@@ -986,11 +986,11 @@
 		};
 
 		nand0:nand0@01c03000 {
-			compatible = "allwinner,sun50i-nand";
+			compatible = "allwinner,sun8iw10-nand";
 			device_type = "nand0";
 			reg = <0x0 0x01c03000 0x0 0x1000>; /* nand0 */
 			interrupts = <GIC_SPI 70 0x04>;
-			clocks = <&clk_pll_periph0>,<&clk_nand>;
+			clocks = <&clk_pll_periph0x2>,<&clk_nand>;
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&nand0_pins_a &nand0_pins_b>;
 			pinctrl-1 = <&nand0_pins_c>;
