@@ -395,14 +395,15 @@ static const char *pll_periphahb0_parents[] = {"pll_periph0"};
 static const char *ahb1_parents[] = {"losc", "hosc", "axi", "pll_periphahb0"};
 static const char *apb1_parents[] = {"ahb1"};
 static const char *apb2_parents[] = {"losc", "hosc", "pll_24m", "pll_periph0x2"};
-static const char *ths_parents[] = {"pll_24m",};
-static const char *periphx2_parents[] = {"pll_24m", "pll_periph0x2","pll_periph1x2",""};
+static const char *ths_parents[] = {"hosc",};
+static const char *periphx2_parents[] = {"hosc", "pll_periph0x2","pll_periph1x2",""};
 static const char *i2s_parents[] = {"pll_audiox8", "pll_audiox4", "pll_audiox2", "pll_audio", "ext_clk0", "ext_clk1", "", ""};
-static const char *mbus_parents[] = {"pll_24m", "pll_periph0x2", "pll_ddr0", "pll_ddr1"};
+static const char *mbus_parents[] = {"hosc", "pll_periph0x2", "pll_ddr0", "pll_ddr1"};
 static const char *de_parents[] = {"pll_periph0x2", "pll_de", "", "", "", "","",""};
 static const char *tcon0_parents[] = {"pll_video0", "pll_video1", "", "", "", "", "", ""};
 static const char *periphx_parents[] = {"pll_periph0","pll_video1","","","","","",""};
 static const char *csi_m_parents[] = {"pll_24m", "pll_video1", "pll_periph0", "pll_periph1", "", "","",""};
+static const char *csi_misc_parents[] = {"pll_24m", "hosc","",""};
 static const char *adda_parents[] = {"pll_audio", "ext_clk0", "ext_clk1", ""};
 static const char *wlan_parents[] = {"hosc", "ext_hosc"};
 static const char *ahb1mod_parents[] = {"ahb1"};
@@ -519,7 +520,7 @@ struct periph_init_data sunxi_periphs_init[] = {
 	{"tcon0",          0,                    tcon0_parents,          ARRAY_SIZE(tcon0_parents),          &sunxi_clk_periph_tcon0            },
 	{"csi_s",          0,                    periphx_parents,        ARRAY_SIZE(periphx_parents),        &sunxi_clk_periph_csi_s            },
 	{"csi_m",          0,                    csi_m_parents,          ARRAY_SIZE(csi_m_parents),          &sunxi_clk_periph_csi_m            },
-	{"csi_misc",       0,                    pll_24m_parents,        ARRAY_SIZE(pll_24m_parents),        &sunxi_clk_periph_csi_misc         },
+	{"csi_misc",       0,                    csi_misc_parents,       ARRAY_SIZE(csi_misc_parents),       &sunxi_clk_periph_csi_misc         },
 	{"adda",           0,                    adda_parents,           ARRAY_SIZE(adda_parents),           &sunxi_clk_periph_adda             },
 	{"wlan",           0,                    wlan_parents,           ARRAY_SIZE(wlan_parents),           &sunxi_clk_periph_wlan             },
 	{"mbus",           0,                    mbus_parents,           ARRAY_SIZE(mbus_parents),           &sunxi_clk_periph_mbus             },
