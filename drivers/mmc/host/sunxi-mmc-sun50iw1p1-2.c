@@ -828,6 +828,214 @@ void sunxi_mmc_restore_spec_reg2(struct sunxi_mmc_host *host)
 
 
 
+/*
+extern int mmc_go_idle(struct mmc_host *host);
+extern int mmc_send_op_cond(struct mmc_host *host, u32 ocr, u32 *rocr);
+extern int mmc_send_status(struct mmc_card *card, u32 *status);
+extern void mmc_set_clock(struct mmc_host *host, unsigned int hz);
+extern void mmc_set_timing(struct mmc_host *host, unsigned int timing);
+extern void mmc_set_bus_width(struct mmc_host *host, unsigned int width);
+void sunxi_mmc_do_shutdown2(struct platform_device * pdev)
+{
+	u32 ocr = 0;
+	u32 err = 0;
+	struct mmc_host *mmc = NULL;
+	struct sunxi_mmc_host *host = NULL;
+	u32 status = 0;
+
+	mmc = platform_get_drvdata(pdev);
+	if (mmc == NULL) {
+		dev_err(&pdev->dev,"%s: mmc is NULL\n", __FUNCTION__);
+		goto out;
+	}
+
+	host = mmc_priv(mmc);
+	if (host == NULL) {
+		dev_err(&pdev->dev,"%s: host is NULL\n", __FUNCTION__);
+		goto out;
+	}
+
+	dev_info(mmc_dev(mmc),"try to disable cache\n");
+	mmc_claim_host(mmc);
+    err = mmc_cache_ctrl(mmc, 0);
+	mmc_release_host(mmc);
+    if (err){
+		dev_err(mmc_dev(mmc),"disable cache failed\n");
+		mmc_claim_host(mmc);//not release host to not allow android to read/write after shutdown
+         goto out;
+    }
+
+	//claim host to not allow androd read/write during shutdown
+	dev_dbg(mmc_dev(mmc),"%s: claim host\n", __FUNCTION__);
+	mmc_claim_host(mmc);
+
+	do {
+		if (mmc_send_status(mmc->card, &status) != 0) {
+			dev_err(mmc_dev(mmc),"%s: send status failed\n", __FUNCTION__);
+			goto out; //err_out; //not release host to not allow android to read/write after shutdown
+		}
+	} while(status != 0x00000900);
+
+	//mmc_card_set_ddr_mode(card);
+	mmc_set_timing(mmc, MMC_TIMING_LEGACY);
+	mmc_set_bus_width(mmc, MMC_BUS_WIDTH_1);
+	mmc_set_clock(mmc, 400000);
+	err = mmc_go_idle(mmc);
+	if (err) {
+		dev_err(mmc_dev(mmc),"%s: mmc_go_idle err\n", __FUNCTION__);
+		goto out; //err_out; //not release host to not allow android to read/write after shutdown
+	}
+
+	if (mmc->card->type != MMC_TYPE_MMC) {//sd can support cmd1,so not send cmd1
+		goto out;//not release host to not allow android to read/write after shutdown
+	}
+
+	err = mmc_send_op_cond(mmc, 0, &ocr);
+	if (err) {
+		dev_err(mmc_dev(mmc),"%s: first mmc_send_op_cond err\n", __FUNCTION__);
+		goto out; //err_out; //not release host to not allow android to read/write after shutdown
+	}
+
+	err = mmc_send_op_cond(mmc, ocr | (1 << 30), &ocr);
+	if (err) {
+		dev_err(mmc_dev(mmc),"%s: mmc_send_op_cond err\n", __FUNCTION__);
+		goto out; //err_out; //not release host to not allow android to read/write after shutdown
+	}
+
+	//do not release host to not allow android to read/write after shutdown
+	goto out;
+
+out:
+	dev_info(mmc_dev(mmc),"%s: mmc shutdown exit..ok\n", __FUNCTION__);
+
+	return ;
+}
+*/
+
+int mmc_card_sleep(struct mmc_host *host);
+int mmc_deselect_cards(struct mmc_host *host);
+void mmc_power_off(struct mmc_host *host);
+int mmc_card_sleepawake(struct mmc_host *host, int sleep);
+
+
+static int sunxi_mmc_can_poweroff_notify(const struct mmc_card *card)
+{
+	return card &&
+		mmc_card_mmc(card) &&
+		(card->ext_csd.power_off_notification == EXT_CSD_POWER_ON);
+}
+
+
+static int sunxi_mmc_poweroff_notify(struct mmc_card *card, unsigned int notify_type)
+{
+	unsigned int timeout = card->ext_csd.generic_cmd6_time;
+	int err;
+
+	/* Use EXT_CSD_POWER_OFF_SHORT as default notification type. */
+	if (notify_type == EXT_CSD_POWER_OFF_LONG)
+		timeout = card->ext_csd.power_off_longtime;
+
+	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+			EXT_CSD_POWER_OFF_NOTIFICATION,
+			notify_type, timeout, true, false, false);
+	if (err)
+		pr_err("%s: Power Off Notification timed out, %u\n",
+		       mmc_hostname(card->host), timeout);
+
+	/* Disable the power off notification after the switch operation. */
+	card->ext_csd.power_off_notification = EXT_CSD_NO_POWER_NOTIFICATION;
+
+	return err;
+}
+
+
+static int sunxi_mmc_sleep(struct mmc_host *host)
+{
+	struct mmc_card *card = host->card;
+	int err = -ENOSYS;
+
+	if (card && card->ext_csd.rev >= 3) {
+		err = mmc_card_sleepawake(host, 1);
+		if (err < 0)
+			pr_debug("%s: Error %d while putting card into sleep",
+				 mmc_hostname(host), err);
+	}
+
+	return err;
+}
+
+
+
+static int sunxi_mmc_suspend(struct mmc_host *host, bool is_suspend)
+{
+	int err = 0;
+	unsigned int notify_type = is_suspend ? EXT_CSD_POWER_OFF_SHORT :
+					EXT_CSD_POWER_OFF_LONG;
+
+	BUG_ON(!host);
+	BUG_ON(!host->card);
+
+	mmc_claim_host(host);
+
+	//if (mmc_card_suspended(host->card))
+	//	goto out;
+
+	if (mmc_card_doing_bkops(host->card)) {
+		err = mmc_stop_bkops(host->card);
+		if (err)
+			goto out;
+	}
+
+	err = mmc_flush_cache(host->card);
+	
+	if (err)
+		goto out;
+
+	if (sunxi_mmc_can_poweroff_notify(host->card) &&
+		((host->caps2 & MMC_CAP2_POWEROFF_NOTIFY) || !is_suspend)){
+		err = sunxi_mmc_poweroff_notify(host->card, notify_type);
+	}else if (mmc_card_can_sleep(host)){
+		err = sunxi_mmc_sleep(host);
+	}else if (!mmc_host_is_spi(host)){
+		err = mmc_deselect_cards(host);
+	}
+
+	if (!err) {
+		pr_info("%s: %s %d\n",
+			mmc_hostname(host),__FUNCTION__,__LINE__);
+		mmc_power_off(host);
+//		mmc_card_set_suspended(host->card);
+	}
+
+out:
+	mmc_release_host(host);
+	return err;
+}
+
+
+
+void sunxi_mmc_do_shutdown2(struct platform_device * pdev)
+{
+	struct mmc_host *mmc = platform_get_drvdata(pdev);
+	u32 shutdown_notify_type = 0;
+	u32 rval = of_property_read_u32(mmc->parent->of_node, "shutdown_notify_type", &shutdown_notify_type);
+	if(!rval){
+		sunxi_mmc_suspend(mmc ,shutdown_notify_type);
+	}else{
+		sunxi_mmc_suspend(mmc ,false);
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
 
 
 

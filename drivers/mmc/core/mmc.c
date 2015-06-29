@@ -17,11 +17,14 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
 #include <linux/mmc/mmc.h>
+#include <linux/of_platform.h>
+
 
 #include "core.h"
 #include "bus.h"
 #include "mmc_ops.h"
 #include "sd_ops.h"
+
 
 //
 #define   SELECT_DRV_TYPE	EXT_CSD_DRIVER_STRENGTH_TYPE0
@@ -1499,6 +1502,7 @@ static int mmc_poweroff_notify(struct mmc_card *card, unsigned int notify_type)
 	unsigned int timeout = card->ext_csd.generic_cmd6_time;
 	int err;
 
+
 	/* Use EXT_CSD_POWER_OFF_SHORT as default notification type. */
 	if (notify_type == EXT_CSD_POWER_OFF_LONG)
 		timeout = card->ext_csd.power_off_longtime;
@@ -1581,8 +1585,15 @@ static int mmc_suspend(struct mmc_host *host)
 	if (err)
 		goto out;
 
-	if (mmc_can_poweroff_notify(host->card))
-		err = mmc_poweroff_notify(host->card, EXT_CSD_POWER_OFF_SHORT);
+	if (mmc_can_poweroff_notify(host->card)){
+		u32 suspend_notify_type = 0;
+		u32 rval = of_property_read_u32(host->parent->of_node, "suspend_notify_type", &suspend_notify_type);
+		if(!rval){
+			err = mmc_poweroff_notify(host->card, suspend_notify_type?EXT_CSD_POWER_OFF_SHORT:EXT_CSD_POWER_OFF_LONG);
+		}else{
+			err = mmc_poweroff_notify(host->card, EXT_CSD_POWER_OFF_SHORT);
+		}
+	}
 	else if (mmc_card_can_sleep(host))
 		err = mmc_card_sleep(host);
 	else if (!mmc_host_is_spi(host))
