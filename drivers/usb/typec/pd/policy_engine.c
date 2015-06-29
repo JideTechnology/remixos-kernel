@@ -66,7 +66,6 @@ static int pe_handle_data_msg(struct policy_engine *pe, struct pd_packet *pkt)
 	case PD_DATA_MSG_SRC_CAP:
 		pr_debug("PE: Data msg received - PD_DATA_MSG_SRC_CAP\n");
 		event = PE_EVT_RCVD_SRC_CAP;
-		memcpy(&pe->pkt, pkt, sizeof(struct pd_packet));
 
 		if (p && p->rcv_pkt) {
 			p->rcv_pkt(p, pkt, event);
@@ -101,9 +100,11 @@ static int pe_handle_data_msg(struct policy_engine *pe, struct pd_packet *pkt)
 	default:
 		pr_debug("PE: Data msg received - Unknown\n");
 		ret = -EINVAL;
-		break;
+		goto end;
 	}
+	pe->prev_evt = event;
 
+end:
 	return ret;
 }
 
@@ -113,13 +114,13 @@ static int pe_fwdpkt_snkport(struct policy_engine *pe, struct pd_packet *pkt,
 	struct policy *p;
 	int ret = 0;
 
+	pe->prev_evt = evt;
 	p = find_active_policy(&pe->policy_list);
 	if (!p) {
 		pr_err("PE: No Active policy!\n");
 		return -EINVAL;
 	}
 
-	memcpy(&pe->pkt, pkt, sizeof(struct pd_packet));
 	if (p && p->rcv_pkt) {
 		p->rcv_pkt(p, pkt, evt);
 	} else {
@@ -127,7 +128,6 @@ static int pe_fwdpkt_snkport(struct policy_engine *pe, struct pd_packet *pkt,
 		ret = -ENODEV;
 	}
 
-	pe->prev_evt = evt;
 	return ret;
 }
 
@@ -250,8 +250,6 @@ static int pe_handle_ctrl_msg(struct policy_engine *pe, struct pd_packet *pkt)
 		goto event_unknown;
 		break;
 	}
-
-	pe->prev_evt = event;
 
 event_unknown:
 error:
@@ -398,6 +396,7 @@ static int pe_fwdcmd_snkport(struct policy_engine *pe, enum pe_event evt)
 	struct policy *p;
 	int ret = 0;
 
+	pe->prev_evt = evt;
 	p = find_active_policy(&pe->policy_list);
 	if (!p) {
 		pr_err("PE: No Active policy!\n");
@@ -411,7 +410,6 @@ static int pe_fwdcmd_snkport(struct policy_engine *pe, enum pe_event evt)
 		ret = -ENODEV;
 	}
 
-	pe->prev_evt = evt;
 	return ret;
 }
 
@@ -422,12 +420,14 @@ static int pe_process_cmd(struct policy_engine *pe, int cmd)
 
 	switch (cmd) {
 	case PD_CMD_HARD_RESET:
+		pr_debug("PE: %s PD_CMD_HARD_RESET\n", __func__);
 		event  = PE_EVT_RCVD_HARD_RESET;
 		ret = pe_fwdcmd_snkport(pe, event);
 		if (ret < 0)
 			pr_err("PE: Error in handling cmd\n");
 		break;
 	case PD_CMD_HARD_RESET_COMPLETE:
+		pr_debug("PE: %s PD_CMD_HARD_RESET_COMPLETE\n", __func__);
 		event = PE_EVT_RCVD_HARD_RESET_COMPLETE;
 		ret = pe_fwdcmd_snkport(pe, event);
 		if (ret < 0)
@@ -615,29 +615,29 @@ static int pe_send_packet(struct policy_engine *pe, void *data, int len,
 {
 	int ret = 0;
 
+	if (!pe->is_pd_connected) {
+		ret = -EINVAL;
+		pr_err("PE: PD Disconnected!\n");
+		goto error;
+	}
+
 	switch (evt) {
 	case PE_EVT_SEND_REQUEST:
 	case PE_EVT_SEND_SNK_CAP:
 	case PE_EVT_SEND_GET_SRC_CAP:
-		if (!pe_get_pd_state(pe)) {
-			ret = -EINVAL;
-			goto error;
-		}
-		break;
 	case PE_EVT_SEND_HARD_RESET:
 	case PE_EVT_SEND_PROTOCOL_RESET:
 		break;
 	default:
-		goto unknown;
+		goto error;
 	}
 
 	/* Send the pd_packet to protocol directly to request
 	 * sink power cap */
 	if (pe && pe->prot && pe->prot->policy_fwd_pkt)
 		pe->prot->policy_fwd_pkt(pe->prot, msg_type, data, len);
-
-unknown:
 	pe->prev_evt = evt;
+
 error:
 	return ret;
 }

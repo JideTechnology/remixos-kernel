@@ -41,7 +41,7 @@ struct pd_prot {
 	u8 assumed_pwr_role;
 	u8 event;
 	u8 tx_msg_id;
-	s8 rx_msg_id;
+	s32 rx_msg_id;
 	u8 retry_counter;
 
 	u8 cur_tx_state;

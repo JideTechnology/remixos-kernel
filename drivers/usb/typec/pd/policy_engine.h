@@ -319,7 +319,6 @@ struct policy_engine {
 	struct work_struct dpm_work;
 	struct devpolicy_mgr *dpm;
 	struct pe_operations *ops;
-	struct pd_packet pkt;
 	struct list_head list;
 
 	enum pe_event prev_evt;

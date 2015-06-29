@@ -175,17 +175,17 @@ static void pd_tx_discard_msg(struct pd_prot *pd)
 {
 	mutex_lock(&pd->tx_lock);
 	pd->event = PROT_EVENT_DISCARD;
-	pd->tx_msg_id = (pd->tx_msg_id + 1) % PD_MAX_MSG_ID;
+	pd->tx_msg_id = pd->tx_msg_id + 1;
+	if (pd->tx_msg_id >= PD_MAX_MSG_ID)
+		pd->tx_msg_id = 0;
 	mutex_unlock(&pd->tx_lock);
-	complete(&pd->tx_complete);
-	pd_tx_fsm_state(pd, PROT_TX_PHY_LAYER_RESET);
+	pd->cur_tx_state = PROT_TX_PHY_LAYER_RESET;
 }
 
 static void pd_prot_rx_work(struct pd_prot *pd)
 {
-	u8 msg_id;
+	s32 msg_id;
 	struct pd_packet *buf;
-	u8 msg_type;
 
 	/* wait for goodcrc sent */
 	if (!pd->phy->support_auto_goodcrc)
@@ -197,7 +197,6 @@ static void pd_prot_rx_work(struct pd_prot *pd)
 	buf = &pd->cached_rx_buf;
 
 	msg_id = PD_MSG_ID(&buf->header);
-	msg_type = PD_MSG_TYPE(&buf->header);
 
 	if (pd->rx_msg_id != msg_id) {
 		pd_tx_discard_msg(pd);

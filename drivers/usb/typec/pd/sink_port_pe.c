@@ -35,27 +35,27 @@ static int snkpe_timeout_transition_check(struct sink_port_pe *sink)
 	int ret = 0;
 	enum snkpe_timeout tout = sink->timeout;
 
-		/* ((SinkWaitCapTimer timeout | SinkActivityTimer timeout |
-		 * PSTransitionTimer timeout | NoResponseTimer timeout)
-		 * & (HardResetCounter <= nHardResetCount)) | Hard Reset request
-		 * from Device Policy Manager.
-		 * (OR) SENDER_RESPONSE_TIMER timeout.
-		 */
+	pr_debug("SNKPE: %s tout %d\n", __func__, tout);
+
+	/* ((SinkWaitCapTimer timeout | SinkActivityTimer timeout |
+	 * PSTransitionTimer timeout | NoResponseTimer timeout)
+	 * & (HardResetCounter <= nHardResetCount)) | Hard Reset request
+	 * from Device Policy Manager.
+	 * (OR) SENDER_RESPONSE_TIMER timeout.
+	 */
 	if (((tout == SINK_WAIT_CAP_TIMER || tout == SINK_ACTIVITY_TIMER ||
 		tout == PS_TRANSITION_TIMER || tout == NO_RESPONSE_TIMER) &&
 		(sink->hard_reset_count <= HARD_RESET_COUNT_N)) ||
 		tout == SENDER_RESPONSE_TIMER) {
+
 		/* Move to PE_SNK_Hard_Reset state */
 		sink->prev_state = sink->cur_state;
 		sink->cur_state = PE_SNK_HARD_RESET;
 
-		/* generate hard reset signal */
-		ret = policy_send_packet(sink->p, NULL, 0, PD_CMD_HARD_RESET,
-						 PE_EVT_SEND_HARD_RESET);
-		if (ret < 0) {
-			pr_err("SNKPE: Error in hard reset command!\n");
-			return ret;
-		}
+		/* FIXME: Not generating hard reset signal now, since vbus is
+		 * getting diconnect and after that PD charger is not responding
+		 * with source capabilty message.
+		 */
 		sink->hard_reset_count++;
 		/* expect Hard Reset to complete */
 	} else if (tout == NO_RESPONSE_TIMER &&
@@ -75,8 +75,6 @@ static int snkpe_rxmsg_from_fifo(struct sink_port_pe *sink,
 	int len = 0;
 	int ret = 0;
 
-	memset(pkt, 0, sizeof(struct pd_packet));
-
 	wait_for_completion(&sink->pktwt_complete);
 	len = kfifo_len(&sink->pkt_fifo);
 	if (len <= 0) {
@@ -91,6 +89,7 @@ static int snkpe_rxmsg_from_fifo(struct sink_port_pe *sink,
 	}
 
 error:
+	reinit_completion(&sink->pktwt_complete);
 	return ret;
 }
 
@@ -155,7 +154,7 @@ static int snkpe_create_reqmsg(struct sink_port_pe *sink,
 					struct pd_packet *pkt, u32 *data)
 {
 	struct pd_fixed_var_rdo *rdo = (struct pd_fixed_var_rdo *)data;
-	static struct req_cap rcap;
+	struct req_cap *rcap = &sink->rcap;
 	struct power_cap mpcap;
 	int ret;
 
@@ -166,16 +165,15 @@ static int snkpe_create_reqmsg(struct sink_port_pe *sink,
 		goto error;
 	}
 
-	ret = snkpe_get_req_cap(sink, pkt, &mpcap, &rcap);
+	ret = snkpe_get_req_cap(sink, pkt, &mpcap, rcap);
 	if (ret < 0) {
 		pr_err("SNKPE: Unable to get the Sink Port PE cap\n");
 		goto error;
 	}
-	memcpy(&sink->rcap, &rcap, sizeof(struct req_cap));
 
-	rdo->obj_pos = rcap.obj_pos;
-	rdo->cap_mismatch = rcap.cap_mismatch;
-	rdo->op_cur = CURRENT_TO_DATA_OBJ(rcap.ma);
+	rdo->obj_pos = rcap->obj_pos;
+	rdo->cap_mismatch = rcap->cap_mismatch;
+	rdo->op_cur = CURRENT_TO_DATA_OBJ(rcap->ma);
 	/* FIXME: Need to select max current from the profile provided by SRC */
 	rdo->max_cur = CURRENT_TO_DATA_OBJ(mpcap.ma);
 
@@ -195,6 +193,7 @@ static int snkpe_get_msg(struct sink_port_pe *sink, struct pd_packet *pkt,
 		ret = snkpe_create_reqmsg(sink, pkt, data);
 		break;
 	default:
+		ret = -EINVAL;
 		break;
 	}
 
@@ -222,15 +221,28 @@ static inline int snkpe_do_prot_reset(struct sink_port_pe *sink)
 					 PE_EVT_SEND_PROTOCOL_RESET);
 }
 
+static void snkpe_reinitialize_completion(struct sink_port_pe *sink)
+{
+	reinit_completion(&sink->wct_complete);
+	reinit_completion(&sink->srt_complete);
+	reinit_completion(&sink->nrt_complete);
+	reinit_completion(&sink->pstt_complete);
+	reinit_completion(&sink->sat_complete);
+	reinit_completion(&sink->srqt_complete);
+	reinit_completion(&sink->pktwt_complete);
+}
+
 static int snkpe_start(struct sink_port_pe *sink)
 {
 	enum cable_state vbus_state;
 	int ret = 0;
 
+	pr_debug("SNKPE: %s\n", __func__);
 	if (sink->cur_state == PE_SNK_TRANSITION_TO_DEFAULT) {
 		complete(&sink->nrt_complete);
 		return 0;
 	}
+	sink->p->status = POLICY_STATUS_STARTED;
 
 	/*---------- Start of Sink Port PE --------------*/
 	/* get the vbus state, in case of boot of vbus */
@@ -265,11 +277,11 @@ static int snkpe_start(struct sink_port_pe *sink)
 	return ret;
 }
 
-static int sink_port_policy_start(struct policy *p)
+static inline int sink_port_policy_start(struct policy *p)
 {
 	struct sink_port_pe *sink = p->priv;
+	sink->cur_state = PE_SNK_STARTUP;
 
-	sink->p->status = POLICY_STATUS_STARTED;
 	return snkpe_start(sink);
 }
 
@@ -277,12 +289,15 @@ int sink_port_policy_stop(struct policy *p)
 {
 	struct sink_port_pe *sink = p->priv;
 
+	pr_debug("SNKPE: %s\n", __func__);
 	/* reset HardResetCounter to zero upon vbus disconnect.
 	 */
 	sink->hard_reset_count = 0;
 	sink->p->status = POLICY_STATUS_STOPPED;
+	sink->is_vbus_connected = false;
 	policy_set_pd_state(p, false);
 
+	snkpe_reinitialize_completion(sink);
 	/* FIXME: handle the stop state */
 	snkpe_do_prot_reset(sink);
 	sink->cur_state = PE_SNK_STARTUP;
@@ -297,6 +312,11 @@ int sink_port_policy_rcv_cmd(struct policy *p, enum pe_event evt)
 
 	switch (evt) {
 	case PE_EVT_RCVD_HARD_RESET:
+		ret = snkpe_do_prot_reset(sink);
+		sink_port_policy_stop(p);
+		sink->cur_state = PE_SNK_STARTUP;
+		sink_port_policy_start(p);
+		break;
 	case PE_EVT_RCVD_HARD_RESET_COMPLETE:
 		return snkpe_handle_transition_to_default(sink);
 	default:
@@ -327,7 +347,7 @@ int sink_port_policy_rcv_pkt(struct policy *p, struct pd_packet *pkt,
 			 return snkpe_handle_evaluate_capability(sink);
 		break;
 	case PE_EVT_RCVD_GET_SINK_CAP:
-		if (sink->cur_state == PE_SNK_READY) {
+		if (sink->cur_state != ERROR_RECOVERY) {
 			return snkpe_handle_give_snk_cap_state(sink);
 		} else {
 			pr_err("SNKPE: Error in State Machine!\n");
@@ -398,6 +418,8 @@ static int snkpe_setup_charging(struct sink_port_pe *sink)
 	ret = policy_set_charger_mode(sink->p, CHRGR_ENABLE);
 	if (ret < 0)
 		pr_err("SNKPE: Error in enabling charger (%d)\n", ret);
+	else if ((sink->cur_state == PE_SNK_READY) && !ret)
+		pr_info("SNKPE: Consumer Policy Negotiation Success!\n");
 
 	return ret;
 }
@@ -424,11 +446,19 @@ static int snkpe_handle_transition_to_default(struct sink_port_pe *sink)
 						timeout);
 	if (ret == 0) {
 		sink->timeout = NO_RESPONSE_TIMER;
-		return snkpe_timeout_transition_check(sink);
+		ret = snkpe_timeout_transition_check(sink);
+		goto end;
 	}
 
 	sink->cur_state = PE_SNK_STARTUP;
-	return snkpe_start(sink);
+	if (sink->pevt != PE_EVT_RCVD_SRC_CAP)
+		ret = snkpe_start(sink);
+	else
+		ret = snkpe_handle_evaluate_capability(sink);
+
+end:
+	reinit_completion(&sink->nrt_complete);
+	return ret;
 }
 
 
@@ -465,9 +495,10 @@ static int snkpe_handle_transition_sink_state(struct sink_port_pe *sink)
 		ret = snkpe_timeout_transition_check(sink);
 		goto error;
 	}
-	return snkpe_handle_snk_ready_state(sink, sink->pevt);
+	ret = snkpe_handle_snk_ready_state(sink, sink->pevt);
 
 error:
+	reinit_completion(&sink->pstt_complete);
 	return ret;
 }
 
@@ -492,10 +523,14 @@ static int snkpe_handle_select_capability_state(struct sink_port_pe *sink,
 		pr_err("SNKPE: Error in sending packet!\n");
 		goto error;
 	}
+	pr_debug("SNKPE: PD_DATA_MSG_REQUEST Sent!\n");
+
+	/* Keeping backup to use later if required for wait event and
+	 * sink request timer timeout */
+	memcpy(&sink->prev_pkt, pkt, sizeof(struct pd_packet));
 
 	/* move the next state PE_SNK_Select_Capability */
-	if (sink->prev_state == PE_SNK_WAIT_FOR_CAPABILITIES &&
-		sink->cur_state == PE_SNK_EVALUATE_CAPABILITY) {
+	if (sink->cur_state == PE_SNK_EVALUATE_CAPABILITY) {
 		sink->prev_state = sink->cur_state;
 		sink->cur_state = PE_SNK_SELECT_CAPABILITY;
 	}
@@ -512,11 +547,14 @@ static int snkpe_handle_select_capability_state(struct sink_port_pe *sink,
 	}
 
 	if (sink->pevt == PE_EVT_RCVD_ACCEPT)
-		return snkpe_handle_transition_sink_state(sink);
+		ret = snkpe_handle_transition_sink_state(sink);
 	else if (sink->pevt == PE_EVT_RCVD_REJECT ||
 		sink->pevt == PE_EVT_RCVD_WAIT)
-		return snkpe_handle_snk_ready_state(sink, sink->pevt);
+		ret = snkpe_handle_snk_ready_state(sink, sink->pevt);
+	else
+		pr_err("SNKPE: Unknown event: %d\n", sink->pevt);
 error:
+	reinit_completion(&sink->srt_complete);
 	return ret;
 }
 
@@ -525,9 +563,8 @@ static int snkpe_handle_give_snk_cap_state(struct sink_port_pe *sink)
 	int ret = 0;
 	int i;
 	struct power_caps pcaps;
-	struct pd_sink_fixed_pdo pdo[MAX_NUM_DATA_OBJ];
+	struct pd_sink_fixed_pdo pdo[MAX_NUM_DATA_OBJ] = { {0} };
 
-	memset(pdo, 0, sizeof(struct pd_sink_fixed_pdo) * MAX_NUM_DATA_OBJ);
 	sink->prev_state = sink->cur_state;
 	sink->cur_state = PE_SNK_GIVE_SINK_CAP;
 
@@ -612,13 +649,16 @@ static int snkpe_handle_snk_ready_state(struct sink_port_pe *sink,
 		timeout = msecs_to_jiffies(TYPEC_SINK_REQUEST_TIMER);
 		ret = wait_for_completion_timeout(&sink->srqt_complete,
 							timeout);
-		if (ret == 0)
+		if (ret == 0) {
 			/* New power required | SinkRequestTimer timeout */
-			return snkpe_handle_select_capability_state(
+			sink->cur_state = PE_SNK_EVALUATE_CAPABILITY;
+			ret = snkpe_handle_select_capability_state(
 					sink, &sink->prev_pkt);
+			goto end;
+		}
 
 		/* Received PS_RDY event after a WAIT event */
-		return snkpe_handle_psrdy_after_wait_state(sink);
+		ret = snkpe_handle_psrdy_after_wait_state(sink);
 	} else if (evt == PE_EVT_SEND_SNK_CAP ||
 			evt == PE_EVT_SEND_GET_SRC_CAP) {
 		/* Do nothing and continue in the same state */
@@ -627,13 +667,15 @@ static int snkpe_handle_snk_ready_state(struct sink_port_pe *sink,
 		ret = -EINVAL;
 	}
 
+end:
+	reinit_completion(&sink->srqt_complete);
 	return ret;
 }
 
 static int snkpe_handle_evaluate_capability(struct sink_port_pe *sink)
 {
 	int ret = 0;
-	struct pd_packet pkt;
+	struct pd_packet pkt = { {0} };
 
 	sink->prev_state = sink->cur_state;
 	sink->cur_state = PE_SNK_EVALUATE_CAPABILITY;
@@ -651,10 +693,6 @@ static int snkpe_handle_evaluate_capability(struct sink_port_pe *sink)
 		pr_err("SNKPE: Error in reading data from fio\n");
 		goto error;
 	}
-
-	/* Keeping backup to use later if required for wait event and
-	 * sink request timer timeout */
-	memcpy(&sink->prev_pkt, &pkt, sizeof(struct pd_packet));
 	return snkpe_handle_select_capability_state(sink, &pkt);
 
 error:
@@ -664,7 +702,8 @@ error:
 static int snkpe_vbus_attached(struct sink_port_pe *sink)
 {
 	int ret = 0;
-	unsigned long timeout = msecs_to_jiffies(TYPEC_SINK_WAIT_CAP_TIMER);
+	unsigned long timeout =
+		msecs_to_jiffies(TYPEC_SINK_WAIT_CAP_TIMER);
 
 	if (sink->prev_state == PE_SNK_STARTUP &&
 		sink->cur_state == PE_SNK_DISCOVERY) {
@@ -679,10 +718,11 @@ static int snkpe_vbus_attached(struct sink_port_pe *sink)
 			ret = snkpe_timeout_transition_check(sink);
 			goto error;
 		}
-
-		return snkpe_handle_evaluate_capability(sink);
+		ret = snkpe_handle_evaluate_capability(sink);
 	}
+
 error:
+	reinit_completion(&sink->wct_complete);
 	return ret;
 }
 
