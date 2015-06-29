@@ -1396,16 +1396,17 @@ static struct gsm_control *gsm_control_send(struct gsm_mux *gsm,
 	if (ctrl == NULL)
 		return NULL;
 retry:
-	wait_event(gsm->event, gsm->pending_cmd == NULL || gsm->dead);
+	wait_event(gsm->event,
+		   gsm->pending_cmd == NULL || gsm->dead || gsm->tty_dead);
 	spin_lock_irqsave(&gsm->control_lock, flags);
-	if ((gsm->pending_cmd != NULL) && !gsm->dead) {
-		spin_unlock_irqrestore(&gsm->control_lock, flags);
-		goto retry;
-	}
-	if (gsm->dead) {
+	if (gsm->dead || gsm->tty_dead) {
 		spin_unlock_irqrestore(&gsm->control_lock, flags);
 		kfree(ctrl);
 		return NULL;
+	}
+	if (gsm->pending_cmd != NULL) {
+		spin_unlock_irqrestore(&gsm->control_lock, flags);
+		goto retry;
 	}
 	ctrl->cmd = command;
 	ctrl->data = data;
@@ -1432,8 +1433,9 @@ static int gsm_control_wait(struct gsm_mux *gsm, struct gsm_control *control)
 {
 	unsigned long flags;
 	int err;
-	wait_event(gsm->event, control->done == 1 || gsm->dead);
-	if (gsm->dead) {
+	wait_event(gsm->event,
+		   control->done == 1 || gsm->dead || gsm->tty_dead);
+	if (gsm->dead || gsm->tty_dead) {
 		spin_lock_irqsave(&gsm->control_lock, flags);
 		if (control == gsm->pending_cmd) {
 			del_timer(&gsm->t2_timer);
@@ -2074,7 +2076,6 @@ static void gsm_error(struct gsm_mux *gsm,
 void gsm_closeall_dlci(struct gsm_mux *gsm)
 {
 	int i;
-	int t;
 	struct gsm_dlci *dlci;
 
 	/* Free up any link layer users */
@@ -2088,10 +2089,11 @@ void gsm_closeall_dlci(struct gsm_mux *gsm)
 				gsm_dlci_begin_close(dlci);
 				if (dlci->state == DLCI_HANGUP)
 					goto close_this_dlci;
-				t = wait_event_timeout(gsm->event,
-					   dlci->state == DLCI_CLOSED,
+				wait_event_timeout(gsm->event,
+					   dlci->state == DLCI_CLOSED ||
+					   gsm->tty_dead,
 					   gsm->t2 * HZ / 100);
-				if (!t) {
+				if (dlci->state != DLCI_CLOSED) {
 					pr_info("%s: timeout dlci0 close",
 						__func__);
 close_this_dlci:
@@ -2398,6 +2400,8 @@ static int gsmld_output(struct gsm_mux *gsm, u8 *data, int len)
 		WARN_ON(1);
 		return -ENXIO;
 	}
+	if (gsm->tty_dead)
+		return -EBADF;
 	if (tty_write_room(gsm->tty) < len) {
 		set_bit(TTY_DO_WRITE_WAKEUP, &gsm->tty->flags);
 		return -ENOSPC;
@@ -2530,6 +2534,31 @@ static ssize_t gsmld_chars_in_buffer(struct tty_struct *tty)
 
 static void gsmld_flush_buffer(struct tty_struct *tty)
 {
+	if (tty->closing) {
+		/* Flushing a closing TTY: wait for current operations to
+		 * finish and set the underlying TTY as dead to prevent further
+		 * writes on the TTY.
+		 */
+		struct gsm_mux *gsm = tty->disc_data;
+		unsigned long flags;
+
+		gsm->tty_dead = 1;
+		/* As writes to the underlying TTY are done while holding
+		 * 'tx_lock', use it as a synchronization mechanism to ensure
+		 * that any possible command that is being written is flushed
+		 * out before leaving this function.
+		 *
+		 * No additional command will be sent as tty_dead was set to
+		 * 1 before acquiring the lock.
+		 */
+		spin_lock_irqsave(&gsm->tx_lock, flags);
+		spin_unlock_irqrestore(&gsm->tx_lock, flags);
+
+		/* Wakeup GSM event in case some code was waiting on state
+		 * change.
+		 */
+		wake_up(&gsm->event);
+	}
 }
 
 /**
@@ -2804,9 +2833,12 @@ static int gsmld_config(struct tty_struct *tty, struct gsm_mux *gsm,
 		gsm_dlci_begin_close(gsm->dlci[0]);
 		/* This will timeout if the link is down due to N2 expiring */
 		wait_event_interruptible(gsm->event,
-				gsm->dlci[0]->state == DLCI_CLOSED);
+				gsm->dlci[0]->state == DLCI_CLOSED ||
+				gsm->tty_dead);
 		if (signal_pending(current))
 			return -EINTR;
+		if (gsm->tty_dead)
+			return -EBADF;
 	}
 	if (need_restart) {
 		gsm_cleanup_mux(gsm);
@@ -3287,15 +3319,15 @@ static int gsmtty_open(struct tty_struct *tty, struct file *filp)
 	struct tty_port *port = &dlci->port;
 	struct gsm_mux *gsm = dlci->gsm;
 	struct ktermios save;
-	int t;
 
 	if (dlci->state == DLCI_CLOSING) {
 		/* if we are in blocking mode, wait the end of the closing */
 		if (!(filp->f_flags & O_NONBLOCK)) {
-			t = wait_event_timeout(gsm->event,
-					dlci->state == DLCI_CLOSED,
+			wait_event_timeout(gsm->event,
+					dlci->state == DLCI_CLOSED ||
+					gsm->dead || gsm->tty_dead,
 					gsm->n2 * gsm->t1 * HZ / 100);
-			if (!t)
+			if (dlci->state != DLCI_CLOSED)
 				return -ENXIO;
 		} else
 			return -EAGAIN;
@@ -3323,10 +3355,11 @@ static int gsmtty_open(struct tty_struct *tty, struct file *filp)
 
 	/* Wait for UA */
 	if (!(filp->f_flags & O_NONBLOCK)) {
-		t = wait_event_timeout(gsm->event,
-					dlci->state == DLCI_OPEN,
+		wait_event_timeout(gsm->event,
+					dlci->state == DLCI_OPEN ||
+					gsm->dead || gsm->tty_dead,
 					gsm->n2 * gsm->t1 * HZ / 100);
-		if (!t)
+		if (dlci->state != DLCI_OPEN)
 			return -ENXIO;
 	}
 
@@ -3359,8 +3392,9 @@ static void gsmtty_close(struct tty_struct *tty, struct file *filp)
 		/* Wait for UA */
 		if (!(filp->f_flags & O_NONBLOCK))
 			wait_event_timeout(gsm->event,
-						dlci->state == DLCI_CLOSED,
-						gsm->n2 * gsm->t1 * HZ / 100);
+					dlci->state == DLCI_CLOSED ||
+					gsm->dead || gsm->tty_dead,
+					gsm->n2 * gsm->t1 * HZ / 100);
 	} else
 		gsm_dlci_close(dlci);
 	if (test_bit(ASYNCB_INITIALIZED, &dlci->port.flags)) {
