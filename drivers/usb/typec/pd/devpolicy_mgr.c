@@ -292,17 +292,29 @@ static void dpm_set_cable_state(struct devpolicy_mgr *dpm,
 				enum cable_type type, enum cable_state state)
 {
 	mutex_lock(&dpm->cable_event_lock);
-	if (type == CABLE_TYPE_PROVIDER) {
+	switch (type) {
+	case CABLE_TYPE_PROVIDER:
 		if (dpm->provider_state != state) {
 			dpm->provider_state = state;
 			typec_notify_cable_state(dpm->phy, "USB-Host",
 							(bool)state);
 		}
-	} else {
+		break;
+	case CABLE_TYPE_CONSUMER:
 		if (dpm->consumer_state != state) {
 			dpm->consumer_state = state;
 			typec_notify_cable_state(dpm->phy, "USB", (bool)state);
 		}
+		break;
+	case CABLE_TYPE_DP_SOURCE:
+		if (dpm->dp_state != state) {
+			dpm->dp_state = state;
+			typec_notify_cable_state(dpm->phy,
+				"USB_TYPEC_DP_SOURCE", (bool)state);
+		}
+		break;
+	default:
+		pr_warn("DPM: Unknown cable type=%d\n", type);
 	}
 	mutex_unlock(&dpm->cable_event_lock);
 	return;
@@ -319,6 +331,15 @@ static int dpm_set_consumer_state(struct devpolicy_mgr *dpm,
 					enum cable_state state)
 {
 	dpm_set_cable_state(dpm, CABLE_TYPE_CONSUMER, state);
+	return 0;
+}
+
+static int dpm_set_display_port_state(struct devpolicy_mgr *dpm,
+					enum cable_state state,
+					enum typec_dp_cable_type type)
+{
+	dpm->phy->dp_type = type;
+	dpm_set_cable_state(dpm, CABLE_TYPE_DP_SOURCE, state);
 	return 0;
 }
 
@@ -484,6 +505,7 @@ static struct dpm_interface interface = {
 	.set_charger_mode = dpm_set_charger_mode,
 	.update_current_lim = dpm_update_current_lim,
 	.get_min_current = dpm_get_min_current,
+	.set_display_port_state = dpm_set_display_port_state,
 };
 
 struct devpolicy_mgr *dpm_register_syspolicy(struct typec_phy *phy,

@@ -125,6 +125,12 @@ enum typec_cc_vrd {
 	TYPEC_CC_VRD_3000
 };
 
+enum typec_dp_cable_type {
+	TYPEC_DP_TYPE_NONE,
+	TYPEC_DP_TYPE_2X,
+	TYPEC_DP_TYPE_4X,
+};
+
 struct typec_cc_psy {
 	enum typec_cc_level v_rd;
 	enum typec_current cur;
@@ -156,6 +162,7 @@ struct typec_phy {
 	enum typec_type type;
 	enum typec_state state;
 	enum typec_cc_pin valid_cc;
+	enum typec_dp_cable_type dp_type;
 	bool valid_ra;
 	bool support_drp_toggle;
 	bool support_auto_goodcrc;

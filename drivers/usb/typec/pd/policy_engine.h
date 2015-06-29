@@ -514,6 +514,17 @@ static inline bool policy_get_pd_state(struct policy *p)
 	return -ENOTSUPP;
 }
 
+static inline int policy_set_dp_state(struct policy *p,
+					enum cable_state state,
+					enum typec_dp_cable_type type)
+{
+	if (p && p->pe && p->pe->dpm && p->pe->dpm->interface
+		&& p->pe->dpm->interface->set_display_port_state)
+		return p->pe->dpm->interface->set_display_port_state(p->pe->dpm,
+					state, type);
+	return -ENODEV;
+}
+
 #if defined(CONFIG_USBC_PD) && defined(CONFIG_USBC_PD_POLICY)
 extern int policy_engine_bind_dpm(struct devpolicy_mgr *dpm);
 extern void policy_engine_unbind_dpm(struct devpolicy_mgr *dpm);
@@ -555,6 +566,8 @@ static inline int pe_process_ctrl_msg(struct policy_engine *pe,
 }
 
 extern struct policy *sink_port_policy_init(struct policy_engine *pe);
+struct policy *src_pe_init(struct policy_engine *pe);
+struct policy *disp_pe_init(struct policy_engine *pe);
 extern int dpm_register_pe(struct policy_engine *x, int port);
 extern void dpm_unregister_pe(struct policy_engine *x);
 extern int protocol_bind_pe(struct policy_engine *pe);

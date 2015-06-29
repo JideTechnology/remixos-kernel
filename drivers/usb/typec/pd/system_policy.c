@@ -39,6 +39,8 @@ static struct system_policy *spolicy;
 
 static enum policy_type policies[] = {
 	POLICY_TYPE_SINK,
+	POLICY_TYPE_SOURCE,
+	POLICY_TYPE_DISPLAY,
 };
 
 /* FIXME: now supports only one port */

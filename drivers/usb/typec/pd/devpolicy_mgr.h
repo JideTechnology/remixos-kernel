@@ -2,6 +2,7 @@
 #define __PD_DEVMGR_POLICY_H__
 
 #include <linux/extcon.h>
+#include <linux/usb_typec_phy.h>
 
 #define CABLE_CONSUMER	"USB_TYPEC_UFP"
 #define CABLE_PROVIDER	"USB_TYPEC_DFP"
@@ -44,6 +45,7 @@ enum psy_type {
 /* host mode: max of 5V, 1A */
 #define VBUS_5V		5000
 #define IBUS_1A		1000
+#define IBUS_0P5A	500
 
 /* device mode: max of 12, 3A */
 #define VIN_12V		12000
@@ -137,6 +139,9 @@ struct dpm_interface {
 					int ilim);
 	int (*get_min_current)(struct devpolicy_mgr *dpm,
 					int *ma);
+	int (*set_display_port_state)(struct devpolicy_mgr *dpm,
+					enum cable_state state,
+					enum typec_dp_cable_type type);
 };
 
 struct devpolicy_mgr {
@@ -154,6 +159,7 @@ struct devpolicy_mgr {
 	spinlock_t cable_event_queue_lock;
 	enum cable_state consumer_state;    /* cosumer cable state */
 	enum cable_state provider_state;    /* provider cable state */
+	enum cable_state dp_state;    /* display cable state */
 	enum cable_type prev_cable_evt;
 	enum pwr_role prole;
 	enum data_role drole;

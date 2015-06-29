@@ -519,7 +519,26 @@ static void pe_init_policy(struct work_struct *work)
 			}
 			list_add_tail(&policy->list, &pe->policy_list);
 			break;
-		/* TODO: Need to add support for display and source pe init */
+		case POLICY_TYPE_SOURCE:
+			policy = src_pe_init(pe);
+			if (IS_ERR_OR_NULL(policy)) {
+				pr_err("%s: unable to init SOURCE_POLICY\n",
+								__func__);
+				continue;
+			}
+			list_add_tail(&policy->list, &pe->policy_list);
+			pr_debug("%s:Successfuly init source pe\n", __func__);
+			break;
+		case POLICY_TYPE_DISPLAY:
+			policy = disp_pe_init(pe);
+			if (IS_ERR_OR_NULL(policy)) {
+				pr_err("%s: unable to init DOSPLAY_POLICY\n",
+								__func__);
+				continue;
+			}
+			list_add_tail(&policy->list, &pe->policy_list);
+			pr_debug("%s:Successfuly init display pe\n", __func__);
+			break;
 		default:
 			/* invalid, dont add it to policy */
 			pr_err("PE: Unknown policy type %d\n",
