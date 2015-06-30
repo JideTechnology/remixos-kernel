@@ -113,6 +113,8 @@ extern long unregister_fmdrv_from_ld_driv(
 #define BT_FMR_IDLE		_IOW('L', 3, uint64_t)
 #define BT_FMR_LPM_ENABLE	_IOW('L', 4, uint64_t)
 #define BT_HOST_WAKE		_IOW('L', 5, uint64_t)
+#define BT_HOST_WAKE_INTR_COUNT		_IOW('L', 6, uint64_t)
+#define BT_HOST_WAKE_INTR_COUNT_RESET		_IOW('L', 7, uint64_t)
 
 #define RELEVANT_IFLAG(iflag) ((iflag) & (IGNBRK|BRKINT|IGNPAR|PARMRK|INPCK))
 

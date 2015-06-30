@@ -247,6 +247,8 @@ static uint8_t hci_controlerwake_req_rsp[] = {0xF1, 0x03, 0x00};
 static uint8_t hci_dx_wake[] = {0xF0}; /*Wakeup BT packet - HIGH*/
 static unsigned int ignore_ack;
 static unsigned int ignore_wakeuprsp;
+static unsigned int host_wake_intr_count;
+static unsigned int bt_self_test_running;
 
 
 /* lbf_set_ackign_st
@@ -697,18 +699,21 @@ static irqreturn_t host_wake_isr(int irq, void *dev)
 
 	pr_info("%s: host_wake = %d\n", __func__, host_wake);
 	host_wake = host_wake ? 0 : 1;
+	host_wake_intr_count++;
 
-	if (!intel_lbf_lpm.tty_dev) {
-		lbf_set_host_wake_state(host_wake);
-		return IRQ_HANDLED;
-	}
-
-	if (host_wake) {
-		if (!lbf_get_rx_ref_count()) {
-			lbf_maintain_rx_refcnt(1);
-			pm_runtime_get(intel_lbf_lpm.tty_dev);
+	if (!bt_self_test_running) {
+		if (!intel_lbf_lpm.tty_dev) {
+			lbf_set_host_wake_state(host_wake);
+			return IRQ_HANDLED;
 		}
-		lbf_update_host_wake(host_wake);
+
+		if (host_wake) {
+			if (!lbf_get_rx_ref_count()) {
+				lbf_maintain_rx_refcnt(1);
+				pm_runtime_get(intel_lbf_lpm.tty_dev);
+			}
+			lbf_update_host_wake(host_wake);
+		}
 	}
 	return IRQ_HANDLED;
 }
@@ -2187,6 +2192,7 @@ static int lbf_ldisc_ioctl(struct tty_struct *tty, struct file *file,
 	case BT_FW_DOWNLOAD_INIT:
 		pr_info("BT_FW_DOWNLOAD_INIT\n");
 		err = lbf_ldisc_fw_download_init();
+		bt_self_test_running = 0;
 		break;
 	case BT_FW_DOWNLOAD_COMPLETE:
 		pr_info("BT_FW_DOWNLOAD_COMPLETE\n");
@@ -2199,6 +2205,16 @@ static int lbf_ldisc_ioctl(struct tty_struct *tty, struct file *file,
 	case BT_FMR_IDLE:
 		pr_info("BT_FMR_IDLE\n");
 		lbf_ldisc_lpm_idle(arg);
+		break;
+	case BT_HOST_WAKE_INTR_COUNT:
+		pr_info("BT_HOST_WAKE_INTR_COUNT");
+		bt_self_test_running = 1;
+		err = host_wake_intr_count;
+		break;
+	case BT_HOST_WAKE_INTR_COUNT_RESET:
+		pr_info("BT_HOST_WAKE_INTR_COUNT_RESET");
+		bt_self_test_running = 1;
+		host_wake_intr_count = 0;
 		break;
 	default:
 		err = n_tty_ioctl_helper(tty, file, cmd, arg);
@@ -2230,6 +2246,7 @@ static long lbf_ldisc_compat_ioctl(struct tty_struct *tty, struct file *file,
 	case BT_FW_DOWNLOAD_INIT:
 		pr_info("BT_FW_DOWNLOAD_INIT");
 		err = lbf_ldisc_fw_download_init();
+		bt_self_test_running = 0;
 		break;
 	case BT_FW_DOWNLOAD_COMPLETE:
 		pr_info("BT_FW_DOWNLOAD_COMPLETED");
@@ -2242,6 +2259,16 @@ static long lbf_ldisc_compat_ioctl(struct tty_struct *tty, struct file *file,
 	case BT_FMR_IDLE:
 		pr_info("BT_FMR_IDLE\n");
 		lbf_ldisc_lpm_idle(arg);
+		break;
+	case BT_HOST_WAKE_INTR_COUNT:
+		pr_info("BT_HOST_WAKE_INTR_COUNT");
+		bt_self_test_running = 1;
+		err = host_wake_intr_count;
+		break;
+	case BT_HOST_WAKE_INTR_COUNT_RESET:
+		pr_info("BT_HOST_WAKE_INTR_COUNT_RESET");
+		bt_self_test_running = 1;
+		host_wake_intr_count = 0;
 		break;
 	default:
 		err = n_tty_ioctl_helper(tty, file, cmd, arg);
@@ -2588,6 +2615,7 @@ static void bt_rfkill_set_power(unsigned long blocked)
 		gpiod_set_value(intel_lbf_lpm.gpiod_enable_bt, 0);
 		pr_info("%s: turn BT off\n", __func__);
 		pr_info("BT CORE IN D3 STATE\n");
+		bt_self_test_running = 0;
 		bt_enable_state = DISABLE;
 	}
 }
