@@ -2118,14 +2118,15 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 			     false);
 	if (ret)
 		kfree(intel_plane);
-
-	if (IS_CHERRYVIEW(dev) && STEP_FROM(STEP_B0) && pipe == PIPE_B) {
-		intel_plane->csc_profile = 4;
-		intel_plane->csc_profile_property =
-			drm_property_create_range(dev, 0, "csc profile", 1,
-				chv_sprite_csc_num_entries);
-		drm_object_attach_property(&intel_plane->base.base,
-			intel_plane->csc_profile_property, 4);
+	else {
+		if (IS_CHERRYVIEW(dev) && STEP_FROM(STEP_B0) && pipe == PIPE_B) {
+			intel_plane->csc_profile = 4;
+			intel_plane->csc_profile_property =
+				drm_property_create_range(dev, 0, "csc profile", 1,
+					chv_sprite_csc_num_entries);
+			drm_object_attach_property(&intel_plane->base.base,
+				intel_plane->csc_profile_property, 4);
+		}
 	}
 	return ret;
 }

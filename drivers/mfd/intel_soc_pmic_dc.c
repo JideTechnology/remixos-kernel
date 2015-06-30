@@ -360,7 +360,7 @@ static void *platform_get_batt_charge_profile(void)
 					ps_batt_chrg_prof.batt_prof;
 	if ((ret < 0 || ps_batt_chrg_prof.chrg_prof_type == CHRG_PROF_NONE)
 		&& pse_mod_prof)
-			snprintf(pse_mod_prof->batt_id, (BATTID_STR_LEN + 1),
+			snprintf(pse_mod_prof->batt_id, sizeof(pse_mod_prof->batt_id),
 				"%s", BATTID_UNKNOWN);
 
 	return &ps_batt_chrg_prof;

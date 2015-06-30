@@ -37,7 +37,8 @@ struct ps_temp_chg_table {
 } __packed;
 
 
-#define BATTID_STR_LEN		8
+#define BATTID_STR_LEN		16
+
 #define BATT_TEMP_NR_RNG	6
 #define BATTID_UNKNOWN		"UNKNOWNB"
 /* Charging Profile */
