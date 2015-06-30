@@ -1640,11 +1640,11 @@ void vlv_set_ddr_dvfs(struct drm_i915_private *dev_priv,
 	if (dev_priv->force_low_ddr_freq)
 		val = CHV_FORCE_DDR_LOW_FREQ;
 
+	crtc = single_enabled_crtc(dev_priv->dev);
 	/* DDR freq should be high if more than one pipe is active */
-	if (!single_pipe_enabled(pipe_stat))
+	if (!single_pipe_enabled(pipe_stat) || crtc == NULL)
 		val = CHV_FORCE_DDR_HIGH_FREQ;
 	else {
-		crtc = single_enabled_crtc(dev_priv->dev);
 		config = &((to_intel_crtc(crtc))->config);
 
 		/* DDR freq should be high for resolution greater than 19x12 */
