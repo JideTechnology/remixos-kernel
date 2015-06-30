@@ -1708,7 +1708,7 @@ static void chv_hdmi_pre_enable(struct intel_encoder *encoder)
 		&intel_crtc->config.adjusted_mode;
 	enum dpio_channel ch = vlv_dport_to_channel(dport);
 	int pipe = intel_crtc->pipe;
-	int data, i;
+	int data, i, stagger;
 	u32 val;
 
 	mutex_lock(&dev_priv->dpio_lock);
@@ -1741,11 +1741,6 @@ static void chv_hdmi_pre_enable(struct intel_encoder *encoder)
 
 	/* Program Tx latency optimal setting */
 	for (i = 0; i < 4; i++) {
-		/* Set the latency optimal bit */
-		data = (i == 1) ? 0x0 : 0x6;
-		vlv_dpio_write(dev_priv, pipe, CHV_TX_DW11(ch, i),
-				data << DPIO_FRC_LATENCY_SHFIT);
-
 		/* Set the upar bit */
 		data = (i == 1) ? 0x0 : 0x1;
 		vlv_dpio_write(dev_priv, pipe, CHV_TX_DW14(ch, i),
@@ -1753,8 +1748,39 @@ static void chv_hdmi_pre_enable(struct intel_encoder *encoder)
 	}
 
 	/* Data lane stagger programming */
-	/* FIXME: Fix up value only after power analysis */
+	if (intel_crtc->config.port_clock > 270000)
+		stagger = 0x18;
+	else if (intel_crtc->config.port_clock > 135000)
+		stagger = 0xd;
+	else if (intel_crtc->config.port_clock > 67500)
+		stagger = 0x7;
+	else if (intel_crtc->config.port_clock > 33750)
+		stagger = 0x4;
+	else
+		stagger = 0x2;
 
+	val = vlv_dpio_read(dev_priv, pipe, VLV_PCS01_DW11(ch));
+	val |= DPIO_TX2_STAGGER_MASK(0x1f);
+	vlv_dpio_write(dev_priv, pipe, VLV_PCS01_DW11(ch), val);
+
+	val = vlv_dpio_read(dev_priv, pipe, VLV_PCS23_DW11(ch));
+	val |= DPIO_TX2_STAGGER_MASK(0x1f);
+	vlv_dpio_write(dev_priv, pipe, VLV_PCS23_DW11(ch), val);
+
+	vlv_dpio_write(dev_priv, pipe, VLV_PCS01_DW12(ch),
+		       DPIO_LANESTAGGER_STRAP(stagger) |
+		       DPIO_LANESTAGGER_STRAP_OVRD |
+		       DPIO_TX1_STAGGER_MASK(0x1f) |
+		       DPIO_TX1_STAGGER_MULT(6) |
+		       DPIO_TX2_STAGGER_MULT(0));
+
+	vlv_dpio_write(dev_priv, pipe, VLV_PCS23_DW12(ch),
+		       DPIO_LANESTAGGER_STRAP(stagger) |
+		       DPIO_LANESTAGGER_STRAP_OVRD |
+		       DPIO_TX1_STAGGER_MASK(0x1f) |
+		       DPIO_TX1_STAGGER_MULT(7) |
+		       DPIO_TX2_STAGGER_MULT(5));
+/* FIXME: Fix up value only after power analysis */
 	/* Clear calc init */
 	val = vlv_dpio_read(dev_priv, pipe, VLV_PCS01_DW10(ch));
 	val &= ~(DPIO_PCS_SWING_CALC_TX0_TX2 | DPIO_PCS_SWING_CALC_TX1_TX3);
