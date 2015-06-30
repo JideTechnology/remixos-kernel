@@ -54,6 +54,8 @@ static int cht_hw_set_rts(struct uart_hsu_port *up, int value)
 		if (!pin_cfg->rts_gpio) {
 			pin_cfg->rts_gpio = gpiod_get_index(up->dev, "hsu_rts",
 					hsu_rts_idx);
+			if (IS_ERR(pin_cfg->rts_gpio))
+				pin_cfg->rts_gpio = NULL;
 		}
 
 		if (pin_cfg->rts_gpio) {
@@ -84,6 +86,8 @@ static int cht_hsu_hw_suspend(struct uart_hsu_port *up)
 		if (!pin_cfg->rx_gpio) {
 			pin_cfg->rx_gpio = gpiod_get_index(up->dev, "hsu_rxd",
 					hsu_rxd_idx);
+			if (IS_ERR(pin_cfg->rx_gpio))
+				pin_cfg->rx_gpio = NULL;
 		}
 		pin_cfg->wake_gpio = pin_cfg->rx_gpio;
 		break;
@@ -91,6 +95,8 @@ static int cht_hsu_hw_suspend(struct uart_hsu_port *up)
 		if (!pin_cfg->cts_gpio) {
 			pin_cfg->cts_gpio =gpiod_get_index(up->dev, "hsu_cts",
 					hsu_cts_idx);
+			if (IS_ERR(pin_cfg->cts_gpio))
+				pin_cfg->cts_gpio = NULL;
 		}
 		pin_cfg->wake_gpio = pin_cfg->cts_gpio;
 		break;
