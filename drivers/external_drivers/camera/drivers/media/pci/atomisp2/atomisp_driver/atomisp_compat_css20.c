@@ -1739,7 +1739,7 @@ int atomisp_alloc_dis_coef_buf(struct atomisp_sub_device *asd)
 
 int atomisp_alloc_metadata_output_buf(struct atomisp_sub_device *asd)
 {
-	unsigned int i;
+	int i;
 
 	/* We allocate the cpu-side buffer used for communication with user
 	 * space */
