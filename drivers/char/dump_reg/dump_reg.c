@@ -37,7 +37,7 @@
 #define SUNXI_MEM_PHYS_VASE     0xffffffc000000000UL
 #define PRINT_ADDR_FMT          "0x%016lx"
 #else
-#define SUNXI_IOMEM_VASE        0xf0000000UL
+#define SUNXI_IOMEM_VASE        0xf1000000UL
 #define SUNXI_IOMEM_SIZE        SZ_256M
 #define SUNXI_MEM_PHYS_VASE     0xc0000000UL
 #define PRINT_ADDR_FMT          "0x%08lx"
