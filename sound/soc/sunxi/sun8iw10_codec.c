@@ -875,7 +875,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto err1;
 	}
-
+#if 0
 	/*voltage*/
 	sunxi_internal_codec->vol_supply.cpvdd =  regulator_get(NULL, "vcc-cpvdd");/*HPVCC*/
 	if (!sunxi_internal_codec->vol_supply.cpvdd) {
@@ -902,7 +902,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 			goto err1;
 		}
 	}
-
+#endif
 	sunxi_internal_codec->codec_abase = NULL;
 	sunxi_internal_codec->codec_dbase = NULL;
 	sunxi_internal_codec->codec_dbase = of_iomap(node, 0);

@@ -121,7 +121,7 @@ static struct snd_soc_dai_link sunxi_sndpcm_dai_link[] = {
 	.name 			= "audiocodec",
 	.stream_name 	= "SUNXI-CODEC",
 	.cpu_dai_name 	= "sunxi-internal-cpudai",
-	.codec_dai_name = "codec-aif1",
+	.codec_dai_name = "sun8iw10codec",
 	.platform_name 	= "sunxi-internal-cpudai",
 	.codec_name 	= "sunxi-internal-codec",
 	.init 			= sunxi_audio_init,
@@ -158,6 +158,14 @@ static int sunxi_machine_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, &snd_soc_sunxi_sndpcm);
 
 	sunxi_sndpcm_dai_link[0].cpu_dai_name = NULL;
+	sunxi_sndpcm_dai_link[0].cpu_of_node = of_parse_phandle(np,
+				"sunxi,cpudai-controller", 0);
+	if (!sunxi_sndpcm_dai_link[0].cpu_of_node) {
+		dev_err(&pdev->dev,
+			"Property 'sunxi,cpudai-controller' missing or invalid\n");
+			ret = -EINVAL;
+			goto err1;
+	}
 	sunxi_sndpcm_dai_link[0].platform_name = NULL;
 	sunxi_sndpcm_dai_link[0].platform_of_node = sunxi_sndpcm_dai_link[0].cpu_of_node;
 

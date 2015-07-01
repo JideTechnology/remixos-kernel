@@ -534,12 +534,12 @@
 
 		codec:codec@0x01c22c00 {
 			compatible = "allwinner,sunxi-internal-codec";
-			reg = <0x0 0x01c22c00 0x0 0x400>,/*digital baseadress*/
-			      <0x0 0x01c23000 0x0 0x0>;/*analog baseadress*/
+			reg = <0x0 0x01c22c00 0x0 0x2bc>,/*digital baseadress*/
+			      <0x0 0x01c23000 0x0 0x4>;/*analog baseadress*/
 			clocks = <&clk_pll_audiox4>;
 
 			/*gpio-spk=<&pio 6 7 0>;*/
-			gpio-spk = <&pio PH 7 1 1 1 1>;
+			gpio-spk = <&pio PB 1 1 1 1 1>;
 
 			headphonevol =  <0x3b>;
 			spkervol =  <0x1b>;
@@ -549,8 +549,8 @@
 			status = "okay";
 		};
 
-		i2s:i2s0-controller@0x01c22c00 {
-			compatible = "allwinner,sunxi-internal-i2s";
+		cpudai:cpudai0-controller@0x01c22c00 {
+			compatible = "allwinner,sunxi-internal-cpudai";
 			reg = <0x0 0x01c22c00 0x0 0x478>;/*digital baseadress*/
 			clocks = <&clk_pll_audio>,<&clk_adda>;
 			status = "okay";
@@ -629,7 +629,7 @@
 		sndcodec:sound@0 {
 			compatible = "allwinner,sunxi-codec-machine";
 			interrupts = <GIC_SPI 28 4>;
-			sunxi,i2s-controller = <&i2s>;
+			sunxi,cpudai-controller = <&cpudai>;
 			sunxi,audio-codec = <&codec>;
 			hp_detect_case = <0x00>;
 			status = "okay";
