@@ -452,6 +452,7 @@ struct intel_crtc {
 	bool enableprimary;
 	bool lowfreq_avail;
 	bool pri_update;
+	bool atomic_update;
 	struct intel_overlay *overlay;
 
 	struct intel_unpin_work *unpin_work;

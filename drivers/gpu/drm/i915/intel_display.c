@@ -2771,7 +2771,7 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	 * In case of atomic update, primary enable/disable is already cached as
 	 * part of sprite flip, make use of that over here
 	 */
-	if (intel_crtc->pri_update && dev_priv->atomic_update) {
+	if (intel_crtc->pri_update && intel_crtc->atomic_update) {
 		dspcntr = intel_crtc->reg.cntr;
 		intel_crtc->pri_update = false;
 	} else {
@@ -2882,7 +2882,7 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 			intel_crtc->reg.pfit_control =
 				intel_crtc->config.gmch_pfit.control;
 			intel_crtc->reg.pipesrc = intel_crtc->scaling_src_size;
-			if (!dev_priv->atomic_update) {
+			if (!intel_crtc->atomic_update) {
 				I915_WRITE(PFIT_CONTROL,
 					intel_crtc->reg.pfit_control);
 				I915_WRITE(PIPESRC(pipe),
@@ -2895,7 +2895,7 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 			intel_crtc->reg.pipesrc =
 				((mode->hdisplay - 1) <<
 				SCALING_SRCSIZE_SHIFT) | (mode->vdisplay - 1);
-			if (!dev_priv->atomic_update) {
+			if (!intel_crtc->atomic_update) {
 				I915_WRITE(PIPESRC(pipe),
 						intel_crtc->reg.pipesrc);
 				I915_WRITE(PFIT_CONTROL,
@@ -2907,7 +2907,7 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 
 	/* When in maxfifo dspcntr cannot be changed */
 	if (dspcntr != I915_READ(DSPCNTR(pipe)) && dev_priv->maxfifo_enabled
-			&& dev_priv->atomic_update) {
+			&& intel_crtc->atomic_update) {
 		intel_update_maxfifo(dev_priv, crtc, false);
 		dev_priv->wait_vbl = true;
 		dev_priv->vblcount =
@@ -2948,7 +2948,7 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	}
 
 	intel_crtc->reg.cntr = dspcntr;
-	if (!dev_priv->atomic_update)
+	if (!intel_crtc->atomic_update)
 		I915_WRITE(reg, intel_crtc->reg.cntr);
 
 	linear_offset = y * fb->pitches[0] + x * (fb->bits_per_pixel / 8);
@@ -2964,13 +2964,13 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	}
 
 	intel_crtc->reg.stride = fb->pitches[0];
-	if (!dev_priv->atomic_update)
+	if (!intel_crtc->atomic_update)
 		I915_WRITE(DSPSTRIDE(plane), intel_crtc->reg.stride);
 	if (INTEL_INFO(dev)->gen >= 4) {
 		intel_crtc->reg.surf = i915_gem_obj_ggtt_offset(obj) +
 						intel_crtc->dspaddr_offset;
 
-		if (!dev_priv->atomic_update) {
+		if (!intel_crtc->atomic_update) {
 			I915_MODIFY_DISPBASE(DSPSURF(plane),
 				intel_crtc->reg.surf);
 			intel_dsi_send_fb_on_crtc(crtc);
@@ -2983,7 +2983,7 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 			intel_crtc->reg.linoff = linear_offset +
 				(fb->height - 1) * fb->pitches[0] +
 				(fb->width - 1) * pixel_size;
-			if (!dev_priv->atomic_update) {
+			if (!intel_crtc->atomic_update) {
 				I915_WRITE(DSPTILEOFF(plane),
 					intel_crtc->reg.tileoff);
 				I915_WRITE(DSPLINOFF(plane),
@@ -2992,7 +2992,7 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 		} else {
 			intel_crtc->reg.tileoff = (y << 16) | x;
 			intel_crtc->reg.linoff = linear_offset;
-			if (!dev_priv->atomic_update) {
+			if (!intel_crtc->atomic_update) {
 				I915_WRITE(DSPTILEOFF(plane),
 					intel_crtc->reg.tileoff);
 				I915_WRITE(DSPLINOFF(plane),
@@ -11244,7 +11244,7 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 		DRM_ERROR("Atomicity version or struct size mismatch");
 		return -EINVAL;
 	}
-	dev_priv->atomic_update = true;
+	intel_crtc->atomic_update = true;
 
 	intel_runtime_pm_get(dev_priv);
 
@@ -11317,7 +11317,7 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 
 	dev_priv->prev_pipe_plane_stat = dev_priv->pipe_plane_stat;
 
-	dev_priv->atomic_update = false;
+	intel_crtc->atomic_update = false;
 
 	intel_runtime_pm_put(dev_priv);
 	return ret;
