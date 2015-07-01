@@ -52,10 +52,12 @@ struct pi3usb30532_mux {
 	struct notifier_block mux_nb;
 	struct extcon_specific_cable_nb usb_cable_obj;
 	struct extcon_specific_cable_nb host_cable_obj;
+	struct extcon_specific_cable_nb dp_cable_obj;
 	struct work_struct mux_work;
 	struct mutex event_lock;
 	struct typec_phy *phy;
 	u8 cur_config;
+	struct extcon_dev *edev;
 };
 
 /* read/write/modify pi3usb30532 register values */
@@ -122,22 +124,44 @@ static void pi3usb30532_mux_event_worker(struct work_struct *work)
 						struct pi3usb30532_mux,
 						mux_work);
 	u8 conf;
-	int orientation, ret;
+	int orientation;
+	int dp_state = 0;
 
 	if (IS_ERR_OR_NULL(chip->phy)) {
 		dev_err(chip->dev, "cant get phy to determine orientation");
 		return;
 	}
+
 	mutex_lock(&chip->event_lock);
+	if (chip->edev) {
+		/* Get display cable state */
+		dp_state = extcon_get_cable_state(chip->edev,
+						"USB_TYPEC_DP_SOURCE");
+		dev_dbg(&chip->client->dev, "%s: DP cable state=%d, type=%d\n",
+			__func__, dp_state, chip->phy->dp_type);
+	}
+
 	orientation = typec_get_cc_orientation(chip->phy);
 	dev_dbg(&chip->client->dev, "%s cable orientation: %d\n",
 				 __func__, orientation);
 	switch (orientation) {
 	case TYPEC_POS_NORMAL:
 		conf = PI3USBMUX_USB30;
+		if (dp_state) {
+			if (chip->phy->dp_type == TYPEC_DP_TYPE_2X)
+				conf = PI3USBMUX_USB30N2LDP1P2;
+			else if (chip->phy->dp_type == TYPEC_DP_TYPE_4X)
+				conf = PI3USBMUX_4LDP1P2;
+		}
 		break;
 	case TYPEC_POS_SWAP:
 		conf = PI3USBMUX_USB30_SWAP;
+		if (dp_state) {
+			if (chip->phy->dp_type == TYPEC_DP_TYPE_2X)
+				conf = PI3USBMUX_USB30N2LDP1P2_SWAP;
+			else if (chip->phy->dp_type == TYPEC_DP_TYPE_4X)
+				conf = PI3USBMUX_4LDP1P2_SWAP;
+		}
 		break;
 	case TYPEC_POS_DISCONNECT:
 	default:
@@ -147,7 +171,7 @@ static void pi3usb30532_mux_event_worker(struct work_struct *work)
 
 	chip->cur_config = conf;
 
-	ret = pi3usb30532_mux_sel_ctrl(chip, conf);
+	pi3usb30532_mux_sel_ctrl(chip, conf);
 	mutex_unlock(&chip->event_lock);
 }
 
@@ -221,15 +245,31 @@ static int pi3usb30532_probe(struct i2c_client *client,
 	ret = extcon_register_interest(&chip->usb_cable_obj, NULL, "USB",
 					&chip->mux_nb);
 	if (ret < 0) {
-		extcon_unregister_interest(&chip->host_cable_obj);
 		dev_err(&chip->client->dev,
 			"failed to register extcon usb cable notifier %d\n",
 			ret);
-		return -EINVAL;
+		goto usb_reg_fail;
 	}
+	ret = extcon_register_interest(&chip->dp_cable_obj, NULL,
+							"USB_TYPEC_DP_SOURCE",
+							&chip->mux_nb);
+	if (ret < 0) {
+		dev_err(&chip->client->dev,
+			"failed to register extcon DP cable notifier %d\n",
+			ret);
+		goto dp_reg_fail;
+	}
+	/* Get typec edev */
+	chip->edev = extcon_get_extcon_dev("usb-typec");
 	schedule_work(&chip->mux_work);
 
 	return 0;
+
+dp_reg_fail:
+	extcon_unregister_interest(&chip->usb_cable_obj);
+usb_reg_fail:
+	extcon_unregister_interest(&chip->host_cable_obj);
+	return -EINVAL;
 }
 
 static int pi3usb30532_remove(struct i2c_client *client)
@@ -239,6 +279,7 @@ static int pi3usb30532_remove(struct i2c_client *client)
 	if (chip) {
 		extcon_unregister_interest(&chip->usb_cable_obj);
 		extcon_unregister_interest(&chip->host_cable_obj);
+		extcon_unregister_interest(&chip->dp_cable_obj);
 	}
 
 	return 0;
