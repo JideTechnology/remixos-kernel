@@ -1,8 +1,8 @@
 /*
  * sound\soc\sunxi\sunxi_spdif.c
  * (C) Copyright 2014-2016
- * Reuuimlla Technology Co., Ltd. <www.reuuimllatech.com>
- * chenpailin <chenpailin@Reuuimllatech.com>
+ * allwinnertech Technology Co., Ltd. <www.allwinnertech.com>
+ * huangxin <huangxin@allwinnertech.com>
  *
  * some simple description for this code
  *
@@ -33,6 +33,10 @@
 #include <linux/regulator/consumer.h>
 
 #define DRV_NAME "sunxi-spdif"
+#ifdef CONFIG_ARCH_SUN8IW10
+static bool  spdif_loop_en 		= false;
+#endif
+
 void spdif_txctrl_enable(int tx_en, int chan, int hub_en,struct sunxi_spdif_info *sunxi_spdif)
 {
 	u32 reg_val;
@@ -42,9 +46,6 @@ void spdif_txctrl_enable(int tx_en, int chan, int hub_en,struct sunxi_spdif_info
 		reg_val |= SUNXI_SPDIF_TXCFG_SINGLEMOD;
 		writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_TXCFG);
 	}
-
-	/*soft reset SPDIF*/
-	writel(0x1, sunxi_spdif->regs + SUNXI_SPDIF_CTL);
 
 	/*flush TX FIFO*/
 	reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_FCTL);
@@ -68,12 +69,7 @@ void spdif_txctrl_enable(int tx_en, int chan, int hub_en,struct sunxi_spdif_info
 		reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_INT);
 		reg_val |= SUNXI_SPDIF_INT_TXDRQEN;
 		writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_INT);
-
-		/*global enable*/
-		reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_CTL);
-		reg_val |= SUNXI_SPDIF_CTL_GEN;
-		writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_CTL);
-	} else {
+} else {
 		/*SPDIF TX DISABALE*/
 		reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_TXCFG);
 		reg_val &= ~SUNXI_SPDIF_TXCFG_TXEN;
@@ -83,12 +79,8 @@ void spdif_txctrl_enable(int tx_en, int chan, int hub_en,struct sunxi_spdif_info
 		reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_INT);
 		reg_val &= ~SUNXI_SPDIF_INT_TXDRQEN;
 		writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_INT);
-
-		/*global disable*/
-		reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_CTL);
-		reg_val &= ~SUNXI_SPDIF_CTL_GEN;
-		writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_CTL);
 	}
+
 	if (hub_en) {
 		reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_FCTL);
 		reg_val |= SUNXI_SPDIFFCTL_HUBEN;
@@ -131,11 +123,6 @@ static void spdif_rxctrl_enable(int rx_en,struct sunxi_spdif_info *sunxi_spdif)
 		reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_INT);
 		reg_val |= SUNXI_SPDIF_INT_RXDRQEN;
 		writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_INT);
-
-		/*global enable*/
-		reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_CTL);
-		reg_val |= SUNXI_SPDIF_CTL_GEN;
-		writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_CTL);
 	} else {
 		/*SPDIF TX DISABALE*/
 		reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_RXCFG);
@@ -146,25 +133,21 @@ static void spdif_rxctrl_enable(int rx_en,struct sunxi_spdif_info *sunxi_spdif)
 		reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_INT);
 		reg_val &= ~SUNXI_SPDIF_INT_RXDRQEN;
 		writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_INT);
-
-		/*global disable*/
-		reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_CTL);
-		reg_val &= ~SUNXI_SPDIF_CTL_GEN;
-		writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_CTL);
 	}
 }
 
 int spdif_set_fmt(unsigned int fmt,struct sunxi_spdif_info *sunxi_spdif)
 {
 	u32 reg_val;
-	reg_val = 0;
+
+	reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_TXCFG);
 	reg_val &= ~SUNXI_SPDIF_TXCFG_SINGLEMOD;
 	reg_val |= SUNXI_SPDIF_TXCFG_ASS;
 	reg_val &= ~SUNXI_SPDIF_TXCFG_NONAUDIO;
 	reg_val |= SUNXI_SPDIF_TXCFG_CHSTMODE;
 	writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_TXCFG);
 
-	reg_val = 0;
+	reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_FCTL);
 #ifdef CONFIG_ARCH_SUN8IW1
 	reg_val &= ~SUNXI_SPDIF_FCTL_FIFOSRC;
 #endif
@@ -197,6 +180,7 @@ int spdif_set_fmt(unsigned int fmt,struct sunxi_spdif_info *sunxi_spdif)
 		reg_val |= (SUNXI_SPDIF_TXCHSTA1_SAMWORDLEN(1));
 		writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_TXCHSTA1);
 	}
+
 	return 0;
 }
 EXPORT_SYMBOL(spdif_set_fmt);
@@ -204,6 +188,7 @@ EXPORT_SYMBOL(spdif_set_fmt);
 int spdif_set_params(int format,struct sunxi_spdif_info *sunxi_spdif)
 {
 	u32 reg_val;
+
 	reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_TXCFG);
 	reg_val &= ~SUNXI_SPDIF_TXCFG_FMTRVD;
 	if(format == 16)
@@ -223,7 +208,6 @@ int spdif_set_params(int format,struct sunxi_spdif_info *sunxi_spdif)
 		reg_val |= SUNXI_SPDIF_FCTL_TXIM(1);
 		writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_FCTL);
 	}
-
 	return 0;
 }
 EXPORT_SYMBOL(spdif_set_params);
@@ -478,6 +462,7 @@ int spdif_set_clkdiv(int div_id, int div,struct sunxi_spdif_info *sunxi_spdif )
 		default:
 			return -EINVAL;
 	}
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(spdif_set_clkdiv);
@@ -485,7 +470,9 @@ EXPORT_SYMBOL_GPL(spdif_set_clkdiv);
 static int sunxi_spdif_set_fmt(struct snd_soc_dai *cpu_dai, unsigned int fmt)
 {
 	struct sunxi_spdif_info *sunxi_spdif = snd_soc_dai_get_drvdata(cpu_dai);
+
 	spdif_set_fmt(fmt,sunxi_spdif);
+
 	return 0;
 }
 
@@ -512,6 +499,7 @@ static int sunxi_spdif_hw_params(struct snd_pcm_substream *substream, struct snd
 		return -EINVAL;
 	}
 	spdif_set_params(format,sunxi_spdif);
+
 	return 0;
 }
 
@@ -519,7 +507,9 @@ static int sunxi_spdif_trigger(struct snd_pcm_substream *substream,
                               int cmd, struct snd_soc_dai *dai)
 {
 	int ret = 0;
+	u32 reg_val = 0;
 	struct sunxi_spdif_info *sunxi_spdif = snd_soc_dai_get_drvdata(dai);
+
 	switch (cmd) {
 		case SNDRV_PCM_TRIGGER_START:
 		case SNDRV_PCM_TRIGGER_RESUME:
@@ -529,6 +519,13 @@ static int sunxi_spdif_trigger(struct snd_pcm_substream *substream,
 			} else {
 				spdif_txctrl_enable(1,substream->runtime->channels, 0,sunxi_spdif);
 			}
+#ifdef CONFIG_ARCH_SUN8IW10
+			if (spdif_loop_en) {
+				reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_CTL);
+				reg_val |= SUNXI_SPDIF_CTL_LOOP;
+				writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_CTL);
+			}
+#endif
 			break;
 		case SNDRV_PCM_TRIGGER_STOP:
 		case SNDRV_PCM_TRIGGER_SUSPEND:
@@ -546,6 +543,9 @@ static int sunxi_spdif_trigger(struct snd_pcm_substream *substream,
 
 		return ret;
 }
+#ifdef CONFIG_ARCH_SUN8IW10
+module_param_named(spdif_loop_en, spdif_loop_en, bool, S_IRUGO | S_IWUSR);
+#endif
 
 /*freq:   1: 22.5792MHz   0: 24.576MHz  */
 static int sunxi_spdif_set_sysclk(struct snd_soc_dai *cpu_dai, int clk_id,
@@ -744,7 +744,6 @@ static int __init sunxi_spdif_dev_probe(struct platform_device *pdev)
 		pr_err("[audio-spdif]Can't map spdif registers\n");
 	} else {
 		sunxi_spdif->regs = sunxi_spdif_membase;
-		//pr_debug("%s,line:%d,res.start:%llu,sunxi_spdif_membase:%llu\n",__func__,__LINE__,res.start,sunxi_spdif_membase);
 	}
 	sunxi_spdif->pllclk = of_clk_get(node, 0);
 	sunxi_spdif->moduleclk= of_clk_get(node, 1);
@@ -854,7 +853,7 @@ static void __exit sunxi_spdif_exit(void)
 module_exit(sunxi_spdif_exit);
 
 /* Module information */
-MODULE_AUTHOR("REUUIMLLA");
+MODULE_AUTHOR("huangxin");
 MODULE_DESCRIPTION("sunxi SPDIF SoC Interface");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:sunxi-spdif");
