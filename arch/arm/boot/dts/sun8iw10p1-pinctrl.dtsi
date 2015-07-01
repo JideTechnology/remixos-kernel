@@ -335,35 +335,35 @@
 				allwinner,pull = <0>;
 			};
 			dsd_pins_a: dsd@0 {
-				allwinner,pins = "PB1";/*ph8-spec*/
+				allwinner,pins = "PG10", "PG9", "PG8", "PG7";
 				allwinner,function = "dsd0";
-				allwinner,muxsel = <2>;
+				allwinner,muxsel = <3>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
 			dsd_pins_b: dsd_sleep@0 {
-				allwinner,pins = "PH8";/*ph8-spec*/
+				allwinner,pins = "PG10", "PG9", "PG8", "PG7";
 				allwinner,function = "io_disabled";
 				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
 			dmic_pins_a: dmic@0 {
-				allwinner,pins = "PB1";/*ph8-spec*/
-				allwinner,function = "dsd0";
-				allwinner,muxsel = <2>;
+				allwinner,pins = "PG4", "PG3", "PG2", "PG1", "PG0";
+				allwinner,function = "dmic0";
+				allwinner,muxsel = <3>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
 			dmic_pins_b: dmic_sleep@0 {
-				allwinner,pins = "PH8";/*ph8-spec*/
+				allwinner,pins = "PG4", "PG3", "PG2", "PG1", "PG0";
 				allwinner,function = "io_disabled";
 				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
 			spdif_pins_a: spdif@0 {
-				allwinner,pins = "PG11";/*ph8-spec*/
+				allwinner,pins = "PG11";
 				allwinner,function = "spdif0";
 				allwinner,muxsel = <2>;
 				allwinner,drive = <1>;
