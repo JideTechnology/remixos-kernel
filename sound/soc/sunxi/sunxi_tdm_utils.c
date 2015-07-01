@@ -31,6 +31,7 @@
 #include <linux/gpio.h>
 #include "sunxi_dma.h"
 #include "sunxi_tdm_utils.h"
+static bool  daudio0_loop_en 		= false;
 
 int txctrl_tdm(int on,int hub_en,struct sunxi_tdm_info *sunxi_tdm)
 {
@@ -253,11 +254,14 @@ EXPORT_SYMBOL(tdm_hw_params);
 int tdm_trigger(struct snd_pcm_substream *substream,int cmd, struct sunxi_tdm_info *sunxi_tdm)
 {
 	s32 ret = 0;
+	u32 reg_val = 0;
 	struct sunxi_tdm_info *tdm = NULL;
+
 	if (sunxi_tdm != NULL)
 		tdm = sunxi_tdm;
 	else
 		return -1;
+
 	switch (cmd) {
 		case SNDRV_PCM_TRIGGER_START:
 		case SNDRV_PCM_TRIGGER_RESUME:
@@ -267,6 +271,11 @@ int tdm_trigger(struct snd_pcm_substream *substream,int cmd, struct sunxi_tdm_in
 			} else {
 				txctrl_tdm(1,0,tdm);
 			}
+		if (daudio0_loop_en) {
+			reg_val = readl(tdm->regs + SUNXI_DAUDIOCTL);
+			reg_val |= SUNXI_DAUDIOCTL_LOOP; /*for test*/
+			writel(reg_val, tdm->regs + SUNXI_DAUDIOCTL);
+		}
 			break;
 		case SNDRV_PCM_TRIGGER_STOP:
 		case SNDRV_PCM_TRIGGER_SUSPEND:
@@ -285,6 +294,8 @@ int tdm_trigger(struct snd_pcm_substream *substream,int cmd, struct sunxi_tdm_in
 	return ret;
 }
 EXPORT_SYMBOL(tdm_trigger);
+module_param_named(daudio0_loop_en, daudio0_loop_en, bool, S_IRUGO | S_IWUSR);
+
 int tdm_set_sysclk(unsigned int freq,struct sunxi_tdm_info *sunxi_tdm)
 {
 	struct sunxi_tdm_info *tdm = NULL;
