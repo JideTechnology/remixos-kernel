@@ -28,6 +28,7 @@
 #include <linux/usb_typec_phy.h>
 #include <linux/extcon.h>
 #include <linux/acpi.h>
+#include "pi3usb30532_mux.h"
 
 /* I2C control register's offsets */
 #define PI3USB30532_SLAVE_ADDR_REG	0x00
@@ -58,7 +59,17 @@ struct pi3usb30532_mux {
 	struct typec_phy *phy;
 	u8 cur_config;
 	struct extcon_dev *edev;
+	int dp_cbl_state;
 };
+
+static void hpd_trigger(int state)
+{
+	pr_info("%s:HPD state=%d\n", __func__, state);
+	if (!state)
+		chv_gpio_cfg_inv(CHV_HPD_GPIO, CHV_HPD_INV_BIT, 1);
+	else
+		chv_gpio_cfg_inv(CHV_HPD_GPIO, CHV_HPD_INV_BIT, 0);
+}
 
 /* read/write/modify pi3usb30532 register values */
 static inline int pi3usb30532_mux_read_reg(struct i2c_client *client,
@@ -172,6 +183,10 @@ static void pi3usb30532_mux_event_worker(struct work_struct *work)
 	chip->cur_config = conf;
 
 	pi3usb30532_mux_sel_ctrl(chip, conf);
+	if (chip->dp_cbl_state != dp_state) {
+		hpd_trigger(dp_state);
+		chip->dp_cbl_state = dp_state;
+	}
 	mutex_unlock(&chip->event_lock);
 }
 
@@ -261,6 +276,8 @@ static int pi3usb30532_probe(struct i2c_client *client,
 	}
 	/* Get typec edev */
 	chip->edev = extcon_get_extcon_dev("usb-typec");
+	chip->dp_cbl_state = 0;
+	hpd_trigger(chip->dp_cbl_state);
 	schedule_work(&chip->mux_work);
 
 	return 0;
