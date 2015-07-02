@@ -1317,7 +1317,11 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                if(copy_from_user(&data, (void __user *)arg, sizeof(sunxi_cache_range)))
                        return -EFAULT;
 
-               __dma_flush_range( (void*)data.start , (void*)data.end );
+#ifdef CONFIG_ARM64
+				__dma_flush_range( (void*)data.start , (void*)data.end );
+#else
+				dmac_flush_range( (void*)data.start , (void*)data.end );
+#endif
 
                if(copy_to_user((void __user *)arg, &data, sizeof(data)))
                        return -EFAULT;
