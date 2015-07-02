@@ -31,7 +31,7 @@
 
 		spi0: spi@01c68000 {
 			interrupts = <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>;          /* spi0 is IRQ44 on fpga */
-			status = "okay";
+			status = "disabled";
 
 			nor_flash@0 {
 				#address-cells = <1>;
