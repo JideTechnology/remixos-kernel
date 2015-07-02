@@ -98,6 +98,7 @@ static int policy_engine_process_data_msg(struct policy_engine *pe,
 	struct policy *p = NULL;
 	int ret = 0;
 
+	pr_debug("PE: %s Data msg received evt - %d\n", __func__, evt);
 	switch (evt) {
 	case PE_EVT_RCVD_SRC_CAP:
 	case PE_EVT_RCVD_REQUEST:
@@ -117,7 +118,7 @@ static int policy_engine_process_data_msg(struct policy_engine *pe,
 		}
 		break;
 	default:
-		pr_warn("PE:%s: Invalid data msg, event=%d\n", __func__, evt);
+		pr_warn("PE: %s invalid data msg, event=%d\n", __func__, evt);
 		pe_dump_data_msg(pkt);
 	}
 
@@ -134,11 +135,12 @@ static int policy_engine_process_ctrl_msg(struct policy_engine *pe,
 	struct policy *p = NULL;
 	int ret = 0;
 
+	pr_debug("PE: %s Ctrl msg received evt - %d\n", __func__, evt);
 	switch (evt) {
 	case PE_EVT_RCVD_GOODCRC:
 		p = pe_get_running_policy(&pe->policy_list);
 		if (!p)
-			pr_err("PE:No running policy to forward GCRC msgs\n");
+			pr_err("PE: No running policy to forward GCRC msgs\n");
 		break;
 	case PE_EVT_RCVD_GOTOMIN:
 	case PE_EVT_RCVD_ACCEPT:
@@ -151,13 +153,12 @@ static int policy_engine_process_ctrl_msg(struct policy_engine *pe,
 	case PE_EVT_RCVD_PR_SWAP:
 	case PE_EVT_RCVD_VCONN_SWAP:
 	case PE_EVT_RCVD_WAIT:
-		pr_debug("PE:%s: Ctrl msg received\n", __func__);
 		p = pe_get_active_src_or_snk_policy(&pe->policy_list);
 		if (!p)
-			pr_err("PE:No active policy to forward Ctrl msgs\n");
+			pr_err("PE: No active policy to forward Ctrl msgs\n");
 		break;
 	default:
-		pr_warn("PE:%s:Not a valid ctrl msg to process, event=%d\n",
+		pr_warn("PE: %s Not a valid ctrl msg to process, event=%d\n",
 				__func__, evt);
 		pe_dump_header(&pkt->header);
 	}
@@ -489,11 +490,11 @@ static void pe_policy_status_changed(struct policy_engine *pe, int policy_type,
 		p = pe_get_policy(pe, POLICY_TYPE_DISPLAY);
 		/* Start the display policy */
 		if (!p) {
-			pr_err("PE:%s:No Display policy found\n", __func__);
+			pr_err("PE: %s No Display policy found\n", __func__);
 			return;
 		}
 		if (p->start) {
-			pr_info("PE:%s:Stating disp policy\n", __func__);
+			pr_info("PE: %s Stating disp policy\n", __func__);
 			p->start(p);
 		}
 	}
@@ -513,7 +514,7 @@ static void pe_init_policy(struct work_struct *work)
 		case POLICY_TYPE_SINK:
 			policy = sink_port_policy_init(pe);
 			if (IS_ERR_OR_NULL(policy)) {
-				pr_err("%s: unable to init SINK_POLICY\n",
+				pr_err("PE: %s unable to init SINK_POLICY\n",
 								__func__);
 				continue;
 			}
@@ -522,22 +523,24 @@ static void pe_init_policy(struct work_struct *work)
 		case POLICY_TYPE_SOURCE:
 			policy = src_pe_init(pe);
 			if (IS_ERR_OR_NULL(policy)) {
-				pr_err("%s: unable to init SOURCE_POLICY\n",
+				pr_err("PE: %s unable to init SOURCE_POLICY\n",
 								__func__);
 				continue;
 			}
 			list_add_tail(&policy->list, &pe->policy_list);
-			pr_debug("%s:Successfuly init source pe\n", __func__);
+			pr_debug("PE: %s Successfuly init source pe\n",
+					__func__);
 			break;
 		case POLICY_TYPE_DISPLAY:
 			policy = disp_pe_init(pe);
 			if (IS_ERR_OR_NULL(policy)) {
-				pr_err("%s: unable to init DOSPLAY_POLICY\n",
+				pr_err("PE: %s unable to init DOSPLAY_POLICY\n",
 								__func__);
 				continue;
 			}
 			list_add_tail(&policy->list, &pe->policy_list);
-			pr_debug("%s:Successfuly init display pe\n", __func__);
+			pr_debug("PE: %s Successfuly init display pe\n",
+					__func__);
 			break;
 		default:
 			/* invalid, dont add it to policy */
@@ -591,7 +594,7 @@ static void pe_policy_work(struct work_struct *work)
 		}
 		break;
 	default:
-		pr_err("%s: Unknown cable_type=%d\n",
+		pr_err("PE: %s Unknown cable_type=%d\n",
 			__func__, pe->cbl_type);
 	}
 }
@@ -605,7 +608,7 @@ static int sink_port_event(struct notifier_block *nb, unsigned long event,
 	int cable_state;
 
 	cable_state = extcon_get_cable_state(edev, "USB_TYPEC_UFP");
-	pr_info("%s:USB_TYPEC_UFP event with cable_state=%d\n",
+	pr_info("PE: %s USB_TYPEC_UFP event with cable_state=%d\n",
 			__func__, cable_state);
 	pe->cbl_type = cable_state ? CABLE_TYPE_CONSUMER : CABLE_TYPE_UNKNOWN;
 	schedule_work(&pe->policy_work);
@@ -621,7 +624,7 @@ static int source_port_event(struct notifier_block *nb, unsigned long event,
 	int cable_state;
 
 	cable_state = extcon_get_cable_state(edev, "USB_TYPEC_DFP");
-	pr_info("%s:USB_TYPEC_DFP event with cable_state=%d\n",
+	pr_info("PE: %s USB_TYPEC_DFP event with cable_state=%d\n",
 			__func__, cable_state);
 	pe->cbl_type = cable_state ? CABLE_TYPE_PROVIDER : CABLE_TYPE_UNKNOWN;
 	schedule_work(&pe->policy_work);

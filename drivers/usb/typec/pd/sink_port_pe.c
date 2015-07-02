@@ -27,8 +27,21 @@
 #include <linux/notifier.h>
 #include <linux/kfifo.h>
 #include <linux/err.h>
+#include <linux/sched.h>
 #include "policy_engine.h"
 #include "sink_port_pe.h"
+
+static inline void snkpe_update_state(struct sink_port_pe *sink,
+					enum pe_states cur_state)
+{
+	if (!sink)
+		return;
+
+	mutex_lock(&sink->snkpe_state_lock);
+	sink->prev_state = sink->cur_state;
+	sink->cur_state = cur_state;
+	mutex_unlock(&sink->snkpe_state_lock);
+}
 
 static int snkpe_timeout_transition_check(struct sink_port_pe *sink)
 {
@@ -49,8 +62,7 @@ static int snkpe_timeout_transition_check(struct sink_port_pe *sink)
 		tout == SENDER_RESPONSE_TIMER) {
 
 		/* Move to PE_SNK_Hard_Reset state */
-		sink->prev_state = sink->cur_state;
-		sink->cur_state = PE_SNK_HARD_RESET;
+		snkpe_update_state(sink, PE_SNK_HARD_RESET);
 
 		/* FIXME: Not generating hard reset signal now, since vbus is
 		 * getting diconnect and after that PD charger is not responding
@@ -62,8 +74,7 @@ static int snkpe_timeout_transition_check(struct sink_port_pe *sink)
 		sink->hard_reset_count > HARD_RESET_COUNT_N) {
 
 		/* FIXME : handle ErrorRecovery state */
-		sink->prev_state = sink->cur_state;
-		sink->cur_state = ERROR_RECOVERY;
+		snkpe_update_state(sink, ERROR_RECOVERY);
 	}
 
 	return ret;
@@ -242,8 +253,10 @@ static int snkpe_start(struct sink_port_pe *sink)
 		complete(&sink->nrt_complete);
 		return 0;
 	}
-	sink->p->status = POLICY_STATUS_RUNNING;
 
+	sink->p->status = POLICY_STATUS_RUNNING;
+	sink->p->state = POLICY_STATE_ONLINE;
+	sink->is_goodcrc_received = false;
 	/*---------- Start of Sink Port PE --------------*/
 	/* get the vbus state, in case of boot of vbus */
 	vbus_state = policy_get_vbus_state(sink->p);
@@ -260,13 +273,14 @@ static int snkpe_start(struct sink_port_pe *sink)
 		if (sink->cur_state != PE_SNK_STARTUP)
 			return 0;
 	} else {
+		mutex_lock(&sink->snkpe_state_lock);
 		sink->cur_state = PE_SNK_STARTUP;
+		mutex_lock(&sink->snkpe_state_lock);
 		return snkpe_do_prot_reset(sink);
 	}
 
 	/* move the state from PE_SNK_STARTUP to PE_SNK_DISCOVERY */
-	sink->prev_state = sink->cur_state;
-	sink->cur_state = PE_SNK_DISCOVERY;
+	snkpe_update_state(sink, PE_SNK_DISCOVERY);
 
 	/* wait for vbus: get notification from device policy manager
 	 * to continue the next state.
@@ -282,13 +296,13 @@ static inline int sink_port_policy_start(struct policy *p)
 	struct sink_port_pe *sink = p->priv;
 
 	pr_debug("SNKPE: %s\n", __func__);
-
+	mutex_lock(&sink->snkpe_state_lock);
 	sink->cur_state = PE_SNK_STARTUP;
-	sink->p->state = POLICY_STATE_ONLINE;
+	mutex_unlock(&sink->snkpe_state_lock);
 	return snkpe_start(sink);
 }
 
-int sink_port_policy_stop(struct policy *p)
+static int sink_port_policy_stop(struct policy *p)
 {
 	struct sink_port_pe *sink = p->priv;
 
@@ -304,12 +318,14 @@ int sink_port_policy_stop(struct policy *p)
 	snkpe_reinitialize_completion(sink);
 	/* FIXME: handle the stop state */
 	snkpe_do_prot_reset(sink);
+	mutex_lock(&sink->snkpe_state_lock);
 	sink->cur_state = PE_SNK_STARTUP;
+	mutex_unlock(&sink->snkpe_state_lock);
 
 	return 0;
 }
 
-int sink_port_policy_rcv_cmd(struct policy *p, enum pe_event evt)
+static int sink_port_policy_rcv_cmd(struct policy *p, enum pe_event evt)
 {
 	int ret = 0;
 	struct sink_port_pe *sink = p->priv;
@@ -318,19 +334,21 @@ int sink_port_policy_rcv_cmd(struct policy *p, enum pe_event evt)
 	case PE_EVT_RCVD_HARD_RESET:
 		ret = snkpe_do_prot_reset(sink);
 		sink_port_policy_stop(p);
-		sink->cur_state = PE_SNK_STARTUP;
+		snkpe_update_state(sink, PE_SNK_STARTUP);
 		sink_port_policy_start(p);
 		break;
 	case PE_EVT_RCVD_HARD_RESET_COMPLETE:
 		return snkpe_handle_transition_to_default(sink);
 	default:
+		pr_err("SNKPE: %s evt - %d\n", __func__, evt);
+		ret = -EINVAL;
 		break;
 	}
 
 	return ret;
 }
 
-int sink_port_policy_rcv_pkt(struct policy *p, struct pd_packet *pkt,
+static int sink_port_policy_rcv_pkt(struct policy *p, struct pd_packet *pkt,
 				enum pe_event evt)
 {
 	int ret = 0;
@@ -399,6 +417,16 @@ int sink_port_policy_rcv_pkt(struct policy *p, struct pd_packet *pkt,
 			ret = -EINVAL;
 		}
 		break;
+	case PE_EVT_RCVD_GOODCRC:
+		if (sink->cur_state == PE_SNK_SELECT_CAPABILITY) {
+			sink->is_goodcrc_received = true;
+			wake_up(&sink->wait_goodcrc);
+			pr_debug("SNKPE: Received ack for PD_DATA_MSG_REQUEST\n");
+		} else if (sink->prev_state == PE_SNK_GIVE_SINK_CAP &&
+			sink->cur_state == PE_SNK_READY) {
+			pr_debug("SNKPE: Received ack for PD_DATA_MSG_SINK_CAP\n");
+		}
+		break;
 	default:
 		break;
 	}
@@ -422,9 +450,8 @@ static int snkpe_setup_charging(struct sink_port_pe *sink)
 	ret = policy_set_charger_mode(sink->p, CHRGR_ENABLE);
 	if (ret < 0)
 		pr_err("SNKPE: Error in enabling charger (%d)\n", ret);
-	else if ((sink->cur_state == PE_SNK_READY) && !ret)
+	else
 		pr_info("SNKPE: Consumer Policy Negotiation Success!\n");
-
 	return ret;
 }
 
@@ -433,8 +460,7 @@ static int snkpe_handle_transition_to_default(struct sink_port_pe *sink)
 	int ret = 0;
 	unsigned long timeout;
 
-	sink->prev_state = sink->cur_state;
-	sink->cur_state = PE_SNK_TRANSITION_TO_DEFAULT;
+	snkpe_update_state(sink, PE_SNK_TRANSITION_TO_DEFAULT);
 
 	/* FIXME: Request Device Policy Manager to request power sink transition
 	 * to default Reset local HW, handled automatically based on cable event
@@ -471,18 +497,16 @@ static int snkpe_handle_transition_sink_state(struct sink_port_pe *sink)
 	int ret = 0;
 	unsigned long timeout;
 
-	sink->prev_state = sink->cur_state;
-	sink->cur_state = PE_SNK_TRANSITION_SINK;
+	snkpe_update_state(sink, PE_SNK_TRANSITION_SINK);
 
 	/* FIXME: Request Device Policy Manager transitions sink power
 	 * supply to new power (if required): handled in next state (READY) */
 
 	/* Put the charger into HiZ mode */
 	ret = policy_set_charger_mode(sink->p, CHRGR_SET_HZ);
-	if (ret < 0) {
+	if (ret < 0)
 		pr_err("SNKPE: Error in putting into HiZ mode (%d)\n", ret);
-		goto error;
-	}
+
 	if (sink->pevt != PE_EVT_RCVD_GOTOMIN)
 		sink->ilim = sink->rcap.ma;
 	else
@@ -514,6 +538,9 @@ static int snkpe_handle_select_capability_state(struct sink_port_pe *sink,
 	u32 data = 0;
 	unsigned long timeout;
 
+	/* move the next state PE_SNK_Select_Capability */
+	snkpe_update_state(sink, PE_SNK_SELECT_CAPABILITY);
+
 	evt = PE_EVT_SEND_REQUEST;
 	/* make request message and send to PE -> protocol */
 	ret = snkpe_get_msg(sink, pkt, evt, &data);
@@ -527,17 +554,18 @@ static int snkpe_handle_select_capability_state(struct sink_port_pe *sink,
 		pr_err("SNKPE: Error in sending packet!\n");
 		goto error;
 	}
-	pr_debug("SNKPE: PD_DATA_MSG_REQUEST Sent!\n");
+	pr_debug("SNKPE: PD_DATA_MSG_REQUEST Sent\n");
 
 	/* Keeping backup to use later if required for wait event and
 	 * sink request timer timeout */
 	memcpy(&sink->prev_pkt, pkt, sizeof(struct pd_packet));
 
-	/* move the next state PE_SNK_Select_Capability */
-	if (sink->cur_state == PE_SNK_EVALUATE_CAPABILITY) {
-		sink->prev_state = sink->cur_state;
-		sink->cur_state = PE_SNK_SELECT_CAPABILITY;
-	}
+	ret = wait_event_timeout(sink->wait_goodcrc,
+			(sink->is_goodcrc_received == true),
+			HZ);
+	if (ret == 0)
+		pr_err("SNKPE: Timeout for Good CRC continue anyway!\n");
+	sink->is_goodcrc_received = false;
 
 	/* Initialize and run SenderResponseTimer */
 	timeout = msecs_to_jiffies(TYPEC_SENDER_RESPONSE_TIMER);
@@ -569,8 +597,7 @@ static int snkpe_handle_give_snk_cap_state(struct sink_port_pe *sink)
 	struct power_caps pcaps;
 	struct pd_sink_fixed_pdo pdo[MAX_NUM_DATA_OBJ] = { {0} };
 
-	sink->prev_state = sink->cur_state;
-	sink->cur_state = PE_SNK_GIVE_SINK_CAP;
+	snkpe_update_state(sink, PE_SNK_GIVE_SINK_CAP);
 
 	ret = policy_get_snkpwr_caps(sink->p, &pcaps);
 	if (ret < 0)
@@ -599,6 +626,7 @@ static int snkpe_handle_give_snk_cap_state(struct sink_port_pe *sink)
 		pr_err("SNKPE: Error in sending packet!\n");
 		goto error;
 	}
+	pr_debug("SNKPE: PD_DATA_MSG_SINK_CAP sent\n");
 
 	return snkpe_handle_snk_ready_state(sink, sink->pevt);
 
@@ -631,23 +659,25 @@ static int snkpe_handle_snk_ready_state(struct sink_port_pe *sink,
 	int ret = 0;
 	unsigned long timeout;
 
-	sink->prev_state = sink->cur_state;
-	sink->cur_state = PE_SNK_READY;
+	snkpe_update_state(sink, PE_SNK_READY);
 
 	/* TODO: if Update remote capabilities request from received from
 	 * Device Policy Manager move to PE_SNK_Get_Source_Cap state and
 	 * send Send Get_Source_Cap message, then move to PE_SNK_Ready state.
 	 */
 
-	if (evt == PE_EVT_RCVD_PS_RDY) {
-
+	switch (evt) {
+	case PE_EVT_RCVD_PS_RDY:
 		ret = snkpe_setup_charging(sink);
 		if (ret < 0)
-			pr_err("SNKPE: Error in setup charging (%d)\n",
-					ret);
-	} else if (evt == PE_EVT_RCVD_REJECT) {
-		/* Do nothing and stay at the same state */
-	} else if (evt == PE_EVT_RCVD_WAIT) {
+			pr_warn("SNKPE: Error in setup charging (%d)\n", ret);
+		break;
+	case PE_EVT_RCVD_REJECT:
+	case PE_EVT_SEND_SNK_CAP:
+	case PE_EVT_SEND_GET_SRC_CAP:
+		/* Do nothing and continue in the same state */
+		break;
+	case PE_EVT_RCVD_WAIT:
 		/* Initialize and run SinkRequestTimer (on receiving
 		 * Wait) for PS_RDY */
 		timeout = msecs_to_jiffies(TYPEC_SINK_REQUEST_TIMER);
@@ -663,11 +693,9 @@ static int snkpe_handle_snk_ready_state(struct sink_port_pe *sink,
 
 		/* Received PS_RDY event after a WAIT event */
 		ret = snkpe_handle_psrdy_after_wait_state(sink);
-	} else if (evt == PE_EVT_SEND_SNK_CAP ||
-			evt == PE_EVT_SEND_GET_SRC_CAP) {
-		/* Do nothing and continue in the same state */
-	} else {
-		pr_err("SNKPE: Unknown state to handle ready\n");
+		break;
+	default:
+		pr_err("SNKPE: Unknown state to handle ready evt = %d\n", evt);
 		ret = -EINVAL;
 	}
 
@@ -681,8 +709,8 @@ static int snkpe_handle_evaluate_capability(struct sink_port_pe *sink)
 	int ret = 0;
 	struct pd_packet pkt = { {0} };
 
-	sink->prev_state = sink->cur_state;
-	sink->cur_state = PE_SNK_EVALUATE_CAPABILITY;
+	snkpe_update_state(sink, PE_SNK_EVALUATE_CAPABILITY);
+
 	/* FIXME: Stop NoResponseTimer and reset HardResetCounter to
 	 * zero. Ask Device Policy Manager to evaluate option based on
 	 * supplied capabilities (from supplied capabilities, reserve or
@@ -711,8 +739,7 @@ static int snkpe_vbus_attached(struct sink_port_pe *sink)
 
 	if (sink->prev_state == PE_SNK_STARTUP &&
 		sink->cur_state == PE_SNK_DISCOVERY) {
-		sink->prev_state = sink->cur_state;
-		sink->cur_state = PE_SNK_WAIT_FOR_CAPABILITIES;
+		snkpe_update_state(sink, PE_SNK_WAIT_FOR_CAPABILITIES);
 
 		/* Initialize and run SinkWaitCapTimer */
 		/* unblock this once source cap rcv by checking the cur_state */
@@ -747,6 +774,7 @@ struct policy *sink_port_policy_init(struct policy_engine *pe)
 		goto error0;
 	}
 	snkpe->p = p;
+	init_waitqueue_head(&snkpe->wait_goodcrc);
 
 	/* Allocate memory for PD packet FIFO */
 	if (kfifo_alloc(&snkpe->pkt_fifo,
@@ -775,6 +803,7 @@ struct policy *sink_port_policy_init(struct policy_engine *pe)
 	init_completion(&snkpe->sat_complete);
 	init_completion(&snkpe->srqt_complete);
 	init_completion(&snkpe->pktwt_complete);
+	mutex_init(&snkpe->snkpe_state_lock);
 
 	return snkpe->p;
 

@@ -99,7 +99,10 @@ struct sink_port_pe {
 	enum pe_event pevt;
 	enum pe_states cur_state;
 	enum pe_states prev_state;
+	struct mutex snkpe_state_lock;
 	enum snkpe_timeout timeout;
+	wait_queue_head_t wait_goodcrc;
+	bool is_goodcrc_received;
 	u8 hard_reset_count;
 	bool is_vbus_connected;
 };
