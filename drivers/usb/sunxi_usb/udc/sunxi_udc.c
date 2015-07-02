@@ -374,12 +374,17 @@ __acquires(ep->dev->lock)
 		status = req->req.status;
 
 	ep->halted = 1;
-	spin_unlock(&ep->dev->lock);
 	if (is_sunxi_udc_dma_capable(req, ep)) {
+		spin_unlock(&ep->dev->lock);
 		sunxi_udc_unmap_dma_buffer(req, ep->dev, ep);
+		req->req.complete(&ep->ep, &req->req);
+		spin_lock(&ep->dev->lock);
+	}else{
+		spin_unlock(&ep->dev->lock);
+		req->req.complete(&ep->ep, &req->req);
+		spin_lock(&ep->dev->lock);
 	}
-	req->req.complete(&ep->ep, &req->req);
-	spin_lock(&ep->dev->lock);
+
 	ep->halted = halted;
 }
 
@@ -2027,13 +2032,12 @@ static int sunxi_udc_queue(struct usb_ep *_ep, struct usb_request *_req, gfp_t g
 	spin_lock_irqsave(&ep->dev->lock, flags);
 	_req->status = -EINPROGRESS;
 	_req->actual = 0;
-	spin_unlock_irqrestore(&ep->dev->lock, flags);
 
 	if (is_sunxi_udc_dma_capable(req, ep)) {
+		spin_unlock_irqrestore(&ep->dev->lock, flags);
 		sunxi_udc_map_dma_buffer(req, dev, ep);
+		spin_lock_irqsave(&ep->dev->lock, flags);
 	}
-
-	spin_lock_irqsave(&ep->dev->lock, flags);
 
 	list_add_tail(&req->queue, &ep->queue);
 
