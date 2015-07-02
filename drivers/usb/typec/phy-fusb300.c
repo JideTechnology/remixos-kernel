@@ -663,7 +663,8 @@ static int fusb300_init_chip(struct fusb300_chip *chip)
 	return 0;
 }
 
-static void fusb300_handle_toggle_done(struct fusb300_chip *chip, int stat_reg)
+static void fusb300_handle_toggle_done(struct fusb300_chip *chip,
+				int tog_stat_reg, int vbus_stat_reg)
 {
 	struct typec_phy *phy = &chip->phy;
 	u8 tog_stat;
@@ -672,8 +673,7 @@ static void fusb300_handle_toggle_done(struct fusb300_chip *chip, int stat_reg)
 	 * disable the toggle state machine and setup the PD transmitter
 	 * to the identified CC
 	 */
-	fusb302_enable_toggle(chip, false, FUSB302_TOG_MODE_DRP);
-	tog_stat = FUSB302_TOG_STAT(stat_reg);
+	tog_stat = FUSB302_TOG_STAT(tog_stat_reg);
 
 	if ((tog_stat == FUSB302_TOG_STAT_DFP_CC1) ||
 		(tog_stat == FUSB302_TOG_STAT_DFP_CC2))  {
@@ -682,19 +682,44 @@ static void fusb300_handle_toggle_done(struct fusb300_chip *chip, int stat_reg)
 		mutex_unlock(&chip->lock);
 		atomic_notifier_call_chain(&phy->notifier,
 				TYPEC_EVENT_DFP, phy);
-	}
-
-	/* according to TYPEC new spec UFP trigger will happen
-	 * after VBUS and Rp terminations are seen
-	 */
-	if ((tog_stat == FUSB302_TOG_STAT_UFP_CC1) ||
+	} else if ((tog_stat == FUSB302_TOG_STAT_UFP_CC1) ||
 		(tog_stat == FUSB302_TOG_STAT_UFP_CC2)) {
+		/* according to TYPEC new spec UFP trigger will happen
+		 * after VBUS and Rp terminations are seen
+		 */
 		mutex_lock(&chip->lock);
 		phy->state = TYPEC_STATE_UNATTACHED_UFP;
 		mutex_unlock(&chip->lock);
+	} else {
+		dev_warn(chip->dev, "unknown tog stat %x", tog_stat);
+	}
+
+	mutex_lock(&chip->lock);
+
+	/*
+	 * do not disable the toggle in case of VBUS not present
+	 * but UFP is detected.
+	 * This happens due to legacy Type-A to C plug, due to VBUS
+	 * capacitance, the terminations are not fully removed.
+	 *
+	 * disable and enable the toggle state machine so that
+	 * toggle can continue its function. Otherwise, since toggle has
+	 * previously detected a cable, it will stop the DRP switching
+	 */
+	if ((phy->state == TYPEC_STATE_UNATTACHED_UFP) &&
+		!(vbus_stat_reg & FUSB300_STAT0_VBUS_OK)) {
+		dev_info(chip->dev, "VBUS not present in UFP, why TOG_INTR?");
+		fusb302_enable_toggle(chip, false, FUSB302_TOG_MODE_DRP);
+		fusb302_enable_toggle(chip, true, FUSB302_TOG_MODE_DRP);
+		mutex_unlock(&chip->lock);
+		return;
+	}
+
+	fusb302_enable_toggle(chip, false, FUSB302_TOG_MODE_DRP);
+
+	if (phy->state == TYPEC_STATE_UNATTACHED_UFP)
 		atomic_notifier_call_chain(&phy->notifier,
 				TYPEC_EVENT_VBUS, phy);
-	}
 
 	if (tog_stat == FUSB302_TOG_STAT_DFP_CC1 ||
 		tog_stat == FUSB302_TOG_STAT_UFP_CC1) {
@@ -706,11 +731,13 @@ static void fusb300_handle_toggle_done(struct fusb300_chip *chip, int stat_reg)
 		regmap_update_bits(chip->map, FUSB300_SWITCH1_REG,
 			FUSB300_SWITCH1_TX_MASK, FUSB300_SWITCH1_TXCC2);
 	}
+	mutex_unlock(&chip->lock);
 }
 
 static void fusb300_handle_vbus_int(struct fusb300_chip *chip, int vbus_on)
 {
 	struct typec_phy *phy = &chip->phy;
+
 	if (vbus_on) {
 		chip->i_vbus = true;
 		if (phy->state == TYPEC_STATE_UNATTACHED_DFP)
@@ -724,9 +751,9 @@ static void fusb300_handle_vbus_int(struct fusb300_chip *chip, int vbus_on)
 		chip->i_vbus = false;
 		phy->valid_cc = 0;
 		if (chip->phy.state != TYPEC_STATE_UNATTACHED_UFP) {
+			fusb300_wake_on_cc_change(chip);
 			atomic_notifier_call_chain(&phy->notifier,
 					TYPEC_EVENT_NONE, phy);
-			fusb300_wake_on_cc_change(chip);
 		}
 		fusb300_flush_fifo(phy, FIFO_TYPE_TX | FIFO_TYPE_RX);
 	}
@@ -770,7 +797,8 @@ static irqreturn_t fusb300_interrupt(int id, void *dev)
 	if (!chip->is_fusb300) {
 		if (int_stat.inta_reg & FUSB302_INTA_TOG_DONE) {
 			dev_dbg(phy->dev, "TOG_DONE INTR");
-			fusb300_handle_toggle_done(chip, int_stat.stat1a_reg);
+			fusb300_handle_toggle_done(chip, int_stat.stat1a_reg,
+							int_stat.stat_reg);
 		}
 	}
 
