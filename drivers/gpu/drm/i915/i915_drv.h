@@ -734,16 +734,6 @@ struct i915_fbc {
 	bool disable;
 };
 
-struct i915_drrs {
-	struct intel_connector *connector;
-	bool is_clone;
-	struct intel_drrs_work {
-		struct delayed_work work;
-		struct drm_crtc *crtc;
-		int interval;
-	} *drrs_work;
-};
-
 struct i915_psr {
 	bool sink_support;
 	bool source_ok;
@@ -1664,7 +1654,6 @@ struct drm_i915_private {
 	u32 hotplug_status;
 
 	struct i915_fbc fbc;
-	struct i915_drrs drrs;
 	struct intel_opregion opregion;
 	struct intel_vbt_data vbt;
 	bool scaling_reqd;
