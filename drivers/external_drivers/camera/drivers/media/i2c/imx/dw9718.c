@@ -87,8 +87,10 @@ int dw9718_t_focus_abs(struct v4l2_subdev *sd, s32 value)
 	value = clamp(value, 0, DW9718_MAX_FOCUS_POS);
 	ret = dw9718_i2c_wr16(client, DW9718_DATA_M, value);
 	/*pr_info("%s: value = %d\n", __func__, value);*/
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(&client->dev, "write DW9718_DATA_M  failed %d\n", ret);
 		return ret;
+	}
 
 	getnstimeofday(&dw9718_dev.focus_time);
 	dw9718_dev.focus = value;
@@ -107,19 +109,24 @@ int dw9718_vcm_power_up(struct v4l2_subdev *sd)
 
 	/* Enable power */
 	ret = dw9718_dev.platform_data->power_ctrl(sd, 1);
-	if (ret)
+	if (ret) {
+		dev_err(&client->dev, "DW9718_PD power_ctrl failed %d\n", ret);
 		return ret;
+	}
 	ret = dw9718_i2c_wr8(client, DW9718_PD, 0);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(&client->dev, "write DW9718_PD to 0 failed %d\n", ret);
 		goto fail_powerdown;
+	}
 	/* Wait for VBAT to stabilize */
 	udelay(100);
 
 	/* Detect device */
 	ret = dw9718_i2c_rd8(client, DW9718_SACT, &value);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(&client->dev, "read DW9718_SACT failed %d\n", ret);
 		goto fail_powerdown;
-
+	}
 	/*
 	 * WORKAROUND: for module P8V12F-203 which are used on
 	 * Cherrytrail Refresh Davis Reef AoB, register SACT is not
@@ -137,13 +144,17 @@ int dw9718_vcm_power_up(struct v4l2_subdev *sd)
 			     DW9718_CONTROL_S_SAC4 |
 			     DW9718_CONTROL_OCP_DISABLE |
 			     DW9718_CONTROL_UVLO_DISABLE);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(&client->dev, "write DW9718_CONTROL  failed %d\n", ret);
 		goto fail_powerdown;
+	}
 	ret = dw9718_i2c_wr8(client, DW9718_SACT,
 			     DW9718_SACT_MULT_TWO |
 			     DW9718_SACT_PERIOD_8_8MS);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(&client->dev, "write DW9718_SACT  failed %d\n", ret);
 		goto fail_powerdown;
+	}
 
 	ret = dw9718_t_focus_abs(sd, dw9718_dev.focus);
 	if (ret)

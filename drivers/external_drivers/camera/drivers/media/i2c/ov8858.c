@@ -788,18 +788,24 @@ static int power_up(struct v4l2_subdev *sd)
 
 	/* Enable power */
 	ret = __power_ctrl(sd, 1);
-	if (ret)
+	if (ret) {
+		dev_err(&client->dev, "power rail on failed %d.\n", ret);
 		goto fail_power;
+	}
 
 	/* Enable clock */
 	ret = dev->platform_data->flisclk_ctrl(sd, 1);
-	if (ret)
+	if (ret) {
+		dev_err(&client->dev, "flisclk on failed %d\n", ret);
 		goto fail_clk;
+	}
 
 	/* Release reset */
 	ret = __gpio_ctrl(sd, 1);
-	if (ret)
+	if (ret) {
+		dev_err(&client->dev, "gpio on failed %d\n", ret);
 		goto fail_gpio;
+	}
 
 	/* Minumum delay is 8192 clock cycles before first i2c transaction,
 	 * which is 1.37 ms at the lowest allowed clock rate 6 MHz */
