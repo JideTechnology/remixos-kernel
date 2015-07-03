@@ -262,6 +262,7 @@ static void detect_dfp_work(struct work_struct *work)
 				extcon_set_cable_state(detect->edev,
 						TYPEC_CABLE_USB_HOST, true);
 
+			typec_enable_autocrc(detect->phy, true);
 			atomic_notifier_call_chain(&detect->otg->notifier,
 				USB_EVENT_ID, NULL);
 
@@ -518,6 +519,7 @@ static void update_phy_state(struct work_struct *work)
 				extcon_set_cable_state(detect->edev,
 						TYPEC_CABLE_USB_HOST, false);
 
+			typec_enable_autocrc(detect->phy, false);
 			reinit_completion(&detect->lock_ufp_complete);
 			mutex_lock(&detect->lock);
 			detect->state = DETECT_STATE_LOCK_UFP;

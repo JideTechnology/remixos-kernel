@@ -423,6 +423,9 @@ static int fusb300_en_pd(struct fusb300_chip *chip, bool en_pd)
 	if (en_pd) {
 		val |= FUSB300_SWITCH0_PD_EN;
 		val &= ~FUSB300_SWITCH0_PU_EN;
+		/* disable vcon */
+		val &= ~FUSB300_VCONN_CC1_EN;
+		val &= ~FUSB300_VCONN_CC2_EN;
 	} else {
 		val &= ~FUSB300_SWITCH0_PD_EN;
 	}
@@ -483,6 +486,7 @@ static int fusb300_setup_cc(struct typec_phy *phy, enum typec_cc_pin cc,
 {
 	struct fusb300_chip *chip;
 	unsigned int val = 0;
+	u8 val_s1;
 
 	if (!phy)
 		return -ENODEV;
@@ -506,21 +510,30 @@ static int fusb300_setup_cc(struct typec_phy *phy, enum typec_cc_pin cc,
 
 	if (cc == TYPEC_PIN_CC1) {
 		val |= FUSB300_SWITCH0_MEASURE_CC1;
+		val_s1 = FUSB300_SWITCH1_TXCC1;
 		if (phy->state == TYPEC_STATE_ATTACHED_UFP)
 			val |= FUSB300_SWITCH0_PD_CC1_EN;
-		else if (phy->state == TYPEC_STATE_ATTACHED_DFP)
+		else if (phy->state == TYPEC_STATE_ATTACHED_DFP) {
 			val |= FUSB300_SWITCH0_PU_CC1_EN;
+			val |= FUSB300_VCONN_CC2_EN;
+		}
 	} else if (cc == TYPEC_PIN_CC2) {
 		val |= FUSB300_SWITCH0_MEASURE_CC2;
+		val_s1 = FUSB300_SWITCH1_TXCC2;
 		if (phy->state == TYPEC_STATE_ATTACHED_UFP)
 			val |= FUSB300_SWITCH0_PD_CC2_EN;
-		else if (phy->state == TYPEC_STATE_ATTACHED_DFP)
+		else if (phy->state == TYPEC_STATE_ATTACHED_DFP) {
 			val |= FUSB300_SWITCH0_PU_CC2_EN;
+			val |= FUSB300_VCONN_CC1_EN;
+		}
 	} else { /* cc removal */
 		goto end;
 	}
 
 	regmap_write(chip->map, FUSB300_SWITCH0_REG, val);
+	dev_dbg(phy->dev, "%s cc: %d, val_s1=%x\n", __func__, cc, val_s1);
+	regmap_update_bits(chip->map, FUSB300_SWITCH1_REG,
+			FUSB300_SWITCH1_TX_MASK, val_s1);
 end:
 	mutex_unlock(&chip->lock);
 
@@ -789,10 +802,11 @@ static irqreturn_t fusb300_interrupt(int id, void *dev)
 		return IRQ_NONE;
 	}
 
-	dev_dbg(chip->dev, "int %x stat %x stat1 = %x", int_stat.int_reg,
+	dev_dbg(chip->dev, "int=%x stat0=%x stat1=%x", int_stat.int_reg,
 					int_stat.stat_reg, int_stat.stat1_reg);
-	dev_dbg(chip->dev, "stat0a %x stat1a = %x", int_stat.stat0a_reg,
-					int_stat.stat1a_reg);
+	dev_dbg(chip->dev, "inta=%x, intb=%x, stat0a=%x stat1a=%x",
+			int_stat.inta_reg, int_stat.intb_reg,
+			int_stat.stat0a_reg, int_stat.stat1a_reg);
 
 	if (!chip->is_fusb300) {
 		if (int_stat.inta_reg & FUSB302_INTA_TOG_DONE) {
@@ -871,7 +885,7 @@ static irqreturn_t fusb300_interrupt(int id, void *dev)
 	}
 
 	if (!chip->is_fusb300 && chip->process_pd) {
-		if (int_stat.inta_reg & FUSB302_INTB_GCRC_SENT) {
+		if (int_stat.intb_reg & FUSB302_INTB_GCRC_SENT) {
 			dev_dbg(phy->dev, "GoodCRC sent");
 			if (phy->notify_protocol)
 				phy->notify_protocol(phy,
@@ -941,6 +955,17 @@ static irqreturn_t fusb300_interrupt(int id, void *dev)
 	return IRQ_HANDLED;
 }
 
+static int fusb300_reset_pd(struct typec_phy *phy)
+{
+	int ret;
+	struct fusb300_chip *chip = dev_get_drvdata(phy->dev);
+
+	mutex_lock(&chip->lock);
+	ret = regmap_write(chip->map, FUSB300_SOFT_POR_REG, FUSB300_PD_POR);
+	mutex_unlock(&chip->lock);
+	return ret;
+}
+
 static int fusb300_phy_reset(struct typec_phy *phy)
 {
 	struct fusb300_chip *chip;
@@ -957,6 +982,7 @@ static int fusb300_phy_reset(struct typec_phy *phy)
 		fusb300_pd_send_hard_rst(phy);
 	else
 		fusb302_pd_send_hard_rst(phy);
+	fusb300_reset_pd(phy);
 	mutex_unlock(&chip->lock);
 	return 0;
 }
@@ -1078,10 +1104,11 @@ static int fusb300_setup_role(struct typec_phy *phy, int data_role,
 							int pwr_role)
 {
 	struct fusb300_chip *chip;
-	int val;
+	int val, ret;
 
 	chip = dev_get_drvdata(phy->dev);
 
+	mutex_lock(&chip->lock);
 	regmap_read(chip->map, FUSB300_SWITCH1_REG, &val);
 
 	val &= ~(FUSB302_SWITCH1_DATAROLE | FUSB302_SWITCH1_PWRROLE);
@@ -1093,7 +1120,9 @@ static int fusb300_setup_role(struct typec_phy *phy, int data_role,
 		pwr_role == PD_POWER_ROLE_CONSUMER_PROVIDER)
 		val |= FUSB302_SWITCH1_PWRROLE;
 
-	return regmap_write(chip->map, FUSB300_SWITCH1_REG, val);
+	ret = regmap_write(chip->map, FUSB300_SWITCH1_REG, val);
+	mutex_unlock(&chip->lock);
+	return ret;
 }
 
 static inline int fusb300_pd_send_hard_rst(struct typec_phy *phy)
@@ -1355,12 +1384,6 @@ static int fusb300_enable_autocrc(struct typec_phy *phy, bool en)
 
 	regmap_update_bits(chip->map, FUSB300_SOFT_POR_REG, 2, 2);
 
-	mutex_unlock(&chip->lock);
-
-	fusb300_flush_fifo(phy, FIFO_TYPE_TX);
-	fusb300_flush_fifo(phy, FIFO_TYPE_RX);
-
-	mutex_lock(&chip->lock);
 	ret = regmap_write(chip->map, FUSB300_SWITCH1_REG, val);
 
 	if (ret < 0)
@@ -1373,6 +1396,8 @@ static int fusb300_enable_autocrc(struct typec_phy *phy, bool en)
 	chip->process_pd = en;
 
 	mutex_unlock(&chip->lock);
+	fusb300_flush_fifo(phy, FIFO_TYPE_TX);
+	fusb300_flush_fifo(phy, FIFO_TYPE_RX);
 	return ret;
 err:
 	chip->process_pd = false;
@@ -1437,6 +1462,7 @@ static int fusb300_probe(struct i2c_client *client,
 	chip->phy.flush_fifo = fusb300_flush_fifo;
 	chip->phy.send_packet = fusb300_send_pkt;
 	chip->phy.recv_packet = fusb300_recv_pkt;
+	chip->phy.reset_pd = fusb300_reset_pd;
 	if (!chip->is_fusb300) {
 		chip->phy.setup_role = fusb300_setup_role;
 		chip->phy.enable_autocrc = fusb300_enable_autocrc;
