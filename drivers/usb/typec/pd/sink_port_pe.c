@@ -242,7 +242,7 @@ static int snkpe_start(struct sink_port_pe *sink)
 		complete(&sink->nrt_complete);
 		return 0;
 	}
-	sink->p->status = POLICY_STATUS_STARTED;
+	sink->p->status = POLICY_STATUS_RUNNING;
 
 	/*---------- Start of Sink Port PE --------------*/
 	/* get the vbus state, in case of boot of vbus */
@@ -280,8 +280,11 @@ static int snkpe_start(struct sink_port_pe *sink)
 static inline int sink_port_policy_start(struct policy *p)
 {
 	struct sink_port_pe *sink = p->priv;
-	sink->cur_state = PE_SNK_STARTUP;
 
+	pr_debug("SNKPE: %s\n", __func__);
+
+	sink->cur_state = PE_SNK_STARTUP;
+	sink->p->state = POLICY_STATE_ONLINE;
 	return snkpe_start(sink);
 }
 
@@ -293,7 +296,8 @@ int sink_port_policy_stop(struct policy *p)
 	/* reset HardResetCounter to zero upon vbus disconnect.
 	 */
 	sink->hard_reset_count = 0;
-	sink->p->status = POLICY_STATUS_STOPPED;
+	sink->p->status = POLICY_STATUS_UNKNOWN;
+	sink->p->state = POLICY_STATE_OFFLINE;
 	sink->is_vbus_connected = false;
 	policy_set_pd_state(p, false);
 
@@ -754,6 +758,8 @@ struct policy *sink_port_policy_init(struct policy_engine *pe)
 	}
 
 	p->type = POLICY_TYPE_SINK;
+	p->state = POLICY_STATE_OFFLINE;
+	p->status = POLICY_STATUS_UNKNOWN;
 	p->pe = pe;
 	p->rcv_pkt = sink_port_policy_rcv_pkt;
 	p->rcv_cmd = sink_port_policy_rcv_cmd;
@@ -787,7 +793,8 @@ static void sink_port_policy_exit(struct policy *p)
 	if (p) {
 		snkpe = p->priv;
 		if (snkpe) {
-			snkpe->p->status = POLICY_STATUS_STOPPED;
+			snkpe->p->status = POLICY_STATUS_UNKNOWN;
+			snkpe->p->state = POLICY_STATE_OFFLINE;
 			kfifo_free(&snkpe->pkt_fifo);
 			kfree(snkpe);
 			kfree(p);

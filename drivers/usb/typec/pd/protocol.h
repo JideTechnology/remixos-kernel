@@ -41,10 +41,9 @@ struct pd_prot {
 	u8 assumed_pwr_role;
 	u8 event;
 	u8 tx_msg_id;
-	s32 rx_msg_id;
 	u8 retry_counter;
-
 	u8 cur_tx_state;
+	int rx_msg_id;
 	struct pd_packet tx_buf;
 	struct pd_packet cached_rx_buf;
 
@@ -57,6 +56,11 @@ struct pd_prot {
 
 	struct list_head list;
 	struct work_struct cable_event_work;
+
+	/* list and worker to process received messages */
+	struct list_head rx_list;
+	struct work_struct proc_rx_msg;
+	struct mutex rx_list_lock;
 
 	struct extcon_specific_cable_nb cable_ufp;
 	struct extcon_specific_cable_nb cable_dfp;

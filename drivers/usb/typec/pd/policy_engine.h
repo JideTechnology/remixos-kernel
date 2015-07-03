@@ -288,8 +288,9 @@ enum policy_state {
 
 enum policy_status {
 	POLICY_STATUS_UNKNOWN,
-	POLICY_STATUS_STOPPED,
-	POLICY_STATUS_STARTED,
+	POLICY_STATUS_RUNNING,
+	POLICY_STATUS_FAIL,
+	POLICY_STATUS_SUCCESS,
 };
 
 struct policy {
@@ -297,6 +298,7 @@ struct policy {
 	struct policy_engine *pe;
 	struct list_head list;
 	enum policy_status status;
+	enum policy_state state;
 	void *priv;
 	int (*start)(struct policy *p);
 	int (*stop)(struct policy *p);
@@ -310,19 +312,14 @@ struct policy_engine {
 	struct pd_prot *prot;
 	struct notifier_block proto_nb;
 	struct notifier_block dpm_nb;
-	struct mutex protowk_lock;
 	struct mutex dpmwk_lock;
 	struct mutex pe_lock;
-	struct list_head proto_queue;
 	struct list_head dpm_queue;
-	struct work_struct proto_work;
 	struct work_struct dpm_work;
 	struct devpolicy_mgr *dpm;
 	struct pe_operations *ops;
 	struct list_head list;
 
-	enum pe_event prev_evt;
-	spinlock_t proto_queue_lock;
 	spinlock_t dpm_queue_lock;
 
 	struct pd_policy *supported_policies;
@@ -334,8 +331,7 @@ struct policy_engine {
 	struct work_struct policy_init_work;
 
 	struct list_head policy_list;
-	enum policy_type policy_in_use;
-	enum policy_state state;
+	enum cable_type cbl_type;
 	bool is_pd_connected;
 };
 
@@ -361,9 +357,12 @@ struct pe_operations {
 	enum cable_state (*get_vbus_state)(struct policy_engine *pe);
 	int (*set_pd_state)(struct policy_engine *pe, bool state);
 	bool (*get_pd_state)(struct policy_engine *pe);
-	int (*process_msg)(struct policy_engine *pe, struct pd_packet *data);
-	int (*process_cmd)(struct policy_engine *pe, int cmd);
-	void (*update_policy_engine)(struct policy_engine *pe, int policy_type,
+	int (*process_data_msg)(struct policy_engine *pe, enum pe_event evt,
+				struct pd_packet *data);
+	int (*process_ctrl_msg)(struct policy_engine *pe, enum pe_event evt,
+				struct pd_packet *data);
+	int (*process_cmd)(struct policy_engine *pe, enum pe_event cmd);
+	void (*policy_status_changed)(struct policy_engine *pe, int policy_type,
 					int state);
 };
 
@@ -484,6 +483,13 @@ static inline int policy_send_packet(struct policy *p, void *data, int len,
 	return -ENOTSUPP;
 }
 
+static inline void pe_notify_policy_status_changed(struct policy *p,
+			int type, int status)
+{
+	if (p && p->pe && p->pe->ops && p->pe->ops->policy_status_changed)
+		p->pe->ops->policy_status_changed(p->pe, type, status);
+}
+
 static inline enum cable_state policy_get_vbus_state(struct policy *p)
 {
 	if (p && p->pe && p->pe->ops && p->pe->ops->get_vbus_state)
@@ -520,7 +526,7 @@ static inline void policy_engine_unbind_dpm(struct devpolicy_mgr *dpm)
 { }
 #endif /* CONFIG_USBC_PD && CONFIG_USBC_PD_POLICY */
 
-static inline int pe_send_cmd(struct policy_engine *pe, int cmd)
+static inline int pe_process_cmd(struct policy_engine *pe, enum pe_event cmd)
 {
 	if (pe && pe->ops && pe->ops->process_cmd)
 		return pe->ops->process_cmd(pe, cmd);
@@ -528,10 +534,22 @@ static inline int pe_send_cmd(struct policy_engine *pe, int cmd)
 	return -ENOTSUPP;
 }
 
-static inline int pe_send_msg(struct policy_engine *pe, struct pd_packet *pkt)
+static inline int pe_process_data_msg(struct policy_engine *pe,
+					enum pe_event evt,
+					struct pd_packet *pkt)
 {
-	if (pe && pe->ops && pe->ops->process_msg)
-		return pe->ops->process_msg(pe, pkt);
+	if (pe && pe->ops && pe->ops->process_data_msg)
+		return pe->ops->process_data_msg(pe, evt, pkt);
+
+	return -ENOTSUPP;
+}
+
+static inline int pe_process_ctrl_msg(struct policy_engine *pe,
+					enum pe_event evt,
+					struct pd_packet *pkt)
+{
+	if (pe && pe->ops && pe->ops->process_ctrl_msg)
+		return pe->ops->process_ctrl_msg(pe, evt, pkt);
 
 	return -ENOTSUPP;
 }

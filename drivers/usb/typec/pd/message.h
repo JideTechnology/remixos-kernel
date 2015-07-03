@@ -210,10 +210,42 @@ struct dis_svid_response_pkt {
 	struct dp_vdo vdo[6];
 } __packed;
 
+struct disp_mode {
+	u32 port_cap:2;
+	u32 dp_sig:4;
+	u32 r_ind:1;
+	u32 usb_sig:1;
+	u32 dfp_pin:8;
+	u32 ufp_pin:8;
+	u32 rsrvd:8;
+} __packed;
+
+struct disp_config {
+	u32 conf_sel:2;
+	u32 trans_sig:4;
+	u32 rsrvd:2;
+	u32 dfp_pin:8;
+	u32 ufp_pin:8;
+	u32 rsrvd1:8;
+} __packed;
+
 struct dis_mode_response_pkt {
 	struct pd_pkt_header msg_hdr;
 	struct vdm_header vdm_hdr;
-	u32 mode[6];
+	struct disp_mode mode[6];
+} __packed;
+
+struct dis_port_status {
+	u32 dev_connected:2;
+	u32 pwr_low:1;
+	u32 enabled:1;
+	u32 multi_func:1;
+	u32 usb_conf:1;
+	u32 exit_mode:1;
+	u32 hpd_state:1;
+	u32 irq_hpd:1;
+	u32 rsrvd:7;
+	u32 rsrvd1:16;
 } __packed;
 
 struct pd_sink_fixed_pdo {

@@ -33,6 +33,11 @@
 static LIST_HEAD(protocol_list);
 static DEFINE_SPINLOCK(protocol_lock);
 
+struct prot_msg {
+	struct list_head node;
+	struct pd_packet pkt;
+};
+
 static int pd_extcon_ufp_ntf(struct notifier_block *nb,
 				unsigned long event, void *param)
 {
@@ -79,11 +84,44 @@ static int pd_extcon_dfp_ntf(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
+
+static struct prot_msg *prot_alloc_msg(void)
+{
+	struct prot_msg *msg;
+	msg = kzalloc(sizeof(struct prot_msg),
+					GFP_KERNEL);
+	if (msg)
+		INIT_LIST_HEAD(&msg->node);
+	return msg;
+}
+
+static inline void prot_free_msg(struct prot_msg *msg)
+{
+	kfree(msg);
+}
+
+static void prot_clear_rx_msg_list(struct pd_prot *pd)
+{
+	struct prot_msg *msg, *tmp;
+	struct list_head tmp_list;
+
+	if (list_empty(&pd->rx_list))
+		return;
+
+	mutex_lock(&pd->rx_list_lock);
+	list_replace_init(&pd->rx_list, &tmp_list);
+	mutex_unlock(&pd->rx_list_lock);
+
+	list_for_each_entry_safe(msg, tmp, &tmp_list, node)
+		prot_free_msg(msg);
+}
+
 static void pd_reset_counters(struct pd_prot *pd)
 {
 	mutex_lock(&pd->tx_lock);
 	pd->event = PROT_EVENT_NONE;
 	pd->tx_msg_id = 0;
+	pd->rx_msg_id = -1;
 	pd->retry_counter = 0;
 	mutex_unlock(&pd->tx_lock);
 }
@@ -102,12 +140,15 @@ static int pd_prot_handle_reset(struct pd_prot *pd, enum typec_phy_evts evt)
 	pd->event = PROT_PHY_EVENT_RESET;
 	complete(&pd->tx_complete);
 	pd_reset_counters(pd);
+	if (pd->phy->reset_pd)
+		pd->phy->reset_pd(pd->phy);
+	prot_clear_rx_msg_list(pd);
 	/*TODO: check if the the work is completed */
 	pd->event = PROT_PHY_EVENT_NONE;
 
 	if (evt == PROT_PHY_EVENT_HARD_RST)
 		/* notify policy */
-		pe_send_cmd(pd->pe, PD_CMD_HARD_RESET);
+		pe_process_cmd(pd->pe, PE_EVT_RCVD_HARD_RESET);
 
 	return 0;
 }
@@ -135,17 +176,30 @@ static void pd_prot_tx_work(struct pd_prot *prot)
 
 }
 
+static inline int prot_rx_reset(struct pd_prot *pd)
+{
+	pd_reset_counters(pd);
+	/* Reset the phy */
+	return pd_prot_reset_phy(pd);
+}
+
 static int pd_prot_rcv_pkt_from_policy(struct pd_prot *prot, u8 msg_type,
 						void *buf, int len)
 {
 	struct pd_packet *pkt;
 
-	if (msg_type == PD_CMD_HARD_RESET)
-		return pd_prot_reset_phy(prot);
-	else if (msg_type == PD_CMD_PROTOCOL_RESET)
+	if (msg_type == PD_CMD_HARD_RESET) {
+		pd_prot_flush_fifo(prot, FIFO_TYPE_RX);
+		prot_clear_rx_msg_list(prot);
+		return prot_rx_reset(prot);
+	} else if (msg_type == PD_CMD_PROTOCOL_RESET) {
+		pd_prot_flush_fifo(prot, FIFO_TYPE_RX);
+		prot_clear_rx_msg_list(prot);
 		return pd_tx_fsm_state(prot, PROT_TX_PHY_LAYER_RESET);
+	}
 
 	pkt = &prot->tx_buf;
+	memset(pkt, 0, sizeof(struct pd_packet));
 	pkt->header.msg_type = msg_type;
 	pkt->header.data_role = prot->new_data_role;
 	if (prot->pd_version == 2)
@@ -179,82 +233,196 @@ static void pd_tx_discard_msg(struct pd_prot *pd)
 	if (pd->tx_msg_id >= PD_MAX_MSG_ID)
 		pd->tx_msg_id = 0;
 	mutex_unlock(&pd->tx_lock);
-	pd->cur_tx_state = PROT_TX_PHY_LAYER_RESET;
+	pd_tx_fsm_state(pd, PROT_TX_PHY_LAYER_RESET);
 }
 
-static void pd_prot_rx_work(struct pd_prot *pd)
+static int prot_fwd_ctrlmsg_to_pe(struct pd_prot *pd, struct prot_msg *msg)
 {
-	s32 msg_id;
-	struct pd_packet *buf;
+	enum pe_event event = PE_EVT_RCVD_NONE;
+
+	switch (msg->pkt.header.msg_type) {
+	case PD_CTRL_MSG_GOODCRC:
+		event = PE_EVT_RCVD_GOODCRC;
+		break;
+	case PD_CTRL_MSG_GOTOMIN:
+		event = PE_EVT_RCVD_GOTOMIN;
+		break;
+	case PD_CTRL_MSG_ACCEPT:
+		event = PE_EVT_RCVD_ACCEPT;
+		break;
+	case PD_CTRL_MSG_REJECT:
+		event = PE_EVT_RCVD_REJECT;
+		break;
+	case PD_CTRL_MSG_PING:
+		event = PE_EVT_RCVD_PING;
+		break;
+	case PD_CTRL_MSG_PS_RDY:
+		event = PE_EVT_RCVD_PS_RDY;
+		break;
+	case PD_CTRL_MSG_GET_SRC_CAP:
+		event = PE_EVT_RCVD_GET_SRC_CAP;
+		break;
+	case PD_CTRL_MSG_GET_SINK_CAP:
+		event = PE_EVT_RCVD_GET_SINK_CAP;
+		break;
+	case PD_CTRL_MSG_DR_SWAP:
+		event = PE_EVT_RCVD_DR_SWAP;
+		break;
+	case PD_CTRL_MSG_PR_SWAP:
+		event = PE_EVT_RCVD_PR_SWAP;
+		break;
+	case PD_CTRL_MSG_VCONN_SWAP:
+		event = PE_EVT_RCVD_VCONN_SWAP;
+		break;
+	case PD_CTRL_MSG_WAIT:
+		event = PE_EVT_RCVD_WAIT;
+		break;
+	case PD_CTRL_MSG_SOFT_RESET:
+		/*This should be already handled, dont not forward to pe*/
+		break;
+	default:
+		dev_warn(pd->phy->dev, "%s:Unknown msg received, msg_type=%d\n",
+				__func__, msg->pkt.header.msg_type);
+	}
+
+	if (event != PE_EVT_RCVD_NONE) {
+		/* Forward the msg to policy engine. */
+		pe_process_ctrl_msg(pd->pe, event, &msg->pkt);
+		return 0;
+	}
+	return -EINVAL;
+}
+
+static int prot_fwd_datamsg_to_pe(struct pd_prot *pd, struct prot_msg *msg)
+{
+	enum pe_event event = PE_EVT_RCVD_NONE;
+
+	switch (msg->pkt.header.msg_type) {
+	case PD_DATA_MSG_SRC_CAP:
+		event = PE_EVT_RCVD_SRC_CAP;
+		break;
+	case PD_DATA_MSG_REQUEST:
+		event = PE_EVT_RCVD_REQUEST;
+		break;
+	case PD_DATA_MSG_BIST:
+		event = PE_EVT_RCVD_BIST;
+		break;
+	case PD_DATA_MSG_SINK_CAP:
+		event = PE_EVT_RCVD_SNK_CAP;
+		break;
+	case PD_DATA_MSG_VENDOR_DEF:
+		event = PE_EVT_RCVD_VDM;
+		break;
+	default:
+		dev_warn(pd->phy->dev, "%s:Unknown msg received, msg_type=%d\n",
+				__func__, msg->pkt.header.msg_type);
+	}
+
+	if (event != PE_EVT_RCVD_NONE) {
+		/* Forward the msg to policy engine */
+		pe_process_data_msg(pd->pe, event, &msg->pkt);
+		return 0;
+	}
+	return -EINVAL;
+
+}
+
+static void pd_prot_handle_rx_msg(struct pd_prot *pd, struct prot_msg *msg)
+{
 
 	/* wait for goodcrc sent */
 	if (!pd->phy->support_auto_goodcrc)
 		wait_for_completion(&pd->tx_complete);
 
-	if (pd->event == PROT_PHY_EVENT_RESET)
-		return;
-
-	buf = &pd->cached_rx_buf;
-
-	msg_id = PD_MSG_ID(&buf->header);
-
-	if (pd->rx_msg_id != msg_id) {
-		pd_tx_discard_msg(pd);
-		pd->rx_msg_id = msg_id;
-
-		/* notify policy */
-		pe_send_msg(pd->pe, buf);
-	}
+	if (IS_DATA_MSG(&msg->pkt.header))
+		prot_fwd_datamsg_to_pe(pd, msg);
+	else if (IS_CTRL_MSG(&msg->pkt.header))
+		prot_fwd_ctrlmsg_to_pe(pd, msg);
+	else
+		dev_warn(pd->phy->dev,
+			"%s:Unknown msg type received, msg_type=%d\n",
+			__func__, msg->pkt.header.msg_type);
+	if (!pd->phy->support_auto_goodcrc)
+		reinit_completion(&pd->tx_complete);
 }
 
-static inline void prot_rx_reset(struct pd_prot *pd)
+static void prot_process_rx_work(struct work_struct *work)
 {
-	pd_reset_counters(pd);
-	pd_prot_reset_phy(pd); /* flush both the fifo */
+	struct pd_prot *pd = container_of(work, struct pd_prot, proc_rx_msg);
+	struct prot_msg *msg;
+
+	/* Dequeue all the messages in the rx list and process them.
+	 * Note: Do not use list_for_each_entry_safe() as HARD_RESET
+	 * may delete the list and may cuase error.
+	 */
+	mutex_lock(&pd->rx_list_lock);
+	while (!list_empty(&pd->rx_list)) {
+		msg = list_first_entry(&pd->rx_list,
+					struct prot_msg, node);
+		list_del(&msg->node);
+		/* Unlock the mutex while processing the msg*/
+		mutex_unlock(&pd->rx_list_lock);
+
+		pd_prot_handle_rx_msg(pd, msg);
+		prot_free_msg(msg);
+
+		mutex_lock(&pd->rx_list_lock);
+	}
+	mutex_unlock(&pd->rx_list_lock);
+}
+
+static int pd_prot_add_msg_rx_list(struct pd_prot *pd,
+				struct pd_packet *pkt, int len)
+{
+	struct prot_msg *msg;
+
+	msg = prot_alloc_msg();
+	if (!msg) {
+		dev_err(pd->phy->dev,
+			"failed to allocate mem for rx msg\n");
+		return -ENOMEM;
+	}
+	memcpy(&msg->pkt, pkt, len);
+	mutex_lock(&pd->rx_list_lock);
+
+	/* Add the message to the rx list */
+	list_add_tail(&msg->node, &pd->rx_list);
+	mutex_unlock(&pd->rx_list_lock);
+	schedule_work(&pd->proc_rx_msg);
+	return 0;
 }
 
 static void pd_prot_phy_rcv(struct pd_prot *pd)
 {
 	struct pd_packet rcv_buf;
-	int len, event, send_good_crc, msg_type, msg_id;
+	int len, send_good_crc, msg_type, msg_id;
 
 	mutex_lock(&pd->rx_data_lock);
 
+	memset(&rcv_buf, 0, sizeof(struct pd_packet));
 	len = pd_prot_recv_phy_packet(pd, &rcv_buf);
 	if (len == 0)
-		goto end;
+		goto phy_rcv_end;
 
 	msg_type = PD_MSG_TYPE(&rcv_buf.header);
+	if (msg_type == PD_CTRL_MSG_RESERVED_0)
+		goto phy_rcv_end;
+
 	msg_id = PD_MSG_ID(&rcv_buf.header);
 	send_good_crc = 1;
-	switch (msg_type) {
-	case PD_CTRL_MSG_SOFT_RESET:
-		prot_rx_reset(pd);
-		break;
-	case PD_CTRL_MSG_PING:
-		break;
-	case PD_CTRL_MSG_GOODCRC:
-		if (!IS_CTRL_MSG(&rcv_buf.header))
-			/* data message (source capability :)) */
-			break;
-		send_good_crc = 0;
-		if (msg_id == pd->tx_msg_id) {
-			pd->tx_msg_id = (pd->tx_msg_id + 1) % PD_MAX_MSG_ID;
-			event = PROT_EVENT_NONE;
-			/* notify policy */
-		} else {
-			event = PROT_EVENT_MSGID_MISMATCH;
+
+	if (IS_CTRL_MSG(&rcv_buf.header)) {
+		if (msg_type == PD_CTRL_MSG_SOFT_RESET)
+			prot_rx_reset(pd);
+		else if (msg_type == PD_CTRL_MSG_GOODCRC) {
+			send_good_crc = 0;
+			if (msg_id == pd->tx_msg_id) {
+				pd->tx_msg_id = (msg_id + 1) % PD_MAX_MSG_ID;
+				pd_prot_add_msg_rx_list(pd, &rcv_buf, len);
+			} else
+				dev_warn(pd->phy->dev, "GCRC msg id not matching\n");
+			complete(&pd->tx_complete);
 		}
-		mutex_lock(&pd->tx_lock);
-		pd->event = event;
-		mutex_unlock(&pd->tx_lock);
-		complete(&pd->tx_complete);
-		break;
-	default:
-		/*  process all other messages */
-		dev_dbg(pd->phy->dev, "PROT: %s msg_type: %d\n",
-				__func__, msg_type);
-		break;
 	}
 
 	if (send_good_crc) {
@@ -262,13 +430,21 @@ static void pd_prot_phy_rcv(struct pd_prot *pd)
 			reinit_completion(&pd->tx_complete);
 			prot_rx_send_goodcrc(pd, msg_id);
 		}
-		memcpy(&pd->cached_rx_buf, &rcv_buf, len);
-		pd_prot_rx_work(pd);
-
-		if (!pd->phy->support_auto_goodcrc)
-			reinit_completion(&pd->tx_complete);
+		/* Check of the message is already received by comparing
+		 * current msg id with previous msg id. Discard already
+		 * reveived messages.
+		 */
+		if (pd->rx_msg_id != msg_id) {
+			pd_tx_discard_msg(pd);
+			pd->rx_msg_id = msg_id;
+			pd_prot_add_msg_rx_list(pd, &rcv_buf, len);
+		} else {
+			dev_warn(pd->phy->dev,
+				"%s:This msg is already received\n",
+				__func__);
+		}
 	}
-end:
+phy_rcv_end:
 	mutex_unlock(&pd->rx_data_lock);
 }
 
@@ -301,13 +477,17 @@ static void pd_notify_protocol(struct typec_phy *phy, unsigned long event)
 	case PROT_PHY_EVENT_GOODCRC_SENT:
 		dev_dbg(phy->dev, "%s: PROT_PHY_EVENT_GOODCRC_SENT\n",
 				__func__);
+		pd_prot_phy_rcv(pd);
 		break;
 	case PROT_PHY_EVENT_HARD_RST: /* recv HRD_RST */
 	case PROT_PHY_EVENT_SOFT_RST:
+		dev_dbg(phy->dev, "%s: PROT_PHY_EVENT_SOFT/HARD_RST\n",
+				__func__);
 		pd_prot_handle_reset(pd, event);
 		/* wait for activity complete */
 		break;
 	case PROT_PHY_EVENT_TX_FAIL:
+		dev_dbg(phy->dev, "%s: PROT_PHY_EVENT_TX_FAIL\n", __func__);
 		mutex_lock(&pd->tx_lock);
 		pd->event = PROT_EVENT_TX_FAIL;
 		mutex_unlock(&pd->tx_lock);
@@ -316,8 +496,10 @@ static void pd_notify_protocol(struct typec_phy *phy, unsigned long event)
 	case PROT_PHY_EVENT_SOFT_RST_FAIL:
 		break;
 	case PROT_PHY_EVENT_TX_HARD_RST: /* sent HRD_RST */
+		dev_dbg(phy->dev, "%s: PROT_PHY_EVENT_TX_HARD_RST\n",
+				__func__);
 		/* Hard reset complete signaling */
-		pe_send_cmd(pd->pe, PD_CMD_HARD_RESET_COMPLETE);
+		pe_process_cmd(pd->pe, PE_EVT_RCVD_HARD_RESET_COMPLETE);
 		break;
 	default:
 		break;
@@ -422,6 +604,10 @@ int protocol_bind_dpm(struct typec_phy *phy)
 	prot->policy_fwd_pkt = pd_prot_rcv_pkt_from_policy;
 	list_add_tail(&prot->list, &protocol_list);
 
+	INIT_LIST_HEAD(&prot->rx_list);
+	INIT_WORK(&prot->proc_rx_msg, prot_process_rx_work);
+	mutex_init(&prot->rx_list_lock);
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(protocol_bind_dpm);
@@ -453,6 +639,13 @@ void protocol_unbind_dpm(struct typec_phy *phy)
 		}
 	}
 	spin_unlock(&protocol_lock);
+
+	/* Clear the rx list and reset phy */
+	pd_reset_counters(prot);
+	prot_clear_rx_msg_list(prot);
+	pd_prot_flush_fifo(prot, FIFO_TYPE_TX);
+	pd_prot_flush_fifo(prot, FIFO_TYPE_RX);
+	pd_prot_reset_phy(prot);
 }
 EXPORT_SYMBOL_GPL(protocol_unbind_dpm);
 
