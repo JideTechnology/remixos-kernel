@@ -265,12 +265,11 @@ static void axp_charging_monitor(struct work_struct *work)
 {
 	struct axp_charger *charger;
 	u8 temp_val[4];
-	s32 pre_rest_vol,pre_bat_curr_dir;
+	static s32 pre_rest_vol = 0;
+	static s32 pre_bat_curr_dir = 0;
 	u64 power_sply = 0;
 
 	charger = container_of(work, struct axp_charger, work.work);
-	pre_rest_vol = charger->rest_vol;
-	pre_bat_curr_dir = charger->bat_current_direction;
 	axp_charger_update_state(charger);
 	axp_charger_update(charger, &axp81x_config);
 
@@ -310,6 +309,7 @@ static void axp_charging_monitor(struct work_struct *work)
 		DBG_PSY_MSG(DEBUG_SPLY, "for test %d %d %d %d %d %d\n",charger->vbat,charger->ocv,charger->ibat,
 			(temp_val[2] & 0x7f),(temp_val[3] & 0x7f),(((temp_val[0] & 0x7f) <<8) + temp_val[1])*1456/1000);
 		pre_rest_vol = charger->rest_vol;
+		pre_bat_curr_dir = charger->bat_current_direction;
 		power_supply_changed(&charger->batt);
 	}
 	/* reschedule for the next time */
