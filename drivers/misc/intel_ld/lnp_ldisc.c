@@ -77,6 +77,8 @@ struct intel_bt_lpm_platform_data {
 
 DECLARE_WAIT_QUEUE_HEAD(waitFordxexit);
 DECLARE_WAIT_QUEUE_HEAD(waitFord0exit);
+DECLARE_WAIT_QUEUE_HEAD(waitFord2exit);
+
 
 struct intel_bt_lpm {
 
@@ -627,6 +629,44 @@ static void lbf_hostwake_update_work(struct work_struct *work)
 	lbf_hostwake_low_processing();
 }
 
+
+/* irqreturn_t lbf_ldisc_hostwake_bh
+ *
+ * callback called when irq is received
+ *
+ * Arguments:
+ *
+ * Return Value:
+ * irqreturn_t
+ */
+static irqreturn_t lbf_ldisc_hostwake_bh(int irq, void *dev)
+{
+	int ret = 0;
+	intel_lbf_lpm.hostwake = 0;
+
+	/*If LPM is disabled exit from here*/
+	if (intel_lbf_lpm.lpm_enable == DISABLE)
+		goto out;
+	if (HOSTWAKE_HIGH == lbf_get_host_wake_state()
+			&& lbf_get_device_state() == D0)
+		pr_info("<-%s high hs_wk:%d\n", __func__,
+			intel_lbf_lpm.hostwake);
+
+	if (!lbf_get_rx_ref_count()) {
+		lbf_maintain_rx_refcnt(1);
+		ret = pm_runtime_get_sync(intel_lbf_lpm.tty_dev);
+		pr_debug("ret = %d\n", ret);
+	}
+	intel_lbf_lpm.hostwake = 0;
+
+	intel_lbf_lpm.hostwake |= HOSTWAKE_HIGH;
+	lbf_hostwake_high_processing();
+
+out:
+	enable_irq(intel_lbf_lpm.int_host_wake);
+	return IRQ_HANDLED;
+}
+
 /* lbf_update_host_wake
  *
  * update the host_wake_locked
@@ -652,13 +692,7 @@ static void lbf_update_host_wake(int host_wake)
 	lbf_set_host_wake_state(host_wake);
 	intel_lbf_lpm.hostwake = 0;
 
-	if (host_wake) {
-		intel_lbf_lpm.hostwake |= HOSTWAKE_HIGH;
-		spin_lock(&intel_lbf_lpm.interrupt_lock);
-		lbf_hostwake_high_processing();
-		spin_unlock(&intel_lbf_lpm.interrupt_lock);
-
-	} else {
+	if (!host_wake) {
 		intel_lbf_lpm.hostwake |= HOSTWAKE_LOW;
 		switch (lbf_get_device_state()) {
 		case D2:
@@ -692,29 +726,23 @@ static void lbf_update_host_wake(int host_wake)
  * irqreturn_t
  */
 
-static irqreturn_t host_wake_isr(int irq, void *dev)
+static irqreturn_t lbf_ldisc_hostwake_handler(int irq, void *dev)
 {
 	int host_wake;
 	host_wake = gpio_get_value(intel_lbf_lpm.gpio_host_wake);
 
 	pr_info("%s: host_wake = %d\n", __func__, host_wake);
 	host_wake = host_wake ? 0 : 1;
+
+
 	host_wake_intr_count++;
-
-	if (!bt_self_test_running) {
-		if (!intel_lbf_lpm.tty_dev) {
-			lbf_set_host_wake_state(host_wake);
-			return IRQ_HANDLED;
-		}
-
-		if (host_wake) {
-			if (!lbf_get_rx_ref_count()) {
-				lbf_maintain_rx_refcnt(1);
-				pm_runtime_get(intel_lbf_lpm.tty_dev);
-			}
-			lbf_update_host_wake(host_wake);
-		}
+	if (!bt_self_test_running && host_wake) {
+		intel_lbf_lpm.host_wake = HIGH;
+		if (intel_lbf_lpm.int_host_wake)
+			disable_irq_nosync(intel_lbf_lpm.int_host_wake);
+		return IRQ_WAKE_THREAD;
 	}
+
 	return IRQ_HANDLED;
 }
 
@@ -737,8 +765,8 @@ static void activate_irq_handler(void)
 	if (intel_lbf_lpm.gpio_host_wake > 0) {
 		ret = devm_request_threaded_irq(&intel_lbf_lpm.pdev->dev,
 						intel_lbf_lpm.int_host_wake,
-						NULL,
-						host_wake_isr,
+						lbf_ldisc_hostwake_handler,
+						lbf_ldisc_hostwake_bh,
 						irqf, "host_wake",
 						NULL);
 
@@ -976,10 +1004,29 @@ check_again:
 		send_d0_dx_packet();
 	lbf_tx->tbusy = 0; /* Done with Tx.*/
 	mutex_unlock(&lbf_tx->tx_wakeup);
-
-
 	pr_debug("<- %s\n", __func__);
+}
 
+static void lbf_tx_module_st(unsigned long  module)
+{
+	spin_lock(&intel_lbf_lpm.lpm_modulestate);
+
+	switch (module) {
+	case  MODULE_FM:
+		intel_lbf_lpm.fm_module_state = IDLE;
+		break;
+	case MODULE_BT:
+		intel_lbf_lpm.bt_module_state = IDLE;
+		break;
+	}
+
+	if (!intel_lbf_lpm.bt_module_state && !intel_lbf_lpm.fm_module_state) {
+		intel_lbf_lpm.bt_fmr_state = IDLE;
+		pr_debug("-> %sBoth BT & FMR Idle\n", __func__);
+	} else
+		intel_lbf_lpm.bt_fmr_state = ACTIVE;
+
+	spin_unlock(&intel_lbf_lpm.lpm_modulestate);
 }
 
 static void lbf_tx_wakeup_work(struct work_struct *work)
@@ -1008,16 +1055,23 @@ static long lbf_write(struct sk_buff *skb)
 	print_hex_dump_debug("<FMR out<", DUMP_PREFIX_NONE, 16, 1, skb->data,
 			skb->len, 0);
 
-	if (intel_lbf_lpm.lpm_enable == ENABLE)
+	if (intel_lbf_lpm.lpm_enable == ENABLE) {
+		spin_lock(&intel_lbf_lpm.lpm_modulestate);
+		intel_lbf_lpm.fm_module_state = ACTIVE;
+		intel_lbf_lpm.bt_fmr_state = ACTIVE;
+		pr_debug("-> %s BT_FMR st:%d\n", __func__,
+			intel_lbf_lpm.bt_fmr_state);
+		spin_unlock(&intel_lbf_lpm.lpm_modulestate);
 		ret = lpm_tx_update(MODULE_FM);
+	}
 	/*ST to decide where to enqueue the skb */
 	if (!ret) {
-
 		lbf_enqueue(skb);
 		/* wake up */
 		len = skb->len;
 		lbf_tx_wakeup(NULL);
-	}
+	} else
+		lbf_tx_module_st(MODULE_FM);
 
 	pr_debug("<- %s len: %ld\n", __func__, len);
 
@@ -1468,6 +1522,41 @@ static int lbf_ldisc_fw_download_init(void)
 	return ret;
 }
 
+/* wait_d2_exit()
+ * wait until Dx to D0 transition is completed
+ * Return Type: status
+ * Dx wake status
+ */
+
+static int wait_d2_exit(void)
+{
+	int ret = 0;
+	DEFINE_WAIT(d2wait);
+
+
+	while (lbf_get_device_state() == D2) {
+		prepare_to_wait(&waitFord2exit, &d2wait, TASK_INTERRUPTIBLE);
+
+		if (lbf_get_device_state() == D2)
+			ret = schedule_timeout(3*HZ);
+
+		finish_wait(&waitFord2exit, &d2wait);
+
+		if (ret == 0 && lbf_get_device_state() == D2) {
+			ret = FAILED;
+			pr_err("%s D2 time out\n", __func__);
+			break;
+		} else
+			ret = 0;
+
+		if (signal_pending(current))
+			return -ERESTARTSYS;
+	}
+
+	return ret;
+}
+
+
 /* wait_dx_exit()
  * wait until Dx to D0 transition is completed
  * Return Type: status
@@ -1624,7 +1713,7 @@ check_refcount:
 			lbf_maintain_tx_refcnt(1);
 			lbf_serial_get();
 		}
-		disable_irq_nosync(intel_lbf_lpm.int_host_wake);
+		disable_irq(intel_lbf_lpm.int_host_wake);
 		ret = send_d0_packet();
 		enable_irq(intel_lbf_lpm.int_host_wake);
 		if (ret != IGNORE)
@@ -1644,24 +1733,10 @@ check_refcount:
 		break;
 	}
 
-
-	if (ret == 0) {
-		spin_lock(&intel_lbf_lpm.lpm_modulestate);
-		switch (module) {
-		case  MODULE_FM:
-			intel_lbf_lpm.fm_module_state = ACTIVE;
-			intel_lbf_lpm.bt_fmr_state = ACTIVE;
-			break;
-		case MODULE_BT:
-			intel_lbf_lpm.bt_module_state = ACTIVE;
-			intel_lbf_lpm.bt_fmr_state = ACTIVE;
-			break;
-		default:
-			break;
-		}
-
-		pr_debug("->BT_FMR st:%d\n", intel_lbf_lpm.bt_fmr_state);
-		spin_unlock(&intel_lbf_lpm.lpm_modulestate);
+	if (ret == IGNORE && lbf_get_device_state() == D2) {
+		ret = wait_d2_exit();
+		if (ret == 0)
+			goto check_refcount;
 	}
 
 	mutex_unlock(&intel_lbf_lpm.lpmtxlock);
@@ -1791,26 +1866,7 @@ static int lbf_ldisc_lpm_idle(unsigned long arg)
 
 	pr_debug("-> %s\n", __func__);
 	mutex_lock(&intel_lbf_lpm.idleupdatelock);
-	spin_lock(&intel_lbf_lpm.lpm_modulestate);
-
-	switch (arg) {
-	case  MODULE_FM:
-		intel_lbf_lpm.fm_module_state = IDLE;
-		break;
-	case MODULE_BT:
-		intel_lbf_lpm.bt_module_state = IDLE;
-		break;
-	default:
-		break;
-	}
-
-	if (!intel_lbf_lpm.bt_module_state && !intel_lbf_lpm.fm_module_state) {
-		intel_lbf_lpm.bt_fmr_state = IDLE;
-		pr_info("-> %sBoth BT & FMR Idle\n", __func__);
-	} else
-		intel_lbf_lpm.bt_fmr_state = ACTIVE;
-
-	spin_unlock(&intel_lbf_lpm.lpm_modulestate);
+	lbf_tx_module_st(arg);
 
 try_again:
 	if (lbf_get_device_state() == D0) {
@@ -2070,6 +2126,7 @@ static void lbf_ldisc_receive(struct tty_struct *tty, const u8 *cp, char *fp,
 			if (*ptr != 0x01 && *ptr != 0x02 && *ptr != 0x03 &&
 				*ptr != 0x04 && *ptr != LPM_PKT) {
 				pr_debug(" Discard a byte 0x%x\n" , *ptr);
+				lbf_update_set_room(tty, 1);
 				ptr++;
 				count = count - 1;
 				continue;
@@ -2439,22 +2496,27 @@ static ssize_t lbf_ldisc_write(struct tty_struct *tty, struct file *file,
 
 	/*print_hex_dump(KERN_DEBUG, "<BT out<", DUMP_PREFIX_NONE, 16, 1, data,
 			count, 0);*/
-
-	if (!skb)
-		return -ENOMEM;
-
-	memcpy(skb_put(skb, count), data, count);
-	len = count;
-
-	if (intel_lbf_lpm.lpm_enable == ENABLE)
+	if (intel_lbf_lpm.lpm_enable == ENABLE) {
+		spin_lock(&intel_lbf_lpm.lpm_modulestate);
+		intel_lbf_lpm.bt_module_state = ACTIVE;
+		intel_lbf_lpm.bt_fmr_state = ACTIVE;
+		spin_unlock(&intel_lbf_lpm.lpm_modulestate);
 		ret = lpm_tx_update(MODULE_BT);
-
-	if (!ret) {
+	}
+	if (ret == 0) {
+		skb = alloc_skb(count + 1, GFP_ATOMIC);
+		if (!skb) {
+			len = -ENOMEM;
+			goto write_fail;
+		}
+		memcpy(skb_put(skb, count), data, count);
 		lbf_enqueue(skb);
 		len = count;
 		lbf_tx_wakeup(NULL);
-	}
+	} else
+		lbf_tx_module_st(MODULE_BT);
 
+write_fail:
 	pr_debug("<- %s\n", __func__);
 	return len;
 }
