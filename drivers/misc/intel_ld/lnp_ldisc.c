@@ -424,9 +424,10 @@ static inline int lbf_get_bt_fmr_state(void)
 static inline void lbf_serial_get(void)
 {
 	pr_debug("%s\n", __func__);
-	/*WARN_ON(!intel_lbf_lpm.tty_dev);
-	 For cht refersh: pm_runtime is not supported*/
-	/*pm_runtime_get_sync(intel_lbf_lpm.tty_dev);*/
+	if (intel_lbf_lpm.tty_dev)
+		pm_runtime_get_sync(intel_lbf_lpm.tty_dev);
+	else
+		pr_err("%s: no tty device\n", __func__);
 }
 
 static void lbf_host_enable_work(struct work_struct *work)
@@ -449,9 +450,10 @@ static void lbf_host_enable_work(struct work_struct *work)
 static inline void lbf_serial_put(void)
 {
 	pr_debug("%s\n", __func__);
-	/*WARN_ON(!intel_lbf_lpm.tty_dev);
-	 For cht refersh: pm_runtime is not supported*/
-	/*pm_runtime_put(intel_lbf_lpm.tty_dev);*/
+	if (intel_lbf_lpm.tty_dev)
+		pm_runtime_put(intel_lbf_lpm.tty_dev);
+	else
+		pr_err("%s: no tty device\n", __func__);
 }
 
 /* lbf_set_host_wake_state
