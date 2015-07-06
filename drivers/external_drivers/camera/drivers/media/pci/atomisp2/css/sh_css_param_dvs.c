@@ -214,8 +214,8 @@ free_dvs_6axis_table(struct ia_css_dvs_6axis_config  **dvs_6axis_config)
 			(*dvs_6axis_config)->ycoords_uv = NULL;
 		}
 
-		sh_css_free(*dvs_6axis_config);
 		IA_CSS_LEAVE_PRIVATE("dvs_6axis_config %p", (*dvs_6axis_config));
+		sh_css_free(*dvs_6axis_config);
 		*dvs_6axis_config = NULL;
 	}
 }

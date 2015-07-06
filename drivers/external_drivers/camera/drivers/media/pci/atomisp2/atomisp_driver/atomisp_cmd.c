@@ -5890,7 +5890,7 @@ int atomisp_s_ae_window(struct atomisp_sub_device *asd,
 			struct atomisp_ae_window *arg)
 {
 	struct atomisp_device *isp = asd->isp;
-	struct v4l2_subdev_selection sel;
+	struct v4l2_subdev_selection sel = { 0 };
 
 	sel.r.left = arg->x_left;
 	sel.r.top = arg->y_top;
