@@ -27,6 +27,10 @@
 				compatible = "atmel,24c16";
 				reg = <0x50>;
 			};
+			cs4385@30 {
+				compatible = "cirrus,cs4385";
+				reg = <0x30>;
+			};
 		};
 
 		spi0: spi@01c68000 {

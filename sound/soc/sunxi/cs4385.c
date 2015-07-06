@@ -30,7 +30,6 @@
 
 #define CS4385_NAME        "cs4385-codec"
 #define CS4385_RATES (SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000)
-static unsigned int twi_id = 0;
 
 /* codec private data */
 struct cs4385_priv {
@@ -184,7 +183,7 @@ static int cs4385_i2c_probe(struct i2c_client *i2c,
 			    const struct i2c_device_id *id)
 {
 	struct cs4385_priv *cs4385;
-	int ret;
+	int ret = 0;
 
 	cs4385 = devm_kzalloc(&i2c->dev, sizeof(struct cs4385_priv),
 			      GFP_KERNEL);
@@ -212,20 +211,6 @@ static int cs4385_i2c_remove(struct i2c_client *client)
 	return 0;
 }
 
-static int cs4385_detect(struct i2c_client *client, struct i2c_board_info *info)
-{
-	struct i2c_adapter *adapter = client->adapter;
-
-	if (twi_id == adapter->nr) {
-		strlcpy(info->type, CS4385_NAME, I2C_NAME_SIZE);
-		return 0;
-	} else {
-		return -ENODEV;
-	}
-}
-
-static const unsigned short normal_i2c[] = {0x30, I2C_CLIENT_END};
-
 static const struct i2c_device_id cs4385_i2c_id[] = {
 	{"cs4385", 0},
 	{ }
@@ -240,20 +225,24 @@ static struct i2c_driver cs4385_i2c_driver = {
 	.probe =    cs4385_i2c_probe,
 	.remove =   cs4385_i2c_remove,
 	.id_table = cs4385_i2c_id,
-	.address_list = normal_i2c,
 };
 
 static int __init cs4385_init(void)
 {
-	pr_info("%s,%d\n", __func__, __LINE__);
-	cs4385_i2c_driver.detect = cs4385_detect;
-	return i2c_add_driver(&cs4385_i2c_driver);
+	int ret = 0;
+
+	ret = i2c_add_driver(&cs4385_i2c_driver);
+	if (ret < 0) {
+		printk("cs4385_i2c_driver add failed\n");
+		return ret;
+	}
+
+	return 0;
 }
 module_init(cs4385_init);
 
 static void __exit cs4385_exit(void)
 {
-	pr_info("%s, %d\n", __func__, __LINE__);
 	i2c_del_driver(&cs4385_i2c_driver);
 }
 module_exit(cs4385_exit);
