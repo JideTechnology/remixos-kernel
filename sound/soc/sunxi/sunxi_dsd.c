@@ -213,6 +213,10 @@ static int sunxi_dsd_set_sysclk(struct snd_soc_dai *cpu_dai, int clk_id,
 
 static int sunxi_dsd_dai_probe(struct snd_soc_dai *dai)
 {
+	struct sunxi_dsd_info *sunxi_dsd = snd_soc_dai_get_drvdata(dai);
+
+	dai->playback_dma_data = &sunxi_dsd->play_dma_param;
+
 	return 0;
 }
 
@@ -354,6 +358,7 @@ static int __init sunxi_dsd_dev_probe(struct platform_device *pdev)
 		goto err0;
 	}
 	pr_debug("[audio-dsd] platform initial.\n");
+
 	dev_set_drvdata(&pdev->dev, sunxi_dsd);
 	sunxi_dsd->dai = sunxi_dsd_dai;
 	sunxi_dsd->dai.name = dev_name(&pdev->dev);
