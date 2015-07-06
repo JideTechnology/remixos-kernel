@@ -1506,12 +1506,19 @@ static struct uart_driver serial_hsu_reg = {
 static void hsu_regs_context(struct uart_hsu_port *up, int op)
 {
 	struct hsu_port_cfg *cfg = up->port_cfg;
+	int retry = 10;
 
 	if (op == context_load) {
-		usleep_range(10, 100);
+		do {
+			if (cfg->hw_reset)
+				cfg->hw_reset(up->port.membase);
 
-		if (cfg->hw_reset)
-			cfg->hw_reset(up->port.membase);
+			if (serial_in(up, UART_IIR))
+				break;
+		} while (--retry);
+
+		if (unlikely(retry == 0))
+			pr_err("HSU resume failed\n");
 
 		serial_out(up, UART_LCR, up->lcr);
 		serial_out(up, UART_LCR, up->lcr | UART_LCR_DLAB);

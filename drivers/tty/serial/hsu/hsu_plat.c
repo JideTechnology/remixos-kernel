@@ -159,7 +159,9 @@ static int cht_hsu_hw_resume(struct uart_hsu_port *up)
 static void cht_hsu_reset(void __iomem *addr)
 {
 	writel(0, addr + CHT_HSU_RESET);
+	usleep_range(10, 100);
 	writel(3, addr + CHT_HSU_RESET);
+	usleep_range(10, 100);
 
 	/* Disable the tx overflow IRQ */
 	writel(2, addr + CHT_HSU_OVF_IRQ);
