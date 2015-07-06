@@ -2203,7 +2203,7 @@ static int bq24192_probe(struct i2c_client *client,
 	const struct acpi_device_id *acpi_id;
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
 	struct bq24192_chip *chip;
-	struct device *dev;
+	struct device *dev = &client->dev;
 	struct gpio_desc *gpio;
 	int ret;
 	struct em_config_oem1_data em_config;
@@ -2221,7 +2221,6 @@ static int bq24192_probe(struct i2c_client *client,
 	}
 
 	chip->client = client;
-	dev = &client->dev;
 	if (id) {
 		chip->pdata = (struct bq24192_platform_data *)id->driver_data;
 	} else {

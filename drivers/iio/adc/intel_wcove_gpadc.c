@@ -153,11 +153,12 @@ int iio_whiskeycove_gpadc_sample(struct iio_dev *indio_dev,
 	struct gpadc_info *info = iio_priv(indio_dev);
 	int i, ret, reg_val;
 	u8 adc_req = 0, irq_en = 0, th, tl, adc_irq;
-	u8 mask, cursrc;
+	u8 mask = 0, cursrc = 0;
 	unsigned long rlsb;
 	static const unsigned long rlsb_array[] = {
 		0, 260420, 130210, 65100, 32550, 16280,
-		8140, 4070, 2030, 0, 260420, 130210};
+		8140, 4070, 2030, 0, 260420, 130210,
+		0, 0, 0, 0 };
 
 	struct gpadc_regs_t *regs = info->gpadc_regs;
 

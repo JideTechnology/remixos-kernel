@@ -726,7 +726,7 @@ sst_parse_elf_fw_dma(struct intel_sst_drv *sst, const void *fw_in_mem,
 	int i = 0, ret = 0;
 	Elf32_Ehdr *elf;
 	Elf32_Phdr *pr;
-	struct sst_info info;
+	struct sst_info info = { 0 };
 	struct scatterlist *sg_src = NULL, *sg_dst = NULL;
 	unsigned int sg_len;
 
@@ -1012,7 +1012,7 @@ sst_parse_elf_fw_memcpy(struct intel_sst_drv *sst, const void *fw_in_mem,
 
 	Elf32_Ehdr *elf;
 	Elf32_Phdr *pr;
-	struct sst_info info;
+	struct sst_info info = { 0 } ;
 
 	BUG_ON(!fw_in_mem);
 
@@ -1368,9 +1368,9 @@ static int sst_download_library(const struct firmware *fw_lib,
 			pr_err("Prep codec downloaded failed %d\n",
 					str_type->result);
 			retval = -EIO;
+			kfree(block->data);
 			goto free_block;
 		}
-		kfree(block->data);
 	} else if (retval != 0) {
 		retval = -EIO;
 		goto free_block;
