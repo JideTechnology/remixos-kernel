@@ -1686,7 +1686,8 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv,
 
 	if (enable) {
 		if (IS_CHERRYVIEW(dev_priv->dev)) {
-
+			intel_wait_for_vblank(dev_priv->dev,
+					(to_intel_crtc(crtc))->pipe);
 			/*
 			 * When display is in single plane maxfifo mode,
 			 * DDR DVFS can be enabled for better power saving.
