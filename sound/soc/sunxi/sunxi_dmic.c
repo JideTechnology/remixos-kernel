@@ -180,7 +180,7 @@ static int sunxi_dmic_perpare(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *cpu_dai)
 {
 	int i = 0;
-	int dmic_vol = 0xa0;
+	int dmic_vol = 0xb0;
 	int reg_val = 0x0;
 	struct sunxi_dmic_info *sunxi_dmic = snd_soc_dai_get_drvdata(cpu_dai);
 
