@@ -29,7 +29,7 @@
 			};
 			cs4385@30 {
 				compatible = "cirrus,cs4385";
-				reg = <0x30>;
+				reg = <0x18>;
 			};
 		};
 

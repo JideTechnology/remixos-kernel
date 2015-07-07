@@ -65,7 +65,7 @@ static struct snd_soc_dai_link sunxi_snddsd_dai_link = {
 	.cpu_dai_name 	= "sunxi-dsd",
 	.platform_name 	= "sunxi-dsd",
 	.codec_dai_name = "cs4385-dai",
-	.codec_name 	= "cs4385.0-0030",
+	.codec_name 	= "cs4385.0-0018",
 	.ops 			= &sunxi_snddsd_ops,
 };
 
