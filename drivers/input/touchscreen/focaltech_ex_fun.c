@@ -67,6 +67,7 @@ static struct proc_dir_entry *fts_proc_entry;
 extern struct i2c_client *fts_i2c_client;
 extern int fts_5826_ctpm_fw_upgrade_with_i_file(struct i2c_client *client);
 extern int fts_ctpm_get_i_file_ver(void);
+extern int fts_ctpm_auto_upgrade(struct i2c_client *client);
 
 
 /*******************************************************************************
@@ -98,6 +99,7 @@ static ssize_t fts_fwupdate_store(struct device *dev, struct device_attribute *a
 	u8 uc_host_fm_ver;
 	int i_ret;
 	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
+
 	mutex_lock(&fts_input_dev->mutex);
 	
 	disable_irq(client->irq);
@@ -118,14 +120,14 @@ static ssize_t fts_fwupdate_store(struct device *dev, struct device_attribute *a
 	
 	enable_irq(client->irq);
 	mutex_unlock(&fts_input_dev->mutex);
-	
+
 	return count;
 }
 
 /*upgrade from *.i
 *example: echo 1 > ftsfwupdate
 */
-static DEVICE_ATTR(ftsfwupdate, S_IRUGO|S_IWUSR, fts_fwupdate_show, fts_fwupdate_store);
+static DEVICE_ATTR(ftsfwupdate, S_IRUGO|S_IWUGO, fts_fwupdate_show, fts_fwupdate_store);
 
 /*add your attr in here*/
 static struct attribute *fts_attributes[] = {

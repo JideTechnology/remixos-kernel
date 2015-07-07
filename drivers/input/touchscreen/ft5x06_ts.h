@@ -116,7 +116,7 @@ struct ft5x06_ts_platform_data {
 	int (*power_on) (bool);
 };
 
-#define FTS_DBG_EN 1
+#define FTS_DBG_EN 0
 #if FTS_DBG_EN
 #define FTS_DBG(fmt, args...) 				printk("[FTS]" fmt, ## args)
 #else

@@ -106,6 +106,13 @@
 #define FTS_UPGRADE_55		0x55
 #define HIDTOI2C_DISABLE					0
 #define FTXXXX_INI_FILEPATH_CONFIG "/sdcard/"
+
+
+
+#define TEGRA_GPIO_PK4		84
+
+
+
 /*******************************************************************************
 * Private enumerations, structures and unions using typedef
 *******************************************************************************/
@@ -159,6 +166,10 @@ int hidi2c_to_stdi2c(struct i2c_client * client)
 	msleep(10);
 	auc_i2c_write_buf[0] = auc_i2c_write_buf[1] = auc_i2c_write_buf[2] = 0;
 	fts_i2c_read(client, auc_i2c_write_buf, 0, auc_i2c_write_buf, 3);
+	
+	FTS_DBG("hidi2c_to_stdi2c auc_i2c_write_buf[0]=0x%x\n",auc_i2c_write_buf[0]);
+	FTS_DBG("hidi2c_to_stdi2c auc_i2c_write_buf[1]=0x%x\n",auc_i2c_write_buf[1]);
+	FTS_DBG("hidi2c_to_stdi2c auc_i2c_write_buf[2]=0x%x\n",auc_i2c_write_buf[2]);
 
 	if(0xeb==auc_i2c_write_buf[0] && 0xaa==auc_i2c_write_buf[1] && 0x08==auc_i2c_write_buf[2])
 	{
@@ -286,6 +297,8 @@ int fts_5x26_ctpm_fw_upgrade(struct i2c_client *client, u8 *pbt_buf, u32 dw_lent
 	u8 auc_i2c_write_buf[10];
 	u8 bt_ecc;
 	int i_ret=0;
+	struct ft5x06_ts_platform_data *pdata;
+	pdata = client->dev.platform_data;
 
 
 	FTS_DBG("[FTS] =====lzy: line: %d : fts_updateinfo_curr.delay_aa=%d:\n", __LINE__,fts_updateinfo_curr.delay_aa);
@@ -307,25 +320,37 @@ int fts_5x26_ctpm_fw_upgrade(struct i2c_client *client, u8 *pbt_buf, u32 dw_lent
 	fts_i2c_read(client, auc_i2c_write_buf, 4, reg_val, 2);
 	FTS_DBG("[FTS] =====lzy: line: %d : before update mode:  read FTS_REG_ID:reg_val[0]= 0x%x,reg_val[1]= 0x%x\n", __LINE__,reg_val[0],reg_val[1]);	
 
+		
+	for (i = 0; i < 100; i++) 
+	{
 
 
-		i_ret = hidi2c_to_stdi2c(client);
-		if (i_ret == 0) 
-		{
-			FTS_DBG("HidI2c change to StdI2c fail ! \n");
-		}
-
-
+	i_ret = hidi2c_to_stdi2c(client);
+	if (i_ret == 0) 
+	{
+		FTS_DBG("HidI2c change to StdI2c fail ! \n");
+	}
 
 		/*********Step 1:Reset  CTPM *****/
 		fts_write_reg(client, 0xfc, FTS_UPGRADE_AA);
 		msleep(50);
 		fts_write_reg(client, 0xfc, FTS_UPGRADE_55);
-		msleep(10);
-		for (i = 0; i < 100; i++) 
-		{
+		msleep(30);
+
+	    FTS_DBG("i = %d\n", i);
+		msleep(5*i);
 
 		/*********Step 2:Enter upgrade mode and switch protocol*****/
+		
+		i_ret = hidi2c_to_stdi2c(client);
+		if(i_ret < 0)
+		{
+			FTS_DBG("failed to Switch HidtoI2c Protocol ! \n");
+		//	continue;
+		}
+		
+		msleep(5);
+
 		auc_i2c_write_buf[0] = FTS_UPGRADE_55;
 		auc_i2c_write_buf[1] = FTS_UPGRADE_AA;
 		i_ret = fts_i2c_write(client, auc_i2c_write_buf, 2);
@@ -334,14 +359,7 @@ int fts_5x26_ctpm_fw_upgrade(struct i2c_client *client, u8 *pbt_buf, u32 dw_lent
 			FTS_DBG("failed writing  0x55 and 0xaa ! \n");
 			continue;
 		}
-				
-		i_ret = hidi2c_to_stdi2c(client);
-		if(i_ret < 0)
-		{
-			FTS_DBG("failed to Switch HidtoI2c Protocol ! \n");
-			continue;
-		}
-		
+	
 		/*********Step 3:check READ-ID***********************/
 		auc_i2c_write_buf[0] = 0x90;
 		auc_i2c_write_buf[1] = auc_i2c_write_buf[2] = auc_i2c_write_buf[3] = 0x00;
@@ -544,7 +562,8 @@ int fts_ctpm_get_i_file_ver(void)
 	    else if(fts_updateinfo_curr.CHIP_ID==0x58)
                 return CTPM_FW[0x1D0A];
 	    else
-		return CTPM_FW[ui_sz - 2];
+		return CTPM_FW[ui_sz - 14];
+	//	return CTPM_FW[ui_sz - 2];
 	}
 
 	return 0x00;
@@ -571,7 +590,7 @@ int fts_5826_ctpm_fw_upgrade_with_i_file(struct i2c_client *client)
 	{
 	    	if (fw_len < 8 || fw_len > 54*1024) 
 		{
-		    	pr_err("FW length error\n");
+		    	FTS_DBG("FW length error\n");
 	    		return -EIO;
 	    	}
 
@@ -586,7 +605,7 @@ int fts_5826_ctpm_fw_upgrade_with_i_file(struct i2c_client *client)
     		i_ret = fts_5x26_ctpm_fw_upgrade(client, pbt_buf, sizeof(CTPM_FW));
     		if (i_ret != 0) 
 		{
-    			dev_err(&client->dev, "[FTS] upgrade failed. err=%d.\n", i_ret);
+    			FTS_DBG( "[FTS] upgrade failed. err=%d.\n", i_ret);
     		} 
 		else 
 		{
@@ -595,6 +614,11 @@ int fts_5826_ctpm_fw_upgrade_with_i_file(struct i2c_client *client)
 			#endif
     		}
 	}
+ else{
+	 FTS_DBG("[FTS] =====lzy:id: 0x%x not suportted   \n", fts_updateinfo_curr.CHIP_ID);
+
+ }
+ 	
 	return i_ret;
 }
 /************************************************************************
@@ -610,22 +634,27 @@ int fts_ctpm_auto_upgrade(struct i2c_client *client)
 	u8 uc_tp_fm_ver;
 	int i_ret;
 
+	FTS_DBG("[FTS] fts_ctpm_auto_upgrade start \n");
+
+
 	fts_read_reg(client, FTS_REG_FW_VER, &uc_tp_fm_ver);
+	FTS_DBG( "[FTS] uc_tp_fm_ver = %d \n",uc_tp_fm_ver);
 	uc_host_fm_ver = fts_ctpm_get_i_file_ver();
-	if (uc_tp_fm_ver == FTS_REG_FW_VER ||	uc_tp_fm_ver < uc_host_fm_ver ) 
+	FTS_DBG( "[FTS] uc_host_fm_ver = %d \n",uc_host_fm_ver);
+	if (uc_tp_fm_ver == FTS_REG_FW_VER ||	uc_tp_fm_ver != uc_host_fm_ver ) 
 	{
 		msleep(100);
-		dev_dbg(&client->dev, "[FTS] uc_tp_fm_ver = 0x%x, uc_host_fm_ver = 0x%x\n",uc_tp_fm_ver, uc_host_fm_ver);
+		FTS_DBG("[FTS] uc_tp_fm_ver = 0x%x, uc_host_fm_ver = 0x%x\n",uc_tp_fm_ver, uc_host_fm_ver);
 		i_ret = fts_5826_ctpm_fw_upgrade_with_i_file(client);
 		if (i_ret == 0)	
 		{
 			msleep(300);
 			uc_host_fm_ver = fts_ctpm_get_i_file_ver();
-			dev_dbg(&client->dev, "[FTS] upgrade to new version 0x%x\n",uc_host_fm_ver);
+			FTS_DBG( "[FTS] upgrade to new version 0x%x\n",uc_host_fm_ver);
 		} 
 		else
 		{
-			pr_err("[FTS] upgrade failed ret=%d.\n", i_ret);
+			FTS_DBG("[FTS] upgrade failed ret=%d.\n", i_ret);
 			return -EIO;
 		}
 	}

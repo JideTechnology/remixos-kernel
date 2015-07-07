@@ -196,6 +196,7 @@ extern void fts_get_upgrade_array(void);
 //ADB functions
 extern int fts_create_sysfs(struct i2c_client *client);
 extern int fts_remove_sysfs(struct i2c_client *client);
+extern int fts_ctpm_auto_upgrade(struct i2c_client *client);
 
 
 struct ft5x06_ts_data {
@@ -354,6 +355,8 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 	u8 reg = 0x00, *buf;
     int uppoint  = 0;
 	int touch_point = 0;
+	int reg2 = 0x0;
+	int mode_value =0;
 
 	if (!data) {
 		pr_err("%s: Invalid data\n", __func__);
@@ -362,6 +365,18 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 
 	ip_dev = data->input_dev;
 	buf = data->tch_data;
+
+	reg2 = FT_DEV_MODE_REG_CAL;
+	rc = fts_i2c_read(data->client, &reg2, 1, &mode_value, 1);
+	if(mode_value == 0xF0){
+		input_report_key(ip_dev, KEY_HOME, 1);
+		input_mt_sync(ip_dev);
+		input_sync(ip_dev);
+		input_report_key(ip_dev, KEY_HOME, 0);
+		input_mt_sync(ip_dev);
+		input_sync(ip_dev);
+		return IRQ_HANDLED;
+	}
 
 	rc = fts_i2c_read(data->client, &reg, 1,
 			buf, data->tch_data_len);
@@ -637,6 +652,23 @@ static ssize_t ft5x06_fw_name_store(struct device *dev,
 static DEVICE_ATTR(fw_name, 0664, ft5x06_fw_name_show, ft5x06_fw_name_store);
 
 
+static ssize_t ft5x06_ftfw_version_read(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+		int err = -1;
+		u8 reg_addr;
+		u8 fw_ver = 0;
+		struct ft5x06_ts_data *data = dev_get_drvdata(dev);
+
+		reg_addr = FT_REG_FW_VER;
+		err = fts_i2c_read(data->client, &reg_addr, 1, &fw_ver, 1);
+		if(err < 0 ){
+			return snprintf(buf, 8, "fail\n");
+		}
+		return snprintf(buf, 8, "%d\n", fw_ver);
+}
+
+
 static ssize_t ft5x06_ftfw_version_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
@@ -722,6 +754,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	__set_bit(EV_KEY, input_dev->evbit);
 	__set_bit(EV_ABS, input_dev->evbit);
 	__set_bit(BTN_TOUCH, input_dev->keybit);
+	__set_bit(KEY_HOME, input_dev->keybit);
 	__set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
 
 	input_mt_init_slots(input_dev, pdata->num_max_touches);
@@ -844,8 +877,6 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 		err = PTR_ERR(data->dir);
 		goto free_ftfw_version_sys;
 	}
-
-//todo
 	fts_get_upgrade_array();
 	fts_create_sysfs(client);
 
@@ -896,7 +927,12 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	register_early_suspend(&data->early_suspend);
 #endif
 
+
     dev_info(&client->dev, "ft5x06_ts_probe done\n");
+
+//	disable_irq(client->irq);
+	fts_ctpm_auto_upgrade(client);
+//	enable_irq(client->irq);
 
 	return 0;
 
