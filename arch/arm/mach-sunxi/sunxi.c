@@ -26,16 +26,16 @@
 
 #include "sunxi.h"
 
+static void __iomem *wdt_base;
+
+static void sun4i_restart(char mode, const char *cmd)
+{
+
 #define SUN4I_WATCHDOG_CTRL_REG		0x00
 #define SUN4I_WATCHDOG_CTRL_RESTART		(1 << 0)
 #define SUN4I_WATCHDOG_MODE_REG		0x04
 #define SUN4I_WATCHDOG_MODE_ENABLE		(1 << 0)
 #define SUN4I_WATCHDOG_MODE_RESET_ENABLE	(1 << 1)
-
-static void __iomem *wdt_base;
-
-static void sun4i_restart(char mode, const char *cmd)
-{
 	if (!wdt_base)
 		return;
 
@@ -56,8 +56,36 @@ static void sun4i_restart(char mode, const char *cmd)
 	}
 }
 
+static void sun8i_restart(char mode, const char *cmd)
+{
+
+#define SUN8I_WATCHDOG_CTRL_REG	        0x10
+#define SUN8I_WATCHDOG_CTRL_RESTART	    ((1 << 0) | 0xA57)
+#define SUN8I_WATCHDOG_CONFIG_REG       0x14
+#define SUN8I_WATCHDOG_CONFIG_WHOLE_SYS	(1 << 0)
+#define SUN8I_WATCHDOG_MODE_REG	        0x18
+#define SUN8I_WATCHDOG_MODE_ENABLE      (1 << 0)
+	if (!wdt_base)
+		return;
+
+	printk("WARN: enter func %s, para: mode = %s, cmd = %s. \n", __func__, &mode, cmd);
+	
+	/* config watchdog reset whole system.*/
+	writel(SUN8I_WATCHDOG_CONFIG_WHOLE_SYS,
+	       wdt_base + SUN8I_WATCHDOG_CONFIG_REG);
+
+	/*
+	 * start the watchdog. The default (and lowest) interval
+	 * value for the watchdog is 0.5s.
+	 */
+	writel(SUN8I_WATCHDOG_MODE_ENABLE, wdt_base + SUN8I_WATCHDOG_MODE_REG);
+	
+	return ;
+}
+
 static struct of_device_id sunxi_restart_ids[] = {
 	{ .compatible = "allwinner,sun4i-wdt", .data = sun4i_restart },
+	{ .compatible = "allwinner,sun8i-wdt", .data = sun8i_restart },
 	{ /*sentinel*/ }
 };
 
@@ -118,11 +146,3 @@ DT_MACHINE_START(SUNXI_DT, "Allwinner A1X (Device Tree)")
 	.dt_compat	= sunxi_board_dt_compat,
 MACHINE_END
 
-DT_MACHINE_START(SUN8IW10P1_DT, "arm,sun8iw10p1")
-	.init_machine	= sunxi_dt_init,
-	.smp		= smp_ops(sunxi_smp_ops),
-	.map_io		= sunxi_map_io,
-	.init_irq	= irqchip_init,
-	.init_time	= sunxi_timer_init,
-	.dt_compat	= sunxi_board_dt_compat,
-MACHINE_END
