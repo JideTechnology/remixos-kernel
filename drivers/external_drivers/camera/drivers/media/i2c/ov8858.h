@@ -1239,11 +1239,26 @@ static struct ov8858_resolution ov8858_res_preview[] = {
 	},
 };
 
-/*
- * FIXME: Since ISP can't downscale image from 1640x1232 to 176x144
- * So don't add 1640x1232 setting into still mode here.
- */
 static struct ov8858_resolution ov8858_res_still[] = {
+	{
+		.desc = "ov8858_1640x1232_STILL",
+		.width = 1640,
+		.height = 1232,
+		.used = 0,
+		.regs = ov8858_1640x1232,
+		.bin_factor_x = 0,
+		.bin_factor_y = 0,
+		.skip_frames = 0,
+		.fps_options = {
+			{
+				.fps = 30,
+				.pixels_per_line = 3880,
+				.lines_per_frame = 2573,
+			},
+			{
+			}
+		},
+	},
 	{
 		.desc = "ov8858_1640x926_STILL",
 		.width = 1640,
