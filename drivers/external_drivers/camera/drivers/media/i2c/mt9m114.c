@@ -2225,7 +2225,6 @@ static int mt9m114_probe(struct i2c_client *client,
 	if (ret) {
 		v4l2_device_unregister_subdev(&dev->sd);
 		kfree(dev);
-		return ret;
 	}
 #else
 	if (client->dev.platform_data) {

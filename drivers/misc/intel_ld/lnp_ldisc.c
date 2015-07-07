@@ -805,7 +805,7 @@ static inline void check_unthrottle(struct tty_struct *tty)
 static int send_d0_dx_packet(void)
 {
 	int len;
-	int ret = 0;
+	int ret;
 	pr_debug("-> %s\n", __func__);
 
 

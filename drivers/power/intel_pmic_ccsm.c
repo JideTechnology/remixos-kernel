@@ -756,8 +756,8 @@ int intel_pmic_set_cv(int new_cv)
 
 int intel_pmic_set_ilimma(int ilim_ma)
 {
-	u8 reg_val = 0;
-	int ret = 0;
+	u8 reg_val;
+	int ret;
 
 	if (ilim_ma >= 1500) {
 		if (chc.pdata->inlmt_to_reg)
@@ -1300,7 +1300,7 @@ static int pmic_ccsm_pse_prof_init(void)
 {
 	int ret = 0, i, temp_mon_ranges;
 	u32 adc_val;
-	u8 reg_val = 0;
+	u8 reg_val;
 	int max_hw_zones = 5;
 	struct ps_pse_mod_prof *bcprof = chc.actual_bcprof;
 	temp_mon_ranges = min_t(u16, bcprof->temp_mon_ranges,
@@ -1617,7 +1617,7 @@ static int vbus_get_cur_state(struct thermal_cooling_device *tcd,
 static int vbus_set_cur_state(struct thermal_cooling_device *tcd,
 				unsigned long new_state)
 {
-	int ret = 0;
+	int ret;
 
 	if (new_state >= MAX_VBUSCTRL_STATES || new_state < 0) {
 		dev_err(chc.dev, "Invalid vbus control state: %ld\n",

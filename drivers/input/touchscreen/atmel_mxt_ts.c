@@ -3759,8 +3759,7 @@ err:
 		"%s: Creating debugfs entries failed !\n",
 		data->debugfs_name);
 	mxt_debugfs_remove(data);
-	/* mxt_debufgs_remove frees buf_raw_data field */
-	/* free(data->buf_raw_data); */
+	kfree(data->buf_raw_data);
 	return -ENOMEM;
 }
 #endif /*CONFIG_DEBUG_FS*/
