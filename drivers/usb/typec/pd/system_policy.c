@@ -37,6 +37,16 @@ EXPORT_SYMBOL_GPL(power_delivery_class);
 /* it is a singleton class for a system */
 static struct system_policy *spolicy;
 
+static enum policy_type policies[] = {
+	POLICY_TYPE_SINK,
+};
+
+/* FIXME: now supports only one port */
+static struct pd_policy pdpolicy = {
+	.policies = policies,
+	.num_policies = ARRAY_SIZE(policies),
+};
+
 /**
  * syspolicy_register_typec_phy - register typec phy with system policy
  * @x: the typec_phy to be used; or NULL
@@ -49,6 +59,7 @@ int syspolicy_register_typec_phy(struct typec_phy *x)
 	int			ret = 0;
 	unsigned long		flags;
 	struct device_list	*devlist, *tmp;
+	struct devpolicy_mgr	*dpm;
 	bool			is_pd_supported;
 
 	if (!x || !x->dev) {
@@ -88,6 +99,14 @@ int syspolicy_register_typec_phy(struct typec_phy *x)
 		goto fail;
 	}
 
+	dpm = dpm_register_syspolicy(devlist->phy, &pdpolicy);
+	if (IS_ERR_OR_NULL(dpm)) {
+		dev_err(x->dev, "SYS_POLICY: Unable to register dpm!\n");
+		ret = -ENODEV;
+		goto fail;
+	}
+
+	devlist->dpm = dpm;
 	list_add_tail(&devlist->list, &spolicy->list);
 	return 0;
 
@@ -116,6 +135,7 @@ void syspolicy_unregister_typec_phy(struct typec_phy *x)
 		list_for_each_entry_safe(devlist, tmp, &spolicy->list, list) {
 			if (devlist->phy == x) {
 				list_del(&devlist->list);
+				dpm_unregister_syspolicy(devlist->dpm);
 				kfree(devlist);
 				break;
 			}

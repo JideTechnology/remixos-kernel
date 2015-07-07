@@ -2,10 +2,12 @@
 #define __PD_SYSTEM_POLICY_H__
 
 #include <linux/usb_typec_phy.h>
+#include "devpolicy_mgr.h"
 
 struct device_list {
 	struct list_head list;
 	struct typec_phy *phy;
+	struct devpolicy_mgr *dpm;
 };
 
 struct system_policy {
