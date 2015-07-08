@@ -2959,7 +2959,7 @@ static int mmc_blk_probe(struct mmc_card *card)
 	/* use async mode for suspend/resume */
 	device_enable_async_suspend(&card->dev);
 
-	pm_runtime_set_autosuspend_delay(&card->dev, 3000);
+	pm_runtime_set_autosuspend_delay(&card->dev, 100);
 	pm_runtime_use_autosuspend(&card->dev);
 
 	/*
