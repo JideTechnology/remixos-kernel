@@ -64,7 +64,7 @@ int of_dma_controller_register(struct device_node *np,
 				void *data)
 {
 	struct of_dma	*ofdma;
-	int		nbcells;
+	int		nbcells = 0;
 	const __be32	*prop;
 
 	if (!np || !of_dma_xlate) {

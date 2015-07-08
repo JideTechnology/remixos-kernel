@@ -665,7 +665,7 @@ static struct dma_async_tx_descriptor *sunxi_prep_dma_memcpy(
 	u32	phy;
 
 	dev_dbg(chan2dev(chan), "%s; chan: %d, dest: 0x%08lx, "
-			"src: 0x%08lx, len: 0x%08lx. flags: 0x%08lx\n",
+			"src: 0x%08lx, len: 0x%08zx. flags: 0x%08lx\n",
 			__func__, schan->vc.chan.chan_id, (unsigned long)dest,
 			(unsigned long)src, len, flags);
 
