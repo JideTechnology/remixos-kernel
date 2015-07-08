@@ -669,6 +669,7 @@
 			aif2config = <0x0>;
 			aif3config = <0x0>;
 			pa_sleep_time = <0x15e>;
+			dac_digital_vol = <0xa0a0>;
 			status = "okay";
 		};
 

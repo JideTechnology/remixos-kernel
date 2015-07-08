@@ -1680,7 +1680,7 @@ static int codec_aif_mute(struct snd_soc_dai *codec_dai, int mute)
 	if (mute) {
 		snd_soc_write(codec, SUNXI_DAC_VOL_CTRL, 0);
 	} else {
-		snd_soc_write(codec, SUNXI_DAC_VOL_CTRL, 0xa0a0);
+		snd_soc_write(codec, SUNXI_DAC_VOL_CTRL, sunxi_internal_codec->gain_config.dac_digital_vol);
 	}
 	if(sunxi_internal_codec->spkenable == true)
 		msleep(sunxi_internal_codec->pa_sleep_time);
@@ -2558,9 +2558,18 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		sunxi_internal_codec->pa_sleep_time = temp_val;
 	}
 
+	ret = of_property_read_u32(node, "dac_digital_vol",&temp_val);
+	if (ret < 0) {
+		pr_err("[audio-codec]dac_digital_vol configurations missing or invalid.\n");
+		ret = -EINVAL;
+		goto err1;
+	} else {
+		sunxi_internal_codec->gain_config.dac_digital_vol = temp_val;
+	}
+
 	pr_debug("headphonevol:%d,spkervol:%d, earpiecevol:%d maingain:%d headsetmicgain:%d \
 			adcagc_cfg:%d, adcdrc_cfg:%d, adchpf_cfg:%d, dacdrc_cfg:%d \
-			dachpf_cfg:%d,aif2config:%d,aif3config:%d,aif1_lrlk_div:%d,aif2_lrlk_div:%d,pa_sleep_time:%d\n",
+			dachpf_cfg:%d,aif2config:%d,aif3config:%d,aif1_lrlk_div:%d,aif2_lrlk_div:%d,pa_sleep_time:%d,dac_digital_vol:%d\n",
 		sunxi_internal_codec->gain_config.headphonevol,
 		sunxi_internal_codec->gain_config.spkervol,
 		sunxi_internal_codec->gain_config.earpiecevol,
@@ -2575,7 +2584,9 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		sunxi_internal_codec->aif_config.aif3config,
 		sunxi_internal_codec->aif1_lrlk_div,
 		sunxi_internal_codec->aif2_lrlk_div,
-		sunxi_internal_codec->pa_sleep_time
+		sunxi_internal_codec->pa_sleep_time,
+		sunxi_internal_codec->gain_config.dac_digital_vol
+
 	);
 
 	snd_soc_register_codec(&pdev->dev, &soc_codec_dev_codec, codec_dai, ARRAY_SIZE(codec_dai));
