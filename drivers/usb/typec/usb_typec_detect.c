@@ -251,6 +251,11 @@ static void detect_dfp_work(struct work_struct *work)
 
 			usleep_range(100000, 150000);
 			mutex_lock(&detect->lock);
+			/* cable detach could have happened during this time */
+			if (detect->state != DETECT_STATE_ATTACH_DFP_DRP_WAIT) {
+				mutex_unlock(&detect->lock);
+				return;
+			}
 			detect->state = DETECT_STATE_ATTACHED_DFP;
 			detect->drp_counter = 0;
 			mutex_unlock(&detect->lock);
@@ -293,7 +298,10 @@ static void detect_dfp_work(struct work_struct *work)
 			return;
 		}
 	}
-	schedule_work(&detect->dfp_work);
+	if (!phy->support_drp_toggle)
+		schedule_work(&detect->dfp_work);
+	else
+		typec_switch_mode(phy, TYPEC_MODE_DRP);
 }
 
 static void detect_drp_timer(unsigned long data)
@@ -351,14 +359,15 @@ static void detect_lock_ufp_work(struct work_struct *work)
 	unsigned long timeout = msecs_to_jiffies(TYPEC_DRPLOCK_TIMEOUT);
 
 	phy = detect->phy;
-	typec_enable_autocrc(detect->phy, false);
 	typec_switch_mode(detect->phy, TYPEC_MODE_UFP);
 	ret = wait_for_completion_timeout(&detect->lock_ufp_complete, timeout);
 	if (ret == 0) {
 		mutex_lock(&detect->lock);
-		detect->state = DETECT_STATE_UNATTACHED_DRP;
+		if (detect->state == DETECT_STATE_LOCK_UFP) {
+			detect->state = DETECT_STATE_UNATTACHED_DRP;
+			typec_switch_mode(detect->phy, TYPEC_MODE_DRP);
+		}
 		mutex_unlock(&detect->lock);
-		typec_switch_mode(detect->phy, TYPEC_MODE_DRP);
 	}
 	/* got vbus, goto attached ufp */
 
@@ -523,14 +532,15 @@ static void update_phy_state(struct work_struct *work)
 						TYPEC_CABLE_USB_HOST, false);
 
 			typec_enable_autocrc(detect->phy, false);
+
+			atomic_notifier_call_chain(&detect->otg->notifier,
+					USB_EVENT_NONE, NULL);
 			reinit_completion(&detect->lock_ufp_complete);
 			mutex_lock(&detect->lock);
 			detect->state = DETECT_STATE_LOCK_UFP;
 			mutex_unlock(&detect->lock);
 			queue_work(detect->wq_lock_ufp,
 					&detect->lock_ufp_work);
-			atomic_notifier_call_chain(&detect->otg->notifier,
-					USB_EVENT_NONE, NULL);
 			break;
 		}
 		mutex_lock(&detect->lock);

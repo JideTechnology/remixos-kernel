@@ -411,10 +411,8 @@ static int fusb300_en_pd(struct fusb300_chip *chip, bool en_pd)
 	unsigned int val = 0;
 	int ret;
 
-	mutex_lock(&chip->lock);
 	ret = regmap_read(chip->map, FUSB300_SWITCH0_REG, &val);
 	if (ret < 0) {
-		mutex_unlock(&chip->lock);
 		dev_err(&chip->client->dev, "error(%d) reading %x\n",
 				ret, FUSB300_SWITCH0_REG);
 		return ret;
@@ -432,7 +430,6 @@ static int fusb300_en_pd(struct fusb300_chip *chip, bool en_pd)
 	dev_dbg(chip->dev, "%s: switch0 %x = %x", __func__,
 				FUSB300_SWITCH0_REG, val);
 	ret = regmap_write(chip->map, FUSB300_SWITCH0_REG, val);
-	mutex_unlock(&chip->lock);
 	if (ret < 0)
 		dev_err(&chip->client->dev, "error(%d) write %d",
 				ret, FUSB300_SWITCH0_REG);
@@ -453,8 +450,8 @@ static int fusb300_switch_mode(struct typec_phy *phy, enum typec_mode mode)
 	if (mode == TYPEC_MODE_UFP) {
 		if (chip->is_fusb300)
 			fusb300_set_host_current(phy, 0);
-		fusb300_en_pd(chip, true);
 		mutex_lock(&chip->lock);
+		fusb300_en_pd(chip, true);
 		phy->state = TYPEC_STATE_UNATTACHED_UFP;
 		regmap_write(chip->map, FUSB300_MEAS_REG, 0x31);
 		/* for FPGA write different values
@@ -750,10 +747,14 @@ static void fusb300_handle_toggle_done(struct fusb300_chip *chip,
 static void fusb300_handle_vbus_int(struct fusb300_chip *chip, int vbus_on)
 {
 	struct typec_phy *phy = &chip->phy;
+	int state;
 
+	mutex_lock(&chip->lock);
+	state = phy->state;
+	chip->i_vbus = (bool)vbus_on;
+	mutex_unlock(&chip->lock);
 	if (vbus_on) {
-		chip->i_vbus = true;
-		if (phy->state == TYPEC_STATE_UNATTACHED_DFP)
+		if (state == TYPEC_STATE_UNATTACHED_DFP)
 			complete(&chip->int_complete);
 
 		if (chip->is_fusb300)
@@ -761,9 +762,10 @@ static void fusb300_handle_vbus_int(struct fusb300_chip *chip, int vbus_on)
 				 TYPEC_EVENT_VBUS, phy);
 		/* TOG_DONE will be used with FUSB302 */
 	} else {
-		chip->i_vbus = false;
+		mutex_lock(&chip->lock);
 		phy->valid_cc = 0;
-		if (chip->phy.state != TYPEC_STATE_UNATTACHED_UFP) {
+		mutex_unlock(&chip->lock);
+		if (state == TYPEC_STATE_ATTACHED_UFP) {
 			fusb300_wake_on_cc_change(chip);
 			atomic_notifier_call_chain(&phy->notifier,
 					TYPEC_EVENT_NONE, phy);
@@ -781,6 +783,7 @@ static irqreturn_t fusb300_interrupt(int id, void *dev)
 	void *int_ptr;
 	unsigned int reg_start;
 	size_t count;
+	int phy_state;
 
 	memset(&int_stat, 0x00, sizeof(int_stat));
 	pm_runtime_get_sync(chip->dev);
@@ -808,6 +811,11 @@ static irqreturn_t fusb300_interrupt(int id, void *dev)
 			int_stat.inta_reg, int_stat.intb_reg,
 			int_stat.stat0a_reg, int_stat.stat1a_reg);
 
+
+	mutex_lock(&chip->lock);
+	phy_state = phy->state;
+	mutex_unlock(&chip->lock);
+
 	if (!chip->is_fusb300) {
 		if (int_stat.inta_reg & FUSB302_INTA_TOG_DONE) {
 			dev_dbg(phy->dev, "TOG_DONE INTR");
@@ -817,8 +825,8 @@ static irqreturn_t fusb300_interrupt(int id, void *dev)
 	}
 
 	if (int_stat.int_reg & FUSB300_INT_WAKE &&
-		(phy->state == TYPEC_STATE_UNATTACHED_UFP ||
-		phy->state == TYPEC_STATE_UNATTACHED_DFP)) {
+		(phy_state == TYPEC_STATE_UNATTACHED_UFP ||
+		phy_state == TYPEC_STATE_UNATTACHED_DFP)) {
 		unsigned int val;
 
 		regmap_read(chip->map, FUSB300_SWITCH0_REG, &val);
@@ -843,13 +851,10 @@ static irqreturn_t fusb300_interrupt(int id, void *dev)
 
 	if ((int_stat.int_reg & FUSB300_INT_COMP) &&
 			(int_stat.stat_reg & FUSB300_STAT0_COMP)) {
-		if ((phy->state == TYPEC_STATE_ATTACHED_UFP) ||
-			(phy->state == TYPEC_STATE_ATTACHED_DFP)) {
-			atomic_notifier_call_chain(&phy->notifier,
+		atomic_notifier_call_chain(&phy->notifier,
 				 TYPEC_EVENT_NONE, phy);
 			/*fusb300_wake_on_cc_change(chip);*/
-			fusb300_flush_fifo(phy, FIFO_TYPE_TX | FIFO_TYPE_RX);
-		}
+		fusb300_flush_fifo(phy, FIFO_TYPE_TX | FIFO_TYPE_RX);
 	}
 
 	if (chip->process_pd && (int_stat.int_reg & FUSB300_INT_ACTIVITY) &&
