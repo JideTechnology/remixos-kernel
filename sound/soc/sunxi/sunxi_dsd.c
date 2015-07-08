@@ -45,9 +45,9 @@ struct dsd_data_format {
 };
 
 static const struct dsd_rate dsd_rate_s[] = {
-	{32000, 64,  0x0},
-	{48000, 128, 0x1},
-	{96000, 256, 0x2},
+	{48000, 64,  0x0},
+	{96000, 128, 0x1},
+	{192000, 256, 0x2},
 };
 
 static const struct dsd_data_format dsd_data_format_s[] = {
@@ -145,6 +145,11 @@ static int sunxi_dsd_hw_params(struct snd_pcm_substream *substream, struct snd_p
 		reg_val |= (1<<TXIM);
 		writel(reg_val, sunxi_dsd->regs + DSD_TX_FIFO_CTRL);
 	}
+
+	/*use LSB and Trailing Edge of the PLCK*/
+	reg_val = readl(sunxi_dsd->regs + DSD_TX_CONF);
+	reg_val |= (1<<MSB_LSB_FIR_SEL) | (1<<DSD_TX_DRIVER_MODE);
+	writel(reg_val, sunxi_dsd->regs + DSD_TX_CONF);
 
 	return 0;
 }
