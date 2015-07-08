@@ -1,3 +1,5 @@
+#ifdef CONFIG_ARCH_SUN50IW1P1
+
 #include <linux/clk.h>
 #include <linux/clk-private.h>
 #include <linux/clk/sunxi.h>
@@ -586,7 +588,7 @@ void sunxi_mmc_restore_spec_reg0(struct sunxi_mmc_host *host)
 	mmc_writel(host,REG_SD_NTSR,bak_spec_regs.sd_ntsr);
 }
 
-
+#endif
 
 
 

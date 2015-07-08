@@ -1,3 +1,6 @@
+#ifdef CONFIG_ARCH_SUN50IW1P1
+
+
 #include <linux/clk.h>
 #include <linux/clk-private.h>
 #include <linux/clk/sunxi.h>
@@ -1027,8 +1030,7 @@ void sunxi_mmc_do_shutdown2(struct platform_device * pdev)
 }
 
 
-
-
+#endif
 
 
 

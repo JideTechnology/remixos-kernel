@@ -1196,17 +1196,14 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 	struct device_node *np = pdev->dev.of_node;
 	int ret;
 
-	if (of_device_is_compatible(np, "allwinner,sun4i-a10-mmc")\
-		||of_device_is_compatible(np, "allwinner,sun50i-sdmmc2")\
-		)
-		host->idma_des_size_bits = 12;
-	else
-		host->idma_des_size_bits = 15;
 
-
+#ifdef SUNXI_SDMMC2
 	if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc2")){
  		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc2;
-		host->dma_tl = (0x3<<28)|(15<<16)|240;
+		//host->dma_tl = (0x3<<28)|(15<<16)|240;
+		host->dma_tl = SUNXI_DMA_TL_SDMMC2;
+		//host->idma_des_size_bits = 12;
+		host->idma_des_size_bits = SUNXI_DES_SIZE_SDMMC2;
 		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc2;
 		host->sunxi_mmc_save_spec_reg = sunxi_mmc_save_spec_reg2;
 		host->sunxi_mmc_restore_spec_reg = sunxi_mmc_restore_spec_reg2;
@@ -1215,35 +1212,40 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		host->sunxi_mmc_set_acmda = sunxi_mmc_set_a12a;
 		host->sunxi_mmc_shutdown = sunxi_mmc_do_shutdown2;
 		host->phy_index = 2;
- 	}else if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc0")){
+ 	}
+#endif
+
+#ifdef SUNXI_SDMMC0
+	if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc0")){
   		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc0;
-		//host->dma_tl = (0x2<<28)|(15<<16)|240;
-		host->dma_tl = (0x2<<28)|(7<<16)|248;
+		//host->dma_tl = (0x2<<28)|(7<<16)|248;
+		host->dma_tl = SUNXI_DMA_TL_SDMMC0;
+		//host->idma_des_size_bits = 15;
+		host->idma_des_size_bits = SUNXI_DES_SIZE_SDMMC0;
 		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc0;
 		host->sunxi_mmc_save_spec_reg = sunxi_mmc_save_spec_reg0;
 		host->sunxi_mmc_restore_spec_reg = sunxi_mmc_restore_spec_reg0;
 		sunxi_mmc_reg_ex_res_inter(host,0);
 		host->sunxi_mmc_set_acmda = sunxi_mmc_set_a12a;
 		host->phy_index = 0;
- 	}else if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc1")){
+ 	}
+#endif
+
+#ifdef SUNXI_SDMMC1
+	if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc1")){
  		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc1;
-		host->dma_tl = (0x3<<28)|(15<<16)|240;
+		//host->dma_tl = (0x3<<28)|(15<<16)|240;
+		host->dma_tl = SUNXI_DMA_TL_SDMMC1;
+		//host->idma_des_size_bits = 15;
+		host->idma_des_size_bits = SUNXI_DES_SIZE_SDMMC1;
 		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc1;
 		host->sunxi_mmc_save_spec_reg = sunxi_mmc_save_spec_reg1;
 		host->sunxi_mmc_restore_spec_reg = sunxi_mmc_restore_spec_reg1;
 		sunxi_mmc_reg_ex_res_inter(host,1);
 		host->sunxi_mmc_set_acmda = sunxi_mmc_set_a12a;
 		host->phy_index = 1;
- 	}else{
- 		host->sunxi_mmc_clk_set_rate = NULL;
-		host->dma_tl = 0;
-		host->sunxi_mmc_thld_ctl = NULL;
-		host->sunxi_mmc_save_spec_reg = NULL;
-		host->sunxi_mmc_restore_spec_reg = NULL;
-		host->sunxi_mmc_set_acmda = NULL;
-		host->phy_index = 0;
  	}
-
+#endif
 
 	//ret = mmc_regulator_get_supply(host->mmc);
 	ret = sunxi_mmc_regulator_get_supply(host->mmc);
