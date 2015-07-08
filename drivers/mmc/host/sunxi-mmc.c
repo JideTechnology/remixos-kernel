@@ -1197,6 +1197,25 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 	int ret;
 
 
+#ifdef SUNXI_SDMMC3
+	if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc2")){
+ 		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc3;
+		//host->dma_tl = (0x3<<28)|(15<<16)|240;
+		host->dma_tl = SUNXI_DMA_TL_SDMMC3;
+		//host->idma_des_size_bits = 12;
+		host->idma_des_size_bits = SUNXI_DES_SIZE_SDMMC3;
+		host->sunxi_mmc_thld_ctl = sunxi_mmc_thld_ctl_for_sdmmc3;
+		host->sunxi_mmc_save_spec_reg = sunxi_mmc_save_spec_reg3;
+		host->sunxi_mmc_restore_spec_reg = sunxi_mmc_restore_spec_reg3;
+		host->sunxi_mmc_dump_dly_table  = sunxi_mmc_dump_dly3;
+		sunxi_mmc_reg_ex_res_inter(host,2);
+		host->sunxi_mmc_set_acmda = sunxi_mmc_set_a12a;
+		host->sunxi_mmc_shutdown = sunxi_mmc_do_shutdown3;
+		host->phy_index = 2;
+ 	}
+#endif
+
+
 #ifdef SUNXI_SDMMC2
 	if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc2")){
  		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc2;
