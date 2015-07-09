@@ -29,7 +29,7 @@
 #include "cs4385.h"
 
 #define CS4385_NAME        "cs4385-codec"
-#define CS4385_RATES (SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000)
+#define CS4385_RATES (SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_192000)
 
 /* codec private data */
 struct cs4385_priv {
@@ -62,7 +62,7 @@ static int cs4385_hw_params(struct snd_pcm_substream *substream,
 	*/
 
 	snd_soc_write(codec, CS4385_MOD_CTR, (0x1<<7|0x1<<5));
-	snd_soc_write(codec, CS4385_DSD_CTR, (0x1<<7|0x7<<2));
+	snd_soc_write(codec, CS4385_DSD_CTR, (0x1<<6|0x7<<2));
 	snd_soc_write(codec, CS4385_RAMP_MUTE, 0xbe);
 	return 0;
 }

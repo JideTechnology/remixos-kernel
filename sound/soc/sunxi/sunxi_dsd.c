@@ -45,6 +45,7 @@ struct dsd_data_format {
 };
 
 static const struct dsd_rate dsd_rate_s[] = {
+	{44100, 64,  0x0},
 	{48000, 64,  0x0},
 	{96000, 128, 0x1},
 	{192000, 256, 0x2},
@@ -68,6 +69,9 @@ static void dsd_txctrl_enable(int tx_en,struct sunxi_dsd_info *sunxi_dsd)
 	reg_val |= (0x1<<TX_FIFO_FLUSH);
 	writel(reg_val, sunxi_dsd->regs + DSD_TX_FIFO_CTRL);
 
+	reg_val = readl(sunxi_dsd->regs + DSD_TX_FIFO_CTRL);
+	reg_val |= (0x68<<TX_FIFO_TRIG_LEVEL);
+	writel(reg_val, sunxi_dsd->regs + DSD_TX_FIFO_CTRL);
 	if (tx_en) {
 		/*DRQ ENABLE*/
 		reg_val = readl(sunxi_dsd->regs + DSD_INT_CTRL);
@@ -197,6 +201,15 @@ static int sunxi_dsd_perpare(struct snd_pcm_substream *substream,
 				writel(reg_val, sunxi_dsd->regs + DSD_SR_CTRL);
 			}
 		}
+
+		reg_val = readl(sunxi_dsd->regs + DSD_TX_CONF);
+		reg_val &= ~(0x3<<DSD_TX_CHAN_EN);
+		if (substream->runtime->channels==1) {
+			reg_val |= (substream->runtime->channels<<DSD_TX_CHAN_EN);
+		} else {
+			reg_val |= (0x3<<DSD_TX_CHAN_EN);
+		}
+		writel(reg_val, sunxi_dsd->regs + DSD_TX_CONF);
 
 		reg_val = DSD_CHANMAP_DEFAULT;
 		writel(reg_val, sunxi_dsd->regs + DSD_TX_MAP);
