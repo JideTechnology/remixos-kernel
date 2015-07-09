@@ -50,6 +50,12 @@ int xhci_intel_vendor_cap_init(struct xhci_hcd *xhci)
 		retval = otg_set_host(hcd->phy->otg, &hcd->self);
 		if (retval)
 			usb_put_phy(hcd->phy);
+		else {
+			/* if register for OTG succeed, then set mux to device
+			 * mode by default for OTG purpose */
+			xhci_dbg(xhci, "set mux to device mode as default\n");
+			xhci_intel_phy_mux_switch(xhci, 1);
+		}
 	} else {
 		hcd->phy = NULL;
 	}
