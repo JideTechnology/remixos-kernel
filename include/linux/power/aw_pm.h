@@ -82,7 +82,8 @@
 #define WAKEUP_GPIO_AXP(num)        (1 << (num + 24))
 #define WAKEUP_GPIO_GROUP(group)    (1 << (group - 'A'))
 
-#if defined(CONFIG_ARCH_SUN8IW6P1) || defined(CONFIG_ARCH_SUN8IW8P1) || defined(CONFIG_ARCH_SUN50IW1P1)
+#if defined(CONFIG_ARCH_SUN8IW6P1) || defined(CONFIG_ARCH_SUN8IW8P1) || defined(CONFIG_ARCH_SUN50IW1P1) \
+	|| defined(CONFIG_ARCH_SUN8IW10P1)
 #define IO_NUM (2)
 #elif defined(CONFIG_ARCH_SUN9IW1P1)
 #define PLL_NUM (12)
@@ -101,7 +102,8 @@ typedef struct pll_para{
 	int divi; /* input_div */
 	int divo; /* output_div */
 }pll_para_t;
-#elif defined(CONFIG_ARCH_SUN8IW6P1) || defined(CONFIG_ARCH_SUN8IW8P1) || defined(CONFIG_ARCH_SUN50IW1P1)
+#elif defined(CONFIG_ARCH_SUN8IW6P1) || defined(CONFIG_ARCH_SUN8IW8P1) \
+	|| defined(CONFIG_ARCH_SUN8IW10P1)|| defined(CONFIG_ARCH_SUN50IW1P1)
 typedef struct pll_para{
 	unsigned int factor1;
 	unsigned int factor2;
@@ -464,7 +466,7 @@ typedef	struct normal_standby_para
 struct aw_pmu_arg{
     unsigned int  twi_port;		/**<twi port for pmu chip   */
     unsigned char dev_addr;		/**<address of pmu device   */
-    unsigned int (* soc_power_tree)[VCC_MAX_INDEX];     /* power tree struct point */
+    unsigned int soc_power_tree[VCC_MAX_INDEX];     /* power tree struct point */
 };
 
 
