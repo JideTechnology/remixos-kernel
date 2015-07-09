@@ -174,10 +174,27 @@ static int handle_cable_notification(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
-static int register_notifier(void)
+static int register_psy_notifier(void)
 {
 	int retval;
 
+	pr_info("%s\n", __func__);
+	retval = power_supply_reg_notifier(&psy_nb);
+	if (retval) {
+		pr_err("failure to register power_supply notifier\n");
+		return retval;
+	}
+
+	INIT_WORK(&notifier_work, notifier_event_worker);
+
+	return retval;
+}
+
+static int register_usb_notifier(void)
+{
+	int retval;
+
+	pr_info("%s\n", __func__);
 	otg_xceiver = usb_get_phy(USB_PHY_TYPE_USB2);
 	if (!otg_xceiver) {
 		pr_err("failure to get otg transceiver\n");
@@ -189,20 +206,10 @@ static int register_notifier(void)
 		pr_err("failure to register otg notifier\n");
 		goto notifier_reg_failed;
 	}
-
-	retval = power_supply_reg_notifier(&psy_nb);
-	if (retval) {
-		pr_err("failure to register power_supply notifier\n");
-		goto notifier_reg_failed;
-	}
-
-	INIT_WORK(&notifier_work, notifier_event_worker);
-
-	return 0;
-
 notifier_reg_failed:
 	return retval;
 }
+
 
 static int charger_cable_notifier(struct notifier_block *nb,
 				  unsigned long event, void *ptr);
@@ -215,7 +222,7 @@ static void init_charger_cables(struct power_supply_cable_props *cable_lst,
 {
 	struct power_supply_cable_props cap;
 
-	register_notifier();
+	register_psy_notifier();
 
 	if (!otg_get_chrg_status(otg_xceiver, &cap))
 		process_cable_props(&cap);
@@ -1002,23 +1009,29 @@ int power_supply_register_charger(struct power_supply *psy)
 {
 	int ret = 0;
 
-	if (!psy_chrgr.is_cable_evt_reg) {
-		mutex_init(&psy_chrgr.evt_lock);
-		init_waitqueue_head(&psy_chrgr.wait_chrg_enable);
-		init_charger_cables(cable_list, ARRAY_SIZE(cable_list));
-		INIT_LIST_HEAD(&psy_chrgr.chrgr_cache_lst);
-		INIT_LIST_HEAD(&psy_chrgr.batt_cache_lst);
-		INIT_WORK(&psy_chrgr.algo_trigger_work, trigger_algo_psy_class);
-		INIT_WORK(&psy_chrgr.wireless_chrgr_work,
-			handle_wireless_charger);
-		psy_chrgr.is_cable_evt_reg = true;
+	if (!psy_chrgr.is_cable_evt_reg && psy) {
+		ret = register_usb_notifier();
+		SET_MAX_THROTTLE_STATE(psy);
+		schedule_work(&notifier_work);
 	}
-
-	SET_MAX_THROTTLE_STATE(psy);
-
+	psy_chrgr.is_cable_evt_reg = true;
 	return ret;
 }
 EXPORT_SYMBOL(power_supply_register_charger);
+
+static int __init power_supply_charger_init(void)
+{
+	mutex_init(&psy_chrgr.evt_lock);
+	init_waitqueue_head(&psy_chrgr.wait_chrg_enable);
+	init_charger_cables(cable_list, ARRAY_SIZE(cable_list));
+	INIT_LIST_HEAD(&psy_chrgr.chrgr_cache_lst);
+	INIT_LIST_HEAD(&psy_chrgr.batt_cache_lst);
+	INIT_WORK(&psy_chrgr.algo_trigger_work, trigger_algo_psy_class);
+	INIT_WORK(&psy_chrgr.wireless_chrgr_work,
+		handle_wireless_charger);
+
+	return 0;
+}
 
 enum power_supply_type get_power_supply_type(
 		enum power_supply_charger_cable_type cable)
@@ -1119,3 +1132,4 @@ struct charging_algo *power_supply_get_charging_algo
 
 }
 EXPORT_SYMBOL_GPL(power_supply_get_charging_algo);
+fs_initcall(power_supply_charger_init);
