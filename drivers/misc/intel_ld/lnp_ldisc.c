@@ -423,9 +423,10 @@ static inline int lbf_get_bt_fmr_state(void)
  */
 static inline void lbf_serial_get(void)
 {
-	pr_debug("%s: resume UART driver\n", __func__);
-	WARN_ON(!intel_lbf_lpm.tty_dev);
-	pm_runtime_get_sync(intel_lbf_lpm.tty_dev);
+	pr_debug("%s\n", __func__);
+	/*WARN_ON(!intel_lbf_lpm.tty_dev);
+	 For cht refersh: pm_runtime is not supported*/
+	/*pm_runtime_get_sync(intel_lbf_lpm.tty_dev);*/
 }
 
 static void lbf_host_enable_work(struct work_struct *work)
@@ -447,9 +448,10 @@ static void lbf_host_enable_work(struct work_struct *work)
 
 static inline void lbf_serial_put(void)
 {
-	pr_debug("%s: suspend UART Driver\n", __func__);
-	WARN_ON(!intel_lbf_lpm.tty_dev);
-	pm_runtime_put(intel_lbf_lpm.tty_dev);
+	pr_debug("%s\n", __func__);
+	/*WARN_ON(!intel_lbf_lpm.tty_dev);
+	 For cht refersh: pm_runtime is not supported*/
+	/*pm_runtime_put(intel_lbf_lpm.tty_dev);*/
 }
 
 /* lbf_set_host_wake_state
@@ -614,8 +616,7 @@ static void lbf_hostwake_high_processing(void)
 
 	if (!lbf_get_tx_ref_count()) {
 		lbf_maintain_tx_refcnt(1);
-		if (intel_lbf_lpm.tty_dev)
-			pm_runtime_get(intel_lbf_lpm.tty_dev);
+		pm_runtime_get(intel_lbf_lpm.tty_dev);
 	}
 
 	wake_up_interruptible(&waitFord0exit);
