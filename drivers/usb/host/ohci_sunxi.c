@@ -35,14 +35,14 @@ static struct scene_lock  ohci_standby_lock[4];
 static const char ohci_name[] = SUNXI_OHCI_NAME;
 
 #if defined CONFIG_USB_SUNXI_OHCI0 && !defined SUNXI_USB_FPGA
-#define  SUNXI_OHCI0_OF_MATCH	"allwinner,sun50i-ohci0"
+#define  SUNXI_OHCI0_OF_MATCH	"allwinner,sunxi-ohci0"
 #else
 #define  SUNXI_OHCI0_OF_MATCH	"null"
 #endif
 
 
 #if defined CONFIG_USB_SUNXI_OHCI1 && !defined SUNXI_USB_FPGA
-#define  SUNXI_OHCI1_OF_MATCH	"allwinner,sun50i-ohci1"
+#define  SUNXI_OHCI1_OF_MATCH	"allwinner,sunxi-ohci1"
 #else
 #define  SUNXI_OHCI1_OF_MATCH	"null"
 #endif

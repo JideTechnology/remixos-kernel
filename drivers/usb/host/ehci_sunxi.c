@@ -34,13 +34,13 @@ static struct scene_lock  ehci_standby_lock[4];
 static const char ehci_name[] = SUNXI_EHCI_NAME;
 
 #ifdef  CONFIG_USB_SUNXI_EHCI0
-#define  SUNXI_EHCI0_OF_MATCH	"allwinner,sun50i-ehci0"
+#define  SUNXI_EHCI0_OF_MATCH	"allwinner,sunxi-ehci0"
 #else
 #define  SUNXI_EHCI0_OF_MATCH   "null"
 #endif
 
 #ifdef  CONFIG_USB_SUNXI_EHCI1
-#define  SUNXI_EHCI1_OF_MATCH	"allwinner,sun50i-ehci1"
+#define  SUNXI_EHCI1_OF_MATCH	"allwinner,sunxi-ehci1"
 #else
 #define  SUNXI_EHCI1_OF_MATCH   "null"
 #endif

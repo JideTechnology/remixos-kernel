@@ -2971,7 +2971,7 @@ err0:
 }
 
 static const struct of_device_id sunxi_udc_match[] = {
-	{.compatible = "allwinner,sun50i-udc", },
+	{.compatible = "allwinner,sunxi-udc", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, sunxi_udc_match);

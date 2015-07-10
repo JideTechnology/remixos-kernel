@@ -372,7 +372,7 @@ static const struct dev_pm_ops sunxi_otg_manager_pm_ops = {
 #endif /* CONFIG_PM_SLEEP */
 
 static const struct of_device_id sunxi_otg_manager_match[] = {
-	{.compatible = "allwinner,sun50i-otg-manager", },
+	{.compatible = "allwinner,sunxi-otg-manager", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, sunxi_otg_manager_match);
