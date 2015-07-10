@@ -118,6 +118,9 @@ static int snkpe_get_req_cap(struct sink_port_pe *sink,
 	rcap->cap_mismatch = true;
 
 	for (i = 0; i < num_data_obj; i++) {
+		/**
+		 * FIXME: should be selected based on the power (V*I) cap.
+		 */
 		mv = DATA_OBJ_TO_VOLT(pkt->data_obj[i]);
 		if (mv == pcap->mv) {
 			is_mv_match = true;
@@ -139,24 +142,18 @@ static int snkpe_get_req_cap(struct sink_port_pe *sink,
 		}
 	}
 
-	if (is_mv_match) {
-		rcap->obj_pos = i + 1;
-	} else {
-		/**
-		 * FIXME: should be selected based on the power (V*I) cap.
-		 * currently selecting the default vSafe5V.
-		 */
+	if (!is_mv_match) {
 		rcap->cap_mismatch = false;
-		rcap->obj_pos = 1;
+		i = 0; /* to select 1st pdo, Vsafe5V */
 	}
 
-	rcap->mv = DATA_OBJ_TO_VOLT(pkt->data_obj[rcap->obj_pos - 1]);
 	if (!rcap->cap_mismatch)
-		rcap->ma =
-			DATA_OBJ_TO_CURRENT(pkt->data_obj[rcap->obj_pos - 1]);
-	else
-		rcap->ma = pcap->ma;
+		rcap->obj_pos = i + 1; /* obj pos always starts from 1 */
+	else /* if cur is not match, select the previous pdo */
+		rcap->obj_pos = i;
 
+	rcap->mv = DATA_OBJ_TO_VOLT(pkt->data_obj[rcap->obj_pos - 1]);
+	rcap->ma = DATA_OBJ_TO_CURRENT(pkt->data_obj[rcap->obj_pos - 1]);
 
 	return 0;
 }
