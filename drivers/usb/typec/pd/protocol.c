@@ -206,7 +206,11 @@ static int pd_prot_rcv_pkt_from_policy(struct pd_prot *prot, u8 msg_type,
 		pkt->header.rev_id = 1;
 	else
 		pkt->header.rev_id = 0;
-	pkt->header.pwr_role = prot->new_pwr_role;
+
+	if ((prot->new_pwr_role == PD_POWER_ROLE_PROVIDER)
+		|| (prot->new_pwr_role == PD_POWER_ROLE_CONSUMER_PROVIDER))
+		pkt->header.pwr_role = PD_PWR_ROLE_SRC;
+
 	pkt->header.msg_id = prot->tx_msg_id;
 	pkt->header.num_data_obj = len / 4;
 	memcpy((u8 *)pkt + sizeof(struct pd_pkt_header), buf, len);
