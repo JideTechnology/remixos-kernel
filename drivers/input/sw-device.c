@@ -574,7 +574,7 @@ static int sw_analytic_write_info(char * src_string, struct sw_device *sw)
         int i = 0, j = 0, k = 0;
         sw->total_raw = 0;
         
-        dprintk(DEBUG_INIT, "%s:strlen(src_string):%lu\n", src_string, strlen(src_string));
+        dprintk(DEBUG_INIT, "%s:strlen(src_string):%zu\n", src_string, strlen(src_string));
         if(strlen(src_string) < 16 ) {
                 sw->total_raw = DEFAULT_TOTAL_ROW;
                 dprintk(DEBUG_INIT, "%s: the src string is null !\n", __func__);
@@ -747,7 +747,7 @@ static int sw_device_response_test(struct sw_device *sw, int now_number)
    
                         ret = i2c_test(sw->temp_client);
                         if(!ret) {
-                                dprintk(DEBUG_INIT, "sw->check_addr[%lu]:0x%x\n", strlen(sw->check_addr),
+                                dprintk(DEBUG_INIT, "sw->check_addr[%zu]:0x%x\n", strlen(sw->check_addr),
                                          sw->temp_client->addr);
                                 sw->check_addr[strlen(sw->check_addr)] = sw->temp_client->addr;                 
                                 ret = 0;
@@ -811,7 +811,7 @@ static void sw_i2c_test(struct sw_device *sw)
         }
         
         if(is_find == 1) {
-                dprintk(DEBUG_INIT, "from copy name:%s, strlen(name):%lu\n", 
+                dprintk(DEBUG_INIT, "from copy name:%s, strlen(name):%zu\n", 
                         sw->info[sw->current_number].name, strlen(sw->device_name));
                         
                 if((strncmp(sw->info[sw->current_number].name, sw->device_name, 
