@@ -63,6 +63,13 @@
 #define DISP_PORT_SIGNAL_GEN2		2
 
 
+struct disp_port_caps {
+	bool usb_dev_support;
+	bool usb_host_support;
+	int dmode_2x_index;
+	int dmode_4x_index;
+};
+
 struct disp_port_pe {
 	struct mutex pe_lock;
 	struct policy p;
@@ -71,6 +78,7 @@ struct disp_port_pe {
 	int cmd_retry;
 	int dp_mode;
 	bool hpd_state;
+	struct disp_port_caps port_caps;
 };
 
 /* Source policy engine states */
@@ -93,6 +101,8 @@ enum disp_pe_state {
 static void disp_pe_reset_policy_engine(struct disp_port_pe *disp_pe)
 {
 	disp_pe->state = DISP_PE_STATE_NONE;
+	/* Clear port caps */
+	memset(&disp_pe->port_caps, 0, sizeof(struct disp_port_caps));
 }
 
 static void disp_pe_do_protocol_reset(struct disp_port_pe *disp_pe)
@@ -214,7 +224,11 @@ static int disp_pe_send_display_configure(struct disp_port_pe *disp_pe)
 	dconf = (struct disp_config *)&pkt.data_obj[1];
 	dconf->conf_sel = DISP_CONFIG_UFPU_AS_UFP_D;
 	dconf->trans_sig = DISP_PORT_SIGNAL_DP_1P3;
-	dconf->ufp_pin = DISP_PORT_PIN_ASSIGN_E;
+
+	if (disp_pe->dp_mode == TYPEC_DP_TYPE_2X)
+		dconf->dfp_pin = DISP_PORT_PIN_ASSIGN_D;
+	else if (disp_pe->dp_mode == TYPEC_DP_TYPE_4X)
+		dconf->dfp_pin = DISP_PORT_PIN_ASSIGN_E;
 
 	ret = policy_send_packet(&disp_pe->p, &pkt.data_obj[0], 8,
 				PD_DATA_MSG_VENDOR_DEF, PE_EVT_SEND_VDM);
@@ -321,15 +335,45 @@ static int disp_pe_handle_discover_svid(struct disp_port_pe *disp_pe,
 	return 0;
 }
 
+static void disp_pe_process_dp_modes(struct disp_port_pe *disp_pe,
+			struct dis_mode_response_pkt *dmode_pkt)
+{
+	int i;
+	int index_2x = 0;
+	int index_4x = 0;
 
+	for (i = 0; i < dmode_pkt->msg_hdr.num_data_obj - 1; i++) {
+		if (!index_4x) {
+			if ((dmode_pkt->mode[i].ufp_pin
+				& DISP_PORT_PIN_ASSIGN_E)
+				|| (dmode_pkt->mode[i].ufp_pin
+				& DISP_PORT_PIN_ASSIGN_C)
+				|| (dmode_pkt->mode[i].dfp_pin
+				& DISP_PORT_PIN_ASSIGN_E)
+				|| (dmode_pkt->mode[i].dfp_pin
+				& DISP_PORT_PIN_ASSIGN_C)) {
+				/* Mode intex starts from 1 */
+				index_4x = i + 1;
+			}
+		} else if (!index_2x) {
+			if ((dmode_pkt->mode[i].ufp_pin
+			& DISP_PORT_PIN_ASSIGN_D)
+			|| (dmode_pkt->mode[i].dfp_pin
+			& DISP_PORT_PIN_ASSIGN_D)) {
+				/* Mode intex starts from 1 */
+				index_2x = i + 1;
+			}
+		} else
+			break;
+	}
+	disp_pe->port_caps.dmode_4x_index = index_4x;
+	disp_pe->port_caps.dmode_2x_index = index_2x;
+}
 
 static int disp_pe_handle_discover_mode(struct disp_port_pe *disp_pe,
 			struct pd_packet *pkt)
 {
 	struct dis_mode_response_pkt *dmode_pkt;
-	int i;
-	int e_index = 0;
-	int d_index = 0;
 
 	dmode_pkt = (struct dis_mode_response_pkt *)pkt;
 
@@ -345,33 +389,23 @@ static int disp_pe_handle_discover_mode(struct disp_port_pe *disp_pe,
 			break;
 		}
 
-		for (i = 0; i < dmode_pkt->msg_hdr.num_data_obj - 1; i++) {
-			if (dmode_pkt->mode[i].dfp_pin
-				& DISP_PORT_PIN_ASSIGN_E) {
-				/* Mode intex starts from 1 */
-				e_index = i + 1;
-				break;
-			}
-		}
-		for (i = 0; i < dmode_pkt->msg_hdr.num_data_obj - 1; i++) {
-			if (dmode_pkt->mode[i].dfp_pin
-				& DISP_PORT_PIN_ASSIGN_D) {
-				d_index = i + 1;
-				break;
-			}
-		}
+		disp_pe_process_dp_modes(disp_pe, dmode_pkt);
 		/* First check for 2X, Mode E */
-		log_dbg("e_index=%d, d_index=%d\n", e_index, d_index);
-		if (e_index) {
-			disp_pe_send_enter_mode(disp_pe, e_index);
+		log_dbg("4x_index=%d, 2x_index=%d\n",
+			disp_pe->port_caps.dmode_4x_index,
+			disp_pe->port_caps.dmode_2x_index);
+		if (disp_pe->port_caps.dmode_4x_index) {
+			disp_pe_send_enter_mode(disp_pe,
+					disp_pe->port_caps.dmode_4x_index);
 			mutex_lock(&disp_pe->pe_lock);
 			disp_pe->state = DISP_PE_STATE_EMODE_SENT;
 			disp_pe->dp_mode = TYPEC_DP_TYPE_4X;
 			mutex_unlock(&disp_pe->pe_lock);
 			log_dbg("State -> DISP_PE_STATE_EMODE_SENT\n");
 			break;
-		} else if (d_index) {
-			disp_pe_send_enter_mode(disp_pe, d_index);
+		} else if (disp_pe->port_caps.dmode_2x_index) {
+			disp_pe_send_enter_mode(disp_pe,
+				disp_pe->port_caps.dmode_2x_index);
 			mutex_lock(&disp_pe->pe_lock);
 			disp_pe->state = DISP_PE_STATE_EMODE_SENT;
 			disp_pe->dp_mode = TYPEC_DP_TYPE_2X;
