@@ -16,7 +16,7 @@
 #include  "../include/sunxi_usb_config.h"
 #include  "usb_hcd_servers.h"
 
-#if defined (CONFIG_ARCH_SUN50I)
+#if defined (CONFIG_ARCH_SUN50I) || defined (CONFIG_ARCH_SUN8IW10)
 #define HCI0_USBC_NO    0
 #define HCI1_USBC_NO    1
 #define HCI2_USBC_NO    2

@@ -57,8 +57,8 @@ u32  open_usb_clock(sunxi_udc_io_t *sunxi_udc_io)
 	}
 
 	UsbPhyInit(0);
-#if defined (CONFIG_ARCH_SUN50I)
-	/*otg and hci0 Controller Shared phy in SUN50I*/
+#if defined (CONFIG_ARCH_SUN50I) || defined (CONFIG_ARCH_SUN8IW10)
+	/*otg and hci0 Controller Shared phy in SUN50I and SUN8IW10*/
 	USBC_SelectPhyToDevice(sunxi_udc_io->usb_vbase);
 #endif
 

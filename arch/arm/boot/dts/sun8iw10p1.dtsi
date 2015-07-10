@@ -470,7 +470,7 @@
 
 		usbc0:usbc0@0 {
 			device_type         = "usbc0";
-			compatible          = "allwinner,sun50i-otg-manager";
+			compatible          = "allwinner,sunxi-otg-manager";
 			usb_port_type       = <2>;
 			usb_detect_type     = <1>;
 			usb_id_gpio         = <&pio PH 9 0 1 1 1>;
@@ -487,7 +487,7 @@
 		};
 
 		udc:udc-controller@0x01c19000 {
-			compatible          = "allwinner,sun50i-udc";
+			compatible          = "allwinner,sunxi-udc";
 			reg                 = <0x0 0x01c19000 0x0 0x1000>, /*udc base*/
 			                      <0x0 0x01c00000 0x0 0x100>; /*sram base*/
 			interrupts          = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
@@ -496,7 +496,7 @@
 		};
 
 		ehci0:ehci0-controller@0x01c1a000 {
-			compatible          = "allwinner,sun50i-ehci0";
+			compatible          = "allwinner,sunxi-ehci0";
 			reg                 = <0x0 0x01c1a000 0x0 0xFFF>, /*hci0 base*/
 			                      <0x0 0x01c00000 0x0 0x100>, /*sram base*/
 			                      <0x0 0x01c19000 0x0 0x1000>; /*otg base*/
@@ -507,33 +507,13 @@
 		};
 
 		ohci0:ohci0-controller@0x01c1a400 {
-			compatible          = "allwinner,sun50i-ohci0";
+			compatible          = "allwinner,sunxi-ohci0";
 			reg                 = <0x0 0x01c1a000 0x0 0xFFF>, /*hci0 base*/
 			                      <0x0 0x01c00000 0x0 0x100>, /*sram base*/
 			                      <0x0 0x01c19000 0x0 0x1000>; /*otg base*/
 			interrupts          = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>;
 			clocks              = <&clk_usbphy0>, <&clk_usbohci0>;
 			hci_ctrl_no         = <0>;
-			status              = "okay";
-		};
-
-		usbc1:usbc1@0 {
-			device_type         = "usbc1";
-			usb_drv_vbus_gpio   = <&pio PB 6 1 1 1 1>;
-			usb_host_init_state = <1>;
-			usb_regulator_io    = "nocare";
-			usb_wakeup_suspend  = <0>;
-			/* HISC device */
-			usb_hsic_used = <0>;
-			usb_hsic_regulator_io = "vcc-hsic-12";
-			/*Marvell 4G HSIC */
-			usb_hsic_ctrl = <0>;
-			usb_hsic_rdy_gpio;
-			/* SMSC usb3503 HSIC HUB */
-			usb_hsic_usb3503_flag = <0>;
-			usb_hsic_hub_connect_gpio;
-			usb_hsic_int_n_gpio;
-			usb_hsic_reset_n_gpio;
 			status              = "okay";
 		};
 
