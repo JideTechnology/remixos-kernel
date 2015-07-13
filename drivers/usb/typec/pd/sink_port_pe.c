@@ -27,7 +27,6 @@
 #include <linux/notifier.h>
 #include <linux/kfifo.h>
 #include <linux/err.h>
-#include <linux/sched.h>
 #include "policy_engine.h"
 #include "sink_port_pe.h"
 
@@ -166,7 +165,7 @@ static int snkpe_create_reqmsg(struct sink_port_pe *sink,
 	struct power_cap mpcap;
 	int ret;
 
-	ret = policy_get_max_snkpwr_cap(sink->p, &mpcap);
+	ret = policy_get_max_snkpwr_cap(&sink->p, &mpcap);
 	if (ret) {
 		pr_err("SNKPE: Error in getting max sink pwr cap %d\n",
 				ret);
@@ -225,7 +224,7 @@ static int snkpe_handle_gotomin_msg(struct sink_port_pe *sink)
 
 static inline int snkpe_do_prot_reset(struct sink_port_pe *sink)
 {
-	return	policy_send_packet(sink->p, NULL, 0, PD_CMD_PROTOCOL_RESET,
+	return	policy_send_packet(&sink->p, NULL, 0, PD_CMD_PROTOCOL_RESET,
 					 PE_EVT_SEND_PROTOCOL_RESET);
 }
 
@@ -251,12 +250,9 @@ static int snkpe_start(struct sink_port_pe *sink)
 		return 0;
 	}
 
-	sink->p->status = POLICY_STATUS_RUNNING;
-	sink->p->state = POLICY_STATE_ONLINE;
-	sink->is_goodcrc_received = false;
 	/*---------- Start of Sink Port PE --------------*/
 	/* get the vbus state, in case of boot of vbus */
-	vbus_state = policy_get_vbus_state(sink->p);
+	vbus_state = policy_get_vbus_state(&sink->p);
 	if (vbus_state < 0) {
 		pr_err("SNKPE: Error in getting vbus state!\n");
 		return ret;
@@ -290,10 +286,13 @@ static int snkpe_start(struct sink_port_pe *sink)
 
 static inline int sink_port_policy_start(struct policy *p)
 {
-	struct sink_port_pe *sink = p->priv;
+	struct sink_port_pe *sink = container_of(p,
+					struct sink_port_pe, p);
 
 	pr_debug("SNKPE: %s\n", __func__);
 	mutex_lock(&sink->snkpe_state_lock);
+	p->status = POLICY_STATUS_RUNNING;
+	p->state = POLICY_STATE_ONLINE;
 	sink->cur_state = PE_SNK_STARTUP;
 	mutex_unlock(&sink->snkpe_state_lock);
 	return snkpe_start(sink);
@@ -301,17 +300,21 @@ static inline int sink_port_policy_start(struct policy *p)
 
 static int sink_port_policy_stop(struct policy *p)
 {
-	struct sink_port_pe *sink = p->priv;
+	struct sink_port_pe *sink = container_of(p,
+					struct sink_port_pe, p);
 
 	pr_debug("SNKPE: %s\n", __func__);
 	/* reset HardResetCounter to zero upon vbus disconnect.
 	 */
+	mutex_lock(&sink->snkpe_state_lock);
 	sink->hard_reset_count = 0;
-	sink->p->status = POLICY_STATUS_UNKNOWN;
-	sink->p->state = POLICY_STATE_OFFLINE;
+	p->status = POLICY_STATUS_UNKNOWN;
+	p->state = POLICY_STATE_OFFLINE;
 	sink->is_vbus_connected = false;
+	mutex_unlock(&sink->snkpe_state_lock);
 	policy_set_pd_state(p, false);
 
+	cancel_work_sync(&sink->timer_work);
 	snkpe_reinitialize_completion(sink);
 	/* FIXME: handle the stop state */
 	snkpe_do_prot_reset(sink);
@@ -324,8 +327,9 @@ static int sink_port_policy_stop(struct policy *p)
 
 static int sink_port_policy_rcv_cmd(struct policy *p, enum pe_event evt)
 {
+	struct sink_port_pe *sink = container_of(p,
+					struct sink_port_pe, p);
 	int ret = 0;
-	struct sink_port_pe *sink = p->priv;
 
 	switch (evt) {
 	case PE_EVT_RCVD_HARD_RESET:
@@ -345,13 +349,56 @@ static int sink_port_policy_rcv_cmd(struct policy *p, enum pe_event evt)
 	return ret;
 }
 
+static int snkpe_received_msg_good_crc(struct sink_port_pe *sink)
+{
+	int ret = 0;
+
+	if (snkpe_is_cur_state(sink, PE_SNK_SELECT_CAPABILITY)) {
+		schedule_work(&sink->timer_work);
+		pr_debug("SNKPE: Received ack for PD_DATA_MSG_REQUEST\n");
+	} else if (snkpe_is_cur_state(sink, PE_SNK_GIVE_SINK_CAP) &&
+		snkpe_is_prev_evt(sink, PE_EVT_SEND_SNK_CAP)) {
+		pr_debug("SNKPE: Received ack for PD_DATA_MSG_SINK_CAP\n");
+		return snkpe_handle_snk_ready_state(sink, sink->pevt);
+	} else {
+		pr_warn("SNKPE: Received Good CRC at state %d pevt %d\n",
+					 sink->cur_state, sink->pevt);
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+static int snkpe_received_msg_ps_rdy(struct sink_port_pe *sink)
+{
+	int ret = 0;
+
+	if ((snkpe_is_prev_state(sink, PE_SNK_SELECT_CAPABILITY) ||
+		snkpe_is_prev_state(sink, PE_SNK_READY)) &&
+		snkpe_is_cur_state(sink, PE_SNK_TRANSITION_SINK)) {
+		complete(&sink->pstt_complete);
+	} else if (snkpe_is_prev_state(sink, PE_SNK_SELECT_CAPABILITY) &&
+		snkpe_is_cur_state(sink, PE_SNK_READY)) {
+		complete(&sink->srqt_complete);
+	} else {
+		pr_err("SNKPE: Error in State Machine!\n");
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
 static int sink_port_policy_rcv_pkt(struct policy *p, struct pd_packet *pkt,
 				enum pe_event evt)
 {
+	struct sink_port_pe *sink = container_of(p,
+					struct sink_port_pe, p);
 	int ret = 0;
-	struct sink_port_pe *sink = p->priv;
 
-	sink->pevt = evt;
+	/* good crc is the ack for the actual command/message */
+	if (evt != PE_EVT_RCVD_GOODCRC)
+		sink->pevt = evt;
+
 	switch (evt) {
 	case PE_EVT_RCVD_SRC_CAP:
 		/* FIXME: We can check here only the cur state */
@@ -388,17 +435,7 @@ static int sink_port_policy_rcv_pkt(struct policy *p, struct pd_packet *pkt,
 		}
 		break;
 	case PE_EVT_RCVD_PS_RDY:
-		if ((sink->prev_state == PE_SNK_SELECT_CAPABILITY ||
-			sink->prev_state == PE_SNK_READY) &&
-			sink->cur_state == PE_SNK_TRANSITION_SINK) {
-			complete(&sink->pstt_complete);
-		} else if (sink->prev_state == PE_SNK_SELECT_CAPABILITY &&
-			sink->cur_state == PE_SNK_READY) {
-			complete(&sink->srqt_complete);
-		} else {
-			pr_err("SNKPE: Error in State Machine!\n");
-			ret = -EINVAL;
-		}
+		ret = snkpe_received_msg_ps_rdy(sink);
 		break;
 	case PE_EVT_RCVD_PING:
 		if (sink->cur_state == PE_SNK_READY) {
@@ -415,14 +452,7 @@ static int sink_port_policy_rcv_pkt(struct policy *p, struct pd_packet *pkt,
 		}
 		break;
 	case PE_EVT_RCVD_GOODCRC:
-		if (sink->cur_state == PE_SNK_SELECT_CAPABILITY) {
-			sink->is_goodcrc_received = true;
-			wake_up(&sink->wait_goodcrc);
-			pr_debug("SNKPE: Received ack for PD_DATA_MSG_REQUEST\n");
-		} else if (sink->prev_state == PE_SNK_GIVE_SINK_CAP &&
-			sink->cur_state == PE_SNK_READY) {
-			pr_debug("SNKPE: Received ack for PD_DATA_MSG_SINK_CAP\n");
-		}
+		ret = snkpe_received_msg_good_crc(sink);
 		break;
 	default:
 		break;
@@ -436,7 +466,7 @@ static int snkpe_setup_charging(struct sink_port_pe *sink)
 	int ret = 0;
 
 	/* Update the charger input current limit */
-	ret = policy_update_charger_ilim(sink->p, sink->ilim);
+	ret = policy_update_charger_ilim(&sink->p, sink->ilim);
 	if (ret < 0) {
 		pr_err("SNKPE: Error in updating charger ilim (%d)\n",
 				ret);
@@ -444,7 +474,7 @@ static int snkpe_setup_charging(struct sink_port_pe *sink)
 	}
 
 	/* Enable charger */
-	ret = policy_set_charger_mode(sink->p, CHRGR_ENABLE);
+	ret = policy_set_charger_mode(&sink->p, CHRGR_ENABLE);
 	if (ret < 0)
 		pr_err("SNKPE: Error in enabling charger (%d)\n", ret);
 	else
@@ -500,7 +530,7 @@ static int snkpe_handle_transition_sink_state(struct sink_port_pe *sink)
 	 * supply to new power (if required): handled in next state (READY) */
 
 	/* Put the charger into HiZ mode */
-	ret = policy_set_charger_mode(sink->p, CHRGR_SET_HZ);
+	ret = policy_set_charger_mode(&sink->p, CHRGR_SET_HZ);
 	if (ret < 0)
 		pr_err("SNKPE: Error in putting into HiZ mode (%d)\n", ret);
 
@@ -533,7 +563,6 @@ static int snkpe_handle_select_capability_state(struct sink_port_pe *sink,
 	int ret = 0;
 	enum pe_event evt;
 	u32 data = 0;
-	unsigned long timeout;
 
 	/* move the next state PE_SNK_Select_Capability */
 	snkpe_update_state(sink, PE_SNK_SELECT_CAPABILITY);
@@ -546,23 +575,26 @@ static int snkpe_handle_select_capability_state(struct sink_port_pe *sink,
 		goto error;
 	}
 
-	ret = policy_send_packet(sink->p, &data, 4, PD_DATA_MSG_REQUEST, evt);
+	ret = policy_send_packet(&sink->p, &data, 4, PD_DATA_MSG_REQUEST, evt);
 	if (ret < 0) {
 		pr_err("SNKPE: Error in sending packet!\n");
 		goto error;
 	}
+	sink->pevt = evt;
 	pr_debug("SNKPE: PD_DATA_MSG_REQUEST Sent\n");
 
 	/* Keeping backup to use later if required for wait event and
 	 * sink request timer timeout */
 	memcpy(&sink->prev_pkt, pkt, sizeof(struct pd_packet));
 
-	ret = wait_event_timeout(sink->wait_goodcrc,
-			(sink->is_goodcrc_received == true),
-			HZ);
-	if (ret == 0)
-		pr_err("SNKPE: Timeout for Good CRC continue anyway!\n");
-	sink->is_goodcrc_received = false;
+error:
+	return ret;
+}
+
+static int snkpe_handle_after_request_sent(struct sink_port_pe *sink)
+{
+	unsigned long timeout;
+	int ret;
 
 	/* Initialize and run SenderResponseTimer */
 	timeout = msecs_to_jiffies(TYPEC_SENDER_RESPONSE_TIMER);
@@ -591,12 +623,13 @@ static int snkpe_handle_give_snk_cap_state(struct sink_port_pe *sink)
 {
 	int ret = 0;
 	int i;
+	enum pe_event evt;
 	struct power_caps pcaps;
 	struct pd_sink_fixed_pdo pdo[MAX_NUM_DATA_OBJ] = { {0} };
 
 	snkpe_update_state(sink, PE_SNK_GIVE_SINK_CAP);
 
-	ret = policy_get_snkpwr_caps(sink->p, &pcaps);
+	ret = policy_get_snkpwr_caps(&sink->p, &pcaps);
 	if (ret < 0)
 		goto error;
 
@@ -616,16 +649,15 @@ static int snkpe_handle_give_snk_cap_state(struct sink_port_pe *sink)
 		pdo[i].supply_type = 0;
 	}
 
-	sink->pevt = PE_EVT_SEND_SNK_CAP;
-	ret = policy_send_packet(sink->p, pdo, pcaps.n_cap * 4,
-					PD_DATA_MSG_SINK_CAP, sink->pevt);
+	evt = PE_EVT_SEND_SNK_CAP;
+	ret = policy_send_packet(&sink->p, pdo, pcaps.n_cap * 4,
+					PD_DATA_MSG_SINK_CAP, evt);
 	if (ret < 0) {
 		pr_err("SNKPE: Error in sending packet!\n");
 		goto error;
 	}
+	sink->pevt = evt;
 	pr_debug("SNKPE: PD_DATA_MSG_SINK_CAP sent\n");
-
-	return snkpe_handle_snk_ready_state(sink, sink->pevt);
 
 error:
 	return ret;
@@ -636,7 +668,7 @@ static int snkpe_handle_psrdy_after_wait_state(struct sink_port_pe *sink)
 	int ret;
 
 	/* Put the charger into HiZ mode */
-	ret = policy_set_charger_mode(sink->p, CHRGR_SET_HZ);
+	ret = policy_set_charger_mode(&sink->p, CHRGR_SET_HZ);
 	if (ret < 0) {
 		pr_err("SNKPE: Error in putting into HiZ mode (%d)\n", ret);
 		return ret;
@@ -687,6 +719,7 @@ static int snkpe_handle_snk_ready_state(struct sink_port_pe *sink,
 					sink, &sink->prev_pkt);
 			goto end;
 		}
+		reinit_completion(&sink->srqt_complete);
 
 		/* Received PS_RDY event after a WAIT event */
 		ret = snkpe_handle_psrdy_after_wait_state(sink);
@@ -695,6 +728,7 @@ static int snkpe_handle_snk_ready_state(struct sink_port_pe *sink,
 		pr_err("SNKPE: Unknown state to handle ready evt = %d\n", evt);
 		ret = -EINVAL;
 	}
+	return 0;
 
 end:
 	reinit_completion(&sink->srqt_complete);
@@ -714,7 +748,7 @@ static int snkpe_handle_evaluate_capability(struct sink_port_pe *sink)
 	 * Capability (Mismatch.).
 	 */
 	sink->hard_reset_count = 0;
-	policy_set_pd_state(sink->p, true);
+	policy_set_pd_state(&sink->p, true);
 
 	/* Receive the pd_packet for the source cap message */
 	ret = snkpe_rxmsg_from_fifo(sink, &pkt);
@@ -726,6 +760,18 @@ static int snkpe_handle_evaluate_capability(struct sink_port_pe *sink)
 
 error:
 	return ret;
+}
+
+static void snkpe_timer_worker(struct work_struct *work)
+{
+	struct sink_port_pe *sink = container_of(work,
+					struct sink_port_pe,
+					timer_work);
+
+	if (snkpe_is_cur_state(sink, PE_SNK_SELECT_CAPABILITY) &&
+		snkpe_is_prev_evt(sink, PE_EVT_SEND_REQUEST))
+		snkpe_handle_after_request_sent(sink);
+	/* FIXME: To be handled for role swap and others */
 }
 
 static int snkpe_vbus_attached(struct sink_port_pe *sink)
@@ -764,14 +810,7 @@ struct policy *sink_port_policy_init(struct policy_engine *pe)
 	if (!snkpe)
 		return ERR_PTR(-ENOMEM);
 
-	p = kzalloc(sizeof(struct policy), GFP_KERNEL);
-	if (!p) {
-		pr_err("SNKPE: memory allocation failed for policy\n");
-		ret = -ENOMEM;
-		goto error0;
-	}
-	snkpe->p = p;
-	init_waitqueue_head(&snkpe->wait_goodcrc);
+	INIT_WORK(&snkpe->timer_work, snkpe_timer_worker);
 
 	/* Allocate memory for PD packet FIFO */
 	if (kfifo_alloc(&snkpe->pkt_fifo,
@@ -779,9 +818,10 @@ struct policy *sink_port_policy_init(struct policy_engine *pe)
 				GFP_KERNEL)) {
 		pr_err("SNKPE: kfifo alloc failed for policy\n");
 		ret = -ENOMEM;
-		goto error1;
+		goto error;
 	}
 
+	p = &snkpe->p;
 	p->type = POLICY_TYPE_SINK;
 	p->state = POLICY_STATE_OFFLINE;
 	p->status = POLICY_STATUS_UNKNOWN;
@@ -791,7 +831,6 @@ struct policy *sink_port_policy_init(struct policy_engine *pe)
 	p->start = sink_port_policy_start;
 	p->stop = sink_port_policy_stop;
 	p->exit = sink_port_policy_exit;
-	p->priv = snkpe;
 
 	init_completion(&snkpe->wct_complete);
 	init_completion(&snkpe->srt_complete);
@@ -802,11 +841,9 @@ struct policy *sink_port_policy_init(struct policy_engine *pe)
 	init_completion(&snkpe->pktwt_complete);
 	mutex_init(&snkpe->snkpe_state_lock);
 
-	return snkpe->p;
+	return p;
 
-error1:
-	kfree(p);
-error0:
+error:
 	kfree(snkpe);
 	return ERR_PTR(ret);
 }
@@ -817,14 +854,9 @@ static void sink_port_policy_exit(struct policy *p)
 	struct sink_port_pe *snkpe;
 
 	if (p) {
-		snkpe = p->priv;
-		if (snkpe) {
-			snkpe->p->status = POLICY_STATUS_UNKNOWN;
-			snkpe->p->state = POLICY_STATE_OFFLINE;
-			kfifo_free(&snkpe->pkt_fifo);
-			kfree(snkpe);
-			kfree(p);
-		}
+		snkpe = container_of(p, struct sink_port_pe, p);
+		kfifo_free(&snkpe->pkt_fifo);
+		kfree(snkpe);
 	}
 }
 

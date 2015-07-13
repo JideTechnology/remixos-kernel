@@ -299,7 +299,6 @@ struct policy {
 	struct list_head list;
 	enum policy_status status;
 	enum policy_state state;
-	void *priv;
 	int (*start)(struct policy *p);
 	int (*stop)(struct policy *p);
 	int (*rcv_pkt)(struct policy *p, struct pd_packet *pkt,

@@ -84,7 +84,7 @@ struct req_cap {
 };
 
 struct sink_port_pe {
-	struct policy *p;
+	struct policy p;
 	struct pd_packet prev_pkt;
 	struct completion wct_complete; /* wait cap timer */
 	struct completion srt_complete; /* sender response timer */
@@ -101,8 +101,7 @@ struct sink_port_pe {
 	enum pe_states prev_state;
 	struct mutex snkpe_state_lock;
 	enum snkpe_timeout timeout;
-	wait_queue_head_t wait_goodcrc;
-	bool is_goodcrc_received;
+	struct work_struct timer_work;
 	u8 hard_reset_count;
 	bool is_vbus_connected;
 };
@@ -118,5 +117,23 @@ static int snkpe_handle_evaluate_capability(struct sink_port_pe *sink);
 static int snkpe_handle_transition_to_default(struct sink_port_pe *sink);
 static int snkpe_vbus_attached(struct sink_port_pe *sink);
 static void sink_port_policy_exit(struct policy *p);
+
+static inline bool snkpe_is_cur_state(struct sink_port_pe *sink,
+					enum pe_states state)
+{
+	return sink->cur_state == state;
+}
+
+static inline bool snkpe_is_prev_state(struct sink_port_pe *sink,
+					enum pe_states state)
+{
+	return sink->prev_state == state;
+}
+
+static inline bool snkpe_is_prev_evt(struct sink_port_pe *sink,
+					enum pe_event evt)
+{
+	return sink->pevt == evt;
+}
 
 #endif /* __SINK_PORT_PE__H__ */
