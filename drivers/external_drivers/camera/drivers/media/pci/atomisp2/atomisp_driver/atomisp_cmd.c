@@ -3955,6 +3955,13 @@ int atomisp_set_parameters(struct video_device *vdev,
 	dev_dbg(asd->isp->dev, "%s: set parameter(per_frame_setting %d) for asd%d with isp_config_id %d of %s\n",
 		__func__, arg->per_frame_setting, asd->index,
 		arg->isp_config_id, vdev->name);
+
+	if (atomisp_is_vf_pipe(pipe) && arg->per_frame_setting) {
+		dev_err(asd->isp->dev, "%s: vf pipe not support per_frame_setting",
+			__func__);
+		return -EINVAL;
+	}
+
 	if (arg->per_frame_setting && !atomisp_is_vf_pipe(pipe)) {
 		/*
 		 * Per-frame setting enabled, we allocate a new paramter
