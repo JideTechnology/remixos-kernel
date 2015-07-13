@@ -311,7 +311,7 @@ static ssize_t adb_read(struct file *fp, char __user *buf,
 	int r = count, xfer;
 	int ret;
 
-	pr_debug("adb_read(%lu)\n", count);
+	pr_debug("adb_read(%zu)\n", count);
 	if (!_adb_dev)
 		return -ENODEV;
 
@@ -394,7 +394,7 @@ static ssize_t adb_write(struct file *fp, const char __user *buf,
 
 	if (!_adb_dev)
 		return -ENODEV;
-	pr_debug("adb_write(%lu)\n", count);
+	pr_debug("adb_write(%zu)\n", count);
 
 	if (adb_lock(&dev->write_excl))
 		return -EBUSY;
