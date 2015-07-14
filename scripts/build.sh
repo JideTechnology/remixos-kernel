@@ -123,7 +123,7 @@ build_kernel()
 
     # We need to copy rootfs files to compile kernel for linux image
 	echo "lichee_chip = $LICHEE_CHIP"
-	if [ "${LICHEE_CHIP}" = "sun8iw10p1" ]; then
+	if [ "${LICHEE_CHIP}" = "sun8iw10p1" ] || [ "${LICHEE_CHIP}" = "sun8iw11p1" ]; then
 		echo "cp rootfs_32bit.cpio.gz"
 		cp -f rootfs_32bit.cpio.gz output/rootfs.cpio.gz
 	else
@@ -200,7 +200,7 @@ build_modules()
 		CONFIG_CHIP_ID=${CONFIG_CHIP_ID} install
 	
 	echo "lichee_chip = $LICHEE_CHIP"
-	if [ "${LICHEE_CHIP}" = "sun8iw10p1" ]; then
+	if [ "${LICHEE_CHIP}" = "sun8iw10p1" ] || [ "${LICHEE_CHIP}" = "sun8iw11p1" ]; then
 		echo "no gpu modules."	
 	else
 		build_gpu

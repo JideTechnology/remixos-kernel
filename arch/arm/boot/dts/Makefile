@@ -182,7 +182,8 @@ dtb-$(CONFIG_ARCH_SUNXI) += \
 	sun4i-a10-mini-xplus.dtb \
 	sun4i-a10-hackberry.dtb \
 	sun5i-a13-olinuxino.dtb \
-	sun8iw10p1-fpga.dtb
+	sun8iw10p1-fpga.dtb \
+	sun8iw11p1-fpga.dtb
 dtb-$(CONFIG_ARCH_TEGRA) += tegra20-harmony.dtb \
 	tegra20-iris-512.dtb \
 	tegra20-medcom-wide.dtb \
