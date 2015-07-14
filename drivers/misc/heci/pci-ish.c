@@ -870,7 +870,7 @@ out_err:
 /**********************************/
 
 /**
- * heci_probe - Device Initialization Routine
+ * ish_probe - Device Initialization Routine
  *
  * @pdev: PCI device structure
  * @ent: entry in ish_pci_tbl
@@ -957,7 +957,7 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	/* request and enable interrupt   */
 #ifndef TIMER_POLLING
-	err = request_irq(pdev->irq, ish_irq_handler, IRQF_SHARED,
+	err = request_irq(pdev->irq, ish_irq_handler, IRQF_NO_SUSPEND,
 		KBUILD_MODNAME, dev);
 	if (err) {
 		dev_err(&pdev->dev, "heci: request_irq failure. irq = %d\n",
@@ -1094,6 +1094,8 @@ int ish_suspend(struct device *device)
 	struct pci_dev *pdev = to_pci_dev(device);
 	struct heci_device *dev = pci_get_drvdata(pdev);
 
+	enable_irq_wake(pdev->irq);
+
 	/* If previous suspend hasn't been asnwered then ISH is likely dead,
 	don't attempt nested notification */
 	if (suspend_flag)
@@ -1112,6 +1114,8 @@ int ish_resume(struct device *device)
 {
 	struct pci_dev *pdev = to_pci_dev(device);
 	struct heci_device *dev = pci_get_drvdata(pdev);
+
+	disable_irq_wake(pdev->irq);
 	send_resume(dev);
 	return 0;
 }

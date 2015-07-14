@@ -479,7 +479,7 @@ static void	sync_fw_clock(struct heci_device *dev)
 	struct timespec	ts;
 	uint64_t	usec;
 
-	if (prev_sync && jiffies - prev_sync < 120 * HZ)
+	if (prev_sync && jiffies - prev_sync < 20 * HZ)
 		return;
 
 	prev_sync = jiffies;
@@ -558,10 +558,6 @@ irqreturn_t ish_irq_handler(int irq, void *dev_id)
 
 	ISH_DBG_PRINT(KERN_ALERT "%s(): irq=%d +++\n", __func__, irq);
 
-	/* CHECKME: double check this */
-	if (dev->dev_state == HECI_DEV_DISABLED)
-		return	IRQ_NONE;
-
 	/* Check that it's interrupt from ISH (may be shared) */
 	pisr_val = ish_reg_read(dev, IPC_REG_PISR);
 	interrupt_generated = IPC_INT_FROM_ISH_TO_HOST(pisr_val);
@@ -579,6 +575,10 @@ irqreturn_t ish_irq_handler(int irq, void *dev_id)
 		return IRQ_HANDLED;
 
 	ISH_DBG_PRINT("%s(): doorbell is busy - YES\n", __func__);
+
+	/* CHECKME: double check this */
+	if (dev->dev_state == HECI_DEV_DISABLED)
+		return	IRQ_HANDLED;
 
 	ish_intr_disable(dev);
 

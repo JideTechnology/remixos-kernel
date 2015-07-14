@@ -17,7 +17,7 @@
 #define PLATFORM_CONFIG__H
 
 /* Build ID string */
-#define	BUILD_ID	"0178-poweroff-fix"
+#define	BUILD_ID	"0181-fix-wake-irq"
 
 #define	ISH_DEBUG	0
 #if ISH_DEBUG
