@@ -1021,7 +1021,9 @@ source "arch/arm/mach-exynos/Kconfig"
 
 source "arch/arm/mach-shmobile/Kconfig"
 
+if ARCH_SUNXI
 source "arch/arm/mach-sunxi/Kconfig"
+endif
 
 source "arch/arm/mach-prima2/Kconfig"
 

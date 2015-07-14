@@ -31,15 +31,17 @@ choice
           |   |-- sun8iw6
           |   |   `-- sun8iw6p1  ----- A83
           |   |-- sun8iw7
-          |   |   `-- sun8iw6p7  ----- I20
+          |   |   `-- sun8iw6p7  ----- H3
           |   |-- sun8iw8
-          |   |   |-- sun8iw8p1  ----- V30
-          |   |   `-- sun8iw8p2  ----- V33
+          |   |   |-- sun8iw8p1  ----- V3
+          |   |   `-- sun8iw8p2  ----- V3s
           |   `-- sun8iw9
           |   |   `-- sun8iw9p1  -----
-		  |   `-- sun8iw10
-		  |       `-- sun8iw10p1 ----- B100
-		  |
+	  |   `-- sun8iw10
+	  |   |   `-- sun8iw10p1 ----- B100
+          |   |-- sun8iw11
+          |   |   `-- sun8iw11p1 ----- A20E
+          |
           `-- sun9i  ----------------------------- arch sun9i: cortex-a15 smp serial chips
               `-- sun9iw1
                   |-- sun9iw1p1  ----- A80
@@ -124,7 +126,7 @@ config ARCH_SUN8IW6
 config ARCH_SUN8IW7
         bool "Allwinner Axx SOCs(sun8w7)"
         help
-          Allwinner Axx SOCs
+          Allwinner H3x SOCs
 
 config ARCH_SUN8IW8
         bool "Allwinner V3x SOCs(sun8iw8)"
@@ -140,6 +142,11 @@ config ARCH_SUN8IW10
         bool "Allwinner Axx SOCs(sun8iw10)"
         help
           Allwinner Bxx SOCs
+
+config ARCH_SUN8IW11
+        bool "Allwinner Axx SOCs(sun8iw11)"
+        help
+          Allwinner A20E SOCs
 
 endchoice
 config SUN8I_CCI
@@ -253,6 +260,20 @@ config ARCH_SUN8IW10P1
 	bool "Allwinner B100 chip(sun8iw10p1)"
 	help
 	  Allwinner Axx chip
+endchoice
+endif
+
+if ARCH_SUN8IW11
+choice
+	prompt "Select the chip with wafer sun8iw11"
+	default ARCH_SUN8IW11P1
+	help
+	 Select the chip with wafer sun8iw11
+
+config ARCH_SUN8IW11P1
+	bool "Allwinner A20E chip(sun8iw11p1)"
+	help
+	  Allwinner A20E chip
 endchoice
 endif
 
