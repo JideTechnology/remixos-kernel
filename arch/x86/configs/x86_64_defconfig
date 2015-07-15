@@ -1544,17 +1544,7 @@ CONFIG_RTL8187_LEDS=y
 # CONFIG_B43LEGACY is not set
 # CONFIG_BRCMSMAC is not set
 # CONFIG_BRCMFMAC is not set
-CONFIG_BCMDHD=m
-CONFIG_BCMDHD_SDIO=y
-CONFIG_BCM4324=m
-# CONFIG_BCM4339 is not set
-# CONFIG_BCM4354 is not set
-# CONFIG_BCM4356 is not set
-CONFIG_BCMDHD_FW_PATH="/system/vendor/firmware/fw_bcmdhd.bin"
-CONFIG_BCMDHD_NVRAM_PATH="/system/etc/wifi/bcmdhd.cal"
-# CONFIG_DHD_USE_STATIC_BUF is not set
-# CONFIG_DHD_USE_SCHED_SCAN is not set
-CONFIG_DHD_SET_RANDOM_MAC_VAL=0x001A11
+# CONFIG_BCMDHD is not set
 # CONFIG_HOSTAP is not set
 # CONFIG_IPW2100 is not set
 # CONFIG_IWLWIFI is not set
