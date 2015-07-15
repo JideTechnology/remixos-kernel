@@ -132,9 +132,10 @@ static irqreturn_t intel_sst_interrupt_mrfld(int irq, void *context)
 	irqreturn_t retval = IRQ_HANDLED;
 	unsigned long irq_flags;
 
+	header.full = sst_shim_read64(drv->shim, drv->ipc_reg.ipcx);
 	/* Interrupt arrived, check src */
 	isr.full = sst_shim_read64(drv->shim, SST_ISRX);
-	if (isr.part.done_interrupt) {
+	if (isr.part.done_interrupt || header.p.header_high.part.done) {
 		/* Clear done bit */
 		spin_lock_irqsave(&drv->ipc_spin_lock, irq_flags);
 		header.full = sst_shim_read64(drv->shim,
@@ -151,7 +152,8 @@ static irqreturn_t intel_sst_interrupt_mrfld(int irq, void *context)
 		queue_work(drv->post_msg_wq, &drv->ipc_post_msg.wq);
 		retval = IRQ_HANDLED;
 	}
-	if (isr.part.busy_interrupt) {
+	header.full = sst_shim_read64(drv->shim, drv->ipc_reg.ipcd);
+	if (isr.part.busy_interrupt || header.p.header_high.part.busy) {
 		spin_lock_irqsave(&drv->ipc_spin_lock, irq_flags);
 		imr.full = sst_shim_read64(drv->shim, SST_IMRX);
 		imr.part.busy_interrupt = 1;
