@@ -49,6 +49,9 @@
 #include "sunxi-mmc-sun50iw1p1-2.h"
 #include "sunxi-mmc-sun50iw1p1-0.h"
 #include "sunxi-mmc-sun50iw1p1-1.h"
+#include "sunxi-mmc-sun8iw10p1-3.h"
+#include "sunxi-mmc-sun8iw10p1-0.h"
+#include "sunxi-mmc-sun8iw10p1-1.h"
 #include "sunxi-mmc-debug.h"
 #include "sunxi-mmc-export.h"
 
@@ -1170,6 +1173,9 @@ static void sunxi_mmc_regulator_release_supply(struct mmc_host *mmc)
 static const struct of_device_id sunxi_mmc_of_match[] = {
 	{ .compatible = "allwinner,sun4i-a10-mmc", },
 	{ .compatible = "allwinner,sun5i-a13-mmc", },
+	{ .compatible = "allwinner,sun8iw10p1-sdmmc3", },
+	{ .compatible = "allwinner,sun8iw10p1-sdmmc1", },
+	{ .compatible = "allwinner,sun8iw10p1-sdmmc0", },	
 	{ .compatible = "allwinner,sun50i-sdmmc2", },
 	{ .compatible = "allwinner,sun50i-sdmmc1", },
 	{ .compatible = "allwinner,sun50i-sdmmc0", },
@@ -1188,7 +1194,26 @@ static struct mmc_host_ops sunxi_mmc_ops = {
 	.card_busy = sunxi_mmc_card_busy,
 };
 
+#if defined(MMC_FPGA) && defined(CONFIG_ARCH_SUN8IW10P1)
+void disable_card2_dat_det(void)
+{
+	void __iomem *card2_int_sg_en=  ioremap(0x1c0f000+0x1000*2+0x38, 0x100);
+	writel(0,card2_int_sg_en);	
+	iounmap(card2_int_sg_en);
+}
 
+void enable_card3(void)
+{
+	void __iomem *card3_en =  ioremap(0x1c20800 + 0xB4, 0x100);
+	//void __iomem *card3_en =  ioremap(0x1c20800 + 0x48, 0x100);//
+	writel(0x55555555,card3_en);
+	writel(0x55555555,card3_en+4);
+	writel(0x55555555,card3_en+8);
+	writel(0x55555555,card3_en+12);
+	iounmap(card3_en);
+}
+
+#endif
 
 static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 				      struct platform_device *pdev)
@@ -1198,7 +1223,7 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 
 
 #ifdef SUNXI_SDMMC3
-	if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc2")){
+	if(of_device_is_compatible(np, "allwinner,sun8iw10p1-sdmmc3")){
  		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc3;
 		//host->dma_tl = (0x3<<28)|(15<<16)|240;
 		host->dma_tl = SUNXI_DMA_TL_SDMMC3;
@@ -1208,11 +1233,15 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		host->sunxi_mmc_save_spec_reg = sunxi_mmc_save_spec_reg3;
 		host->sunxi_mmc_restore_spec_reg = sunxi_mmc_restore_spec_reg3;
 		host->sunxi_mmc_dump_dly_table  = sunxi_mmc_dump_dly3;
-		sunxi_mmc_reg_ex_res_inter(host,2);
+		sunxi_mmc_reg_ex_res_inter(host,3);
 		host->sunxi_mmc_set_acmda = sunxi_mmc_set_a12a;
 		host->sunxi_mmc_shutdown = sunxi_mmc_do_shutdown3;
-		host->phy_index = 2;
+		host->phy_index = 3;//2;
  	}
+	#if defined(MMC_FPGA) && defined(CONFIG_ARCH_SUN8IW10P1)	
+	enable_card3();	//
+	#endif 	/*defined(MMC_FPGA) && defined(CONFIG_ARCH_SUN8IW10P1)*/
+
 #endif
 
 
@@ -1235,7 +1264,8 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 #endif
 
 #ifdef SUNXI_SDMMC0
-	if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc0")){
+	if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc0")
+		||of_device_is_compatible(np, "allwinner,sun8iw10p1-sdmmc0")){
   		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc0;
 		//host->dma_tl = (0x2<<28)|(7<<16)|248;
 		host->dma_tl = SUNXI_DMA_TL_SDMMC0;
@@ -1251,7 +1281,8 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 #endif
 
 #ifdef SUNXI_SDMMC1
-	if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc1")){
+	if(of_device_is_compatible(np, "allwinner,sun50i-sdmmc1")
+		||of_device_is_compatible(np, "allwinner,sun8iw10p1-sdmmc1")){
  		host->sunxi_mmc_clk_set_rate = sunxi_mmc_clk_set_rate_for_sdmmc1;
 		//host->dma_tl = (0x3<<28)|(15<<16)|240;
 		host->dma_tl = SUNXI_DMA_TL_SDMMC1;
@@ -1369,6 +1400,9 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		goto error_disable_clk_ahb;
 	}
 
+#if defined(MMC_FPGA) && defined(CONFIG_ARCH_SUN8IW10P1)
+	disable_card2_dat_det();
+#endif
 	/*
 	 * Sometimes the controller asserts the irq on boot for some reason,
 	 * make sure the controller is in a sane state before enabling irqs.

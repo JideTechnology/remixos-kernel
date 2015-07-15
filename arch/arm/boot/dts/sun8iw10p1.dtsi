@@ -648,7 +648,7 @@
 		};
 
 		sdc2: sdmmc@01C11000 {
-			compatible = "allwinner,sun50i-sdmmc2";
+			compatible = "allwinner,sun8iw10p1-sdmmc2";
 			device_type = "sdc2";
 			reg = <0x0 0x01C11000 0x0 0x1000>;
 			interrupts = <GIC_SPI 62 0x0104>;  /*  */
@@ -697,16 +697,16 @@
 			/*vqmc = "";*/
 			/*vdmc = "";*/
 	    /*sunxi-power-save-mode;*/
-			/*status = "disabled";*/
-			status = "okay";
+			status = "disabled";
+			/*status = "okay";*/
 
        };
 
 		sdc0: sdmmc@01c0f000 {
-			compatible = "allwinner,sun50i-sdmmc0";
+			compatible = "allwinner,sun8iw10p1-sdmmc0";
 			device_type = "sdc0";
 			reg = <0x0 0x01c0f000 0x0 0x1000>; /* only sdmmc0 */
-			interrupts = <GIC_SPI 60 0x0104>;  /*  */
+			interrupts = <GIC_SPI 11 0x0104>;  /*  */
 			clocks = <&clk_hosc>,<&clk_pll_periph1x2>,<&clk_sdmmc0_mod>,<&clk_sdmmc0_bus>,<&clk_sdmmc0_rst>;
 			clock-names = "osc24m","pll_periph","mmc","ahb","rst";
 			pinctrl-names = "default","sleep";
@@ -714,7 +714,8 @@
 			pinctrl-1 = <&sdc0_pins_b>;
 			max-frequency = <50000000>;
 			bus-width = <4>;
-			broken-cd;
+			/*broken-cd;*/
+			non-removable;
 			/*cd-inverted*/
 			cd-gpios = <&pio PF 6 0 1 2 0>;
 			/* vmmc-supply = <&reg_3p3v>;*/
@@ -745,7 +746,7 @@
 
 
 		sdc1: sdmmc@1C10000 {
-			compatible = "allwinner,sun50i-sdmmc1";
+			compatible = "allwinner,sun8iw10p1-sdmmc1";
 			device_type = "sdc1";
 			reg = <0x0 0x1C10000 0x0 0x1000>;
 			interrupts = <GIC_SPI 61 0x0104>;  /*  */
@@ -784,9 +785,71 @@
       /*sunxi-dly-208M-ddr  = <1 0 0 0 0>;*/
 
 
-			status = "okay";
-			/*status = "disabled";*/
+			/*status = "okay";*/
+			status = "disabled";
 		};
+
+		sdc3: sdmmc@01C12000 {
+			compatible = "allwinner,sun8iw10p1-sdmmc3";
+			device_type = "sdc3";
+			reg = <0x0 0x01C12000 0x0 0x1000>;
+			interrupts = <GIC_SPI 11 0x0104>;  /*  */
+			clocks = <&clk_hosc>,<&clk_pll_periph1x2>,<&clk_sdmmc3_mod>,<&clk_sdmmc3_bus>,<&clk_sdmmc3_rst>;
+	    		clock-names = "osc24m","pll_periph","mmc","ahb","rst";
+     			pinctrl-names = "default","sleep";
+			pinctrl-0 = <&sdc3_pins_a>;
+			pinctrl-1 = <&sdc3_pins_b>;
+  			bus-width = <8>;			
+      			/*mmc-ddr-1_8v;*/
+     			/*mmc-hs200-1_8v;*/
+     			/*mmc-hs400-1_8v;*/
+      			/*non-removable;*/
+      			/*max-frequency = <200000000>;*/
+      			 max-frequency = <50000000>; 				
+  
+			/*-- speed mode --*/
+			/*sm0: DS26_SDR12*/
+			/*sm1: HSSDR52_SDR25*/
+			/*sm2: HSDDR52_DDR50*/
+			/*sm3: HS200_SDR104*/
+			/*sm4: HS400*/
+			/*-- frequency point --
+			/*f0: CLK_400K*/
+			/*f1: CLK_25M*/
+			/*f2: CLK_50M*/
+			/*f3: CLK_100M*/
+			/*f4: CLK_150M*/
+			/*f5: CLK_200M*/
+       			sdc_tm4_sm0_freq0 = <0>;
+       			sdc_tm4_sm0_freq1 = <0>;
+       			sdc_tm4_sm1_freq0 = <0x00000000>;
+       			sdc_tm4_sm1_freq1 = <0>;
+       			sdc_tm4_sm2_freq0 = <0x00000000>;
+       			sdc_tm4_sm2_freq1 = <0>;
+       			sdc_tm4_sm3_freq0 = <0x05000000>;
+       			sdc_tm4_sm3_freq1 = <0x00000005>;
+       			sdc_tm4_sm4_freq0 = <0x00050000>;
+       			sdc_tm4_sm4_freq1 = <0x00000004>;
+
+			/*vmmc-supply = <&reg_3p3v>;*/
+			/*vqmc-supply = <&reg_3p3v>;*/
+			/*vdmc-supply = <&reg_3p3v>;*/
+			/*vmmc = "vcc-card";*/
+			/*vqmc = "";*/
+			/*vdmc = "";*/
+	    		/*sunxi-power-save-mode;*/
+			status = "disabled";
+			/*status = "okay";*/			
+       };
+
+
+
+
+
+
+
+
+
 
 
 		disp: disp@01000000 {
