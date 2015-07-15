@@ -204,7 +204,8 @@ static inline int get_ps_int_property(struct power_supply *psy,
 		(status == POWER_SUPPLY_CHARGER_EVENT_RESUME) ||\
 		(status == POWER_SUPPLY_CHARGER_EVENT_SUSPEND))
 #define IS_CHARGER_PROP_CHANGED(prop, cache_prop)\
-	((cache_prop.online != prop.online) || \
+	((cache_prop.cable != prop.cable) || \
+	(cache_prop.online != prop.online) || \
 	(cache_prop.present != prop.present) || \
 	(cache_prop.is_charging != prop.is_charging) || \
 	(cache_prop.health != prop.health) || \

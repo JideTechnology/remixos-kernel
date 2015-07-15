@@ -237,10 +237,14 @@ static inline int is_charging_can_be_enabled(struct power_supply *psy)
 		return (health == POWER_SUPPLY_HEALTH_GOOD) ||
 				(health == POWER_SUPPLY_HEALTH_DEAD);
 	} else {
-		return
-	((CURRENT_THROTTLE_ACTION(psy) != PSY_THROTTLE_DISABLE_CHARGER) &&
-	(CURRENT_THROTTLE_ACTION(psy) != PSY_THROTTLE_DISABLE_CHARGING) &&
-	(INLMT(psy) >= 100) && (health == POWER_SUPPLY_HEALTH_GOOD));
+		int throttle_action, inlmt;
+
+		throttle_action = CURRENT_THROTTLE_ACTION(psy);
+		inlmt = INLMT(psy);
+
+		return (throttle_action != PSY_THROTTLE_DISABLE_CHARGER) &&
+			(throttle_action != PSY_THROTTLE_DISABLE_CHARGING) &&
+			(inlmt >= 100) && (health == POWER_SUPPLY_HEALTH_GOOD);
 	}
 }
 
@@ -666,9 +670,14 @@ static int trigger_algo(struct power_supply *psy)
 
 	ret = get_bat_prop_cache(psy, &bat_prop);
 	if (ret) {
-		pr_err("%s:Error in getting the battery property of %s!!\n",
+		pr_warn("%s:Error in getting the battery property of %s!!\n",
 							__func__, psy->name);
-		return ret;
+
+		/*
+		 * battery properties are not cached.
+		 * get the current properties to process
+		 */
+		get_cur_bat_prop(psy, &bat_prop);
 	}
 
 	algo = power_supply_get_charging_algo(psy, &chrg_profile);
@@ -753,7 +762,6 @@ static void __power_supply_trigger_charging_handler(struct power_supply *psy)
 	mutex_lock(&psy_chrgr.evt_lock);
 
 	if (is_trigger_charging_algo(psy)) {
-
 		if (IS_BATTERY(psy)) {
 			if (trigger_algo(psy)) {
 				enable_supplied_by_charging(psy, false);
