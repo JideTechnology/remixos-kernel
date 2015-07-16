@@ -1172,7 +1172,7 @@ int sunxi_pinctrl_init(struct platform_device *pdev,
 	pctl->chip->to_irq = sunxi_pinctrl_gpio_to_irq,
 	pctl->chip->of_gpio_n_cells = 6,
 	pctl->chip->can_sleep = false,
-	pctl->chip->ngpio = round_up(last_pin, PINS_PER_BANK) -
+	pctl->chip->ngpio = round_up(last_pin + 1, PINS_PER_BANK) -
 			    pctl->desc->pin_base;
 	pctl->chip->label = dev_name(&pdev->dev);
 	pctl->chip->dev = &pdev->dev;
