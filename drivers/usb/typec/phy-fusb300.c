@@ -987,8 +987,8 @@ static int fusb300_phy_reset(struct typec_phy *phy)
 		fusb300_pd_send_hard_rst(phy);
 	else
 		fusb302_pd_send_hard_rst(phy);
-	fusb300_reset_pd(phy);
 	mutex_unlock(&chip->lock);
+	fusb300_reset_pd(phy);
 	return 0;
 }
 
