@@ -28,7 +28,7 @@
 			};
 
 			uart0_pins_a: uart0@0 {
-				allwinner,pins = "PF2", "PF4";
+				allwinner,pins = "PB8", "PB9";
 				allwinner,pname = "uart0_tx", "uart0_rx";
 				allwinner,function = "uart0";
 				allwinner,muxsel = <4>;
@@ -37,7 +37,7 @@
 			};
 
 			uart0_pins_b: uart0@1 {
-				allwinner,pins = "PF2", "PF4";
+				allwinner,pins = "PB8", "PB9";
 				allwinner,function = "io_disabled";
 				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;

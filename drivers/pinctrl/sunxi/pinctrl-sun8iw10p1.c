@@ -81,6 +81,7 @@ static const struct sunxi_desc_pin sun8iw10p1_pins[] = {
 		  SUNXI_FUNCTION(0x2, "twi0"),
 		  SUNXI_FUNCTION(0x7, "io_disabled"),
 		  SUNXI_FUNCTION_IRQ_BANK(0x6, 0, 7)),
+#if defined(CONFIG_FPGA_V4_PLATFORM)
 	SUNXI_PIN(SUNXI_PINCTRL_PIN(B, 8),
 		  SUNXI_FUNCTION(0x0, "gpio_in"),
 		  SUNXI_FUNCTION(0x1, "gpio_out"),
@@ -97,6 +98,24 @@ static const struct sunxi_desc_pin sun8iw10p1_pins[] = {
 		  SUNXI_FUNCTION(0x4, "twi1"),
 		  SUNXI_FUNCTION(0x7, "io_disabled"),
 		  SUNXI_FUNCTION_IRQ_BANK(0x6, 0, 9)),
+#else
+	SUNXI_PIN(SUNXI_PINCTRL_PIN(B, 8),
+		  SUNXI_FUNCTION(0x0, "gpio_in"),
+		  SUNXI_FUNCTION(0x1, "gpio_out"),
+		  SUNXI_FUNCTION(0x2, "spi1"),
+		  SUNXI_FUNCTION(0x3, "uart4"),
+		  SUNXI_FUNCTION(0x4, "uart0"),
+		  SUNXI_FUNCTION(0x7, "io_disabled"),
+		  SUNXI_FUNCTION_IRQ_BANK(0x6, 0, 8)),
+	SUNXI_PIN(SUNXI_PINCTRL_PIN(B, 9),
+		  SUNXI_FUNCTION(0x0, "gpio_in"),
+		  SUNXI_FUNCTION(0x1, "gpio_out"),
+		  SUNXI_FUNCTION(0x2, "spi1"),
+		  SUNXI_FUNCTION(0x3, "uart4"),
+		  SUNXI_FUNCTION(0x4, "uart0"),
+		  SUNXI_FUNCTION(0x7, "io_disabled"),
+		  SUNXI_FUNCTION_IRQ_BANK(0x6, 0, 9)),
+#endif
 	SUNXI_PIN(SUNXI_PINCTRL_PIN(B, 10),
 		  SUNXI_FUNCTION(0x0, "gpio_in"),
 		  SUNXI_FUNCTION(0x1, "gpio_out"),
@@ -615,6 +634,14 @@ static const struct sunxi_desc_pin sun8iw10p1_pins[] = {
 		  SUNXI_FUNCTION(0x4, "pll_lock_dbg"),
 		  SUNXI_FUNCTION(0x7, "io_disabled"),
 		  SUNXI_FUNCTION_IRQ_BANK(0x6, 3, 11)),
+
+	/* Hole */
+#if defined(CONFIG_FPGA_V4_PLATFORM)
+	SUNXI_PIN(SUNXI_PINCTRL_PIN(H, 0),
+		  SUNXI_FUNCTION(0x0, "gpio_in"),
+		  SUNXI_FUNCTION(0x1, "gpio_out"),
+		  SUNXI_FUNCTION(0x7, "io_disabled")),
+#endif
 };
 static const struct sunxi_pinctrl_desc sun8iw10p1_pinctrl_data = {
 	.pins = sun8iw10p1_pins,
