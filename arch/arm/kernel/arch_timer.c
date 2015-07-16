@@ -352,6 +352,7 @@ static int __init arch_timer_common_register(void)
 	}
 	if (err)
 		goto out_free_irq;
+	arch_counter_set_user_access();
 
 	/* Use the architected timer for the delay loop. */
 	arch_delay_timer.read_current_timer = &arch_timer_read_current_timer;
