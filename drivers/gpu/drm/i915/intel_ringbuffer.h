@@ -241,13 +241,6 @@ struct intel_ring_hangcheck {
 	/* Number of watchdog hang detections for this ring */
 	u32 watchdog_count;
 
-	/*
-	 * Ring seqno recorded by the most recent hang check.
-	 * Used as a first, coarse step to determine ring
-	 * idleness
-	 */
-	u32 last_seqno;
-
 	/* Forced resubmission counter */
 	u32 forced_resubmission_cnt;
 

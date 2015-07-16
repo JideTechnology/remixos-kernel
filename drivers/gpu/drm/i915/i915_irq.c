@@ -3690,7 +3690,7 @@ void i915_hangcheck_sample(struct work_struct *work)
 		 */
 		mod_delayed_work(dev_priv->ring[hc->ringid].hangcheck.wq,
 				&dev_priv->ring[hc->ringid].hangcheck.work,
-				round_jiffies_up_relative(DRM_I915_HANGCHECK_JIFFIES));
+				DRM_I915_HANGCHECK_JIFFIES);
 	}
 }
 
@@ -3699,66 +3699,36 @@ void i915_queue_hangcheck(struct drm_device *dev, u32 ringid,
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_engine_cs *ring = &dev_priv->ring[ringid];
-	uint32_t seqno;
+	long timediff;
+	unsigned long time = 0;
 
-	if (!ring) {
-		WARN(1, "Ring is null! Could not queue hang check for %s!", \
-			ring->name);
+	if (!i915.enable_hangcheck)
 		return;
-	}
 
-	if (!ring->get_seqno) {
-		WARN(1, "get_seqno function not set up! " \
-			"Could not queue hang check for %s!", ring->name);
-		return;
-	}
+	/*
+	 * We are piggy-backing the hang check on top of the retire
+	 * work timer so the amount of time we need to wait between
+	 * expired retire work timer and the actual hangcheck is:
+	 *
+	 *	 wait_time = hangcheck_period - retire_work_period
+	 *
+	 * retire_work_period is the time difference between now
+	 * and when the retire_work_timer was scheduled.
+	 * If we have already waited the hangcheck period or more
+	 * then simply schedule the hang check immediately.
+	 *
+	 * If a hang check was already rescheduled by a previous
+	 * hang check (because there are still pending work that
+	 * needs to be checked) and is now pending, this schedule
+	 * call will not affect anything and the pending hang check
+	 * will be carried out without being postponed.
+	 */
+	timediff = jiffies - retire_work_timestamp;
 
-	seqno = ring->get_seqno(ring, false);
+	if (DRM_I915_HANGCHECK_JIFFIES > timediff)
+		time = DRM_I915_HANGCHECK_JIFFIES - timediff;
 
-	if (!i915.enable_hangcheck) {
-		dev_priv->ring[ringid].hangcheck.last_seqno = seqno;
-		return;
-	}
-
-	if (dev_priv->ring[ringid].hangcheck.last_seqno == seqno) {
-		/*
-		 * The seqno on this ring has not progressed since
-		 * we last checked! Schedule a more detailed hang check.
-		 *
-		 * We are piggy-backing the hang check on top of the retire
-		 * work timer so the amount of time we need to wait between
-		 * expired retire work timer and the actual hangcheck is:
-		 *
-		 *	 wait_time = hangcheck_period - retire_work_period
-		 *
-		 * retire_work_period is the time difference between now
-		 * and when the retire_work_timer was scheduled.
-		 * If we have already waited the hangcheck period or more
-		 * then simply schedule the hang check immediately.
-		 *
-		 * If a hang check was already rescheduled by a previous
-		 * hang check (because there are still pending work that
-		 * needs to be checked) and is now pending, this schedule
-		 * call will not affect anything and the pending hang check
-		 * will be carried out without being postponed.
-		 */
-		unsigned long jiffies_now = jiffies;
-		long timediff = jiffies_now - retire_work_timestamp;
-		unsigned long time = 0;
-		const unsigned long zero = 0L;
-
-		WARN(time_after(retire_work_timestamp, jiffies_now),
-				"Timestamp of scheduled retire work handler " \
-				"happened in the future? (%lu > %lu)",
-				retire_work_timestamp, jiffies_now);
-
-		time = max(zero, (DRM_I915_HANGCHECK_JIFFIES - timediff));
-
-		queue_delayed_work(dev_priv->ring[ringid].hangcheck.wq,
-				&dev_priv->ring[ringid].hangcheck.work, time);
-	}
-
-	dev_priv->ring[ringid].hangcheck.last_seqno = seqno;
+	queue_delayed_work(ring->hangcheck.wq, &ring->hangcheck.work, time);
 }
 
 static void ibx_irq_reset(struct drm_device *dev)
