@@ -40,6 +40,7 @@
 #include <linux/delay.h>
 #include <linux/spinlock.h>
 #include <linux/usb_typec_phy.h>
+#include <linux/workqueue.h>
 #include "usb_typec_detect.h"
 #include "pd/system_policy.h"
 
@@ -265,6 +266,8 @@
 
 #define USB_TYPEC_PD_VERSION		2
 
+#define VBUS_PRESENCE_TIME_MIN		10
+#define VBUS_PRESENCE_TIME_MAX		275
 #define FUSB300_MAX_INT_STAT		3
 #define FUSB302_MAX_INT_STAT		7
 #define MAX_FIFO_SIZE	64
@@ -292,14 +295,14 @@ struct fusb300_chip {
 	struct regmap *map;
 	struct mutex lock;
 	struct typec_phy phy;
-	bool i_vbus;
-	u32 stored_int_reg;
-	bool transmit;
-	int activity_count;
 	struct completion int_complete;
+	struct work_struct tog_work;
 	spinlock_t irqlock;
-	bool process_pd;
+	int activity_count;
 	int is_fusb300;
+	bool process_pd;
+	bool transmit;
+	bool i_vbus;
 };
 
 static int fusb300_wake_on_cc_change(struct fusb300_chip *chip);
@@ -673,16 +676,47 @@ static int fusb300_init_chip(struct fusb300_chip *chip)
 	return 0;
 }
 
-static void fusb300_handle_toggle_done(struct fusb300_chip *chip,
-				int tog_stat_reg, int vbus_stat_reg)
+static bool
+fusb300_check_vbus_state(struct fusb300_chip *chip, int vbus_stat_reg)
 {
 	struct typec_phy *phy = &chip->phy;
+	if (!(vbus_stat_reg & FUSB300_STAT0_VBUS_OK)) {
+		/* delay for vbus presence */
+		/* sometimes VBUS is triggred after TOG_DONE */
+		usleep_range(VBUS_PRESENCE_TIME_MIN, VBUS_PRESENCE_TIME_MAX);
+		regmap_read(chip->map, FUSB300_STAT0_REG, &vbus_stat_reg);
+		if (!(vbus_stat_reg & FUSB300_STAT0_VBUS_OK)) {
+			dev_info(chip->dev,
+				"VBUS not present in UFP, why TOG_INTR?");
+			mutex_lock(&chip->lock);
+			fusb302_enable_toggle(chip, true, FUSB302_TOG_MODE_DRP);
+			mutex_unlock(&chip->lock);
+			return false;
+		} else
+			atomic_notifier_call_chain(&phy->notifier,
+							TYPEC_EVENT_VBUS, phy);
+	} else
+		atomic_notifier_call_chain(&phy->notifier,
+							TYPEC_EVENT_VBUS, phy);
+	return true;
+}
+
+static void fusb300_tog_stat_work(struct work_struct *work)
+{
+	struct fusb300_chip *chip = container_of(work, struct fusb300_chip,
+						tog_work);
+
+	struct typec_phy *phy = &chip->phy;
+	unsigned int tog_stat_reg, vbus_stat_reg;
 	u8 tog_stat;
 
-	/*
-	 * disable the toggle state machine and setup the PD transmitter
-	 * to the identified CC
-	 */
+	regmap_read(chip->map, FUSB302_STAT1A_REG, &tog_stat_reg);
+	regmap_read(chip->map, FUSB300_STAT0_REG, &vbus_stat_reg);
+
+	mutex_lock(&chip->lock);
+	fusb302_enable_toggle(chip, false, FUSB302_TOG_MODE_DRP);
+	mutex_unlock(&chip->lock);
+
 	tog_stat = FUSB302_TOG_STAT(tog_stat_reg);
 
 	if ((tog_stat == FUSB302_TOG_STAT_DFP_CC1) ||
@@ -700,48 +734,11 @@ static void fusb300_handle_toggle_done(struct fusb300_chip *chip,
 		mutex_lock(&chip->lock);
 		phy->state = TYPEC_STATE_UNATTACHED_UFP;
 		mutex_unlock(&chip->lock);
-	} else {
+	} else
 		dev_warn(chip->dev, "unknown tog stat %x", tog_stat);
-	}
-
-	mutex_lock(&chip->lock);
-
-	/*
-	 * do not disable the toggle in case of VBUS not present
-	 * but UFP is detected.
-	 * This happens due to legacy Type-A to C plug, due to VBUS
-	 * capacitance, the terminations are not fully removed.
-	 *
-	 * disable and enable the toggle state machine so that
-	 * toggle can continue its function. Otherwise, since toggle has
-	 * previously detected a cable, it will stop the DRP switching
-	 */
-	if ((phy->state == TYPEC_STATE_UNATTACHED_UFP) &&
-		!(vbus_stat_reg & FUSB300_STAT0_VBUS_OK)) {
-		dev_info(chip->dev, "VBUS not present in UFP, why TOG_INTR?");
-		fusb302_enable_toggle(chip, false, FUSB302_TOG_MODE_DRP);
-		fusb302_enable_toggle(chip, true, FUSB302_TOG_MODE_DRP);
-		mutex_unlock(&chip->lock);
-		return;
-	}
-
-	fusb302_enable_toggle(chip, false, FUSB302_TOG_MODE_DRP);
 
 	if (phy->state == TYPEC_STATE_UNATTACHED_UFP)
-		atomic_notifier_call_chain(&phy->notifier,
-				TYPEC_EVENT_VBUS, phy);
-
-	if (tog_stat == FUSB302_TOG_STAT_DFP_CC1 ||
-		tog_stat == FUSB302_TOG_STAT_UFP_CC1) {
-		phy->valid_cc = TYPEC_PIN_CC1;
-		regmap_update_bits(chip->map, FUSB300_SWITCH1_REG,
-			FUSB300_SWITCH1_TX_MASK, FUSB300_SWITCH1_TXCC1);
-	} else {
-		phy->valid_cc = TYPEC_PIN_CC2;
-		regmap_update_bits(chip->map, FUSB300_SWITCH1_REG,
-			FUSB300_SWITCH1_TX_MASK, FUSB300_SWITCH1_TXCC2);
-	}
-	mutex_unlock(&chip->lock);
+		fusb300_check_vbus_state(chip, vbus_stat_reg);
 }
 
 static void fusb300_handle_vbus_int(struct fusb300_chip *chip, int vbus_on)
@@ -811,7 +808,6 @@ static irqreturn_t fusb300_interrupt(int id, void *dev)
 			int_stat.inta_reg, int_stat.intb_reg,
 			int_stat.stat0a_reg, int_stat.stat1a_reg);
 
-
 	mutex_lock(&chip->lock);
 	phy_state = phy->state;
 	mutex_unlock(&chip->lock);
@@ -819,8 +815,7 @@ static irqreturn_t fusb300_interrupt(int id, void *dev)
 	if (!chip->is_fusb300) {
 		if (int_stat.inta_reg & FUSB302_INTA_TOG_DONE) {
 			dev_dbg(phy->dev, "TOG_DONE INTR");
-			fusb300_handle_toggle_done(chip, int_stat.stat1a_reg,
-							int_stat.stat_reg);
+			schedule_work(&chip->tog_work);
 		}
 	}
 
@@ -1357,6 +1352,15 @@ static inline int fusb302_enable_toggle(struct fusb300_chip *chip, bool en,
 		goto end;
 	ret = regmap_update_bits(chip->map, FUSB300_INT_MASK_REG,
 			FUSB300_INT_MASK_COMP, mask);
+
+	/*
+	 * enable / disable BMC oscillator.
+	 * when toggle is enabled, there is nothing connected,
+	 * disble the oscillator, otherwise enable the oscillator
+	 */
+	regmap_update_bits(chip->map, FUSB300_PWR_REG, FUSB300_PWR_OSC,
+					en ? 0 : FUSB300_PWR_OSC);
+
 end:
 	return ret;
 }
@@ -1377,9 +1381,13 @@ static int fusb300_enable_autocrc(struct typec_phy *phy, bool en)
 
 	val &= ~(1<<2);
 
+	regmap_read(chip->map, FUSB300_INT_MASK_REG, &int_mask);
+
 	if (en) {
 		val |= FUSB302_SWITCH1_AUTOCRC;
-		int_mask = FUSB300_INT_MASK_COMP;
+		int_mask &= ~(FUSB300_INT_MASK_COMP |
+				FUSB300_INT_MASK_ACTIVITY |
+				FUSB300_INT_MASK_CRCCHK);
 	} else {
 		int_mask = (FUSB300_INT_MASK_COMP |
 			FUSB300_INT_MASK_ACTIVITY |
@@ -1479,6 +1487,7 @@ static int fusb300_probe(struct i2c_client *client,
 	mutex_init(&chip->lock);
 	init_completion(&chip->int_complete);
 	i2c_set_clientdata(client, chip);
+	INIT_WORK(&chip->tog_work, fusb300_tog_stat_work);
 
 	typec_add_phy(&chip->phy);
 
