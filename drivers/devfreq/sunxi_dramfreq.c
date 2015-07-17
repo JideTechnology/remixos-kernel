@@ -1011,22 +1011,22 @@ static int sunxi_dramfreq_probe(struct platform_device *pdev)
 	ret = sunxi_dramfreq_paras_init(dramfreq);
 	if (ret == -ENODEV) {
 		DRAMFREQ_ERR("Init dram para failed!\n");
-		return ret;
+		goto err;
 	} else if (ret == -EINVAL) {
 		printk("[ddrfreq] disabled!\n");
-		return ret;
+		goto err;
 	}
 
 	ret = sunxi_dramfreq_resource_init(pdev, dramfreq);
 	if (ret) {
 		DRAMFREQ_ERR("Init resource failed!\n");
-		return ret;
+		goto err;
 	}
 
 	ret = sunxi_dramfreq_opp_init(pdev, dramfreq);
 	if (ret) {
 		DRAMFREQ_ERR("Init opp failed!\n");
-		return ret;
+		goto err;
 	}
 
 	dev_set_name(&pdev->dev, "dramfreq");
@@ -1037,7 +1037,7 @@ static int sunxi_dramfreq_probe(struct platform_device *pdev)
 	if (IS_ERR(dramfreq->devfreq)) {
 		DRAMFREQ_ERR("Add devfreq device failed!\n");
 		ret = PTR_ERR(dramfreq->devfreq);
-		goto err_devfreq;
+		goto err;
 	}
 
 	dramfreq->max = sunxi_dramfreq_get_max_freq();
@@ -1061,7 +1061,9 @@ static int sunxi_dramfreq_probe(struct platform_device *pdev)
 
 	return 0;
 
-err_devfreq:
+err:
+	kfree(dramfreq);
+	dramfreq = NULL;
 	return ret;
 }
 
