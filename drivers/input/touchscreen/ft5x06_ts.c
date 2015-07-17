@@ -154,6 +154,7 @@
 #define FT_MAGIC_BLOADER_GZF_30	0x7ff4
 #define FT_MAGIC_BLOADER_GZF	0x7bf4
 
+
 enum {
 	FT_BLOADER_VERSION_LZ4 = 0,
 	FT_BLOADER_VERSION_Z7 = 1,
@@ -370,10 +371,10 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 	rc = fts_i2c_read(data->client, &reg2, 1, &mode_value, 1);
 	if(mode_value == 0xF0){
 		input_report_key(ip_dev, KEY_HOME, 1);
-		input_mt_sync(ip_dev);
-		input_sync(ip_dev);
+	//	input_mt_sync(ip_dev);
+	//	input_sync(ip_dev);
 		input_report_key(ip_dev, KEY_HOME, 0);
-		input_mt_sync(ip_dev);
+	//	input_mt_sync(ip_dev);
 		input_sync(ip_dev);
 		return IRQ_HANDLED;
 	}
@@ -421,8 +422,8 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
        ft5x0x_ts_release(data);
 	else
 		input_report_key(ip_dev, BTN_TOUCH, touch_point > 0);
-
 		input_sync(ip_dev);
+
 
 	return IRQ_HANDLED;
 }
@@ -1043,7 +1044,6 @@ static int __init ft5x06_ts_init(void)
 }
 //module_init(ft5x06_ts_init);
 fs_initcall(ft5x06_ts_init);
-
 
 static void __exit ft5x06_ts_exit(void)
 {
