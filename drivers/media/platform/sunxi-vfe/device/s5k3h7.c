@@ -49,16 +49,6 @@ MODULE_LICENSE("GPL");
 #define V4L2_IDENT_SENSOR 0x4e10
 int s5k3h7_sensor_vts;
 
-//define the voltage level of control signal
-#define CSI_STBY_ON     0
-#define CSI_STBY_OFF    1
-#define CSI_RST_ON      0
-#define CSI_RST_OFF     1
-#define CSI_PWR_ON      1
-#define CSI_PWR_OFF     0
-#define CSI_AF_PWR_ON   1
-#define CSI_AF_PWR_OFF  0
-
 //modified for each device for i2c access format
 #define regval_list 		reg_list_w_a16_d16
 
@@ -2070,7 +2060,7 @@ static int sensor_s_sw_stby(struct v4l2_subdev *sd, int on_off)
 	if(ret!=0)
 		return ret;
 	
-	if(on_off==CSI_STBY_ON)//sw stby on
+	if(on_off==CSI_GPIO_LOW)//sw stby on
 	{
 		ret=sensor_write_byte(sd, 0x0100, rdval&0xfe);
 	}
@@ -2102,7 +2092,7 @@ static int sensor_power(struct v4l2_subdev *sd, int on)
 //      if(ret < 0)
 //        vfe_dev_err("disalbe oe falied!\n");
       //software standby on
-      ret = sensor_s_sw_stby(sd, CSI_STBY_ON);
+      ret = sensor_s_sw_stby(sd, CSI_GPIO_LOW);
       if(ret < 0)
         vfe_dev_err("soft stby falied!\n");
       mdelay(10);
@@ -2110,7 +2100,7 @@ static int sensor_power(struct v4l2_subdev *sd, int on)
       //when using i2c_lock_adpater function, the following codes must not access i2c bus before calling i2c_unlock_adapter
       cci_lock(sd);    
       //standby on io
-      vfe_gpio_write(sd,PWDN,CSI_STBY_ON);
+      vfe_gpio_write(sd,PWDN,CSI_GPIO_LOW);
       //remember to unlock i2c adapter, so the device can access the i2c bus again
       cci_unlock(sd);    
 
@@ -2128,13 +2118,13 @@ static int sensor_power(struct v4l2_subdev *sd, int on)
       vfe_set_mclk(sd,ON);
       mdelay(10);
       //standby off io
-      vfe_gpio_write(sd,PWDN,CSI_STBY_OFF);
+      vfe_gpio_write(sd,PWDN,CSI_GPIO_HIGH);
       mdelay(10);
       //remember to unlock i2c adapter, so the device can access the i2c bus again
       cci_unlock(sd);    
       
 //      //software standby
-      ret = sensor_s_sw_stby(sd, CSI_STBY_OFF);
+      ret = sensor_s_sw_stby(sd, CSI_GPIO_HIGH);
       if(ret < 0)
         vfe_dev_err("soft stby off falied!\n");
       mdelay(10);
@@ -2152,25 +2142,25 @@ static int sensor_power(struct v4l2_subdev *sd, int on)
       vfe_gpio_set_status(sd,PWDN,1);//set the gpio to output
       vfe_gpio_set_status(sd,RESET,1);//set the gpio to output
       //power down io
-      vfe_gpio_write(sd,PWDN,CSI_STBY_ON);
+      vfe_gpio_write(sd,PWDN,CSI_GPIO_LOW);
       //reset on io
-      vfe_gpio_write(sd,RESET,CSI_RST_ON);
+      vfe_gpio_write(sd,RESET,CSI_GPIO_LOW);
       mdelay(1);
       //active mclk before power on
       vfe_set_mclk_freq(sd,MCLK);
       vfe_set_mclk(sd,ON);
       mdelay(10);
       //power supply
-      vfe_gpio_write(sd,POWER_EN,CSI_PWR_ON);
+      vfe_gpio_write(sd,POWER_EN,CSI_GPIO_HIGH);
       vfe_set_pmu_channel(sd,IOVDD,ON);
       vfe_set_pmu_channel(sd,AVDD,ON);
       vfe_set_pmu_channel(sd,DVDD,ON);
       vfe_set_pmu_channel(sd,AFVDD,ON);
       //standby off io
-      vfe_gpio_write(sd,PWDN,CSI_STBY_OFF);
+      vfe_gpio_write(sd,PWDN,CSI_GPIO_HIGH);
       mdelay(10);
       //reset after power on
-      vfe_gpio_write(sd,RESET,CSI_RST_OFF);
+      vfe_gpio_write(sd,RESET,CSI_GPIO_HIGH);
       mdelay(30);
       //remember to unlock i2c adapter, so the device can access the i2c bus again
       cci_unlock(sd);    
@@ -2184,15 +2174,15 @@ static int sensor_power(struct v4l2_subdev *sd, int on)
       //inactive mclk before power off
       vfe_set_mclk(sd,OFF);
       //power supply off
-      vfe_gpio_write(sd,POWER_EN,CSI_PWR_OFF);
+      vfe_gpio_write(sd,POWER_EN,CSI_GPIO_LOW);
       vfe_set_pmu_channel(sd,AFVDD,OFF);
       vfe_set_pmu_channel(sd,DVDD,OFF);
       vfe_set_pmu_channel(sd,AVDD,OFF);
       vfe_set_pmu_channel(sd,IOVDD,OFF);  
       //standby and reset io
       mdelay(10);
-      vfe_gpio_write(sd,POWER_EN,CSI_STBY_OFF);
-      vfe_gpio_write(sd,RESET,CSI_RST_ON);
+      vfe_gpio_write(sd,POWER_EN,CSI_GPIO_HIGH);
+      vfe_gpio_write(sd,RESET,CSI_GPIO_LOW);
       //set the io to hi-z
       vfe_gpio_set_status(sd,RESET,0);//set the gpio to input
       vfe_gpio_set_status(sd,PWDN,0);//set the gpio to input
@@ -2212,11 +2202,11 @@ static int sensor_reset(struct v4l2_subdev *sd, u32 val)
   switch(val)
   {
     case 0:
-      vfe_gpio_write(sd,RESET,CSI_RST_OFF);
+      vfe_gpio_write(sd,RESET,CSI_GPIO_HIGH);
       mdelay(10);
       break;
     case 1:
-      vfe_gpio_write(sd,RESET,CSI_RST_ON);
+      vfe_gpio_write(sd,RESET,CSI_GPIO_LOW);
       mdelay(10);
       break;
     default:

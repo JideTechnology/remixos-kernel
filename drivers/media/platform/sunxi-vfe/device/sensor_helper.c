@@ -40,7 +40,6 @@ int sensor_write(struct v4l2_subdev *sd, addr_type reg, data_type value)
 	if(cnt > 0)
 		printk("%s sensor write retry=%d\n",cci_drv->name, cnt);
 
-
 	return ret;
 }
 EXPORT_SYMBOL_GPL(sensor_write);

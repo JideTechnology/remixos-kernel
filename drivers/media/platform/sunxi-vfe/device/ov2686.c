@@ -15,6 +15,7 @@
 #include <linux/io.h>
 
 #include "camera.h"
+#include "sensor_helper.h"
 
 MODULE_AUTHOR("zw");
 MODULE_DESCRIPTION("A low-level driver for ov2686 sensors");
@@ -47,21 +48,7 @@ MODULE_LICENSE("GPL");
 #define CLK_POL           			V4L2_MBUS_PCLK_SAMPLE_RISING
 #define V4L2_IDENT_SENSOR 	0x2686
 
-//define the voltage level of control signal
-#define CSI_STBY_ON     	1
-#define CSI_STBY_OFF    	0
-#define CSI_RST_ON      		0
-#define CSI_RST_OFF     		1
-#define CSI_PWR_ON      	1
-#define CSI_PWR_OFF		0
-
 #define SENSOR_NAME "ov2686"
-#define regval_list reg_list_a16_d8
-
-#define REG_TERM 		0xfffe
-#define VAL_TERM 		0xfe
-#define REG_DLY  		0xffff
-
 /*
  * Our nominal (default) frame rate.
  */
@@ -775,13 +762,6 @@ static struct cfg_array sensor_colorfx[] = {
 	},
 };
 
-
-//static struct regval_list sensor_sharpness_auto_regs[] = {
-//};
-
-//static struct regval_list sensor_denoise_auto_regs[] = {
-//};
-
 /*
  * The brightness setttings
  */
@@ -1292,82 +1272,12 @@ static struct regval_list sensor_fmt_yuv422_uyvy[] = {
   	{0x4300,0x32},  //UYVY 
 };
 
-/*
- * Low-level register I/O.
- *
- */
-
-/*
- * On most platforms, we'd rather do straight i2c I/O.
- */
-static int sensor_read(struct v4l2_subdev *sd, unsigned short reg,
-    unsigned char *value)
-{
-	int ret=0;
-	int cnt=0;
-
-	ret = cci_read_a16_d8(sd,reg,value);
-	while((ret != 0) && (cnt < 2))
-	{
-		ret = cci_read_a16_d8(sd,reg,value);
-		cnt++;
-	}
-	if(cnt>0)
-		vfe_dev_dbg("sensor read retry=%d\n",cnt);
-
-	return ret;
-}
-
-static int sensor_write(struct v4l2_subdev *sd, unsigned short reg,
-    unsigned char value)
-{
-	int ret=0;
-	int cnt=0;
-	ret = cci_write_a16_d8(sd,reg,value);
-	while(ret!=0&&cnt<2)
-	{
-		ret = cci_write_a16_d8(sd,reg,value);
-		cnt++;
-	}
-	if(cnt>0)
-		vfe_dev_dbg("sensor write retry=%d\n",cnt);
-
-	return ret;
-}
-
-/*
- * Write a list of register settings;
- */
-static int sensor_write_array(struct v4l2_subdev *sd, struct regval_list *regs, int array_size)
-{
-	int i = 0;
-
-	if(!regs)
-		return -EINVAL;
-
-	while(i < array_size)
-	{
-		if(regs->addr == REG_DLY)
-		{
-			msleep(regs->data);
-		}
-		else 
-		{
-			//printk("write 0x%x=0x%x\n", regs->addr, regs->data);
-			LOG_ERR_RET(sensor_write(sd, regs->addr, regs->data))
-		}
-		i++;
-		regs++;
-	}
-	return 0;
-}
-
 /* *********************************************begin of ******************************************** */
 
 static int sensor_g_hflip(struct v4l2_subdev *sd, __s32 *value)
 {
 	struct sensor_info *info = to_state(sd);
-	unsigned char val;
+	data_type val;
 
 	LOG_ERR_RET(sensor_read(sd, 0x3821, &val));
 
@@ -1382,7 +1292,7 @@ static int sensor_g_hflip(struct v4l2_subdev *sd, __s32 *value)
 static int sensor_s_hflip(struct v4l2_subdev *sd, int value)
 {
 	struct sensor_info *info = to_state(sd);
-	unsigned char val;
+	data_type val;
 	
 	if(info->hflip == value)
 		return 0;
@@ -1410,7 +1320,7 @@ static int sensor_s_hflip(struct v4l2_subdev *sd, int value)
 static int sensor_g_vflip(struct v4l2_subdev *sd, __s32 *value)
 {
 	struct sensor_info *info = to_state(sd);
-	unsigned char val;
+	data_type val;
 
 	LOG_ERR_RET(sensor_read(sd, 0x3820, &val));
 
@@ -1426,7 +1336,7 @@ static int sensor_g_vflip(struct v4l2_subdev *sd, __s32 *value)
 static int sensor_s_vflip(struct v4l2_subdev *sd, int value)
 {
 	struct sensor_info *info = to_state(sd);
-	unsigned char val;
+	data_type val;
 
 	if(info->vflip == value)
 		return 0;
@@ -1464,13 +1374,13 @@ static int sensor_s_autogain(struct v4l2_subdev *sd, int value)
 static int sensor_g_autoexp(struct v4l2_subdev *sd, __s32 *value)
 {
 	struct sensor_info *info = to_state(sd);
-	unsigned char val;
+	data_type val;
 	
 	LOG_ERR_RET(sensor_read(sd, 0x3503, &val))
 	
 	if ((val&0x01) == 0x01)
 	{
-		 *value = V4L2_EXPOSURE_MANUAL;
+		*value = V4L2_EXPOSURE_MANUAL;
 	}
 	else
 	{
@@ -1486,7 +1396,7 @@ static int sensor_s_autoexp(struct v4l2_subdev *sd,
     enum v4l2_exposure_auto_type value)
 {
 	struct sensor_info *info = to_state(sd);
-	unsigned char val;
+	data_type val;
 
 	LOG_ERR_RET(sensor_read(sd, 0x3503, &val))
 
@@ -1516,7 +1426,7 @@ static int sensor_s_autoexp(struct v4l2_subdev *sd,
 static int sensor_g_autowb(struct v4l2_subdev *sd, int *value)
 {
 	struct sensor_info *info = to_state(sd);
-	unsigned char val;
+	data_type val;
 	
 	LOG_ERR_RET(sensor_read(sd, 0x5004, &val))
 	
@@ -1531,7 +1441,7 @@ static int sensor_g_autowb(struct v4l2_subdev *sd, int *value)
 static int sensor_s_autowb(struct v4l2_subdev *sd, int value)
 {
 	struct sensor_info *info = to_state(sd);
-	unsigned char val;
+	data_type val;
 	
 	if(info->autowb == value)
 		return 0;
@@ -1581,7 +1491,7 @@ static int sensor_g_band_filter(struct v4l2_subdev *sd,
     __s32 *value)
 {
 	struct sensor_info *info = to_state(sd);
-	unsigned char rdval;
+	data_type rdval;
 
 	LOG_ERR_RET(sensor_read(sd, 0x3a00, &rdval))
 
@@ -1602,7 +1512,7 @@ static int sensor_s_band_filter(struct v4l2_subdev *sd,
     enum v4l2_power_line_frequency value)
 {
 	struct sensor_info *info = to_state(sd);
-	unsigned char rdval;
+	data_type rdval;
 
 	if(info->band_filter == value)
 		return 0;
@@ -1813,89 +1723,60 @@ static int sensor_s_flash_mode(struct v4l2_subdev *sd,
 
 static int sensor_power(struct v4l2_subdev *sd, int on)
 {
-	//insure that clk_disable() and clk_enable() are called in pair
-	//when calling CSI_SUBDEV_STBY_ON/OFF and CSI_SUBDEV_PWR_ON/OFF
 	switch(on) {
 	case CSI_SUBDEV_STBY_ON:
 		vfe_dev_dbg("CSI_SUBDEV_STBY_ON!\n");
-		//make sure that no device can access i2c bus during sensor initial or power down
-		//when using i2c_lock_adpater function, the following codes must not access i2c bus before calling i2c_unlock_adapter
 		cci_lock(sd);
-		//standby on io
-		vfe_gpio_write(sd,PWDN,CSI_STBY_ON);
-		//remember to unlock i2c adapter, so the device can access the i2c bus again
+		vfe_gpio_write(sd,PWDN,CSI_GPIO_HIGH);
 		cci_unlock(sd);
-		//inactive mclk after stadby in
 		vfe_set_mclk(sd,OFF);
 		break;
 	case CSI_SUBDEV_STBY_OFF:
 		vfe_dev_dbg("CSI_SUBDEV_STBY_OFF!\n");
-		//make sure that no device can access i2c bus during sensor initial or power down
-		//when using i2c_lock_adpater function, the following codes must not access i2c bus before calling i2c_unlock_adapter
 		cci_lock(sd);
-		//active mclk before stadby out
 		vfe_set_mclk_freq(sd,MCLK);
 		vfe_set_mclk(sd,ON);
 		usleep_range(10000,12000);
-		//standby off io
-		vfe_gpio_write(sd,PWDN,CSI_STBY_OFF);
+		vfe_gpio_write(sd,PWDN,CSI_GPIO_LOW);
 		usleep_range(10000,12000);
-		//remember to unlock i2c adapter, so the device can access the i2c bus again
 		cci_unlock(sd);
 		break;
 	case CSI_SUBDEV_PWR_ON:
 		vfe_dev_dbg("CSI_SUBDEV_PWR_ON!\n");
-		//make sure that no device can access i2c bus during sensor initial or power down
-		//when using i2c_lock_adpater function, the following codes must not access i2c bus before calling i2c_unlock_adapter
 		cci_lock(sd);
-		//power on reset
 		vfe_gpio_set_status(sd,PWDN,1);//set the gpio to output
 		vfe_gpio_set_status(sd,RESET,1);//set the gpio to output
-		//power down io
-		vfe_gpio_write(sd,PWDN,CSI_STBY_ON);
-		//reset on io
-		vfe_gpio_write(sd,RESET,CSI_RST_ON);
+		vfe_gpio_write(sd,PWDN,CSI_GPIO_HIGH);
+		vfe_gpio_write(sd,RESET,CSI_GPIO_LOW);
 		usleep_range(1000,1200);
-		//active mclk before power on
 		vfe_set_mclk_freq(sd,MCLK);
 		vfe_set_mclk(sd,ON);
 		usleep_range(10000,12000);
-		//power supply
-		vfe_gpio_write(sd,POWER_EN,CSI_PWR_ON);
+		vfe_gpio_write(sd,POWER_EN,CSI_GPIO_HIGH);
 		vfe_set_pmu_channel(sd,IOVDD,ON);
 		vfe_set_pmu_channel(sd,AVDD,ON);
 		vfe_set_pmu_channel(sd,DVDD,ON);		
 		vfe_set_pmu_channel(sd,AFVDD,ON);
-		//standby off io
-		vfe_gpio_write(sd,PWDN,CSI_STBY_OFF);
+		vfe_gpio_write(sd,PWDN,CSI_GPIO_LOW);
 		usleep_range(10000,12000);
-		//reset after power on
-		vfe_gpio_write(sd,RESET,CSI_RST_OFF);
+		vfe_gpio_write(sd,RESET,CSI_GPIO_HIGH);
 		usleep_range(30000,31000);
-		//remember to unlock i2c adapter, so the device can access the i2c bus again
 		cci_unlock(sd);
 		break;
 	case CSI_SUBDEV_PWR_OFF:
 		vfe_dev_dbg("CSI_SUBDEV_PWR_OFF!\n");
-		//make sure that no device can access i2c bus during sensor initial or power down
-		//when using i2c_lock_adpater function, the following codes must not access i2c bus before calling i2c_unlock_adapter
 		cci_lock(sd);
-		//inactive mclk before power off
 		vfe_set_mclk(sd,OFF);
-		//power supply off
-		vfe_gpio_write(sd,POWER_EN,CSI_PWR_OFF);
+		vfe_gpio_write(sd,POWER_EN,CSI_GPIO_LOW);
 		vfe_set_pmu_channel(sd,AFVDD,OFF);
 		vfe_set_pmu_channel(sd,DVDD,OFF);
 		vfe_set_pmu_channel(sd,AVDD,OFF);
 		vfe_set_pmu_channel(sd,IOVDD,OFF);
-		//standby and reset io
 		usleep_range(10000,12000);
-		vfe_gpio_write(sd,POWER_EN,CSI_STBY_OFF);
-		vfe_gpio_write(sd,RESET,CSI_RST_ON);
-		//set the io to hi-z
+		vfe_gpio_write(sd,PWDN,CSI_GPIO_HIGH);
+		vfe_gpio_write(sd,RESET,CSI_GPIO_LOW);
 		vfe_gpio_set_status(sd,RESET,0);//set the gpio to input
 		vfe_gpio_set_status(sd,PWDN,0);//set the gpio to input
-		//remember to unlock i2c adapter, so the device can access the i2c bus again
 		cci_unlock(sd);
 		break;
 	default:
@@ -1909,11 +1790,11 @@ static int sensor_reset(struct v4l2_subdev *sd, u32 val)
 {
 	switch(val) {
 	case 0:
-		vfe_gpio_write(sd,RESET,CSI_RST_OFF);
+		vfe_gpio_write(sd,RESET,CSI_GPIO_HIGH);
 		usleep_range(10000,12000);
 		break;
 	case 1:
-		vfe_gpio_write(sd,RESET,CSI_RST_ON);
+		vfe_gpio_write(sd,RESET,CSI_GPIO_LOW);
 		usleep_range(10000,12000);
 		break;
 	default:
@@ -1925,7 +1806,7 @@ static int sensor_reset(struct v4l2_subdev *sd, u32 val)
 
 static int sensor_detect(struct v4l2_subdev *sd)
 {
-	unsigned char rdval;
+	data_type rdval;
 	
 	LOG_ERR_RET(sensor_read(sd, 0x300a, &rdval))
 	
@@ -2054,7 +1935,7 @@ static struct sensor_format_struct {
  */
 
 static struct sensor_win_size sensor_win_sizes[] = {
-  /* UXGA */
+	/* UXGA */
 	{
 		.width      = UXGA_WIDTH,
 		.height     = UXGA_HEIGHT,
@@ -2064,7 +1945,7 @@ static struct sensor_win_size sensor_win_sizes[] = {
 		.regs_size  = ARRAY_SIZE(sensor_uxga_regs),
 		.set_size   = NULL,
 	},
-  /* 720p */
+	/* 720p */
 	{
 		.width      = HD720_WIDTH,
 		.height     = HD720_HEIGHT,
@@ -2074,7 +1955,7 @@ static struct sensor_win_size sensor_win_sizes[] = {
 		.regs_size  = ARRAY_SIZE(sensor_720p_regs),
 		.set_size   = NULL,
 	},
-  /* SVGA */
+	/* SVGA */
 	{
 		.width      = SVGA_WIDTH,
 		.height     = SVGA_HEIGHT,
@@ -2135,9 +2016,8 @@ static int sensor_try_fmt_internal(struct v4l2_subdev *sd,
 	 * Round requested image size down to the nearest
 	 * we support, but not below the smallest.
 	 */
-	for (wsize = sensor_win_sizes; wsize < sensor_win_sizes + N_WIN_SIZES;
-	     wsize++)
-		if (fmt->width >= wsize->width && fmt->height >= wsize->height)//linux-3.0
+	for (wsize = sensor_win_sizes; wsize < sensor_win_sizes + N_WIN_SIZES; wsize++)
+		if (fmt->width >= wsize->width && fmt->height >= wsize->height)
 			break;
 
 	if (wsize >= sensor_win_sizes + N_WIN_SIZES)
@@ -2149,8 +2029,6 @@ static int sensor_try_fmt_internal(struct v4l2_subdev *sd,
 	 */
 	fmt->width = wsize->width;//linux-3.0
 	fmt->height = wsize->height;//linux-3.0
-	//pix->bytesperline = pix->width*sensor_formats[index].bpp;//linux-3.0
-	//pix->sizeimage = pix->height*pix->bytesperline;//linux-3.0
 
 	return 0;
 }
@@ -2289,7 +2167,7 @@ static int sensor_queryctrl(struct v4l2_subdev *sd,
 	case V4L2_CID_AUTOGAIN:
 		return v4l2_ctrl_query_fill(qc, 0, 1, 1, 1);
 	case V4L2_CID_EXPOSURE:
-    	case V4L2_CID_AUTO_EXPOSURE_BIAS:
+    case V4L2_CID_AUTO_EXPOSURE_BIAS:
 		return v4l2_ctrl_query_fill(qc, -4, 4, 1, 0);
 	case V4L2_CID_EXPOSURE_AUTO:
 		return v4l2_ctrl_query_fill(qc, 0, 1, 1, 0);
@@ -2307,9 +2185,9 @@ static int sensor_queryctrl(struct v4l2_subdev *sd,
 
 static int sensor_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 {
-  //vfe_dev_dbg("sensor_g_ctrl ctrl->id=0x%8x\n", ctrl->id);
+	//vfe_dev_dbg("sensor_g_ctrl ctrl->id=0x%8x\n", ctrl->id);
   	switch (ctrl->id) {
-    	case V4L2_CID_BRIGHTNESS:
+    case V4L2_CID_BRIGHTNESS:
 		return sensor_g_brightness(sd, &ctrl->value);
 	case V4L2_CID_CONTRAST:
 		return sensor_g_contrast(sd, &ctrl->value);
@@ -2340,8 +2218,8 @@ static int sensor_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 		return sensor_g_flash_mode(sd, &ctrl->value);
 	case V4L2_CID_POWER_LINE_FREQUENCY:
 		return sensor_g_band_filter(sd, &ctrl->value);
-  }
-  return -EINVAL;
+	}
+	return -EINVAL;
 }
 
 static int sensor_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
@@ -2443,6 +2321,8 @@ static const struct v4l2_subdev_ops sensor_ops = {
 /* ----------------------------------------------------------------------- */
 static struct cci_driver cci_drv = {
 	.name = SENSOR_NAME,
+	.addr_width = CCI_BITS_16,
+	.data_width = CCI_BITS_8,
 };
 
 static int sensor_probe(struct i2c_client *client,
@@ -2450,8 +2330,6 @@ static int sensor_probe(struct i2c_client *client,
 {
 	struct v4l2_subdev *sd;
 	struct sensor_info *info;
-	//  int ret;
-	
 	info = kzalloc(sizeof(struct sensor_info), GFP_KERNEL);
 	if (info == NULL)
 		return -ENOMEM;
@@ -2481,8 +2359,6 @@ static const struct i2c_device_id sensor_id[] = {
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, sensor_id);
-
-
 static struct i2c_driver sensor_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
@@ -2492,6 +2368,7 @@ static struct i2c_driver sensor_driver = {
 	.remove = sensor_remove,
 	.id_table = sensor_id,
 };
+
 static __init int init_sensor(void)
 {
 	return cci_dev_init_helper(&sensor_driver);
