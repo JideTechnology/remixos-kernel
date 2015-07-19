@@ -24,6 +24,7 @@
 #include <linux/major.h>
 #include <linux/device.h>
 #include <linux/wakelock.h>
+#include <linux/gpio.h>
 #include "input-compat.h"
 
 struct evdev {
@@ -691,6 +692,8 @@ static int evdev_handle_mt_request(struct input_dev *dev,
 	return 0;
 }
 
+// @jide HALL SENSOR
+#define TEGRA_GPIO_PK6		86
 static long evdev_do_ioctl(struct file *file, unsigned int cmd,
 			   void __user *p, int compat_mode)
 {
@@ -798,6 +801,8 @@ static long evdev_do_ioctl(struct file *file, unsigned int cmd,
 		return bits_to_user(dev->snd, SND_MAX, size, p, compat_mode);
 
 	case EVIOCGSW(0):
+		// @jide hack. make sure lid state is up to date.
+		dev->sw[0] = (dev->sw[0] & 0xfffffffe) | !gpio_get_value(TEGRA_GPIO_PK6);
 		return bits_to_user(dev->sw, SW_MAX, size, p, compat_mode);
 
 	case EVIOCGNAME(0):
