@@ -40,9 +40,8 @@
 #define TIMER_INTVAL_REG(val)	(0x10 * val + 0x14)
 #define TIMER_CNTVAL_REG(val)	(0x10 * val + 0x18)
 
-static int timer_nr;
+static int timer_nr = 0;
 static void __iomem *timer_base;
-static spinlock_t timer_spin_lock;
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS_BROADCAST
 extern void tick_broadcast(const struct cpumask *mask);
@@ -58,12 +57,13 @@ static void sunxi_clkevt_mode(enum clock_event_mode mode,
 	switch (mode) {
 	case CLOCK_EVT_MODE_PERIODIC:
 		u &= ~(TIMER_CTL_MODE_MASK);
-		writel(u | TIMER_CTL_ENABLE | TIMER_CTL_PERIODIC, timer_base + TIMER_CTL_REG(timer_nr));
+		writel(u | TIMER_CTL_ENABLE | TIMER_CTL_PERIODIC,
+				timer_base + TIMER_CTL_REG(timer_nr));
 		break;
 
 	case CLOCK_EVT_MODE_ONESHOT:
 		u &= ~(TIMER_CTL_MODE_MASK);
-		writel(u | TIMER_CTL_ENABLE | TIMER_CTL_ONESHOT, timer_base + TIMER_CTL_REG(timer_nr));
+		writel(u | TIMER_CTL_ONESHOT, timer_base + TIMER_CTL_REG(timer_nr));
 		break;
 
 	case CLOCK_EVT_MODE_UNUSED:
@@ -77,33 +77,15 @@ static void sunxi_clkevt_mode(enum clock_event_mode mode,
 static int sunxi_clkevt_next_event(unsigned long evt,
 				   struct clock_event_device *unused)
 {
-	unsigned long flags;
 	volatile u32 ctrl = 0;
 	if(unused){
-		spin_lock_irqsave(&timer_spin_lock, flags);
-
-		/*disable timer*/
-		ctrl = readl(timer_base + TIMER_CTL_REG(timer_nr));
-		ctrl &=(~TIMER_IRQ_EN(timer_nr));
-		writel(ctrl,(timer_base + TIMER_CTL_REG(timer_nr)));
-		udelay(1);
-
 		/* set timer intervalue */
 		writel(evt,(timer_base + TIMER_INTVAL_REG(timer_nr)));
-		udelay(1);
-
-		/*reload the timer intervalue*/
-		ctrl = readl(timer_base + TIMER_CTL_REG(timer_nr));
-		ctrl |= TIMER_CTL_AUTORELOAD;
-		writel(ctrl,(timer_base + TIMER_CTL_REG(timer_nr)));
-		while(readl(timer_base + TIMER_CTL_REG(timer_nr)) & TIMER_CTL_AUTORELOAD)
-			;
 
 		/*enable timer*/
 		ctrl = readl(timer_base + TIMER_CTL_REG(timer_nr));
-		ctrl |= TIMER_IRQ_EN(timer_nr);
+		ctrl |= TIMER_CTL_AUTORELOAD | TIMER_CTL_ENABLE;
 		writel(ctrl,(timer_base + TIMER_CTL_REG(timer_nr)));
-		spin_unlock_irqrestore(&timer_spin_lock,flags);
 
 	}else{
 		pr_warn("[%s][line-%d]set next event error!\n",__func__,__LINE__);
@@ -150,19 +132,17 @@ static void __init sunxi_timer_init(struct device_node *node)
 
 	timer_nr = of_alias_get_id(node, "global_timer");
 	if (timer_nr < 0) {
-		pr_err("[%s][line-%d] get soc_timer number error! timer_nr:%d\n",__func__,__LINE__, timer_nr);
+		pr_err("Get soc_timer number error! timer_nr:%d\n", timer_nr);
 		return;
 	}
 
 	if (of_property_read_u32(node, "clock-frequency", &rate)) {
-		pr_err("[%s][line-%d] <%s> must have a clock-frequency property\n",
-			__func__, __LINE__, node->name);
+		pr_err("<%s> must have a clock-frequency property\n", node->name);
 		return;
 	}
 
 	if (of_property_read_u32(node, "timer-prescale", &prescale)) {
-		pr_err("[%s][line-%d] <%s> must have a timer-prescale property\n",
-			__func__, __LINE__, node->name);
+		pr_err("<%s> must have a timer-prescale property\n",  node->name);
 		return;
 	}
 
@@ -174,12 +154,6 @@ static void __init sunxi_timer_init(struct device_node *node)
 	if (irq <= 0)
 		panic("Can't parse IRQ");
 
-	/* it is proved by test that clk-src=32000, prescale=1 on fpga */
-#ifndef CONFIG_EVB_PLATFORM
-	rate = 32000;
-	prescale  = 1;
-	irq = 38;
-#endif
 
 	writel(rate / (prescale * HZ),
 	       timer_base + TIMER_INTVAL_REG(timer_nr));
