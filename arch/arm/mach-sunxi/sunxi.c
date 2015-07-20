@@ -135,10 +135,11 @@ static const char * const sunxi_board_dt_compat[] = {
 	"allwinner,sun4i-a10",
 	"allwinner,sun5i-a13",
 	"arm,sun8iw10p1",
+	"arm,sun8iw11p1",
 	NULL,
 };
 
-DT_MACHINE_START(SUNXI_DT, "Allwinner A1X (Device Tree)")
+DT_MACHINE_START(SUNXI_DT, "Allwinner Soc (Device Tree)")
 	.init_machine	= sunxi_dt_init,
 	.map_io		= sunxi_map_io,
 	.init_irq	= irqchip_init,
