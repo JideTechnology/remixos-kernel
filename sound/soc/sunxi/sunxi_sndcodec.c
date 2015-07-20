@@ -679,7 +679,7 @@ static int sunxi_resume(struct snd_soc_card *card)
 	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL2, (0xffff<<0), (0x0<<0));
 	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL2, (0x1f<<8), (0x17<<8));/*0x318*/
 	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_STS, (0xffff<<0), (0x0<<0));	/*0x1c*/
-	snd_soc_update_bits(ctx->codec, MDET_CTRL, (0xffff<<0), (0x0<<0));
+	snd_soc_update_bits(ctx->codec, MDET_CTRL, (0xffff<<0), (0x70<<0));
 	if (ctx->hp_detect_case == HP_DETECT_LOW)
 		snd_soc_update_bits(ctx->codec, JACK_MIC_CTRL, (0x1<<AUTOPLEN), (0x1<<AUTOPLEN));
 	else {
@@ -892,7 +892,7 @@ static int sunxi_machine_probe(struct platform_device *pdev)
 	/*0x318*/
 	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_STS, (0xffff<<0), (0x0<<0));
 	/*0x1c*/
-	snd_soc_update_bits(ctx->codec, MDET_CTRL, (0xffff<<0), (0x0<<0));
+	snd_soc_update_bits(ctx->codec, MDET_CTRL, (0xffff<<0), (0x70<<0));
 
 	if (ctx->hp_detect_case == HP_DETECT_LOW)
 		snd_soc_update_bits(ctx->codec, JACK_MIC_CTRL, (0x1<<AUTOPLEN), (0x1<<AUTOPLEN));
