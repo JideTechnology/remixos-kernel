@@ -152,7 +152,7 @@ static int sunxi_dsd_hw_params(struct snd_pcm_substream *substream, struct snd_p
 
 	/*use LSB and Trailing Edge of the PLCK*/
 	reg_val = readl(sunxi_dsd->regs + DSD_TX_CONF);
-	reg_val |= (1<<MSB_LSB_FIR_SEL) | (1<<DSD_TX_DRIVER_MODE);
+	reg_val |= (0<<MSB_LSB_FIR_SEL) | (1<<DSD_TX_DRIVER_MODE);
 	writel(reg_val, sunxi_dsd->regs + DSD_TX_CONF);
 
 	return 0;
