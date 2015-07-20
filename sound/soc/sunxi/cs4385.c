@@ -63,7 +63,8 @@ static int cs4385_hw_params(struct snd_pcm_substream *substream,
 
 	snd_soc_write(codec, CS4385_MOD_CTR, (0x1<<7|0x1<<5));
 	snd_soc_write(codec, CS4385_DSD_CTR, (0x1<<6|0x7<<2));
-	snd_soc_write(codec, CS4385_RAMP_MUTE, 0xbe);
+	snd_soc_write(codec, CS4385_RAMP_MUTE, 0xfe);
+
 	return 0;
 }
 
@@ -118,7 +119,7 @@ static struct snd_soc_dai_driver cs4385_dai = {
 		.channels_min = 1,
 		.channels_max = 2,
 		.rates = CS4385_RATES,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE|SNDRV_PCM_FMTBIT_S24_LE|SNDRV_PCM_FMTBIT_S32_LE,
+		.formats = SNDRV_PCM_FMTBIT_S8|SNDRV_PCM_FMTBIT_S16_LE|SNDRV_PCM_FMTBIT_S24_LE|SNDRV_PCM_FMTBIT_S32_LE,
 		},
 	.ops = &cs4385_dai_ops,
 };

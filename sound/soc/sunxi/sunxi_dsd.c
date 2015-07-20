@@ -344,12 +344,12 @@ static struct snd_soc_dai_driver sunxi_dsd_dai = {
 		.channels_min = 1,
 		.channels_max = 8,
 		.rates = SUNXI_DSD_RATES,
-	.formats = SNDRV_PCM_FMTBIT_S16_LE|SNDRV_PCM_FMTBIT_S20_3LE| SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE,},
+	.formats = SNDRV_PCM_FMTBIT_S8 | SNDRV_PCM_FMTBIT_S16_LE|SNDRV_PCM_FMTBIT_S20_3LE| SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE,},
 	.capture = {
 		.channels_min = 1,
 		.channels_max = 8,
 		.rates = SUNXI_DSD_RATES,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE|SNDRV_PCM_FMTBIT_S20_3LE| SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE,},
+		.formats = SNDRV_PCM_FMTBIT_S8 | SNDRV_PCM_FMTBIT_S16_LE|SNDRV_PCM_FMTBIT_S20_3LE| SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE,},
 	.ops = &sunxi_dsd_dai_ops,
 };
 static const struct snd_soc_component_driver sunxi_dsd_component = {

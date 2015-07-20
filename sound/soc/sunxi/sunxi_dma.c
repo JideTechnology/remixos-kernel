@@ -82,7 +82,7 @@ static const struct snd_pcm_hardware sunxi_pcm_hardware = {
 	.info			= SNDRV_PCM_INFO_INTERLEAVED | SNDRV_PCM_INFO_BLOCK_TRANSFER |
 				      SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_MMAP_VALID |
 				      SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME,
-	.formats		= SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE | SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE,
+	.formats		= SNDRV_PCM_FMTBIT_S8 | SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE | SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE,
 	.rates			= SNDRV_PCM_RATE_8000_192000 | SNDRV_PCM_RATE_KNOT,
 	.rate_min		= 8000,
 	.rate_max		= 192000,
@@ -169,7 +169,10 @@ static int sunxi_pcm_hw_params(struct snd_pcm_substream *substream,
 		dev_err(dev, "hw params config failed with err %d\n", ret);
 		return ret;
 	}
-	if (SNDRV_PCM_FORMAT_S16_LE == params_format(params)) {
+		if (SNDRV_PCM_FORMAT_S8 == params_format(params)) {
+		slave_config.src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
+		slave_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
+	} else if (SNDRV_PCM_FORMAT_S16_LE == params_format(params)) {
 		slave_config.src_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 		slave_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 	} else {
@@ -223,9 +226,12 @@ static int sunxi_pcm_hdmi_hw_params(struct snd_pcm_substream *substream,
 		dev_err(dev, "hw params config failed with err %d\n", ret);
 		return ret;
 	}
-	if (SNDRV_PCM_FORMAT_S16_LE == params_format(params)) {
-		slave_config.src_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
-		slave_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
+	if (SNDRV_PCM_FORMAT_S8 == params_format(params)) {
+		slave_config.src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
+		slave_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
+	} else if (SNDRV_PCM_FORMAT_S16_LE == params_format(params)) {
+			slave_config.src_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
+			slave_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 	} else {
 		slave_config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 		slave_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
