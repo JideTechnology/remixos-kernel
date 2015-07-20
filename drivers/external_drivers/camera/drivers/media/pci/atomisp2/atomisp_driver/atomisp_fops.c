@@ -1285,6 +1285,7 @@ const struct v4l2_file_operations atomisp_fops = {
 	.release = atomisp_release,
 	.mmap = atomisp_mmap,
 	.ioctl = video_ioctl2,
+	.unlocked_ioctl = video_ioctl2,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl32 = atomisp_compat_ioctl32,
 #endif
@@ -1297,6 +1298,7 @@ const struct v4l2_file_operations atomisp_file_fops = {
 	.release = atomisp_release,
 	.mmap = atomisp_file_mmap,
 	.ioctl = video_ioctl2,
+	.unlocked_ioctl = video_ioctl2,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl32 = atomisp_compat_ioctl32,
 #endif
