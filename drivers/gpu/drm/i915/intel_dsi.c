@@ -170,7 +170,7 @@ static void intel_dsi_pre_pll_enable(struct intel_encoder *encoder)
 }
 
 static void intel_dsi_write_dev_rdy_on_A_and_C(struct intel_encoder *encoder,
-								u32 val)
+							u32 val, u32 mask)
 {
 	struct drm_i915_private *dev_priv = encoder->base.dev->dev_private;
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
@@ -178,10 +178,10 @@ static void intel_dsi_write_dev_rdy_on_A_and_C(struct intel_encoder *encoder,
 	int pipe = intel_crtc->pipe;
 
 	if (intel_dsi->dual_link) {
-		I915_WRITE(MIPI_DEVICE_READY(PIPE_A), val);
-		I915_WRITE(MIPI_DEVICE_READY(PIPE_B), val);
+		I915_WRITE_BITS(MIPI_DEVICE_READY(PIPE_A), val, mask);
+		I915_WRITE_BITS(MIPI_DEVICE_READY(PIPE_B), val, mask);
 	} else
-		I915_WRITE(MIPI_DEVICE_READY(pipe), val);
+		I915_WRITE_BITS(MIPI_DEVICE_READY(pipe), val, mask);
 }
 
 static void intel_dsi_device_ready(struct intel_encoder *encoder)
@@ -213,7 +213,8 @@ static void intel_dsi_device_ready(struct intel_encoder *encoder)
 		val |= pipe ? DELAY_180_PHASE_SHIFT_MIPIC :
 				DELAY_180_PHASE_SHIFT_MIPIA;
 
-	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_ENTER);
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_ENTER,
+			ULPS_STATE_MASK);
 
 	/* wait for LP state to go 00 */
 	usleep_range(2500, 3000);
@@ -225,16 +226,19 @@ static void intel_dsi_device_ready(struct intel_encoder *encoder)
 
 	I915_WRITE(MIPI_PORT_CTRL(0), val | LP_OUTPUT_HOLD);
 	usleep_range(1000, 1500);
-	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_EXIT);
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_EXIT,
+			ULPS_STATE_MASK);
 
 	/* wait for LP state to goto 11 */
 	usleep_range(2500, 3000);
-	intel_dsi_write_dev_rdy_on_A_and_C(encoder, DEVICE_READY);
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_NORMAL_OPERATION,
+			ULPS_STATE_MASK);
 
 	/* wait for dsi controller hw enumeration */
 	usleep_range(2500, 3000);
 
-	intel_dsi_write_dev_rdy_on_A_and_C(encoder, 0x00);
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, CLEAR_DEVICE_READY,
+			DEVICE_READY);
 
 	/* wait for dsi controller hw enumeration */
 	usleep_range(2500, 3000);
@@ -640,22 +644,26 @@ static void intel_dsi_clear_device_ready(struct intel_encoder *encoder)
 
 	DRM_DEBUG_KMS("\n");
 
-	intel_dsi_write_dev_rdy_on_A_and_C(encoder, CLEAR_DEVICE_READY);
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, DEVICE_READY,
+			DEVICE_READY);
 
 	/* wait for dsi controller to be off */
 	usleep_range(2000, 2500);
 
-	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_ENTER);
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_ENTER,
+			ULPS_STATE_MASK);
 
 	/* wait for LP state to go 00 */
 	usleep_range(2000, 2500);
 
-	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_EXIT);
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_EXIT,
+			ULPS_STATE_MASK);
 
 	/* wait for LP state to goto 11 */
 	usleep_range(2000, 2500);
 
-	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_ENTER);
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_ENTER,
+			ULPS_STATE_MASK);
 
 	/* wait for LP state to go 00 */
 	usleep_range(2000, 2500);
@@ -670,8 +678,8 @@ static void intel_dsi_clear_device_ready(struct intel_encoder *encoder)
 					== 0x00000), 30))
 		DRM_ERROR("DSI LP not going Low\n");
 
-	intel_dsi_write_dev_rdy_on_A_and_C(encoder, 0x00);
-
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, CLEAR_DEVICE_READY,
+			DEVICE_READY);
 	/* wait for dsi controller to be off */
 	usleep_range(2000, 2500);
 
