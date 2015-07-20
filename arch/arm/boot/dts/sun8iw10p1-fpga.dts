@@ -10,6 +10,10 @@
 /{
 
 	soc@01c00000 {
+		soc_timer0: timer@1c20c00 {
+			interrupts = <GIC_SPI 6 IRQ_TYPE_EDGE_RISING>;
+		};
+
 		pio: pinctrl@01c20800 {
 			interrupts = <GIC_SPI 3 4>,
 				     <GIC_SPI 3 4>,
