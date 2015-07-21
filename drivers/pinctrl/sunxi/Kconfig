@@ -48,6 +48,12 @@ config PINCTRL_SUN8IW10P1
         bool "Pinctrl sun8iw10p1 PIO controller"
 	select PINCTRL_SUNXI_COMMON
 	
+config PINCTRL_SUN8IW11P1
+	def_bool ARCH_SUN8IW11
+	depends on ARCH_SUN8IW11
+	bool "Pinctrl sun8iw11p1 PIO controller"
+	select PINCTRL_SUNXI_COMMON
+	
 config PINCTRL_SUN50IW1P1
         bool "Pinctrl sun50i PIO controller"
 	select PINCTRL_SUNXI_COMMON
