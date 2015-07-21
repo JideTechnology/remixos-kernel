@@ -155,10 +155,19 @@ __s32 mem_clk_setdiv(struct clk_div_t *clk_div)
 	//set ahb1/apb1 clock divide ratio
 	//first, config ratio; 
 	*(volatile __u32 *)(&CmuReg->Ahb1Div) = (((clk_div->ahb_apb_div)&(~0x3000)) | (0x1000));
+#ifdef CONFIG_ARCH_SUN8IW10P1
+	change_runtime_env();
+	delay_us(5);
+#else
 	udelay(5);
+#endif
 	//sec, config src.
 	*(volatile __u32 *)(&CmuReg->Ahb1Div) = (clk_div->ahb_apb_div);
+#ifdef	CONFIG_ARCH_SUN8IW10P1
+	delay_us(5);
+#else
 	udelay(5);
+#endif
 	//notice: pll6 is enabled by cpus.
 	//the relationship between pll6&mbus&dram?
 
@@ -387,6 +396,42 @@ __u32 mem_clk_get_cpu_freq(void)
 	    FactorN = CmuReg_Pll1Ctl_tmp.bits.FactorN;
 	    FactorM = (CmuReg_Pll1Ctl_tmp.bits.FactorM) + 1;
 	    FactorP = (0==CmuReg_Pll1Ctl_tmp.bits.FactorP)?1:4;
+	    cpu_freq = raw_lib_udiv(24000*FactorN*FactorK, FactorP*FactorM);
+	}
+	//printk("cpu_freq = dec(%d). \n", cpu_freq);
+	//busy_waiting();
+
+	return cpu_freq;
+}
+
+#elif defined(CONFIG_ARCH_SUN8IW10P1)
+
+__u32 mem_clk_get_cpu_freq(void)
+{
+	__u32 FactorN = 1;
+	__u32 FactorK = 1;
+	__u32 FactorM = 1;
+	__u32 FactorP = 1;
+	__u32 reg_val  = 0;
+	__u32 cpu_freq = 0;
+
+	CmuReg_SysClkDiv_tmp.dwval = CmuReg->SysClkDiv.dwval;
+	//get runtime freq: clk src + divider ratio
+	//src selection
+	reg_val = CmuReg_SysClkDiv_tmp.bits.CpuClkSrc;
+	if(0 == reg_val){
+	    //32khz osc
+	    cpu_freq = 32;
+
+	}else if(1 == reg_val){
+	    //hosc, 26Mhz
+	    cpu_freq = 26000; 			//unit is khz
+	}else if(2 == reg_val || 3 == reg_val){
+	    CmuReg_Pll1Ctl_tmp.dwval = CmuReg->Pll1Ctl.dwval;
+	    FactorN = CmuReg_Pll1Ctl_tmp.bits.FactorN + 1;
+	    FactorK = CmuReg_Pll1Ctl_tmp.bits.FactorK + 1;
+	    FactorM = CmuReg_Pll1Ctl_tmp.bits.FactorM + 1;
+	    FactorP = 1<<(CmuReg_Pll1Ctl_tmp.bits.FactorP);
 	    cpu_freq = raw_lib_udiv(24000*FactorN*FactorK, FactorP*FactorM);
 	}
 	//printk("cpu_freq = dec(%d). \n", cpu_freq);

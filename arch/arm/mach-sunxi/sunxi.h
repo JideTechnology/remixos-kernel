@@ -17,6 +17,11 @@
 #define SUNXI_REGS_VIRT_BASE	IOMEM(0xf1c00000)
 #define SUNXI_REGS_SIZE		(SZ_2M + SZ_1M)
 
+#ifdef CONFIG_ARCH_SUN8IW10P1
+#define SUNXI_SRAM_A1_VBASE     (0xf0000000)
+#define SUNXI_SRAM_A1_PBASE     (0x00000000)
+#define SUNXI_SRAM_A1_SIZE      (0x4000)
+#endif
 #ifdef CONFIG_SMP
 extern struct smp_operations sunxi_smp_ops;
 #endif

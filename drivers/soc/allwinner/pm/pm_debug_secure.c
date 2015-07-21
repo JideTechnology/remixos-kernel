@@ -161,6 +161,7 @@ void save_pm_secure_mem_status_nommu(volatile __u32 val)
 	defined(CONFIG_ARCH_SUN8IW5P1) || \
 	defined(CONFIG_ARCH_SUN8IW7P1) || \
 	defined(CONFIG_ARCH_SUN8IW8P1) || \
+	defined(CONFIG_ARCH_SUN8IW10P1) || \
 	defined(CONFIG_ARCH_SUN50IW1P1)	
 
 void pm_secure_mem_status_init(char *name)

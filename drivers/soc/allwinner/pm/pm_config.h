@@ -11,10 +11,30 @@
 */
 
 #include "pm_def_i.h"
+#ifndef CONFIG_ARCH_SUN8IW10P1
 #include "pm_config_common.h"
+#endif
 #include "asm-generic/sizes.h"
 //#include <generated/autoconf.h>
 
+//hardware resource description
+#ifdef CONFIG_ARCH_SUN8IW1P1
+#include "pm_config-sun8iw1p1.h"
+#elif defined CONFIG_ARCH_SUN8IW3P1
+#include "pm_config-sun8iw3p1.h"
+#elif defined CONFIG_ARCH_SUN8IW5P1
+#include "pm_config-sun8iw5p1.h"
+#elif defined CONFIG_ARCH_SUN8IW6P1
+#include "pm_config-sun8iw6p1.h"
+#elif defined CONFIG_ARCH_SUN8IW8P1
+#include "pm_config-sun8iw8p1.h"
+#elif defined CONFIG_ARCH_SUN8IW10P1
+#include "pm_config-sun8iw10p1.h"
+#elif defined CONFIG_ARCH_SUN9IW1P1
+#include "pm_config-sun9iw1p1.h"
+#elif defined CONFIG_ARCH_SUN50IW1P1
+#include "pm_config-sun50iw1p1.h"
+#endif
 
 //#define CHECK_IC_VERSION
 
@@ -129,27 +149,6 @@
 #define SP_IN_SRAM		0xf0003ffc //16k
 #define SP_IN_SRAM_PA		0x00003ffc //16k
 #define SP_IN_SRAM_START	(SRAM_FUNC_START_PA | 0x3c00) //15k  
-
-//hardware resource description 
-
-
-
-#ifdef CONFIG_ARCH_SUN8IW1P1
-#include "pm_config-sun8iw1p1.h"
-#elif defined CONFIG_ARCH_SUN8IW3P1
-#include "pm_config-sun8iw3p1.h"
-#elif defined CONFIG_ARCH_SUN8IW5P1
-#include "pm_config-sun8iw5p1.h"
-#elif defined CONFIG_ARCH_SUN8IW6P1
-#include "pm_config-sun8iw6p1.h"
-#elif defined CONFIG_ARCH_SUN8IW8P1
-#include "pm_config-sun8iw8p1.h"
-#elif defined CONFIG_ARCH_SUN9IW1P1
-#include "pm_config-sun9iw1p1.h"
-#elif defined CONFIG_ARCH_SUN50IW1P1
-#include "pm_config-sun50iw1p1.h"
-#endif
-
 
 #endif /*_PM_CONFIG_H*/
 

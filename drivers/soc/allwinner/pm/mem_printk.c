@@ -26,7 +26,7 @@ static __s32 print_align(char *string, __s32 len, __s32 align);
 
   returns number of characters in s (not including terminating null character)
 */
-static size_t strlen(const char *s)
+size_t strlen(const char *s)
 {
 	const char *sc;
 
@@ -43,7 +43,7 @@ static size_t strlen(const char *s)
 
   Copy 'src' to 'dest'. Strings may not overlap.
 */
-static char *strcpy(char *dest, const char *src)
+char *strcpy(char *dest, const char *src)
 {
 	char *tmp = dest;
 
@@ -55,7 +55,7 @@ static char *strcpy(char *dest, const char *src)
 	return tmp;
 }
 
-static char *strncpy(char *dest, const char *src, size_t count)
+char *strncpy(char *dest, const char *src, size_t count)
 {
 	char *tmp = dest;
 
@@ -72,7 +72,7 @@ static char *strncpy(char *dest, const char *src, size_t count)
 }
 
 
-static char *strcat(char *dest, const char *src)
+char *strcat(char *dest, const char *src)
 {
 	char *tmp = dest;
 
@@ -87,8 +87,7 @@ static char *strcat(char *dest, const char *src)
 	return tmp;
 }
 
-
-static char *strncat(char *dest, const char *src, size_t count)
+char *strncat(char *dest, const char *src, size_t count)
 {
 	char *tmp = dest;
 
@@ -110,7 +109,7 @@ static char *strncat(char *dest, const char *src, size_t count)
 	return tmp;
 }
 
-static int strcmp(const char *cs, const char *ct)
+int strcmp(const char *cs, const char *ct)
 {
 	unsigned char c1, c2;
 
@@ -131,7 +130,7 @@ static int strcmp(const char *cs, const char *ct)
 }
 
 
-static int strncmp(const char *cs, const char *ct, size_t count)
+int strncmp(const char *cs, const char *ct, size_t count)
 {
 	unsigned char c1, c2;
 

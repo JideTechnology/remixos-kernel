@@ -250,6 +250,7 @@ struct sram_state{
 //save module state
 __s32 mem_twi_save(struct twi_state *ptwi_state);
 __s32 mem_twi_restore(struct twi_state *ptwi_state);
+__s32 mem_sram_init(void);
 __s32 mem_sram_save(struct sram_state *psram_state);
 __s32 mem_sram_restore(struct sram_state *psram_state);
 __s32 mem_ccu_save(struct ccm_state *ccm_reg);

@@ -16,7 +16,7 @@
 #include <linux/power/aw_pm.h>
 #include <stdarg.h>
 
-#if 0
+#if defined(CONFIG_ARCH_SUN8IW10P1)
 #define readb(addr)		(*((volatile unsigned char  *)(addr)))
 #define readw(addr)		(*((volatile unsigned short *)(addr)))
 #define readl(addr)		(*((volatile unsigned long  *)(addr)))

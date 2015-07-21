@@ -65,6 +65,13 @@ struct ccm_state{
 	__ccmu_reg_list_t	ccm_reg_backup;
 
 };
+#elif defined CONFIG_ARCH_SUN8IW10P1
+#include "mem_ccmu-sun8iw10p1.h"
+struct ccm_state{
+	__ccmu_reg_list_t	*ccm_reg;
+	__ccmu_reg_list_t	ccm_reg_backup;
+
+};
 #elif defined CONFIG_ARCH_SUN50IW1P1
 #include "mem_ccmu-sun50iw1p1.h"
 struct ccm_state{

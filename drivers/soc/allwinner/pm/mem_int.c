@@ -21,7 +21,6 @@ static void *GicDDisc;
 static void *GicCDisc;
 static u32 gic_d_len = 0;
 static u32 gic_c_len = 0;
-
 /*
 *********************************************************************************************************
 *                                       STANDBY INTERRUPT INITIALISE
@@ -35,15 +34,16 @@ static u32 gic_c_len = 0;
 */
 __s32 mem_int_init(void)
 {
-        u32 *base = 0;
+	u32 *base = 0;
+#ifdef CONFIG_ARCH_SUN8IW10P1
+	__u32 i = 0;
+#endif
 
 	pm_get_dev_info("gic", 0, &base, &gic_d_len);
         GicDDisc = base;
         pm_get_dev_info("gic", 1, &base, &gic_c_len);
 	GicCDisc = base;
-
-#if 0
-        __u32 i = 0; 
+#ifdef CONFIG_ARCH_SUN8IW10P1
 	//printk("gic iar == 0x%x. \n", *(volatile __u32	 *)(IO_ADDRESS(SUNXI_GIC_CPU_PBASE)+0x0c));
 
 	/* initialise interrupt enable and mask for mem */
@@ -94,7 +94,7 @@ __s32 mem_int_init(void)
 */
 __s32 mem_int_exit(void)
 {
-#if 0	
+#ifdef CONFIG_ARCH_SUN8IW10P1
 	int i = 0;
 	volatile __u32 enable_bit = 0;
 	//all the disable-int-src pending, need to be clear

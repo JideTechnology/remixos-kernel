@@ -24,7 +24,34 @@ typedef enum AW_POWER_ID
 	AXP_809_ID,
 	AXP_803_ID,
 	AXP_813_ID,
+	AXP_152_ID,
 } aw_pm_id_e;
+
+typedef enum AXP19X_POWER_LDO
+{
+	AXP19X_DCDC1 = 1U << 0,
+	AXP19X_DCDC2 = 1U << 1,
+	AXP19X_DCDC3 = 1U << 2,
+	AXP19X_LDO1 = 1U << 3,
+	AXP19X_LDO2 = 1U << 4,
+	AXP19X_LDO3 = 1U << 5,
+	AXP19X_LDO4 = 1U << 6,
+} axp19X_ldo_e;
+
+typedef enum AXP152_POWER_LDO
+{
+	AXP152_DCDC1 = 1U << 0,
+	AXP152_DCDC2 = 1U << 1,
+	AXP152_DCDC3 = 1U << 2,
+	AXP152_DCDC4 = 1U << 3,
+	AXP152_ALDO1 = 1U << 4,
+	AXP152_ALDO2 = 1U << 5,
+	AXP152_DLDO1 = 1U << 6,
+	AXP152_DLDO2 = 1U << 7,
+	AXP152_LDOIO0 = 1U << 8,
+	AXP152_LDO0 = 1U << 9,
+	AXP152_RTC   = 1U << 10,
+} axp152_ldo_e;
 
 typedef enum AXP22X_POWER_LDO
 {

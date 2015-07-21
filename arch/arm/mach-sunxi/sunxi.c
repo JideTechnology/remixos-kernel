@@ -114,6 +114,12 @@ static struct map_desc sunxi_io_desc[] __initdata = {
 		.length		= SUNXI_REGS_SIZE,
 		.type		= MT_DEVICE,
 	},
+#ifdef CONFIG_ARCH_SUN8IW10P1
+	{
+		(u32)SUNXI_SRAM_A1_VBASE, __phys_to_pfn(SUNXI_SRAM_A1_PBASE),
+		SUNXI_SRAM_A1_SIZE, MT_MEMORY_ITCM
+	},
+#endif
 };
 
 void __init sunxi_map_io(void)

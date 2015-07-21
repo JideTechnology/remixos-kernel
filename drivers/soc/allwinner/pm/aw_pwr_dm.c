@@ -17,6 +17,7 @@
 
 ssize_t parse_pwr_dm_map(char *s, size_t size, unsigned int bitmap)
 {
+#ifdef CONFIG_AW_AXP
     int i = 0;
     char *start = s;
     char *end = NULL;
@@ -51,7 +52,8 @@ ssize_t parse_pwr_dm_map(char *s, size_t size, unsigned int bitmap)
     uk_printf(s, end-s, "\n");
 
     return (s - start);
-
+#else
+    return 0;
+#endif
 }
-
 
