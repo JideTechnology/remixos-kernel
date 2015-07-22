@@ -320,7 +320,7 @@ gen_output()
 clean_kernel()
 {
 	echo "Cleaning kernel ..."
-	make ARCH=${ARCH} clean
+	make ARCH=${ARCH} mrproper
 	rm -rf output/*
 	echo
 }
