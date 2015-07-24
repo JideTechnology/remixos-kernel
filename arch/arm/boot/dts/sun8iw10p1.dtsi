@@ -656,7 +656,7 @@
 			compatible = "allwinner,sun8iw10p1-sdmmc2";
 			device_type = "sdc2";
 			reg = <0x0 0x01C11000 0x0 0x1000>;
-			interrupts = <GIC_SPI 62 0x0104>;  /*  */
+			interrupts = <GIC_SPI 11 0x0104>;  /*  */
 			clocks = <&clk_hosc>,<&clk_pll_periph1x2>,<&clk_sdmmc2_mod>,<&clk_sdmmc2_bus>,<&clk_sdmmc2_rst>;
 	    clock-names = "osc24m","pll_periph","mmc","ahb","rst";
       pinctrl-names = "default","sleep";
