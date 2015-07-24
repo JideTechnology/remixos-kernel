@@ -745,6 +745,7 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 
 	if (!intel_crtc->atomic_update) {
 		intel_flush_primary_plane(dev_priv, intel_crtc->plane);
+		vlv_update_dsparb(intel_crtc);
 		if (atomic_update)
 			intel_pipe_update_end(intel_crtc, start_vbl_count);
 	}
@@ -1636,10 +1637,10 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	 * come from the user layer. But if in worst case faulty situations
 	 * we get then the system will enter into an unrecoverable state, which
 	 * needs hard shutdown. So as a precaution if the sprite_unpin_work is
-	 * not null then unpin immediately. This is done by passing NULL event.
+	 * not null, wait for the pending flip to be completed and then proceed.
 	 */
 	if (intel_crtc->sprite_unpin_work)
-		event = NULL;
+		intel_crtc_wait_for_pending_flips(crtc);
 
 	if (event) {
 		work = kzalloc(sizeof(*work), GFP_KERNEL);
