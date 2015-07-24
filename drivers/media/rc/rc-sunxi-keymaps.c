@@ -284,7 +284,7 @@ static struct rc_map_list sunxi_map = {
 static void init_addr(u32 addr)
 {
 	u32 i = 0;
-	u32 add_mask = (addr & 0xff)<<8;
+	u32 add_mask = (addr & 0xffff)<<8;
 	for(i = 0; i < ARRAY_SIZE(sunxi_nec_scan); i++){
 		sunxi_nec_scan[i].scancode |= add_mask;
 	}

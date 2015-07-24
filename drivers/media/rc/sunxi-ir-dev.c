@@ -27,7 +27,7 @@
 #include "sunxi-ir-rx.h"
 
 #define SUNXI_IR_DRIVER_NAME	"sunxi-rc-recv"
-#define SUNXI_IR_DEVICE_NAME	"sunxi_ir_recv"
+#define SUNXI_IR_DEVICE_NAME	"sunxi-ir"
 
 DEFINE_IR_RAW_EVENT(rawir);
 static struct sunxi_ir_data *ir_data;
@@ -336,12 +336,16 @@ static int sunxi_ir_startup(struct platform_device *pdev)
 		pr_err("%s: get cir addr failed", __func__);
 		ret =  -EBUSY;
 	}
+	if (of_property_read_u32(np, "supply_vol", &ir_data->suply_vol)) {
+		pr_err("%s: get cir supply_vol failed", __func__);
+		ret =  -EBUSY;
+	}
 	if (of_property_read_string(np, "supply", &name)) {
 		pr_err("%s: cir have no power supply\n", __func__);
 		ir_data->suply = NULL;
 	}else{
 		ir_data->suply = regulator_get(NULL, name);
-		if(IS_ERR(ir_data->pclk)){
+		if(IS_ERR(ir_data->suply)){
 			pr_err("%s: cir get supply err\n", __func__);
 			ir_data->suply = NULL;
 		}
@@ -403,8 +407,10 @@ static int sunxi_ir_recv_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, sunxi_rcdev);
 	ir_data->rcdev = sunxi_rcdev;
-	if(ir_data->suply)
-		rc = regulator_enable(ir_data->suply);
+	if(ir_data->suply){
+		rc = regulator_set_voltage(ir_data->suply, ir_data->suply_vol, ir_data->suply_vol);
+		rc |= regulator_enable(ir_data->suply);
+	}
 	ir_setup();
 	
 	if (request_irq(ir_data->irq_num, sunxi_ir_recv_irq, IRQF_DISABLED, "RemoteIR_RX",

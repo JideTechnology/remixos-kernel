@@ -95,6 +95,7 @@ struct sunxi_ir_data{
 	struct clk *pclk;
 	struct rc_dev *rcdev;
 	struct regulator *suply;
+	u32 suply_vol;
 	int irq_num;
 	u32 ir_addr;
 };
