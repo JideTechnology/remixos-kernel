@@ -544,7 +544,7 @@ static u8 *mipi_exec_spi(struct intel_dsi *intel_dsi, u8 *data)
 
 static u8 *mipi_exec_pmic(struct intel_dsi *intel_dsi, u8 *data)
 {
-	struct drm_device *dev = intel_dsi->base.base.dev;
+//	struct drm_device *dev = intel_dsi->base.base.dev;
 	u32 register_address, register_data;
 	int data_mask, tmp;
 	int ret;
@@ -558,6 +558,7 @@ static u8 *mipi_exec_pmic(struct intel_dsi *intel_dsi, u8 *data)
 	 * So, hardcoding the PMIC register and values for now
 	 * until GOP supports XPower PMIC.
 	 */
+#if 0
 	if (IS_CHERRYVIEW(dev) && dev->pdev->revision == CHT_CR_REVISION) {
 		data += 7;
 		register_address = XPOWER_PMIC_PANEL_POWER_CTRL_REG;
@@ -566,7 +567,9 @@ static u8 *mipi_exec_pmic(struct intel_dsi *intel_dsi, u8 *data)
 		if (register_data != 0)
 			register_data = XPOWER_PMIC_PANEL_POWER_ON_DATA;
 		data += 8;
-	} else {
+	} else
+#endif
+        {
 		data += 3;
 		register_address = *((u32 *)data);
 		data += 4;
