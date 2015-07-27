@@ -44,6 +44,91 @@
 #define SSIC_SS_PORT_LINK_CTRL 0x80ec
 #define SSIC_SS_PORT_LINK_CTRL_U3_MASK (0x7 << 9)
 
+static ssize_t ssic_port_enable_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct usb_hcd *hcd = dev_get_drvdata(dev);
+	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
+	__le32 __iomem **port_array;
+	int val, port = 4;  /* Only CHT SSIC port need this enable/disable */
+	u32 temp;
+	int total_time;
+	port_array = xhci->usb3_ports;
+	temp = readl(port_array[port]);
+
+	if (sscanf(buf, "%d", &val) != 1) {
+		dev_dbg(dev, "Invalid, value\n");
+		return -EINVAL;
+	}
+
+	if (val == 1) {
+
+		xhci_dbg(xhci, "Enable SS port %d\n", port);
+
+		if ((temp & PORT_PLS_MASK) != USB_SS_PORT_LS_SS_DISABLED)
+				return size;
+
+		xhci_set_link_state(xhci, port_array, port,
+				USB_SS_PORT_LS_RX_DETECT);
+		temp = readl(port_array[port]);
+
+	} else if (val == 0) {
+
+		xhci_dbg(xhci, "Disable SS port %d\n", port);
+
+		if ((temp & PORT_PLS_MASK) == USB_SS_PORT_LS_SS_DISABLED)
+				return size;
+		/*
+		 * Clear all change bits, so that we get a new
+		 * connection event.
+		 */
+		temp |= PORT_CSC | PORT_PEC | PORT_WRC |
+			PORT_OCC | PORT_RC | PORT_PLC |
+			PORT_CEC;
+		writel(temp | PORT_PE, port_array[port]);
+		temp = readl(port_array[port]);
+
+		/*
+		 * Wait until port is disabled
+		 */
+		for (total_time = 0; ; total_time += 25) {
+			temp = readl(port_array[port]);
+
+			if ((temp & PORT_PLS_MASK) == USB_SS_PORT_LS_SS_DISABLED)
+				break;
+			if (total_time >= 200)
+				break;
+			msleep(20);
+		}
+		if (total_time >= 200) {
+			xhci_warn(xhci, "Disable port %d failed after %d ms\n",
+					port, total_time);
+			return -EBUSY;
+		}
+	} else {
+		return -EINVAL;
+	}
+	return size;
+}
+
+static ssize_t ssic_port_enable_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct usb_hcd *hcd = dev_get_drvdata(dev);
+	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
+	__le32 __iomem **port_array;
+	int port = 4;
+	u32 temp;
+	port_array = xhci->usb3_ports;
+	temp = readl(port_array[port]);
+
+	if ((temp & PORT_PLS_MASK) == USB_SS_PORT_LS_SS_DISABLED)
+		return sprintf(buf, "%s\n", "disabled");
+	else
+		return sprintf(buf, "%s\n", "enabled");
+}
+static DEVICE_ATTR_RW(ssic_port_enable);
+
 static const char hcd_name[] = "xhci_hcd";
 
 /* called after powerup, by probe or system-pm "wakeup" */
@@ -264,9 +349,11 @@ static int xhci_pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	if (xhci->quirks & XHCI_LPM_SUPPORT)
 		hcd_to_bus(xhci->shared_hcd)->root_hub->lpm_capable = 1;
 
+	if (device_create_file(&dev->dev, &dev_attr_ssic_port_enable))
+		dev_err(&dev->dev, "can't create ssic_port_enable attribute\n");
+
 	/* USB-2 and USB-3 roothubs initialized, allow runtime pm suspend */
 	pm_runtime_put_noidle(&dev->dev);
-
 	return 0;
 
 put_usb3_hcd:
