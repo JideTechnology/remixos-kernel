@@ -413,6 +413,7 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	int pipe = intel_plane->pipe;
 	int plane = intel_plane->plane;
+	int pipe_stat = VLV_PIPE_STATS(dev_priv->pipe_plane_stat);
 	u32 sprctl;
 	bool rotate = false;
 	bool alpha_changed = false;
@@ -651,6 +652,19 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 
 	vlv_calculate_ddl(crtc, pixel_size, &sp_prec_multi, &sprite_ddl);
 	sprite_ddl = (sp_prec_multi | sprite_ddl) << shift;
+
+	/*
+	 * The current Dl formula doesnt consider multipipe
+	 * cases, Use this value suggested by sv till the
+	 * actual formula gets used, same applies for all
+	 * hdmi cases. Since secondary display comes on PIPEC
+	 * we are checking for pipe C, pipe_stat variable
+	 * tells us the number of pipes enabled.
+	 */
+	if (IS_CHERRYVIEW(dev))
+		if (!single_pipe_enabled(pipe_stat) ||
+				(pipe_stat & PIPE_ENABLE(PIPE_C)))
+			sprite_ddl = DDL_MULTI_PIPE_CHV << shift;
 
 	if (intel_plane->plane) {
 		intel_crtc->reg_ddl.spriteb_ddl = sprite_ddl;
