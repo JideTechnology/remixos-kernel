@@ -1515,7 +1515,7 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	min_scale = intel_plane->can_scale ? 1 : (1 << 16);
 
 	if (IS_VALLEYVIEW(dev) && intel_crtc->scaling_src_size &&
-		intel_crtc->config.gmch_pfit.control) {
+		(intel_crtc->pfit_control & PFIT_ENABLE)) {
 		clip.x2 = ((intel_crtc->scaling_src_size >>
 				SCALING_SRCSIZE_SHIFT) &
 				SCALING_SRCSIZE_MASK) + 1;
