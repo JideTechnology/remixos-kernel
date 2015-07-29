@@ -2603,7 +2603,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 	}
 	return 0;
 err1:
-	kfree(sunxi_internal_codec);
+	devm_kfree(&pdev->dev, sunxi_internal_codec);
 err0:
 	return ret;
 }
