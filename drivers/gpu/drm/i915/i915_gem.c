@@ -2580,6 +2580,10 @@ i915_gem_init_seqno(struct drm_device *dev, u32 seqno)
 			ring->semaphore.sync_seqno[j] = 0;
 	}
 
+	if (dev_priv->scheduler)
+		memset(dev_priv->scheduler->last_irq_seqno, 0x00,
+			sizeof(dev_priv->scheduler->last_irq_seqno));
+
 	return 0;
 }
 
