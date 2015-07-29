@@ -32,7 +32,7 @@
 #define SUNXI_CPUX_PWR_CLAMP_STATUS(x)		(0)
 #define SUNXI_CPU_PWROFF_REG			(0)
 #define SUNXI_RTC_PBASE		(0)
-#define SUNXI_SRAMCTRL_PBASE    (0)
+#define SUNXI_SRAMCTRL_PBASE    (0x01c00000)
 #define SUNXI_LRADC_PBASE       (0x01c21800)
 #define SUNXI_GIC_DIST_PBASE	(0)
 #define SUNXI_GIC_CPU_PBASE	(0)
@@ -43,8 +43,11 @@
 #define AW_GPIO_BASE_PA         (0)
 #define AW_CCM_BASE             (0)
 #endif
-
+#ifdef CONFIG_FPGA_V4_PLATFORM
+#define SUNXI_IRQ_TIMER0      (38)
+#else
 #define SUNXI_IRQ_TIMER0      (50)
+#endif
 #define SUNXI_IRQ_TIMER1      (51)
 #define SUNXI_IRQ_LRADC       (62)
 #define SUNXI_IRQ_NMI         (64)

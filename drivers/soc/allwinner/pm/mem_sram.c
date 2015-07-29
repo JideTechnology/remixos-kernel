@@ -2,8 +2,6 @@
 #include "pm_i.h"
 
 static void *sram_pbase;
-static u32 sram_len = 0;
-
 /*
 *********************************************************************************************************
 *                                       MEM SRAM INIT
@@ -17,11 +15,15 @@ static u32 sram_len = 0;
 */
 __s32 mem_sram_init(void)
 {
+#ifdef CONFIG_FPGA_V4_PLATFORM
+	sram_pbase = (void *)AW_SRAMCTRL_BASE;
+#else
 	u32 *base = 0;
+	u32 sram_len = 0;
 
 	pm_get_dev_info("sram_ctrl", 0, &base, &sram_len);
 	sram_pbase = base;
-
+#endif
 	return 0;
 }
 

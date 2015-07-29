@@ -348,8 +348,6 @@ static void init_wakeup_src(unsigned int event)
 {
 #ifdef CONFIG_ARCH_SUN8IW10P1
 	//config int src.
-	mem_int_init();
-	mem_clk_init(1);
 	/* initialise standby modules */
 	if(unlikely(debug_mask&PM_STANDBY_PRINT_STANDBY)){
 		//don't need init serial ,depend kernel?
@@ -462,8 +460,6 @@ static void exit_wakeup_src(unsigned int event)
 		//restore serial clk & gpio config.
 		//serial_exit();
 	}
-	
-	mem_int_exit();
 #else
 	mem_tmr_restore(&(saved_tmr_state));
 	mem_tmr_exit();
@@ -485,6 +481,8 @@ static void mem_device_save(void)
 	mem_tmr_init();
 	mem_gpio_init();
 	mem_sram_init();
+	mem_int_init();
+	mem_clk_init(1);
 	//backup device state
 	mem_ccu_save(&(saved_ccm_state));
 	mem_clk_save(&(saved_clk_state));
@@ -508,6 +506,7 @@ static void mem_device_restore(void)
 	mem_tmr_restore(&(saved_tmr_state));
 	mem_clk_restore(&(saved_clk_state));
 	mem_ccu_restore(&(saved_ccm_state));
+	mem_int_exit();
 	mem_tmr_exit();
 
 	return;
@@ -1544,7 +1543,7 @@ static int __init aw_pm_init(void)
 {
 	int ret = 0;
 	u32 value[3] = {0, 0, 0};	
-#ifdef CONFIG_ARCH_SUN8IW10P1
+#if 0
 	struct device_node *sram_a1_np;
 	void __iomem *sram_a1_vbase;
 	struct resource res;
@@ -1580,7 +1579,7 @@ static int __init aw_pm_init(void)
 	    return -EINVAL;
 	}
 
-#ifdef CONFIG_ARCH_SUN8IW10P1
+#if 0
 	sram_a1_np = of_find_compatible_node(NULL, NULL, "allwinner,sram_a1");
 	if (IS_ERR(sram_a1_np)) {
 	    printk(KERN_ERR "get [allwinner,sram_a1] device node error\n");
