@@ -156,12 +156,9 @@ static int sunxi_sndspdif_hw_params(struct snd_pcm_substream *substream,
 
 	if (ret < 0)
 		return ret;
-#ifdef CONFIG_SND_SUNXI_SOC_SUPPORT_AUDIO_RAW
+
 	/*fmt:1:pcm; >1:rawdata*/
-	fmt = params_raw(params);
-#else
 	fmt = spdif_format;
-#endif
 	if(fmt > 1){
 		fmt = 1;
 	}else{

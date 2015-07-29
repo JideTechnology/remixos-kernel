@@ -59,11 +59,7 @@ static int sunxi_hdmi_hw_params(struct snd_pcm_substream *substream,
 	u32 reg_val;
 	int raw_flag;
 	struct sunxi_tdm_info  *sunxi_tdmhdmi = snd_soc_dai_get_drvdata(dai);
-	#ifdef CONFIG_SND_SUNXI_SOC_SUPPORT_AUDIO_RAW
-	raw_flag = params_raw(params);
-	#else
 	raw_flag = sunxi_tdmhdmi->others;
-	#endif
 
 	switch (params_format(params))
 	{

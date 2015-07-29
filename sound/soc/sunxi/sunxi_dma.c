@@ -215,11 +215,7 @@ static int sunxi_pcm_hdmi_hw_params(struct snd_pcm_substream *substream,
 	cpu_dai 	= rtd->cpu_dai;
 	sunxi_tdmhdmi = snd_soc_dai_get_drvdata(cpu_dai);
 
-#ifdef CONFIG_SND_SUNXI_SOC_SUPPORT_AUDIO_RAW
-	raw_flag = params_raw(params);
-#else
 	raw_flag = sunxi_tdmhdmi->others;
-#endif
 	dmap = snd_soc_dai_get_dma_data(rtd->cpu_dai, substream);
 	ret = snd_hwparams_to_dma_slave_config(substream, params, &slave_config);
 	if (ret) {
@@ -230,8 +226,8 @@ static int sunxi_pcm_hdmi_hw_params(struct snd_pcm_substream *substream,
 		slave_config.src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
 		slave_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
 	} else if (SNDRV_PCM_FORMAT_S16_LE == params_format(params)) {
-			slave_config.src_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
-			slave_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
+		slave_config.src_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
+		slave_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 	} else {
 		slave_config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 		slave_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;

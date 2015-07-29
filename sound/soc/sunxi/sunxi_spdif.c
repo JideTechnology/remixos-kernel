@@ -507,7 +507,9 @@ static int sunxi_spdif_trigger(struct snd_pcm_substream *substream,
                               int cmd, struct snd_soc_dai *dai)
 {
 	int ret = 0;
+#ifdef CONFIG_ARCH_SUN8IW10
 	u32 reg_val = 0;
+#endif
 	struct sunxi_spdif_info *sunxi_spdif = snd_soc_dai_get_drvdata(dai);
 
 	switch (cmd) {
