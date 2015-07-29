@@ -274,6 +274,11 @@ clocks {
 			compatible = "allwinner,sunxi-periph-clock";
 			clock-output-names = "spi2";
 		};
+		clk_spi3: spi3 {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-clock";
+			clock-output-names = "spi3";
+		};
 		clk_i2s0: i2s0 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
@@ -426,6 +431,16 @@ clocks {
 			compatible = "allwinner,sunxi-periph-clock";
 			clock-output-names = "uart5";
 		};
+		clk_uart6: uart6 {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-clock";
+			clock-output-names = "uart6";
+		};
+		clk_uart7: uart7 {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-clock";
+			clock-output-names = "uart7";
+		};
 		clk_twi0: twi0 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
@@ -440,6 +455,16 @@ clocks {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
 			clock-output-names = "twi2";
+		};
+		clk_twi3: twi3 {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-clock";
+			clock-output-names = "twi3";
+		};
+		clk_twi4: twi4 {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-clock";
+			clock-output-names = "twi4";
 		};
 		clk_pio: pio {
 			#clock-cells = <0>;

@@ -27,12 +27,17 @@
 		serial3 = &uart3;
 		serial4 = &uart4;
 		serial5 = &uart5;
+		serial6 = &uart6;
+		serial7 = &uart7;
 		twi0 = &twi0;
 		twi1 = &twi1;
 		twi2 = &twi2;
+		twi3 = &twi3;
+		twi4 = &twi4;
 		spi0 = &spi0;
 		spi1 = &spi1;
 		spi2 = &spi2;
+		spi3 = &spi3;
 		global_timer0  = &soc_timer0;
 		cci0 = &csi_cci0;
 		csi_res0 = &csi_res0;
@@ -291,7 +296,7 @@
 			compatible = "allwinner,sun8i-uart";
 			device_type = "uart1";
 			reg = <0x0 0x01c28400 0x0 0x400>;
-			interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_uart1>;
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&uart1_pins_a>;
@@ -305,7 +310,7 @@
 			compatible = "allwinner,sun8i-uart";
 			device_type = "uart2";
 			reg = <0x0 0x01c28800 0x0 0x400>;
-			interrupts = <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_uart2>;
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&uart2_pins_a>;
@@ -319,7 +324,7 @@
 			compatible = "allwinner,sun8i-uart";
 			device_type = "uart3";
 			reg = <0x0 0x01c28c00 0x0 0x400>;
-			interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_uart3>;
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&uart3_pins_a>;
@@ -333,13 +338,13 @@
 			compatible = "allwinner,sun8i-uart";
 			device_type = "uart4";
 			reg = <0x0 0x01c29000 0x0 0x400>;
-			interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 17 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_uart4>;
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&uart4_pins_a>;
 			pinctrl-1 = <&uart4_pins_b>;
 			uart4_port = <4>;
-			uart4_type = <4>;
+			uart4_type = <2>;
 			status = "disabled";
 		};
 
@@ -347,13 +352,41 @@
 			compatible = "allwinner,sun8i-uart";
 			device_type = "uart5";
 			reg = <0x0 0x01c29400 0x0 0x400>;
-			interrupts = <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 18 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_uart5>;
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&uart5_pins_a>;
 			pinctrl-1 = <&uart5_pins_b>;
 			uart5_port = <5>;
-			uart5_type = <4>;
+			uart5_type = <2>;
+			status = "disabled";
+		};
+
+		uart6: uart@01c29800 {
+			compatible = "allwinner,sun8i-uart";
+			device_type = "uart6";
+			reg = <0x0 0x01c29800 0x0 0x400>;
+			interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_uart6>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&uart6_pins_a>;
+			pinctrl-1 = <&uart6_pins_b>;
+			uart6_port = <6>;
+			uart6_type = <2>;
+			status = "disabled";
+		};
+
+		uart7: uart@01c29c00 {
+			compatible = "allwinner,sun8i-uart";
+			device_type = "uart7";
+			reg = <0x0 0x01c29c00 0x0 0x400>;
+			interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_uart7>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&uart7_pins_a>;
+			pinctrl-1 = <&uart7_pins_b>;
+			uart7_port = <7>;
+			uart7_type = <2>;
 			status = "disabled";
 		};
 
@@ -363,7 +396,7 @@
 			compatible = "allwinner,sun8i-twi";
 			device_type = "twi0";
 			reg = <0x0 0x01c2ac00 0x0 0x400>;
-			interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_twi0>;
 			clock-frequency = <400000>;
 			pinctrl-names = "default", "sleep";
@@ -378,7 +411,7 @@
 			compatible = "allwinner,sun8i-twi";
 			device_type = "twi1";
 			reg = <0x0 0x01c2b000 0x0 0x400>;
-			interrupts = <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_twi1>;
 			clock-frequency = <200000>;
 			pinctrl-names = "default", "sleep";
@@ -393,7 +426,7 @@
 			compatible = "allwinner,sun50i-twi";
 			device_type = "twi2";
 			reg = <0x0 0x01c2b400 0x0 0x400>;
-			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_twi2>;
 			clock-frequency = <200000>;
 			pinctrl-names = "default", "sleep";
@@ -402,54 +435,101 @@
 			status = "disabled";
 		};
 
-		spi0: spi@01c68000 {
+		twi3: twi@0x01c2b800{
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "allwinner,sun8i-twi";
+			device_type = "twi3";
+			reg = <0x0 0x01c2b800 0x0 0x400>;
+			interrupts = <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_twi3>;
+			clock-frequency = <200000>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&twi3_pins_a>;
+			pinctrl-1 = <&twi3_pins_b>;
+			status = "disabled";
+		};
+
+		twi4: twi@0x01c2c000{
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "allwinner,sun8i-twi";
+			device_type = "twi4";
+			reg = <0x0 0x01c2c000 0x0 0x400>;
+			interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_twi4>;
+			clock-frequency = <200000>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&twi4_pins_a>;
+			pinctrl-1 = <&twi4_pins_b>;
+			status = "disabled";
+		};
+
+		spi0: spi@01c05000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "allwinner,sun8i-spi";
 			device_type = "spi0";
-			reg = <0x0 0x01c68000 0x0 0x1000>;
-			interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0x0 0x01c05000 0x0 0x1000>;
+			interrupts = <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_pll_periph0>, <&clk_spi0>;
 			clock-frequency = <100000000>;
 			pinctrl-names = "default", "sleep";
-			pinctrl-0 = <&spi0_pins_a &spi0_pins_b>;
-			pinctrl-1 = <&spi0_pins_c>;
-			spi0_cs_number = <1>;
-			spi0_cs_bitmap = <1>;
+			pinctrl-0 = <&spi0_pins_a &spi0_pins_b &spi0_pins_c>;
+			pinctrl-1 = <&spi0_pins_d>;
+			spi0_cs_number = <2>;
+			spi0_cs_bitmap = <3>;
 			status = "disabled";
 		};
 
-		spi1: spi@01c69000 {
+		spi1: spi@01c06000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "allwinner,sun8i-spi";
 			device_type = "spi1";
-			reg = <0x0 0x01c69000 0x0 0x1000>;
-			interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0x0 0x01c06000 0x0 0x1000>;
+			interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_pll_periph0>, <&clk_spi1>;
 			clock-frequency = <100000000>;
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&spi1_pins_a &spi1_pins_b>;
 			pinctrl-1 = <&spi1_pins_c>;
-			spi1_cs_number = <1>;
-			spi1_cs_bitmap = <1>;
+			spi1_cs_number = <2>;
+			spi1_cs_bitmap = <3>;
 			status = "disabled";
 		};
 
-		spi2: spi@01c6a000 {
+		spi2: spi@01c17000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "allwinner,sun8i-spi";
 			device_type = "spi2";
-			reg = <0x0 0x01c6a000 0x0 0x1000>;
-			interrupts = <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0x0 0x01c17000 0x0 0x1000>;
+			interrupts = <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_pll_periph0>, <&clk_spi2>;
 			clock-frequency = <100000000>;
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&spi2_pins_a &spi2_pins_b>;
 			pinctrl-1 = <&spi2_pins_c>;
-			spi2_cs_number = <1>;
-			spi2_cs_bitmap = <1>;
+			spi2_cs_number = <2>;
+			spi2_cs_bitmap = <3>;
+			status = "disabled";
+		};
+
+		spi3: spi@01c18000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "allwinner,sun8i-spi";
+			device_type = "spi3";
+			reg = <0x0 0x01c18000 0x0 0x1000>;
+			interrupts = <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clk_pll_periph0>, <&clk_spi3>;
+			clock-frequency = <100000000>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&spi3_pins_a &spi3_pins_b>;
+			pinctrl-1 = <&spi3_pins_c>;
+			spi3_cs_number = <2>;
+			spi3_cs_bitmap = <3>;
 			status = "disabled";
 		};
 

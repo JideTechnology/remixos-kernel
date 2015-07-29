@@ -281,6 +281,7 @@ CONFIG_ARCH_SUNXI=y
 # CONFIG_ARCH_U300 is not set
 # CONFIG_ARCH_DAVINCI is not set
 # CONFIG_ARCH_OMAP1 is not set
+# CONFIG_GPIO_PCA953X is not set
 # CONFIG_PLAT_SPEAR is not set
 CONFIG_ARCH_SUN8I=y
 # CONFIG_ARCH_SUN9I is not set
@@ -528,6 +529,7 @@ CONFIG_OF_EARLY_FLATTREE=y
 CONFIG_OF_ADDRESS=y
 CONFIG_OF_IRQ=y
 CONFIG_OF_DEVICE=y
+CONFIG_OF_I2C=y
 # CONFIG_PARPORT is not set
 # CONFIG_BLK_DEV is not set
 
@@ -535,26 +537,50 @@ CONFIG_OF_DEVICE=y
 # Misc devices
 #
 # CONFIG_SENSORS_LIS3LV02D is not set
+# CONFIG_AD525X_DPOT is not set
 # CONFIG_ATMEL_PWM is not set
 # CONFIG_DUMMY_IRQ is not set
+# CONFIG_ICS932S401 is not set
 # CONFIG_ATMEL_SSC is not set
 # CONFIG_ENCLOSURE_SERVICES is not set
+# CONFIG_APDS9802ALS is not set
+# CONFIG_ISL29003 is not set
+# CONFIG_ISL29020 is not set
+# CONFIG_SENSORS_TSL2550 is not set
+# CONFIG_SENSORS_BH1780 is not set
+# CONFIG_SENSORS_BH1770 is not set
+# CONFIG_SENSORS_APDS990X is not set
+# CONFIG_HMC6352 is not set
+# CONFIG_DS1682 is not set
+# CONFIG_TI_DAC7512 is not set
 # CONFIG_UID_STAT is not set
+# CONFIG_BMP085_I2C is not set
+# CONFIG_BMP085_SPI is not set
+# CONFIG_USB_SWITCH_FSA9480 is not set
+# CONFIG_LATTICE_ECP3_CONFIG is not set
 # CONFIG_SRAM is not set
 # CONFIG_C2PORT is not set
 
 #
 # EEPROM support
 #
+# CONFIG_EEPROM_AT24 is not set
+# CONFIG_EEPROM_AT25 is not set
+# CONFIG_EEPROM_LEGACY is not set
+# CONFIG_EEPROM_MAX6875 is not set
 # CONFIG_EEPROM_93CX6 is not set
+# CONFIG_EEPROM_93XX46 is not set
 
 #
 # Texas Instruments shared transport line discipline
 #
+# CONFIG_SENSORS_LIS3_SPI is not set
+# CONFIG_SENSORS_LIS3_I2C is not set
 
 #
 # Altera FPGA firmware download module
 #
+# CONFIG_ALTERA_STAPL is not set
 
 #
 # SCSI device support
@@ -588,6 +614,7 @@ CONFIG_INPUT_MOUSEDEV_SCREEN_Y=768
 # CONFIG_INPUT_EVBUG is not set
 # CONFIG_INPUT_KEYRESET is not set
 # CONFIG_INPUT_KEYCOMBO is not set
+CONFIG_INPUT_SW_DEVICE=m
 
 #
 # Input Device Drivers
@@ -639,12 +666,15 @@ CONFIG_DEVKMEM=y
 #
 # Non-8250 serial port support
 #
+# CONFIG_SERIAL_MAX3100 is not set
+# CONFIG_SERIAL_MAX310X is not set
 CONFIG_SERIAL_CORE=y
 CONFIG_SERIAL_CORE_CONSOLE=y
 # CONFIG_SERIAL_SCCNXP is not set
 # CONFIG_SERIAL_TIMBERDALE is not set
 # CONFIG_SERIAL_ALTERA_JTAGUART is not set
 # CONFIG_SERIAL_ALTERA_UART is not set
+# CONFIG_SERIAL_IFX6X60 is not set
 # CONFIG_SERIAL_XILINX_PS_UART is not set
 CONFIG_SERIAL_SUNXI=y
 CONFIG_SERIAL_SUNXI_CONSOLE=y
@@ -665,8 +695,69 @@ CONFIG_DUMP_REG_MISC=y
 # CONFIG_SUNXI_TRANSFORM is not set
 CONFIG_SUNXI_SYS_INFO=y
 CONFIG_SUNXI_TIMER_TEST=m
-# CONFIG_I2C is not set
-# CONFIG_SPI is not set
+CONFIG_I2C=y
+CONFIG_I2C_BOARDINFO=y
+CONFIG_I2C_COMPAT=y
+# CONFIG_I2C_CHARDEV is not set
+# CONFIG_I2C_MUX is not set
+CONFIG_I2C_HELPER_AUTO=y
+
+#
+# I2C Hardware Bus support
+#
+
+#
+# I2C system bus drivers (mostly embedded / system-on-chip)
+#
+# CONFIG_I2C_CBUS_GPIO is not set
+# CONFIG_I2C_DESIGNWARE_PLATFORM is not set
+# CONFIG_I2C_GPIO is not set
+# CONFIG_I2C_OCORES is not set
+# CONFIG_I2C_PCA_PLATFORM is not set
+# CONFIG_I2C_PXA_PCI is not set
+# CONFIG_I2C_SIMTEC is not set
+CONFIG_I2C_SUNXI=y
+CONFIG_TWI_CHAN_NUM=0
+# CONFIG_I2C_SUNXI_TEST is not set
+# CONFIG_I2C_XILINX is not set
+
+#
+# External I2C/SMBus adapter drivers
+#
+# CONFIG_I2C_PARPORT_LIGHT is not set
+# CONFIG_I2C_TAOS_EVM is not set
+
+#
+# Other I2C/SMBus bus drivers
+#
+# CONFIG_I2C_STUB is not set
+# CONFIG_I2C_DEBUG_CORE is not set
+# CONFIG_I2C_DEBUG_ALGO is not set
+# CONFIG_I2C_DEBUG_BUS is not set
+CONFIG_SPI=y
+# CONFIG_SPI_DEBUG is not set
+CONFIG_SPI_MASTER=y
+
+#
+# SPI Master Controller Drivers
+#
+# CONFIG_SPI_ALTERA is not set
+# CONFIG_SPI_BITBANG is not set
+# CONFIG_SPI_GPIO is not set
+# CONFIG_SPI_FSL_SPI is not set
+# CONFIG_SPI_OC_TINY is not set
+# CONFIG_SPI_PXA2XX_PCI is not set
+# CONFIG_SPI_SC18IS602 is not set
+CONFIG_SPI_SUNXI=y
+# CONFIG_SPI_XCOMM is not set
+# CONFIG_SPI_XILINX is not set
+# CONFIG_SPI_DESIGNWARE is not set
+
+#
+# SPI Protocol Masters
+#
+# CONFIG_SPI_SPIDEV is not set
+# CONFIG_SPI_TLE62X0 is not set
 
 #
 # Qualcomm MSM SSBI bus support
@@ -740,6 +831,12 @@ CONFIG_OF_GPIO=y
 #
 # I2C GPIO expanders:
 #
+# CONFIG_GPIO_MAX7300 is not set
+# CONFIG_GPIO_MAX732X is not set
+# CONFIG_GPIO_PCF857X is not set
+# CONFIG_GPIO_SX150X is not set
+# CONFIG_GPIO_ADP5588 is not set
+# CONFIG_GPIO_ADNP is not set
 
 #
 # PCI GPIO expanders:
@@ -748,6 +845,10 @@ CONFIG_OF_GPIO=y
 #
 # SPI GPIO expanders:
 #
+# CONFIG_GPIO_MAX7301 is not set
+# CONFIG_GPIO_MCP23S08 is not set
+# CONFIG_GPIO_MC33880 is not set
+# CONFIG_GPIO_74X164 is not set
 
 #
 # AC97 GPIO expanders:
@@ -783,19 +884,70 @@ CONFIG_BCMA_POSSIBLE=y
 # Multifunction device drivers
 #
 # CONFIG_MFD_CORE is not set
+# CONFIG_MFD_AS3711 is not set
+# CONFIG_PMIC_ADP5520 is not set
+# CONFIG_MFD_AAT2870_CORE is not set
 # CONFIG_MFD_CROS_EC is not set
 # CONFIG_MFD_ASIC3 is not set
+# CONFIG_PMIC_DA903X is not set
+# CONFIG_MFD_DA9052_SPI is not set
+# CONFIG_MFD_DA9052_I2C is not set
+# CONFIG_MFD_DA9055 is not set
+# CONFIG_MFD_MC13XXX_SPI is not set
+# CONFIG_MFD_MC13XXX_I2C is not set
 # CONFIG_HTC_EGPIO is not set
 # CONFIG_HTC_PASIC3 is not set
+# CONFIG_HTC_I2CPLD is not set
+# CONFIG_MFD_88PM800 is not set
+# CONFIG_MFD_88PM805 is not set
+# CONFIG_MFD_88PM860X is not set
+# CONFIG_MFD_MAX77686 is not set
+# CONFIG_MFD_MAX77693 is not set
+# CONFIG_MFD_MAX8907 is not set
+# CONFIG_MFD_MAX8925 is not set
+# CONFIG_MFD_MAX8997 is not set
+# CONFIG_MFD_MAX8998 is not set
+# CONFIG_EZX_PCAP is not set
+# CONFIG_MFD_RETU is not set
+# CONFIG_MFD_PCF50633 is not set
+# CONFIG_MFD_RC5T583 is not set
+# CONFIG_MFD_SEC_CORE is not set
+# CONFIG_MFD_SI476X_CORE is not set
 # CONFIG_MFD_SM501 is not set
+# CONFIG_MFD_SMSC is not set
 # CONFIG_ABX500_CORE is not set
+# CONFIG_MFD_STMPE is not set
 # CONFIG_MFD_SYSCON is not set
 # CONFIG_MFD_TI_AM335X_TSCADC is not set
+# CONFIG_MFD_LP8788 is not set
+# CONFIG_MFD_PALMAS is not set
+# CONFIG_TPS6105X is not set
+# CONFIG_TPS65010 is not set
+# CONFIG_TPS6507X is not set
+# CONFIG_MFD_TPS65090 is not set
+# CONFIG_MFD_TPS65217 is not set
+# CONFIG_MFD_TPS6586X is not set
+# CONFIG_MFD_TPS65910 is not set
 # CONFIG_MFD_TPS65912 is not set
+# CONFIG_MFD_TPS65912_I2C is not set
+# CONFIG_MFD_TPS65912_SPI is not set
+# CONFIG_MFD_TPS80031 is not set
+# CONFIG_TWL4030_CORE is not set
+# CONFIG_TWL6040_CORE is not set
+# CONFIG_MFD_WL1273_CORE is not set
+# CONFIG_MFD_LM3533 is not set
+# CONFIG_MFD_TC3589X is not set
 # CONFIG_MFD_TMIO is not set
 # CONFIG_MFD_T7L66XB is not set
 # CONFIG_MFD_TC6387XB is not set
 # CONFIG_MFD_TC6393XB is not set
+# CONFIG_MFD_ARIZONA_I2C is not set
+# CONFIG_MFD_ARIZONA_SPI is not set
+# CONFIG_MFD_WM8400 is not set
+# CONFIG_MFD_WM831X_I2C is not set
+# CONFIG_MFD_WM831X_SPI is not set
+# CONFIG_MFD_WM8350_I2C is not set
+# CONFIG_MFD_WM8994 is not set
 CONFIG_VEXPRESS_CONFIG=y
 # CONFIG_VEXPRESS_SPC is not set
 # CONFIG_REGULATOR is not set
@@ -821,6 +973,11 @@ CONFIG_DUMMY_CONSOLE=y
 # HID support
 #
 # CONFIG_HID is not set
+#
+# I2C HID support
+#
+# CONFIG_I2C_HID is not set
+
 # CONFIG_USB_SUPPORT is not set
 CONFIG_MMC=y
 # CONFIG_MMC_DEBUG is not set
@@ -882,6 +1039,7 @@ CONFIG_COMMON_CLK=y
 CONFIG_COMMON_CLK_ENABLE_SYNCBOOT=y
 CONFIG_COMMON_CLK_ENABLE_SYNCBOOT_EARLY=y
 CONFIG_COMMON_CLK_DEBUG=y
+#CONFIG_COMMON_CLK_SI5351 is not set
 
 #
 # SUNXI Clock Configuration
