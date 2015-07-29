@@ -421,6 +421,7 @@ s32 hdmi_core_set_video_mode(u32 vic)
 	__inf("hdmi_core_set_video_mode = %x\n",vic);
 	mutex_lock(&hdmi_lock);
 	glb_video_para.vic = vic;
+	glb_audio_para.vic = vic;
 	mutex_unlock(&hdmi_lock);
 
 	return ret;

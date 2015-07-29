@@ -63,6 +63,7 @@ struct audio_para
 	unsigned int			sample_rate;
 	unsigned int			sample_bit;
 	unsigned int			ch_num;
+	unsigned int 			vic;
 };
 
 int bsp_hdmi_set_func(hdmi_bsp_func *func);
