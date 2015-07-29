@@ -62,16 +62,10 @@
 			};
 		};
 		csi_cci0:cci@0x01cb3000 {
-			compatible = "allwinner,sunxi-csi_cci";
-			reg = <0x0 0x01cb3000 0x0 0x1000>;	/*0x01cb3000--0x01cb4000*/
 			interrupts = <GIC_SPI 2 4>;/*SUNXI_IRQ_CSI0_CCI (SUNXI_GIC_START + 2) = 34 on fpga*/
-			status = "okay";
 		};
 		csi0:vfe@0 {
-			device_type= "csi0";
-			compatible = "allwinner,sunxi-vfe";
 			interrupts = <GIC_SPI 5 4>;/*SUNXI_IRQ_CSI0 (SUNXI_GIC_START + 4 ) = 37 on fpga*/
-			status = "okay";
 		};
 
 		udc:udc-controller@0x01c19000 {
@@ -84,6 +78,10 @@
 
 		ohci0:ohci0-controller@0x01c1a400 {
 			interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>; /* ohci0 is IRQ51 on fpga */
+		};
+
+		disp: disp@01000000 {
+			interrupts = <GIC_SPI 8 0x0104>,<GIC_SPI 23 0x0104>,<GIC_SPI 21 0x0104>;/* for eink */
 		};
 	};
 };

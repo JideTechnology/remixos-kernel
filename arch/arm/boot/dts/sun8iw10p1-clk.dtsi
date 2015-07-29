@@ -57,6 +57,7 @@ clocks {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-pll-clock";
 			lock-mode = "new";
+			assigned-clock-rates = <24576000>;
 			clock-output-names = "pll_audio";
 		};	
 		clk_pll_video0: pll_video0 {

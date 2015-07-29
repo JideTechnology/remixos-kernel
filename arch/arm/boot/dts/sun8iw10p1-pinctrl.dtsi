@@ -22,9 +22,10 @@
 			vdevice_pins_a: vdevice@0 {
 				allwinner,pins = "PB0", "PB1";
 				allwinner,function = "vdevice";
-				allwinner,muxsel = <3>;
+				allwinner,muxsel = <5>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
+				allwinner,data = <1>;
 			};
 
 			uart0_pins_a: uart0@0 {
@@ -406,7 +407,7 @@
 				allwinner,pname = "csi0_sck","csi0_sda","csi0_hsync","csi0_vsync","csi0_pck","csi0_d0","csi0_d1","csi0_d2",
 								"csi0_d3","csi0_d4","csi0_d5","csi0_d6","csi0_d7";
 				allwinner,function = "csi0";
-				allwinner,muxsel = <2>;
+				allwinner,muxsel = <4>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 				allwinner,data = <0>;

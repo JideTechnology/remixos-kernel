@@ -22,6 +22,7 @@
 				allwinner,muxsel = <3>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;
+				allwinner,data = <1>;
 			};
 
 			uart0_pins_a: uart0@0 {
@@ -452,50 +453,15 @@
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
-			dsd_pins_a: dsd@0 {
-				allwinner,pins = "PG10", "PG9", "PG8", "PG7";
-				allwinner,function = "dsd0";
-				allwinner,muxsel = <3>;
-				allwinner,drive = <1>;
-				allwinner,pull = <0>;
-			};
-			dsd_pins_b: dsd_sleep@0 {
-				allwinner,pins = "PG10", "PG9", "PG8", "PG7";
-				allwinner,function = "io_disabled";
-				allwinner,muxsel = <7>;
-				allwinner,drive = <1>;
-				allwinner,pull = <0>;
-			};
-			dmic_pins_a: dmic@0 {
-				allwinner,pins = "PG4", "PG3", "PG2", "PG1", "PG0";
-				allwinner,function = "dmic0";
-				allwinner,muxsel = <3>;
-				allwinner,drive = <1>;
-				allwinner,pull = <0>;
-			};
-			dmic_pins_b: dmic_sleep@0 {
-				allwinner,pins = "PG4", "PG3", "PG2", "PG1", "PG0";
-				allwinner,function = "io_disabled";
-				allwinner,muxsel = <7>;
-				allwinner,drive = <1>;
-				allwinner,pull = <0>;
-			};
 			spdif_pins_a: spdif@0 {
-				allwinner,pins = "PG11";
-				allwinner,function = "spdif0";
-				allwinner,muxsel = <2>;
-				allwinner,drive = <1>;
-				allwinner,pull = <0>;
-			};
-			spdif_pins_b: spdif@1 {
-				allwinner,pins = "PB1";
+				allwinner,pins = "PB3", "PB12", "PB13";
 				allwinner,function = "spdif0";
 				allwinner,muxsel = <4>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 			};
-			spdif_pins_c: spdif_sleep@0 {
-				allwinner,pins = "PG11", "PB1";/*ph8-spec*/
+			spdif_pins_b: spdif_sleep@0 {
+				allwinner,pins = "PB3", "PB12", "PB13";
 				allwinner,function = "io_disabled";
 				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
@@ -503,19 +469,40 @@
 			};
 
 			csi0_pins_a: csi0@0 {
-				allwinner,pins = "PD0","PD1","PD13","PD14","PD15","PD16","PD17","PD18","PD19","PD20","PD21","PD22","PD23";
-				allwinner,pname = "csi0_sck","csi0_sda","csi0_hsync","csi0_vsync","csi0_pck","csi0_d0","csi0_d1","csi0_d2",
+				allwinner,pins = "PE0","PE2","PE3","PE4","PE5","PE6","PE7","PE8","PE9","PE10","PE11";
+				allwinner,pname = "csi0_pck","csi0_hsync","csi0_vsync","csi0_d0","csi0_d1","csi0_d2",
 								"csi0_d3","csi0_d4","csi0_d5","csi0_d6","csi0_d7";
 				allwinner,function = "csi0";
-				allwinner,muxsel = <2>;
+				allwinner,muxsel = <3>;
 				allwinner,drive = <1>;
 				allwinner,pull = <0>;
 				allwinner,data = <0>;
 			};
 			csi0_pins_b: csi0_sleep@0 {
-				allwinner,pins = "PD0","PD1","PD13","PD14","PD15","PD16","PD17","PD18","PD19","PD20","PD21","PD22","PD23";
-				allwinner,pname = "csi0_sck","csi0_sda","csi0_hsync","csi0_vsync","csi0_pck","csi0_d0","csi0_d1","csi0_d2",
+				allwinner,pins = "PE0","PE2","PE3","PE4","PE5","PE6","PE7","PE8","PE9","PE10","PE11";
+				allwinner,pname = "csi0_pck","csi0_hsync","csi0_vsync","csi0_d0","csi0_d1","csi0_d2",
 								"csi0_d3","csi0_d4","csi0_d5","csi0_d6","csi0_d7";
+				allwinner,function = "io_disabled";
+				allwinner,muxsel = <7>;
+				allwinner,drive = <1>;
+				allwinner,pull = <0>;
+				allwinner,data = <0>;
+			};
+
+			csi1_pins_a: csi1@0 {
+				allwinner,pins = "PG0","PG2","PG3","PG4","PG5","PG6","PG7","PG8","PG9","PG10","PG11";
+				allwinner,pname = "csi1_pck","csi1_hsync","csi1_vsync","csi1_d0","csi1_d1","csi1_d2",
+								"csi1_d3","csi1_d4","csi1_d5","csi1_d6","csi1_d7";
+				allwinner,function = "csi1";
+				allwinner,muxsel = <3>;
+				allwinner,drive = <1>;
+				allwinner,pull = <0>;
+				allwinner,data = <0>;
+			};
+			csi1_pins_b: csi1_sleep@0 {
+				allwinner,pins = "PG0","PG2","PG3","PG4","PG5","PG6","PG7","PG8","PG9","PG10","PG11";
+				allwinner,pname = "csi1_pck","csi1_hsync","csi1_vsync","csi1_d0","csi1_d1","csi1_d2",
+								"csi1_d3","csi1_d4","csi1_d5","csi1_d6","csi1_d7";
 				allwinner,function = "io_disabled";
 				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
@@ -532,7 +519,7 @@
 			};
 
 			nand0_pins_a: nand0@0 {
-				allwinner,pins = "PC0",      "PC1",       "PC2",       "PC4",       "PC6",      "PC7",      "PC8",      "PC9",      "PC10",     "PC11",     "PC12",     "PC13",     "PC14";
+				allwinner,pins = "PC0",      "PC1",       "PC2",       "PC5",       "PC8",      "PC9",      "PC10",     "PC11",     "PC12",     "PC13",     "PC14",     "PC15",     "PC24";
 				allwinner,pname= "nand0_we", "nand0_ale", "nand0_cle", "nand0_nre", "nand0_d0", "nand0_d1", "nand0_d2", "nand0_d3", "nand0_d4", "nand0_d5", "nand0_d6", "nand0_d7", "nand0_ndqs";
 				allwinner,function = "nand0";
 				allwinner,muxsel = <2>;
@@ -541,8 +528,8 @@
 			};
 
 			nand0_pins_b: nand0@1 {
-				allwinner,pins = "PC3",       "PC5";
-				allwinner,pname= "nand0_ce0", "nand0_rb0";
+				allwinner,pins = "PC3",       "PC4",       "PC6",       "PC7",       "PC16",      "PC17",      "PC18",      "PC19",      "PC20",      "PC21",      "PC22";
+				allwinner,pname= "nand0_ce1", "nand0_ce0", "nand0_rb0", "nand0_rb1", "nand0_nwp", "nand0_ce2", "nand0_ce3", "nand0_ce4", "nand0_ce5", "nand0_ce6", "nand0_ce7";
 				allwinner,function = "nand0";
 				allwinner,muxsel = <2>;
 				allwinner,drive = <1>;
@@ -550,7 +537,7 @@
 			};
 
 			nand0_pins_c: nand0@2 {
-				allwinner,pins ="PC0", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10", "PC11", "PC12", "PC13", "PC14";
+				allwinner,pins ="PC0", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9", "PC10", "PC11", "PC12", "PC13", "PC14", "PC15", "PC16", "PC17", "PC18", "PC19", "PC20", "PC21", "PC22", "PC24";
 				allwinner,function = "io_disabled";
 				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;

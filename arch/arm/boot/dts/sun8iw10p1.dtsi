@@ -405,6 +405,62 @@
 			pinctrl-0 = <&twi1_pins_a>;
 			pinctrl-1 = <&twi1_pins_b>;
 			status = "disabled";
+
+			pmic0:pmic0@0x34{
+				compatible = "allwinner,axp22";
+				reg = <0x34>;
+				interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
+				status = "okey";
+
+				powerkey@0{
+					compatible = "allwinner,axp-powerkey";
+					status = "okay";
+				};
+
+				regulator@0{
+					compatible = "allwinner,axp22-regulator";
+					status = "okay";
+				};
+
+				gpio@0{
+					compatible = "allwinner,axp22-gpio";
+					gpio-controller;
+					#size-cells = <0>;
+					#gpio-cells = <6>;
+					status = "okay";
+				};
+
+				charger@0{
+					compatible = "allwinner,axp22-charger";
+					status = "okay";
+
+					pmu_batdeten               = <1>;
+					pmu_init_chgend_rate       = <20>;
+					pmu_init_chg_enabled       = <1>;
+					pmu_init_adc_freq          = <800>;
+					pmu_init_adcts_freq        = <800>;
+					pmu_init_chg_pretime       = <70>;
+					pmu_init_chg_csttime       = <720>;
+					pmu_batt_cap_correct       = <1>;
+					pmu_chg_end_on_en          = <0>;
+
+					pmu_pwroff_vol             = <3300>;
+					pmu_pwron_vol              = <2600>;
+					pmu_powkey_off_delay_time  = <0>;
+					pmu_pwrok_time             = <64>;
+					pmu_reset_shutdown_en      = <1>;
+					pmu_restvol_adjust_time    = <60>;
+					pmu_ocv_cou_adjust_time    = <60>;
+					pmu_vbusen_func            = <1>;
+					pmu_reset                  = <0>;
+					pmu_IRQ_wakeup             = <0>;
+					pmu_hot_shutdowm           = <1>;
+					pmu_inshort                = <0>;
+					pmu_bat_shutdown_ltf       = <3200>; /* add by superm for debug */
+					pmu_bat_shutdown_htf       = <237>;  /* add by superm for debug */
+				};
+
+			};
 		};
 
 		twi2: twi@0x01c2b400{
@@ -429,7 +485,7 @@
 			device_type = "spi0";
 			reg = <0x0 0x01c68000 0x0 0x1000>;
 			interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk_pll_periph0>, <&clk_spi0>;
+			clocks = <&clk_pll_periph0x2>, <&clk_spi0>;
 			clock-frequency = <100000000>;
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&spi0_pins_a &spi0_pins_b>;
@@ -446,7 +502,7 @@
 			device_type = "spi1";
 			reg = <0x0 0x01c69000 0x0 0x1000>;
 			interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk_pll_periph0>, <&clk_spi1>;
+			clocks = <&clk_pll_periph0x2>, <&clk_spi1>;
 			clock-frequency = <100000000>;
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&spi1_pins_a &spi1_pins_b>;
@@ -463,7 +519,7 @@
 			device_type = "spi2";
 			reg = <0x0 0x01c6a000 0x0 0x1000>;
 			interrupts = <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk_pll_periph0>, <&clk_spi2>;
+			clocks = <&clk_pll_periph0x2>, <&clk_spi2>;
 			clock-frequency = <100000000>;
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&spi2_pins_a &spi2_pins_b>;
@@ -526,8 +582,7 @@
 			compatible = "allwinner,sunxi-internal-codec";
 			reg = <0x0 0x01c22c00 0x0 0x2bc>,/*digital baseadress*/
 			      <0x0 0x01c23000 0x0 0x4>;/*analog baseadress*/
-			clocks = <&clk_pll_audiox4>;
-
+			clocks = <&clk_pll_audio>,<&clk_adda>;
 			/*gpio-spk=<&pio 6 7 0>;*/
 			gpio-spk = <&pio PB 1 1 1 1 1>;
 
@@ -541,8 +596,7 @@
 
 		cpudai:cpudai0-controller@0x01c22c00 {
 			compatible = "allwinner,sunxi-internal-cpudai";
-			reg = <0x0 0x01c22c00 0x0 0x478>;/*digital baseadress*/
-			clocks = <&clk_pll_audio>,<&clk_adda>;
+			reg = <0x0 0x01c22c00 0x0 0x2bc>;/*digital baseadress*/
 			status = "okay";
 		};
 
@@ -604,6 +658,7 @@
 			pinctrl-names = "default","sleep";
 			pinctrl-0 = <&dsd_pins_a>;
 			pinctrl-1 = <&dsd_pins_b>;
+			mode_select =  <0x0>;
 			status = "okay";
 		};
 
@@ -858,13 +913,13 @@
 
 
 		disp: disp@01000000 {
-			compatible = "allwinner,sun50i-disp";
+			compatible = "allwinner,sun8iw10p1-disp";
 			reg = <0x0 0x01000000 0x0 0x00300000>,/*de*/
 				<0x0 0x01c0c000 0x0 0x17fc>,/*lcd*/
-				<0x0 0x01ca0000 0x0 0x10fc>;/*dsi*/
+				<0x0 0x01400000 0x0 0x420>;/*eink*/
 			interrupts = <GIC_SPI 86 0x0104>, <GIC_SPI 87 0x0104>,
 				<GIC_SPI 89 0x0104>;/* for dsi */
-			clocks = <&clk_de>,<&clk_tcon0>;
+			clocks = <&clk_de>,<&clk_tcon0>,<&clk_ee>,<&clk_edma>;
 
 			status = "okay";
 		};
@@ -911,7 +966,7 @@
 			compatible = "allwinner,sunxi-vfe";
 			interrupts = <GIC_SPI 84 4>;/*SUNXI_IRQ_CSI0 (SUNXI_GIC_START + 84 ) = 116*/
 			clocks 				= <&clk_csi_s>, <&clk_csi_m>,<&clk_csi_misc>,
-									<&clk_pll_periph0>,<&clk_hosc>,<&clk_pll_periph1>;
+									<&clk_pll_periph0>,<&clk_pll_24m>,<&clk_hosc>;
 			pinctrl-names 		= "default","sleep";
 			pinctrl-0 			= <&csi0_pins_a>;
 			pinctrl-1 			= <&csi0_pins_b>;
@@ -976,7 +1031,8 @@
 			};
 		};
 		Vdevice: vdevice@0{
-			compatible = "allwinner,sun50i-vdevice";
+			compatible = "allwinner,sun8i-vdevice";
+			device_type = "Vdevice";
 			pinctrl-names = "default";
 			pinctrl-0 = <&vdevice_pins_a>;
 			status = "okay";
@@ -1002,35 +1058,7 @@
 			nmi_irq_mask = <0x50>;
 			status = "okay";
 		};
-		pmu0:pmu0@0{
-			compatible = "allwinner,pmu0";
-			device_type = "pmu0";
-			pmu_batdeten               = <1>;
-			pmu_init_chgend_rate       = <20>;
-			pmu_init_chg_enabled       = <1>;
-			pmu_init_adc_freq          = <800>;
-			pmu_init_adcts_freq        = <800>;
-			pmu_init_chg_pretime       = <70>;
-			pmu_init_chg_csttime       = <720>;
-			pmu_batt_cap_correct       = <1>;
-			pmu_chg_end_on_en          = <0>;
 
-			pmu_pwroff_vol             = <3300>;
-			pmu_pwron_vol              = <2600>;
-			pmu_powkey_off_delay_time  = <0>;
-			pmu_pwrok_time             = <64>;
-			pmu_reset_shutdown_en      = <1>;
-			pmu_restvol_adjust_time    = <60>;
-			pmu_ocv_cou_adjust_time    = <60>;
-			pmu_vbusen_func            = <1>;
-			pmu_reset                  = <0>;
-			pmu_IRQ_wakeup             = <0>;
-			pmu_hot_shutdowm           = <1>;
-			pmu_inshort                = <0>;
-			pmu_bat_shutdown_ltf       = <3200>; /* add by superm for debug */
-			pmu_bat_shutdown_htf       = <237>;  /* add by superm for debug */
-			status = "okay";
-		};
 		pmu0_regu:regu@0{
 			compatible = "allwinner,pmu0_regu";
 			regulator_count = <23>;
@@ -1065,15 +1093,15 @@
 			reg = <0x0 0x01c25000 0x0 0x400>;
 			interrupts = <GIC_SPI 31 IRQ_TYPE_NONE>;
 			clocks = <&clk_hosc>,<&clk_ths>;
-			sensor_num = <3>;
+			sensor_num = <2>;
 			shut_temp= <120>;
 			status = "okay";
 
 			combine0:combine0{
 				#thermal-sensor-cells = <1>;
-				combine_cnt = <3>;
+				combine_cnt = <2>;
 				combine_type = "max";
-				combine_chn = <0 1 2>;
+				combine_chn = <0 1>;
 			};
 		};
 
