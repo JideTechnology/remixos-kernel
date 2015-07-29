@@ -69,7 +69,7 @@ void spdif_txctrl_enable(int tx_en, int chan, int hub_en,struct sunxi_spdif_info
 		reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_INT);
 		reg_val |= SUNXI_SPDIF_INT_TXDRQEN;
 		writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_INT);
-} else {
+	} else {
 		/*SPDIF TX DISABALE*/
 		reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_TXCFG);
 		reg_val &= ~SUNXI_SPDIF_TXCFG_TXEN;
@@ -259,9 +259,7 @@ int spdif_set_clkdiv(int div_id, int div,struct sunxi_spdif_info *sunxi_spdif )
 						reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_RXCHSTA1);
 						reg_val |= (SUNXI_SPDIF_RXCHSTA1_ORISAMFREQ(0x9));
 						writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_RXCHSTA1);
-
 						break;
-
 					/*32KHZ*/
 					case 6:
 						reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_TXCHSTA0);
@@ -280,7 +278,6 @@ int spdif_set_clkdiv(int div_id, int div,struct sunxi_spdif_info *sunxi_spdif )
 						reg_val |= (SUNXI_SPDIF_RXCHSTA1_ORISAMFREQ(0xC));
 						writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_RXCHSTA1);
 						break;
-
 					/*48KHZ*/
 					case 4:
 						reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_TXCHSTA0);
@@ -299,7 +296,6 @@ int spdif_set_clkdiv(int div_id, int div,struct sunxi_spdif_info *sunxi_spdif )
 						reg_val |= (SUNXI_SPDIF_RXCHSTA1_ORISAMFREQ(0xD));
 						writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_RXCHSTA1);
 						break;
-
 					/*96KHZ*/
 					case 2:
 						reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_TXCHSTA0);
@@ -318,7 +314,6 @@ int spdif_set_clkdiv(int div_id, int div,struct sunxi_spdif_info *sunxi_spdif )
 						reg_val |= (SUNXI_SPDIF_RXCHSTA1_ORISAMFREQ(0x5));
 						writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_RXCHSTA1);
 						break;
-
 					/*192KHZ*/
 					case 1:
 						reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_TXCHSTA0);
@@ -337,7 +332,6 @@ int spdif_set_clkdiv(int div_id, int div,struct sunxi_spdif_info *sunxi_spdif )
 						reg_val |= (SUNXI_SPDIF_RXCHSTA1_ORISAMFREQ(0x1));
 						writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_RXCHSTA1);
 						break;
-
 					default:
 						reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_TXCHSTA0);
 						reg_val |= (SUNXI_SPDIF_TXCHSTA0_SAMFREQ(1));
@@ -377,7 +371,6 @@ int spdif_set_clkdiv(int div_id, int div,struct sunxi_spdif_info *sunxi_spdif )
 						reg_val |= (SUNXI_SPDIF_RXCHSTA1_ORISAMFREQ(0xb));
 						writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_RXCHSTA1);
 						break;
-
 					/*44.1KHZ*/
 					case 4:
 						reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_TXCHSTA0);
@@ -396,7 +389,6 @@ int spdif_set_clkdiv(int div_id, int div,struct sunxi_spdif_info *sunxi_spdif )
 						reg_val |= (SUNXI_SPDIF_RXCHSTA1_ORISAMFREQ(0xF));
 						writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_RXCHSTA1);
 						break;
-
 					/*88.2khz*/
 					case 2:
 						reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_TXCHSTA0);
@@ -415,7 +407,6 @@ int spdif_set_clkdiv(int div_id, int div,struct sunxi_spdif_info *sunxi_spdif )
 						reg_val |= (SUNXI_SPDIF_RXCHSTA1_ORISAMFREQ(0x7));
 						writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_RXCHSTA1);
 						break;
-
 					/*176.4KHZ*/
 					case 1:
 						reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_TXCHSTA0);
@@ -434,7 +425,6 @@ int spdif_set_clkdiv(int div_id, int div,struct sunxi_spdif_info *sunxi_spdif )
 						reg_val |= (SUNXI_SPDIF_RXCHSTA1_ORISAMFREQ(0x3));
 						writel(reg_val, sunxi_spdif->regs + SUNXI_SPDIF_RXCHSTA1);
 						break;
-
 					default:
 						reg_val = readl(sunxi_spdif->regs + SUNXI_SPDIF_TXCHSTA0);
 						reg_val |= (SUNXI_SPDIF_TXCHSTA0_SAMFREQ(1));
@@ -734,7 +724,7 @@ static int __init sunxi_spdif_dev_probe(struct platform_device *pdev)
 	device = of_match_device(sunxi_spdif_of_match, &pdev->dev);
 	if (!device)
 		return -ENODEV;
-	//sunxi_spdif_membase = of_iomap(node, 0);
+
 	ret = of_address_to_resource(node, 0, &res);
 	if (ret) {
 		dev_err(&pdev->dev, "Can't parse device node resource\n");

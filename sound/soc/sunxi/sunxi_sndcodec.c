@@ -140,17 +140,14 @@ static void sunxi_check_hs_insert_status(struct work_struct *work)
 		reg_val = snd_soc_read(ctx->codec, SUNXI_HMIC_STS);
 		ctx->headset_basedata = (reg_val>>HMIC_DATA)&0x1f;
 		ctx->headset_basedata -= 2;
-		/*disable autowrite*/
-		//pr_debug("ctx->headset_basedata:%x,%d\n",ctx->headset_basedata,__LINE__);
 
 		do_gettimeofday(&ctx->tv_headset_plugin);
-//		pr_debug("time1:%llx\n",ctx->tv_headset_plugin.tv_sec);
 		usleep_range(1000, 2000);
 		snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL2, (0x1f<<MDATA_THRESHOLD), (0x14<<MDATA_THRESHOLD));
 		snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0x1<<MIC_DET_IRQ_EN), (0x1<<MIC_DET_IRQ_EN));
 
 	} else if (jack_type == SND_JACK_HEADPHONE) {
-	/*if is HEADPHONE 3,close mic detect irq*/
+		/*if is HEADPHONE 3,close mic detect irq*/
 		snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0x1<<MIC_DET_IRQ_EN), (0x0<<MIC_DET_IRQ_EN));
 		ctx->tv_headset_plugin.tv_sec = 0;
 	}
@@ -274,12 +271,8 @@ static irqreturn_t jack_interrupt(int irq, void *dev_id)
 		regval &= ~(0x1<<JACK_DET_OUT_ST);
 		regval |= 0x1<<MIC_DET_ST;
 		snd_soc_write(ctx->codec, SUNXI_HMIC_STS, regval);
-		//if (ctx->switch_status != 0)
-		//	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0x1<<JACK_IN_IRQ_EN), (0x0<<JACK_IN_IRQ_EN));
 
 		do_gettimeofday(&tv);
-//		pr_debug("time2:%x,ctx->ctx->tv_headset_plugin.tv_sec.tv_sec:%x\n",tv.tv_sec,ctx->tv_headset_plugin.tv_sec);
-		//if (((tv.tv_sec)%(ctx->tv_headset_plugin.tv_sec) > 2) || ctx->tv_headset_plugin.tv_sec == 2){
 		if (abs(tv.tv_sec -ctx->tv_headset_plugin.tv_sec) > 2){
 			tempdata =snd_soc_read(ctx->codec, SUNXI_HMIC_STS);
 			tempdata = (tempdata&0x1f00)>>8;
@@ -321,8 +314,6 @@ static irqreturn_t jack_interrupt(int irq, void *dev_id)
 					}
 					schedule_delayed_work(&ctx->hs_button_work,msecs_to_jiffies(180));
 				}
-
-
 			} else {
 				pr_debug("tempdata:%x,Key data err:\n",tempdata);
 				ctx->key_volup = 0;
@@ -392,7 +383,6 @@ static int sunxi_audio_init(struct snd_soc_pcm_runtime *runtime)
 	snd_soc_dapm_disable_pin(&runtime->card->dapm,	"External Speaker");
 	snd_soc_dapm_disable_pin(&runtime->card->dapm,	"Headphone");
 	snd_soc_dapm_disable_pin(&runtime->card->dapm,	"Earpiece");
-	//snd_soc_dapm_disable_pin(&runtime->card->dapm,	"src clk");
 	snd_soc_dapm_sync(dapm);
 	return 0;
 }
@@ -649,23 +639,6 @@ static int sunxi_suspend(struct snd_soc_card *card)
 	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0x1<<JACK_OUT_IRQ_EN), (0x0<<JACK_OUT_IRQ_EN));
 	snd_soc_update_bits(ctx->codec, JACK_MIC_CTRL, (0x1<<JACKDETEN), (0x0<<JACKDETEN));
 
-	#if 0
-	pr_debug("0x0008:%x\n",audiodebug_reg_read(0x01c20000+0x0008));
-	pr_debug("0x0068:%x\n",audiodebug_reg_read(0x01c20000+0x0068));
-	pr_debug("0x00b0:%x\n",audiodebug_reg_read(0x01c20000+0x00B0));
-	pr_debug("0x00b4:%x\n",audiodebug_reg_read(0x01c20000+0x00b4));
-	pr_debug("0x00b8:%x\n",audiodebug_reg_read(0x01c20000+0x00b8));
-	pr_debug("0x00c0:%x\n",audiodebug_reg_read(0x01c20000+0x00c0));
-	pr_debug("0x0224:%x\n",audiodebug_reg_read(0x01c20000+0x0224));
-	pr_debug("0x0284:%x\n",audiodebug_reg_read(0x01c20000+0x0284));
-	pr_debug("0x02d0:%x\n",audiodebug_reg_read(0x01c20000+0x02d0));
-
-
-	pr_debug("0x24:%x\n",audiodebug_reg_read(0x01c20800+0x24));
-	pr_debug("0xdc:%x\n",audiodebug_reg_read(0x01c20800+0xdc));
-	pr_debug("0xfc:%x\n",audiodebug_reg_read(0x01c20800+0xfc));
-	#endif
-
 	return 0;
 }
 
@@ -696,7 +669,6 @@ static int sunxi_resume(struct snd_soc_card *card)
 	snd_soc_update_bits(ctx->codec, JACK_MIC_CTRL, (0x1<<INNERRESEN), (0x1<<INNERRESEN));
 	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0x1<<JACK_IN_IRQ_EN), (0x1<<JACK_IN_IRQ_EN));
 	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0x1<<JACK_OUT_IRQ_EN), (0x1<<JACK_OUT_IRQ_EN));
-	//snd_soc_update_bits(ctx->codec, JACK_MIC_CTRL, (0x1<<JACKDETEN), (0x1<<JACKDETEN));
 
 	snd_soc_update_bits(ctx->codec, SUNXI_HMIC_CTRL1, (0xf<<HMIC_N), (0xf<<HMIC_N));
 
@@ -766,7 +738,6 @@ static int sunxi_machine_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "register DAI failed\n");
 		goto err0;
 	}
-//	pr_debug("%s,line:%d,ARRAY_SIZE(sunxi_sndpcm_dai_link):%d\n",__func__,__LINE__,ARRAY_SIZE(sunxi_sndpcm_dai_link));
 
 	#ifdef CONFIG_SND_SOC_HUB
 	/*

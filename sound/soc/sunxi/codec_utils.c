@@ -53,15 +53,18 @@ int codec_utils_probe(struct platform_device *pdev)
 	int ret;
 	pub_codec_dai.name = pdev->name;
 	pr_debug(" pdev->name:%s\n", pdev->name);
+
 	ret = snd_soc_register_codec(&pdev->dev, &pub_codec, &pub_codec_dai, 1);
 	if (ret < 0)
 		return ret;
+
 	return 0;
 }
 EXPORT_SYMBOL(codec_utils_probe);
 int codec_utils_remove(struct platform_device *pdev)
 {
 	snd_soc_unregister_codec(&pdev->dev);
+
 	return 0;
 }
 EXPORT_SYMBOL(codec_utils_remove);

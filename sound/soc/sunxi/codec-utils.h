@@ -10,7 +10,7 @@
  *  Free Software Foundation;  either version 2 of the  License, or (at your
  *  option) any later version.
  */
- #ifndef CODEC_UTILS_H_
+#ifndef CODEC_UTILS_H_
 #define CODEC_UTILS_H_
 
 extern int codec_utils_probe(struct platform_device *pdev);

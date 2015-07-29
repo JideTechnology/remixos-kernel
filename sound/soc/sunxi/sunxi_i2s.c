@@ -525,7 +525,6 @@ static int __init sunxi_internal_i2s_platform_probe(struct platform_device *pdev
 		return -ENOMEM;
 	} else {
 		sunxi_i2s->sunxi_i2s_membase = sunxi_i2s_membase;
-		//pr_debug("%s,line:%d,res.start:0x%llx,sunxi_i2s_membase:0x%llu\n",__func__,__LINE__,res.start,sunxi_i2s_membase);
 	}
 	sunxi_i2s->pllclk = of_clk_get(node, 0);
 	sunxi_i2s->moduleclk= of_clk_get(node, 1);

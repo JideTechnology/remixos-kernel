@@ -171,17 +171,14 @@ static struct snd_soc_ops sunxi_hubspdif_ops = {
 
 /*dailink for hub*/
 struct snd_soc_dai_link sunxi_hub_dai_link[2] = {
-
 	{
 	.name = "hub-hdmi",
 	.stream_name 	= "hub-hdmi",
 	.cpu_dai_name 	= "1c22800.daudio",
 	.codec_dai_name = "snd-soc-dummy-dai",
-	//.platform_name 	= "snd-soc-dummy",
 	.codec_name 	= "snd-soc-dummy",
-	//.init 			= sunxi_audio_init,
-    	.ops = &sunxi_hubhdmi_ops,
-    	.ignore_suspend = 1,
+    .ops = &sunxi_hubhdmi_ops,
+    .ignore_suspend = 1,
 
 	},
 /**/

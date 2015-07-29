@@ -47,6 +47,7 @@
 #define TX_DATA_MODE 0
 #define RX_DATA_MODE 0
 #define TDM_CONFIG 1
+
 static int sunxi_hdmi_set_fmt(struct snd_soc_dai *cpu_dai, unsigned int fmt)
 {
 	struct sunxi_tdm_info  *sunxi_tdmhdmi = snd_soc_dai_get_drvdata(cpu_dai);
@@ -132,8 +133,10 @@ static int sunxi_hdmi_perpare(struct snd_pcm_substream *substream,struct snd_soc
 static int sunxi_hdmi_dai_probe(struct snd_soc_dai *dai)
 {
 	struct sunxi_tdm_info  *sunxi_tdmhdmi = snd_soc_dai_get_drvdata(dai);
+
 	dai->capture_dma_data = &sunxi_tdmhdmi->capture_dma_param;
 	dai->playback_dma_data = &sunxi_tdmhdmi->play_dma_param;
+
 	return 0;
 }
 static int sunxi_hdmi_suspend(struct snd_soc_dai *cpu_dai)
@@ -232,7 +235,7 @@ static int __init sunxi_hdmi_dev_probe(struct platform_device *pdev)
 	device = of_match_device(sunxi_hdmi_of_match, &pdev->dev);
 	if (!device)
 		return -ENODEV;
-	//sunxi_tdmhdmi_membase = of_iomap(node, 0);
+
 	ret = of_address_to_resource(node, 0, &res);
 	if (ret) {
 		dev_err(&pdev->dev, "Can't parse device node resource\n");
@@ -244,7 +247,6 @@ static int __init sunxi_hdmi_dev_probe(struct platform_device *pdev)
 		pr_err("[audio-tdmhdmi]Can't map tdmhdmi registers\n");
 	} else {
 		sunxi_tdmhdmi->regs = sunxi_tdmhdmi_membase;
-		//pr_debug("%s,line:%d,res.start:%llu,sunxi_tdmhdmi_membase:%llu\n",__func__,__LINE__,res.start,sunxi_tdmhdmi_membase);
 	}
 	sunxi_tdmhdmi->tdm_pllclk = of_clk_get(node, 0);
 	sunxi_tdmhdmi->tdm_moduleclk= of_clk_get(node, 1);
@@ -267,12 +269,7 @@ static int __init sunxi_hdmi_dev_probe(struct platform_device *pdev)
 	sunxi_tdmhdmi->play_dma_param.dma_drq_type_num = DRQDST_DAUDIO_2_TX;
 	sunxi_tdmhdmi->play_dma_param.dst_maxburst = 8;
 	sunxi_tdmhdmi->play_dma_param.src_maxburst = 8;
-/*
-	sunxi_tdmhdmi->capture_dma_param.dma_addr = virt_to_phys(sunxi_tdmhdmi->regs)+SUNXI_DAUDIORXFIFO;
-	sunxi_tdmhdmi->capture_dma_param.dma_drq_type_num = DRQSRC_DAUDIO_2_RX;
-	sunxi_tdmhdmi->capture_dma_param.src_maxburst = 8;
-	sunxi_tdmhdmi->capture_dma_param.dst_maxburst = 8;
-*/
+
 	/*tdm2:default para*/
 	sunxi_tdmhdmi->daudio_master = DAUDIO_MASTER;
 	sunxi_tdmhdmi->pcm_lrck_period = PCM_LRCK_PEROID;

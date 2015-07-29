@@ -229,9 +229,7 @@ static struct snd_soc_dai_link sunxi_sndspdif_dai_link = {
 	.name 			= "SPDIF",
 	.stream_name 	= "SUNXI-SPDIF",
 	.cpu_dai_name 	= "sunxi-spdif",
-	//.codec_dai_name = "snd-soc-dummy-dai",
 	.platform_name 	= "sunxi-spdif",
-	//.codec_name 	= "snd-soc-dummy",
 	.init 			= sunxi_spdif_init,
 	.ops 			= &sunxi_sndspdif_ops,
 };

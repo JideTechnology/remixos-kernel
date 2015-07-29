@@ -218,6 +218,7 @@ static int __init sunxi_daudio_platform_probe(struct platform_device *pdev)
 	void __iomem  *sunxi_daudio_membase = NULL;
 	struct sunxi_tdm_info  *sunxi_daudio;
 	u32 temp_val;
+
 	sunxi_daudio = devm_kzalloc(&pdev->dev, sizeof(struct sunxi_tdm_info), GFP_KERNEL);
 	if (!sunxi_daudio) {
 		dev_err(&pdev->dev, "Can't allocate sunxi_daudio\n");
@@ -231,7 +232,6 @@ static int __init sunxi_daudio_platform_probe(struct platform_device *pdev)
 	device = of_match_device(sunxi_daudio_of_match, &pdev->dev);
 	if (!device)
 		return -ENODEV;
-	//sunxi_daudio_membase = of_iomap(node, 0);
 
 	ret = of_address_to_resource(node, 0, &res);
 	if (ret) {
@@ -244,7 +244,6 @@ static int __init sunxi_daudio_platform_probe(struct platform_device *pdev)
 		pr_err("[audio-daudio]Can't map i2s registers\n");
 	} else {
 		sunxi_daudio->regs = sunxi_daudio_membase;
-		//printk("%s,line:%d,res.start:%llu,sunxi_daudio_membase:%x\n",__func__,__LINE__,res.start,sunxi_daudio_membase);
 	}
 	sunxi_daudio->tdm_pllclk = of_clk_get(node, 0);
 	sunxi_daudio->tdm_moduleclk= of_clk_get(node, 1);
