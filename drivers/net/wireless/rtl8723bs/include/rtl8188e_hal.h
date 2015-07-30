@@ -159,8 +159,14 @@ typedef struct _RT_8188E_FIRMWARE_HDR
 #define WOWLAN_PAGE_NUM_88E	0x00
 #endif
 
-#define TX_TOTAL_PAGE_NUMBER_88E(_Adapter)	( (IS_VENDOR_8188E_I_CUT_SERIES(_Adapter)?0x100:0xB0) - BCNQ_PAGE_NUM_88E - WOWLAN_PAGE_NUM_88E)
-#define TX_PAGE_BOUNDARY_88E(_Adapter)		(TX_TOTAL_PAGE_NUMBER_88E(_Adapter) + 1)
+/* Note: 
+Tx FIFO Size : previous CUT:22K /I_CUT after:32KB
+Tx page Size : 128B
+Total page numbers : 176(0xB0) / 256(0x100)
+*/
+#define TOTAL_PAGE_NUMBER_88E(_Adapter)	((IS_VENDOR_8188E_I_CUT_SERIES(_Adapter)?0x100:0xB0) - 1)/* must reserved 1 page for dma issue */
+#define TX_TOTAL_PAGE_NUMBER_88E(_Adapter)	(TOTAL_PAGE_NUMBER_88E(_Adapter) - BCNQ_PAGE_NUM_88E - WOWLAN_PAGE_NUM_88E)
+#define TX_PAGE_BOUNDARY_88E(_Adapter)		(TX_TOTAL_PAGE_NUMBER_88E(_Adapter) + 1) /* beacon header start address */
 
 #define WMM_NORMAL_TX_TOTAL_PAGE_NUMBER_88E(_Adapter)	TX_TOTAL_PAGE_NUMBER_88E(_Adapter)
 #define WMM_NORMAL_TX_PAGE_BOUNDARY_88E(_Adapter)		(WMM_NORMAL_TX_TOTAL_PAGE_NUMBER_88E(_Adapter) + 1)
@@ -270,10 +276,7 @@ BOOLEAN HalDetectPwrDownMode88E(PADAPTER Adapter);
 #ifdef CONFIG_WOWLAN
 void Hal_DetectWoWMode(PADAPTER pAdapter);
 #endif //CONFIG_WOWLAN
-//RT_CHANNEL_DOMAIN rtl8723a_HalMapChannelPlan(PADAPTER padapter, u8 HalChannelPlan);
-//VERSION_8192C rtl8723a_ReadChipVersion(PADAPTER padapter);
-//void rtl8723a_ReadBluetoothCoexistInfo(PADAPTER padapter, u8 *PROMContent, BOOLEAN AutoloadFail);
-void Hal_InitChannelPlan(PADAPTER padapter);
+
 
 #ifdef CONFIG_RF_GAIN_OFFSET
 void Hal_ReadRFGainOffset(PADAPTER pAdapter,u8* hwinfo,BOOLEAN AutoLoadFail);

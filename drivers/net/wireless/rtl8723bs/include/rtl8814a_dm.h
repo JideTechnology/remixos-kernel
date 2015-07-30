@@ -17,23 +17,18 @@
  *
  *
  ******************************************************************************/
-#ifndef __INC_HAL8723PHYCFG_H__
-#define __INC_HAL8723PHYCFG_H__
+#ifndef __RTL8814A_DM_H__
+#define __RTL8814A_DM_H__
 
-#include <Hal8192CPhyCfg.h>
-/* MAC/BB/RF HAL config */
-int	PHY_BBConfig8723A(	IN	PADAPTER	Adapter	);
-int	PHY_RFConfig8723A(	IN	PADAPTER	Adapter	);
-s32 PHY_MACConfig8723A(PADAPTER padapter);
+void rtl8814_init_dm_priv(IN PADAPTER Adapter);
+void rtl8814_deinit_dm_priv(IN PADAPTER Adapter);
+void rtl8814_InitHalDm(IN PADAPTER Adapter);
+void rtl8814_HalDmWatchDog(IN PADAPTER Adapter);
 
-VOID
-PHY_SetSwChnlBWMode8723A(
-	IN	PADAPTER			Adapter,
-	IN	u8					channel,
-	IN	CHANNEL_WIDTH	Bandwidth,
-	IN	u8					Offset40,
-	IN	u8					Offset80
-);
+#ifdef CONFIG_ANTENNA_DIVERSITY
+void AntDivCompare8814(PADAPTER Adapter, WLAN_BSSID_EX *dst, WLAN_BSSID_EX *src);
+u8 AntDivBeforeLink8814(PADAPTER Adapter );
+#endif //CONFIG_ANTENNA_DIVERSITY
 
 #endif
 

@@ -54,6 +54,9 @@ int platform_wifi_power_on(void)
 
 #if defined(CONFIG_PLATFORM_ARM_SUNxI)
 	int wlan_bus_index = sunxi_wlan_get_bus_index();
+	if(wlan_bus_index < 0)
+		return wlan_bus_index;
+
 	sunxi_wlan_set_power(1);
 	mdelay(100);
 	sunxi_mmc_rescan_card(wlan_bus_index);
@@ -76,6 +79,9 @@ void platform_wifi_power_off(void)
 #ifdef CONFIG_MMC
 #if defined(CONFIG_PLATFORM_ARM_SUNxI)
 	int wlan_bus_index = sunxi_wlan_get_bus_index();
+	if(wlan_bus_index < 0)
+		return;
+
 	sunxi_mmc_rescan_card(wlan_bus_index);
 	mdelay(100);
 	sunxi_wlan_set_power(0);

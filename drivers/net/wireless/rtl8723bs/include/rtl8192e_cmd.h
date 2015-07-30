@@ -42,6 +42,7 @@ typedef enum _RTL8192E_H2C_CMD
 	H2C_8192E_SAP_PS = 0x26,
 	H2C_8192E_RA_MASK = 0x40,
 	H2C_8192E_RSSI_REPORT = 0x42,
+	H2C_8192E_RA_PARA_ADJUST = 0x46,
 
 	H2C_8192E_WO_WLAN = 0x80,
 	H2C_8192E_REMOTE_WAKE_CTRL = 0x81,
@@ -64,11 +65,16 @@ typedef enum _RTL8192E_C2H_EVT
 	C2H_8192E_BT_INFO = 9,
 	C2H_8192E_FW_SWCHNL = 0x10,
 	C2H_8192E_BT_MP = 11,
-	C2H_8192E_RA_RPT=12,	
-	
+	C2H_8192E_RA_RPT = 12,
+	C2H_8192E_RA_PARA_RPT = 14,
+	C2H_8192E_EXTEND = 0xff,
 	MAX_8192E_C2HEVENT	
 }RTL8192E_C2H_EVT;
 
+typedef enum _RTL8192E_EXTEND_C2H_EVT {
+	EXTEND_C2H_8192E_DBG_PRINT = 0
+
+} RTL8192E_EXTEND_C2H_EVT;
 
 struct cmd_msg_parm {
 	u8 eid; //element id
@@ -147,7 +153,6 @@ void rtl8192e_download_BTCoex_AP_mode_rsvd_page(PADAPTER padapter);
 #endif // CONFIG_BT_COEXIST
 #ifdef CONFIG_P2P_PS
 void rtl8192e_set_p2p_ps_offload_cmd(PADAPTER padapter, u8 p2p_ps_state);
-//void rtl8723a_set_p2p_ps_offload_cmd(PADAPTER padapter, u8 p2p_ps_state);
 #endif //CONFIG_P2P
 
 void CheckFwRsvdPageContent(PADAPTER padapter);
