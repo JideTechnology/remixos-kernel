@@ -40,7 +40,8 @@
 #include "dmaengine.h"
 #include "virt-dma.h"
 
-#if defined(CONFIG_ARCH_SUN8IW1)
+#if defined(CONFIG_ARCH_SUN8IW1) \
+	|| defined(CONFIG_ARCH_SUN8IW11)
 #define NR_MAX_CHAN	16			/* total of channels */
 #elif defined(CONFIG_ARCH_SUN8IW7)
 #define NR_MAX_CHAN	12			/* total of channels */
