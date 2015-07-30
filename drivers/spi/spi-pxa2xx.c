@@ -1405,6 +1405,8 @@ static int pxa2xx_spi_runtime_resume(struct device *dev)
 {
 	struct driver_data *drv_data = dev_get_drvdata(dev);
 
+	pxa2xx_spi_dma_resume(drv_data);
+
 	clk_prepare_enable(drv_data->ssp->clk);
 
 	/* Init LPSS private register bits */

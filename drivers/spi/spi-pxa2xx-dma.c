@@ -355,6 +355,10 @@ void pxa2xx_spi_dma_release(struct driver_data *drv_data)
 
 void pxa2xx_spi_dma_resume(struct driver_data *drv_data)
 {
+	if (drv_data->rx_chan)
+		dmaengine_resume(drv_data->rx_chan);
+	if (drv_data->tx_chan)
+		dmaengine_resume(drv_data->tx_chan);
 }
 
 int pxa2xx_spi_set_dma_burst_and_threshold(struct chip_data *chip,
