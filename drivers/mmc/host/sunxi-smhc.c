@@ -1726,9 +1726,9 @@ static int sunxi_mmc_resume(struct device *dev)
 				return -1;
 		
 			sunxi_mmc_regs_restore(host);
-			host->ferror = sunxi_mmc_update_clk(host);
-			if (host->ferror)
-				return -1;
+			//host->ferror = sunxi_mmc_update_clk(host);
+			//if (host->ferror)
+			//	return -1;
 
 			enable_irq(host->irq);
 			dev_info(mmc_dev(mmc),"dat3_imask %x\n",host->dat3_imask);
