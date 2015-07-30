@@ -677,25 +677,6 @@
 			pinctrl-1 = <&spdif_pins_b>;
 			status = "okay";
 		};
-		dsd:dsd-controller@0x01c23400{
-			compatible = "allwinner,sunxi-dsd";
-			reg = <0x0 0x01c23400 0x0 0x2c>;
-			clocks = <&clk_pll_audio>,<&clk_dsd>;
-			pinctrl-names = "default","sleep";
-			pinctrl-0 = <&dsd_pins_a>;
-			pinctrl-1 = <&dsd_pins_b>;
-			status = "okay";
-		};
-
-		dmic:dmic-controller@0x01c23800{
-			compatible = "allwinner,sunxi-dmic";
-			reg = <0x0 0x01c23800 0x0 0x34>;
-			clocks = <&clk_pll_audio>,<&clk_dmic>;
-			pinctrl-names = "default","sleep";
-			pinctrl-0 = <&dmic_pins_a>;
-			pinctrl-1 = <&dmic_pins_b>;
-			status = "okay";
-		};
 		sndcodec:sound@0 {
 			compatible = "allwinner,sunxi-codec-machine";
 			interrupts = <GIC_SPI 28 4>;
@@ -704,7 +685,6 @@
 			hp_detect_case = <0x00>;
 			status = "okay";
 		};
-
 		snddaudio0:sound@1{
 			compatible = "allwinner,sunxi-daudio0-machine";
 			sunxi,daudio0-controller = <&daudio0>;
@@ -721,17 +701,6 @@
 			sunxi,spdif-controller = <&spdif>;
 			status = "okay";
 		};
-		snddsd:sound@4{
-			compatible = "allwinner,sunxi-dsd-machine";
-			sunxi,dsd-controller = <&dsd>;
-			status = "okay";
-		};
-		snddmic:sound@5{
-			compatible = "allwinner,sunxi-dmic-machine";
-			sunxi,dmic-controller = <&dmic>;
-			status = "okay";
-		};
-
 		sdc2: sdmmc@01C11000 {
 			compatible = "allwinner,sun50i-sdmmc2";
 			device_type = "sdc2";
