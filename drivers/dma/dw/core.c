@@ -1005,6 +1005,9 @@ static int dwc_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 
 		spin_unlock_irqrestore(&dwc->lock, flags);
 	} else if (cmd == DMA_RESUME) {
+		if (!(dma_readl(dw, CFG) & DW_CFG_DMA_EN))
+			dma_writel(dw, CFG, DW_CFG_DMA_EN);
+
 		if (!dwc->paused)
 			return 0;
 
@@ -1682,7 +1685,6 @@ int dw_dma_suspend(struct dw_dma_chip *chip)
 {
 	struct dw_dma *dw = chip->dw;
 
-	dw_dma_off(dw);
 	if (dw->clk)
 		clk_disable_unprepare(dw->clk);
 
@@ -1696,7 +1698,6 @@ int dw_dma_resume(struct dw_dma_chip *chip)
 
 	if (dw->clk)
 		clk_prepare_enable(dw->clk);
-	dma_writel(dw, CFG, DW_CFG_DMA_EN);
 
 	return 0;
 }
