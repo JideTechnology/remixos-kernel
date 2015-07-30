@@ -525,3 +525,9 @@ config SND_SOC_ML26124
 
 config SND_SOC_TPA6130A2
 	tristate
+config SND_SOC_ACX00DAPM_CODEC
+	tristate "SUNXI AudioCodec ACX00 DAPM"
+	depends on MFD_ACX00
+	default n
+	help
+	  Say Y or M if you want to add support for ACX00 audiocodec.

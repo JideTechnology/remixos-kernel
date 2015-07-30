@@ -13,6 +13,9 @@ menuconfig PHYLIB
 if PHYLIB
 
 comment "MII PHY device drivers"
+config SUNXI_EPHY
+	tristate "Drivers for Allwinnertech EPHY"
+	depends on MFD_ACX00
 
 config AT803X_PHY
 	tristate "Drivers for Atheros AT803X PHYs"

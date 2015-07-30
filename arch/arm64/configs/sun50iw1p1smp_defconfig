@@ -1321,6 +1321,7 @@ CONFIG_BCMA_POSSIBLE=y
 # CONFIG_EZX_PCAP is not set
 # CONFIG_MFD_VIPERBOARD is not set
 # CONFIG_MFD_RETU is not set
+# CONFIG_MFD_ACX00 is not set
 # CONFIG_MFD_PCF50633 is not set
 # CONFIG_MFD_RC5T583 is not set
 # CONFIG_MFD_SEC_CORE is not set

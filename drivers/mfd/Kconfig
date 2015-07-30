@@ -379,6 +379,16 @@ config MFD_RETU
 	  Retu and Tahvo are a multi-function devices found on Nokia
 	  Internet Tablets (770, N800 and N810).
 
+config MFD_ACX00
+	bool "Support Allwinnertech ACX00"
+	select MFD_CORE
+	select REGMAP_I2C
+	depends on I2C=y && GENERIC_HARDIRQS
+	help
+	  Say yes here if you have ac100/ac200 chip on your board.
+	  .This driver provides core support for the ac100,ac200,
+	  in order to use the actual functionaltiy of the device
+	  other drivers must be enabled.
 config MFD_PCF50633
 	tristate "NXP PCF50633"
 	depends on I2C
