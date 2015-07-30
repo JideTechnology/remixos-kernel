@@ -151,13 +151,21 @@ static void set_gpu_freq(int freq /* MHz */)
 */
 int gpu_thermal_cool(int freq /* MHz */)
 {
-	if(private_data.tempctrl_data.temp_ctrl_status)
+	if(private_data.tempctrl_data.temp_ctrl_status && freq > 0)
 	{
-		mutex_lock(&private_data.lock);
-		mali_dev_pause();
-		(void)set_clk_freq(freq);
-		mali_dev_resume();
-		mutex_unlock(&private_data.lock);
+		if(get_current_freq() != freq)
+		{
+			set_gpu_freq(freq);
+		}
+		freq_data.max_freq = freq;
+	}
+	else
+	{
+		if(get_current_freq() != freq_data.normal_freq)
+                {
+                        set_gpu_freq(freq_data.normal_freq);
+                }
+                freq_data.max_freq = freq_data.extreme_freq;
 	}
 
 	return 0;
@@ -303,6 +311,7 @@ static ssize_t dvfs_android_store(struct device *dev, struct device_attribute *a
 	{
 		int err;
 		unsigned long cmd;
+
 		err = strict_strtoul(buf, 10, &cmd);
 		if (err)
 		{
@@ -312,13 +321,27 @@ static ssize_t dvfs_android_store(struct device *dev, struct device_attribute *a
 
 		if(cmd == 0)
 		{
-			/* Recover to normal frequency */
-			set_gpu_freq(freq_data.normal_freq);
+			if(private_data.tempctrl_data.temp_ctrl_status && freq_data.normal_freq >= freq_data.max_freq)
+			{
+				goto out;
+			}
+			else if(get_current_freq() != freq_data.normal_freq)
+			{
+				/* Recover to normal frequency */
+				set_gpu_freq(freq_data.normal_freq);
+			}
 		}
 		else if(cmd == 1)
 		{
-			/* Run in extreme mode */
-			set_gpu_freq(freq_data.extreme_freq);
+			if(private_data.tempctrl_data.temp_ctrl_status && freq_data.extreme_freq >= freq_data.max_freq)
+			{
+				goto out;
+			}
+			else if(get_current_freq() != freq_data.extreme_freq)
+			{
+				/* Run in extreme mode */
+				set_gpu_freq(freq_data.extreme_freq);
+			}
 		}
 	}
 
@@ -510,16 +533,8 @@ static int gpu_throttle_notifier_call(struct notifier_block *nfb, unsigned long 
 	if(private_data.tempctrl_data.temp_ctrl_status)
 	{
 		long temperature = get_temperature();
-		if(temperature > 0)
+		if(temperature > tf_table[0].temp)
 		{
-			if(temperature < tf_table[0].temp)
-			{
-				if(cur_freq != freq_data.normal_freq)
-				{
-					set_gpu_freq(freq_data.normal_freq);
-				}
-			}
-			else
 			{
 				for(i = private_data.tempctrl_data.count - 1; i >= 0; i--)
 				{
@@ -528,8 +543,9 @@ static int gpu_throttle_notifier_call(struct notifier_block *nfb, unsigned long 
 						if(cur_freq != tf_table[i].freq)
 						{
 							set_gpu_freq(tf_table[i].freq);
-							break;
 						}
+						freq_data.max_freq = tf_table[i].freq;
+						break;
 					}
 				}
 			}
@@ -662,6 +678,8 @@ static int mali_platform_init(struct platform_device *device)
 #endif /* CONFIG_MALI_DT */
 
 	parse_sysconfig_fex();
+
+	freq_data.max_freq = freq_data.extreme_freq;
 
 	if(NULL != private_data.regulator_id)
 	{

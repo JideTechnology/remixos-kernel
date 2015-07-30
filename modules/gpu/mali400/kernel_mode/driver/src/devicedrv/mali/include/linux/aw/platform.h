@@ -64,6 +64,7 @@ struct aw_freq_data
 {
 	u32 normal_freq;  /* MHz */
 	u32 extreme_freq; /* MHz */
+	u32 max_freq;     /* MHz */
 };
 
 #ifdef CONFIG_CPU_BUDGET_THERMAL
