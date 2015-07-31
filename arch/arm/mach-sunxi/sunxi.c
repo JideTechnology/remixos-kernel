@@ -155,6 +155,7 @@ static const char * const sunxi_board_dt_compat[] = {
 
 DT_MACHINE_START(SUNXI_DT, "Allwinner Soc (Device Tree)")
 	.init_machine	= sunxi_dt_init,
+	.smp            = smp_ops(sunxi_smp_ops),
 	.map_io		= sunxi_map_io,
 	.init_irq	= irqchip_init,
 	.init_time	= sunxi_timer_init,
