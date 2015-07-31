@@ -962,12 +962,13 @@
 		disp: disp@01000000 {
 			compatible = "allwinner,sun50i-disp";
 			reg = <0x0 0x01000000 0x0 0x00300000>,/*de*/
-				<0x0 0x01c0c000 0x0 0x17fc>,/*lcd*/
+				<0x0 0x01c0c000 0x0 0x07fc>,/*tcon0*/
+				<0x0 0x01c0d000 0x0 0x07fc>,/*tcon1*/
 				<0x0 0x01ca0000 0x0 0x10fc>;/*dsi*/
 			interrupts = <GIC_SPI 86 0x0104>, <GIC_SPI 87 0x0104>,
 				<GIC_SPI 89 0x0104>;/* for dsi */
-			clocks = <&clk_de>,<&clk_tcon0>,
-				<&clk_lvds>,<&clk_mipidsi>,<&clk_tcon1>;
+			clocks = <&clk_de>,<&clk_tcon0>,<&clk_tcon1>,
+				<&clk_lvds>,<&clk_mipidsi>;
 
 			status = "okay";
 		};
