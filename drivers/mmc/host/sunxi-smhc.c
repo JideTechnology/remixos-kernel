@@ -1579,7 +1579,7 @@ static int sunxi_mmc_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_PM
 
-void sunxi_mmc_regs_save(struct sunxi_mmc_host* host)
+static void sunxi_mmc_regs_save(struct sunxi_mmc_host* host)
 {
 	struct sunxi_mmc_ctrl_regs* bak_regs = &host->bak_regs;
 
@@ -1593,7 +1593,7 @@ void sunxi_mmc_regs_save(struct sunxi_mmc_host* host)
 	}
 }
 
-void sunxi_mmc_regs_restore(struct sunxi_mmc_host* host)
+static void sunxi_mmc_regs_restore(struct sunxi_mmc_host* host)
 {
 	struct sunxi_mmc_ctrl_regs* bak_regs = &host->bak_regs;
 
