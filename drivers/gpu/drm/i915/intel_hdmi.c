@@ -1154,6 +1154,7 @@ void intel_hdmi_hot_plug(struct intel_encoder *intel_encoder)
 	 * Lets try to get EDID
 	 */
 	edid = intel_hdmi_get_edid(connector, false);
+
 	if (edid) {
 		if (connector->status == connector_status_connected) {
 			DRM_DEBUG_DRIVER("Hdmi: Monitor connected\n");
@@ -1804,50 +1805,105 @@ static void chv_hdmi_pre_enable(struct intel_encoder *encoder)
 	val |= DPIO_PCS_TX1MARGIN_000 | DPIO_PCS_TX2MARGIN_000;
 	vlv_dpio_write(dev_priv, pipe, VLV_PCS23_DW9(ch), val);
 
-	/* FIXME: Program the support xxx V-dB */
-	/* Use 800mV-0dB */
-	for (i = 0; i < 4; i++) {
-		val = vlv_dpio_read(dev_priv, pipe, CHV_TX_DW4(ch, i));
-		val &= ~DPIO_SWING_DEEMPH9P5_MASK;
-		val |= 128 << DPIO_SWING_DEEMPH9P5_SHIFT;
-		vlv_dpio_write(dev_priv, pipe, CHV_TX_DW4(ch, i), val);
+	/* Program 4k and non-4k modes based on clock value */
+	if (adjusted_mode->clock <= 162000) {
+		/* Programs non-4k modes here */
+		/* FIXME: Program the support xxx V-dB */
+		/* Use 800 mV-0dB */
+		for (i = 0; i < 4; i++) {
+			val = vlv_dpio_read(dev_priv, pipe, CHV_TX_DW4(ch, i));
+			val &= ~DPIO_SWING_DEEMPH9P5_MASK;
+			val &= ~DPIO_SWING_DEEMPH6P0_MASK;
+			val |= 0x80 << DPIO_SWING_DEEMPH9P5_SHIFT;
+			val |= 0x80 << DPIO_SWING_DEEMPH6P0_SHIFT;
+			vlv_dpio_write(dev_priv, pipe, CHV_TX_DW4(ch, i), val);
+		}
+
+		for (i = 0; i < 4; i++) {
+			val = vlv_dpio_read(dev_priv, pipe, CHV_TX_DW2(ch, i));
+			val &= ~DPIO_SWING_MARGIN000_MASK;
+			val &= ~DPIO_UNIQ_TRANS_SCALE_MASK;
+			val |= 0x80 << DPIO_SWING_MARGIN000_SHIFT;
+			val |= 0x98 << DPIO_UNIQ_TRANS_SCALE_SHIFT;
+			vlv_dpio_write(dev_priv, pipe, CHV_TX_DW2(ch, i), val);
+		}
+
+		/* Disable unique transition scale */
+		for (i = 0; i < 4; i++) {
+			val = vlv_dpio_read(dev_priv, pipe, CHV_TX_DW3(ch, i));
+			val &= ~DPIO_TX_UNIQ_TRANS_SCALE_EN;
+			val |= 0x80 << DPIO_SWING_MARGIN101_SHIFT;
+			val |= 0x4 << DPIO_DOWN_SCALE_AMP_METHOD_SHIFT;
+			vlv_dpio_write(dev_priv, pipe, CHV_TX_DW3(ch, i), val);
+		}
+		/* Start swing calculation */
+			val = vlv_dpio_read(dev_priv, pipe, VLV_PCS01_DW10(ch));
+			val &= ~DPIO_PCS_SWING_DEEMPH_CALC_MASK;
+			val |= DPIO_PCS_DEEMPH_CALC_TX0_TX2 |
+				DPIO_PCS_DEEMPH_CALC_TX1_TX3;
+			vlv_dpio_write(dev_priv, pipe, VLV_PCS01_DW10(ch), val);
+
+			val = vlv_dpio_read(dev_priv, pipe, VLV_PCS23_DW10(ch));
+			val &= ~DPIO_PCS_SWING_DEEMPH_CALC_MASK;
+			val |= DPIO_PCS_DEEMPH_CALC_TX0_TX2 |
+				DPIO_PCS_DEEMPH_CALC_TX1_TX3;
+			vlv_dpio_write(dev_priv, pipe, VLV_PCS23_DW10(ch), val);
+	} else {
+		/* Programs 4k-modes here */
+		/* Use 800 mV-0dB */
+		for (i = 0; i < 4; i++) {
+			if (i == 3) {
+				val = vlv_dpio_read(dev_priv, pipe,
+					CHV_TX_DW4(ch, i));
+				val &= ~DPIO_SWING_DEEMPH9P5_MASK;
+				val &= ~DPIO_SWING_DEEMPH6P0_MASK;
+				val |= 0x80 << DPIO_SWING_DEEMPH9P5_SHIFT;
+				val |= 0x80 << DPIO_SWING_DEEMPH6P0_SHIFT;
+				vlv_dpio_write(dev_priv, pipe,
+					CHV_TX_DW4(ch, i), val);
+			} else {
+				val = vlv_dpio_read(dev_priv, pipe,
+					CHV_TX_DW4(ch, i));
+				val &= ~DPIO_SWING_DEEMPH9P5_MASK;
+				val &= ~DPIO_SWING_DEEMPH6P0_MASK;
+				val |= 0x60 << DPIO_SWING_DEEMPH9P5_SHIFT;
+				val |= 0x60 << DPIO_SWING_DEEMPH6P0_SHIFT;
+				vlv_dpio_write(dev_priv, pipe,
+					CHV_TX_DW4(ch, i), val);
+			}
+		}
+
+		for (i = 0; i < 4; i++) {
+			val = vlv_dpio_read(dev_priv, pipe, CHV_TX_DW2(ch, i));
+			val &= ~DPIO_SWING_MARGIN000_MASK;
+			val &= ~DPIO_UNIQ_TRANS_SCALE_MASK;
+			val |= 0xa0 << DPIO_SWING_MARGIN000_SHIFT;
+			val |= 0x98 << DPIO_UNIQ_TRANS_SCALE_SHIFT;
+			vlv_dpio_write(dev_priv, pipe, CHV_TX_DW2(ch, i), val);
+		}
+
+		/* Disable unique transition scale */
+		for (i = 0; i < 4; i++) {
+			val = vlv_dpio_read(dev_priv, pipe, CHV_TX_DW3(ch, i));
+			val &= ~DPIO_TX_UNIQ_TRANS_SCALE_EN;
+			val |= 0xa0 << DPIO_SWING_MARGIN101_SHIFT;
+			val |= 0x4 << DPIO_DOWN_SCALE_AMP_METHOD_SHIFT;
+			vlv_dpio_write(dev_priv, pipe, CHV_TX_DW3(ch, i), val);
+		}
+
+		/* Start swing calculation */
+			val = vlv_dpio_read(dev_priv, pipe, VLV_PCS01_DW10(ch));
+			val &= ~DPIO_PCS_SWING_DEEMPH_CALC_MASK;
+			val |= DPIO_PCS_DEEMPH_CALC_TX0_TX2 |
+				DPIO_PCS_DEEMPH_CALC_TX1_TX3;
+			vlv_dpio_write(dev_priv, pipe, VLV_PCS01_DW10(ch), val);
+
+			val = vlv_dpio_read(dev_priv, pipe, VLV_PCS23_DW10(ch));
+			val &= ~DPIO_PCS_SWING_DEEMPH_CALC_MASK;
+			val |= DPIO_PCS_DEEMPH_CALC_TX0_TX2 |
+				DPIO_PCS_DEEMPH_CALC_TX1_TX3;
+			vlv_dpio_write(dev_priv, pipe, VLV_PCS23_DW10(ch), val);
 	}
-
-	for (i = 0; i < 4; i++) {
-		val = vlv_dpio_read(dev_priv, pipe, CHV_TX_DW2(ch, i));
-		val &= ~DPIO_SWING_MARGIN000_MASK;
-		val |= 102 << DPIO_SWING_MARGIN000_SHIFT;
-		vlv_dpio_write(dev_priv, pipe, CHV_TX_DW2(ch, i), val);
-	}
-
-	/* Disable unique transition scale */
-	for (i = 0; i < 4; i++) {
-		val = vlv_dpio_read(dev_priv, pipe, CHV_TX_DW3(ch, i));
-		val &= ~DPIO_TX_UNIQ_TRANS_SCALE_EN;
-		vlv_dpio_write(dev_priv, pipe, CHV_TX_DW3(ch, i), val);
-	}
-
-	/* Additional steps for 1200mV-0dB */
-#if 0
-	val = vlv_dpio_read(dev_priv, pipe, VLV_TX_DW3(ch));
-	if (ch)
-		val |= DPIO_TX_UNIQ_TRANS_SCALE_CH1;
-	else
-		val |= DPIO_TX_UNIQ_TRANS_SCALE_CH0;
-	vlv_dpio_write(dev_priv, pipe, VLV_TX_DW3(ch), val);
-
-	vlv_dpio_write(dev_priv, pipe, VLV_TX_DW2(ch),
-			vlv_dpio_read(dev_priv, pipe, VLV_TX_DW2(ch)) |
-				(0x9a << DPIO_UNIQ_TRANS_SCALE_SHIFT));
-#endif
-	/* Start swing calculation */
-	val = vlv_dpio_read(dev_priv, pipe, VLV_PCS01_DW10(ch));
-	val |= DPIO_PCS_SWING_CALC_TX0_TX2 | DPIO_PCS_SWING_CALC_TX1_TX3;
-	vlv_dpio_write(dev_priv, pipe, VLV_PCS01_DW10(ch), val);
-
-	val = vlv_dpio_read(dev_priv, pipe, VLV_PCS23_DW10(ch));
-	val |= DPIO_PCS_SWING_CALC_TX0_TX2 | DPIO_PCS_SWING_CALC_TX1_TX3;
-	vlv_dpio_write(dev_priv, pipe, VLV_PCS23_DW10(ch), val);
 
 	/* LRC Bypass */
 	val = vlv_dpio_read(dev_priv, pipe, CHV_CMN_DW30);
