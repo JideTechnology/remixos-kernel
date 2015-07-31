@@ -76,7 +76,7 @@ static int ephy_reset(struct phy_device *phydev)
 
 static int ephy_config_init(struct phy_device *phydev)
 {
-	int c;
+	int value;
 
 	/* Iint ephy */
 	phy_write(phydev, 0x1f, 0x0100);	/* Switch to Page 1 */
@@ -95,10 +95,21 @@ static int ephy_config_init(struct phy_device *phydev)
 
 	/* Disable Auto Power Saving mode */
 	phy_write(phydev, 0x1f, 0x0100);	/* Switch to Page 1 */
-	c = phy_read(phydev, 0x17);
-	c &= ~BIT(13);
-	phy_write(phydev, 0x17, c);
-	return phy_write(phydev, 0x1f, 0x0000);	/* Switch to Page 0 */
+	value = phy_read(phydev, 0x17);
+	value &= ~BIT(13);
+	phy_write(phydev, 0x17, value);
+	phy_write(phydev, 0x1f, 0x0000);	/* Switch to Page 0 */
+
+#ifdef CONFIG_MFD_ACX00
+	value = acx00_reg_read(ephy_priv.acx, EPHY_CTRL);
+	if (phydev->interface == PHY_INTERFACE_MODE_RMII)
+		value |= (1 << 11);
+	else
+		value &= (~(1 << 11));
+	acx00_reg_write(ephy_priv.acx, EPHY_CTRL, value | (1 << 11));
+#endif
+
+	return 0;
 
 }
 

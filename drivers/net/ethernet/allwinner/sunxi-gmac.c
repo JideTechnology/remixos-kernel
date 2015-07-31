@@ -600,7 +600,7 @@ static void geth_free_rx_sk(struct geth_priv *priv)
 	for (i = 0; i < dma_desc_rx; i++) {
 		if (priv->rx_sk[i] != NULL) {
 			struct dma_desc *desc = priv->dma_rx + i;
-			dma_unmap_single(priv->dev, desc_buf_get_addr(desc),
+			dma_unmap_single(priv->dev, (u32)desc_buf_get_addr(desc),
 					 desc_buf_get_len(desc),
 					 DMA_FROM_DEVICE);
 			dev_kfree_skb_any(priv->rx_sk[i]);
@@ -617,7 +617,7 @@ static void geth_free_tx_sk(struct geth_priv *priv)
 		if (priv->tx_sk[i] != NULL) {
 			struct dma_desc *desc = priv->dma_tx + i;
 			if (desc_buf_get_addr(desc))
-				dma_unmap_single(priv->dev, desc_buf_get_addr(desc),
+				dma_unmap_single(priv->dev, (u32)desc_buf_get_addr(desc),
 						 desc_buf_get_len(desc),
 						 DMA_TO_DEVICE);
 			dev_kfree_skb_any(priv->tx_sk[i]);
@@ -1032,7 +1032,7 @@ static void geth_tx_complete(struct geth_priv *priv)
 				priv->ndev->stats.tx_errors++;
 		}
 
-		dma_unmap_single(priv->dev, desc_buf_get_addr(desc),
+		dma_unmap_single(priv->dev, (u32)desc_buf_get_addr(desc),
 				desc_buf_get_len(desc), DMA_TO_DEVICE);
 
 		skb = priv->tx_sk[entry];
@@ -1211,7 +1211,7 @@ static int geth_rx(struct geth_priv *priv, int limit)
 		priv->rx_sk[entry] = NULL;
 
 		skb_put(skb, frame_len);
-		dma_unmap_single(priv->dev, desc_buf_get_addr(desc),
+		dma_unmap_single(priv->dev, (u32)desc_buf_get_addr(desc),
 				desc_buf_get_len(desc), DMA_FROM_DEVICE);
 
 		skb->protocol = eth_type_trans(skb, priv->ndev);
