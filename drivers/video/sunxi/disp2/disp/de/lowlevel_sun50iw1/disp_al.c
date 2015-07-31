@@ -36,18 +36,18 @@ int disp_al_manager_exit(unsigned int disp)
 int disp_al_manager_apply(unsigned int disp, struct disp_manager_data *data)
 {
 	if (data->flag & MANAGER_ENABLE_DIRTY) {
-		al_priv.output_cs[data->config.disp_device] = data->config.cs;
 		al_priv.disp_size[disp].width = data->config.size.width;
 		al_priv.disp_size[disp].height = data->config.size.height;
-		al_priv.disp_device[disp] = data->config.disp_device;
-		al_priv.disp_disp[data->config.disp_device] = disp;
+		al_priv.disp_device[disp] = data->config.hwdev_index;
+		al_priv.disp_disp[al_priv.disp_device[disp]] = disp;
+		al_priv.output_cs[al_priv.disp_device[disp]] = data->config.cs;
 	}
 
-	if (al_priv.output_type[data->config.disp_device] == (u32)DISP_OUTPUT_TYPE_HDMI) {
+	if (al_priv.output_type[al_priv.disp_device[disp]] == (u32)DISP_OUTPUT_TYPE_HDMI) {
 		if (data->config.cs != 0)//YUV output
-			tcon1_hdmi_color_remap(data->config.disp_device,1);
+			tcon1_hdmi_color_remap(al_priv.disp_device[disp],1);
 		else
-			tcon1_hdmi_color_remap(data->config.disp_device,0);
+			tcon1_hdmi_color_remap(al_priv.disp_device[disp],0);
 	}
 
 	de_update_de_frequency(data->config.de_freq);
@@ -274,6 +274,8 @@ int disp_al_lcd_enable(u32 screen_id, disp_panel_para * panel)
 
 int disp_al_lcd_disable(u32 screen_id, disp_panel_para * panel)
 {
+	al_priv.output_type[screen_id] = (u32)DISP_OUTPUT_TYPE_NONE;
+
 	if (LCD_IF_LVDS == panel->lcd_if) {
 		lvds_close(screen_id);
 	} else if (LCD_IF_DSI == panel->lcd_if) {
@@ -407,6 +409,8 @@ int disp_al_hdmi_enable(u32 screen_id)
 
 int disp_al_hdmi_disable(u32 screen_id)
 {
+	al_priv.output_type[screen_id] = (u32)DISP_OUTPUT_TYPE_NONE;
+
 	tcon1_close(screen_id);
 	tcon_exit(screen_id);
 
@@ -442,6 +446,8 @@ int disp_al_tv_enable(u32 screen_id)
 
 int disp_al_tv_disable(u32 screen_id)
 {
+	al_priv.output_type[screen_id] = (u32)DISP_OUTPUT_TYPE_NONE;
+
 	tcon1_close(screen_id);
 	tcon_exit(screen_id);
 
@@ -525,6 +531,8 @@ int disp_al_vdevice_enable(u32 screen_id)
 
 int disp_al_vdevice_disable(u32 screen_id)
 {
+	al_priv.output_type[screen_id] = (u32)DISP_OUTPUT_TYPE_NONE;
+
 	tcon0_close(screen_id);
 	tcon_exit(screen_id);
 
@@ -605,7 +613,7 @@ int disp_init_al(disp_bsp_init_para * para)
 	de_clk_set_reg_base(para->reg_base[DISP_MOD_DE]);
 
 	for (i=0; i<DEVICE_NUM; i++) {
-		tcon_set_reg_base(i, para->reg_base[DISP_MOD_LCD0]);//calc lcd1 base
+		tcon_set_reg_base(i, para->reg_base[DISP_MOD_LCD0 + i]);//calc lcd1 base
 		de_smbl_init(i, para->reg_base[DISP_MOD_DE]);
 	}
 	dsi_set_reg_base(0, para->reg_base[DISP_MOD_DSI0]);

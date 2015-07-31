@@ -1003,6 +1003,7 @@ static s32 disp_mgr_enable(struct disp_manager *mgr)
 		if (mgr->device && mgr->device->get_input_color_range)
 			color_range = mgr->device->get_input_color_range(mgr->device);
 		mgrp->cfg->config.disp_device = mgr->device->disp;
+		mgrp->cfg->config.hwdev_index = mgr->device->hwdev_index;
 		if (mgr->device && mgr->device->is_interlace)
 			mgrp->cfg->config.interlace = mgr->device->is_interlace(mgr->device);
 		else
@@ -1057,6 +1058,7 @@ static s32 disp_mgr_sw_enable(struct disp_manager *mgr)
 		if (mgr->device && mgr->device->get_input_color_range)
 			color_range = mgr->device->get_input_color_range(mgr->device);
 		mgrp->cfg->config.disp_device = mgr->device->disp;
+		mgrp->cfg->config.hwdev_index = mgr->device->hwdev_index;
 		if (mgr->device && mgr->device->is_interlace)
 			mgrp->cfg->config.interlace = mgr->device->is_interlace(mgr->device);
 		else

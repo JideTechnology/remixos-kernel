@@ -69,17 +69,18 @@ s32 bsp_disp_get_print_level(void);
 #ifdef __UBOOT_PLAT__
 #include <common.h>
 #include <malloc.h>
-#include <asm/arch/sunxi_display2.h>
+#include <sunxi_display2.h>
 #include <sys_config.h>
 #include <asm/arch/intc.h>
-#include <asm/arch/cpu.h>
-#include <pmu.h>
 #include <pwm.h>
 #include <asm/arch/timer.h>
 #include <asm/arch/platform.h>
 #include <linux/list.h>
 #include <asm/memory.h>
 #include <div64.h>
+#include <fdt_support.h>
+#include <power/sunxi/pmu.h>
+#include "asm/io.h"
 #include "../disp_sys_intf.h"
 
 #define OSAL_PRINTF
@@ -215,6 +216,7 @@ struct disp_manager_info {
 	u32 interlace;
 	bool enable;
 	u32 disp_device;//disp of device
+	u32 hwdev_index;//indicate the index of timing controller
 	bool blank;//true: disable all layer; false: enable layer according to layer_config.enable
 	u32 de_freq;
 };
@@ -561,16 +563,18 @@ typedef struct
 
 typedef enum
 {
-	DISP_MOD_DE           = 0,
-	DISP_MOD_LCD0         = 1,
-	DISP_MOD_LCD1         = 2,
-	DISP_MOD_LCD2         = 3,
-	DISP_MOD_DSI0         = 4,
-	DISP_MOD_DSI1         = 5,
-	DISP_MOD_DSI2         = 6,
-	DISP_MOD_HDMI         = 7,
-	DISP_MOD_LVDS         = 8,
-	DISP_MOD_NUM          = 9,
+	DISP_MOD_DE = 0,
+	DISP_MOD_DEVICE, //for timing controller common module
+	DISP_MOD_LCD0,
+	DISP_MOD_LCD1,
+	DISP_MOD_LCD2,
+	DISP_MOD_LCD3,
+	DISP_MOD_DSI0,
+	DISP_MOD_DSI1,
+	DISP_MOD_DSI2,
+	DISP_MOD_HDMI,
+	DISP_MOD_LVDS,
+	DISP_MOD_NUM,
 }disp_mod_id;
 
 typedef struct
@@ -654,6 +658,7 @@ struct disp_device {
 	/* data fields */
 	char name[32];
 	u32 disp;
+	u32 hwdev_index;//indicate the index of hw device(timing controller)
 	u32 fix_timing;
 	enum disp_output_type type;
 	struct disp_manager *manager;

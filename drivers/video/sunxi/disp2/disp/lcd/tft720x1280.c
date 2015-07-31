@@ -9,12 +9,12 @@ static void LCD_bl_close(u32 sel);
 static void LCD_panel_init(u32 sel);
 static void LCD_panel_exit(u32 sel);
 
-#define dsi_dcs_write_0para sunxi_lcd_dsi_dcs_write_0para
-#define dsi_dcs_write_1para sunxi_lcd_dsi_dcs_write_1para
-#define dsi_dcs_write_2para sunxi_lcd_dsi_dcs_write_2para
-#define dsi_dcs_write_3para sunxi_lcd_dsi_dcs_write_3para
-#define dsi_dcs_write_4para sunxi_lcd_dsi_dcs_write_4para
-#define dsi_dcs_write_5para sunxi_lcd_dsi_dcs_write_5para
+#define dsi_dcs_wr_0para sunxi_lcd_dsi_dcs_write_0para
+#define dsi_dcs_wr_1para sunxi_lcd_dsi_dcs_write_1para
+#define dsi_dcs_wr_2para sunxi_lcd_dsi_dcs_write_2para
+#define dsi_dcs_wr_3para sunxi_lcd_dsi_dcs_write_3para
+#define dsi_dcs_wr_4para sunxi_lcd_dsi_dcs_write_4para
+#define dsi_dcs_wr_5para sunxi_lcd_dsi_dcs_write_5para
 #define delayms sunxi_lcd_delay_ms
 
 static void tft7201280_init(__u32 sel,__u32 mode,__u32 lane,__u32 format)

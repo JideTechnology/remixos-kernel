@@ -110,7 +110,7 @@ u32 tcon_get_cur_field(u32 sel, u32 tcon_index)
 s32 tcon_get_timing(u32 sel,u32 index, struct disp_video_timings* tt)
 {
     u32 x,y,ht,hbp,vt,vbp,hspw,vspw;
-    u32 lcd_if, lcd_hv_if = 0;
+    u32 lcd_if = 0, lcd_hv_if = 0;
     u32 b_interlace = 0;
 
     if (index==0)
@@ -150,7 +150,7 @@ s32 tcon_get_timing(u32 sel,u32 index, struct disp_video_timings* tt)
     tt->ver_sync_time	= (vspw+1);             //vsync_len
     tt->ver_total_time = (vt/2);
 
-    if ((index==0) && (lcd_hv_if == LCD_HV_IF_CCIR656_2CYC)) {
+    if ((index==0) && (lcd_if == LCD_IF_HV) && (lcd_hv_if == LCD_HV_IF_CCIR656_2CYC)) {
 		tt->ver_total_time = vt;
 		tt->hor_total_time = (ht + 1) / 2;
 		tt->hor_back_porch	= (hbp+1) / 2;
@@ -166,7 +166,7 @@ s32 tcon_get_timing(u32 sel,u32 index, struct disp_video_timings* tt)
 
 s32 tcon_set_reg_base(u32 sel, uintptr_t base)
 {
-	lcd_dev[sel]=(__de_lcd_dev_t *)(uintptr_t)(base + sel*0x1000);
+	lcd_dev[sel]=(__de_lcd_dev_t *)(uintptr_t)(base);
 	return 0;
 }
 

@@ -135,7 +135,7 @@ s32 disp_device_attached_and_enable(int disp_mgr, int disp_dev, enum disp_output
 				mgr->device->disable(mgr->device);
 		}
 		if (DISP_OUTPUT_TYPE_TV == output_type)
-			msleep(300);
+			disp_delay_ms(300);
 		if (mgr->device->set_mode)
 			mgr->device->set_mode(mgr->device, mode);
 		if (mgr->device->enable)

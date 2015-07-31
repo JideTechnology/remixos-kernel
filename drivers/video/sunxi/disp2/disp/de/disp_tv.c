@@ -17,12 +17,7 @@ static struct disp_device_private_data *disp_tv_get_priv(struct disp_device *ptv
 		return NULL;
 	}
 
-	if (!bsp_disp_feat_is_supported_output_types(ptv->disp, DISP_OUTPUT_TYPE_TV)) {
-	    DE_WRN("screen %d do not support TV TYPE!\n", ptv->disp);
-	    return NULL;
-	}
-
-	return &g_ptv_private[ptv->disp];
+	return (struct disp_device_private_data *)ptv->priv_data;
 }
 
 extern void sync_event_proc(u32 disp, bool timeout);
@@ -35,17 +30,17 @@ static s32 disp_tv_event_proc(void *parg)
 {
 	struct disp_device *ptv = (struct disp_device *)parg;
 	struct disp_manager *mgr = NULL;
-	u32 disp;
+	u32 hwdev_index;
 
 	if (ptv==NULL) {
 		DE_WRN("ptv is null.\n");
 		return DISP_IRQ_RETURN;
 	}
 
-	disp = ptv->disp;
-	if (disp_al_device_query_irq(disp)) {
-		int cur_line = disp_al_device_get_cur_line(disp);
-		int start_delay = disp_al_device_get_start_delay(disp);
+	hwdev_index = ptv->hwdev_index;
+	if (disp_al_device_query_irq(hwdev_index)) {
+		int cur_line = disp_al_device_get_cur_line(hwdev_index);
+		int start_delay = disp_al_device_get_start_delay(hwdev_index);
 
 		mgr = ptv->manager;
 		if (NULL == mgr)
@@ -187,8 +182,8 @@ s32 disp_tv_enable( struct disp_device* ptv)
 	}
 
 	ptvp->tv_func.tv_enable(ptv->disp);
-	disp_al_tv_cfg(ptv->disp, ptvp->video_info);
-	disp_al_tv_enable(ptv->disp);
+	disp_al_tv_cfg(ptv->hwdev_index, ptvp->video_info);
+	disp_al_tv_enable(ptv->hwdev_index);
 
 	ret = disp_sys_register_irq(ptvp->irq_no,0,disp_tv_event_proc,(void*)ptv,0,0);
 	if (ret!=0) {
@@ -295,7 +290,7 @@ s32 disp_tv_disable(struct disp_device* ptv)
 
 	disp_tv_set_hpd(ptv, 0);
 	ptvp->tv_func.tv_disable(ptv->disp);
-	disp_al_tv_disable(ptv->disp);
+	disp_al_tv_disable(ptv->hwdev_index);
 	if (mgr->disable)
 		mgr->disable(mgr);
 	tv_clk_disable(ptv);
@@ -548,42 +543,51 @@ s32 disp_init_tv(void)//disp_bsp_init_para * para)  //call by disp_display
 	if (SCIRPT_ITEM_VALUE_TYPE_INT == type)
 		g_tv_used = val.val;
 	if (g_tv_used ) {
-		u32 num_screens;
-		u32 disp;
+		u32 num_devices;
+		u32 disp = 0;
 		struct disp_device* p_tv;
 		struct disp_device_private_data* p_tvp;
+		u32 hwdev_index = 0;
+		u32 num_devices_support_tv = 0;
 
 #if defined(__LINUX_PLAT__)
 		spin_lock_init(&g_tv_data_lock);
 #endif
-		num_screens = bsp_disp_feat_get_num_screens();
-		g_ptv_devices = (struct disp_device *)kmalloc(sizeof(struct disp_device) * num_screens, GFP_KERNEL | __GFP_ZERO);
+		num_devices = bsp_disp_feat_get_num_devices();
+		for (hwdev_index=0; hwdev_index<num_devices; hwdev_index++) {
+			if (bsp_disp_feat_is_supported_output_types(hwdev_index, DISP_OUTPUT_TYPE_TV))
+				num_devices_support_tv ++;
+		}
+		g_ptv_devices = (struct disp_device *)kmalloc(sizeof(struct disp_device) * num_devices_support_tv, GFP_KERNEL | __GFP_ZERO);
 		if (NULL == g_ptv_devices) {
 			DE_WRN("malloc memory fail!\n");
 			return DIS_FAIL;
 		}
 
-		g_ptv_private = (struct disp_device_private_data *)kmalloc(sizeof(struct disp_device_private_data) * num_screens, GFP_KERNEL | __GFP_ZERO);
+		g_ptv_private = (struct disp_device_private_data *)kmalloc(sizeof(struct disp_device_private_data) * num_devices_support_tv, GFP_KERNEL | __GFP_ZERO);
 		if (NULL == g_ptv_private) {
 			DE_WRN("malloc memory fail!\n");
 			return DIS_FAIL;
 		}
 
-		for (disp=0; disp<num_screens; disp++) {
-			p_tv = &g_ptv_devices[disp];
-			p_tvp = &g_ptv_private[disp];
-
+		disp = 0;
+		for (hwdev_index=0; hwdev_index<num_devices; hwdev_index++) {
 			if (!bsp_disp_feat_is_supported_output_types(disp, DISP_OUTPUT_TYPE_TV)) {
 				DE_WRN("screen %d do not support TV TYPE!\n", disp);
 				continue;
 			}
 
+			p_tv = &g_ptv_devices[disp];
+			p_tvp = &g_ptv_private[disp];
+			p_tv->priv_data = (void*)p_tvp;
+
 			p_tv->disp = disp;
+			p_tv->hwdev_index = hwdev_index;
 			sprintf(p_tv->name, "tv%d", disp);
 			p_tv->type = DISP_OUTPUT_TYPE_TV;
 			p_tvp->tv_mode = DISP_TV_MOD_PAL;
-			p_tvp->irq_no = g_init_para.irq_no[DISP_MOD_LCD0 + disp];
-			p_tvp->clk = g_init_para.mclk[DISP_MOD_LCD0 + disp];
+			p_tvp->irq_no = g_init_para.irq_no[DISP_MOD_LCD0 + hwdev_index];
+			p_tvp->clk = g_init_para.mclk[DISP_MOD_LCD0 + hwdev_index];
 
 			p_tv->set_manager = disp_device_set_manager;
 			p_tv->unset_manager = disp_device_unset_manager;
@@ -605,13 +609,10 @@ s32 disp_init_tv(void)//disp_bsp_init_para * para)  //call by disp_display
 			p_tv->resume = disp_tv_resume;
 			p_tv->set_enhance_mode = disp_set_enhance_mode;
 			p_tv->init(p_tv);
-			if (bsp_disp_feat_is_supported_output_types(disp, DISP_OUTPUT_TYPE_TV)) {
-				__inf("disp tv device_registered\n");
-				disp_device_register(p_tv);
-			}
+
+			disp_device_register(p_tv);
+			disp ++;
 		}
-
-
 	}
 	return 0;
 }

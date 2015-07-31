@@ -54,14 +54,14 @@ typedef struct
 	enum disp_init_mode        disp_mode;//0:single screen0(fb0); 1:single screen1(fb0); 2:single screen2(fb0)
 
 	//for screen0/1/2
-	enum disp_output_type      output_type[3];
-	unsigned int          output_mode[3];
+	enum disp_output_type      output_type[DISP_SCREEN_NUM];
+	unsigned int          output_mode[DISP_SCREEN_NUM];
 
 	//for fb0/1/2
-	unsigned int          buffer_num[3];
-	enum disp_pixel_format     format[3];
-	unsigned int          fb_width[3];
-	unsigned int          fb_height[3];
+	unsigned int          buffer_num[DISP_SCREEN_NUM];
+	enum disp_pixel_format     format[DISP_SCREEN_NUM];
+	unsigned int          fb_width[DISP_SCREEN_NUM];
+	unsigned int          fb_height[DISP_SCREEN_NUM];
 }disp_init_para;
 
 typedef struct
@@ -72,7 +72,7 @@ typedef struct
 	struct clk              *mclk[DISP_MOD_NUM];
 
 	disp_init_para          disp_init;
-	struct disp_manager     *mgr[DEVICE_NUM];
+	struct disp_manager     *mgr[DISP_SCREEN_NUM];
 
 	struct proc_list        sync_proc_list;
 	struct proc_list        sync_finish_proc_list;
@@ -80,11 +80,11 @@ typedef struct
 	struct ioctl_list       compat_ioctl_extend_list;
 	struct standby_cb_list  stb_cb_list;
 	struct mutex            mlock;
-	struct work_struct      resume_work[3];
+	struct work_struct      resume_work[DISP_SCREEN_NUM];
 	struct work_struct      start_work;
 
 	u32    		              exit_mode;//0:clean all  1:disable interrupt
-	bool			              b_lcd_enabled[3];
+	bool			              b_lcd_enabled[DISP_SCREEN_NUM];
 	bool                    inited;//indicate driver if init
 	disp_bsp_init_para      para;
 #if defined(CONFIG_ION_SUNXI)

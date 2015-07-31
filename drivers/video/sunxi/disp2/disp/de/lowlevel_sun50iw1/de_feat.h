@@ -1,6 +1,7 @@
 #ifndef _DE_FEAT_H_
 #define _DE_FEAT_H_
 
+#define DE_NUM	2
 #define DEVICE_NUM	2
 #define CHN_NUM		4
 #define VI_CHN_NUM	1
@@ -18,7 +19,8 @@
 //#define LVDS_REVERT
 
 struct de_feat {
-	const int num_devices;
+	const int num_screens;//indicate layer manager number
+	const int num_devices;//indicate timing controller number
 	const int *num_chns;
 	const int *num_vi_chns;
 	const int *num_layers;
@@ -30,6 +32,7 @@ struct de_feat {
 };
 
 int de_feat_init(void);
+int de_feat_get_num_screens(void);
 int de_feat_get_num_devices(void);
 int de_feat_get_num_chns(unsigned int disp);
 int de_feat_get_num_vi_chns(unsigned int disp);

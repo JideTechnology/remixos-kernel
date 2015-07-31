@@ -417,7 +417,7 @@ int de_al_mgr_apply(unsigned int screen_id, struct disp_manager_data *data)
 	}
 	if (data->flag & MANAGER_ENABLE_DIRTY) {
 		de_rtmx_set_enable(screen_id, data->config.enable);
-		de_rtmx_mux(screen_id, data->config.disp_device);
+		de_rtmx_mux(screen_id, data->config.hwdev_index);
 		de_rtmx_set_outitl(screen_id,data->config.interlace);
 	}
 

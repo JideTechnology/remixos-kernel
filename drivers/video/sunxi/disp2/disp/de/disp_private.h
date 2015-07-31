@@ -2,7 +2,13 @@
 #define _DISP_PRIVATE_H_
 
 #include "disp_features.h"
+#if defined(CONFIG_ARCH_SUN50IW1P1)
 #include "./lowlevel_sun50iw1/disp_al.h"
+#elif defined(CONFIG_ARCH_SUN8IW11)
+#include "./lowlevel_sun8iw11/disp_al.h"
+#else
+#error "undefined platform!!!"
+#endif
 
 extern struct disp_device* disp_get_lcd(u32 disp);
 

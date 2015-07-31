@@ -81,6 +81,7 @@ static const int de_is_support_scale[] = {
 };
 
 static const struct de_feat de_cur_features = {
+	.num_screens = DE_NUM,
 	.num_devices = DEVICE_NUM,
 	.num_chns = de_num_chns,
 	.num_vi_chns = de_num_vi_chns,
@@ -91,6 +92,11 @@ static const struct de_feat de_cur_features = {
 	.supported_output_types = de_supported_output_types,
 	.is_support_scale = de_is_support_scale,
 };
+
+int de_feat_get_num_screens(void)
+{
+	return de_cur_features.num_screens;
+}
 
 int de_feat_get_num_devices(void)
 {

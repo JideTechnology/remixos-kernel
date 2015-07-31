@@ -140,16 +140,16 @@ static s32 disp_vdevice_event_proc(void *parg)
 {
 	struct disp_device *vdevice = (struct disp_device*)parg;
 	struct disp_manager *mgr = NULL;
-	u32 disp;
+	u32 hwdev_index;
 
 	if (NULL == vdevice)
 		return DISP_IRQ_RETURN;
 
-	disp = vdevice->disp;
+	hwdev_index = vdevice->hwdev_index;
 
-	if (disp_al_device_query_irq(disp)) {
-		int cur_line = disp_al_device_get_cur_line(disp);
-		int start_delay = disp_al_device_get_start_delay(disp);
+	if (disp_al_device_query_irq(hwdev_index)) {
+		int cur_line = disp_al_device_get_cur_line(hwdev_index);
+		int start_delay = disp_al_device_get_start_delay(hwdev_index);
 
 		mgr = vdevice->manager;
 		if (NULL == mgr)
@@ -573,6 +573,15 @@ struct disp_device* disp_vdevice_register(struct disp_vdevice_init_data *data)
 	struct disp_device *vdevice;
 	struct disp_vdevice_private_data *vdevicep;
 
+	/* Take care about this, using data->disp to query output_types support may be wrong,
+	 * Cause timing controller which support lcd may not row in front.
+	 * For example: tcon0(support hdmi), tcon1(support lcd)
+	 */
+	if (!bsp_disp_feat_is_supported_output_types(data->disp, DISP_OUTPUT_TYPE_LCD)) {
+		DE_WRN("device %d not support vdevice!\n", data->disp);
+		return NULL;
+	}
+
 	vdevice = (struct disp_device *)kmalloc(sizeof(struct disp_device), GFP_KERNEL | __GFP_ZERO);
 	if (NULL == vdevice) {
 			DE_WRN("malloc memory fail!\n");
@@ -592,6 +601,7 @@ struct disp_device* disp_vdevice_register(struct disp_vdevice_init_data *data)
 	memset(vdevice, 0, sizeof(struct disp_device));
 	memcpy(&vdevice->name, data->name, 32);
 	vdevice->disp = data->disp;
+	vdevice->hwdev_index = data->disp;
 	vdevice->fix_timing = data->fix_timing;
 	vdevice->type = data->type;
 	memcpy(&vdevicep->func, &data->func, sizeof(struct disp_device_func));

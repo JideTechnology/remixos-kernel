@@ -154,7 +154,7 @@ s32 WB_EBIOS_Set_Para(u32 sel, struct disp_capture_config *cfg)
 	u32 out_buf_w,out_buf_h;
 	u32 out_fmt;
 	u32 out_window_w,out_window_h,out_window_x,out_window_y;
-	u32 cs_out_w0,cs_out_h0,cs_out_w1,cs_out_h1;
+	u32 cs_out_w0 = 0, cs_out_h0 = 0, cs_out_w1 = 0, cs_out_h1 = 0;
 	u32 fs_out_w0,fs_out_h0,fs_out_w1,fs_out_h1;
 	u32 step_h,step_v;
 	u32 v_intg,v_frac,h_intg,h_frac;

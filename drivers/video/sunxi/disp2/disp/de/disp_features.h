@@ -11,14 +11,16 @@
 #include "lowlevel_sun8iw8/de_feat.h"
 #elif defined(CONFIG_ARCH_SUN8IW9)
 #include "lowlevel_sun8iw9/de_feat.h"
+#elif defined(CONFIG_ARCH_SUN8IW11)
+#include "lowlevel_sun8iw11/de_feat.h"
 #elif defined(CONFIG_ARCH_SUN50I)
 #include "./lowlevel_sun50iw1/de_feat.h"
-//#include "./lowlevel_sun50iw1/disp_al.h"
 #else
 //#error "undefined platform!!!"
 #endif
 
 #define DISP_DEVICE_NUM DEVICE_NUM
+#define DISP_SCREEN_NUM DE_NUM
 
 struct disp_features {
 	const int num_screens;
@@ -29,6 +31,7 @@ struct disp_features {
 };
 
 int bsp_disp_feat_get_num_screens(void);
+int bsp_disp_feat_get_num_devices(void);
 int bsp_disp_feat_get_num_channels(unsigned int disp);
 int bsp_disp_feat_get_num_layers(unsigned int screen_id);
 int bsp_disp_feat_get_num_layers_by_chn(unsigned int disp, unsigned int chn);

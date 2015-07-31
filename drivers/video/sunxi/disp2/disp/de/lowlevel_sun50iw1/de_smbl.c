@@ -34,26 +34,6 @@ static uintptr_t smbl_hw_base[DEVICE_NUM] = {0};
 static u32 PWRSAVE_PROC_THRES = 85; //when bsp_disp_lcd_get_bright() exceed PWRSAVE_PROC_THRES, STOP PWRSAVE.
 
 /*
-typedef enum
-{
-	SMBL_DIRTY_ENABLE    = 0x00000001,
-	SMBL_DIRTY_WINDOW    = 0x00000002,
-	SMBL_DIRTY_SIZE      = 0x00000004,
-	SMBL_DIRTY_BL        = 0x00000008,
-	SMBL_DIRTY_ALL       = 0x0000000F,
-}disp_smbl_dirty_flags;
-
-
-typedef struct disp_smbl_info {
-	u32 enable;
-	u32 window; //effect rectangle
-	de_rectz size;   //display size
-	u32 bl;     //backlight
-	disp_smbl_dirty_flags flags;
-};
-*/
-
-/*
 *********************************************************************************************************
 *                                           PWRSAVE_CORE
 *
@@ -469,19 +449,6 @@ int de_smbl_set_lut(unsigned int sel, unsigned short *lut)
 
 int de_smbl_get_hist(unsigned int sel, unsigned int *cnt)
 {
-#if 0
-	int i;
-	//for_test
-	//FIXME
-	for (i=0; i<IEP_LH_INTERVAL_NUM/2; i++) {
-		cnt[i] = 0x17700;
-	}
-	for (i=IEP_LH_INTERVAL_NUM/2; i<IEP_LH_INTERVAL_NUM; i++) {
-		cnt[i] = 0x0;
-	}
-	return 0;
-#endif
-
 	//Read histogram
 	memcpy((unsigned char *)cnt, (unsigned char *)smbl_hist_block[sel].off, sizeof(unsigned int)*IEP_LH_INTERVAL_NUM);
 
