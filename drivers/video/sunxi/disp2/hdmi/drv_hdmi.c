@@ -886,6 +886,31 @@ static ssize_t hdmi_edid_store(struct device *dev,
 
 static DEVICE_ATTR(edid, S_IRUGO|S_IWUSR|S_IWGRP,hdmi_edid_show, hdmi_edid_store);
 
+static ssize_t hdmi_hdcp_enable_show(struct device *dev,struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", hdmi_core_get_hdcp_enable());
+}
+
+static ssize_t hdmi_hdcp_enable_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	if (count < 1)
+		return -EINVAL;
+
+	if (strnicmp(buf, "1", 1) == 0) {
+		if (1 != hdmi_core_get_hdcp_enable())
+			hdmi_core_set_hdcp_enable(1);
+	} else {
+		if (0 != hdmi_core_get_hdcp_enable())
+			hdmi_core_set_hdcp_enable(0);
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(hdcp_enable, S_IRUGO|S_IWUSR|S_IWGRP,hdmi_hdcp_enable_show, hdmi_hdcp_enable_store);
+
 static int __init hdmi_probe(struct platform_device *pdev)
 {
 	__inf("hdmi_probe call\n");
@@ -965,6 +990,7 @@ static struct attribute *hdmi_attributes[] =
 	&dev_attr_rgb_only.attr,
 	&dev_attr_hpd_mask.attr,
 	&dev_attr_edid.attr,
+	&dev_attr_hdcp_enable.attr,
 	NULL
 };
 

@@ -280,6 +280,10 @@ s32 hdmi_core_get_audio_info(s32 sample_rate)
 s32 hdmi_core_set_hdcp_enable(u32 enable)
 {
 	hdcp_enable = enable;
+	/* change the hdmi state, video will be reconfig if it output currently */
+	hdmi_state = HDMI_State_Idle;
+	video_on = 0;
+	audio_on = 0;
 
 	return 0;
 }
