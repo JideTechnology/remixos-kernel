@@ -332,7 +332,8 @@ struct platform_device sunxi_pwm_device = {
 };
 #else
 static const struct of_device_id sunxi_pwm_match[] = {
-	{ .compatible = "allwinner,sunxi-pwm0", },
+//	{ .compatible = "allwinner,sunxi-pwm0", },
+	{ .compatible = "allwinner,sunxi-s_pwm0", },
 	{},
 };
 #endif

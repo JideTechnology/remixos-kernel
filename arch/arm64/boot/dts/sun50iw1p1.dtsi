@@ -45,7 +45,6 @@
 		disp = &disp;
 		lcd0 = &lcd0;
 		hdmi = &hdmi;
-		pwm = &pwm;
 		boot_disp = &boot_disp;
 	};
 
@@ -397,6 +396,13 @@
 			pinctrl-names = "default";
 			pinctrl-0 = <&s_rsb0_pins_a>;
 			status = "okay";
+		};
+
+		s_pwm0: s_pwm@1f03800 {
+			compatible = "allwinner,sunxi-s_pwm0";
+			reg = <0x0 0x01f03800 0x0 0x3c>;
+			pwm-number = <1>;
+			pinctrl-names = "active", "sleep";
 		};
 
 		s_jtag0: s_jtag0 {
@@ -985,13 +991,6 @@
 			interrupts = <GIC_SPI 96 0x0104>;
 			clocks = <&clk_de>;
 			status = "okay";
-		};
-
-		pwm: pwm@01c21400 {
-			compatible = "allwinner,sunxi-pwm0";
-			reg = <0x0 0x01c21400 0x0 0x3c>;
-			pwm-number = <1>;
-			pinctrl-names = "active", "sleep";
 		};
 
 		boot_disp: boot_disp {
