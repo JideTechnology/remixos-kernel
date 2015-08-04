@@ -580,6 +580,8 @@ s32 composer_init(disp_drv_info *psg_disp_drv)
 #include <linux/sw_sync.h>
 #include <linux/sync.h>
 #include <linux/file.h>
+#include <linux/slab.h>
+
 #include "dev_disp.h"
 #include <video/sunxi_display2.h>
 static struct   mutex	gcommit_mutek;
@@ -731,7 +733,7 @@ typedef struct data_cache{
 }data_cache_t;
 static data_cache_t *frame_data;
 /* destroy data cache of frame */
-static int mem_cache_destroy(){
+static int mem_cache_destroy(void){
 	data_cache_t *cur = frame_data;
 	data_cache_t *next = NULL;
 	while(cur != NULL){
@@ -746,7 +748,7 @@ static int mem_cache_destroy(){
 	return 0;
 }
 /* create data cache of frame */
-static int mem_cache_create(){
+static int mem_cache_create(void){
 	int i = 0;
 	data_cache_t *cur = NULL;
 	mutex_init(&cache_opr);
@@ -799,7 +801,7 @@ static int mem_cache_free(dispc_data_list_t *addr){
 	return -1;
 }
 /* alloc data of a frame from cache */
-static dispc_data_list_t* mem_cache_alloc(){
+static dispc_data_list_t* mem_cache_alloc(void){
 	int i = 0;
 	data_cache_t *cur = NULL;
 	mutex_lock(&cache_opr);
@@ -849,7 +851,7 @@ static void hwc_commit_work(struct work_struct *work)
     struct list_head saved_list;
     int err;
     int i;
-    struct sync_fence *AcquireFence;
+    struct sync_fence **AcquireFence;
 
     mutex_lock(&(gcommit_mutek));
     mutex_lock(&(composer_priv.update_regs_list_lock));
@@ -859,16 +861,16 @@ static void hwc_commit_work(struct work_struct *work)
     list_for_each_entry_safe(data, next, &saved_list, list)
     {
         list_del(&data->list);
-		AcquireFence = (struct sync_fence *)(*(struct sync_fence **)data->hwc_data.aquireFenceFd);
+		AcquireFence = (struct sync_fence **)(data->hwc_data.aquireFenceFd);
 	    for(i = 0; i < data ->hwc_data.aquireFenceCnt; i++, AcquireFence++)
 	    {
-            if(AcquireFence != NULL)
+            if(AcquireFence != NULL && *AcquireFence!=NULL)
             {
-                err = sync_fence_wait(AcquireFence,1000);
-                sync_fence_put(AcquireFence);
+                err = sync_fence_wait(*AcquireFence,1000);
+                sync_fence_put(*AcquireFence);
                 if (err < 0)
 	            {
-	                printk("synce_fence_wait timeout AcquireFence:%p\n",AcquireFence);
+	                printk("synce_fence_wait timeout AcquireFence:%p\n", *AcquireFence);
                     sw_sync_timeline_inc(composer_priv.relseastimeline, 1);
 					goto free;
 	            }
@@ -895,7 +897,7 @@ static int hwc_commit(setup_dispc_data_t *disp_data)
 	struct sync_pt *pt;
 	int fd = -1, cout = 0, coutoffence = 0;
 
-    fencefd = (struct sync_fence *)kzalloc(disp_data->aquireFenceCnt
+    fencefd = (struct sync_fence **)kzalloc(disp_data->aquireFenceCnt
          * (sizeof(struct sync_fence *) + sizeof(int *)), GFP_ATOMIC);
     if(!fencefd){
         printk("out of momery , do not display.\n");
@@ -919,7 +921,7 @@ static int hwc_commit(setup_dispc_data_t *disp_data)
         fencefd[coutoffence] = fence;
         coutoffence++;
     }
-    disp_data->aquireFenceFd = fencefd;
+    disp_data->aquireFenceFd = (int *)fencefd;
     disp_data->aquireFenceCnt = coutoffence;
 
     if(!composer_priv.b_no_output)
