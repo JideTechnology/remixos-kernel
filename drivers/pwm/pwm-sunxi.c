@@ -134,9 +134,9 @@ static int sunxi_pwm_set_polarity(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	temp = sunxi_pwm_readl(chip, PWM_REG_CONTROL);
 	if (polarity == PWM_POLARITY_NORMAL)
-		temp |= ((1 << PWM_POLARITY) << (PWM_OFFSET * pwm->pwm));
+		temp |= ((1 << PWM_POLARITY) << (PWM_OFFSET * (pwm->pwm - chip->base)));
 	else
-		temp &= ~((1 << PWM_POLARITY) << (PWM_OFFSET * pwm->pwm));
+		temp &= ~((1 << PWM_POLARITY) << (PWM_OFFSET * (pwm->pwm - chip->base)));
 
 	sunxi_pwm_writel(chip, PWM_REG_CONTROL, temp);
 
@@ -169,9 +169,9 @@ static int sunxi_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	if (period_ns < 42) {
 		/* if freq lt 24M, then direct output 24M clock */
-		temp = sunxi_pwm_readl(chip, pwm->pwm * 0x10);
+		temp = sunxi_pwm_readl(chip, (pwm->pwm - chip->base)* 0x10);
 		temp |= (0x1 << PWM_BYPASS);//pwm bypass
-		sunxi_pwm_writel(chip, pwm->pwm * 0x10, temp);
+		sunxi_pwm_writel(chip, (pwm->pwm - chip->base) * 0x10, temp);
 
 		return 0;
 	}
@@ -204,12 +204,12 @@ static int sunxi_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	temp = sunxi_pwm_readl(chip, PWM_REG_CONTROL);
 
-	temp &= ~(0xf << (PWM_OFFSET * pwm->pwm));
-	temp |= pre_scal[pre_scal_id][0] << (PWM_OFFSET * pwm->pwm);
+	temp &= ~(0xf << (PWM_OFFSET * (pwm->pwm - chip->base)));
+	temp |= pre_scal[pre_scal_id][0] << (PWM_OFFSET * (pwm->pwm - chip->base));
 
 	sunxi_pwm_writel(chip, PWM_REG_CONTROL, temp);
 
-	sunxi_pwm_writel(chip, (pwm->pwm + 1)  * PWM_REG_PERIOD, ((entire_cycles - 1)<< 16) | active_cycles);
+	sunxi_pwm_writel(chip, ((pwm->pwm - chip->base) + 1)  * PWM_REG_PERIOD, ((entire_cycles - 1)<< 16) | active_cycles);
 
 	pwm_debug("PWM _TEST: duty_ns=%d, period_ns=%d, freq=%d, per_scal=%d, period_reg=0x%x\n", duty_ns, period_ns, freq, pre_scal_id, temp);
 
@@ -225,7 +225,7 @@ static int sunxi_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 
 	temp = sunxi_pwm_readl(chip, PWM_REG_CONTROL);
 	value |= (0x1 << PWM_ENABLE) | (0x1 << PWM_CLK_GATE);
-	value = value << (PWM_OFFSET * pwm->pwm);
+	value = value << (PWM_OFFSET * (pwm->pwm - chip->base));
 	temp |= value;
 
 	sunxi_pwm_writel(chip, PWM_REG_CONTROL, temp);
@@ -240,7 +240,7 @@ static void sunxi_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 
 	temp = sunxi_pwm_readl(chip, 0);
 	value |= (0x1 << PWM_ENABLE) | (0x1 << PWM_CLK_GATE);
-	value = value << (PWM_OFFSET << pwm->pwm);
+	value = value << (PWM_OFFSET << (pwm->pwm - chip->base));
 	temp &= ~value;
 
 	sunxi_pwm_writel(chip, PWM_REG_CONTROL, temp);
@@ -284,9 +284,16 @@ static int sunxi_pwm_probe(struct platform_device *pdev)
 		/* force to one pwm if read property fail */
 		pwm->chip.npwm = 1;
 	}
+
+	/* read property pwm-base */
+	ret = of_property_read_u32(np, "pwm-base", &pwm->chip.base);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "failed to get pwm-base: %d, force to -1 !\n", ret);
+		/* force to one pwm if read property fail */
+		pwm->chip.base = -1;
+	}
 	pwm->chip.dev = &pdev->dev;
 	pwm->chip.ops = &sunxi_pwm_ops;
-	pwm->chip.base = -1;
 	pwm->chip.dev = &pdev->dev;
 
 	/* add pwm chip to pwm-core */
@@ -333,6 +340,7 @@ struct platform_device sunxi_pwm_device = {
 #else
 static const struct of_device_id sunxi_pwm_match[] = {
 	{ .compatible = "allwinner,sunxi-pwm0", },
+	{ .compatible = "allwinner,sunxi-s_pwm0", },
 	{},
 };
 #endif

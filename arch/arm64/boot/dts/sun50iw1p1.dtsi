@@ -1005,6 +1005,15 @@
 			pinctrl-names = "active", "sleep";
 		};
 
+		s_pwm0: s_pwm@1f03800 {
+			compatible = "allwinner,sunxi-s_pwm0";
+			reg = <0x0 0x01f03800 0x0 0x3c>;
+			pwm-number = <1>;
+			pwm-base = <0x10>;
+			pinctrl-names = "active", "sleep";
+			status = "disabled";
+		};
+
 		boot_disp: boot_disp {
 			compatible = "allwinner,boot_disp";
 		};
