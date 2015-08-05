@@ -419,11 +419,17 @@ static int geth_phy_init(struct net_device *ndev)
 		goto err;
 	}
 
+	phy_write(phydev, MII_BMCR, BMCR_RESET);
+	while (BMCR_RESET & phy_read(phydev, MII_BMCR))
+		msleep(30);
+
+	value = phy_read(phydev, MII_BMCR);
+	phy_write(phydev, MII_BMCR, (value & ~BMCR_PDOWN));
+
 	phydev->irq = PHY_POLL;
 
-	phydev = phy_connect(ndev, dev_name(&phydev->dev),
-			&geth_adjust_link, priv->phy_interface);
-	if (IS_ERR(phydev)) {
+	value = phy_connect_direct(ndev, phydev, &geth_adjust_link, priv->phy_interface);
+	if (value) {
 		netdev_err(ndev, "Could not attach to PHY\n");
 		goto err;
 	} else {
@@ -451,13 +457,6 @@ static int geth_phy_init(struct net_device *ndev)
 		}
 
 #endif
-		phy_write(phydev, MII_BMCR, BMCR_RESET);
-		while (BMCR_RESET & phy_read(phydev, MII_BMCR))
-			msleep(30);
-
-		value = phy_read(phydev, MII_BMCR);
-		phy_write(phydev, MII_BMCR, (value & ~BMCR_PDOWN));
-
 	}
 
 	phydev->supported &= PHY_GBIT_FEATURES;
