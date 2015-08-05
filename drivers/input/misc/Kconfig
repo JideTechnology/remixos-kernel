@@ -696,9 +696,18 @@ config INPUT_INTEL_MID_VIBRA
         tristate "Support for Intel MID Vibrator"
         help
         This option enables support for Intel Mid Vibrator Driver. Say Y
-        here if you want to enable the vibrator functionality for CTP
+		here if you want to enable the vibrator functionality for CTP
 
-        To compile this driver as a module, choose M here. The module will
-        be called intel_mid_vibra.
+		To compile this driver as a module, choose M here. The module will
+		be called intel_mid_vibra.
+
+config INPUT_KIONIX_ACCEL
+		tristate “KIONIX_ACCEL”
+		depends on I2C && SYSFS
+		help
+		If you say yes here you get support for the Kionix digital 3-axis
+		accelerometer.
+		This driver can also be built as a module. If so, the module will be
+		called kionix_accel.
 
 endif
