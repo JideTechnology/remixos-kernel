@@ -69,3 +69,4 @@ obj-$(CONFIG_INPUT_SOC_BUTTON_ARRAY)	+= soc_button_array.o
 intel-mid-vibra-objs := intel_mid_vibra.o intel_mid_vibra_acpi.o
 obj-$(CONFIG_INPUT_INTEL_MID_VIBRA)    += intel-mid-vibra.o
 obj-$(CONFIG_INPUT_KIONIX_ACCEL) += kionix_accel.o
+obj-$(CONFIG_INPUT_LTR303)             += ltr303.o
