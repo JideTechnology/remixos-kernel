@@ -718,4 +718,6 @@ config INPUT_LTR303
 		This driver can also be built as a module. If so, the module will be
 		called ltr303.
 
+source "drivers/input/misc/BMG160/Kconfig"
+
 endif
