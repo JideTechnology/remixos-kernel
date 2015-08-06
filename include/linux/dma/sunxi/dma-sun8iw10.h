@@ -48,7 +48,7 @@
  */
 #define DRQDST_SRAM		0
 #define DRQDST_SDRAM		0
-#define DRQDST_SPDIFRX		2
+#define DRQDST_SPDIFTX		2
 #define DRQDST_DAUDIO_0_TX	3
 #define DRQDST_DAUDIO_1_TX	4
 #define DRQDST_NAND0		5

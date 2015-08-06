@@ -21,10 +21,10 @@
 
 #define	SUNXI_SPDIF_CTL	(0x00)
 #ifdef CONFIG_ARCH_SUN8IW1
-	#define SUNXI_SPDIF_CTL_MCLKDIV(v)				((v)<<4)		//v even
 	#define SUNXI_SPDIF_CTL_MCLKOUTEN				(1<<2)
 #endif
-#if defined (CONFIG_ARCH_SUN8IW1) || defined(CONFIG_ARCH_SUN8IW7) || defined(CONFIG_ARCH_SUN50I)
+#if defined (CONFIG_ARCH_SUN8IW1) || defined(CONFIG_ARCH_SUN8IW7) || defined(CONFIG_ARCH_SUN50I)\
+	|| defined(CONFIG_ARCH_SUN8IW11)
 	#define SUNXI_SPDIF_CTL_MCLKDIV(v)				((v)<<4)		//v even
 #endif
 #ifdef CONFIG_ARCH_SUN8IW10
@@ -52,7 +52,7 @@
 	#define SUNXI_SPDIF_RXCFG_RXEN					(1<<0)
 #if defined(CONFIG_ARCH_SUN9IW1) \
 || defined(CONFIG_ARCH_SUN8IW6) || defined(CONFIG_ARCH_SUN8IW7) || defined(CONFIG_ARCH_SUN50I) \
-|| defined(CONFIG_ARCH_SUN8IW10)
+|| defined(CONFIG_ARCH_SUN8IW10) || defined(CONFIG_ARCH_SUN8IW11)
 #define SUNXI_SPDIF_TXFIFO (0x20)
 #else
 #define SUNXI_SPDIF_TXFIFO (0x0C)
@@ -63,7 +63,7 @@
 
 #if defined(CONFIG_ARCH_SUN9IW1) \
 	|| defined(CONFIG_ARCH_SUN8IW6) || defined(CONFIG_ARCH_SUN8IW7)|| defined(CONFIG_ARCH_SUN50I) \
-	|| defined(CONFIG_ARCH_SUN8IW10)
+	|| defined(CONFIG_ARCH_SUN8IW10) || defined(CONFIG_ARCH_SUN8IW11)
 	#define SUNXI_SPDIFFCTL_HUBEN					(1<<31)
 #else
 	#define SUNXI_SPDIF_FCTL_FIFOSRC				(1<<31)
@@ -106,7 +106,8 @@
 	#define SUNXI_SPDIF_INT_RXOIEN					(1<<1)
 	#define SUNXI_SPDIF_INT_RXAIEN					(1<<0)
 #if defined(CONFIG_ARCH_SUN9IW1) \
-	|| defined(CONFIG_ARCH_SUN8IW6)|| defined(CONFIG_ARCH_SUN8IW7) || defined(CONFIG_ARCH_SUN50I)
+	|| defined(CONFIG_ARCH_SUN8IW6)|| defined(CONFIG_ARCH_SUN8IW7) || defined(CONFIG_ARCH_SUN50I)\
+	|| defined(CONFIG_ARCH_SUN8IW10) || defined(CONFIG_ARCH_SUN8IW11)
 	#define SUNXI_SPDIF_ISTA (0x0c)
 #else
 	#define SUNXI_SPDIF_ISTA (0x20)

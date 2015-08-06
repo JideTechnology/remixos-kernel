@@ -134,7 +134,7 @@
 #if !defined(CONFIG_ARCH_SUN8IW5) \
 	&& !defined(CONFIG_ARCH_SUN8IW5) \
 	&& !defined(CONFIG_ARCH_SUN8IW8)
-#define DRQDST_SPDIFRX		2
+#define DRQDST_SPDIFTX		2
 #endif
 
 #if !defined(CONFIG_ARCH_SUN8IW9)

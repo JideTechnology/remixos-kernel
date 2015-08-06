@@ -684,12 +684,12 @@ static struct snd_soc_dai_driver sunxi_spdif_dai = {
 	.remove 	= sunxi_spdif_dai_remove,
 	.playback = {
 		.channels_min = 1,
-		.channels_max = 4,
+		.channels_max = 2,
 		.rates = SUNXI_SPDIF_RATES,
 	.formats = SNDRV_PCM_FMTBIT_S16_LE|SNDRV_PCM_FMTBIT_S20_3LE| SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE,},
 	.capture = {
 		.channels_min = 1,
-		.channels_max = 4,
+		.channels_max = 2,
 		.rates = SUNXI_SPDIF_RATES,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE|SNDRV_PCM_FMTBIT_S20_3LE| SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE,},
 	.ops = &sunxi_spdif_dai_ops,
@@ -756,7 +756,7 @@ static int __init sunxi_spdif_dev_probe(struct platform_device *pdev)
 	}
 
 	sunxi_spdif->play_dma_param.dma_addr = res.start + SUNXI_SPDIF_TXFIFO;
-	sunxi_spdif->play_dma_param.dma_drq_type_num = DRQDST_SPDIFRX;
+	sunxi_spdif->play_dma_param.dma_drq_type_num = DRQDST_SPDIFTX;
 	sunxi_spdif->play_dma_param.dst_maxburst = 8;
 	sunxi_spdif->play_dma_param.src_maxburst = 8;
 
