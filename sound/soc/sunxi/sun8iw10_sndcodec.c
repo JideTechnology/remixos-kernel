@@ -56,9 +56,11 @@ static int sunxi_audio_init(struct snd_soc_pcm_runtime *runtime)
 	snd_soc_dapm_disable_pin(&codec->dapm,	"HPOUTL");
 	snd_soc_dapm_disable_pin(&codec->dapm,	"SPKL");
 	snd_soc_dapm_disable_pin(&codec->dapm,	"SPKR");
-
+	snd_soc_dapm_disable_pin(&codec->dapm,	"MIC1P");
+	snd_soc_dapm_disable_pin(&codec->dapm,	"MIC1N");
 	snd_soc_dapm_disable_pin(&runtime->card->dapm,	"External Speaker");
 	snd_soc_dapm_sync(dapm);
+
 	return 0;
 }
 

@@ -52,7 +52,6 @@
 #define BIAS_CALI_DATA	0x17
 #define BIAS_CALI_SET	0x18
 
-
 /*AC_DAC_DPC:0x00*/
 #define EN_DAC			31
 #define MODQU			25

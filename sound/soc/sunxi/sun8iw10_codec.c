@@ -253,7 +253,7 @@ static const struct snd_kcontrol_new sunxi_codec_controls[] = {
 	SOC_SINGLE_TLV("digital volume", AC_DAC_DPC, DVOL, 0x3f, 0, dig_vol_tlv),
 
 	/*analog control*/
-	SOC_SINGLE_TLV("headphone volume", HP_CTRL, HP_VOL, 0x3f, 0, headphone_vol_tlv),
+	SOC_SINGLE_TLV("headphone volume", HP_VOL, HPVOL, 0x3f, 0, headphone_vol_tlv),
 	SOC_SINGLE_TLV("speakerL volume", SPKL_CTR, SPKL_VOL, 0x1f, 0, spkl_vol_tlv),
 	SOC_SINGLE_TLV("speakerR volume", SPKR_CTR, SPKR_VOL, 0x1f, 0, spkr_vol_tlv),
 
@@ -317,14 +317,16 @@ static const struct soc_enum ac_lspks_func_enum =
 static const struct snd_kcontrol_new ac_lspks_func_controls =
 	SOC_DAPM_ENUM("SPK_L Mux", ac_lspks_func_enum);
 
-/*ADC SOURCE SELECT*/
-/*0x0b:defined left input adc mixer*/
+/*
+* LADC SOURCE SELECT
+* 0x0c:defined left input adc mixer
+*/
 static const struct snd_kcontrol_new ac_ladcmix_controls[] = {
-	SOC_DAPM_SINGLE("MIC1 boost Switch", ADC_MIX_MUTE, LADC_MIC_BST, 1, 0),
-	SOC_DAPM_SINGLE("LINEINR Switch", ADC_MIX_MUTE, LADC_LINEINR, 1, 0),
-	SOC_DAPM_SINGLE("LINEINL Switch", ADC_MIX_MUTE, LADC_LINEINL, 1, 0),
-	SOC_DAPM_SINGLE("l_output mixer Switch", ADC_MIX_MUTE, LADC_LOUT_MIX, 1, 0),
 	SOC_DAPM_SINGLE("r_output mixer Switch", ADC_MIX_MUTE, LADC_ROUT_MIX, 1, 0),
+	SOC_DAPM_SINGLE("l_output mixer Switch", ADC_MIX_MUTE, LADC_LOUT_MIX, 1, 0),
+	SOC_DAPM_SINGLE("LINEINL Switch", ADC_MIX_MUTE, LADC_LINEINL, 1, 0),
+	SOC_DAPM_SINGLE("LINEINR Switch", ADC_MIX_MUTE, LADC_LINEINR, 1, 0),
+	SOC_DAPM_SINGLE("MIC1 boost Switch", ADC_MIX_MUTE, LADC_MIC_BST, 1, 0),
 };
 
 /*built widget*/
@@ -382,14 +384,14 @@ static const struct snd_soc_dapm_widget ac_dapm_widgets[] = {
 static const struct snd_soc_dapm_route ac_dapm_routes[] = {
 	/*PLAYBACK*/
 	{"Left Output Mixer", "DACL Switch",		"DAC_L"},
-	{"Left Output Mixer", "DACR Switch",		"DAC_L"},
+	{"Left Output Mixer", "DACR Switch",		"DAC_R"},
 	{"Left Output Mixer", "LINEINL Switch",		"LINEINL"},
-	{"Left Output Mixer", "MIC1Booststage Switch",		"DAC_L"},
+	{"Left Output Mixer", "MIC1Booststage Switch",		"MIC1 PGA"},
 
 	{"Right Output Mixer", "DACR Switch",		"DAC_R"},
-	{"Right Output Mixer", "DACL Switch",		"DAC_R"},
+	{"Right Output Mixer", "DACL Switch",		"DAC_L"},
 	{"Right Output Mixer", "LINEINR Switch",		"LINEINR"},
-	{"Right Output Mixer", "MIC1Booststage Switch",		"DAC_R"},
+	{"Right Output Mixer", "MIC1Booststage Switch",		"MIC1 PGA"},
 
 	/*hp mux*/
 	{"HP_R Mux", "DACR HPR Switch",		"DAC_R"},
@@ -420,7 +422,6 @@ static const struct snd_soc_dapm_route ac_dapm_routes[] = {
 
 	{"External Speaker", NULL, "SPKL"},
 	{"External Speaker", NULL, "SPKR"},
-
 
 	{"MIC1 PGA", NULL,				"MIC1P"},
 	{"MIC1 PGA", NULL,				"MIC1N"},
@@ -468,12 +469,12 @@ static int codec_trigger(struct snd_pcm_substream *substream,
 			case SNDRV_PCM_TRIGGER_RESUME:
 			case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 				/*enable dac drq*/
-				snd_soc_update_bits(codec, AC_DAC_DPC, (0x1<<DAC_DRQ_EN), (0x1<<DAC_DRQ_EN));
+				snd_soc_update_bits(codec, AC_DAC_FIFOC, (0x1<<DAC_DRQ_EN), (0x1<<DAC_DRQ_EN));
 				return 0;
 			case SNDRV_PCM_TRIGGER_SUSPEND:
 			case SNDRV_PCM_TRIGGER_STOP:
 			case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-				snd_soc_update_bits(codec, AC_DAC_DPC, (0x1<<DAC_DRQ_EN), (0x0<<DAC_DRQ_EN));
+				snd_soc_update_bits(codec, AC_DAC_FIFOC, (0x1<<DAC_DRQ_EN), (0x0<<DAC_DRQ_EN));
 				return 0;
 			default:
 				return -EINVAL;
@@ -547,13 +548,13 @@ static int codec_hw_params(struct snd_pcm_substream *substream,
 
 	if (params_channels(params)==1) {
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-			snd_soc_update_bits(codec, AC_DAC_FIFOC, (0x3<<DAC_MONO_EN), (0x1<<DAC_MONO_EN));			
+			snd_soc_update_bits(codec, AC_DAC_FIFOC, (0x1<<DAC_MONO_EN), (0x1<<DAC_MONO_EN));			
 		} else {
 			snd_soc_update_bits(codec, AC_ADC_FIFOC, (0x1<<ADC_MONO_EN), (0x1<<ADC_MONO_EN));
 		}
 	} else {
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-			snd_soc_update_bits(codec, AC_DAC_FIFOC, (0x3<<DAC_MONO_EN), (0x1<<DAC_MONO_EN));
+			snd_soc_update_bits(codec, AC_DAC_FIFOC, (0x1<<DAC_MONO_EN), (0x0<<DAC_MONO_EN));
 		} else {
 			snd_soc_update_bits(codec, AC_ADC_FIFOC, (0x1<<ADC_MONO_EN), (0x0<<ADC_MONO_EN));
 		}
