@@ -180,6 +180,75 @@ static int geth_open(struct net_device *ndev);
 static void geth_tx_complete(struct geth_priv *priv);
 static void geth_rx_refill(struct net_device *ndev);
 
+#ifdef CONFIG_GETH_ATTRS
+static ssize_t adjust_bgs_show(struct device *dev, struct device_attribute * attr,char * buf)
+{
+	int value = 0;
+	struct net_device *ndev = to_net_dev(dev);
+	struct geth_priv *priv = netdev_priv(ndev);
+
+	if (priv->phy_ext == INT_PHY) {
+		value = readl(priv->geth_extclk + GETH_CLK_REG) >> 28;
+#if defined(CONFIG_ARCH_SUN8IW8)
+		value = value - (readl(SUNXI_SID_VBASE + 0x00) & 0x0F);
+#elif defined(CONFIG_ARCH_SUN8IW7)
+		value = value - ((readl(SUNXI_SID_VBASE + 0x210) >> 24) & 0x0F);
+#endif
+	}
+
+	return sprintf(buf, "bgs: %d\n", value);
+}
+
+static ssize_t adjust_bgs_write(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	unsigned int out = 0;
+	struct net_device *ndev = to_net_dev(dev);
+	struct geth_priv *priv = netdev_priv(ndev);
+	u32 clk_value = readl(priv->geth_extclk + GETH_CLK_REG);
+
+	out = simple_strtoul(buf, NULL, 10);
+
+	if (priv->phy_ext == INT_PHY) {
+#if defined(CONFIG_ARCH_SUN8IW8)
+		clk_value &= ~(0xF << 28);
+		clk_value |= ((readl(SUNXI_SID_VBASE + 0x00) & 0x0F)
+				+ out) << 28;
+#elif defined(CONFIG_ARCH_SUN8IW7)
+		clk_value &= ~(0xF << 28);
+		clk_value |= (((readl(SUNXI_SID_VBASE + 0x210) >> 24)
+				& 0x0F) + out) << 28;
+#endif
+	}
+
+	writel(clk_value, priv->geth_extclk + GETH_CLK_REG);
+
+	return count;
+}
+
+
+static struct device_attribute adjust_reg[] = {
+	__ATTR(adjust_bgs, 0777, adjust_bgs_show, adjust_bgs_write),
+};
+
+static int geth_create_attrs(struct net_device *ndev)
+{
+	int j,ret;
+	for (j = 0; j < ARRAY_SIZE(adjust_reg); j++) {
+		ret = device_create_file(&ndev->dev, &adjust_reg[j]);
+		if (ret)
+			goto sysfs_failed;
+	}
+	goto succeed;
+
+sysfs_failed:
+	while (j--)
+		device_remove_file(&ndev->dev,&adjust_reg[j]);
+succeed:
+	return ret;
+}
+#endif
+
 #ifdef DEBUG
 static void desc_print(struct dma_desc *desc, int size)
 {
@@ -438,22 +507,23 @@ static int geth_phy_init(struct net_device *ndev)
 				"poll", dev_name(&phydev->dev));
 #if defined(CONFIG_ARCH_SUN8IW8) || defined(CONFIG_ARCH_SUN8IW7)
 		if (priv->phy_ext == INT_PHY) {
-			phy_write(phydev, 0x1f, 0x013d);
-			phy_write(phydev, 0x10, 0x3ffe);
-			phy_write(phydev, 0x1f, 0x063d);
-			phy_write(phydev, 0x13, 0x8000);
-			phy_write(phydev, 0x1f, 0x023d);
-			phy_write(phydev, 0x18, 0x1000);
-			phy_write(phydev, 0x1f, 0x063d);
-			phy_write(phydev, 0x15, 0x132c);
-			phy_write(phydev, 0x1f, 0x013d);
-			phy_write(phydev, 0x13, 0xd602);
-			phy_write(phydev, 0x17, 0x003b);
-			phy_write(phydev, 0x1f, 0x063d);
-			phy_write(phydev, 0x14, 0x7088);
-			phy_write(phydev, 0x1f, 0x033d);
-			phy_write(phydev, 0x11, 0x8530);
-			phy_write(phydev, 0x1f, 0x003d);
+			//EPHY Initial
+			phy_write(phydev, 0x1f , 0x0100); /* switch to page 1        */
+			phy_write(phydev, 0x12 , 0x4824); /* Disable APS             */
+			phy_write(phydev, 0x1f , 0x0200); /* switchto page 2         */
+			phy_write(phydev, 0x18 , 0x0000); /* PHYAFE TRX optimization */
+			phy_write(phydev, 0x1f , 0x0600); /* switchto page 6         */
+			phy_write(phydev, 0x14 , 0x708F); /* PHYAFE TX optimization  */
+			phy_write(phydev, 0x19 , 0x0000);
+			phy_write(phydev, 0x13 , 0xf000); /* PHYAFE RX optimization  */
+			phy_write(phydev, 0x15 , 0x1530);
+			phy_write(phydev, 0x1f , 0x0800); /* switch to page 8         */
+			phy_write(phydev, 0x18 , 0x00bc); /* PHYAFE TRX optimization */
+			//disable iEEE
+			phy_write(phydev, 0x1f , 0x0100); /* switchto page 1 */
+			/* reg 0x17 bit3,set 0 to disable iEEE */
+			phy_write(phydev, 0x17 , phy_read(phydev, 0x17) & (~(1<<3)));
+			phy_write(phydev, 0x1f , 0x0000); /* switch to page 0 */
 		}
 
 #endif
@@ -823,6 +893,16 @@ static void geth_clk_enable(struct geth_priv *priv)
 		clk_value |= 0x00000002;
 	else if (phy_interface == PHY_INTERFACE_MODE_RMII)
 		clk_value |= 0x00002001;
+
+	if (priv->phy_ext == INT_PHY) {
+#if defined(CONFIG_ARCH_SUN8IW8)
+		clk_value |= ((readl(SUNXI_SID_VBASE + 0x00) & 0x0F)
+				+ 3) << 28;
+#elif defined(CONFIG_ARCH_SUN8IW7)
+		clk_value |= (((readl(SUNXI_SID_VBASE + 0x210) >> 24)
+				& 0x0F) + 3) << 28;
+#endif
+	}
 
 	/* Adjust Tx/Rx clock delay */
 	clk_value &= ~(0x07 << 10);
@@ -1817,6 +1897,10 @@ static int geth_probe(struct platform_device *pdev)
 
 	/* Before open the device, the mac address is be set */
 	geth_check_addr(ndev, mac_str);
+
+#ifdef CONFIG_GETH_ATTRS
+	geth_create_attrs(ndev);
+#endif
 
 	return 0;
 
