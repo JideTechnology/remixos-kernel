@@ -174,16 +174,12 @@ static int ir_nec_decode(struct rc_dev *dev, struct ir_raw_event ev)
 			 * least Apple and TiVo remotes */
 			scancode = data->bits;
 			IR_dprintk(1, "NEC (modified) scancode 0x%08x\n", scancode);
-		} else if ((address ^ not_address) != 0xff) {
-			/* Extended NEC */
-			scancode = address     << 16 |
-				   not_address <<  8 |
-				   command;
-			IR_dprintk(1, "NEC (Ext) scancode 0x%06x\n", scancode);
 		} else {
-			/* Normal NEC */
-			scancode = address << 8 | command;
-			IR_dprintk(1, "NEC scancode 0x%04x\n", scancode);
+			/* Extended NEC */
+			scancode = address << 8  |
+				   not_address << 16 |
+				   command;
+			IR_dprintk(1, "NEC scancode 0x%06x\n", scancode);
 		}
 
 		if (data->is_nec_x)
