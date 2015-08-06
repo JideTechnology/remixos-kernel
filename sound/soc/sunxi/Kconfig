@@ -39,16 +39,24 @@ config SND_SOC_AUDIO_CODEC_MACHINE
 	  AUDIOCODEC MACHEINE interface.
 
 config SND_SOC_INTERNAL_SUN8IW10_AUDIOCODEC
-	tristate "ASoC support for sun8iw10 audiocodec"
+	tristate "ASoC support for audiocodec"
 	depends on ARCH_SUN8IW10
 	select SND_SOC_SUNXI_RW
 	help
 	  Say Y or M if you want to add support for codecs attached to the
 	  AUDIOCODEC interface.
 
-config SND_SOC_SUN8IW10_CODEC_CPU_DAI
-	tristate "ASoC support for sun8iw10 internal-codec cpudai"
-	depends on ARCH_SUN8IW10
+config SND_SOC_INTERNAL_SUN8IW11_AUDIOCODEC
+	tristate "ASoC support for audiocodec"
+	depends on ARCH_SUN8IW11
+	select SND_SOC_SUNXI_RW
+	help
+	  Say Y or M if you want to add support for codecs attached to the
+	  AUDIOCODEC interface.
+
+config SND_SOC_SUNXI_CODEC_CPU_DAI
+	tristate "ASoC support for internal-codec cpudai"
+	depends on ARCH_SUN8IW10 || ARCH_SUN8IW11
 	select SND_SOC_SUNXI_RW
 	help
 	  Say Y or M if you want to add support for codecs attached to the
@@ -57,6 +65,14 @@ config SND_SOC_SUN8IW10_CODEC_CPU_DAI
 config SND_SOC_SUN8IW10_AUDIO_CODEC_MACHINE
 	tristate "ASoC support for sun8iw10 audiocodec machine"
 	depends on ARCH_SUN8IW10
+	select SND_SOC_SUNXI_RW
+	help
+	  Say Y or M if you want to add support for codecs attached to the
+	  AUDIOCODEC MACHEINE interface.
+
+config SND_SOC_SUN8IW11_AUDIO_CODEC_MACHINE
+	tristate "ASoC support for sun8iw11 audiocodec machine"
+	depends on ARCH_SUN8IW11
 	select SND_SOC_SUNXI_RW
 	help
 	  Say Y or M if you want to add support for codecs attached to the
@@ -106,7 +122,7 @@ config SND_SOC_DSD
 
 config SND_SUNXI_SOC_HDMIAUDIO
 	tristate "ASoC support for hdmiaudio."
-	depends on ARCH_SUN50IW1P1
+	depends on ARCH_SUN50IW1P1 || ARCH_SUN8IW11
 	select SND_SOC_SUNXI_TDM
 	help
  	  Say Y or M if you want to add the hdmi platform interface.
