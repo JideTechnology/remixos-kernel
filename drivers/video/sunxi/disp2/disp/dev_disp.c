@@ -280,12 +280,27 @@ static ssize_t disp_runtime_enable_store(struct device *dev,
 static DEVICE_ATTR(runtime_enable, S_IRUGO|S_IWUGO,
     disp_runtime_enable_show, disp_runtime_enable_store);
 
+
+static ssize_t disp_boot_para_show(struct device *dev,
+    struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "disp_para=%x init_disp=%x tv_vdid=%x fb_base=0x%x\n",
+		disp_boot_para_parse("boot_disp"),
+		0,
+		0,
+		disp_boot_para_parse("fb_base"));
+}
+
+static DEVICE_ATTR(boot_para, S_IRUGO|S_IWUGO,
+    disp_boot_para_show, NULL);
+
 static struct attribute *disp_attributes[] = {
     &dev_attr_sys.attr,
     &dev_attr_disp.attr,
     &dev_attr_enhance_mode.attr,
     &dev_attr_cvbs_enhacne_mode.attr,
     &dev_attr_runtime_enable.attr,
+    &dev_attr_boot_para.attr,
     NULL
 };
 
