@@ -24,6 +24,8 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <media/rc-core.h>
+#include <linux/arisc/arisc.h>
+#include <linux/delay.h>
 #include "sunxi-ir-rx.h"
 
 #define SUNXI_IR_DRIVER_NAME	"sunxi-rc-recv"
@@ -336,6 +338,10 @@ static int sunxi_ir_startup(struct platform_device *pdev)
 		pr_err("%s: get cir addr failed", __func__);
 		ret =  -EBUSY;
 	}
+	if (of_property_read_u32(np, "ir_power_key_code", &ir_data->ir_powerkey)) {
+		pr_err("%s: get cir addr failed", __func__);
+		ret =  -EBUSY;
+	}
 	if (of_property_read_u32(np, "supply_vol", &ir_data->suply_vol)) {
 		pr_err("%s: get cir supply_vol failed", __func__);
 		ret =  -EBUSY;
@@ -477,7 +483,15 @@ static int sunxi_ir_recv_suspend(struct device *dev)
 
 static int sunxi_ir_recv_resume(struct device *dev)
 {
+	int wakeup_event = 0;
+
 	dprintk(DEBUG_SUSPEND, "enter: sunxi_ir_rx_resume. \n");
+	arisc_query_wakeup_source(&wakeup_event);
+	if (wakeup_event & CPUS_WAKEUP_IR) {
+		rc_keydown(sunxi_rcdev, (ir_data->ir_addr<<8)|ir_data->ir_powerkey, 0);
+		msleep(1);
+		rc_keyup(sunxi_rcdev);
+	}
 
 	clk_prepare_enable(ir_data->mclk);
 	ir_reg_cfg();

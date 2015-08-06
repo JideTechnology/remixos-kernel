@@ -98,6 +98,7 @@ struct sunxi_ir_data{
 	u32 suply_vol;
 	int irq_num;
 	u32 ir_addr;
+	u32 ir_powerkey;
 };
 
 int init_rc_map_sunxi(u32 addr);
