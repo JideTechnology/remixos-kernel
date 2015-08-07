@@ -61,6 +61,8 @@ long sunxi_ion_ioctl(struct ion_client *client, unsigned int cmd, unsigned long 
 			return -EFAULT;
 		break;
 	}
+	case ION_IOC_SUNXI_FLUSH_RANGE:
+		break;
 	default:
                pr_err("%s(%d) err: cmd not support!\n", __func__, __LINE__);
 		return -ENOTTY;
