@@ -12,6 +12,7 @@ struct disp_manager_private_data {
 	u32 irq_no;
 	struct clk *clk;
 	struct clk *clk_parent;
+	struct clk *extra_clk;
 };
 
 #if defined(__LINUX_PLAT__)
@@ -497,9 +498,14 @@ static s32 disp_mgr_clk_enable(struct disp_manager *mgr)
 
 	DE_INF("mgr %d clk enable\n", mgr->disp);
 	ret = clk_prepare_enable(mgrp->clk);
-
 	if (0 != ret)
 		DE_WRN("fail enable mgr's clock!\n");
+
+	if (mgrp->extra_clk) {
+		ret = clk_prepare_enable(mgrp->extra_clk);
+		if (0 != ret)
+			DE_WRN("fail enable mgr's extra_clk!\n");
+	}
 
 	return ret;
 }
@@ -512,6 +518,9 @@ static s32 disp_mgr_clk_disable(struct disp_manager *mgr)
 		DE_WRN("NULL hdl!\n");
 		return -1;
 	}
+
+	if (mgrp->extra_clk)
+		clk_disable(mgrp->extra_clk);
 
 	clk_disable(mgrp->clk);
 
@@ -1206,6 +1215,9 @@ s32 disp_init_mgr(disp_bsp_init_para * para)
 		mgrp->irq_no = para->irq_no[DISP_MOD_DE];
 		mgrp->shadow_protect = para->shadow_protect;
 		mgrp->clk = para->mclk[DISP_MOD_DE];
+#if defined(HAVE_DEVICE_COMMON_MODULE)
+		mgrp->extra_clk = para->mclk[DISP_MOD_DEVICE];
+#endif
 
 		mgr->enable = disp_mgr_enable;
 		mgr->sw_enable = disp_mgr_sw_enable;
