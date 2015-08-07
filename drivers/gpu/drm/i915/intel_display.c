@@ -10864,8 +10864,13 @@ static void i915_commit(struct drm_i915_private *dev_priv,
 	}
 
 	if (dev_priv->pfit_changed) {
-		I915_WRITE(PFIT_CONTROL, intel_crtc->pfit_control);
-		I915_WRITE(PIPESRC(pipe), intel_crtc->scaling_src_size);
+		bool pfit_en = ((intel_crtc->pfit_control & PFIT_ENABLE) ?
+				true: false);
+		if (intel_crtc->pfit_en_status || pfit_en != intel_crtc->pfit_en_status) {
+			I915_WRITE(PFIT_CONTROL, intel_crtc->pfit_control);
+			I915_WRITE(PIPESRC(pipe), intel_crtc->scaling_src_size);
+		}
+		intel_crtc->pfit_en_status = pfit_en;
 		dev_priv->pfit_changed = false;
 	}
 
