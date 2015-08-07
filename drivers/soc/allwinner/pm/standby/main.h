@@ -13,6 +13,7 @@
 #include "standby_twi.h"
 #include "standby_clock.h"
 #include "standby_debug.h"
+#include "dram/mctl_hal.h"
 #include "../pm_debug.h"
 #include "../mem_timing.h"
 #include "../mem_int.h"

@@ -19,10 +19,6 @@ INCLUDE   = -I. \
        -I$(KDIR)/drivers/soc/allwinner/standby/include \
        -I$(KDIR)/drivers/soc/allwinner/pm
 
-subdir- += brom
-$(obj)/brom.o : $(obj)/brom/resumes.code FORCE
-obj-y   += brom.o
-
 standby-y := common.o                    \
              standby_twi.o               \
              power/axp152_power.o        \
@@ -31,11 +27,13 @@ standby-y := common.o                    \
              standby_clock.o             \
              standby_debug.o             \
              standby_divlib.o            \
+             ./../mem_mmu_pc_asm.o       \
              ./../mem_divlibc.o          \
              ./../mem_clk.o              \
              ./../mem_timing.o           \
              ./../mem_serial.o           \
              ./../mem_printk.o           \
+             dram/mctl_hal.o             \
              main.o
 
 standby-y := $(addprefix $(obj)/,$(standby-y))
@@ -49,8 +47,5 @@ $(obj)/standby.elf: $(obj)/standby.xn $(standby-y)
 	$(Q)$(CROSS_COMPILE)ld -T $(obj)/standby.xn $(LD_FLAGS) $(LIBS) -EL  $(standby-y) -o $(obj)/standby.elf -Map $(obj)/standby.map
 	$(Q)$(CROSS_COMPILE)objdump -D $(obj)/standby.elf > $(obj)/standby.lst
 #$(call if_changed,ld)
-
-$(obj)/brom/resumes.code: FORCE
-	$(Q)$(MAKE) $(build)=$(obj)/brom
 
 clean-files += standby.code standby.elf

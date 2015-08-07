@@ -13,6 +13,8 @@ void mem_status_clear(void);
 void mem_status_exit(void);
 void save_irq_status(volatile __u32 val);
 void save_mem_status(volatile __u32 val);
+void save_super_flags(volatile __u32 val);
+void save_super_addr(volatile __u32 val);
 __u32 get_mem_status(void);
 void parse_status_code(__u32 code, __u32 index);
 void show_mem_status(void);

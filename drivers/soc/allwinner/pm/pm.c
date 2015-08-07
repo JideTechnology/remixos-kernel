@@ -469,12 +469,14 @@ static void exit_wakeup_src(unsigned int event)
 }
 
 #if defined(CONFIG_ARCH_SUN8IW10P1)
+extern unsigned long cpu_brom_start;
 extern int axp_mem_save(void);
 extern void axp_mem_restore(void);
 static struct clk_state saved_clk_state;
 static struct gpio_state saved_gpio_state;
 static struct ccm_state  saved_ccm_state;
 static struct sram_state saved_sram_state;
+unsigned long cpu_resume_addr = 0;
 
 static void mem_device_save(void)
 {
@@ -528,7 +530,7 @@ static int aw_standby_enter(unsigned long arg)
 	standby = (int (*)(struct aw_pm_info *arg))SRAM_FUNC_START;
 
 	ret = standby(para);
-	if (ret == 0)
+	if (0 == ret)
 		soft_restart(virt_to_phys(cpu_resume));
 
 	return ret;
@@ -550,6 +552,170 @@ static void query_wakeup_source(struct aw_pm_info *arg)
 	arg->standby_para.event |= mem_query_int(INT_SOURCE_IR0)? 0:CPU0_WAKEUP_IR;
 	arg->standby_para.event |= mem_query_int(INT_SOURCE_ALARM)? 0:CPU0_WAKEUP_ALARM;
 	arg->standby_para.event |= mem_query_int(INT_SOURCE_TIMER0)? 0:CPU0_WAKEUP_TIMEOUT;
+}
+
+static int fetch_and_save_dram_para(dram_para_t *pstandby_dram_para)
+{
+	struct device_node *np;
+	s32 ret = -EINVAL;
+
+	np = of_find_compatible_node(NULL, NULL, "allwinner,dram");
+	if (IS_ERR(np)) {
+	    printk(KERN_ERR "get [allwinner,dram] device node error\n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_clk", &pstandby_dram_para->dram_clk);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_clk err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_type", &pstandby_dram_para->dram_type);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_type err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_zq", &pstandby_dram_para->dram_zq);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_zq err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_odt_en", &pstandby_dram_para->dram_odt_en);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_odt_en err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_para1", &pstandby_dram_para->dram_para1);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_para1 err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_para2", &pstandby_dram_para->dram_para2);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_para2 err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_mr0", &pstandby_dram_para->dram_mr0);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_mr0 err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_mr1", &pstandby_dram_para->dram_mr1);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_mr1 err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_mr2", &pstandby_dram_para->dram_mr2);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_mr2 err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_mr3", &pstandby_dram_para->dram_mr3);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_mr3 err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_tpr0", &pstandby_dram_para->dram_tpr0);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_tpr0 err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_tpr1", &pstandby_dram_para->dram_tpr1);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_tpr1 err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_tpr2", &pstandby_dram_para->dram_tpr2);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_tpr2 err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_tpr3", &pstandby_dram_para->dram_tpr3);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_tpr3 err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_tpr4", &pstandby_dram_para->dram_tpr4);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_tpr4 err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_tpr5", &pstandby_dram_para->dram_tpr5);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_tpr5 err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_tpr6", &pstandby_dram_para->dram_tpr6);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_tpr6 err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_tpr7", &pstandby_dram_para->dram_tpr7);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_tpr7 err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_tpr8", &pstandby_dram_para->dram_tpr8);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_tpr8 err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_tpr9", &pstandby_dram_para->dram_tpr9);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_tpr9 err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_tpr9", &pstandby_dram_para->dram_tpr9);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_tpr9 err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_tpr10", &pstandby_dram_para->dram_tpr10);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_tpr10 err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_tpr11", &pstandby_dram_para->dram_tpr11);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_tpr11 err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_tpr12", &pstandby_dram_para->dram_tpr12);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_tpr12 err. \n");
+	    return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "dram_tpr13", &pstandby_dram_para->dram_tpr13);
+	if (ret){
+	    printk(KERN_ERR "standby :get dram_tpr13 err. \n");
+	    return -EINVAL;
+	}
+
+	return ret;
 }
 #endif
 
@@ -990,6 +1156,8 @@ static int aw_early_suspend(void)
 #ifdef CONFIG_CPU_OPS_SUNXI
    asm("wfi");
 #elif defined(CONFIG_ARCH_SUN8IW10P1)
+   standby_info.resume_addr = virt_to_phys((void *)&cpu_brom_start);
+   cpu_resume_addr = virt_to_phys(cpu_resume);
    cpu_pm_enter();
    //cpu_cluster_pm_enter();
    cpu_suspend((unsigned long)(&standby_info), aw_standby_enter);
@@ -1579,8 +1747,13 @@ static int __init aw_pm_init(void)
 	    return -EINVAL;
 	}
 
-#if 0
-	sram_a1_np = of_find_compatible_node(NULL, NULL, "allwinner,sram_a1");
+#ifdef CONFIG_ARCH_SUN8IW10P1
+	ret = fetch_and_save_dram_para(&(standby_info.dram_para));
+	if (ret){
+	    printk(KERN_ERR "get standby dram para err. \n");
+	    return -EINVAL;
+	}
+	/*sram_a1_np = of_find_compatible_node(NULL, NULL, "allwinner,sram_a1");
 	if (IS_ERR(sram_a1_np)) {
 	    printk(KERN_ERR "get [allwinner,sram_a1] device node error\n");
 	    return -EINVAL;
@@ -1597,7 +1770,7 @@ static int __init aw_pm_init(void)
 	sram_a1_vbase = of_iomap(sram_a1_np, 0);
 	if (!sram_a1_vbase)
 		panic("Can't map sram_a1 registers");
-	printk("%s: sram_a1_vbase=0x%x\n", __func__, (unsigned int)sram_a1_vbase);
+	printk("%s: sram_a1_vbase=0x%x\n", __func__, (unsigned int)sram_a1_vbase); */
 #endif
 	standby_space.standby_mem_base = (phys_addr_t)value[0];
 	standby_space.extended_standby_mem_base = (phys_addr_t)value[0] + 0x400;    //1K bytes offset

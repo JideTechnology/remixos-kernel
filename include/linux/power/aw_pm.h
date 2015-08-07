@@ -483,6 +483,34 @@ struct aw_standby_para{
 	unsigned int pextended_standby;
 };
 
+#ifdef CONFIG_ARCH_SUN8IW10P1
+typedef struct dram_para {
+	unsigned int dram_clk;
+	unsigned int dram_type;
+	unsigned int dram_zq;
+	unsigned int dram_odt_en;
+	unsigned int dram_para1;
+	unsigned int dram_para2;
+	unsigned int dram_mr0;
+	unsigned int dram_mr1;
+	unsigned int dram_mr2;
+	unsigned int dram_mr3;
+	unsigned int dram_tpr0;
+	unsigned int dram_tpr1;
+	unsigned int dram_tpr2;
+	unsigned int dram_tpr3;
+	unsigned int dram_tpr4;
+	unsigned int dram_tpr5;
+	unsigned int dram_tpr6;
+	unsigned int dram_tpr7;
+	unsigned int dram_tpr8;
+	unsigned int dram_tpr9;
+	unsigned int dram_tpr10;
+	unsigned int dram_tpr11;
+	unsigned int dram_tpr12;
+	unsigned int dram_tpr13;
+} dram_para_t;
+#endif
 
 /**
 *@brief struct of power management info
@@ -490,6 +518,10 @@ struct aw_standby_para{
 struct aw_pm_info{
     struct aw_standby_para		standby_para;   /* standby parameter            */
     struct aw_pmu_arg			pmu_arg;        /**<args used by main function  */
+#ifdef CONFIG_ARCH_SUN8IW10P1
+    dram_para_t                         dram_para;
+    unsigned long                       resume_addr;
+#endif
 };
 
 typedef struct sst_dram_info

@@ -36,6 +36,7 @@ pm_tmp-y +=	mem_ccu.o                   \
 		extended_standby-sun8iw6.o  \
 		pm_debug_sun8i50i.o         \
 		mem_sram.o                  \
+		resumes.o                   \
 		standby.o
 endif
 

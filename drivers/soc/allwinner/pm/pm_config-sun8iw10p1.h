@@ -14,16 +14,16 @@
 #include "asm-generic/sizes.h"
 //#include <generated/autoconf.h>
 
-#define SUNXI_SRAM_A1_PBASE			(0)
-#define SUNXI_SRAM_A2_PBASE			(0)
-#define SUNXI_PIO_PBASE				(0)
+#define SUNXI_SRAM_A1_PBASE			(0x00000000)
+#define SUNXI_SRAM_A2_PBASE			(0x00004000)
+#define SUNXI_PIO_PBASE				(0x01c20800)
 #define SUNXI_R_PRCM_PBASE			(0)
 #define SUNXI_TWI2_PBASE			(0)
 #define SUNXI_MSGBOX_PBASE			(0)
 #define SUNXI_SPINLOCK_PBASE			(0)
 #define SUNXI_R_PIO_PBASE			(0)
 #define SUNXI_R_CPUCFG_PBASE			(0)
-#define SUNXI_UART0_PBASE			(0)
+#define SUNXI_UART0_PBASE			(0x01c28000)
 #define SUNXI_TWI0_PBASE			(0x01c2ac00)
 #define SUNXI_TWI1_PBASE			(0x01c2b000)
 #define SUNXI_CPUCFG_P_REG0			(0)
@@ -31,7 +31,7 @@
 #define SUNXI_CPUX_PWR_CLAMP(x)			(0)
 #define SUNXI_CPUX_PWR_CLAMP_STATUS(x)		(0)
 #define SUNXI_CPU_PWROFF_REG			(0)
-#define SUNXI_RTC_PBASE		(0)
+#define SUNXI_RTC_PBASE		(0x01c20400)
 #define SUNXI_SRAMCTRL_PBASE    (0x01c00000)
 #define SUNXI_LRADC_PBASE       (0x01c21800)
 #define SUNXI_GIC_DIST_PBASE	(0)
@@ -84,6 +84,9 @@
 #define STANDBY_STATUS_REG 	(0xf1c20500)
 #define STANDBY_STATUS_REG_PA 	(0x01c20500)
 #define STANDBY_STATUS_REG_NUM 	(4)
+#define STANDBY_SUPER_FLAG_REG  (0xf1c205f8)
+#define STANDBY_SUPER_ADDR_REG  (0xf1c205e4)
+
 
 //module base reg
 #define AW_LRADC01_BASE		(SUNXI_LRADC_PBASE)

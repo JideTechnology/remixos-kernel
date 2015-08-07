@@ -117,9 +117,10 @@
 	.text
 	.arm
 /**********************the begin of initializing system**********************/
-	.globl _start
-_start:
-#if defined(CONFIG_ARCH_SUN8IW3P1) || defined(CONFIG_ARCH_SUN8IW5P1) || defined(CONFIG_ARCH_SUN8IW7P1)
+	.globl cpu_brom_start
+cpu_brom_start:
+#if defined(CONFIG_ARCH_SUN8IW3P1) || defined(CONFIG_ARCH_SUN8IW5P1) \
+	|| defined(CONFIG_ARCH_SUN8IW7P1) || defined(CONFIG_ARCH_SUN8IW10P1)
 	ldr     r0, =0x01c00024
 	ldr     r1, [r0]
 	/* 1 -> bit15 to enable write */
@@ -151,7 +152,6 @@ config_end:
 #endif
 
 	//ldr r0, =(SUNXI_SRAM_A1_PBASE + SRAMA1_PARA_OFFSET)
-	ldr     r1, =(0x0 + 0x400)
 #ifdef CONFIG_SUNXI_TRUSTZONE
 	/* config banked gic */
 	ldr     r1, [r0, #REGS_NUM]
@@ -326,9 +326,9 @@ A7f:
 	 * However, architecturally should execute CLREX on a context switch
 	 */
 	clrex
-	//ldr     r1, =(SUNXI_SRAM_A1_PBASE + SRAMA1_PARA_OFFSET)
-	ldr     r1, =(0x0 + 0x400)
-	ldr     r0, [r1, #RESUME_ADDR]
+	ldr     r1, =cpu_resume_addr
+	sub     r1, #0x80000000
+	ldr     r0, [r1]
 	dmb
 	movs    pc, r0
 

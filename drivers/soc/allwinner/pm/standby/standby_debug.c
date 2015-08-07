@@ -64,3 +64,19 @@ void save_cpux_mem_status_nommu(volatile __u32 val)
 	return;
 }
 
+void save_super_flags(volatile __u32 val)
+{
+	*(volatile __u32 *)(STANDBY_SUPER_FLAG_REG) = val;
+	asm volatile ("dsb");
+	asm volatile ("isb");
+	return;
+}
+
+void save_super_addr(volatile __u32 val)
+{
+	*(volatile __u32 *)(STANDBY_SUPER_ADDR_REG) = val;
+	asm volatile ("dsb");
+	asm volatile ("isb");
+	return;
+}
+

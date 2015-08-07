@@ -11,6 +11,8 @@
 #include "standby.h"
 #include "main.h"
 
+#define SUPER_FALG      (0x10000)
+
 static struct aw_pm_info pm_info;
 static extended_standby_t extended_standby_para_info;
 static struct pll_factor_t orig_pll;
@@ -29,9 +31,20 @@ static void query_wakeup_source(struct aw_pm_info *arg);
 int standby_main(struct aw_pm_info *arg)
 {
 	save_mem_status(STANDBY_START | 0X01);
+	if(!arg){
+		/* standby parameter is invalid */
+		return -1;
+	}
 
-	/* module test */
-	return 0;
+	/* flush data and instruction tlb, there is 32 items of data tlb and 32 items of instruction tlb,
+	The TLB is normally allocated on a rotating basis. The oldest entry is always the next allocated */
+	mem_flush_tlb();
+
+	/* preload tlb for standby */
+	mem_preload_tlb();
+
+	save_mem_status(STANDBY_START | 0X02);
+
 	/* copy standby parameter from dram */
 	standby_memcpy(&pm_info, arg, sizeof(pm_info));
 
@@ -40,31 +53,42 @@ int standby_main(struct aw_pm_info *arg)
 		standby_memcpy(&extended_standby_para_info, (void *)(pm_info.standby_para.pextended_standby), sizeof(extended_standby_para_info));
 	}
 
+	/* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
+	/* init module before dram enter selfrefresh */
+	/* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
+	/*init perf counter for timing.*/
+	init_perfcounters(1, 0); //need double check.
+	standby_clk_init();
 	mem_clk_init(1);
+	save_mem_status(STANDBY_START | 0X03);
 	/* init uart for print */
 	if(unlikely(pm_info.standby_para.debug_mask&PM_STANDBY_PRINT_STANDBY)){
 		serial_init_manager();
 	}
 
-	save_mem_status(STANDBY_START | 0X02);
+	save_mem_status(STANDBY_START | 0X04);
+	flush_dcache();
+	flush_icache();
 	/* enable dram enter into self-refresh */
 	dram_enter_selfresh(&extended_standby_para_info);
 
-	save_mem_status(STANDBY_START | 0X03);
+	save_mem_status(STANDBY_START | 0X05);
 	/* cpu reduce frequency */
 	cpu_enter_lowfreq();
 
-	save_mem_status(STANDBY_START | 0X04);
+	save_mem_status(STANDBY_START | 0X06);
 	/* power domain suspend */
 #ifdef CONFIG_AW_AXP
 	standby_twi_init(pm_info.pmu_arg.twi_port);
-	if (SUPER_STANDBY_FLAG == extended_standby_para_info.id)
+	if (SUPER_STANDBY_FLAG & extended_standby_para_info.id) {
+		save_super_flags(SUPER_FALG);
+		save_super_addr(pm_info.resume_addr);
 		power_enter_super(&pm_info, &extended_standby_para_info);
+	}
 	dm_suspend(&pm_info, &extended_standby_para_info);
 #endif
-	printk("test printk...\n");
 
-	save_mem_status(STANDBY_START | 0X05);
+	save_mem_status(STANDBY_START | 0X07);
 	/* bus reduce frequency */
 	bus_enter_lowfreq(&extended_standby_para_info);
 
@@ -101,6 +125,8 @@ static int dram_enter_selfresh(extended_standby_t *para)
 {
 	s32 ret = -1;
 
+	ret = dram_power_save_process();
+
 	return ret;
 }
 
@@ -108,12 +134,13 @@ static int dram_exit_selfresh(void)
 {
 	s32 ret = -1;
 
+	ret = dram_power_up_process(&(pm_info.dram_para));
+
 	return ret;
 }
 
 static int cpu_enter_lowfreq(void)
 {
-	standby_clk_init();
 	 /* backup cpu freq */
 	standby_clk_get_pll_factor(&orig_pll);
 	/* backup bus src */
@@ -174,9 +201,11 @@ static int bus_enter_lowfreq(extended_standby_t *para)
 	standby_clk_core2losc();
 
 	if(1 == para->soc_dram_state.selfresh_flag){
+		printk("disable HOSC, and disable LDO \n");
 		// disable HOSC, and disable LDO
 		standby_clk_hoscdisable();
 		standby_clk_ldodisable();
+		save_mem_status(STANDBY_START | 0X08);
 	}
 
 	return 0;
