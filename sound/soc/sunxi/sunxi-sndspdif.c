@@ -107,7 +107,12 @@ static __mclk_set_inf  MCLK_INF[] =
     /*192k bitrate   12.288  Mbit/s  4/4 = 1*/
     {192000, 128,  1, 0},
     /*44.1k bitrate  2.8224  Mbit/s   16/4 = 4*/
+    #ifdef CONFIG_AW_ASIC_EVB_PLATFORM
     { 44100, 128,  4, 1}, { 44100, 256,  4, 1}, { 44100, 512,  4, 1},
+    #else
+    /*fpga*/
+    { 44100, 128,  4, 1}, { 44100, 256,  16, 1}, { 44100, 512,  4, 1},
+    #endif
      /*176.4k bitrate  11.2896  Mbit/s 4/4 = 1*/
     {176400, 128, 1, 1},
 
