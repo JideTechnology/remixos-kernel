@@ -15,7 +15,7 @@ config FB_CONSOLE_SUNXI
 
 config DISP2_SUNXI
   tristate "DISP Driver Support(sunxi-disp2)"
-  depends on (ARCH_SUN50I)
+  depends on (ARCH_SUN50I || ARCH_SUN8IW11)
   default n
   ---help---
 
