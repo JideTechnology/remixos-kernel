@@ -644,6 +644,7 @@ static struct platform_device tr_device = {
 #else
 static const struct of_device_id sunxi_tr_match[] = {
 	{ .compatible = "allwinner,sun50i-tr", },
+	{ .compatible = "allwinner,sun8iw11-tr", },
 	{},
 };
 #endif
