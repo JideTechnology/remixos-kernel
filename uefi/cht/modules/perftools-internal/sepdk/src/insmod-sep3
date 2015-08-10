@@ -1,0 +1,226 @@
+#!/bin/sh
+
+#
+# File: insmod-sep3
+#
+# Description: script to load SEP driver
+#
+# Version: 1.11
+#
+# Copyright (C) 2008-2014 Intel Corporation.  All Rights Reserved.
+#
+#     This file is part of SEP Development Kit
+#
+#     SEP Development Kit is free software; you can redistribute it
+#     and/or modify it under the terms of the GNU General Public License
+#     version 2 as published by the Free Software Foundation.
+#
+#     SEP Development Kit is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+# 
+#     You should have received a copy of the GNU General Public License
+#     along with SEP Development Kit; if not, write to the Free Software
+#     Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+# 
+#     As a special exception, you may use this file as part of a free software
+#     library without restriction.  Specifically, if other files instantiate
+#     templates or use macros or inline functions from this file, or you compile
+#     this file and link it with other files to produce an executable, this
+#     file does not by itself cause the resulting executable to be covered by
+#     the GNU General Public License.  This exception does not however
+#     invalidate any other reasons why the executable file might be covered by
+#     the GNU General Public License.
+#
+
+# ------------------------------ CONSTANTS -----------------------------------
+
+# base driver name and version
+DRIVER_BASE=sep
+DRIVER_MAJOR=3
+DRIVER_MINOR=11
+# basic name of driver
+DRIVER_NAME=${DRIVER_BASE}${DRIVER_MAJOR}_${DRIVER_MINOR}
+# name to use with insmod/rmmod scripts
+DRIVER_NAME_SCRIPT=${DRIVER_BASE}${DRIVER_MAJOR}
+# name of rmmod script
+RMMOD_SCRIPT=rmmod-${DRIVER_NAME_SCRIPT}
+# default driver device permissions
+DEFAULT_PERMS=660
+SEP_DRIVER=/dev/sep${DRIVER_MAJOR}_${DRIVER_MINOR}_c
+PAX_DRIVER=/dev/pax
+# ------------------------------- OUTPUT -------------------------------------
+
+print_msg()
+{
+  MSG="$*"
+  echo "$MSG"
+}
+
+print_nnl()
+{
+  MSG="$*"
+  echo -n "$MSG"
+}
+
+print_err()
+{
+  MSG="$*"
+  if [ -w /dev/stderr ] ; then
+    echo "$MSG" >> /dev/stderr
+  else
+    echo "$MSG"
+  fi
+}
+
+# ------------------------------ COMMANDS ------------------------------------
+
+CHMOD="chmod"
+INSMOD="insmod"
+LSMOD="lsmod"
+WHICH="which"
+
+# ------------------------------ FUNCTIONS -----------------------------------
+
+# function to show usage and exit
+print_usage_and_exit()
+{
+  err=${1:-0}
+  print_msg ""
+  print_msg "Usage: $0 [ options ]"
+  print_msg ""
+  print_msg " where \"options\" are the following:"
+  print_msg ""
+  print_msg "    -p | --perms fileperms"
+  print_msg "      restricts access to the ${DRIVER_NAME} driver based on the specified"
+  print_msg "      file permissions; if this option is not provided, then file"
+  print_msg "      permissions \"${DEFAULT_PERMS}\" (or equivalently, \"ug+rw\") will be used"
+  print_msg ""
+  print_msg "    -r | --reload"
+  print_msg "      attempt to reload all relevant drivers; note that drivers will"
+  print_msg "      not unload if they are still in use"
+  print_msg ""
+  exit $err
+}
+
+# set the directory of the insmod-sep3 script
+SCRIPT_DIR=${PWD}
+SEP_SHELL=sh
+
+# check for certain options
+reload_driver=0
+while [ $# -gt 0 ] ; do
+  case "$1" in
+    -h | --help)
+      print_usage_and_exit 0
+      ;;
+    -p | --perms)
+      DRIVER_PERMS=$2
+      if [ -z "$DRIVER_PERMS" ] ; then
+        print_err ""
+        print_err "ERROR: must provide the file permissions"
+        print_usage_and_exit 254
+      fi
+      shift
+      ;;
+    -r | --reload)
+      reload_driver=1
+      ;;
+    *)
+      print_err ""
+      print_err "ERROR: unrecognized option \"$1\""
+      print_usage_and_exit 254
+      ;;
+  esac
+  shift
+done
+
+# ------------------------------ VARIABLES -----------------------------------
+
+DRIVER_DIRECTORY=${PWD}
+# use existing driver permissions as default if available
+drv_perms=${DEFAULT_PERMS}
+DRIVER_PERMS=${DRIVER_PERMS:-${drv_perms}}
+
+# ------------------------------- MAIN ---------------------------------------
+
+# check whether to reload the driver
+if [ $reload_driver -eq 1 ] ; then
+  (${SEP_SHELL} ${SCRIPT_DIR}/${RMMOD_SCRIPT} -s)
+  err=$?
+  if [ $err -ne 0 ] ; then
+    print_err ""
+    print_err "Error: failed to reload ${DRIVER_NAME} driver"
+    print_err ""
+    exit $err
+  fi
+fi
+
+# file name of the driver to load
+DRIVER_FILENAME=${DRIVER_NAME}.ko
+
+# try to load the PAX driver if it was not already loaded
+print_nnl "Checking for PMU arbitration service (PAX) ... "
+ls ${PAX_DRIVER}
+PAX_LOADED_SUCC=$?
+if [ "$PAX_LOADED_SUCC" != "0" ] ; then
+  print_msg "not detected."
+  print_msg "Attempting to start PAX service ..."
+  (${SEP_SHELL} ${SCRIPT_DIR}/pax/insmod-pax -p $DRIVER_PERMS)
+  err=$?
+  if [ $err -ne 0 ] ; then
+    print_err ""
+    print_err "Error: failed to start or connect to required PAX service"
+    print_err ""
+    exit 216
+  fi
+  print_msg "PAX service has been started."
+else
+  print_msg "detected."
+fi
+
+# insmod command to execute
+INSMOD_CMD="${INSMOD} ${DRIVER_DIRECTORY}/${DRIVER_FILENAME}"
+
+# execute the command
+print_msg "Executing: ${INSMOD_CMD}"
+${INSMOD_CMD}
+INSMOD_RESULT=$?
+
+# abort if unable to load the driver
+if [ ${INSMOD_RESULT} -ne 0 ] ; then
+  print_err ""
+  print_err "Error:  ${DRIVER_NAME} driver failed to load!"
+  print_err ""
+  print_err "You may need to build ${DRIVER_NAME} driver for your kernel."
+  print_err "Please see the ${DRIVER_NAME} driver README for instructions."
+  print_err ""
+  exit 234
+fi
+
+# check if the driver has been loaded into the kernel
+ls ${SEP_DRIVER}
+DRIVER_LOADED_SUCC=$?
+if [ "${DRIVER_LOADED_SUCC}" != "0" ] ; then
+  print_err ""
+  print_err "Error:  unable to find device \"${DRIVER_NAME}\" in /proc/devices !"
+  print_err ""
+  exit 233
+fi
+
+print_nnl "Setting file permissions on devices to \"${DRIVER_PERMS}\" ... "
+${CHMOD} ${DRIVER_PERMS} /dev/${DRIVER_NAME}*
+CHMOD_RESULT=$?
+if [ ${CHMOD_RESULT} -ne 0 ] ; then
+   print_err ""
+   print_err "Error:  unable to change permissions to ${DRIVER_PERMS} on devices!"
+   print_err ""
+   exit 229
+fi
+print_msg "done."
+
+# show which driver was loaded
+print_msg "The ${DRIVER_NAME} driver has been successfully loaded."
+
+exit 0

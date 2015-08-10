@@ -1,0 +1,179 @@
+#!/bin/sh
+
+#
+# File: rmmod-sep3
+#
+# Description: script to unload SEP driver
+#
+# Version: 1.9
+#
+#     Copyright (C) 2005-2014 Intel Corporation.  All Rights Reserved.
+# 
+#     This file is part of SEP Development Kit
+# 
+#     SEP Development Kit is free software; you can redistribute it
+#     and/or modify it under the terms of the GNU General Public License
+#     version 2 as published by the Free Software Foundation.
+# 
+#     SEP Development Kit is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+# 
+#     You should have received a copy of the GNU General Public License
+#     along with SEP Development Kit; if not, write to the Free Software
+#     Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+# 
+#     As a special exception, you may use this file as part of a free software
+#     library without restriction.  Specifically, if other files instantiate
+#     templates or use macros or inline functions from this file, or you compile
+#     this file and link it with other files to produce an executable, this
+#     file does not by itself cause the resulting executable to be covered by
+#     the GNU General Public License.  This exception does not however
+#     invalidate any other reasons why the executable file might be covered by
+#     the GNU General Public License.
+#
+
+# ------------------------------ CONSTANTS -----------------------------------
+
+# base driver name and version
+DRIVER_BASE=sep
+DRIVER_MAJOR=3
+DRIVER_MINOR=11
+# basic name of driver
+DRIVER_NAME=${DRIVER_BASE}${DRIVER_MAJOR}_${DRIVER_MINOR}
+SEP_DRIVER=/dev/sep3_10_c
+
+# ------------------------------- OUTPUT -------------------------------------
+
+print_msg()
+{
+  MSG="$*"
+  echo "$MSG"
+}
+
+print_nnl()
+{
+  MSG="$*"
+  echo -n "$MSG"
+}
+
+print_err()
+{
+  MSG="$*"
+  if [ -w /dev/stderr ] ; then
+    echo "$MSG" >> /dev/stderr
+  else
+    echo "$MSG"
+  fi
+}
+
+# ------------------------------ COMMANDS ------------------------------------
+
+GREP="grep"
+LSMOD="lsmod"
+PGREP="pgrep"
+PKILL="pkill"
+RMMOD="rmmod"
+WHICH="which"
+
+# ------------------------------ VARIABLES -----------------------------------
+
+# set the directory of the rmmod-sep3 script
+SCRIPT_DIR=${PWD}
+SEP_SHELL=sh
+
+# ------------------------------ FUNCTIONS -----------------------------------
+
+# function to show usage and exit
+print_usage_and_exit()
+{
+  err=${1:-0}
+  print_msg ""
+  print_msg "Usage: $0 [ options ]"
+  print_msg ""
+  print_msg " where \"options\" are the following:"
+  print_msg ""
+  print_msg "    -s | --stop-pax-service"
+  print_msg "      attempts to stop the PAX service before unloading"
+  print_msg "      the ${DRIVER_NAME} driver; note that the PAX service will"
+  print_msg "      not be stopped if it is still in use."
+  print_msg ""
+  exit $err
+}
+
+# check for certain options
+stop_pax_service=0
+while [ $# -gt 0 ] ; do
+  case "$1" in
+    -h | --help)
+      print_usage_and_exit 0
+      ;;
+    -s | --stop-pax-service)
+      stop_pax_service=1
+      ;;
+    *)
+      print_err ""
+      print_err "ERROR: unrecognized option \"$1\""
+      print_usage_and_exit 254
+      ;;
+  esac
+  shift
+done
+
+# --------------------------------- MAIN -------------------------------------
+
+# check for a loaded driver (should be only one)
+ls ${SEP_DRIVER}
+DRIVER_LOADED_SUCC=$?
+
+# if no driver is loaded, and we're not stopping PAX service, then exit
+if [ "${DRIVER_LOADED_SUCC}" != "0" ] ; then
+  print_msg "Warning:  no ${DRIVER_NAME} driver was found loaded in the kernel."
+  if [ $stop_pax_service -ne 1 ] ; then
+    exit 0
+  fi
+fi
+
+# check for any currently running SEP processes
+SEP_PROCESS=`/system/bin/ps sep`
+PS_NOSEP="USER     PID   PPID  VSIZE  RSS     WCHAN    PC         NAME"
+if [ "$PS_NOSEP" != "$SEP_PROCESS" ] ; then
+  print_err ""
+  echo ${SEP_PROCESS}
+  print_err "ERROR:  The above SEP process(es) must be shutdown before unloading the driver."
+  print_err ""
+  exit 245
+fi
+
+# if SEP driver is loaded, then attempt to remove it
+if [ "${DRIVER_LOADED_SUCC}" == "0" ] ; then
+  print_nnl "Removing ${DRIVER_NAME} driver from the kernel ... "
+  sleep 2
+  ${RMMOD} ${DRIVER_NAME}
+  RMMOD_RESULT=$?
+  if [ ${RMMOD_RESULT} -ne 0 ] ; then
+    print_err ""
+    print_err "Error:  unable to remove the driver from the kernel ... exiting."
+    print_err ""
+    exit 246
+  fi
+  print_msg "done."
+  print_msg "The ${DRIVER_NAME} driver has been successfully unloaded."
+fi
+
+# if requested, attempt to unload PAX driver
+if [ $stop_pax_service -eq 1 ] ; then
+  print_msg "Attempting to stop PAX service ..."
+   (${SEP_SHELL} ${SCRIPT_DIR}/pax/rmmod-pax)
+  err=$?
+  if [ $err -ne 0 ] ; then
+    print_err ""
+    print_err "Error: failed to stop PAX service"
+    print_err ""
+    exit $err
+  fi
+  print_msg "PAX service has been stopped."
+fi
+
+exit 0
