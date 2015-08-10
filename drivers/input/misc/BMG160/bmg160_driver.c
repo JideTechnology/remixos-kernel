@@ -1394,9 +1394,10 @@ static int bmg_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	client_data->fifo_count = 0;
 
 	/* now it's power on which is considered as resuming from suspend */
+	/* err = BMG_CALL_API(set_mode)( */
+	/* 		BMG_VAL_NAME(MODE_SUSPEND)); */
 	err = BMG_CALL_API(set_mode)(
-			BMG_VAL_NAME(MODE_SUSPEND));
-
+			BMG_VAL_NAME(MODE_NORMAL));
 	if (err < 0)
 		goto exit_err_sysfs;
 
