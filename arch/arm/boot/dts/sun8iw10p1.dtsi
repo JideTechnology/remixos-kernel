@@ -720,7 +720,7 @@
 			max-frequency = <50000000>;
 			bus-width = <4>;
 			/*broken-cd;*/
-			non-removable;
+			/*non-removable;*/
 			/*cd-inverted*/
 			cd-gpios = <&pio PF 6 0 1 2 0>;
 			/* vmmc-supply = <&reg_3p3v>;*/

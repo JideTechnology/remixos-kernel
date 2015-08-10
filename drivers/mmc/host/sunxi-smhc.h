@@ -26,7 +26,7 @@
 
 
 #define DRIVER_NAME "sunxi-smhc"
-#define DRIVER_RIVISION "v0.2 2015-7-31 14:35"
+#define DRIVER_RIVISION "v0.3 2015-8-10 10:15"
 #define DRIVER_VERSION "SD/MMC/SDIO Host Controller Driver(" DRIVER_RIVISION ")" \
 			" Compiled in " __DATE__ " at " __TIME__""
 
@@ -258,7 +258,14 @@ struct sdhc_idma_des{
 	
 	
 struct sunxi_mmc_ctrl_regs {
-
+	u32 rst_clk_ctrl;
+	u32 int_sta_en;
+	u32 to;
+	u32 ctrl3;
+	u32 int_sig_en;
+	u32 ctrl1;
+	u32 acmd_err_ctrl2;
+	u32 atc;
 };
 
 

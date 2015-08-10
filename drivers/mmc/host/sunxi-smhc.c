@@ -1302,7 +1302,7 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		//host->sunxi_mmc_dump_dly_table  = sunxi_mmc_dump_dly2;
 		sunxi_mmc_reg_ex_res_inter(host,2);
 		//host->sunxi_mmc_set_acmda = sunxi_mmc_set_a12a;
-		//host->sunxi_mmc_shutdown = sunxi_mmc_do_shutdown2;
+		host->sunxi_mmc_shutdown = sunxi_mmc_do_shutdown2;
 		host->phy_index = 2;
  	}
 //#endif
@@ -1584,7 +1584,15 @@ static void sunxi_mmc_regs_save(struct sunxi_mmc_host* host)
 	struct sunxi_mmc_ctrl_regs* bak_regs = &host->bak_regs;
 
 	/*save public register*/
-	dev_info(mmc_dev(host->mmc),"no imple %s %d\n",__FUNCTION__,__LINE__);
+	//dev_info(mmc_dev(host->mmc),"no imple %s %d\n",__FUNCTION__,__LINE__);
+	bak_regs->rst_clk_ctrl = smhc_readl(host,SMHC_RST_CLK_CTRL);
+	bak_regs->int_sta_en = smhc_readl(host,SMHC_INT_STA_EN);
+	bak_regs->to = smhc_readl(host,SMHC_TO_CTRL2);
+	bak_regs->ctrl3 = smhc_readl(host,SMHC_CTRL3);
+	bak_regs->int_sig_en = smhc_readl(host,SMHC_INT_SIG_EN);
+	bak_regs->ctrl1 = smhc_readl(host,SMHC_CTRL1);
+	bak_regs->acmd_err_ctrl2 = smhc_readl(host,SMHC_ACMD_ERR_CTRL2);
+	bak_regs->atc = smhc_readl(host,SMHC_ATC);
 
 	if(host->sunxi_mmc_save_spec_reg){
 		host->sunxi_mmc_save_spec_reg(host);
@@ -1598,7 +1606,15 @@ static void sunxi_mmc_regs_restore(struct sunxi_mmc_host* host)
 	struct sunxi_mmc_ctrl_regs* bak_regs = &host->bak_regs;
 
 	/*restore public register*/
-	dev_info(mmc_dev(host->mmc),"no imple %s %d\n",__FUNCTION__,__LINE__);
+	//dev_info(mmc_dev(host->mmc),"no imple %s %d\n",__FUNCTION__,__LINE__);
+	smhc_writel(host,SMHC_RST_CLK_CTRL,bak_regs->rst_clk_ctrl);
+	smhc_writel(host,SMHC_INT_STA_EN,bak_regs->rst_clk_ctrl);
+	smhc_writel(host,SMHC_TO_CTRL2,bak_regs->rst_clk_ctrl);
+	smhc_writel(host,SMHC_CTRL3,bak_regs->rst_clk_ctrl);
+	smhc_writel(host,SMHC_INT_SIG_EN,bak_regs->rst_clk_ctrl);
+	smhc_writel(host,SMHC_CTRL1,bak_regs->rst_clk_ctrl);
+	smhc_writel(host,SMHC_ACMD_ERR_CTRL2,bak_regs->rst_clk_ctrl);
+	smhc_writel(host,SMHC_ATC,bak_regs->rst_clk_ctrl);
 
 	if(host->sunxi_mmc_restore_spec_reg){
 		host->sunxi_mmc_restore_spec_reg(host);
@@ -1616,6 +1632,7 @@ static int sunxi_mmc_suspend(struct device *dev)
 	struct sunxi_mmc_host *host = mmc_priv(mmc);
 	int ret = 0;
 
+	dev_info(mmc_dev(host->mmc),"suspend start%s %d\n",__FUNCTION__,__LINE__);
 	if (mmc) {
 		ret = mmc_suspend_host(mmc);
 		if(!ret){
@@ -1658,6 +1675,7 @@ static int sunxi_mmc_suspend(struct device *dev)
 		}
       }
 
+	dev_info(mmc_dev(host->mmc),"suspend end %s %d\n",__FUNCTION__,__LINE__);	
 	return ret;
 }
 
@@ -1669,6 +1687,7 @@ static int sunxi_mmc_resume(struct device *dev)
 	struct sunxi_mmc_host *host = mmc_priv(mmc);	
 	int ret = 0;
 
+	dev_info(mmc_dev(host->mmc),"resume start%s %d\n",__FUNCTION__,__LINE__);
 	if (mmc) {
 		if (mmc_card_keep_power(mmc)||host->dat3_imask){
 			if (!IS_ERR(mmc->supply.vmmc)){
@@ -1747,6 +1766,7 @@ static int sunxi_mmc_resume(struct device *dev)
 		ret = mmc_resume_host(mmc);
 	}
 
+	dev_info(mmc_dev(host->mmc),"resume end %s %d\n",__FUNCTION__,__LINE__);
 	return ret;
 }
 
