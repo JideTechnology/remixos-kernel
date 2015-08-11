@@ -821,7 +821,7 @@ static void kionix_accel_grp4_report_accel_data(struct kionix_accel_driver *acce
 				acceld->accel_data[acceld->axis_map_y] = (acceld->negate_y ? -y : y) + acceld->accel_cali[acceld->axis_map_y];
 				acceld->accel_data[acceld->axis_map_z] = (acceld->negate_z ? -z : z) + acceld->accel_cali[acceld->axis_map_z];
 				*/
-				acceld->accel_data[acceld->axis_map_y] = 0 - (acceld->negate_x ? -x : x) + acceld->accel_cali[acceld->axis_map_x];
+				acceld->accel_data[acceld->axis_map_y] = (acceld->negate_x ? x : -x) + acceld->accel_cali[acceld->axis_map_x];
 				acceld->accel_data[acceld->axis_map_x] = (acceld->negate_y ? -y : y) + acceld->accel_cali[acceld->axis_map_y];
 				acceld->accel_data[acceld->axis_map_z] = (acceld->negate_z ? -z : z) + acceld->accel_cali[acceld->axis_map_z];
 
