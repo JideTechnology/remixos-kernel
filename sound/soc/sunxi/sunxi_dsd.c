@@ -278,6 +278,7 @@ static int sunxi_dsd_suspend(struct snd_soc_dai *cpu_dai)
 static int sunxi_dsd_resume(struct snd_soc_dai *cpu_dai)
 {
 	s32 ret = 0;
+	int reg_val = 0;
 	struct sunxi_dsd_info *sunxi_dsd = snd_soc_dai_get_drvdata(cpu_dai);
 	pr_debug("[DSD]Enter %s\n", __func__);
 
@@ -294,6 +295,14 @@ static int sunxi_dsd_resume(struct snd_soc_dai *cpu_dai)
 	}
 	sunxi_dsd->clk_enable_cnt++;
 	pr_debug("[DSD]sunxi_dsd->clk_enable_cnt:%d,%s\n",sunxi_dsd->clk_enable_cnt, __func__);
+
+	reg_val = readl(sunxi_dsd->regs + DSD_TX_CONF);
+	if (!sunxi_dsd->mode_select) {
+		reg_val &= ~DSD_TX_MODE_SELECT;
+	} else {
+		reg_val |= DSD_TX_MODE_SELECT;
+	}
+	writel(reg_val, sunxi_dsd->regs + DSD_TX_CONF);
 
 	if (!sunxi_dsd->pinctrl) {
 		sunxi_dsd->pinctrl = devm_pinctrl_get(cpu_dai->dev);
@@ -363,6 +372,8 @@ static const struct of_device_id sunxi_dsd_of_match[] = {
 static int __init sunxi_dsd_dev_probe(struct platform_device *pdev)
 {
 	u32 ret = 0;
+	u32 temp_val = 0;
+	int reg_val = 0;
 	struct resource res;
 	struct device_node *node = pdev->dev.of_node;
 	const struct of_device_id *device;
@@ -441,6 +452,26 @@ static int __init sunxi_dsd_dev_probe(struct platform_device *pdev)
 			return -EINVAL;
 		}
 	}
+	/*
+	*	DSD TX Mode Select
+	*	0: Normal Mode
+	*	1: Phase Modulation Mode
+	*/
+	ret = of_property_read_u32(node, "mode_select",&temp_val);
+	if (ret < 0) {
+		pr_err("[dsd]mode_select configurations missing or invalid.\n");
+		ret = -EINVAL;
+		goto err1;
+	} else {
+		sunxi_dsd->mode_select = temp_val;
+	}
+	reg_val = readl(sunxi_dsd->regs + DSD_TX_CONF);
+	if (!sunxi_dsd->mode_select) {
+		reg_val &= ~DSD_TX_MODE_SELECT;
+	} else {
+		reg_val |= DSD_TX_MODE_SELECT;
+	}
+	writel(reg_val, sunxi_dsd->regs + DSD_TX_CONF);
 
 	ret = snd_soc_register_component(&pdev->dev, &sunxi_dsd_component,
 				   &sunxi_dsd->dai, 1);

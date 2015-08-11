@@ -75,6 +75,7 @@
 #define TX_CHAN1_MAP			4
 #define TX_CHAN0_MAP			0
 #define DSD_CHANMAP_DEFAULT	(0x10)
+
 struct sunxi_dsd_info {
 	void __iomem   *regs;    /* dsd base */
 	struct clk *pllclk;
@@ -85,6 +86,7 @@ struct sunxi_dsd_info {
 	struct pinctrl_state  *pinstate;
 	struct pinctrl_state  *pinstate_sleep;
 	u32 clk_enable_cnt;
+	u32 mode_select;
 };
 
 #endif
