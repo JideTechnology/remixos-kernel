@@ -2225,6 +2225,17 @@ sensor_win_sizes[] = {
 		.regs_size  = ARRAY_SIZE(sensor_svga_regs),
 		.set_size   = NULL,
 	},
+	{
+		.width      = VGA_WIDTH,
+		.height     = VGA_HEIGHT,
+		.hoffset    = 0,
+		.voffset    = 0,
+		.width_input	  = SVGA_WIDTH,
+		.height_input 	  = SVGA_HEIGHT,
+		.regs       = sensor_svga_regs,
+		.regs_size  = ARRAY_SIZE(sensor_svga_regs),
+		.set_size   = NULL,
+	},
 };
 
 #define N_WIN_SIZES (ARRAY_SIZE(sensor_win_sizes))
