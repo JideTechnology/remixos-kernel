@@ -702,8 +702,8 @@
 			/*vqmc = "";*/
 			/*vdmc = "";*/
 	    /*sunxi-power-save-mode;*/
-			/*status = "disabled";*/
-			status = "okay";
+			status = "disabled";
+			/*status = "okay";*/
 
        };
 
@@ -711,7 +711,7 @@
 			compatible = "allwinner,sun50i-sdmmc0";
 			device_type = "sdc0";
 			reg = <0x0 0x01c0f000 0x0 0x1000>; /* only sdmmc0 */
-			interrupts = <GIC_SPI 60 0x0104>;  /*  */
+			interrupts = <GIC_SPI 9 0x0104>;  /*  */
 			clocks = <&clk_hosc>,<&clk_pll_periph1x2>,<&clk_sdmmc0_mod>,<&clk_sdmmc0_bus>,<&clk_sdmmc0_rst>;
 			clock-names = "osc24m","pll_periph","mmc","ahb","rst";
 			pinctrl-names = "default","sleep";
@@ -720,8 +720,9 @@
 			max-frequency = <50000000>;
 			bus-width = <4>;
 			broken-cd;
-			/*cd-inverted*/
-			cd-gpios = <&pio PF 6 0 1 2 0>;
+		        non-removable;	
+                        /*cd-inverted*/
+                        cd-gpios = <&pio PF 6 0 1 2 0>;
 			/* vmmc-supply = <&reg_3p3v>;*/
 			/* vqmc-supply = <&reg_3p3v>;*/
 			/* vdmc-supply = <&reg_3p3v>;*/
@@ -745,7 +746,7 @@
       /*sunxi-dly-208M-ddr  = <1 0 0 0>;*/
 
 			status = "okay";
-			/*status = "disabled";*/
+		        /*status = "disabled";*/
 		};
 
 
@@ -789,10 +790,54 @@
       /*sunxi-dly-208M-ddr  = <1 0 0 0 0>;*/
 
 
-			status = "okay";
-			/*status = "disabled";*/
+			/*status = "okay";*/
+			status = "disabled";
 		};
 
+
+		sdc3: sdmmc@01C12000 {
+			compatible = "allwinner,sun50i-sdmmc1";
+			device_type = "sdc3";
+			reg = <0x0 0x01C12000 0x0 0x1000>;
+			interrupts = <GIC_SPI 61 0x0104>;  /*  */
+			clocks = <&clk_hosc>,<&clk_pll_periph1x2>,<&clk_sdmmc3_mod>,<&clk_sdmmc3_bus>,<&clk_sdmmc3_rst>;
+			clock-names = "osc24m","pll_periph","mmc","ahb","rst";
+			pinctrl-names = "default","sleep";
+			pinctrl-0 = <&sdc3_pins_a>;
+			pinctrl-1 = <&sdc3_pins_b>;
+			max-frequency = <50000000>;
+			bus-width = <4>;
+			/*broken-cd;*/
+			/*cd-inverted*/
+			/*cd-gpios = <&pio PG 6 6 1 2 0>;*/
+			/* vmmc-supply = <&reg_3p3v>;*/
+			/* vqmc-supply = <&reg_3p3v>;*/
+			/* vdmc-supply = <&reg_3p3v>;*/
+			/*vmmc = "vcc-card";*/
+			/*vqmc = "";*/
+			/*vdmc = "";*/
+			/*sd-uhs-sdr50;*/
+			/*sd-uhs-ddr50;*/
+			/*sd-uhs-sdr104;*/
+			/*cap-sdio-irq;*/
+			/*keep-power-in-suspend;*/
+			/*ignore-pm-notify;*/
+			/*sunxi-power-save-mode;*/
+	      /*sunxi-dly-400k = <1 0 0 0 0>; */
+      /*sunxi-dly-26M  = <1 0 0 0 0>;*/
+      /*sunxi-dly-52M  = <1 0 0 0 0>;*/
+      sunxi-dly-52M-ddr4  = <1 0 0 0 2>;
+      /*sunxi-dly-52M-ddr8  = <1 0 0 0 0>;*/
+      sunxi-dly-104M  = <1 0 0 0 1>;
+      /*sunxi-dly-208M  = <1 1 0 0 0>;*/
+      sunxi-dly-208M  = <1 0 0 0 1>;
+      /*sunxi-dly-104M-ddr  = <1 0 0 0 0>;*/
+      /*sunxi-dly-208M-ddr  = <1 0 0 0 0>;*/
+
+
+			/*status = "okay";*/
+			status = "disabled";
+		};
 
 		disp: disp@01000000 {
 			compatible = "allwinner,sun50i-disp";

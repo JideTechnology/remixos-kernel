@@ -52,6 +52,10 @@
 #include "sunxi-mmc-sun8iw10p1-3.h"
 #include "sunxi-mmc-sun8iw10p1-0.h"
 #include "sunxi-mmc-sun8iw10p1-1.h"
+#include "sunxi-mmc-sun8iw11p1-0.h"
+#include "sunxi-mmc-sun8iw11p1-1.h"
+#include "sunxi-mmc-sun8iw11p1-2.h"
+
 #include "sunxi-mmc-debug.h"
 #include "sunxi-mmc-export.h"
 
@@ -1296,6 +1300,13 @@ static int sunxi_mmc_resource_request(struct sunxi_mmc_host *host,
 		host->phy_index = 1;
  	}
 #endif
+
+#if !defined(SUNXI_SDMMC0)&& !defined(SUNXI_SDMMC1)&& !defined(SUNXI_SDMMC2)&& !defined(SUNXI_SDMMC3)
+	dev_info(dev, "No sdmmc define check code\n");
+	ret = -1;
+	return ret;
+#endif
+
 
 	//ret = mmc_regulator_get_supply(host->mmc);
 	ret = sunxi_mmc_regulator_get_supply(host->mmc);

@@ -65,7 +65,7 @@ obj-$(CONFIG_MMC_SDHCI_BCM2835)		+= sdhci-bcm2835.o
 obj-$(CONFIG_MMC_SUNXI)		+= sunxi-mmc.o sunxi-mmc-debug.o sunxi-mmc-export.o
 obj-$(CONFIG_ARCH_SUN50IW1P1)		+= sunxi-mmc-sun50iw1p1-2.o sunxi-mmc-sun50iw1p1-1.o sunxi-mmc-sun50iw1p1-0.o 
 obj-$(CONFIG_ARCH_SUN8IW10P1)		+= sunxi-mmc-sun8iw10p1-3.o sunxi-mmc-sun8iw10p1-1.o sunxi-mmc-sun8iw10p1-0.o sunxi-smhc.o sunxi-mmc-sun8iw10p1-2.o
-
+obj-$(CONFIG_ARCH_SUN8IW11P1)		+= sunxi-mmc-sun8iw11p1-2.o sunxi-mmc-sun8iw11p1-1.o sunxi-mmc-sun8iw11p1-0.o 
 
 ifeq ($(CONFIG_CB710_DEBUG),y)
 	CFLAGS-cb710-mmc	+= -DDEBUG
