@@ -11034,12 +11034,24 @@ int intel_set_disp_calc_flip(struct drm_mode_set_display *disp,
 							PFIT_PIPE_SHIFT));
 			DRM_ERROR("Not enabling Panel Fitter\n");
 		} else {
+			u32 pfit_mode = 0;
+
 			pfit_control &= ~PFIT_PIPE_MASK;
 			pfit_control |= (intel_crtc->pipe << PFIT_PIPE_SHIFT);
 
 			intel_crtc->scaling_src_size =
 				(((disp->panel_fitter.src_w - 1) << 16) |
 						(disp->panel_fitter.src_h - 1));
+
+			if (((mode->hdisplay * disp->panel_fitter.src_h) /
+						disp->panel_fitter.src_w) < mode->vdisplay)
+				pfit_mode |= PFIT_SCALING_LETTER;
+			else if (((mode->vdisplay * disp->panel_fitter.src_w) /
+						disp->panel_fitter.src_h) < mode->hdisplay)
+				pfit_mode |= PFIT_SCALING_PILLAR;
+			else if ((mode->hdisplay / mode->vdisplay) ==
+					(disp->panel_fitter.src_w / disp->panel_fitter.src_h))
+				pfit_mode |= PFIT_SCALING_AUTO;
 
 			/* Enable Panel fitter if any valid mode is set */
 			pfit_control = (1 << 31) | pfit_control;
@@ -11059,6 +11071,13 @@ int intel_set_disp_calc_flip(struct drm_mode_set_display *disp,
 				intel_crtc->scaling_src_size =
 						(((mode->hdisplay - 1) << 16) |
 							(mode->vdisplay - 1));
+			}
+
+			if (pfit_mode != (pfit_control & ~MASK_PFIT_SCALING_MODE)) {
+				DRM_ERROR("pfit mode(%d) mismatch with calculated mode(%d)\n",
+						(pfit_control & ~MASK_PFIT_SCALING_MODE), pfit_mode);
+				pfit_control &=  MASK_PFIT_SCALING_MODE;
+				pfit_control |= pfit_mode;
 			}
 			intel_crtc->pfit_control = pfit_control;
 			if (pfit_control != pfitcontrol)
