@@ -204,8 +204,10 @@ static void di_timer_handle(unsigned long arg)
 	di_irq_enable(0);
 	di_irq_clear();
 	di_reset();
-	memset(di_data->mem_in_params.v_addr, 0, flag_size);
-	memset(di_data->mem_out_params.v_addr, 0, flag_size);
+	if (NULL != di_data->mem_in_params.v_addr)
+		memset(di_data->mem_in_params.v_addr, 0, flag_size);
+	if (NULL != di_data->mem_out_params.v_addr)
+		memset(di_data->mem_out_params.v_addr, 0, flag_size);
 	printk(KERN_ERR "di_timer_handle: timeout \n");
 }
 
