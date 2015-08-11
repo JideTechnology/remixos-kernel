@@ -94,7 +94,7 @@ static int sunxi_sndpcm_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	/*set system clock source freq_in and set the mode as tdm or pcm*/
-	ret = snd_soc_dai_set_sysclk(cpu_dai, 0, freq_in, 0);
+	ret = snd_soc_dai_set_sysclk(codec_dai, 0, freq_in, 0);
 	if (ret < 0) {
 		pr_err("err:%s,set codec dai sysclk faided.\n", __func__);
 		return ret;
@@ -106,12 +106,6 @@ static int sunxi_sndpcm_hw_params(struct snd_pcm_substream *substream,
 			SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_CBS_CFS);
 	if (ret < 0) {
 		pr_err("%s,set codec dai fmt failed.\n", __func__);
-		return ret;
-	}
-
-	ret = snd_soc_dai_set_clkdiv(cpu_dai, 0, sample_rate);
-	if (ret < 0) {
-		pr_err("%s, set cpu dai clkdiv faided.\n", __func__);
 		return ret;
 	}
 
