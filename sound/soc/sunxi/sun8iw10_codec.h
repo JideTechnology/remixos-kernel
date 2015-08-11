@@ -262,6 +262,8 @@ struct sunxi_codec {
 	struct snd_soc_codec *codec;
 	struct snd_soc_dai_driver dai;
 	struct voltage_supply vol_supply;
+	struct clk *pllclk;
+	struct clk *moduleclk;
 	u32 dac_enable;
 	u32 adc_enable;
 	u32 pa_sleep_time;
@@ -269,4 +271,3 @@ struct sunxi_codec {
 	bool spkenable;
 };
 #endif
-

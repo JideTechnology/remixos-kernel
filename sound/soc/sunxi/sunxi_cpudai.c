@@ -39,11 +39,6 @@
 static int sunxi_cpudai_set_sysclk(struct snd_soc_dai *dai,
 				  		int clk_id, unsigned int freq, int dir)
 {
-	struct sunxi_cpudai *sunxi_cpudai = snd_soc_dai_get_drvdata(dai);
-
-	if (clk_set_rate(sunxi_cpudai->pllclk, freq)) {
-		pr_err("[audio-cpudai]try to set the pll clk rate failed!\n");
-	}
 	return 0;
 }
 
@@ -63,36 +58,11 @@ static int sunxi_cpudai_probe(struct snd_soc_dai *dai)
 
 static int sunxi_cpudai_suspend(struct snd_soc_dai *cpu_dai)
 {
-	struct sunxi_cpudai *sunxi_cpudai = snd_soc_dai_get_drvdata(cpu_dai);
-	pr_debug("[internal-cpudai] suspend entered. %s\n", __func__);
-
-	if (sunxi_cpudai->moduleclk != NULL)
-		clk_disable(sunxi_cpudai->moduleclk);
-
-	if (sunxi_cpudai->pllclk != NULL)
-		clk_disable(sunxi_cpudai->pllclk);
-
-	pr_debug("[internal-cpudai] suspend out. %s\n", __func__);
 	return 0;
 }
 
 static int sunxi_cpudai_resume(struct snd_soc_dai *cpu_dai)
 {
-	struct sunxi_cpudai *sunxi_cpudai = snd_soc_dai_get_drvdata(cpu_dai);
-	pr_debug("[internal-cpudai] resume entered. %s\n", __func__);
-
-	if (sunxi_cpudai->pllclk != NULL) {
-		if (clk_prepare_enable(sunxi_cpudai->pllclk)) {
-			pr_err("open sunxi_cpudai->pllclk failed! line = %d\n", __LINE__);
-		}
-	}
-
-	if (sunxi_cpudai->moduleclk != NULL) {
-		if (clk_prepare_enable(sunxi_cpudai->moduleclk)) {
-			pr_err("open sunxi_cpudai->moduleclk failed! line = %d\n", __LINE__);
-		}
-	}
-
 	return 0;
 }
 
@@ -155,23 +125,6 @@ static int __init sunxi_internal_cpudai_platform_probe(struct platform_device *p
 	if (ret) {
 		dev_err(&pdev->dev, "Can't parse device node resource\n");
 		return -ENODEV;
-	}
-
-	sunxi_cpudai->pllclk = of_clk_get(node, 0);
-	sunxi_cpudai->moduleclk= of_clk_get(node, 1);
-	if (IS_ERR(sunxi_cpudai->pllclk) || IS_ERR(sunxi_cpudai->moduleclk)){
-		dev_err(&pdev->dev, "[audio-cpudai]Can't get cpudai clocks\n");
-		if (IS_ERR(sunxi_cpudai->pllclk))
-			ret = PTR_ERR(sunxi_cpudai->pllclk);
-		else
-			ret = PTR_ERR(sunxi_cpudai->moduleclk);
-		goto err1;
-	} else {
-		if (clk_set_parent(sunxi_cpudai->moduleclk, sunxi_cpudai->pllclk)) {
-			pr_err("try to set parent of sunxi_spdif->moduleclk to sunxi_spdif->pllclk failed! line = %d\n",__LINE__);
-		}
-		clk_prepare_enable(sunxi_cpudai->pllclk);
-		clk_prepare_enable(sunxi_cpudai->moduleclk);
 	}
 
 	sunxi_cpudai->play_dma_param.dma_addr = res.start+AC_ADC_TXDATA;

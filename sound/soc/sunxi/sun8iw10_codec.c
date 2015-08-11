@@ -31,8 +31,7 @@
 #include <linux/pm.h>
 #include <linux/of_gpio.h>
 #include <linux/sys_config.h>
-#include "sun8iw10_codec.h"
-#include "sunxi_rw_func.h"
+#include "sunxi_cpudai.h"
 
 #define DRV_NAME "sunxi-internal-codec"
 
@@ -569,6 +568,19 @@ static int codec_set_dai_fmt(struct snd_soc_dai *codec_dai,
 	return 0;
 }
 
+static int codec_set_dai_sysclk(struct snd_soc_dai *codec_dai,
+				  int clk_id, unsigned int freq, int dir)
+{
+	struct snd_soc_codec *codec = codec_dai->codec;
+	struct sunxi_codec *sunxi_internal_codec = snd_soc_codec_get_drvdata(codec);
+
+	if (clk_set_rate(sunxi_internal_codec->pllclk, freq)) {
+		pr_err("[audio-cpudai]try to set the pll clk rate failed!\n");
+	}
+
+	return 0;
+}
+
 static int codec_set_bias_level(struct snd_soc_codec *codec,
 				      enum snd_soc_bias_level level)
 {
@@ -582,6 +594,7 @@ static const struct snd_soc_dai_ops codec_dai_ops = {
 	.hw_params		= codec_hw_params,
 	.shutdown		= codec_shutdown,
 	.digital_mute	= codec_mute,
+	.set_sysclk		= codec_set_dai_sysclk,
 	.trigger 		= codec_trigger,
 };
 
@@ -657,6 +670,12 @@ static int codec_suspend(struct snd_soc_codec *codec)
 	if (spk_gpio.cfg) {
 		audio_gpio_iodisable(spk_gpio.gpio);
 	}
+	if (sunxi_internal_codec->moduleclk != NULL) {
+		clk_disable(sunxi_internal_codec->moduleclk);
+	}
+	if (sunxi_internal_codec->pllclk != NULL) {
+		clk_disable(sunxi_internal_codec->pllclk);
+	}
 
 	if (sunxi_internal_codec->vol_supply.cpvdd) {
 		regulator_disable(sunxi_internal_codec->vol_supply.cpvdd);
@@ -688,6 +707,18 @@ static int codec_resume(struct snd_soc_codec *codec)
 		ret = regulator_enable(sunxi_internal_codec->vol_supply.avcc);
 		if (ret) {
 			pr_err("[%s]: avcc:regulator_enable() failed!\n",__func__);
+		}
+	}
+
+	if (sunxi_internal_codec->pllclk != NULL) {
+		if (clk_prepare_enable(sunxi_internal_codec->pllclk)) {
+			pr_err("open sunxi_internal_codec->pllclk failed! line = %d\n", __LINE__);
+		}
+	}
+
+	if (sunxi_internal_codec->moduleclk != NULL) {
+		if (clk_prepare_enable(sunxi_internal_codec->moduleclk)) {
+			pr_err("open sunxi_internal_codec->moduleclk failed! line = %d\n", __LINE__);
 		}
 	}
 
@@ -853,6 +884,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 {
 	s32 ret = 0;
 	u32 temp_val = 0;
+	struct resource res;
 	struct gpio_config config;
 	const struct of_device_id *device;
 	struct sunxi_codec *sunxi_internal_codec;
@@ -864,6 +896,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto err0;
 	}
+
 	sunxi_internal_codec = devm_kzalloc(&pdev->dev, sizeof(struct sunxi_codec), GFP_KERNEL);
 	if (!sunxi_internal_codec) {
 		dev_err(&pdev->dev, "Can't allocate sunxi_codec\n");
@@ -871,11 +904,35 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		goto err0;
 	}
 	dev_set_drvdata(&pdev->dev, sunxi_internal_codec);
+
 	device = of_match_device(sunxi_codec_of_match, &pdev->dev);
 	if (!device) {
 		ret = -ENODEV;
 		goto err1;
 	}
+	ret = of_address_to_resource(node, 0, &res);
+	if (ret) {
+		dev_err(&pdev->dev, "Can't parse device node resource\n");
+		return -ENODEV;
+	}
+
+	sunxi_internal_codec->pllclk = of_clk_get(node, 0);
+	sunxi_internal_codec->moduleclk= of_clk_get(node, 1);
+	if (IS_ERR(sunxi_internal_codec->pllclk) || IS_ERR(sunxi_internal_codec->moduleclk)){
+		dev_err(&pdev->dev, "[audio-cpudai]Can't get cpudai clocks\n");
+		if (IS_ERR(sunxi_internal_codec->pllclk))
+			ret = PTR_ERR(sunxi_internal_codec->pllclk);
+		else
+			ret = PTR_ERR(sunxi_internal_codec->moduleclk);
+		goto err1;
+	} else {
+		if (clk_set_parent(sunxi_internal_codec->moduleclk, sunxi_internal_codec->pllclk)) {
+			pr_err("try to set parent of sunxi_spdif->moduleclk to sunxi_spdif->pllclk failed! line = %d\n",__LINE__);
+		}
+		clk_prepare_enable(sunxi_internal_codec->pllclk);
+		clk_prepare_enable(sunxi_internal_codec->moduleclk);
+	}
+
 #if 0
 	/*voltage*/
 	sunxi_internal_codec->vol_supply.cpvdd =  regulator_get(NULL, "vcc-cpvdd");/*HPVCC*/
@@ -904,6 +961,7 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		}
 	}
 #endif
+
 	sunxi_internal_codec->codec_abase = NULL;
 	sunxi_internal_codec->codec_dbase = NULL;
 	sunxi_internal_codec->codec_dbase = of_iomap(node, 0);
