@@ -33,6 +33,7 @@ extern void secondary_startup(void);
 static DEFINE_SPINLOCK(boot_lock);
 void __iomem *sunxi_cpucfg_base;
 void __iomem *sunxi_rtc_base;
+void __iomem *sunxi_sysctl_base;
 
 static void sunxi_set_cpus_boot_entry(int cpu, void *entry)
 {
@@ -47,8 +48,13 @@ static void sunxi_set_cpus_boot_entry(int cpu, void *entry)
 static void sunxi_smp_iomap_init(void)
 {
 	sunxi_cpucfg_base = ioremap(SUNXI_CPUCFG_PBASE, SZ_1K);
+#if defined(CONFIG_ARCH_SUN8IW10)
 	sunxi_rtc_base = ioremap(SUNXI_RTC_PBASE, SZ_1K);
 	pr_debug("cpucfg_base=0x%p rtc_base=0x%p\n", sunxi_cpucfg_base, sunxi_rtc_base);
+#else
+	sunxi_sysctl_base = ioremap(SUNXI_SYSCTL_PBASE, SZ_1K);
+	pr_debug("cpucfg_base=0x%p sysctl_base=0x%p\n", sunxi_cpucfg_base, sunxi_sysctl_base);
+#endif
 }
 
 static void sunxi_smp_init_cpus(void)
@@ -60,7 +66,7 @@ static void sunxi_smp_init_cpus(void)
 
 	 /* Limit possible CPUs to defconfig */
 	if (ncores > nr_cpu_ids) {
-		pr_warn("SMP: %u CPUs physically present. Only %d configured.",
+		pr_warn("SMP: %u CPUs physically present. Only %d configured.\n",
 			ncores, nr_cpu_ids);
 		ncores = nr_cpu_ids;
 	}
