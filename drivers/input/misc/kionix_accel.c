@@ -815,9 +815,14 @@ static void kionix_accel_grp4_report_accel_data(struct kionix_accel_driver *acce
 				x = ((s16) le16_to_cpu(accel_data.accel_data_s16[acceld->axis_map_x])) >> acceld->shift;
 				y = ((s16) le16_to_cpu(accel_data.accel_data_s16[acceld->axis_map_y])) >> acceld->shift;
 				z = ((s16) le16_to_cpu(accel_data.accel_data_s16[acceld->axis_map_z])) >> acceld->shift;
-
+				
+				/*
 				acceld->accel_data[acceld->axis_map_x] = (acceld->negate_x ? -x : x) + acceld->accel_cali[acceld->axis_map_x];
 				acceld->accel_data[acceld->axis_map_y] = (acceld->negate_y ? -y : y) + acceld->accel_cali[acceld->axis_map_y];
+				acceld->accel_data[acceld->axis_map_z] = (acceld->negate_z ? -z : z) + acceld->accel_cali[acceld->axis_map_z];
+				*/
+				acceld->accel_data[acceld->axis_map_y] = 0 - (acceld->negate_x ? -x : x) + acceld->accel_cali[acceld->axis_map_x];
+				acceld->accel_data[acceld->axis_map_x] = (acceld->negate_y ? -y : y) + acceld->accel_cali[acceld->axis_map_y];
 				acceld->accel_data[acceld->axis_map_z] = (acceld->negate_z ? -z : z) + acceld->accel_cali[acceld->axis_map_z];
 
 				if(atomic_read(&acceld->accel_input_event) > 0) {
