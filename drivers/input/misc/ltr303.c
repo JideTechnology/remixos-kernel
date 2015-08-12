@@ -1573,6 +1573,44 @@ static ssize_t alsmodesetup_store(struct device *dev, struct device_attribute *a
 
 static DEVICE_ATTR(alsmodesetup, 0666, alsmodesetup_show, alsmodesetup_store);
 
+static ssize_t ltr303_enable_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+        int8_t ret = 0;
+        uint8_t rdback_val = 0;
+        struct ltr303_data *ltr303 = sensor_info;
+
+        ret = als_contr_readback(ALS_MODE_RDBCK, &rdback_val, ltr303);
+        if (ret < 0) {
+                dev_err(&ltr303->i2c_client->dev, "%s: ALS_MODE_RDBCK Fail...\n", __func__);
+                return (-1);
+        }
+
+        ret = sprintf(buf, "%d\n", rdback_val);
+
+        return ret;
+}
+
+
+static ssize_t ltr303_enable_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+        int param;
+        int8_t ret;
+        struct ltr303_data *ltr303 = sensor_info;
+
+        sscanf(buf, "%d", &param);
+        dev_dbg(&ltr303->i2c_client->dev, "%s: store value = %d\n", __func__, param);
+
+        ret = als_mode_setup((uint8_t)param, ltr303);
+        if (ret < 0) {
+                dev_err(&ltr303->i2c_client->dev, "%s: ALS mode setup Fail...\n", __func__);
+                return (-1);
+        }
+
+        return count;
+}
+
+static DEVICE_ATTR(enable, 0666, ltr303_enable_show, ltr303_enable_store);
+
 
 static ssize_t alsswresetsetup_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -2866,6 +2904,13 @@ static int ltr303_irq_init(struct ltr303_data *ltr303)
 
         return 0;
 }
+static struct attribute *ltr303_attributes[] = {
+	 &dev_attr_enable.attr,
+	NULL
+};
+static struct attribute_group ltr303_attribute_group = {
+        .attrs = ltr303_attributes
+};
 
 static int ltr303_acpi_probe(struct ltr303_data *ltr303)
 {
@@ -2996,6 +3041,10 @@ static int ltr303_probe(struct i2c_client *client, const struct i2c_device_id *i
 
 	/* Register the sysfs files */
 	sysfs_register_device(client);
+	ret = sysfs_create_group(&ltr303->als_input_dev->dev.kobj,
+                        &ltr303_attribute_group);
+        if (ret < 0)
+                goto err_ltr303_setup;
 	//sysfs_register_als_device(client, &ltr303->als_input_dev->dev);
 
 	dev_dbg(&ltr303->i2c_client->dev, "%s: probe complete\n", __func__);
