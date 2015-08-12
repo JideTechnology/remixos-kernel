@@ -33,7 +33,7 @@ static int sunxi_bt_on(struct sunxi_bt_platdata *data, bool on_off)
 	int ret = 0;
 
 	if(!on_off)
-		gpio_set_value(data->gpio_bt_rst, 0);
+		gpio_direction_output(data->gpio_bt_rst, 0);
 
 	if(data->bt_power_name){
 		data->bt_power = regulator_get(dev, data->bt_power_name);
@@ -97,7 +97,7 @@ static int sunxi_bt_on(struct sunxi_bt_platdata *data, bool on_off)
 
 	if(on_off){
 		mdelay(10);
-		gpio_set_value(data->gpio_bt_rst, 1);
+		gpio_direction_output(data->gpio_bt_rst, 1);
 	}
 	data->power_state = on_off;
 
