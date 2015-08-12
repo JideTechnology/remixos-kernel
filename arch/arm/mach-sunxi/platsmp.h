@@ -125,6 +125,7 @@ static inline void sunxi_enable_cpu(int cpu)
 	writel(value, sunxi_cpucfg_base + CPUCFG_DEBUG_REG1);
 }
 
+#ifndef CONFIG_ARCH_SUN8IW10
 static inline void sunxi_disable_cpu(int cpu)
 {
 	unsigned int value;
@@ -150,5 +151,6 @@ static inline void sunxi_disable_cpu(int cpu)
 		;
 	}
 }
+#endif
 
 #endif /* __PLAT_SMP_H */
