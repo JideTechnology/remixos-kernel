@@ -5,7 +5,7 @@
 #ifndef __CSI__REG__A20__H__
 #define __CSI__REG__A20__H__
 
-#include <linux/io.h>
+#include <linux/types.h>
 
 #define MAX_CSI 2
 
