@@ -36,7 +36,7 @@
 
 /* Define the capability of SS controller. */
 
-#if defined(CONFIG_ARCH_SUN50I)
+#if defined(CONFIG_ARCH_SUN50I) || defined(CONFIG_ARCH_SUN8IW11)
 #define SS_CTR_MODE_ENABLE		1
 #define SS_CTS_MODE_ENABLE		1
 #define SS_SHA224_ENABLE		1
@@ -65,6 +65,14 @@
 #define SS_SCATTER_ENABLE		1
 
 #define SS_FLOW_NUM				4
+#endif
+
+#if defined(CONFIG_ARCH_SUN8IW11)
+#define SS_CFB_MODE_ENABLE		1
+#define SS_OFB_MODE_ENABLE		1
+
+#define SS_SHA384_ENABLE		1
+#define SS_SHA512_ENABLE		1
 #endif
 
 #if defined(SS_RSA512_ENABLE) || defined(SS_RSA1024_ENABLE) \
@@ -111,7 +119,7 @@
 
 #define SS_RES_NS_INDEX	0
 #define SS_RES_S_INDEX	1
-#define SS_RES_INDEX	SS_RES_NS_INDEX
+#define SS_RES_INDEX	SS_RES_S_INDEX
 
 #ifdef SS_SCATTER_ENABLE
 

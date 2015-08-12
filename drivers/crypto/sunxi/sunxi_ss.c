@@ -156,6 +156,84 @@ static int ss_aes_cts_decrypt(struct ablkcipher_request *req)
 }
 #endif
 
+#ifdef SS_OFB_MODE_ENABLE
+static int ss_aes_ofb_encrypt(struct ablkcipher_request *req)
+{
+	return ss_aes_crypt(req, SS_DIR_ENCRYPT, SS_METHOD_AES, SS_AES_MODE_OFB);
+}
+
+static int ss_aes_ofb_decrypt(struct ablkcipher_request *req)
+{
+	return ss_aes_crypt(req, SS_DIR_DECRYPT, SS_METHOD_AES, SS_AES_MODE_OFB);
+}
+#endif
+
+#ifdef SS_CFB_MODE_ENABLE
+static int ss_aes_cfb1_encrypt(struct ablkcipher_request *req)
+{
+	ss_aes_req_ctx_t *req_ctx = ablkcipher_request_ctx(req);
+
+	req_ctx->bitwidth = 1;
+	return ss_aes_crypt(req, SS_DIR_ENCRYPT, SS_METHOD_AES, SS_AES_MODE_CFB);
+}
+
+static int ss_aes_cfb1_decrypt(struct ablkcipher_request *req)
+{
+	ss_aes_req_ctx_t *req_ctx = ablkcipher_request_ctx(req);
+
+	req_ctx->bitwidth = 1;
+	return ss_aes_crypt(req, SS_DIR_DECRYPT, SS_METHOD_AES, SS_AES_MODE_CFB);
+}
+
+static int ss_aes_cfb8_encrypt(struct ablkcipher_request *req)
+{
+	ss_aes_req_ctx_t *req_ctx = ablkcipher_request_ctx(req);
+
+	req_ctx->bitwidth = 8;
+	return ss_aes_crypt(req, SS_DIR_ENCRYPT, SS_METHOD_AES, SS_AES_MODE_CFB);
+}
+
+static int ss_aes_cfb8_decrypt(struct ablkcipher_request *req)
+{
+	ss_aes_req_ctx_t *req_ctx = ablkcipher_request_ctx(req);
+
+	req_ctx->bitwidth = 8;
+	return ss_aes_crypt(req, SS_DIR_DECRYPT, SS_METHOD_AES, SS_AES_MODE_CFB);
+}
+
+static int ss_aes_cfb64_encrypt(struct ablkcipher_request *req)
+{
+	ss_aes_req_ctx_t *req_ctx = ablkcipher_request_ctx(req);
+
+	req_ctx->bitwidth = 64;
+	return ss_aes_crypt(req, SS_DIR_ENCRYPT, SS_METHOD_AES, SS_AES_MODE_CFB);
+}
+
+static int ss_aes_cfb64_decrypt(struct ablkcipher_request *req)
+{
+	ss_aes_req_ctx_t *req_ctx = ablkcipher_request_ctx(req);
+
+	req_ctx->bitwidth = 64;
+	return ss_aes_crypt(req, SS_DIR_DECRYPT, SS_METHOD_AES, SS_AES_MODE_CFB);
+}
+
+static int ss_aes_cfb128_encrypt(struct ablkcipher_request *req)
+{
+	ss_aes_req_ctx_t *req_ctx = ablkcipher_request_ctx(req);
+
+	req_ctx->bitwidth = 128;
+	return ss_aes_crypt(req, SS_DIR_ENCRYPT, SS_METHOD_AES, SS_AES_MODE_CFB);
+}
+
+static int ss_aes_cfb128_decrypt(struct ablkcipher_request *req)
+{
+	ss_aes_req_ctx_t *req_ctx = ablkcipher_request_ctx(req);
+
+	req_ctx->bitwidth = 128;
+	return ss_aes_crypt(req, SS_DIR_DECRYPT, SS_METHOD_AES, SS_AES_MODE_CFB);
+}
+#endif
+
 static int ss_des_ecb_encrypt(struct ablkcipher_request *req)
 {
 	return ss_aes_crypt(req, SS_DIR_ENCRYPT, SS_METHOD_DES, SS_AES_MODE_ECB);
@@ -308,7 +386,7 @@ static int sunxi_ss_cra_hash_init(struct crypto_tfm *tfm)
 	crypto_ahash_set_reqsize(__crypto_ahash_cast(tfm),
 				 sizeof(ss_aes_req_ctx_t));
 
-	SS_DBG("reqsize = %ld \n", sizeof(ss_aes_req_ctx_t));
+	SS_DBG("reqsize = %zu \n", sizeof(ss_aes_req_ctx_t));
 	return 0;
 }
 
@@ -386,6 +464,49 @@ static int ss_sha256_init(struct ahash_request *req)
 }
 #endif
 
+#define GET_U64_HIGH(data64)	(int)(data64 >> 32)
+#define GET_U64_LOW(data64)		(int)(data64 & 0xFFFFFFFF)
+
+#ifdef SS_SHA384_ENABLE
+static int ss_sha384_init(struct ahash_request *req)
+{
+	int iv[SHA512_DIGEST_SIZE/4] = {GET_U64_HIGH(SHA384_H0), GET_U64_LOW(SHA384_H0),
+									GET_U64_HIGH(SHA384_H1), GET_U64_LOW(SHA384_H1),
+									GET_U64_HIGH(SHA384_H2), GET_U64_LOW(SHA384_H2),
+									GET_U64_HIGH(SHA384_H3), GET_U64_LOW(SHA384_H3),
+									GET_U64_HIGH(SHA384_H4), GET_U64_LOW(SHA384_H4),
+									GET_U64_HIGH(SHA384_H5), GET_U64_LOW(SHA384_H5),
+									GET_U64_HIGH(SHA384_H6), GET_U64_LOW(SHA384_H6),
+									GET_U64_HIGH(SHA384_H7), GET_U64_LOW(SHA384_H7)};
+
+#ifdef SS_SHA_SWAP_PRE_ENABLE
+	ss_hash_swap((char *)iv, SHA512_DIGEST_SIZE);
+#endif
+
+	return ss_hash_init(req, SS_METHOD_SHA384, SHA512_DIGEST_SIZE, (char *)iv);
+}
+#endif
+
+#ifdef SS_SHA512_ENABLE
+static int ss_sha512_init(struct ahash_request *req)
+{
+	int iv[SHA512_DIGEST_SIZE/4] = {GET_U64_HIGH(SHA512_H0), GET_U64_LOW(SHA512_H0),
+									GET_U64_HIGH(SHA512_H1), GET_U64_LOW(SHA512_H1),
+									GET_U64_HIGH(SHA512_H2), GET_U64_LOW(SHA512_H2),
+									GET_U64_HIGH(SHA512_H3), GET_U64_LOW(SHA512_H3),
+									GET_U64_HIGH(SHA512_H4), GET_U64_LOW(SHA512_H4),
+									GET_U64_HIGH(SHA512_H5), GET_U64_LOW(SHA512_H5),
+									GET_U64_HIGH(SHA512_H6), GET_U64_LOW(SHA512_H6),
+									GET_U64_HIGH(SHA512_H7), GET_U64_LOW(SHA512_H7)};
+
+#ifdef SS_SHA_SWAP_PRE_ENABLE
+	ss_hash_swap((char *)iv, SHA512_DIGEST_SIZE);
+#endif
+
+	return ss_hash_init(req, SS_METHOD_SHA512, SHA512_DIGEST_SIZE, (char *)iv);
+}
+#endif
+
 #define DES_MIN_KEY_SIZE	DES_KEY_SIZE
 #define DES_MAX_KEY_SIZE	DES_KEY_SIZE
 #define DES3_MIN_KEY_SIZE	DES3_EDE_KEY_SIZE
@@ -451,6 +572,15 @@ static struct crypto_alg sunxi_ss_algs[] =
 #endif
 #ifdef SS_CTS_MODE_ENABLE
 	DECLARE_SS_AES_ALG(AES, aes, cts, 1, AES_MIN_KEY_SIZE),
+#endif
+#ifdef SS_OFB_MODE_ENABLE
+	DECLARE_SS_AES_ALG(AES, aes, ofb, AES_BLOCK_SIZE, AES_MIN_KEY_SIZE),
+#endif
+#ifdef SS_CFB_MODE_ENABLE
+	DECLARE_SS_AES_ALG(AES, aes, cfb1, AES_BLOCK_SIZE, AES_MIN_KEY_SIZE),
+	DECLARE_SS_AES_ALG(AES, aes, cfb8, AES_BLOCK_SIZE, AES_MIN_KEY_SIZE),
+	DECLARE_SS_AES_ALG(AES, aes, cfb64, AES_BLOCK_SIZE, AES_MIN_KEY_SIZE),
+	DECLARE_SS_AES_ALG(AES, aes, cfb128, AES_BLOCK_SIZE, AES_MIN_KEY_SIZE),
 #endif
 	DECLARE_SS_AES_ALG(DES, des, ecb, DES_BLOCK_SIZE, 0),
 	DECLARE_SS_AES_ALG(DES, des, cbc, DES_BLOCK_SIZE, DES_KEY_SIZE),
@@ -547,6 +677,12 @@ static struct ahash_alg sunxi_ss_algs_hash[] = {
 #endif
 #ifdef SS_SHA256_ENABLE
 	DECLARE_SS_AHASH_ALG(sha256, SHA256),
+#endif
+#ifdef SS_SHA384_ENABLE
+	DECLARE_SS_AHASH_ALG(sha384, SHA384),
+#endif
+#ifdef SS_SHA512_ENABLE
+	DECLARE_SS_AHASH_ALG(sha512, SHA512),
 #endif
 };
 

@@ -201,6 +201,7 @@ static int ss_aes_start(ss_aes_ctx_t *ctx, ss_aes_req_ctx_t *req_ctx, int len)
 	int src_len = len;
 	int align_size = 0;
 	u32 flow = ctx->comm.flow;
+	phys_addr_t phy_addr = 0;
 	ce_task_desc_t *task = &ss_dev->flows[flow].task;
 
 	ss_change_clk(req_ctx->type);
@@ -234,18 +235,22 @@ static int ss_aes_start(ss_aes_ctx_t *ctx, ss_aes_req_ctx_t *req_ctx, int len)
 	SS_DBG("Flow: %d, Dir: %d, Method: %d, Mode: %d, len: %d \n", flow, req_ctx->dir,
 			req_ctx->type, req_ctx->mode, len);
 
-	SS_DBG("ctx->key addr, vir = 0x%p, phy = 0x%llx\n", ctx->key, virt_to_phys(ctx->key));
-	SS_DBG("Task addr, vir = 0x%p, phy = 0x%llx\n", task, virt_to_phys(task));
+	phy_addr = virt_to_phys(ctx->key);
+	SS_DBG("ctx->key addr, vir = 0x%p, phy = %pa \n", ctx->key, &phy_addr);
+	phy_addr = virt_to_phys(task);
+	SS_DBG("Task addr, vir = 0x%p, phy = 0x%pa\n", task, &phy_addr);
 
 	ss_key_set(ctx->key, ctx->key_size, task);
 	dma_map_single(&ss_dev->pdev->dev, ctx->key, ctx->key_size, DMA_MEM_TO_DEV);
 
 	if (ctx->iv_size > 0) {
-		SS_DBG("ctx->iv addr, vir = 0x%p, phy = 0x%llx\n", ctx->iv, virt_to_phys(ctx->iv));
+		phy_addr = virt_to_phys(ctx->iv);
+		SS_DBG("ctx->iv addr, vir = 0x%p, phy = 0x%pa\n", ctx->iv, &phy_addr);
 		ss_iv_set(ctx->iv, ctx->iv_size, task);
 		dma_map_single(&ss_dev->pdev->dev, ctx->iv, ctx->iv_size, DMA_MEM_TO_DEV);
 
-		SS_DBG("ctx->next_iv addr, vir = 0x%p, phy = 0x%llx\n", ctx->next_iv, virt_to_phys(ctx->next_iv));
+		phy_addr = virt_to_phys(ctx->next_iv);
+		SS_DBG("ctx->next_iv addr, vir = 0x%p, phy = 0x%pa\n", ctx->next_iv, &phy_addr);
 		ss_cnt_set(ctx->next_iv, ctx->iv_size, task);
 		dma_map_single(&ss_dev->pdev->dev, ctx->next_iv, ctx->iv_size, DMA_DEV_TO_MEM);
 	}
@@ -369,6 +374,7 @@ static int ss_rng_start(ss_aes_ctx_t *ctx, u8 *rdata, u32 dlen, u32 trng)
 	int flow = ctx->comm.flow;
 	int rng_len = 0;
 	char *buf = NULL;
+	phys_addr_t phy_addr = 0;
 	ce_task_desc_t *task = &ss_dev->flows[flow].task;
 
 	if (trng)
@@ -398,14 +404,16 @@ static int ss_rng_start(ss_aes_ctx_t *ctx, u8 *rdata, u32 dlen, u32 trng)
 	else
 		ss_method_set(SS_DIR_ENCRYPT, SS_METHOD_PRNG, task);
 
-	SS_DBG("ctx->key addr, vir = 0x%p, phy = 0x%llx\n", ctx->key, virt_to_phys(ctx->key));
+	phy_addr = virt_to_phys(ctx->key);
+	SS_DBG("ctx->key addr, vir = 0x%p, phy = %pa\n", ctx->key, &phy_addr);
 
 	if (trng == 0) {
 		/* Must set the seed addr in PRNG. */
 		ss_key_set(ctx->key, ctx->key_size, task);
 		dma_map_single(&ss_dev->pdev->dev, ctx->key, ctx->key_size, DMA_MEM_TO_DEV);
 	}
-	SS_DBG("buf addr, vir = 0x%p, phy = 0x%llx\n", buf, virt_to_phys(buf));
+	phy_addr = virt_to_phys(buf);
+	SS_DBG("buf addr, vir = 0x%p, phy = %pa\n", buf, &phy_addr);
 
 	/* Prepare the dst scatterlist */
 	task->dst[0].addr = virt_to_phys(buf);
@@ -416,7 +424,8 @@ static int ss_rng_start(ss_aes_ctx_t *ctx, u8 *rdata, u32 dlen, u32 trng)
 	
 	SS_DBG("Flow: %d, Request: %d, Aligned: %d \n", flow, dlen, rng_len);
 
-	SS_DBG("Task addr, vir = 0x%p, phy = 0x%llx\n", task, virt_to_phys(task));
+	phy_addr = virt_to_phys(task);
+	SS_DBG("Task addr, vir = 0x%p, phy = %pa\n", task, &phy_addr);
 	
 	/* Start CE controller. */
 	init_completion(&ss_dev->flows[flow].done);
@@ -494,6 +503,7 @@ int ss_hash_start(ss_hash_ctx_t *ctx, ss_aes_req_ctx_t *req_ctx, int len)
 	int ret = 0;
 	int flow = ctx->comm.flow;
 	char *digest = NULL;
+	phys_addr_t phy_addr = 0;
 	ce_task_desc_t *task = &ss_dev->flows[flow].task;
 
 	/* Total len is too small, so process it in the padding data later. */
@@ -519,7 +529,8 @@ int ss_hash_start(ss_hash_ctx_t *ctx, ss_aes_req_ctx_t *req_ctx, int len)
 	SS_DBG("Flow: %d, Dir: %d, Method: %d, Mode: %d, len: %d / %d \n", flow,
 			req_ctx->dir, req_ctx->type, req_ctx->mode, len, ctx->cnt);
 	SS_DBG("IV address = 0x%p, size = %d\n", ctx->md, ctx->md_size);
-	SS_DBG("Task addr, vir = 0x%p, phy = 0x%llx\n", task, virt_to_phys(task));
+	phy_addr = virt_to_phys(task);
+	SS_DBG("Task addr, vir = 0x%p, phy = %pa\n", task, &phy_addr);
 
 	ss_iv_set(ctx->md, ctx->md_size, task);
 	ss_iv_mode_set(CE_HASH_IV_INPUT, task);
@@ -536,7 +547,8 @@ int ss_hash_start(ss_hash_ctx_t *ctx, ss_aes_req_ctx_t *req_ctx, int len)
 	task->dst[0].addr = virt_to_phys(digest);
 	task->dst[0].len  = ctx->md_size/4;
 	dma_map_single(&ss_dev->pdev->dev, digest, SHA512_DIGEST_SIZE, DMA_DEV_TO_MEM);
-	SS_DBG("digest addr, vir = 0x%p, phy = 0x%llx\n", digest, virt_to_phys(digest));
+	phy_addr = virt_to_phys(digest);
+	SS_DBG("digest addr, vir = 0x%p, phy = %pa\n", digest, &phy_addr);
 
 	/* Start CE controller. */
 	init_completion(&ss_dev->flows[flow].done);

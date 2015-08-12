@@ -6,6 +6,9 @@ obj-$(CONFIG_CRYPTO_SUNXI) += ss.o
 
 ss-y += sunxi_ss.o
 
+ifdef CONFIG_ARCH_SUN8IW11
+	SUNXI_SS_VER = v3
+endif
 ifdef CONFIG_ARCH_SUN50I
 	SUNXI_SS_VER = v3
 endif

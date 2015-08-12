@@ -48,7 +48,7 @@ static int rng_recvmsg(struct kiocb *unused, struct socket *sock,
 	RNG_DBG("flags = %#x \n", flags);
 
 	if ((iov->iov_base == NULL) || (iov->iov_len == 0)) {
-		RNG_ERR("Invalid parameter: base %p, len %ld \n", iov->iov_base, iov->iov_len);
+		RNG_ERR("Invalid parameter: base %p, len %zu \n", iov->iov_base, iov->iov_len);
 		return -EINVAL;
 	}
 
