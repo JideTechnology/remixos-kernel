@@ -75,7 +75,7 @@ void dummy_reg_init(void)
 #endif // of CONFIG_SUNXI_CLK_DUMMY_DEBUG
 
 /*                                          ns  nw  ks  kw  ms  mw  ps  pw  d1s d1w d2s d2w {frac   out mode}   en-s    sdmss   sdmsw   sdmpat         sdmval*/
-SUNXI_CLK_FACTORS(          pll_cpu,        8,  5,  4,  2,  0,  2,  16, 2, 30,  1,  0,  0,    0,    0,  0,      31,     24,     0,      PLL_CPUPAT,    0xd1303333);
+SUNXI_CLK_FACTORS(          pll_cpu,        8,  5,  4,  2,  0,  2,  16, 2,  0,  0,  0,  0,    0,    0,  0,      31,     24,     0,      PLL_CPUPAT,    0xd1303333);
 SUNXI_CLK_FACTORS(          pll_audio,      8,  7,  0,  0,  0,  5,  16, 4,  0,  0,  0,  0,    0,    0,  0,      31,     24,      0,      0,             0         );
 SUNXI_CLK_FACTORS(          pll_video0,     8,  7,  0,  0,  0,  4,  0,  0,  0,  0,  0,  0,    1,    25, 24,     31,     20,     0,      PLL_VIDEO0PAT, 0xd1303333);
 SUNXI_CLK_FACTORS(          pll_ve,         8,  7,  0,  0,  0,  4,  0,  0,  0,  0,  0,  0,    1,    25, 24,     31,     20,     0,      PLL_VEPAT,     0xd1303333);
