@@ -68,4 +68,13 @@
 		bt_hostwake = <&r_pio PL 5 6 0 0 0>;
 		status = "okay";
 	};
+	clocks {
+		clk_pll_de: pll_de {
+			assigned-clock-rates = <432000000>;
+		};
+
+		clk_de: de {
+			assigned-clock-rates = <432000000>;
+		};
+	};
 };
