@@ -228,11 +228,11 @@ static void bmg160_remap_sensor_data(struct bmg160_data_t *val,
 {
 	struct bosch_sensor_data bsd;
 
-	if ((NULL == client_data->bst_pd) ||
+/*	if ((NULL == client_data->bst_pd) ||
 			(BOSCH_SENSOR_PLACE_UNKNOWN
 			 == client_data->bst_pd->place))
 		return;
-
+*/
 #ifdef CONFIG_SENSORS_BMI058
 /*x,y need to be invesed becase of HW Register for BMI058*/
 	bsd.y = val->datax;
@@ -244,8 +244,8 @@ static void bmg160_remap_sensor_data(struct bmg160_data_t *val,
 	bsd.z = val->dataz;
 #endif
 
-	bst_remap_sensor_data_dft_tab(&bsd,
-			client_data->bst_pd->place);
+	//bst_remap_sensor_data_dft_tab(&bsd, client_data->bst_pd->place);
+	bst_remap_sensor_data_dft_tab(&bsd, 7);
 
 	val->datax = bsd.x;
 	val->datay = bsd.y;
@@ -491,8 +491,6 @@ static void bmg_work_func(struct work_struct *work)
 		container_of((struct delayed_work *)work,
 			struct bmg_client_data, work);
 
-        printk(KERN_ALERT "BMG160 --> bmg_work_func ... \n");
-
 	unsigned long delay =
 		msecs_to_jiffies(atomic_read(&client_data->delay));
 	struct bmg160_data_t gyro_data;
@@ -506,9 +504,6 @@ static void bmg_work_func(struct work_struct *work)
 	input_report_abs(client_data->input, ABS_Y, gyro_data.datay);
 	input_report_abs(client_data->input, ABS_Z, gyro_data.dataz);
 	input_sync(client_data->input);
-
-        printk(KERN_ALERT "BMG160 report --> X:%d, Y:%d, Z:%d\n", 
-               gyro_data.datax, gyro_data.datay, gyro_data.dataz);
 
 	schedule_delayed_work(&client_data->work, delay);
 }
@@ -1289,17 +1284,6 @@ static int bmg_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	int err = 0;
 	struct bmg_client_data *client_data = NULL;
 
-	dev_info(&client->dev, "function entrance");
-        dev_info(&client->dev, "flags : %d\n", client->flags );
-        dev_info(&client->dev, "addr : 0x%x\n", client->addr );
-        dev_info(&client->dev, "name : %s\n", client->name );
-        //printk( "### MyDebug  adpapter : %s\n", client->adapter );
-        dev_info(&client->dev, "dev.platform_data : %s\n", client->dev.platform_data );
-        dev_info(&client->dev, "irq : %d\n", client->irq );
-        //printk( "### MyDebug  detected : %s\n", client->detected );
-        dev_info(&client->dev, "comp_addr_count : %d\n", client->comp_addr_count );
-        //printk( "### MyDebug  comp_addrs : %s\n", client->comp_addrs );
-        dev_info(&client->dev, "irq_flags : %ld\n", client->irq_flags );
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		dev_err(&client->dev, "i2c_check_functionality error!");
@@ -1633,7 +1617,6 @@ static struct i2c_driver bmg_driver = {
 
 static int __init BMG_init(void)
 {
-     printk( "### MyDebug BMG dirver init ... \n" );
      return i2c_add_driver(&bmg_driver);
 }
 
