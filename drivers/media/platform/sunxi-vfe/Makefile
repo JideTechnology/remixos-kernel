@@ -19,7 +19,11 @@ vfe_v4l2-y					:= csi/sunxi_csi.o
 vfe_v4l2-y					+= mipi_csi/sunxi_mipi.o
 vfe_v4l2-y					+= flash_light/flash.o
 vfe_v4l2-y					+= sunxi_isp.o
+ifneq ($(strip $(CONFIG_ARCH_SUN8IW11)),)
+vfe_v4l2-y					+= csi/csi_reg_a20.o
+else
 vfe_v4l2-y					+= csi/csi_reg.o
+endif
 vfe_v4l2-y					+= csi/bsp_csi.o 
 vfe_v4l2-y					+= bsp_common.o
 vfe_v4l2-y					+= config.o
@@ -28,6 +32,8 @@ vfe_v4l2-y					+= isp_cfg/isp_cfg.o
 vfe_v4l2-y					+= utility/cfg_op.o
 vfe_v4l2-y					+= vfe.o
 ifneq ($(strip $(CONFIG_ARCH_SUN8IW10)),)
+vfe_v4l2-y					+= lib/bsp_isp_null.o
+else ifneq ($(strip $(CONFIG_ARCH_SUN8IW11)),)
 vfe_v4l2-y					+= lib/bsp_isp_null.o
 else
 vfe_v4l2-y					+= lib/libisp

@@ -44,6 +44,7 @@ struct csi_dev
 	unsigned int            capture_mode;
 };
 
+void sunxi_csi_dump_regs(struct v4l2_subdev *sd);
 int sunxi_csi_get_subdev(struct v4l2_subdev **sd, int sel);
 int sunxi_csi_put_subdev(struct v4l2_subdev **sd, int sel);
 int sunxi_csi_register_subdev(struct v4l2_device *v4l2_dev, struct v4l2_subdev *sd);

@@ -332,6 +332,21 @@ static struct platform_driver csi_platform_driver = {
 	}    
 };
 
+void sunxi_csi_dump_regs(struct v4l2_subdev *sd)
+{
+	struct csi_dev *csi = v4l2_get_subdevdata(sd);
+	int i = 0;
+	printk("Vfe dump CSI regs :\n");
+	for(i = 0; i < 0xb0; i = i + 4)
+	{
+		if(i % 0x10 == 0)	
+			printk("0x%08x:    ", i);
+		printk("0x%08x, ", readl(csi->base + i));
+		if(i % 0x10 == 0xc)	
+			printk("\n");
+	}
+}
+
 int sunxi_csi_register_subdev(struct v4l2_device *v4l2_dev, struct v4l2_subdev *sd)
 {
 	return v4l2_device_register_subdev(v4l2_dev, sd);

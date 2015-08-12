@@ -65,7 +65,10 @@
 #define SUNXI_PLATFORM_ID ISP_PLATFORM_SUN50IW1P1
 #elif defined CONFIG_ARCH_SUN8IW10P1
 #include "platform/sun8iw10p1_vfe_cfg.h"
-#define SUNXI_PLATFORM_ID ISP_PLATFORM_SUN50IW1P1
+#define SUNXI_PLATFORM_ID ISP_PLATFORM_SUN8IW10P1
+#elif defined CONFIG_ARCH_SUN8IW11P1
+#include "platform/sun8iw11p1_vfe_cfg.h"
+#define SUNXI_PLATFORM_ID ISP_PLATFORM_SUN8IW11P1
 #endif
 
 #define ISP_LUT_MEM_OFS             0x0

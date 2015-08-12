@@ -5,7 +5,11 @@
 #ifndef __BSP__CSI__H__
 #define __BSP__CSI__H__
 
+#if defined CONFIG_ARCH_SUN8IW11P1
+#include "csi_reg_a20.h"
+#else
 #include "csi_reg.h"
+#endif
 #include "../bsp_common.h"
 
 #define MAX_CH_NUM 4

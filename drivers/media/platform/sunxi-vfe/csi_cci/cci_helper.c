@@ -339,6 +339,7 @@ int cci_dev_probe_helper(struct v4l2_subdev *sd, struct i2c_client *client,
 	{
 		v4l2_i2c_subdev_init(sd, client, sensor_ops);
 		cci_drv->sd = sd;
+		v4l2_set_subdev_hostdata(sd, cci_drv);
 	}
 	else
 	{
@@ -379,8 +380,7 @@ int cci_read_a8_d8(struct v4l2_subdev *sd, unsigned char addr,
     unsigned char *value)
 {
 #ifdef USE_SPECIFIC_CCI
-	struct cci_driver *cci_drv;
-	cci_drv = v4l2_get_subdevdata(sd);
+	struct cci_driver *cci_drv = v4l2_get_subdevdata(sd);
 	return cci_rd_8_8(cci_drv->cci_id, addr, value, cci_drv->cci_saddr);
 #else
   unsigned char data[2];
@@ -421,8 +421,7 @@ int cci_write_a8_d8(struct v4l2_subdev *sd, unsigned char addr,
     unsigned char value)
 {
 #ifdef USE_SPECIFIC_CCI
-	struct cci_driver *cci_drv;
-	cci_drv = v4l2_get_subdevdata(sd);
+	struct cci_driver *cci_drv = v4l2_get_subdevdata(sd);
 	return cci_wr_8_8(cci_drv->cci_id, addr, value, cci_drv->cci_saddr);
 #else
   struct i2c_msg msg;
@@ -453,8 +452,7 @@ int cci_read_a8_d16(struct v4l2_subdev *sd, unsigned char addr,
     unsigned short *value)
 {
 #ifdef USE_SPECIFIC_CCI
-	struct cci_driver *cci_drv;
-	cci_drv = v4l2_get_subdevdata(sd);
+	struct cci_driver *cci_drv = v4l2_get_subdevdata(sd);
 	return cci_rd_8_16(cci_drv->cci_id, addr, value, cci_drv->cci_saddr);
 #else
 
@@ -497,8 +495,7 @@ int cci_write_a8_d16(struct v4l2_subdev *sd, unsigned char addr,
     unsigned short value)
 {
 #ifdef USE_SPECIFIC_CCI
-	struct cci_driver *cci_drv;
-	cci_drv = v4l2_get_subdevdata(sd);
+	struct cci_driver *cci_drv = v4l2_get_subdevdata(sd);
 	return cci_wr_8_16(cci_drv->cci_id, addr, value, cci_drv->cci_saddr);
 #else
 
@@ -530,8 +527,7 @@ int cci_read_a16_d8(struct v4l2_subdev *sd, unsigned short addr,
     unsigned char *value)
 {
 #ifdef USE_SPECIFIC_CCI
-	struct cci_driver *cci_drv;
-	cci_drv = v4l2_get_subdevdata(sd);
+	struct cci_driver *cci_drv = v4l2_get_subdevdata(sd);
 	return cci_rd_16_8(cci_drv->cci_id, addr, value, cci_drv->cci_saddr);
 #else  
   int ret;
@@ -577,8 +573,7 @@ int cci_write_a16_d8(struct v4l2_subdev *sd, unsigned short addr,
     unsigned char value)
 {
 #ifdef USE_SPECIFIC_CCI
-	struct cci_driver *cci_drv;
-	cci_drv = v4l2_get_subdevdata(sd);
+	struct cci_driver *cci_drv = v4l2_get_subdevdata(sd);
 	return cci_wr_16_8(cci_drv->cci_id, addr, value, cci_drv->cci_saddr);
 #else
 	int ret = 0;
@@ -611,8 +606,7 @@ int cci_read_a16_d16(struct v4l2_subdev *sd, unsigned short addr,
     unsigned short *value)
 {
 #ifdef USE_SPECIFIC_CCI
-	struct cci_driver *cci_drv;
-	cci_drv = v4l2_get_subdevdata(sd);
+	struct cci_driver *cci_drv = v4l2_get_subdevdata(sd);
 	return cci_rd_16_16(cci_drv->cci_id, addr, value, cci_drv->cci_saddr);
 #else
 
@@ -656,8 +650,7 @@ int cci_write_a16_d16(struct v4l2_subdev *sd, unsigned short addr,
     unsigned short value)
 {
 #ifdef USE_SPECIFIC_CCI
-	struct cci_driver *cci_drv;
-	cci_drv = v4l2_get_subdevdata(sd);
+	struct cci_driver *cci_drv = v4l2_get_subdevdata(sd);
 	return cci_wr_16_16(cci_drv->cci_id, addr, value, cci_drv->cci_saddr);
 #else
 
@@ -691,8 +684,7 @@ EXPORT_SYMBOL_GPL(cci_write_a16_d16);
 int cci_read_a0_d16(struct v4l2_subdev *sd, unsigned short *value)
 {
 #ifdef USE_SPECIFIC_CCI
-	struct cci_driver *cci_drv;
-	cci_drv = v4l2_get_subdevdata(sd);
+	struct cci_driver *cci_drv = v4l2_get_subdevdata(sd);
 	return cci_rd_0_16(cci_drv->cci_id, value, cci_drv->cci_saddr);
 #else
 
@@ -725,8 +717,7 @@ EXPORT_SYMBOL_GPL(cci_read_a0_d16);
 int cci_write_a0_d16(struct v4l2_subdev *sd, unsigned short value)
 {
 #ifdef USE_SPECIFIC_CCI
-	struct cci_driver *cci_drv;
-	cci_drv = v4l2_get_subdevdata(sd);
+	struct cci_driver *cci_drv = v4l2_get_subdevdata(sd);
 	return cci_wr_0_16(cci_drv->cci_id, value, cci_drv->cci_saddr);
 #else
 
@@ -759,8 +750,7 @@ EXPORT_SYMBOL_GPL(cci_write_a0_d16);
 int cci_write_a16_d8_continuous_helper(struct v4l2_subdev *sd, unsigned short addr, unsigned char *vals , uint size)
 {
 #ifdef USE_SPECIFIC_CCI
-	struct cci_driver *cci_drv;
-	cci_drv = v4l2_get_subdevdata(sd);
+	struct cci_driver *cci_drv = v4l2_get_subdevdata(sd);
 	return cci_wr_a16_d8_continuous(cci_drv->cci_id, addr, vals, cci_drv->cci_saddr,size);
 #else
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
@@ -799,7 +789,11 @@ EXPORT_SYMBOL_GPL(cci_write_a16_d8_continuous_helper);
 
 int cci_write(struct v4l2_subdev *sd, addr_type addr, data_type value)
 {
+#ifdef USE_SPECIFIC_CCI
 	struct cci_driver *cci_drv = v4l2_get_subdevdata(sd);
+#else
+	struct cci_driver *cci_drv = v4l2_get_subdev_hostdata(sd);
+#endif
 	int addr_width = cci_drv->addr_width;
 	int data_width = cci_drv->data_width;
 
@@ -833,7 +827,11 @@ EXPORT_SYMBOL_GPL(cci_write);
 
 int cci_read(struct v4l2_subdev *sd, addr_type addr, data_type *value)
 {
+#ifdef USE_SPECIFIC_CCI
 	struct cci_driver *cci_drv = v4l2_get_subdevdata(sd);
+#else
+	struct cci_driver *cci_drv = v4l2_get_subdev_hostdata(sd);
+#endif
 	int addr_width = cci_drv->addr_width;
 	int data_width = cci_drv->data_width;
 	*value = 0;

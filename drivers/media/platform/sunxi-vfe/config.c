@@ -397,6 +397,7 @@ static int get_gpio_info(struct device_node *np, const char * name, struct vfe_g
 
 static int get_mname(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_string(np,name,cc->ccm);}
 static int get_twi_addr(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_int(np,name,&cc->i2c_addr);}
+static int get_twi_id(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_int(np,name,&cc->twi_id);}
 static int get_pos(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_string(np,name,cc->sensor_pos);}
 static int get_isp_used(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_int(np,name,&cc->is_isp_used);}
 static int get_fmt(struct device_node *np, const char *name, struct ccm_config *cc){return get_value_int(np,name,&cc->is_bayer_raw);}
@@ -436,6 +437,7 @@ static struct FetchFunArr fetch_fun[] =
 {
 	{"mname"		, 0			,get_mname,			},
 	{"twi_addr"		, 0			,get_twi_addr,		},
+	{"twi_id"		, 1			,get_twi_id,		},
 	{"pos" 			, 1			,get_pos,			},
 	{"isp_used"		, 1			,get_isp_used,		},
 	{"fmt"			, 1			,get_fmt,			},

@@ -11,7 +11,11 @@
 int sensor_read(struct v4l2_subdev *sd, addr_type reg, data_type *value)
 {
 	int ret=0, cnt=0;
+#ifdef USE_SPECIFIC_CCI
 	struct cci_driver *cci_drv = v4l2_get_subdevdata(sd);
+#else
+	struct cci_driver *cci_drv = v4l2_get_subdev_hostdata(sd);
+#endif
 	
 	ret = cci_read(sd,reg,value);
 	while((ret != 0) && (cnt < 2))
@@ -29,7 +33,11 @@ EXPORT_SYMBOL_GPL(sensor_read);
 int sensor_write(struct v4l2_subdev *sd, addr_type reg, data_type value)
 {
 	int ret=0, cnt=0;
+#ifdef USE_SPECIFIC_CCI
 	struct cci_driver *cci_drv = v4l2_get_subdevdata(sd);
+#else
+	struct cci_driver *cci_drv = v4l2_get_subdev_hostdata(sd);
+#endif
 
 	ret = cci_write(sd,reg,value);
 	while((ret != 0) && (cnt < 2))
@@ -50,7 +58,11 @@ EXPORT_SYMBOL_GPL(sensor_write);
 int sensor_write_array(struct v4l2_subdev *sd, struct regval_list *regs, int array_size)
 {
 	int ret = 0, i = 0;
+#ifdef USE_SPECIFIC_CCI
 	struct cci_driver *cci_drv = v4l2_get_subdevdata(sd);
+#else
+	struct cci_driver *cci_drv = v4l2_get_subdev_hostdata(sd);
+#endif
 
 	if(!regs)
 		return -EINVAL;

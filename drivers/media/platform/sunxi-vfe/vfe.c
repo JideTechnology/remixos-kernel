@@ -613,6 +613,8 @@ int clk_index[][CLK_NUM] = {			//index of clk in device tree
 	{0,0,0,0,0},
 	{0,0,0,0,0},
 	{0,1,2,NOCLK,NOCLK}, 		
+	{0,1,2,NOCLK,NOCLK},
+	{0,1,NOCLK,NOCLK,NOCLK},
 };
 
 int clk_src_index[][CLK_SRC_NUM] = {	//index of clk source in device tree
@@ -620,6 +622,8 @@ int clk_src_index[][CLK_SRC_NUM] = {	//index of clk source in device tree
 	{0,0,0,0,0},
 	{0,0,0,0,0},
 	{3,4,5,NOCLK,NOCLK}, 
+	{3,4,5,NOCLK,NOCLK},
+	{2,3,NOCLK,NOCLK,NOCLK},
 };
 
 static int vfe_clk_get(struct vfe_dev *dev)
@@ -861,53 +865,6 @@ static inline void vfe_set_addr(struct vfe_dev *dev,struct vfe_buffer *buffer)
 	vfe_dbg(3,"csi_buf_addr_orginal=%pa\n", &addr_org);//=>vfe_dbg(3,"csi_buf_addr_orginal=0x%016llx\n", addr_org);
 }
 
-static void vfe_dump_csi_regs(struct vfe_dev *dev)
-{
-	int i = 0;
-	if(vfe_dump & DUMP_CSI)
-	{
-		if(5 == frame_cnt % 10)
-		{
-			printk("Vfe dump CSI regs :\n");
-			for(i = 0; i < 0xb0; i = i + 4)
-			{
-				if(i % 0x10 == 0)	
-					printk("0x%08x:    ", i);
-				printk("0x%08x, ", vfe_reg_readl(dev->regs.csi_regs + i));
-				if(i % 0x10 == 0xc)	
-					printk("\n");
-			}
-		}
-	}
-}
-static void vfe_dump_isp_regs(struct vfe_dev *dev)
-{
-	int i = 0;
-	if(vfe_dump & DUMP_ISP)
-	{
-		if(9 == (frame_cnt % 10))
-		{
-			printk("Vfe dump ISP regs :\n");
-			for(i = 0; i < 0x40; i = i + 4)
-			{
-				if(i % 0x10 == 0)	
-					printk("0x%08x:  ", i);
-				printk("0x%08x, ", vfe_reg_readl(dev->regs.isp_regs + i));
-				if(i % 0x10 == 0xc)	
-					printk("\n");
-			}
-			for(i = 0x40; i < 0x240; i = i + 4)
-			{
-				if(i % 0x10 == 0)	
-					printk("0x%08x:  ", i);
-				printk("0x%08x, ", vfe_reg_readl(dev->regs.isp_load_regs + i));
-				if(i % 0x10 == 0xc)	
-					printk("\n");
-			}
-		}
-	}
-}
-
 static void vfe_init_isp_log(struct vfe_dev *dev)
 {
 	if(isp_log == 1)
@@ -974,7 +931,13 @@ static void isp_isr_bh_handle(struct work_struct *work)
 	struct vfe_dev *dev = container_of(work,struct vfe_dev,isp_isr_bh_task);
 	
 	FUNCTION_LOG;
-	vfe_dump_isp_regs(dev);
+	if(vfe_dump & DUMP_ISP)
+	{
+		if(9 == (frame_cnt % 10))
+		{
+			sunxi_isp_dump_regs(dev->isp_sd);
+		}
+	}
 	if(dev->is_bayer_raw) {
 		mutex_lock(&dev->isp_3a_result_mutex);
 		if(1 == isp_reparse_flag)
@@ -1324,7 +1287,15 @@ static irqreturn_t vfe_isr(int irq, void *priv)
 			return IRQ_HANDLED;
 		}
 	} 
-	vfe_dump_csi_regs(dev);
+
+	if(vfe_dump & DUMP_CSI)
+	{
+		if(5 == frame_cnt % 10)
+		{
+			sunxi_csi_dump_regs(dev->csi_sd);
+		}
+	}
+
 	frame_cnt++;
 	mod_timer(&dev->timer_for_reset, jiffies + HZ );
 

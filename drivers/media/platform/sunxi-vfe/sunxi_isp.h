@@ -127,6 +127,7 @@ void sunxi_isp_set_mirror(enum isp_channel ch, enum enable_flag on_off);
 unsigned int sunxi_isp_set_size(enum pixel_fmt *fmt, struct isp_size_settings *size_settings);
 void sunxi_isp_set_output_addr(unsigned long buf_base_addr);
 
+void sunxi_isp_dump_regs(struct v4l2_subdev *sd);
 int sunxi_isp_get_subdev(struct v4l2_subdev **sd, int sel);
 int sunxi_isp_put_subdev(struct v4l2_subdev **sd, int sel);
 int sunxi_isp_register_subdev(struct v4l2_device *v4l2_dev, struct v4l2_subdev *sd);
