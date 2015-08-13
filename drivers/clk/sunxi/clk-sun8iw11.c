@@ -398,7 +398,6 @@ static unsigned long calc_rate_pll_cpu(u32 parent_rate, struct clk_factors_value
 	u64 tmp_rate = (parent_rate?parent_rate:24000000);
 	tmp_rate = tmp_rate * (factor->factorn+1) * (factor->factork+1);
 	do_div(tmp_rate, (factor->factorm+1) * (1 << factor->factorp));
-	do_div(tmp_rate, (factor->factord1+1));
 	return (unsigned long)tmp_rate;
 }
 /*    pll_audio:24*N/(M*P)    */
