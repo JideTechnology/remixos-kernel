@@ -717,4 +717,14 @@ config GPIO_VIPERBOARD
           River Tech's viperboard.h for detailed meaning
           of the module parameters.
 
+config GPIO_SUNXI
+	tristate "SUNXI GPIO USER INTERFACE"
+	depends on ARCH_SUNXI
+    default m
+	help
+		This driver export interface node in "/sys/class/gpio_sw/......" 
+		operate this node can change pins functions status, resistance
+		status, driver level, and output level in output function.
+		It is used to sunxi family
+
 endif
