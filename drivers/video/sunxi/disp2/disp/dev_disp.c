@@ -286,8 +286,8 @@ static ssize_t disp_boot_para_show(struct device *dev,
 {
 	return sprintf(buf, "disp_para=%x init_disp=%x tv_vdid=%x fb_base=0x%x\n",
 		disp_boot_para_parse("boot_disp"),
-		0,
-		0,
+		disp_boot_para_parse("init_disp"),
+		disp_boot_para_parse("tv_vdid"),
 		disp_boot_para_parse("fb_base"));
 }
 
