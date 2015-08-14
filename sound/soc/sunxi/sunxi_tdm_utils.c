@@ -86,12 +86,6 @@ int  rxctrl_tdm(int on,struct sunxi_tdm_info *sunxi_tdm)
 		tdm = sunxi_tdm;
 	else
 		return -1;
-	/*flush RX FIFO*/
-	reg_val = readl(tdm->regs + SUNXI_DAUDIOFCTL);
-	reg_val |= SUNXI_DAUDIOFCTL_FRX;
-	writel(reg_val, tdm->regs + SUNXI_DAUDIOFCTL);
-	/*clear RX counter*/
-	writel(0, tdm->regs + SUNXI_DAUDIORXCNT);
 
 	if (on) {
 		/* enable DMA DRQ mode for record */
@@ -99,14 +93,28 @@ int  rxctrl_tdm(int on,struct sunxi_tdm_info *sunxi_tdm)
 		reg_val |= SUNXI_DAUDIOINT_RXDRQEN;
 		writel(reg_val, tdm->regs + SUNXI_DAUDIOINT);
 	} else {
-		/* DISBALE dma DRQ mode */
-		reg_val = readl(tdm->regs + SUNXI_DAUDIOINT);
-		reg_val &= ~SUNXI_DAUDIOINT_RXDRQEN;
-		writel(reg_val, tdm->regs + SUNXI_DAUDIOINT);
 		/*DISABLE DAUDIO RX */
 		reg_val = readl(tdm->regs + SUNXI_DAUDIOCTL);
 		reg_val &= ~SUNXI_DAUDIOCTL_RXEN;
 		writel(reg_val, tdm->regs + SUNXI_DAUDIOCTL);
+		/* DISBALE dma DRQ mode */
+		reg_val = readl(tdm->regs + SUNXI_DAUDIOINT);
+		reg_val &= ~SUNXI_DAUDIOINT_RXDRQEN;
+		writel(reg_val, tdm->regs + SUNXI_DAUDIOINT);
+
+		/*flush RX FIFO*/
+		reg_val = readl(tdm->regs + SUNXI_DAUDIOFCTL);
+		reg_val |= SUNXI_DAUDIOFCTL_FRX;
+		writel(reg_val, tdm->regs + SUNXI_DAUDIOFCTL);
+		/*clear RX counter*/
+		writel(0, tdm->regs + SUNXI_DAUDIORXCNT);
+		#ifdef CONFIG_ARCH_SUN50I
+		/*
+		*	while flush RX FIFO, must read RXFIFO DATA again.
+		*	or it wouldn't flush RX FIFO clean; and it will let record data channel reverse!
+		*/
+		reg_val = readl(tdm->regs + SUNXI_DAUDIORXFIFO);
+		#endif
 	}
 
 	return 0;
