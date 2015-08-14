@@ -3,14 +3,6 @@
  *
  * Copyright (C) 2014 Linaro Ltd. <ard.biesheuvel@linaro.org>
  *
- * Based on arch/x86/crypto/ghash-pmullni-intel_asm.S
- *
- * Copyright (c) 2009 Intel Corp.
- *   Author: Huang Ying <ying.huang@intel.com>
- *           Vinodh Gopal
- *           Erdinc Ozturk
- *           Deniz Karakoyunlu
- *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published
  * by the Free Software Foundation.
