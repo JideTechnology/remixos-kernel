@@ -994,7 +994,12 @@
 		boot_disp: boot_disp {
 			compatible = "allwinner,boot_disp";
 		};
-
+		ac200: ac200 {
+			compatible = "allwinner,sunxi-ac200";
+			clocks = <&clk_tcon0>;
+			pinctrl-names = "active","sleep";
+			status = "okay";
+		};
 		csi_cci0:cci@0x01cb3000 {
 			compatible = "allwinner,sunxi-csi_cci";
 			reg = <0x0 0x01cb3000 0x0 0x1000>;	/*0x01cb3000--0x01cb4000*/
