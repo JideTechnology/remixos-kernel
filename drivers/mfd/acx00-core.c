@@ -219,7 +219,7 @@ static int acx00_i2c_probe(struct i2c_client *i2c,
 {
 	struct acx00 *acx00;
 	int ret = 0;
-pr_err("%s,l:%d\n", __func__, __LINE__);
+	pr_err("%s,l:%d\n", __func__, __LINE__);
 	acx00 = devm_kzalloc(&i2c->dev, sizeof(struct acx00), GFP_KERNEL);
 	if (acx00 == NULL)
 		return -ENOMEM;
@@ -241,9 +241,14 @@ pr_err("%s,l:%d\n", __func__, __LINE__);
 		pr_err("failed to create attr group\n");
 	}
 	INIT_WORK(&acx00->init_work, acx00_init_work);
-	acx00->pwm_ac200 = pwm_request(0, NULL);
-	pwm_config(acx00->pwm_ac200, 20, 41);
-	pwm_enable(acx00->pwm_ac200);
+
+	acx00->pwm_ac200 = pwm_request(16, NULL);
+	if (!IS_ERR_OR_NULL(acx00->pwm_ac200)) {
+		pwm_config(acx00->pwm_ac200, 20, 41);
+		pwm_enable(acx00->pwm_ac200);
+	} else
+		dev_warn(acx00->dev, "Warn: can't get pwm device\n");
+
 	atomic_set(&acx00_en, 0);
 	schedule_work(&acx00->init_work);
 
@@ -257,8 +262,11 @@ static int acx00_i2c_remove(struct i2c_client *i2c)
 	sysfs_remove_group(&i2c->dev.kobj, &audio_debug_attr_group);
 	acx00_device_exit(acx00);
 
-	pwm_disable(acx00->pwm_ac200);
-	pwm_free(acx00->pwm_ac200);
+	if (!IS_ERR_OR_NULL(acx00->pwm_ac200)) {
+		pwm_disable(acx00->pwm_ac200);
+		pwm_free(acx00->pwm_ac200);
+	}
+
 	return 0;
 }
 static int acx00_i2c_suspend(struct i2c_client *client,pm_message_t state)
@@ -268,6 +276,10 @@ static int acx00_i2c_suspend(struct i2c_client *client,pm_message_t state)
 		regulator_put(vcc_ave);
 		vcc_ave = NULL;
 	}
+
+	if (!IS_ERR_OR_NULL(acx00->pwm_ac200))
+		pwm_disable(acx00->pwm_ac200);
+
 	atomic_set(&acx00_en, 0);
 	return 0;
 }
@@ -281,6 +293,12 @@ static int acx00_i2c_resume(struct i2c_client *client)
 		pr_err("get audio vcc-ave-33 failed\n");
 	} else
 		regulator_enable(vcc_ave);
+
+	if (!IS_ERR_OR_NULL(acx00->pwm_ac200)) {
+		pwm_config(acx00->pwm_ac200, 20, 41);
+		pwm_enable(acx00->pwm_ac200);
+	}
+
 	schedule_work(&acx00->init_work);
 	return 0;
 }
