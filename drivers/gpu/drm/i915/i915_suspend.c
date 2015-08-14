@@ -192,6 +192,9 @@ static void i915_restore_vga(struct drm_device *dev)
 
 void i915_save_dpst_regs(struct drm_i915_private *dev_priv)
 {
+	if (!dev_priv->dpst.user_enable)
+		return;
+
 	dev_priv->regfile.saveBLM_HIST_GUARD = I915_READ(dev_priv->dpst.reg.blm_hist_guard);
 	dev_priv->regfile.saveBLM_HIST_CTL = I915_READ(dev_priv->dpst.reg.blm_hist_ctl);
 
@@ -203,6 +206,9 @@ void i915_save_dpst_regs(struct drm_i915_private *dev_priv)
 
 void i915_restore_dpst_regs(struct drm_i915_private *dev_priv)
 {
+        if (!dev_priv->dpst.user_enable)
+                return;
+
 	I915_WRITE(dev_priv->dpst.reg.blm_hist_guard, dev_priv->regfile.saveBLM_HIST_GUARD);
 	I915_WRITE(dev_priv->dpst.reg.blm_hist_ctl, dev_priv->regfile.saveBLM_HIST_CTL);
 }
@@ -323,7 +329,7 @@ static void i915_restore_display(struct drm_device *dev)
 		I915_WRITE(FBC_CONTROL, dev_priv->regfile.saveFBC_CONTROL);
 
 	if (I915_HAS_DPST(dev))
-			i915_restore_dpst_regs(dev_priv);
+		i915_restore_dpst_regs(dev_priv);
 
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		i915_restore_vga(dev);
