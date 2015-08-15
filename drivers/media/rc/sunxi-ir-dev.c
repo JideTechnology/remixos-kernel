@@ -304,7 +304,8 @@ static void ir_setup(void)
 static int sunxi_ir_startup(struct platform_device *pdev)
 {
 	struct device_node *np =NULL;
-	int ret = 0;
+	int i, ret = 0;
+	char addr_name[32];
 	const char *name = NULL;
 	
 	ir_data = kzalloc(sizeof(*ir_data), GFP_KERNEL);
@@ -321,12 +322,14 @@ static int sunxi_ir_startup(struct platform_device *pdev)
 		ret = -EBUSY;
 	}else
 		dprintk(DEBUG_INIT, "ir base: %p !\n",ir_data->reg_base);
+
 	ir_data->irq_num= irq_of_parse_and_map(np, 0);
 	if (0 == ir_data->irq_num) {
 		pr_err("%s:Failed to map irq.\n", __func__);
 		ret = -EBUSY;
 	}else
 		dprintk(DEBUG_INIT, "ir irq num: %d !\n",ir_data->irq_num);
+
 	ir_data->pclk = of_clk_get(np, 0);
 	ir_data->mclk = of_clk_get(np, 1);
 	if (NULL==ir_data->pclk||IS_ERR(ir_data->pclk)
@@ -334,14 +337,32 @@ static int sunxi_ir_startup(struct platform_device *pdev)
 		pr_err("%s:Failed to get clk.\n", __func__);
 		ret = -EBUSY;
 	}
-	if (of_property_read_u32(np, "ir_addr_code", &ir_data->ir_addr)) {
-		pr_err("%s: get cir addr failed", __func__);
+
+	if (of_property_read_u32(np, "ir_addr_cnt", &ir_data->ir_addr_cnt)) {
+		pr_err("%s: get cir addr cnt failed", __func__);
 		ret =  -EBUSY;
 	}
-	if (of_property_read_u32(np, "ir_power_key_code", &ir_data->ir_powerkey)) {
-		pr_err("%s: get cir addr failed", __func__);
-		ret =  -EBUSY;
+
+	if(ir_data->ir_addr_cnt > MAX_ADDR_NUM)
+		ir_data->ir_addr_cnt = MAX_ADDR_NUM;
+	for(i = 0; i < ir_data->ir_addr_cnt; i++){
+		sprintf(addr_name, "ir_addr_code%d", i);
+		if (of_property_read_u32(np, (const char *)&addr_name,
+					&ir_data->ir_addr[i])) {
+			pr_err("node %s get failed!\n", addr_name);
+			ret = -EBUSY;
+		}
 	}
+
+	for(i = 0; i < ir_data->ir_addr_cnt; i++){
+		sprintf(addr_name, "ir_power_key_code%d", i);
+		if (of_property_read_u32(np, (const char *)&addr_name,
+					&ir_data->ir_powerkey[i])) {
+			pr_err("node %s get failed!\n", addr_name);
+			ret = -EBUSY;
+		}
+	}
+
 	if (of_property_read_u32(np, "supply_vol", &ir_data->suply_vol)) {
 		pr_err("%s: get cir supply_vol failed", __func__);
 		ret =  -EBUSY;
@@ -397,7 +418,7 @@ static int sunxi_ir_recv_probe(struct platform_device *pdev)
 	sunxi_rcdev->allowed_protos = (u64)RC_BIT_NEC;
 	sunxi_rcdev->map_name = RC_MAP_SUNXI;
 
-	init_rc_map_sunxi(ir_data->ir_addr);
+	init_rc_map_sunxi(ir_data->ir_addr, ir_data->ir_addr_cnt);
 	rc = rc_register_device(sunxi_rcdev);
 	if (rc < 0) {
 		dev_err(&pdev->dev, "failed to register rc device\n");
@@ -488,7 +509,7 @@ static int sunxi_ir_recv_resume(struct device *dev)
 	dprintk(DEBUG_SUSPEND, "enter: sunxi_ir_rx_resume. \n");
 	arisc_query_wakeup_source(&wakeup_event);
 	if (wakeup_event & CPUS_WAKEUP_IR) {
-		rc_keydown(sunxi_rcdev, (ir_data->ir_addr<<8)|ir_data->ir_powerkey, 0);
+		rc_keydown(sunxi_rcdev, (ir_data->ir_addr[0] << 8) | ir_data->ir_powerkey[0], 0);
 		msleep(1);
 		rc_keyup(sunxi_rcdev);
 	}

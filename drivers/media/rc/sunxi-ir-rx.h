@@ -57,6 +57,8 @@
 #define IR_REPEAT_CODE   (0x00000000)
 #define DRV_VERSION      "1.00"
 
+#define MAX_ADDR_NUM     (18)
+
 #define RC_MAP_SUNXI "rc_map_sunxi"
 
 enum {
@@ -97,11 +99,12 @@ struct sunxi_ir_data{
 	struct regulator *suply;
 	u32 suply_vol;
 	int irq_num;
-	u32 ir_addr;
-	u32 ir_powerkey;
+	u32 ir_addr_cnt;
+	u32 ir_addr[MAX_ADDR_NUM];
+	u32 ir_powerkey[MAX_ADDR_NUM];
 };
 
-int init_rc_map_sunxi(u32 addr);
+int init_rc_map_sunxi(u32 *addr, u32 addr_num);
 void exit_rc_map_sunxi(void);
 
 #endif /* SUNXI_IR_RX_H */

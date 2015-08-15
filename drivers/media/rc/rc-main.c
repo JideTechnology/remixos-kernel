@@ -145,8 +145,10 @@ static int ir_create_table(struct rc_map *rc_map,
 static void ir_free_table(struct rc_map *rc_map)
 {
 	rc_map->size = 0;
-	kfree(rc_map->scan);
-	rc_map->scan = NULL;
+	if(rc_map->scan){
+		kfree(rc_map->scan);
+		rc_map->scan = NULL;
+	}
 }
 
 /**
@@ -398,6 +400,17 @@ static int ir_setkeytable(struct rc_dev *dev,
 	return rc;
 }
 
+static int ir_setkeytable_mapping(struct rc_dev *dev,
+			  const struct rc_map *from)
+{
+	struct rc_map *rc_map = &dev->rc_map;
+
+	if(from->mapping)
+		rc_map->mapping = from->mapping;;
+
+	return 0;
+}
+
 /**
  * ir_lookup_by_scancode() - locate mapping by scancode
  * @rc_map:	the struct rc_map to search
@@ -505,11 +518,13 @@ u32 rc_g_keycode_from_table(struct rc_dev *dev, u32 scancode)
 	unsigned long flags;
 
 	spin_lock_irqsave(&rc_map->lock, flags);
-
-	index = ir_lookup_by_scancode(rc_map, scancode);
-	keycode = index < rc_map->len ?
-			rc_map->scan[index].keycode : KEY_RESERVED;
-
+	if(rc_map->mapping){
+		keycode = rc_map->mapping(scancode);
+	}else{
+		index = ir_lookup_by_scancode(rc_map, scancode);
+		keycode = index < rc_map->len ?
+				rc_map->scan[index].keycode : KEY_RESERVED;
+	}
 	spin_unlock_irqrestore(&rc_map->lock, flags);
 
 	if (keycode != KEY_RESERVED)
@@ -1041,7 +1056,9 @@ int rc_register_device(struct rc_dev *dev)
 	rc_map = rc_map_get(dev->map_name);
 	if (!rc_map)
 		rc_map = rc_map_get(RC_MAP_EMPTY);
-	if (!rc_map || !rc_map->scan || rc_map->size == 0)
+	if (!rc_map)
+		return -EINVAL;
+	if ((!rc_map->mapping) && (!rc_map->scan || rc_map->size == 0))
 		return -EINVAL;
 
 	set_bit(EV_KEY, dev->input_dev->evbit);
@@ -1067,6 +1084,8 @@ int rc_register_device(struct rc_dev *dev)
 	rc = device_add(&dev->dev);
 	if (rc)
 		goto out_unlock;
+
+	ir_setkeytable_mapping(dev, rc_map);
 
 	rc = ir_setkeytable(dev, rc_map);
 	if (rc)

@@ -375,8 +375,6 @@
 			clocks = <&clk_hosc>,<&clk_cpurcir>;
 			supply = "vcc-pl";
 			supply_vol = <3300000>;
-			ir_power_key_code = <0x57>;
-			ir_addr_code = <0x009f>;
 			status = "okay";
 		};
 

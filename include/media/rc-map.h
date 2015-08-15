@@ -67,6 +67,7 @@ struct rc_map_table {
 
 struct rc_map {
 	struct rc_map_table	*scan;
+	unsigned int (*mapping)(unsigned int scancode);
 	unsigned int		size;	/* Max number of entries */
 	unsigned int		len;	/* Used number of entries */
 	unsigned int		alloc;	/* Size of *scan in bytes */
