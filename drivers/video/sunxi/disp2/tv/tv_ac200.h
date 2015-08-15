@@ -32,7 +32,7 @@
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
 #include "../disp/disp_sys_intf.h"
-//#include <linux/mfd/acx00-mfd.h>
+#include <linux/mfd/acx00-mfd.h>
 
 #include <video/sunxi_display2.h>
 
