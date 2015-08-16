@@ -556,7 +556,7 @@ s32 hdmi_init(struct platform_device *pdev)
 #endif
 	unsigned int value, output_type0, output_mode0, output_type1, output_mode1;
 	struct disp_device_func disp_func;
-	int ret;
+	int ret = 0;
 	uintptr_t reg_base;
 
 	hdmi_used = 0;

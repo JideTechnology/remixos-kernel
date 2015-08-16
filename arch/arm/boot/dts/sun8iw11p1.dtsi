@@ -806,6 +806,12 @@
 			status = "okay";
 		};
 
+		hdmi: hdmi@01ee0000 {
+			compatible = "allwinner,sunxi-hdmi";
+			reg = <0x0 0x01ee0000 0x0 0x20000>;
+			clocks = <&clk_hdmi>,<&clk_hdmi_slow>;
+		};
+
 		lcd0: lcd0@01c0c000 {
 			compatible = "allwinner,sunxi-lcd0";
 			pinctrl-names = "active","sleep";
