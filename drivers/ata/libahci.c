@@ -564,10 +564,17 @@ static int ahci_scr_write(struct ata_link *link, unsigned int sc_reg, u32 val)
 	return -EINVAL;
 }
 
+#define SW_AHCI_PORT_DMA		0x70
 void ahci_start_engine(struct ata_port *ap)
 {
 	void __iomem *port_mmio = ahci_port_base(ap);
 	u32 tmp;
+
+	/*Setup DMA before Start DMA, by danielwang*/
+	tmp = readl(port_mmio + SW_AHCI_PORT_DMA);
+	tmp &= ~0xff00;
+	tmp |= 0x4400;
+	writel(tmp, port_mmio + SW_AHCI_PORT_DMA);
 
 	/* start DMA */
 	tmp = readl(port_mmio + PORT_CMD);
@@ -2271,7 +2278,12 @@ static int ahci_port_start(struct ata_port *ap)
 		rx_fis_sz = AHCI_RX_FIS_SZ;
 	}
 
-	mem = dmam_alloc_coherent(dev, dma_sz, &mem_dma, GFP_KERNEL);
+	//mem = dmam_alloc_coherent(dev, dma_sz, &mem_dma, GFP_KERNEL);
+	//danielwang
+	mem = dma_alloc_coherent(NULL, dma_sz, &mem_dma, GFP_KERNEL);
+	//mem = kmalloc(dma_sz, GFP_DMA | GFP_KERNEL);
+	//mem_dma = __pa(mem);
+	printk("dma_alloc_coherent mem = 0x%x, size = 0x%x, mem_dma=0x%x\n", (unsigned int)mem, (unsigned int)dma_sz, (unsigned int)mem_dma);
 	if (!mem)
 		return -ENOMEM;
 	memset(mem, 0, dma_sz);
@@ -2321,6 +2333,34 @@ static int ahci_port_start(struct ata_port *ap)
 	/* engage engines, captain */
 	return ahci_port_resume(ap);
 }
+
+int ahci_hardware_recover_for_controller_resume(struct ata_host *host)
+{
+	int i;
+
+	ahci_reset_controller(host);
+	ahci_init_controller(host);
+
+	for (i = 0; i < host->n_ports; i++) {
+		struct ata_port *ap = host->ports[i];
+		struct ahci_port_priv *pp = ap->private_data;
+		size_t dma_sz;
+
+		if (pp->fbs_supported) {
+			dma_sz = AHCI_PORT_PRIV_FBS_DMA_SZ;
+		} else {
+			dma_sz = AHCI_PORT_PRIV_DMA_SZ;
+		}
+
+		memset((void*)pp->cmd_slot, 0, dma_sz);
+
+		/* engage engines, captain */
+		ahci_port_resume(ap);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(ahci_hardware_recover_for_controller_resume);
 
 static void ahci_port_stop(struct ata_port *ap)
 {
