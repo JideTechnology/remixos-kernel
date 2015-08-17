@@ -271,6 +271,8 @@ static int acx00_i2c_remove(struct i2c_client *i2c)
 }
 static int acx00_i2c_suspend(struct i2c_client *client,pm_message_t state)
 {
+	struct acx00 *acx00 = i2c_get_clientdata(client);
+
 	if (vcc_ave != NULL) {
 		regulator_disable(vcc_ave);
 		regulator_put(vcc_ave);
