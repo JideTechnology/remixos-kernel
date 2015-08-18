@@ -730,30 +730,25 @@ static int geth_suspend(struct device *dev)
 
 	geth_stop(ndev);
 
-	device_enable_async_suspend(dev);
-
 	return 0;
 }
 
-static int geth_resume(struct device *dev)
+static void geth_resume(struct device *dev)
 {
 	struct net_device *ndev = dev_get_drvdata(dev);
 	struct geth_priv *priv = netdev_priv(ndev);
-	int ret;
+	int ret = 0;
 
 	if (!netif_running(ndev))
-		return 0;
+		return;
 
 	spin_lock(&priv->lock);
 	netif_device_attach(ndev);
 	spin_unlock(&priv->lock);
 
 	ret = geth_open(ndev);
-	priv->is_suspend = false;
-
-	device_disable_async_suspend(dev);
-
-	return ret;
+	if (!ret)
+		priv->is_suspend = false;
 }
 
 static int geth_freeze(struct device *dev)
@@ -767,8 +762,10 @@ static int geth_restore(struct device *dev)
 }
 
 static const struct dev_pm_ops geth_pm_ops = {
-	.suspend = geth_suspend,
-	.resume = geth_resume,
+	.prepare = geth_suspend,
+	.complete = geth_resume,
+	.suspend = NULL, //geth_suspend,
+	.resume = NULL, //geth_resume,
 	.freeze = geth_freeze,
 	.restore = geth_restore,
 };
@@ -1068,7 +1065,8 @@ static int geth_stop(struct net_device *ndev)
 	/* Disable Rx/Tx */
 	sunxi_mac_disable(priv->base);
 
-	geth_clk_disable(priv);
+	if (!priv->is_suspend)
+		geth_clk_disable(priv);
 	geth_power_off(priv);
 
 	netif_tx_lock_bh(ndev);
@@ -1901,6 +1899,7 @@ static int geth_probe(struct platform_device *pdev)
 #ifdef CONFIG_GETH_ATTRS
 	geth_create_attrs(ndev);
 #endif
+	device_enable_async_suspend(&pdev->dev);
 
 	return 0;
 
