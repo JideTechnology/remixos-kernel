@@ -100,3 +100,7 @@ bImage
 rootfs.cpio.gz
 drivers/arisc/binary/arisc
 modules/eurasia_km/eurasiacon/binary2_sunxi_android_release/
+modules/gpu/mali400/kernel_mode/driver/src/devicedrv/mali/Module.symvers
+modules/nand/Module.symvers
+samples/hidraw/hid-example
+
