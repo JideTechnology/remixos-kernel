@@ -172,4 +172,6 @@ source "drivers/reset/Kconfig"
 
 source "drivers/gator/Kconfig"
 
+source "drivers/android/Kconfig"
+
 endmenu
