@@ -25,8 +25,8 @@ static struct disp_vdevice_source_ops tv_source_ops;
 struct ac200_tv_priv tv_priv;
 struct disp_video_timings tv_video_timing[] =
 {
- /* vic  tv_mode         PCLK     AVI   x   y   HT  HBP HFP HST  VT  VBP VFP VST  H_P V_P I vas TRD */	
- 
+ /* vic  tv_mode         PCLK     AVI   x   y   HT  HBP HFP HST  VT  VBP VFP VST  H_P V_P I vas TRD */
+
  	{0, DISP_TV_MOD_NTSC,54000000, 0, 720, 480, 858, 57, 19, 62, 525, 15, 4,  3,  0,  0,  0, 0, 0},
 	{0,	DISP_TV_MOD_PAL, 54000000, 0, 720, 576, 864, 69, 12, 63, 625, 19, 2,  3,  0,  0,  0, 0, 0},
 };
@@ -56,7 +56,7 @@ void tv_report_hpd_work(void)
 	case DISP_TV_CVBS:
 		switch_set_state(&cvbs_switch_dev, STATUE_OPEN);
 		break;
-		
+
 	default:
 		switch_set_state(&cvbs_switch_dev, STATUE_CLOSE);
 
@@ -187,7 +187,7 @@ static s32 tv_clk_config(u32 mode)
 	tcon_div = 8;//fixme
 	lcd_rate = dclk_rate * tcon_div;
 	pll_rate = lcd_rate * lcd_div;
-	
+
 	parent = clk_get_parent(tv_clk);
 	if (parent)
 		clk_set_rate(tv_clk->parent, pll_rate);
@@ -328,6 +328,7 @@ static s32 tv_get_input_csc(void)
 
 s32 tv_suspend(void)
 {
+	tv_close();
 	mutex_lock(&mlock);
 	if(tv_used && (false == tv_suspend_status)) {
 		tv_suspend_status = true;
@@ -337,17 +338,39 @@ s32 tv_suspend(void)
 			tv_clk_enable_count--;
 		}
 		while(tv_clk_enable_count) {
+			printk("%s clk_co1=%d\n",__func__, tv_clk_enable_count);
 			tv_clk_disable();
 			tv_clk_enable_count--;
+			printk("%s clk_co2=%d\n",__func__, tv_clk_enable_count);
 		}
 	}
+
 	mutex_unlock(&mlock);
+
+	return 0;
+}
+
+extern int acx00_enable(void);
+
+s32 tv_delay_ms(u32 ms)
+{
+	u32 timeout = msecs_to_jiffies(ms);
+
+	set_current_state(TASK_UNINTERRUPTIBLE);
+	schedule_timeout(timeout);
 
 	return 0;
 }
 
 s32 tv_resume(void)
 {
+	int acx00_state = 0;
+	while(!acx00_state) {
+		tv_delay_ms(50);
+		acx00_state = acx00_enable();
+		printk(KERN_DEBUG "%s: wait for acx00 resume finish\n", __func__);
+	}
+
 	mutex_lock(&mlock);
 	if(tv_used && (true == tv_suspend_status)) {
 		tv_suspend_status= false;
@@ -358,7 +381,10 @@ s32 tv_resume(void)
 			tv_source_ops.tcon_simple_enable(tv_device);
 	}
 	mutex_unlock(&mlock);
+	aw1683_tve_init();
 
+
+	tv_open();
 	return  0;
 }
 
@@ -381,9 +407,16 @@ static struct disp_device* tv_ac200_register(void)
 	init_data.func.get_video_timing_info = tv_get_video_timing_info;
 	init_data.func.get_interface_para = tv_get_interface_para;
 	init_data.func.get_input_csc = tv_get_input_csc;
-	
+#if 0
+	/*
+	 * call tv_suspend/tv_resume at platform device pm ops,
+	 * to sync with acx00-core suspend callback.
+	 */
+	init_data.func.suspend = tv_suspend;
+	init_data.func.resume = tv_resume;
+#endif
 	device = disp_vdevice_register(&init_data);
-	
+
 	return device;
 }
 
@@ -421,6 +454,8 @@ static int tv_init(struct platform_device *pdev)
 	tv_used = 1;
 	tv_clk_init();
 	tv_clk_enable(g_tv_mode);
+
+	tv_clk_enable_count++;	/* FIXME */
 	/*register extern tv module to vdevice*/
 	tv_device = tv_ac200_register();
 	disp_vdevice_get_source_ops(&tv_source_ops);
@@ -433,7 +468,7 @@ static int tv_init(struct platform_device *pdev)
 		dev_err(&pdev->dev, "register tv device failed.\n");
 		goto err_register;
 	}
-	
+
 	/* parse io config */
 	aw1683_tve_init();
 
@@ -477,6 +512,21 @@ static int tv_ac200_probe(struct platform_device *pdev)
 }
 
 
+int tv_platform_suspend(struct platform_device *dev, pm_message_t state)
+{
+	printk(KERN_DEBUG "%s called\n", __func__);
+	tv_suspend();
+	return 0;
+}
+
+int tv_platform_resume(struct platform_device *dev)
+{
+	printk(KERN_DEBUG "%s called\n", __func__);
+	tv_resume();
+	return 0;
+}
+
+
 static void tv_shutdown(struct platform_device *pdev)
 {
 	#if 0
@@ -507,6 +557,10 @@ static struct platform_driver tv_ac200_driver = {
 		//.of_match_table = sunxi_tv_ac200_match,
 	},
 	.probe = tv_ac200_probe,
+
+	.suspend = tv_platform_suspend,
+	.resume = tv_platform_resume,
+
 	.remove = tv_remove,//delete __devexit_p(tv_remove)
 	.shutdown = tv_shutdown,
 };
