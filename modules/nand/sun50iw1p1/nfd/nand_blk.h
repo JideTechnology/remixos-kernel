@@ -146,8 +146,8 @@ struct _nand_dev{
     int (*read_data)(struct _nand_dev *nand_dev, unsigned int sector, unsigned int len, unsigned char *buf);
     int (*write_data)(struct _nand_dev *nand_dev, unsigned int sector, unsigned int len, unsigned char *buf);
     int (*flush_write_cache)(struct _nand_dev *nand_dev,unsigned int num);
+	int (*discard)(struct _nand_dev *nand_dev,unsigned int sector, unsigned int len);
     int (*flush_sector_write_cache)(struct _nand_dev *nand_dev,unsigned int num);
-    int (*discard)(struct _nand_dev *nand_dev,__u32 start_sector,__u32 len);
 };
 
 

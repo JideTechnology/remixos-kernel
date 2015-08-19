@@ -13,6 +13,7 @@ extern uint32 prio_gc_one(void* zone,uint16 block,uint32 flag);
 extern void print_nftl_zone(void * zone);
 extern void print_free_list(void* zone);
 extern void print_block_invalid_list(void* zone);
+extern void print_logic_page_map(void * _zone,uint32 num);
 extern uint32 nftl_set_zone_test(void * _zone,uint32 num);
 extern int nand_dbg_phy_read(unsigned short nDieNum, unsigned short nBlkNum, unsigned short nPage);
 extern int nand_dbg_zone_phy_read(void *zone,uint16 block,uint16 page);
@@ -185,6 +186,7 @@ static ssize_t nand_test_store(struct kobject *kobject,struct attribute *attr, c
         nand_dbg_err("  show all \n");
         print_free_list(nand_kobj->nftl_blk->nftl_zone);
         print_block_invalid_list(nand_kobj->nftl_blk->nftl_zone);
+        //print_logic_page_map(nand_kobj->nftl_blk->nftl_zone,0);
         goto NAND_TEST_STORE_EXIT;
     }
     else if(strcmp(cmd,"showinfo") == 0)

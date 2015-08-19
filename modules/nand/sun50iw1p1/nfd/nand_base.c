@@ -18,6 +18,7 @@ extern void do_nand_interrupt(unsigned int no);
 extern void print_nftl_zone(void * zone);
 extern int NAND_get_storagetype(void);
 extern int NAND_Get_Dragonboard_Flag(void);
+extern int nand_thread(void *arg);
 
 int test_mbr(uchar* data);
 extern int NAND_Print_DBG(const char *fmt, ...);
@@ -286,23 +287,23 @@ void nand_shutdown(struct platform_device *plat_dev)
     struct nand_blk_dev *dev;
     struct nand_blk_ops *tr = &mytr;
 
-    nand_dbg_err("[NAND]shutdown first\n");
-    list_for_each_entry(dev, &tr->devs, list){
-        while(blk_fetch_request(dev->rq) != NULL){
-            nand_dbg_err("nand_shutdown wait dev %d\n",dev->devnum);
-            set_current_state(TASK_INTERRUPTIBLE);
-            schedule_timeout(HZ>>3);
-        }
-    }
-
-    nand_dbg_err("[NAND]shutdown second\n");
-    list_for_each_entry(dev, &tr->devs, list){
-        while(blk_fetch_request(dev->rq) != NULL){
-            nand_dbg_err("nand_shutdown wait dev %d\n",dev->devnum);
-            set_current_state(TASK_INTERRUPTIBLE);
-            schedule_timeout(HZ>>3);
-        }
-    }
+//    nand_dbg_err("[NAND]shutdown first\n");
+//    list_for_each_entry(dev, &tr->devs, list){
+//        while(blk_fetch_request(dev->rq) != NULL){
+//            nand_dbg_err("nand_shutdown wait dev %d\n",dev->devnum);
+//            set_current_state(TASK_INTERRUPTIBLE);
+//            schedule_timeout(HZ>>3);
+//        }
+//    }
+//
+//    nand_dbg_err("[NAND]shutdown second\n");
+//    list_for_each_entry(dev, &tr->devs, list){
+//        while(blk_fetch_request(dev->rq) != NULL){
+//            nand_dbg_err("nand_shutdown wait dev %d\n",dev->devnum);
+//            set_current_state(TASK_INTERRUPTIBLE);
+//            schedule_timeout(HZ>>3);
+//        }
+//    }
 
     shutdown_flush_write_cache();
     NandHwShutDown();
@@ -503,6 +504,8 @@ int __init nand_init(void)
 		nand_dbg_err("dragonboard_flag=%d,run nand test for dragonboard\n",dragonboard_flag);
 		init_blklayer_for_dragonboard();
 	}
+
+	kthread_run(nand_thread, &mytr, "%sd", "nand_rc");
 
     nand_dbg_err("nand init end \n");
     return 0;

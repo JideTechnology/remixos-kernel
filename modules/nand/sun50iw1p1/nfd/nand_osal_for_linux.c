@@ -58,9 +58,9 @@
 #endif
 
 #define  NAND_DRV_VERSION_0		0x2
-#define  NAND_DRV_VERSION_1		0x25
-#define  NAND_DRV_DATE			0x20150611
-#define  NAND_DRV_TIME			0x1122
+#define  NAND_DRV_VERSION_1		0x27
+#define  NAND_DRV_DATE			0x20150819
+#define  NAND_DRV_TIME			0x1726
 
 #define GPIO_BASE_ADDR			0x01c20800
 #define CCMU_BASE_ADDR			0x01c20000
@@ -1242,4 +1242,7 @@ void Dump_Ccmu_Reg_Show(void)
 
 }
 
-
+void nand_cond_resched(void)
+{
+	cond_resched();
+}
