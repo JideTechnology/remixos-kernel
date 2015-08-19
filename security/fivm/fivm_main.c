@@ -458,7 +458,7 @@ int fivm_set(unsigned long arg)
 
 	if( sh_size != sizeof(*file_sig_head) ||
 		st_size > FILE_NAME_LEN * DIR_MAX_FILE_NUM ){
-		derr("fivm set buf size error %d:%d\n",
+		derr("fivm set buf size error %zd:%zd\n",
 				sh_size, st_size);
 		return - EFAULT;
 	}
