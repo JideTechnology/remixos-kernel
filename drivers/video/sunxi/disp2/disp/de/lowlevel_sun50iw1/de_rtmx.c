@@ -792,7 +792,7 @@ int de_rtmx_get_3d_in(unsigned char fmt, de_rect crop, de_fb *size, unsigned int
 	{
 		if ((trdinmode == DE_3D_SRC_MODE_FP))
 		{
-			pitchr[0]=pitch[0] = DISPALIGN(size[0].w,align[0]);
+			pitchr[0]=pitch[0] = DISPALIGN(size[0].w * ycnt,align[0]) / ycnt;
 			pitchr[1]=pitch[1] = 0;
 			pitchr[2]=pitch[2] = 0;
 
@@ -802,7 +802,7 @@ int de_rtmx_get_3d_in(unsigned char fmt, de_rect crop, de_fb *size, unsigned int
 		}
 		else if ((trdinmode == DE_3D_SRC_MODE_TB))
 		{
-			pitchr[0]=pitch[0] = DISPALIGN(size[0].w,align[0]);
+			pitchr[0]=pitch[0] = DISPALIGN(size[0].w * ycnt,align[0]) / ycnt;
 			pitchr[1]=pitch[1] = 0;
 			pitchr[2]=pitch[2] = 0;
 
@@ -812,8 +812,7 @@ int de_rtmx_get_3d_in(unsigned char fmt, de_rect crop, de_fb *size, unsigned int
 		}
 		else if ((trdinmode == DE_3D_SRC_MODE_SSF)||(trdinmode == DE_3D_SRC_MODE_SSH))
 		{
-
-			pitchr[0]=pitch[0] = DISPALIGN(size[0].w,align[0]);
+			pitchr[0]=pitch[0] = DISPALIGN(size[0].w * ycnt,align[0]) / ycnt;
 			pitchr[1]=pitch[1] = 0;
 			pitchr[2]=pitch[2] = 0;
 
