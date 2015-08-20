@@ -35,7 +35,7 @@ static struct device *display_dev;
 
 static unsigned int g_disp = 0, g_enhance_mode = 0, g_cvbs_enhance_mode = 0;
 static u32 DISP_print = 0xffff;   //print cmd which eq DISP_print
-static bool g_pm_runtime_enable = 0; //when open the CONFIG_PM_RUNTIME,this bool can also control if use the PM_RUNTIME.
+static bool g_pm_runtime_enable = 1; //when open the CONFIG_PM_RUNTIME,this bool can also control if use the PM_RUNTIME.
 #ifndef CONFIG_OF
 static struct sunxi_disp_mod disp_mod[] = {
 	{DISP_MOD_DE      ,    "de"   },
@@ -1156,7 +1156,7 @@ static int disp_probe(struct platform_device *pdev)
 #if defined(CONFIG_PM_RUNTIME)
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_get_noresume(&pdev->dev);
-	pm_runtime_set_autosuspend_delay(&pdev->dev, 5000);
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 2000);
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 #endif

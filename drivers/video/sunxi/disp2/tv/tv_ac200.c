@@ -17,7 +17,7 @@ static u32 tv_used = 0;
 
 static struct mutex mlock;
 static bool tv_suspend_status;
-static unsigned int  tv_clk_enable_count = 0;
+static int  tv_clk_enable_count = 0;
 
 static struct disp_device *tv_device = NULL;
 static struct disp_vdevice_source_ops tv_source_ops;
@@ -337,6 +337,10 @@ s32 tv_suspend(void)
 			tv_source_ops.tcon_disable(tv_device);
 			tv_clk_enable_count--;
 		}
+		if (tv_clk_enable_count<0) {
+			tv_clk_enable_count = 0;
+		}
+
 		while(tv_clk_enable_count) {
 			printk("%s clk_co1=%d\n",__func__, tv_clk_enable_count);
 			tv_clk_disable();
