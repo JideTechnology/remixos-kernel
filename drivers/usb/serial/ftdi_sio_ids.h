@@ -38,6 +38,9 @@
 
 #define FTDI_LUMEL_PD12_PID	0x6002
 
+/* Cyber Cortex AV by Fabulous Silicon (http://fabuloussilicon.com) */
+#define CYBER_CORTEX_AV_PID	0x8698
+
 /*
  * Marvell OpenRD Base, Client
  * http://www.open-rd.org
@@ -557,6 +560,12 @@
  * NovaTech product ids (FTDI_VID)
  */
 #define FTDI_NT_ORIONLXM_PID	0x7c90	/* OrionLXm Substation Automation Platform */
+
+/*
+ * Synapse Wireless product ids (FTDI_VID)
+ * http://www.synapse-wireless.com
+ */
+#define FTDI_SYNAPSE_SS200_PID 0x9090 /* SS200 - SNAP Stick 200 */
 
 
 /********************************/
