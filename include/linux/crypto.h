@@ -34,9 +34,9 @@
  * expands twice on the same line. Instead, use a separate base name for the
  * alias.
  */
-#define MODULE_ALIAS_CRYPTO(name)      \
-               __MODULE_INFO(alias, alias_userspace, name);    \
-               __MODULE_INFO(alias, alias_crypto, "crypto-" name)
+#define MODULE_ALIAS_CRYPTO(name)	\
+		__MODULE_INFO(alias, alias_userspace, name);	\
+		__MODULE_INFO(alias, alias_crypto, "crypto-" name)
 
 /*
  * Algorithm masks and types.
