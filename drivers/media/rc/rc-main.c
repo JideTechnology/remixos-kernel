@@ -549,6 +549,7 @@ static void ir_do_keyup(struct rc_dev *dev, bool sync)
 		return;
 
 	IR_dprintk(1, "keyup key 0x%04x\n", dev->last_keycode);
+	input_event(dev->input_dev, EV_MSC, MSC_SCAN, (dev->last_scancode & (~(0x1<<24))));
 	input_report_key(dev->input_dev, dev->last_keycode, 0);
 	if (sync)
 		input_sync(dev->input_dev);
@@ -614,7 +615,7 @@ void rc_repeat(struct rc_dev *dev)
 
 	spin_lock_irqsave(&dev->keylock, flags);
 
-	input_event(dev->input_dev, EV_MSC, MSC_SCAN, dev->last_scancode);
+	//input_event(dev->input_dev, EV_MSC, MSC_SCAN, dev->last_scancode);
 	input_sync(dev->input_dev);
 
 	if (!dev->keypressed)
@@ -644,11 +645,10 @@ static void ir_do_keydown(struct rc_dev *dev, int scancode,
 	bool new_event = !dev->keypressed ||
 			 dev->last_scancode != scancode ||
 			 dev->last_toggle != toggle;
+	int temp_code;
 
 	if (new_event && dev->keypressed)
 		ir_do_keyup(dev, false);
-
-	input_event(dev->input_dev, EV_MSC, MSC_SCAN, scancode);
 
 	if (new_event && keycode != KEY_RESERVED) {
 		/* Register a keypress */
@@ -656,6 +656,9 @@ static void ir_do_keydown(struct rc_dev *dev, int scancode,
 		dev->last_scancode = scancode;
 		dev->last_toggle = toggle;
 		dev->last_keycode = keycode;
+
+		temp_code = scancode | (0x01 << 24);
+		input_event(dev->input_dev, EV_MSC, MSC_SCAN, temp_code);
 
 		IR_dprintk(1, "%s: key down event, "
 			   "key 0x%04x, scancode 0x%04x\n",
@@ -1062,7 +1065,7 @@ int rc_register_device(struct rc_dev *dev)
 		return -EINVAL;
 
 	set_bit(EV_KEY, dev->input_dev->evbit);
-	set_bit(EV_REP, dev->input_dev->evbit);
+	//set_bit(EV_REP, dev->input_dev->evbit);
 	set_bit(EV_MSC, dev->input_dev->evbit);
 	set_bit(MSC_SCAN, dev->input_dev->mscbit);
 	if (dev->open)
