@@ -1205,7 +1205,6 @@ static void gsl_timer_sw_init(struct work_struct *work)
 static void gsl_ts_resume(struct device *dev)
 {
 	struct i2c_client *client = ddata->client;
-	struct gsl_ts_data *ts_data = i2c_get_clientdata(to_i2c_client(dev));
 	struct gsl_ts_platform_data *gsl_pdata;
 	int ret;
 //	int ret = 0;
@@ -1221,10 +1220,6 @@ static void gsl_ts_resume(struct device *dev)
 				gsl_pdata->pm_platdata->pm_state_D0_name);
 	}
 #endif
-//	gpio_set_value(GPIO_TP_RESET, 1);
-	gpio_set_value(ts_data->gpio_reset, 1);
-	msleep(20);
-	//mdelay(13);
 	gsl_reset_core(client);
 	gsl_start_core(client);
 	msleep(20);
@@ -1235,7 +1230,6 @@ static void gsl_ts_suspend(struct device *dev)
 {
 	int ret;
 	struct i2c_client *client = ddata->client;
-	struct gsl_ts_data *ts_data = i2c_get_clientdata(to_i2c_client(dev));
 	struct gsl_ts_platform_data *gsl_pdata;
 
 	gsl_pdata = client->dev.platform_data;
@@ -1251,8 +1245,6 @@ static void gsl_ts_suspend(struct device *dev)
 	}
 	printk("[GSL]: gsl_ts_suspend\n");
 #endif
-	//gpio_set_value(GPIO_TP_RESET, 0);
-	gpio_set_value(ts_data->gpio_reset, 0);
 	return;
 }
 #endif //CONFIG_PM
