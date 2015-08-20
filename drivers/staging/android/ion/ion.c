@@ -35,6 +35,7 @@
 #include <linux/debugfs.h>
 #include <linux/dma-buf.h>
 #include <linux/idr.h>
+#include <linux/module.h>
 
 #include "ion.h"
 #include "ion_priv.h"
@@ -43,6 +44,8 @@
 #include "../uapi/ion_sunxi.h"
 #include <asm/cacheflush.h>
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/ion.h>
 /**
  * struct ion_device - the metadata of the ion device node
  * @dev:		the actual misc device
@@ -116,6 +119,11 @@ struct ion_handle {
 	unsigned int kmap_cnt;
 	int id;
 };
+
+/* Module parameters */
+int ion_debug = 0;
+module_param(ion_debug, int, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(ion_debug, "Ion debug leave");
 
 bool ion_buffer_fault_user_mappings(struct ion_buffer *buffer)
 {
@@ -294,7 +302,7 @@ static void _ion_buffer_destroy(struct kref *kref)
 	mutex_lock(&dev->buffer_lock);
 	rb_erase(&buffer->node, &dev->buffers);
 	mutex_unlock(&dev->buffer_lock);
-
+	trace_ion_free_buffer((void *)buffer);
 	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
 		ion_heap_freelist_add(heap, buffer);
 	else
@@ -378,6 +386,7 @@ static void ion_handle_destroy(struct kref *kref)
 		rb_erase(&handle->node, &client->handles);
 
 	ion_buffer_remove_from_handle(buffer);
+	trace_ion_free_handle(handle->id, buffer->handle_count, (void *)buffer);
 	ion_buffer_put(buffer);
 
 	kfree(handle);
@@ -484,8 +493,8 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	struct ion_heap *heap;
 	int ret;
 
-	pr_debug("%s: len %zu align %zu heap_id_mask %u flags %x\n", __func__,
-		 len, align, heap_id_mask, flags);
+	ION_DEBUG(ION_INFO, "len %zu align %zu heap_id_mask %u flags %x\n",
+				len, align, heap_id_mask, flags);
 	/*
 	 * traverse the list of heaps available in this system in priority
 	 * order.  If the heap type is supported by the client, and matches the
@@ -508,9 +517,11 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	}
 	up_read(&dev->lock);
 
-	if (buffer == NULL)
+	if (buffer == NULL) {
+		ION_DEBUG(ION_ERR, "buffer alloc fail ! heap id %u, len %zu\n",
+				heap_id_mask, len);
 		return ERR_PTR(-ENODEV);
-
+	}
 	if (IS_ERR(buffer))
 		return ERR_PTR(PTR_ERR(buffer));
 
@@ -522,9 +533,10 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	 */
 	ion_buffer_put(buffer);
 
-	if (IS_ERR(handle))
+	if (IS_ERR(handle)) {
+		ION_DEBUG(ION_ERR, "handle alloc fail ! heap id %u\n",heap_id_mask);
 		return handle;
-
+	}
 	mutex_lock(&client->lock);
 	ret = ion_handle_add(client, handle);
 	mutex_unlock(&client->lock);
@@ -1268,6 +1280,10 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		data.allocation.handle = handle->id;
 
 		cleanup_handle = handle;
+		ION_DEBUG(ION_INFO, " alloc handle id %d\n", handle->id);
+		trace_ion_alloc(data.allocation.len, data.allocation.align,
+			data.allocation.heap_id_mask, data.allocation.flags,
+			handle->id, (void *)handle->buffer);
 		break;
 	}
 	case ION_IOC_FREE:
@@ -1277,6 +1293,7 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		handle = ion_handle_get_by_id(client, data.handle.handle);
 		if (IS_ERR(handle))
 			return PTR_ERR(handle);
+		ION_DEBUG(ION_ALL, " free handle id %d\n", handle->id);
 		ion_free(client, handle);
 		ion_handle_put(handle);
 		break;
@@ -1293,6 +1310,8 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		ion_handle_put(handle);
 		if (data.fd.fd < 0)
 			ret = data.fd.fd;
+		ION_DEBUG(ION_INFO, " share dmabuf handle id %d\n", handle->id);
+		trace_ion_map(handle->id, data.fd.fd);
 		break;
 	}
 	case ION_IOC_IMPORT:
@@ -1303,11 +1322,15 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			ret = PTR_ERR(handle);
 		else
 			data.handle.handle = handle->id;
+		ION_DEBUG(ION_ALL, " import new handle id %d\n", handle->id);
+		trace_ion_import(handle->id, data.fd.fd);
 		break;
 	}
 	case ION_IOC_SYNC:
 	{
 		ret = ion_sync_for_device(client, data.fd.fd);
+		ION_DEBUG(ION_ALL, " sync dmabuf\n");
+		trace_ion_sync(data.fd.fd);
 		break;
 	}
        case ION_IOC_SUNXI_FLUSH_RANGE:
@@ -1316,16 +1339,17 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
                if(copy_from_user(&data, (void __user *)arg, sizeof(sunxi_cache_range)))
                        return -EFAULT;
-
-#ifdef CONFIG_ARM64
-				__dma_flush_range( (void*)data.start , (void*)data.end );
-#else
-				dmac_flush_range( (void*)data.start , (void*)data.end );
-#endif
+		if (IS_ERR((void*)data.start) || IS_ERR((void*)data.end))  {
+			ION_DEBUG(ION_ERR," flush 0x%x ~ 0x%x fault user virtual address!\n",
+				(unsigned int)data.start, (unsigned int)data.end);
+			return -EFAULT;
+		}
+		ION_DEBUG(ION_ALL, " flush range start:%lu end:%lu\n", data.start, data.end);
+		__dma_flush_range( (void*)data.start , (void*)data.end );
 
                if(copy_to_user((void __user *)arg, &data, sizeof(data)))
                        return -EFAULT;
-
+		trace_ion_flush_dma_range((void*)data.start, (void*)data.end);
                break;
        }
 	case ION_IOC_CUSTOM:
@@ -1354,7 +1378,7 @@ static int ion_release(struct inode *inode, struct file *file)
 {
 	struct ion_client *client = file->private_data;
 
-	pr_debug("%s: %d\n", __func__, __LINE__);
+	trace_ion_client_free(client->task, client->pid);
 	ion_client_destroy(client);
 	return 0;
 }
@@ -1366,13 +1390,12 @@ static int ion_open(struct inode *inode, struct file *file)
 	struct ion_client *client;
 	char debug_name[64];
 
-	pr_debug("%s: %d\n", __func__, __LINE__);
 	snprintf(debug_name, 64, "%u", task_pid_nr(current->group_leader));
 	client = ion_client_create(dev, debug_name);
 	if (IS_ERR(client))
 		return PTR_ERR(client);
 	file->private_data = client;
-
+	trace_ion_client_creat(client->task, client->pid);
 	return 0;
 }
 
