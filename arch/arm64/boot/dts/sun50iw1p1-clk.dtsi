@@ -317,11 +317,13 @@ clocks {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
 			clock-output-names = "usbphy0";
+			clock-enabled = <1>;
 		};	
 		clk_usbphy1: usbphy1 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
 			clock-output-names = "usbphy1";
+			clock-enabled = <1>;
 		};	
 		clk_usbhsic: usbhsic {
 			#clock-cells = <0>;
@@ -337,11 +339,13 @@ clocks {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
 			clock-output-names = "usbohci1";
+			clock-enabled = <1>;
 		};	
 		clk_usbohci0: usbohci0 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
 			clock-output-names = "usbohci0";
+			clock-enabled = <1>;
 		};		
 		clk_de: de {
 			#clock-cells = <0>;
@@ -432,21 +436,25 @@ clocks {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
 			clock-output-names = "usbohci_16";
+			clock-enabled = <1>;
 		};
 		clk_usbehci1: usbehci1 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
 			clock-output-names = "usbehci1";
+			clock-enabled = <1>;
 		};	
 		clk_usbehci0: usbehci0 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
 			clock-output-names = "usbehci0";
+			clock-enabled = <1>;
 		};	
 		clk_usbotg: usbotg {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";
 			clock-output-names = "usbotg";
+			clock-enabled = <1>;
 		};	
 		clk_gmac: gmac {
 			#clock-cells = <0>;
