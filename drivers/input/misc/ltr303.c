@@ -1420,7 +1420,7 @@ static ssize_t als_adc_show(struct device *dev, struct device_attribute *attr, c
 	return ret;
 }
 
-static DEVICE_ATTR(als_adc, 0666, als_adc_show, NULL);
+static DEVICE_ATTR(als_adc, 0444, als_adc_show, NULL);
 
 
 static ssize_t ltr303help_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -1532,7 +1532,7 @@ static ssize_t ltr303help_show(struct device *dev, struct device_attribute *attr
 	return 0;
 }
 
-static DEVICE_ATTR(ltr303help, 0666, ltr303help_show, NULL);
+static DEVICE_ATTR(ltr303help, 0444, ltr303help_show, NULL);
 
 
 static ssize_t alsmodesetup_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -2040,7 +2040,7 @@ static ssize_t partid_show(struct device *dev, struct device_attribute *attr, ch
 	return ret;
 }
 
-static DEVICE_ATTR(partid, 0666, partid_show, NULL);
+static DEVICE_ATTR(partid, 0444, partid_show, NULL);
 
 
 static ssize_t revid_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -2060,7 +2060,7 @@ static ssize_t revid_show(struct device *dev, struct device_attribute *attr, cha
 	return ret;
 }
 
-static DEVICE_ATTR(revid, 0666, revid_show, NULL);
+static DEVICE_ATTR(revid, 0444, revid_show, NULL);
 
 
 static ssize_t partidreg_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -2080,7 +2080,7 @@ static ssize_t partidreg_show(struct device *dev, struct device_attribute *attr,
 	return ret;
 }
 
-static DEVICE_ATTR(partidreg, 0666, partidreg_show, NULL);
+static DEVICE_ATTR(partidreg, 0444, partidreg_show, NULL);
 
 
 static ssize_t manuid_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -2100,7 +2100,7 @@ static ssize_t manuid_show(struct device *dev, struct device_attribute *attr, ch
 	return ret;
 }
 
-static DEVICE_ATTR(manuid, 0666, manuid_show, NULL);
+static DEVICE_ATTR(manuid, 0444, manuid_show, NULL);
 
 
 static ssize_t alsdatastatus_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -2120,7 +2120,7 @@ static ssize_t alsdatastatus_show(struct device *dev, struct device_attribute *a
 	return ret;
 }
 
-static DEVICE_ATTR(alsdatastatus, 0666, alsdatastatus_show, NULL);
+static DEVICE_ATTR(alsdatastatus, 0444, alsdatastatus_show, NULL);
 
 
 static ssize_t alsinterruptstatus_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -2140,7 +2140,7 @@ static ssize_t alsinterruptstatus_show(struct device *dev, struct device_attribu
 	return ret;
 }
 
-static DEVICE_ATTR(alsinterruptstatus, 0666, alsinterruptstatus_show, NULL);
+static DEVICE_ATTR(alsinterruptstatus, 0444, alsinterruptstatus_show, NULL);
 
 
 static ssize_t alsgainstatus_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -2160,7 +2160,7 @@ static ssize_t alsgainstatus_show(struct device *dev, struct device_attribute *a
 	return ret;
 }
 
-static DEVICE_ATTR(alsgainstatus, 0666, alsgainstatus_show, NULL);
+static DEVICE_ATTR(alsgainstatus, 0444, alsgainstatus_show, NULL);
 
 
 static ssize_t alsdatavaliditystatus_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -2180,7 +2180,7 @@ static ssize_t alsdatavaliditystatus_show(struct device *dev, struct device_attr
 	return ret;
 }
 
-static DEVICE_ATTR(alsdatavaliditystatus, 0666, alsdatavaliditystatus_show, NULL);
+static DEVICE_ATTR(alsdatavaliditystatus, 0444, alsdatavaliditystatus_show, NULL);
 
 
 static ssize_t alsstatusreg_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -2201,7 +2201,7 @@ static ssize_t alsstatusreg_show(struct device *dev, struct device_attribute *at
 	
 }
 
-static DEVICE_ATTR(alsstatusreg, 0666, alsstatusreg_show, NULL);
+static DEVICE_ATTR(alsstatusreg, 0444, alsstatusreg_show, NULL);
 
 
 static ssize_t interruptmodesetup_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -2528,7 +2528,7 @@ static ssize_t setalslothrerange_store(struct device *dev, struct device_attribu
 	return count;
 }
 
-static DEVICE_ATTR(setalslothrerange, 0666, NULL, setalslothrerange_store);
+static DEVICE_ATTR(setalslothrerange, 0222, NULL, setalslothrerange_store);
 
 
 static ssize_t setalshithrerange_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
@@ -2627,7 +2627,7 @@ static ssize_t setalshithrerange_store(struct device *dev, struct device_attribu
 	return count;
 }
 
-static DEVICE_ATTR(setalshithrerange, 0666, NULL, setalshithrerange_store);
+static DEVICE_ATTR(setalshithrerange, 0222, NULL, setalshithrerange_store);
 
 
 static ssize_t dispalsthrerange_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -2647,7 +2647,7 @@ static ssize_t dispalsthrerange_show(struct device *dev, struct device_attribute
 	return ret;
 }
 
-static DEVICE_ATTR(dispalsthrerange, 0666, dispalsthrerange_show, NULL);
+static DEVICE_ATTR(dispalsthrerange, 0444, dispalsthrerange_show, NULL);
 
 
 static void sysfs_register_device(struct i2c_client *client) 

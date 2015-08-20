@@ -1600,7 +1600,6 @@ static int  kionix_accel_probe(struct i2c_client *client,
 	const struct acpi_device_id *aid;
     struct device *dev = &client->dev;
 
-	printk("probe kionix start ...............\n");
 
 	if (!client)
 		return -EINVAL;
@@ -1634,9 +1633,7 @@ static int  kionix_accel_probe(struct i2c_client *client,
 
 	acceld->client = client;
 	//ruacceld->accel_pdata = *accel_pdata;
-printk("11111111111\n");
 	i2c_set_clientdata(client, acceld);
-printk("2222222\n");
 
 	//ruerr = kionix_accel_power_on(acceld);
 	//ruif (err < 0)
@@ -1820,7 +1817,6 @@ printk("%s......sysfs_create_group.....%s...\n", __func__, &client->dev.kobj);
 	acceld->early_suspend.resume = kionix_accel_earlysuspend_resume;
 	register_early_suspend(&acceld->early_suspend);
 #endif /* CONFIG_HAS_EARLYSUSPEND */
-	printk("probe kionix end ...............\n");
 
 	return 0;
 
@@ -1892,7 +1888,6 @@ static struct i2c_driver kionix_accel_driver = {
 
 static int __init kionix_accel_init(void)
 {
-	printk("kionix_accel_init.......\n");
 	return i2c_add_driver(&kionix_accel_driver);
 }
 module_init(kionix_accel_init);
