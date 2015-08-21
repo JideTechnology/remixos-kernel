@@ -426,6 +426,7 @@ static struct disp_device* tv_ac200_register(void)
 
 static int tv_init(struct platform_device *pdev)
 {
+	int smooth_boot = 0;
 	unsigned int value, output_type0, output_mode0, output_type1, output_mode1;
 	mutex_init(&mlock);
 	/* parse boot para */
@@ -447,6 +448,7 @@ static int tv_init(struct platform_device *pdev)
 		{
 			g_tv_mode = output_mode1;
 		}
+		smooth_boot = 1;
 	}
 
 	/* if support switch class,register it for cvbs hot plugging detect */
@@ -459,24 +461,24 @@ static int tv_init(struct platform_device *pdev)
 	tv_clk_init();
 	tv_clk_enable(g_tv_mode);
 
-	tv_clk_enable_count++;	/* FIXME */
+	tv_clk_enable_count=2;	/* FIXME */
 	/*register extern tv module to vdevice*/
 	tv_device = tv_ac200_register();
 	disp_vdevice_get_source_ops(&tv_source_ops);
-	if (tv_source_ops.tcon_simple_enable) {
-		tv_source_ops.tcon_simple_enable(tv_device);
-	}
-	else
-		printk("tv init tcon fail!\n");
+
 	if(IS_ERR_OR_NULL(tv_device)) {
 		dev_err(&pdev->dev, "register tv device failed.\n");
 		goto err_register;
 	}
 
-	/* parse io config */
-	aw1683_tve_init();
+	if (!smooth_boot) {
+		aw1683_tve_init();
 
-	/* get clk */
+		if (tv_source_ops.tcon_simple_enable) {
+			tv_source_ops.tcon_simple_enable(tv_device);
+		} else
+			printk("tv init tcon fail!\n");
+	}
 
 	/* init param*/
 	tv_detect_enable();
@@ -511,6 +513,7 @@ static int tv_ac200_probe(struct platform_device *pdev)
 		return -1;
 	}
 	tv_clk_enable_count = tv_clk->enable_count;
+
 	tv_init(pdev);
 	return 0;
 }
