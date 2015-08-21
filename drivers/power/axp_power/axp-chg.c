@@ -31,7 +31,6 @@ EXPORT_SYMBOL_GPL(axp_usbvol);
 s32 axp_usbcur(aw_charge_type type)
 {
 	axp_usbcurflag = type;
-	mod_timer(&axp_charger->usb_status_timer,jiffies + msecs_to_jiffies(0));
 	return 0;
 }
 EXPORT_SYMBOL_GPL(axp_usbcur);
@@ -156,23 +155,8 @@ static void axp_usb(struct work_struct *work)
 			} else {
 				axp_charger->chg_usb_ac_current_set(axp_charger, CHARGE_USB_20, 500);
 			}
-		}else if (CHARGE_USB_30 == axp_usbcurflag){
+		}else if (CHARGE_USB_30 == axp_usbcurflag)
 			axp_charger->chg_usb_ac_current_set(axp_charger, CHARGE_USB_30, 900);
-		}else {
-			DBG_PSY_MSG(DEBUG_CHG, "set usbcur %d mA\n",axp_config->pmu_ac_cur);
-			if((axp_config->pmu_ac_cur)){
-				axp_charger->chg_usb_ac_current_set(axp_charger, CHARGE_AC, axp_config->pmu_ac_cur);
-			} else {
-				axp_charger->chg_usb_ac_current_set(axp_charger, CHARGE_AC, 2500);
-			}
-			if (1 == axp_charger->usb_adapter_valid) {
-				if((axp_config->pmu_ac_cur)){
-					axp_charger->chg_usb_ac_current_set(axp_charger, CHARGE_USB_20, axp_config->pmu_ac_cur);
-				} else {
-					axp_charger->chg_usb_ac_current_set(axp_charger, CHARGE_USB_20, 2500);
-				}
-			}
-		}
 
 		if(!vbus_curr_limit_debug){ //usb current not limit
 			DBG_PSY_MSG(DEBUG_CHG, "vbus_curr_limit_debug = %d\n",vbus_curr_limit_debug);
@@ -186,11 +170,6 @@ static void axp_usb(struct work_struct *work)
 			}
 		}else if(CHARGE_USB_30 == axp_usbvolflag) {
 			axp_charger->chg_usb_ac_vol_set(axp_charger, CHARGE_USB_30, 4700);
-		}else {
-			DBG_PSY_MSG(DEBUG_CHG, "set usbvol %d mV\n",axp_config->pmu_ac_vol);
-			if(axp_config->pmu_ac_vol){
-				axp_charger->chg_usb_ac_vol_set(axp_charger, CHARGE_AC, axp_config->pmu_ac_vol);
-			}
 		}
 	}
 }
@@ -220,6 +199,8 @@ void axp_usbac_checkst(struct axp_charger *charger)
 
 void axp_usbac_in(struct axp_charger *charger)
 {
+	axp_usbcur(CHARGE_AC);
+	axp_usbvol(CHARGE_AC);
 	if (!axp_config->pmu_init_bc_en) {
 		DBG_PSY_MSG(DEBUG_CHG, "axp ac/usb in!\n");
 		if(timer_pending(&charger->usb_status_timer))
