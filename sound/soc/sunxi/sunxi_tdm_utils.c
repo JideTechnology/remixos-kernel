@@ -113,7 +113,12 @@ int  rxctrl_tdm(int on,struct sunxi_tdm_info *sunxi_tdm)
 		*	while flush RX FIFO, must read RXFIFO DATA again.
 		*	or it wouldn't flush RX FIFO clean; and it will let record data channel reverse!
 		*/
-		reg_val = readl(tdm->regs + SUNXI_DAUDIORXFIFO);
+		{
+			int i = 0;
+			for (i = 0; i < 9;i++) {
+				reg_val = readl(tdm->regs + SUNXI_DAUDIORXFIFO);
+			}
+		}
 		#endif
 	}
 
