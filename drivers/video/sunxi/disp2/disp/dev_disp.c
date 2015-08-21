@@ -36,6 +36,12 @@ static struct device *display_dev;
 static unsigned int g_disp = 0, g_enhance_mode = 0, g_cvbs_enhance_mode = 0;
 static u32 DISP_print = 0xffff;   //print cmd which eq DISP_print
 static bool g_pm_runtime_enable = 1; //when open the CONFIG_PM_RUNTIME,this bool can also control if use the PM_RUNTIME.
+/* FIXME:
+ * use this counter to record the pm_runtime_get/pm_runtime_put,
+ * because surfaceflinger only call blank(off) when display device plug in,
+ * but do not call blank(on) when display device plug out
+ */
+static int runtime_ref = 0;
 #ifndef CONFIG_OF
 static struct sunxi_disp_mod disp_mod[] = {
 	{DISP_MOD_DE      ,    "de"   },
@@ -1159,6 +1165,7 @@ static int disp_probe(struct platform_device *pdev)
 	pm_runtime_set_autosuspend_delay(&pdev->dev, 2000);
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
+	runtime_ref++;
 #endif
 	__inf("[DISP]disp_probe finish\n");
 
@@ -1652,14 +1659,19 @@ long disp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 		if (ubuffer[1]) {
 #if defined(CONFIG_PM_RUNTIME)
-			if (g_disp_drv.dev)
+			if (runtime_ref<=0) break;
+			if (g_disp_drv.dev) {
 				pm_runtime_put(g_disp_drv.dev);
+				runtime_ref--;
+				printk("pm runtime put: %d\n", runtime_ref);
+			}
 			else
 				pr_warn("%s, display device is null\n", __func__);
 #endif
 			suspend_status |= DISPLAY_BLANK;
 			disp_blank(true);
 		} else {
+			if (runtime_ref!=0) break;
 			if (power_status_init) {
 				/* avoid first unblank, because device is ready when driver init */
 				power_status_init = 0;
@@ -1675,6 +1687,8 @@ long disp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				pm_runtime_set_suspended(g_disp_drv.dev);
 				pm_runtime_enable(g_disp_drv.dev);
 				pm_runtime_get_sync(g_disp_drv.dev);
+				runtime_ref++;
+				printk("pm runtime get: %d\n", runtime_ref);
 			}
 			else
 				pr_warn("%s, display device is null\n", __func__);
