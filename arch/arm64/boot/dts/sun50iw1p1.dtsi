@@ -45,6 +45,7 @@
 		disp = &disp;
 		lcd0 = &lcd0;
 		hdmi = &hdmi;
+        ac200 = &ac200;
 		boot_disp = &boot_disp;
 	};
 
