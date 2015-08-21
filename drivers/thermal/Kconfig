@@ -207,6 +207,13 @@ config SUN50IW1P1_THERMAL
 	help
 	  Temperature sensor on SUN50IW1P1
 
+config SUN8IW10P1_THERMAL
+	tristate "Temperature sensor on SUN8IW10P1"
+	depends on SUNXI_THERMAL
+	depends on ARCH_SUN8IW10P1
+	help
+	  Temperature sensor on SUN8IW10P1
+
 config SUNXI_BUDGET_COOLING
 	tristate "sunxi budget cooling"
 	depends on ARCH_SUNXI
