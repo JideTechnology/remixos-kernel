@@ -158,6 +158,8 @@ s32 di_set_para(__di_para_t *para, void* in_flag_add, void* out_flag_add, u32 fi
 	ch1_addr = (unsigned long)(para->input_fb.addr[1]);
 	in_addr.ch0_addr = (u32)(ch0_addr);
 	in_addr.ch1_addr = (u32)(ch1_addr);
+	in_addr.ch0_addr = (u32)DI_VAtoPA(in_addr.ch0_addr);
+	in_addr.ch1_addr = (u32)DI_VAtoPA(in_addr.ch1_addr);
 
 	in_size.src_width = para->input_fb.size.width;
 	in_size.src_height = para->input_fb.size.height;
@@ -174,6 +176,12 @@ s32 di_set_para(__di_para_t *para, void* in_flag_add, void* out_flag_add, u32 fi
 	pre_addr.ch0_addr = (u32)(ch0_addr);
 	pre_addr.ch1_addr = (u32)(ch1_addr);
 
+	out_addr.ch0_addr = DI_VAtoPA(out_addr.ch0_addr);
+	out_addr.ch1_addr = DI_VAtoPA(out_addr.ch1_addr);
+
+	pre_addr.ch0_addr = DI_VAtoPA(pre_addr.ch0_addr);
+	pre_addr.ch1_addr = DI_VAtoPA(pre_addr.ch1_addr);
+
 	DI_Module_Enable();
 
 	DI_Config_Src(&in_addr,&in_size,&in_type);
@@ -186,6 +194,8 @@ s32 di_set_para(__di_para_t *para, void* in_flag_add, void* out_flag_add, u32 fi
 	DI_Set_Di_PreFrame_Addr(pre_addr.ch0_addr, pre_addr.ch1_addr);
 	in_address = (unsigned long)(in_flag_add);
 	out_address = (unsigned long)(out_flag_add);
+	in_address = DI_VAtoPA(in_address);
+	out_address = DI_VAtoPA(out_address);
 	DI_Set_Di_MafFlag_Src((u32 )(in_address), (u32 )(out_address), 0x200);
 	DI_Set_Di_Field(field);
 

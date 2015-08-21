@@ -1207,5 +1207,6 @@ __s32 DI_Clear_irq(void);
 __s32 DI_Get_Irq_Status(void);
 __s32 DI_Set_Writeback_Start(void);
 __s32 DI_Internal_Set_Clk(__u32 enable);
+__u32 DI_VAtoPA(__u32 va);
 
 #endif
