@@ -111,6 +111,9 @@ EXPORT_SYMBOL(overflowgid);
  * the same as above, but for filesystems which can only store a 16-bit
  * UID and GID. as such, this is needed on all architectures
  */
+#ifdef CONFIG_SUNXI_BOOTUP_EXTEND
+extern void sunxi_bootup_extend_fix(unsigned int *cmd);
+#endif
 
 int fs_overflowuid = DEFAULT_FS_OVERFLOWUID;
 int fs_overflowgid = DEFAULT_FS_OVERFLOWUID;
@@ -498,6 +501,9 @@ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
 		cmd = LINUX_REBOOT_CMD_HALT;
 
 	mutex_lock(&reboot_mutex);
+#ifdef CONFIG_SUNXI_BOOTUP_EXTEND
+	sunxi_bootup_extend_fix(&cmd);
+#endif
 	switch (cmd) {
 	case LINUX_REBOOT_CMD_RESTART:
 		kernel_restart(NULL);
