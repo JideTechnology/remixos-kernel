@@ -457,7 +457,10 @@ static int geth_phy_init(struct net_device *ndev)
 	int value;
 	struct mii_bus *new_bus;
 	struct geth_priv *priv = netdev_priv(ndev);
-	struct phy_device *phydev = NULL;
+	struct phy_device *phydev = ndev->phydev;
+
+	if (priv->is_suspend && phydev)
+		goto resume;
 
 	new_bus = mdiobus_alloc();
 	if (new_bus == NULL) {
@@ -469,8 +472,7 @@ static int geth_phy_init(struct net_device *ndev)
 	new_bus->read = &geth_mdio_read;
 	new_bus->write = &geth_mdio_write;
 	new_bus->reset = &geth_mdio_reset;
-	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%s-%x",
-		new_bus->name, 0);
+	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%s-%x", new_bus->name, 0);
 
 	new_bus->parent = priv->dev;
 	new_bus->priv = ndev;
@@ -505,33 +507,40 @@ static int geth_phy_init(struct net_device *ndev)
 		netdev_info(ndev, "%s: PHY ID %08x at %d IRQ %s (%s)\n",
 				ndev->name, phydev->phy_id, phydev->addr,
 				"poll", dev_name(&phydev->dev));
-#if defined(CONFIG_ARCH_SUN8IW8) || defined(CONFIG_ARCH_SUN8IW7)
-		if (priv->phy_ext == INT_PHY) {
-			//EPHY Initial
-			phy_write(phydev, 0x1f , 0x0100); /* switch to page 1        */
-			phy_write(phydev, 0x12 , 0x4824); /* Disable APS             */
-			phy_write(phydev, 0x1f , 0x0200); /* switchto page 2         */
-			phy_write(phydev, 0x18 , 0x0000); /* PHYAFE TRX optimization */
-			phy_write(phydev, 0x1f , 0x0600); /* switchto page 6         */
-			phy_write(phydev, 0x14 , 0x708F); /* PHYAFE TX optimization  */
-			phy_write(phydev, 0x19 , 0x0000);
-			phy_write(phydev, 0x13 , 0xf000); /* PHYAFE RX optimization  */
-			phy_write(phydev, 0x15 , 0x1530);
-			phy_write(phydev, 0x1f , 0x0800); /* switch to page 8         */
-			phy_write(phydev, 0x18 , 0x00bc); /* PHYAFE TRX optimization */
-			//disable iEEE
-			phy_write(phydev, 0x1f , 0x0100); /* switchto page 1 */
-			/* reg 0x17 bit3,set 0 to disable iEEE */
-			phy_write(phydev, 0x17 , phy_read(phydev, 0x17) & (~(1<<3)));
-			phy_write(phydev, 0x1f , 0x0000); /* switch to page 0 */
-		}
-
-#endif
 	}
 
 	phydev->supported &= PHY_GBIT_FEATURES;
 	phydev->advertising = phydev->supported;
 
+resume:
+#if defined(CONFIG_ARCH_SUN8IW8) || defined(CONFIG_ARCH_SUN8IW7)
+	if (priv->phy_ext == INT_PHY) {
+		//EPHY Initial
+		phy_write(phydev, 0x1f , 0x0100); /* switch to page 1        */
+		phy_write(phydev, 0x12 , 0x4824); /* Disable APS             */
+		phy_write(phydev, 0x1f , 0x0200); /* switchto page 2         */
+		phy_write(phydev, 0x18 , 0x0000); /* PHYAFE TRX optimization */
+		phy_write(phydev, 0x1f , 0x0600); /* switchto page 6         */
+		phy_write(phydev, 0x14 , 0x708F); /* PHYAFE TX optimization  */
+		phy_write(phydev, 0x19 , 0x0000);
+		phy_write(phydev, 0x13 , 0xf000); /* PHYAFE RX optimization  */
+		phy_write(phydev, 0x15 , 0x1530);
+		phy_write(phydev, 0x1f , 0x0800); /* switch to page 8         */
+		phy_write(phydev, 0x18 , 0x00bc); /* PHYAFE TRX optimization */
+		//disable iEEE
+		phy_write(phydev, 0x1f , 0x0100); /* switchto page 1 */
+		/* reg 0x17 bit3,set 0 to disable iEEE */
+		phy_write(phydev, 0x17 , phy_read(phydev, 0x17) & (~(1<<3)));
+		phy_write(phydev, 0x1f , 0x0000); /* switch to page 0 */
+	}
+#endif
+	if (priv->is_suspend) {
+		if (phydev->drv->config_init) {
+			phy_scan_fixups(phydev);
+			phydev->drv->config_init(phydev);
+		}
+		phy_start(phydev);
+	}
 
 	return 0;
 
@@ -552,6 +561,12 @@ static int geth_phy_release(struct net_device *ndev)
 	/* Stop and disconnect the PHY */
 	if (phydev) {
 		phy_stop(phydev);
+	}
+
+	if (priv->is_suspend)
+		return 0;
+
+	if (phydev) {
 		value = phy_read(phydev, MII_BMCR);
 		phy_write(phydev, MII_BMCR, (value | BMCR_PDOWN));
 		phy_disconnect(phydev);
