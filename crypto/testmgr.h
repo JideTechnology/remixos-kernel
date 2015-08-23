@@ -454,7 +454,7 @@ static struct hash_testvec rmd320_tv_template[] = {
  * SHA1 test vectors  from from FIPS PUB 180-1
  * Long vector from CAVS 5.0
  */
-#define SHA1_TEST_VECTORS	3
+#define SHA1_TEST_VECTORS	(sizeof(sha1_tv_template)/sizeof(struct hash_testvec))
 
 static struct hash_testvec sha1_tv_template[] = {
 	{
@@ -469,7 +469,9 @@ static struct hash_testvec sha1_tv_template[] = {
 			  "\x4a\xa1\xf9\x51\x29\xe5\xe5\x46\x70\xf1",
 		.np	= 2,
 		.tap	= { 28, 28 }
-	}, {
+	},
+#if !(IS_ENABLED(CONFIG_CRYPTO_SUNXI))
+	{
 		.plaintext = "\xec\x29\x56\x12\x44\xed\xe7\x06"
 			     "\xb6\xeb\x30\xa1\xc3\x71\xd7\x44"
 			     "\x50\xa1\x05\xc3\xf9\x73\x5f\x7f"
@@ -497,6 +499,7 @@ static struct hash_testvec sha1_tv_template[] = {
 		.np	= 4,
 		.tap	= { 63, 64, 31, 5 }
 	}
+#endif
 };
 
 
@@ -2149,8 +2152,8 @@ static struct hash_testvec hmac_sha512_tv_template[] = {
 /*
  * DES test vectors.
  */
-#define DES_ENC_TEST_VECTORS		11
-#define DES_DEC_TEST_VECTORS		5
+#define DES_ENC_TEST_VECTORS 	(sizeof(des_enc_tv_template)/sizeof(struct cipher_testvec))
+#define DES_DEC_TEST_VECTORS	(sizeof(des_dec_tv_template)/sizeof(struct cipher_testvec))
 #define DES_CBC_ENC_TEST_VECTORS	6
 #define DES_CBC_DEC_TEST_VECTORS	5
 #define DES_CTR_ENC_TEST_VECTORS	2
@@ -2195,7 +2198,9 @@ static struct cipher_testvec des_enc_tv_template[] = {
 			  "\xf7\x9c\x89\x2a\x33\x8f\x4a\x8b"
 			  "\xb4\x99\x26\xf7\x1f\xe1\xd4\x90",
 		.rlen	= 24,
-	}, { /* Weak key */
+	},
+#if !(IS_ENABLED(CONFIG_CRYPTO_SUNXI))
+	{ /* Weak key */
 		.fail	= 1,
 		.wk	= 1,
 		.key	= "\x01\x01\x01\x01\x01\x01\x01\x01",
@@ -2204,7 +2209,9 @@ static struct cipher_testvec des_enc_tv_template[] = {
 		.ilen	= 8,
 		.result	= "\xc9\x57\x44\x25\x6a\x5e\xd3\x1d",
 		.rlen	= 8,
-	}, { /* Two blocks -- for testing encryption across pages */
+	},
+#endif
+	{ /* Two blocks -- for testing encryption across pages */
 		.key	= "\x01\x23\x45\x67\x89\xab\xcd\xef",
 		.klen	= 8,
 		.input	= "\x01\x23\x45\x67\x89\xab\xcd\xe7"
@@ -2215,7 +2222,9 @@ static struct cipher_testvec des_enc_tv_template[] = {
 		.rlen	= 16,
 		.np	= 2,
 		.tap	= { 8, 8 }
-	}, { /* Four blocks -- for testing encryption with chunking */
+	},
+#if !(IS_ENABLED(CONFIG_CRYPTO_SUNXI))
+	{ /* Four blocks -- for testing encryption with chunking */
 		.key	= "\x01\x23\x45\x67\x89\xab\xcd\xef",
 		.klen	= 8,
 		.input	= "\x01\x23\x45\x67\x89\xab\xcd\xe7"
@@ -2263,7 +2272,9 @@ static struct cipher_testvec des_enc_tv_template[] = {
 		.rlen	= 8,
 		.np	= 8,
 		.tap	= { 1, 1, 1, 1, 1, 1, 1, 1 }
-	}, { /* Generated with Crypto++ */
+	},
+#endif
+	{ /* Generated with Crypto++ */
 		.key	= "\xC9\x83\xA6\xC9\xEC\x0F\x32\x55",
 		.klen	= 8,
 		.input	= "\x50\xB9\x22\xAE\x17\x80\x0C\x75"
@@ -2362,7 +2373,9 @@ static struct cipher_testvec des_dec_tv_template[] = {
 		.rlen	= 16,
 		.np	= 2,
 		.tap	= { 8, 8 }
-	}, {
+	},
+#if !(IS_ENABLED(CONFIG_CRYPTO_SUNXI))
+	{
 		.key	= "\x01\x23\x45\x67\x89\xab\xcd\xef",
 		.klen	= 8,
 		.input	= "\xc9\x57\x44\x25\x6a\x5e\xd3\x1d"
@@ -2373,7 +2386,9 @@ static struct cipher_testvec des_dec_tv_template[] = {
 		.rlen	= 16,
 		.np	= 3,
 		.tap	= { 3, 12, 1 }
-	}, { /* Generated with Crypto++ */
+	},
+#endif
+	{ /* Generated with Crypto++ */
 		.key	= "\xC9\x83\xA6\xC9\xEC\x0F\x32\x55",
 		.klen	= 8,
 		.input	= "\x88\xCB\x1F\xAB\x2F\x2A\x49\x57"

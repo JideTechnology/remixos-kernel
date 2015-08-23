@@ -875,6 +875,8 @@ static int __test_skcipher(struct crypto_ablkcipher *tfm, int enc,
 		if (!(template[i].np) || (template[i].also_non_np)) {
 			j++;
 
+			printk("\n%s()%d - Test %d of %s, fail: %d ...\n",
+								__func__, __LINE__, j, algo, template[i].fail);
 			ret = -EINVAL;
 			if (WARN_ON(template[i].ilen > PAGE_SIZE))
 				goto out;
@@ -949,6 +951,8 @@ static int __test_skcipher(struct crypto_ablkcipher *tfm, int enc,
 
 		if (template[i].np) {
 			j++;
+			printk("\n%s()%d - Test %d of %s, np: %d, fail: %d ...\n",
+				__func__, __LINE__, j, algo, template[i].np, template[i].fail);
 
 			crypto_ablkcipher_clear_flags(tfm, ~0);
 			if (template[i].wk)
