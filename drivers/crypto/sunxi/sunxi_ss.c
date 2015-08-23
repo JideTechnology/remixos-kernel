@@ -87,6 +87,19 @@ void ss_clk_set(u32 rate)
 #endif
 }
 
+static int ss_aes_key_is_weak(const u8 *key, unsigned int keylen)
+{
+	s32 i;
+	u8 tmp = key[0];
+
+	for (i=0; i<keylen; i++)
+		if (tmp != key[i])
+			return 0;
+
+	SS_ERR("The key is weak!\n");
+	return 1;
+}
+
 static int ss_aes_setkey(struct crypto_ablkcipher *tfm, const u8 *key, 
 				unsigned int keylen)
 {
@@ -102,6 +115,11 @@ static int ss_aes_setkey(struct crypto_ablkcipher *tfm, const u8 *key,
 	ret = ss_aes_key_valid(tfm, keylen);
 	if (ret != 0)
 		return ret;
+
+	if (ss_aes_key_is_weak(key, keylen)) {
+		crypto_ablkcipher_tfm(tfm)->crt_flags |= CRYPTO_TFM_REQ_WEAK_KEY;
+/*		return -EINVAL; testmgr.c need this, but we don't want to support it. */
+	}
 
 	ctx->key_size = keylen;
 	memcpy(ctx->key, key, keylen);
@@ -655,6 +673,7 @@ static struct crypto_alg sunxi_ss_algs[] =
 		.update		= ss_hash_update, \
 		.final		= ss_hash_final, \
 		.finup		= ss_hash_finup, \
+		.digest		= ss_hash_digest, \
 		.halg.digestsize	= utype##_DIGEST_SIZE, \
 		.halg.base	= { \
 			.cra_name		= #ltype, \
@@ -924,6 +943,7 @@ static int sunxi_ss_probe(struct platform_device *pdev)
 		goto err1;
 	}
 
+	ss_dev = sss;
 	ret = sunxi_ss_alg_register();
 	if (ret != 0) {
 		SS_ERR("sunxi_ss_alg_register() failed! return %d \n", ret);
@@ -932,7 +952,6 @@ static int sunxi_ss_probe(struct platform_device *pdev)
 
 	sunxi_ss_sysfs_create(pdev);
 
-	ss_dev = sss;
 	SS_DBG("SS driver probe succeed, base 0x%p, irq %d!\n", sss->base_addr, sss->irq);
 	return 0;
 

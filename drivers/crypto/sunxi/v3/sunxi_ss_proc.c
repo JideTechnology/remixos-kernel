@@ -241,6 +241,7 @@ static int ss_aes_start(ss_aes_ctx_t *ctx, ss_aes_req_ctx_t *req_ctx, int len)
 	SS_DBG("Task addr, vir = 0x%p, phy = 0x%pa\n", task, &phy_addr);
 
 	ss_key_set(ctx->key, ctx->key_size, task);
+	ctx->comm.flags &= ~SS_FLAG_NEW_KEY;
 	dma_map_single(&ss_dev->pdev->dev, ctx->key, ctx->key_size, DMA_MEM_TO_DEV);
 
 	if (ctx->iv_size > 0) {
@@ -410,6 +411,7 @@ static int ss_rng_start(ss_aes_ctx_t *ctx, u8 *rdata, u32 dlen, u32 trng)
 	if (trng == 0) {
 		/* Must set the seed addr in PRNG. */
 		ss_key_set(ctx->key, ctx->key_size, task);
+		ctx->comm.flags &= ~SS_FLAG_NEW_KEY;
 		dma_map_single(&ss_dev->pdev->dev, ctx->key, ctx->key_size, DMA_MEM_TO_DEV);
 	}
 	phy_addr = virt_to_phys(buf);

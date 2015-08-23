@@ -51,6 +51,7 @@ void ss_hash_padding_sg_prepare(struct scatterlist *last, int total);
 int ss_hash_update(struct ahash_request *req);
 int ss_hash_final(struct ahash_request *req);
 int ss_hash_finup(struct ahash_request *req);
+int ss_hash_digest(struct ahash_request *req);
 
 #endif /* end of _SUNXI_SECURITY_SYSTEM_PROC_H_ */
 

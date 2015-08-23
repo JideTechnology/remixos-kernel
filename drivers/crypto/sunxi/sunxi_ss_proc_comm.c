@@ -10,6 +10,7 @@
  * warranty of any kind, whether express or implied.
  */
 
+#include <linux/vmalloc.h>
 #include <linux/spinlock.h>
 #include <linux/platform_device.h>
 #include <crypto/internal/hash.h>
@@ -111,16 +112,6 @@ int ss_hash_blk_size(int type)
 		return SHA1_BLOCK_SIZE;
 }
 
-/* Prepare for padding in Hash. Final() will process the data. */
-static void ss_hash_padding_data_prepare(ss_hash_ctx_t *ctx, char *tail, int len)
-{
-	if (len != 0)
-		memcpy(ctx->pad, tail, len);
-
-	SS_DBG("The padding data: \n");
-	ss_print_hex(ctx->pad, len, NULL);
-}
-
 /* The tail data will be processed later. */
 void ss_hash_padding_sg_prepare(struct scatterlist *last, int total)
 {
@@ -186,8 +177,6 @@ static int ss_hash_one_req(sunxi_ss_t *sss, struct ahash_request *req)
 	req_ctx = ahash_request_ctx(req);
 	req_ctx->dma_src.sg = req->src;
 
-	ss_hash_padding_data_prepare(ctx, req->result, req->nbytes%ss_hash_blk_size(req_ctx->type));
-
 	ret = ss_hash_start(ctx, req_ctx, req->nbytes);
 	if (ret < 0)
 		SS_ERR("ss_hash_start fail(%d)\n", ret);
@@ -196,12 +185,38 @@ static int ss_hash_one_req(sunxi_ss_t *sss, struct ahash_request *req)
 	return ret;
 }
 
+/* Backup the tail data to req_ctx->pad[]. */
+void ss_hash_save_tail(struct ahash_request *req)
+{
+	s8 *buf = NULL;
+	s32 sg_cnt = 0;
+	s32 taillen = 0;
+	ss_aes_req_ctx_t *req_ctx = ahash_request_ctx(req);
+	ss_hash_ctx_t *ctx = crypto_ahash_ctx(crypto_ahash_reqtfm(req));
+
+	taillen = req->nbytes % ss_hash_blk_size(req_ctx->type);
+	SS_DBG("type: %d, mode: %d, len: %d, tail: %d\n", req_ctx->type,
+										req_ctx->mode, req->nbytes, taillen);
+	if (taillen == 0) /* The package don't need to backup. */
+		return;
+
+	buf = vmalloc(req->nbytes);
+	BUG_ON(buf == NULL);
+
+	sg_cnt = ss_sg_cnt(req->src, req->nbytes);
+	sg_copy_to_buffer(req->src, sg_cnt, buf, req->nbytes);
+
+	memcpy(ctx->pad, buf + req->nbytes - taillen, taillen);
+	vfree(buf);
+}
+
 int ss_hash_update(struct ahash_request *req)
 {
 	if (!req->nbytes) {
 		SS_ERR("Invalid length: %d. \n", req->nbytes);
 		return 0;
 	}
+	ss_hash_save_tail(req);
 
 	SS_DBG("Flags: %#x, len = %d \n", req->base.flags, req->nbytes);
 	if (ss_dev->suspend) {
@@ -261,6 +276,13 @@ int ss_hash_final(struct ahash_request *req)
 
 int ss_hash_finup(struct ahash_request *req)
 {
+	ss_hash_update(req);
+	return ss_hash_final(req);
+}
+
+int ss_hash_digest(struct ahash_request *req)
+{
+	crypto_ahash_reqtfm(req)->init(req);
 	ss_hash_update(req);
 	return ss_hash_final(req);
 }

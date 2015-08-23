@@ -74,23 +74,7 @@ static int hash_sendmsg(struct kiocb *unused, struct socket *sock,
 				goto unlock;
 			}
 
-#ifdef CONFIG_CRYPTO_HW
-			ahash_request_set_crypt(&ctx->req, ctx->sgl.sg, ctx->result, newlen);
-			if (crypto_ahash_digestsize(crypto_ahash_reqtfm(&ctx->req)) < SHA384_DIGEST_SIZE)
-				len = SHA1_BLOCK_SIZE;
-			else
-				len = SHA512_BLOCK_SIZE;
-
-			if (newlen%len) {
-				err = copy_from_user(ctx->req.result, &from[newlen - newlen%len],
-						newlen%len);
-				if (err)
-					goto unlock;
-			}
-#else
 			ahash_request_set_crypt(&ctx->req, ctx->sgl.sg, NULL, newlen);
-#endif
-
 			err = af_alg_wait_for_completion(
 				crypto_ahash_update(&ctx->req),
 				&ctx->completion);
@@ -273,12 +257,8 @@ static void hash_sock_destruct(struct sock *sk)
 	struct alg_sock *ask = alg_sk(sk);
 	struct hash_ctx *ctx = ask->private;
 
-#ifdef CONFIG_CRYPTO_HW
-	sock_kfree_s(sk, ctx->result, SHA512_BLOCK_SIZE);
-#else
 	sock_kfree_s(sk, ctx->result,
 		     crypto_ahash_digestsize(crypto_ahash_reqtfm(&ctx->req)));
-#endif
 
 	sock_kfree_s(sk, ctx, ctx->len);
 	af_alg_release_parent(sk);
@@ -295,9 +275,6 @@ static int hash_accept_parent(void *private, struct sock *sk)
 	if (!ctx)
 		return -ENOMEM;
 
-#ifdef CONFIG_CRYPTO_HW
-	ds = SHA512_BLOCK_SIZE;
-#endif
 	ctx->result = sock_kmalloc(sk, ds, GFP_KERNEL);
 	if (!ctx->result) {
 		sock_kfree_s(sk, ctx, len);
