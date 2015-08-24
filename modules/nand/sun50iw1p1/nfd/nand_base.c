@@ -284,8 +284,8 @@ uint32 shutdown_flush_write_cache(void)
 *****************************************************************************/
 void nand_shutdown(struct platform_device *plat_dev)
 {
-    struct nand_blk_dev *dev;
-    struct nand_blk_ops *tr = &mytr;
+//    struct nand_blk_dev *dev;
+//   struct nand_blk_ops *tr = &mytr;
 
 //    nand_dbg_err("[NAND]shutdown first\n");
 //    list_for_each_entry(dev, &tr->devs, list){

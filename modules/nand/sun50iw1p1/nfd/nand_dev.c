@@ -33,7 +33,7 @@ extern int NAND_Print_DBG(const char *fmt, ...);
 extern struct _nftl_blk* get_nftl_need_read_claim(struct _nftl_blk* start_blk);
 extern void set_nftl_read_claim_complete(struct _nftl_blk* nftl_blk);
 extern unsigned int get_blk_logic_page_num(struct _nftl_blk *nftl_blk);
-extern  int read_reclaim(struct _nftl_zone *zone,uchar*buf,uint32 start_page,uint32 total_pages);
+extern  int read_reclaim(void *zone,uchar*buf,uint32 start_page,uint32 total_pages);
 
 
 int _dev_nand_read(struct _nand_dev *nand_dev,__u32 start_sector,__u32 len,unsigned char *buf);
