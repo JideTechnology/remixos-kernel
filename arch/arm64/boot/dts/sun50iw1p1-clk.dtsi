@@ -52,6 +52,7 @@ clocks {
 		clk_pll_ve: pll_ve {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-pll-clock";
+			assigned-clock-rates = <420000000>;
 			lock-mode = "new";
 			clock-output-names = "pll_ve";
 		};		
