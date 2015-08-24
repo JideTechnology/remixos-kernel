@@ -191,6 +191,9 @@ s32 di_set_para(__di_para_t *para, void* in_flag_add, void* out_flag_add, u32 fi
 	DI_Set_Out_Size(&out_size);
 	DI_Set_Writeback_Addr_ex(&out_addr,&out_size,&out_type);
 
+	in_flag_add = (unsigned int )DI_VAtoPA((void*)in_flag_add);
+	out_flag_add = (unsigned int )DI_VAtoPA((void*)out_flag_add);
+
 	DI_Set_Di_PreFrame_Addr(pre_addr.ch0_addr, pre_addr.ch1_addr);
 	in_address = (unsigned long)(in_flag_add);
 	out_address = (unsigned long)(out_flag_add);
