@@ -19,6 +19,7 @@ arm64-obj-y		:= cputable.o debug-monitors.o entry.o irq.o fpsimd.o	\
 			   opcodes.o sys_config.o
 arm64-obj-$(CONFIG_CPU_OPS_SUNXI)	+= cpu_ops_sunxi.o
 
+arm64-obj-$(CONFIG_SUNXI_BOOTUP_EXTEND) += sunxi_bootup_extend.o
 arm64-obj-$(CONFIG_COMPAT)		+= sys32.o kuser32.o signal32.o	\
 					   sys_compat.o
 arm64-obj-$(CONFIG_FUNCTION_TRACER)	+= ftrace.o entry-ftrace.o
@@ -35,6 +36,7 @@ arm64-obj-$(CONFIG_JUMP_LABEL)		+= jump_label.o
 arm64-obj-$(CONFIG_CPU_IDLE)		+= cpuidle.o
 arm64-obj-$(CONFIG_KGDB)		+= kgdb.o
 arm64-obj-$(CONFIG_EFI)			+= efi.o efi-stub.o efi-entry.o
+
 
 obj-$(CONFIG_SWP_EMULATE)	+= swp_emulate.o
 

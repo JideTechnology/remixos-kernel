@@ -201,4 +201,15 @@ int ion_share_dma_buf_fd(struct ion_client *client, struct ion_handle *handle);
  */
 struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd);
 
+extern int ion_debug;
+
+enum {
+	ION_ERR  = 0x00,
+	ION_INFO = 0x01,
+	ION_ALL  = 0x02,
+};
+
+#define ION_DEBUG(debug_mask, fmt, arg...)	if (unlikely(debug_mask <= ion_debug)) \
+	 printk(KERN_DEBUG "%s-%d %s:%d " fmt , current->comm, current->pid, __func__, __LINE__, ## arg)
+
 #endif /* _LINUX_ION_H */

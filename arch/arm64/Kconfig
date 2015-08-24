@@ -580,6 +580,15 @@ config ARCH_SUSPEND_POSSIBLE
 config ARM64_CPU_SUSPEND
 	def_bool PM_SLEEP
 
+config SUNXI_BOOTUP_EXTEND
+	bool "support ir bootup feature"
+	depends on SUNXI_ARISC
+	default y
+	help
+	  support ir bootup feature.
+	  but must has the module known as "ar100" or "cpus".
+	  the feature is support power up with ir when poweroff.
+
 endmenu
 
 menu "CPU Power Management"

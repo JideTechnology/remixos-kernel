@@ -84,7 +84,7 @@ static struct attribute_group di_attribute_group = {
 
 #ifdef DI_RESERVED_MEM
 #define MY_BYTE_ALIGN(x) ( ( (x + (4*1024-1)) >> 12) << 12)             /* alloc based on 4K byte */
-void *sunxi_di_alloc(u32 num_bytes, unsigned long phys_addr)
+void *sunxi_di_alloc(u32 num_bytes, unsigned long *phys_addr)
 {
 	u32 actual_bytes;
 	void* address = NULL;
@@ -145,7 +145,7 @@ static int di_mem_request(__di_mem_t *di_mem)
 		return -ENOMEM;
 	}
 #else
-	di_mem->v_addr = sunxi_di_alloc(di_mem->size, di_mem->p_addr);
+	di_mem->v_addr = sunxi_di_alloc(di_mem->size, (unsigned long*)&di_mem->p_addr);
 	if (NULL == di_mem->v_addr) {
 		printk(KERN_ERR "%s: failed!\n", __func__);
 		return -ENOMEM;
@@ -485,6 +485,15 @@ static long sunxi_di_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 	return ret;
 }
 
+#ifdef CONFIG_COMPAT
+static long sunxi_di_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	unsigned long translated_arg = (unsigned long)compat_ptr(arg);
+
+	return sunxi_di_ioctl(filp, cmd, translated_arg);
+}
+#endif
+
 static int sunxi_di_open(struct inode *inode, struct file *file)
 {
 	s32 ret = 0;
@@ -549,6 +558,9 @@ static const struct file_operations sunxi_di_fops = {
 	.owner = THIS_MODULE,
 	.llseek = noop_llseek,
 	.unlocked_ioctl = sunxi_di_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl	= sunxi_di_compat_ioctl,
+#endif
 	.open = sunxi_di_open,
 	.release = sunxi_di_release,
 };

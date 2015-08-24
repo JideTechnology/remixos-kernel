@@ -7,10 +7,9 @@
 #define DE_LCD_CLK "lcd0"
 #define DE_LCD_CLK_SRC "pll_video0"
 #define CLK_INIT_ENABLE_COUNT 2
-
-static struct clk *tv_clk = NULL;
+static struct clk *tv_clk;
 static char modules_name[32] = "tv_ac200";
-static char key_name[20] = "tv_ac200_para";
+//static char key_name[20] = "tv_ac200_para";
 static enum disp_tv_mode g_tv_mode = DISP_TV_MOD_PAL;
 
 static u32 tv_screen_id = 0;
@@ -18,10 +17,7 @@ static u32 tv_used = 0;
 
 static struct mutex mlock;
 static bool tv_suspend_status;
-static unsigned int  tv_clk_enable_count = 0;
-
-static bool tv_io_used[28];
-static disp_gpio_set_t tv_io[28];
+static int  tv_clk_enable_count = 0;
 
 static struct disp_device *tv_device = NULL;
 static struct disp_vdevice_source_ops tv_source_ops;
@@ -29,8 +25,8 @@ static struct disp_vdevice_source_ops tv_source_ops;
 struct ac200_tv_priv tv_priv;
 struct disp_video_timings tv_video_timing[] =
 {
- /* vic  tv_mode         PCLK     AVI   x   y   HT  HBP HFP HST  VT  VBP VFP VST  H_P V_P I vas TRD */	
- 
+ /* vic  tv_mode         PCLK     AVI   x   y   HT  HBP HFP HST  VT  VBP VFP VST  H_P V_P I vas TRD */
+
  	{0, DISP_TV_MOD_NTSC,54000000, 0, 720, 480, 858, 57, 19, 62, 525, 15, 4,  3,  0,  0,  0, 0, 0},
 	{0,	DISP_TV_MOD_PAL, 54000000, 0, 720, 576, 864, 69, 12, 63, 625, 19, 2,  3,  0,  0,  0, 0, 0},
 };
@@ -38,7 +34,7 @@ struct disp_video_timings tv_video_timing[] =
 extern struct disp_device* disp_vdevice_register(struct disp_vdevice_init_data *data);
 extern s32 disp_vdevice_unregister(struct disp_device *vdevice);
 extern s32 disp_vdevice_get_source_ops(struct disp_vdevice_source_ops *ops);
-extern unsigned int disp_boot_para_parse(void);
+extern unsigned int disp_boot_para_parse(const char *name);
 
 #if defined(CONFIG_SWITCH) || defined(CONFIG_ANDROID_SWITCH)
 
@@ -60,7 +56,7 @@ void tv_report_hpd_work(void)
 	case DISP_TV_CVBS:
 		switch_set_state(&cvbs_switch_dev, STATUE_OPEN);
 		break;
-		
+
 	default:
 		switch_set_state(&cvbs_switch_dev, STATUE_CLOSE);
 
@@ -160,7 +156,7 @@ static s32 tv_power_on(u32 on_off)
 
 static s32 tv_clk_init(void)
 {
-	disp_sys_clk_set_parent(DE_LCD_CLK, DE_LCD_CLK_SRC);
+	//disp_sys_clk_set_parent(DE_LCD_CLK, DE_LCD_CLK_SRC);
 
 	return 0;
 }
@@ -176,6 +172,7 @@ static s32 tv_clk_config(u32 mode)
 	unsigned long pixel_clk, pll_rate, lcd_rate, dclk_rate;//hz
 	unsigned long pll_rate_set, lcd_rate_set, dclk_rate_set;//hz
 	u32 pixel_repeat, tcon_div, lcd_div;
+	struct clk * parent = NULL;
 
 	if(11 == mode) {
 		pixel_clk = tv_video_timing[1].pixel_clk;
@@ -190,12 +187,14 @@ static s32 tv_clk_config(u32 mode)
 	tcon_div = 8;//fixme
 	lcd_rate = dclk_rate * tcon_div;
 	pll_rate = lcd_rate * lcd_div;
-	
-	disp_sys_clk_set_rate(DE_LCD_CLK_SRC, pll_rate);
-	pll_rate_set = disp_sys_clk_get_rate(DE_LCD_CLK_SRC);
+
+	parent = clk_get_parent(tv_clk);
+	if (parent)
+		clk_set_rate(tv_clk->parent, pll_rate);
+	pll_rate_set = clk_get_rate(parent);
 	lcd_rate_set = pll_rate_set / lcd_div;
-	disp_sys_clk_set_rate(DE_LCD_CLK, lcd_rate_set);
-	lcd_rate_set = disp_sys_clk_get_rate(DE_LCD_CLK_SRC);
+	clk_set_rate(tv_clk, lcd_rate_set);
+	lcd_rate_set = clk_get_rate(tv_clk);
 	dclk_rate_set = lcd_rate_set / tcon_div;
 	if(dclk_rate_set != dclk_rate)
 		pr_info("pclk=%ld, cur=%ld\n", dclk_rate, dclk_rate_set);
@@ -222,42 +221,9 @@ static s32 tv_clk_disable(void)
 	return 0;
 }
 
-static int tv_parse_config(void)
-{
-	disp_gpio_set_t  *gpio_info;
-	int i, ret;
-	char io_name[32];
-
-	for(i=0; i<28; i++) {
-		gpio_info = &(tv_io[i]);
-		sprintf(io_name, "tv_d%d", i);
-		ret = disp_sys_script_get_item(key_name, io_name, (int *)gpio_info,
-										sizeof(disp_gpio_set_t)/sizeof(int));
-		if(ret == 3) {
-		  tv_io_used[i]= 1;
-		}
-	}
-
-  return 0;
-}
-
 static int tv_pin_config(u32 bon)
 {
-	int hdl,i;
-
-	for(i=0; i<28; i++)	{
-		if(tv_io_used[i]) {
-			disp_gpio_set_t  gpio_info[1];
-
-			memcpy(gpio_info, &(tv_io[i]), sizeof(disp_gpio_set_t));
-			if(!bon) {
-				gpio_info->mul_sel = 7;
-			}
-			hdl = disp_sys_gpio_request(gpio_info, 1);
-			disp_sys_gpio_release(hdl, 2);
-		}
-	}
-	return 0;
+	return disp_sys_pin_set_state("ac200", (1==bon)? DISP_PIN_STATE_ACTIVE:DISP_PIN_STATE_SLEEP);
 }
 
 static s32 tv_open(void)
@@ -357,11 +323,12 @@ static s32 tv_get_interface_para(void* para)
 //0:rgb;  1:yuv
 static s32 tv_get_input_csc(void)
 {
-	return 1;
+	return 0;
 }
 
 s32 tv_suspend(void)
 {
+	tv_close();
 	mutex_lock(&mlock);
 	if(tv_used && (false == tv_suspend_status)) {
 		tv_suspend_status = true;
@@ -370,18 +337,44 @@ s32 tv_suspend(void)
 			tv_source_ops.tcon_disable(tv_device);
 			tv_clk_enable_count--;
 		}
-		if(tv_clk_enable_count) {
+		if (tv_clk_enable_count<0) {
+			tv_clk_enable_count = 0;
+		}
+
+		while(tv_clk_enable_count) {
+			printk("%s clk_co1=%d\n",__func__, tv_clk_enable_count);
 			tv_clk_disable();
 			tv_clk_enable_count--;
+			printk("%s clk_co2=%d\n",__func__, tv_clk_enable_count);
 		}
 	}
+
 	mutex_unlock(&mlock);
+
+	return 0;
+}
+
+extern int acx00_enable(void);
+
+s32 tv_delay_ms(u32 ms)
+{
+	u32 timeout = msecs_to_jiffies(ms);
+
+	set_current_state(TASK_UNINTERRUPTIBLE);
+	schedule_timeout(timeout);
 
 	return 0;
 }
 
 s32 tv_resume(void)
 {
+	int acx00_state = 0;
+	while(!acx00_state) {
+		tv_delay_ms(50);
+		acx00_state = acx00_enable();
+		printk(KERN_DEBUG "%s: wait for acx00 resume finish\n", __func__);
+	}
+
 	mutex_lock(&mlock);
 	if(tv_used && (true == tv_suspend_status)) {
 		tv_suspend_status= false;
@@ -392,14 +385,14 @@ s32 tv_resume(void)
 			tv_source_ops.tcon_simple_enable(tv_device);
 	}
 	mutex_unlock(&mlock);
+	aw1683_tve_init();
 
+
+	tv_open();
 	return  0;
 }
 
-static const struct of_device_id sunxi_tv_ac200_match[] = {
-	{ .compatible = "allwinner,sunxi_tv_ac200", },
-	{},
-};
+
 
 static struct disp_device* tv_ac200_register(void)
 {
@@ -418,19 +411,26 @@ static struct disp_device* tv_ac200_register(void)
 	init_data.func.get_video_timing_info = tv_get_video_timing_info;
 	init_data.func.get_interface_para = tv_get_interface_para;
 	init_data.func.get_input_csc = tv_get_input_csc;
-	
-	disp_vdevice_get_source_ops(&tv_source_ops);
+#if 0
+	/*
+	 * call tv_suspend/tv_resume at platform device pm ops,
+	 * to sync with acx00-core suspend callback.
+	 */
+	init_data.func.suspend = tv_suspend;
+	init_data.func.resume = tv_resume;
+#endif
 	device = disp_vdevice_register(&init_data);
-	
+
 	return device;
 }
 
 static int tv_init(struct platform_device *pdev)
 {
+	int smooth_boot = 0;
 	unsigned int value, output_type0, output_mode0, output_type1, output_mode1;
-
+	mutex_init(&mlock);
 	/* parse boot para */
-	value = disp_boot_para_parse();
+	value = disp_boot_para_parse("boot_disp");
 	output_type0 = (value >> 8) & 0xff;
 	output_mode0 = (value) & 0xff;
 	output_type1 = (value >> 24)& 0xff;
@@ -448,6 +448,7 @@ static int tv_init(struct platform_device *pdev)
 		{
 			g_tv_mode = output_mode1;
 		}
+		smooth_boot = 1;
 	}
 
 	/* if support switch class,register it for cvbs hot plugging detect */
@@ -455,31 +456,32 @@ static int tv_init(struct platform_device *pdev)
 	switch_dev_register(&cvbs_switch_dev);
 #endif
 
+	tv_suspend_status = 0;
+	tv_used = 1;
+	tv_clk_init();
+	tv_clk_enable(g_tv_mode);
+
+	tv_clk_enable_count=2;	/* FIXME */
 	/*register extern tv module to vdevice*/
 	tv_device = tv_ac200_register();
+	disp_vdevice_get_source_ops(&tv_source_ops);
+
 	if(IS_ERR_OR_NULL(tv_device)) {
 		dev_err(&pdev->dev, "register tv device failed.\n");
 		goto err_register;
 	}
-	
-	/* parse io config */
-	tv_parse_config();
 
-	/* get clk */
-	tv_clk = of_clk_get(pdev->dev.of_node, 0);  //modify when mfd is ready.
-	if (IS_ERR_OR_NULL(tv_clk)) {
-		dev_err(&pdev->dev, "fail to get clk for hdmi\n");
-		goto err_register;
+	if (!smooth_boot) {
+		aw1683_tve_init();
+
+		if (tv_source_ops.tcon_simple_enable) {
+			tv_source_ops.tcon_simple_enable(tv_device);
+		} else
+			printk("tv init tcon fail!\n");
 	}
-	tv_clk_enable_count = tv_clk->enable_count;
 
 	/* init param*/
-	tv_suspend_status = 0;
-	tv_used = 1;
-	mutex_init(&mlock);
 	tv_detect_enable();
-	tv_clk_init();
-	tv_clk_enable(g_tv_mode);
 
 	return 0;
 
@@ -489,18 +491,45 @@ err_register:
 
 static int tv_ac200_probe(struct platform_device *pdev)
 {
-	struct ac200_tv_priv *acx00_pr;
+	struct device_node *node;
+	struct acx00 *ax;
+	struct platform_device *ax_pdev;
 
-	pr_info("%s tv_ac200_probe.\n",__func__);
-	acx00_pr = devm_kzalloc(&pdev->dev, sizeof(struct ac200_tv_priv), GFP_KERNEL);
-	if (acx00_pr == NULL) {
-		pr_info("%s devm_kzalloc failed\n",__func__);
-		return -ENOMEM;
+	ax = dev_get_drvdata(pdev->dev.parent);
+	if (!ax)
+		printk("ax is null!\n");
+	tv_priv.acx00 = ax;
+
+	node = of_find_compatible_node(NULL, NULL, "allwinner,sunxi-ac200");
+	if (!node) {
+		pr_debug("%s: of_find_compatible_node fail\n",__func__);
+		return -1;
 	}
-	platform_set_drvdata(pdev, acx00_pr);
-	tv_priv.acx00 = dev_get_drvdata(pdev->dev.parent);
+	ax_pdev = of_find_device_by_node(node);
+	/* get clk */
+	tv_clk = of_clk_get(ax_pdev->dev.of_node, 0);  //modify when mfd is ready.
+	if (IS_ERR_OR_NULL(tv_clk)) {
+		dev_err(&pdev->dev, "fail to get clk for tv\n");
+		return -1;
+	}
+	tv_clk_enable_count = tv_clk->enable_count;
 
 	tv_init(pdev);
+	return 0;
+}
+
+
+int tv_platform_suspend(struct platform_device *dev, pm_message_t state)
+{
+	printk(KERN_DEBUG "%s called\n", __func__);
+	tv_suspend();
+	return 0;
+}
+
+int tv_platform_resume(struct platform_device *dev)
+{
+	printk(KERN_DEBUG "%s called\n", __func__);
+	tv_resume();
 	return 0;
 }
 
@@ -528,20 +557,33 @@ static int  tv_remove(struct platform_device *pdev) //delete __devexit
     return 0;
 }
 
-
 static struct platform_driver tv_ac200_driver = {
 	.driver = {
 		.name = "tv",
 		.owner = THIS_MODULE,
-		.of_match_table = sunxi_tv_ac200_match,
+		//.of_match_table = sunxi_tv_ac200_match,
 	},
 	.probe = tv_ac200_probe,
+
+	.suspend = tv_platform_suspend,
+	.resume = tv_platform_resume,
+
 	.remove = tv_remove,//delete __devexit_p(tv_remove)
 	.shutdown = tv_shutdown,
 };
 
+static int tv_ac200_init(void)
+{
+	int ret = 0;
+	ret = platform_driver_register(&tv_ac200_driver);
+	if (ret)
+		return -EINVAL;
+	printk("%s out \n",__func__);
 
-module_platform_driver(tv_ac200_driver);
+	return ret;
+}
+late_initcall(tv_ac200_init);
+//module_platform_driver(tv_ac200_driver);
 
 MODULE_AUTHOR("zengqi");
 MODULE_DESCRIPTION("tv_ac200 driver");

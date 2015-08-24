@@ -45,6 +45,7 @@
 		disp = &disp;
 		lcd0 = &lcd0;
 		hdmi = &hdmi;
+        ac200 = &ac200;
 		boot_disp = &boot_disp;
 	};
 
@@ -375,8 +376,6 @@
 			clocks = <&clk_hosc>,<&clk_cpurcir>;
 			supply = "vcc-pl";
 			supply_vol = <3300000>;
-			ir_power_key_code = <0x57>;
-			ir_addr_code = <0x009f>;
 			status = "okay";
 		};
 
@@ -409,6 +408,17 @@
 			compatible = "allwinner,s_jtag";
 			pinctrl-names = "default";
 			pinctrl-0 = <&s_jtag0_pins_a>;
+			status = "disable";
+		};
+
+		box_start_os: box_start_os0 {
+			compatible = "allwinner,box_start_os";
+			start_type = <0x1>;
+			irkey_used = <0x1>;
+			pmukey_used = <0x0>;
+			pmukey_num = <0x0>;
+			led_power = <0x0>;
+			led_state = <0x0>;
 			status = "disable";
 		};
 
@@ -996,7 +1006,12 @@
 		boot_disp: boot_disp {
 			compatible = "allwinner,boot_disp";
 		};
-
+		ac200: ac200 {
+			compatible = "allwinner,sunxi-ac200";
+			clocks = <&clk_tcon0>;
+			pinctrl-names = "active","sleep";
+			status = "okay";
+		};
 		csi_cci0:cci@0x01cb3000 {
 			compatible = "allwinner,sunxi-csi_cci";
 			reg = <0x0 0x01cb3000 0x0 0x1000>;	/*0x01cb3000--0x01cb4000*/

@@ -305,6 +305,11 @@ static const struct i2c_device_id acx00_id[] = {
 	{}
 };
 
+static const struct of_device_id sunxi_ac200_match[] = {
+	{ .compatible = "allwinner,sunxi-ac200", },
+	{},
+};
+
 static struct i2c_driver acx00_i2c_driver = {
 	.class 		= I2C_CLASS_HWMON,
 	.id_table 	= acx00_id,
@@ -313,6 +318,7 @@ static struct i2c_driver acx00_i2c_driver = {
 	.driver 	= {
 		.owner 	= THIS_MODULE,
 		.name 	= "ACX00-CHIP",
+		.of_match_table = sunxi_ac200_match,
 	},
 	.address_list = normal_i2c,
 	.suspend  = acx00_i2c_suspend,

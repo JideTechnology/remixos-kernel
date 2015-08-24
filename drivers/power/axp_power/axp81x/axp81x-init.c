@@ -227,7 +227,7 @@ s32 axp81x_usb_ac_current_limit(struct axp_charger *charger, aw_charge_type port
 		} else if (current_limit < 3500) {
 			tmp = 0x60;   /* 3000mA */
 			axp_update(axp_charger->master, AXP81X_CHARGE_CONTROL3, tmp,0xf0);
-		} else if (current_limit < 3500) {
+		} else if (current_limit < 4000) {
 			tmp = 0x70;   /* 3500mA */
 			axp_update(axp_charger->master, AXP81X_CHARGE_CONTROL3, tmp,0xf0);
 		} else {
@@ -313,12 +313,19 @@ s32 axp81x_init(struct axp_charger *charger)
 		axp_update(charger->master, AXP81X_VOFF_SET, val, 0x7);
 	}
 
-	/* usb voltage limit */
+	/* usb /ac voltage limit */
 	if(axp81x_config.pmu_ac_vol){
 		axp81x_usb_ac_vol_limit(charger, CHARGE_AC, axp81x_config.pmu_ac_vol);
 	}
 	if(axp81x_config.pmu_usbpc_vol){
 		axp81x_usb_ac_vol_limit(charger, CHARGE_USB_20, axp81x_config.pmu_usbpc_vol);
+	}
+
+	/* ac current limit */
+	if(axp81x_config.pmu_ac_cur){
+		axp81x_usb_ac_current_limit(charger, CHARGE_AC, axp81x_config.pmu_ac_cur);
+	} else {
+		axp81x_usb_ac_current_limit(charger, CHARGE_AC, 2500);
 	}
 
 	axp81x_chg_current_limit(axp81x_config.pmu_runtime_chgcur);
