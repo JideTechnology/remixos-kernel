@@ -620,7 +620,7 @@ static struct platform_device cht_t_mach_dev = {
 };
 
 static struct platform_device cht_cr_mach_dev = {
-	.name           = "cht_aic31xx",
+	.name           = "cht_rt5645",
 	.id             = -1,
 	.num_resources  = 0,
 };
