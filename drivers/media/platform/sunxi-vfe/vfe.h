@@ -285,6 +285,7 @@ struct vfe_dev {
 	unsigned int			platform_id;
 	unsigned int 			vfe_s_input_flag;
 	struct v4l2_ctrl_handler  ctrl_handler;
+	struct timer_list		timer_for_reset;
 };
 
 #endif  /* __VFE__H__ */

@@ -553,7 +553,7 @@ void cfg_section_release(struct cfg_section **cfg_sct)
 struct file* cfg_open_file(char *file_path)
 {
 	struct file* fp;
-	fp = filp_open(file_path, O_RDWR | O_APPEND | O_CREAT, 644);
+	fp = filp_open(file_path, O_RDWR | O_APPEND | O_CREAT, 0666);//the third parameter is octal
 	if(IS_ERR_OR_NULL(fp)) {
 		printk("[vfe_warn]open %s failed!, ERR NO is %ld.\n",file_path,  (long)fp);
 	}

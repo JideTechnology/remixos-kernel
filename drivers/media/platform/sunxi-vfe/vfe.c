@@ -1251,6 +1251,33 @@ static void vfe_isp_stat_parse(struct isp_gen_settings * isp_gen)
 	isp_gen->stat.awb_win_buf = (void*) (buffer_addr + ISP_STAT_AWB_WIN_MEM_OFS);
 }
 
+void vfe_csi_isp_reset(unsigned long data)
+{
+	struct vfe_dev *dev = (struct vfe_dev *)data;
+	mod_timer(&dev->timer_for_reset, jiffies + HZ);
+
+	bsp_csi_enable(dev->vip_sel);
+	bsp_csi_disable(dev->vip_sel);
+	bsp_csi_enable(dev->vip_sel);
+	if(dev->is_isp_used)
+	{
+		bsp_isp_enable();
+		bsp_isp_disable();
+		bsp_isp_enable();
+	}
+	vfe_print("cs/isp reset after csi/isp interrupt timeout!\n");
+}
+
+static int vfe_timer_init(struct vfe_dev *dev)
+{
+	init_timer(&dev->timer_for_reset);
+	dev->timer_for_reset.data = (unsigned long)dev;
+	dev->timer_for_reset.expires = jiffies + 2*HZ;
+	dev->timer_for_reset.function = vfe_csi_isp_reset;
+	add_timer(&dev->timer_for_reset);
+	return 0;
+}
+
 /*
  *  the interrupt routine
  */
@@ -1299,6 +1326,7 @@ static irqreturn_t vfe_isr(int irq, void *priv)
 	} 
 	vfe_dump_csi_regs(dev);
 	frame_cnt++;
+	mod_timer(&dev->timer_for_reset, jiffies + HZ );
 
 	FUNCTION_LOG;
 	spin_lock_irqsave(&dev->slock, flags);
@@ -2127,7 +2155,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		bsp_mipi_csi_protocol_enable(dev->mipi_sel);
 #endif
 	vfe_start_generating(dev);
-
+	vfe_timer_init(dev);
 streamon_unlock:
 	mutex_unlock(&dev->stream_lock);
 
@@ -2147,6 +2175,7 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 		goto streamoff_unlock;
 	}
 	isp_streamoff_torch_and_flash_close(dev);
+	del_timer(&dev->timer_for_reset);
 	vfe_stop_generating(dev);
 	/* Resets frame counters */
 	dev->ms = 0;
@@ -3005,6 +3034,7 @@ static int vfe_close(struct file *file)
 	int ret;
 	vfe_print("vfe_close\n");
 	//device
+	del_timer(&dev->timer_for_reset);
 	vfe_stop_generating(dev);
 	if(dev->vfe_s_input_flag == 1)
 	{
