@@ -307,8 +307,9 @@ static s32 tv_get_interface_para(void* para)
 	intf_para.intf = 0;
 	intf_para.sub_intf = 12;
 	intf_para.sequence = 0;
-	intf_para.clk_phase = 2;
+	intf_para.clk_phase = 0;
 	intf_para.sync_polarity = 0;
+
 	if(g_tv_mode == DISP_TV_MOD_NTSC)
 		intf_para.fdelay = 1;//ntsc
 	else
