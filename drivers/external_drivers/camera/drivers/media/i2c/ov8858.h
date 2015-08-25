@@ -323,6 +323,7 @@ extern int dw9718_t_vcm_timing(struct v4l2_subdev *sd, s32 value);
 extern int vcm_power_up(struct v4l2_subdev *sd);
 extern int vcm_power_down(struct v4l2_subdev *sd);
 
+/*
 static struct ov8858_vcm ov8858_vcms[] = {
 	[OV8858_SUNNY] = {
 		.power_up = dw9718_vcm_power_up,
@@ -341,8 +342,7 @@ static struct ov8858_vcm ov8858_vcms[] = {
 		.power_down = vcm_power_down,
 	},
 };
-
-
+*/
 #define OV8858_RES_WIDTH_MAX	3280
 #define OV8858_RES_HEIGHT_MAX	2464
 

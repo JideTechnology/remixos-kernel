@@ -28,6 +28,18 @@ config VIDEO_OV2685
           OVT is a 2M soc sensor.
 
           It currently only works with the atomisp driver.
+
+config VIDEO_OV2680
+       tristate "Omnivision OV2680 sensor support"
+       depends on I2C && VIDEO_V4L2
+       ---help---
+         This is a Video4Linux2 sensor-level driver for the Omnivision
+         OV2680 raw camera.
+
+         ov2680 is a 2M raw sensor.
+
+         It currently only works with the atomisp driver.
+
 config VIDEO_OV2722
        tristate "OVT ov2722 sensor support"
        depends on I2C && VIDEO_V4L2

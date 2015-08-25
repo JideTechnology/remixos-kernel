@@ -43,7 +43,7 @@ static int ov8858_i2c_read(struct i2c_client *client, u16 len, u16 addr,
 		return -ENODEV;
 	}
 
-	dev_dbg(&client->dev, "%s: len = %d, addr = 0x%04x\n",
+	dev_err(&client->dev, "%s: len = %d, addr = 0x%04x\n",
 		__func__, len, addr);
 
 	memset(msg, 0, sizeof(msg));
@@ -80,7 +80,7 @@ static int ov8858_read_reg(struct i2c_client *client, u16 type, u16 reg,
 	u8 data[OV8858_SHORT_MAX];
 	int err;
 
-	dev_dbg(&client->dev, "%s: type = %d, reg = 0x%04x\n",
+	dev_err(&client->dev, "%s: type = %d, reg = 0x%04x\n",
 		__func__, type, reg);
 
 	/* read only 8 and 16 bit values */
@@ -102,7 +102,7 @@ static int ov8858_read_reg(struct i2c_client *client, u16 type, u16 reg,
 	else
 		*val = data[0] << 8 | data[1];
 
-	dev_dbg(&client->dev, "%s: val = 0x%04x\n", __func__, *val);
+	dev_err(&client->dev, "%s: val = 0x%04x\n", __func__, *val);
 
 	return 0;
 
@@ -135,7 +135,7 @@ ov8858_write_reg(struct i2c_client *client, u16 data_length, u16 reg, u16 val)
 	u16 *wreg;
 	const u16 len = data_length + sizeof(u16); /* 16-bit address + data */
 
-	dev_dbg(&client->dev,
+	dev_err(&client->dev,
 		"%s: data_length = %d, reg = 0x%04x, val = 0x%04x\n",
 		__func__, data_length, reg, val);
 
@@ -342,7 +342,7 @@ static int __ov8858_update_frame_timing(struct v4l2_subdev *sd,
 	int ret;
 
 
-	dev_dbg(&client->dev, "%s OV8858_TIMING_HTS=0x%04x\n",
+	dev_err(&client->dev, "%s OV8858_TIMING_HTS=0x%04x\n",
 		__func__, *hts);
 
 	/* HTS = pixel_per_line / 2 */
@@ -350,7 +350,7 @@ static int __ov8858_update_frame_timing(struct v4l2_subdev *sd,
 				OV8858_TIMING_HTS, *hts >> 1);
 	if (ret)
 		return ret;
-	dev_dbg(&client->dev, "%s OV8858_TIMING_VTS=0x%04x\n",
+	dev_err(&client->dev, "%s OV8858_TIMING_VTS=0x%04x\n",
 		__func__, *vts);
 
 	return ov8858_write_reg(client, OV8858_16BIT, OV8858_TIMING_VTS, *vts);
@@ -362,7 +362,7 @@ static int __ov8858_set_exposure(struct v4l2_subdev *sd, int exposure, int gain,
 	struct ov8858_device *dev = to_ov8858_sensor(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int exp_val, ret;
-	dev_dbg(&client->dev, "%s, exposure = %d, gain=%d, dig_gain=%d\n",
+	dev_err(&client->dev, "%s, exposure = %d, gain=%d, dig_gain=%d\n",
 		__func__, exposure, gain, dig_gain);
 
 	if (dev->limit_exposure_flag) {
@@ -593,8 +593,9 @@ error3:
 static int __ov8858_init(struct v4l2_subdev *sd)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct ov8858_device *dev = to_ov8858_sensor(sd);
-	dev_dbg(&client->dev, "%s\n", __func__);
+	struct ov8858_device *dev = to_ov8858_sensor(sd);	
+	int ret;
+	dev_err(&client->dev, "%s\n", __func__);
 
 	if (dev->sensor_id == OV8858_ID_DEFAULT)
 		return 0;
@@ -614,20 +615,30 @@ static int __ov8858_init(struct v4l2_subdev *sd)
 		ov8858_BasicSettings[3].val = 0x50; /* pll1_multiplier = 80 */
 	}
 #endif
-	dev_dbg(&client->dev, "%s: Writing basic settings to ov8858\n",
+	dev_err(&client->dev, "%s: Writing basic settings to ov8858\n",
 		__func__);
-	return ov8858_write_reg_array(client, ov8858_BasicSettings);
+	ret = ov8858_write_reg_array(client, ov8858_BasicSettings);
+
+	if (!ret)
+		dev_err(&client->dev, "%s call OK.\n", __func__);
+	else
+		dev_err(&client->dev, "%s call failed.\n", __func__);
+	return ret;
 }
 
 static int ov8858_init(struct v4l2_subdev *sd, u32 val)
 {
 	struct ov8858_device *dev = to_ov8858_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
 
+	dev_err(&client->dev, "%s\n", __func__);
 	mutex_lock(&dev->input_lock);
 	ret = __ov8858_init(sd);
 	mutex_unlock(&dev->input_lock);
 
+	if (!ret)
+		dev_err(&client->dev, "%s OK!\n", __func__);			
 	return ret;
 }
 
@@ -636,7 +647,7 @@ static void ov8858_uninit(struct v4l2_subdev *sd)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov8858_device *dev = to_ov8858_sensor(sd);
 	struct v4l2_ctrl *ctrl;
-	dev_dbg(&client->dev, "%s:\n", __func__);
+	dev_err(&client->dev, "%s:\n", __func__);
 
 	dev->exposure = 0;
 	dev->gain     = 0;
@@ -704,6 +715,7 @@ static int __power_ctrl(struct v4l2_subdev *sd, bool flag)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 #endif
 
+	dev_err(&client->dev, "ov8858 __power_ctrl.\n");
 	if (!dev || !dev->platform_data)
 		return -ENODEV;
 
@@ -712,7 +724,9 @@ static int __power_ctrl(struct v4l2_subdev *sd, bool flag)
 		return dev->platform_data->power_ctrl(sd, flag);
 
 #ifdef CONFIG_GMIN_INTEL_MID
+	/*
 	if (dev->platform_data->v2p8_ctrl) {
+		dev_err(&client->dev, "ov8858 __power_ctrl->v2p8_ctrl.\n");
 		ret = dev->platform_data->v2p8_ctrl(sd, flag);
 		if (ret) {
 			dev_err(&client->dev,
@@ -723,6 +737,7 @@ static int __power_ctrl(struct v4l2_subdev *sd, bool flag)
 	}
 
 	if (dev->platform_data->v1p8_ctrl) {
+		dev_err(&client->dev, "ov8858 __power_ctrl->v1p8_ctrl.\n");
 		ret = dev->platform_data->v1p8_ctrl(sd, flag);
 		if (ret) {
 			dev_err(&client->dev,
@@ -733,6 +748,7 @@ static int __power_ctrl(struct v4l2_subdev *sd, bool flag)
 			return ret;
 		}
 	}
+	*/
 
 	if (flag)
 		msleep(20); /* Wait for power lines to stabilize */
@@ -742,12 +758,14 @@ static int __power_ctrl(struct v4l2_subdev *sd, bool flag)
 
 static int __gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 {
-	struct i2c_client *client;
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov8858_device *dev;
+	int ret = 0;
 
 	if (!sd)
 		return -EINVAL;
 
+	dev_err(&client->dev, "%s\n", __func__);
 	client = v4l2_get_subdevdata(sd);
 	dev = to_ov8858_sensor(sd);
 
@@ -755,12 +773,25 @@ static int __gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 		return -ENODEV;
 
 	/* Non-gmin platforms use the legacy callback */
+	dev_err(&client->dev, "ov8858 __gpio_ctrl->gpio_ctrl.\n");
 	if (dev->platform_data->gpio_ctrl)
 		return dev->platform_data->gpio_ctrl(sd, flag);
 
 #ifdef CONFIG_GMIN_INTEL_MID
 	if (dev->platform_data->gpio0_ctrl)
-		return dev->platform_data->gpio0_ctrl(sd, flag);
+	{
+		dev_err(&client->dev, "ov8858 __gpio_ctrl->gpio_ctrl->gpio0_ctrl.\n");
+		ret =  dev->platform_data->gpio0_ctrl(sd, flag);
+
+		if (dev->platform_data->gpio1_ctrl)
+		{
+			dev_err(&client->dev, "ov8858 __gpio_ctrl->gpio_ctrl->gpio1_ctrl.\n");
+			ret |= dev->platform_data->gpio1_ctrl(sd, flag);
+
+			return ret;
+		}
+	}
+
 #endif
 
 	dev_err(&client->dev, "failed to find platform gpio callback\n");
@@ -774,18 +805,22 @@ static int power_up(struct v4l2_subdev *sd)
 	struct ov8858_device *dev = to_ov8858_sensor(sd);
 	int ret;
 	dev_dbg(&client->dev, "%s\n", __func__);
+	dev_err(&client->dev, "ov8858 power_up.\n");
 
 	/* Enable power */
+	dev_dbg(&client->dev, "%s __power_ctrl.\n", __func__);
 	ret = __power_ctrl(sd, 1);
 	if (ret)
 		goto fail_power;
 
 	/* Enable clock */
+	dev_err(&client->dev, "%s flisclk_ctrl.\n", __func__);
 	ret = dev->platform_data->flisclk_ctrl(sd, 1);
 	if (ret)
 		goto fail_clk;
 
 	/* Release reset */
+	dev_err(&client->dev, "%s __gpio_ctrl reset.\n", __func__);
 	ret = __gpio_ctrl(sd, 1);
 	if (ret)
 		goto fail_gpio;
@@ -810,16 +845,18 @@ static int power_down(struct v4l2_subdev *sd)
 	struct ov8858_device *dev = to_ov8858_sensor(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
-	dev_dbg(&client->dev, "%s\n", __func__);
+	dev_err(&client->dev, "%s\n", __func__);
 
 	ret = dev->platform_data->flisclk_ctrl(sd, 0);
 	if (ret)
 		dev_err(&client->dev, "flisclk off failed\n");
 
+	dev_err(&client->dev, "%s __gpio_ctrl.\n", __func__);
 	ret = __gpio_ctrl(sd, 0);
 	if (ret)
 		dev_err(&client->dev, "gpio off failed\n");
 
+	dev_err(&client->dev, "%s __power_ctrl.\n", __func__);
 	ret = __power_ctrl(sd, 0);
 	if (ret)
 		dev_err(&client->dev, "power rail off failed.\n");
@@ -829,13 +866,17 @@ static int power_down(struct v4l2_subdev *sd)
 
 static int __ov8858_s_power(struct v4l2_subdev *sd, int on)
 {
-	struct ov8858_device *dev = to_ov8858_sensor(sd);
+	//struct ov8858_device *dev = to_ov8858_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret, r = 0;
 
+	dev_err(&client->dev, "%s.\n", __func__);
 	if (on == 0) {
 		ov8858_uninit(sd);
+		/*
 		if (dev->vcm_driver && dev->vcm_driver->power_down)
 			r = dev->vcm_driver->power_down(sd);
+		*/
 		ret = power_down(sd);
 		if (r != 0 && ret == 0)
 			ret = r;
@@ -843,6 +884,7 @@ static int __ov8858_s_power(struct v4l2_subdev *sd, int on)
 		ret = power_up(sd);
 		if (ret)
 			power_down(sd);
+		/*
 		if (dev->vcm_driver && dev->vcm_driver->power_up) {
 			ret = dev->vcm_driver->power_up(sd);
 			if (ret) {
@@ -850,6 +892,7 @@ static int __ov8858_s_power(struct v4l2_subdev *sd, int on)
 				return ret;
 			}
 		}
+		*/
 		return __ov8858_init(sd);
 	}
 
@@ -860,6 +903,9 @@ static int ov8858_s_power(struct v4l2_subdev *sd, int on)
 {
 	int ret;
 	struct ov8858_device *dev = to_ov8858_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+
+	dev_err(&client->dev, "%s.\n", __func__);
 
 	mutex_lock(&dev->input_lock);
 	ret = __ov8858_s_power(sd, on);
@@ -881,6 +927,7 @@ static int ov8858_g_chip_ident(struct v4l2_subdev *sd,
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 
+	dev_err(&client->dev, "%s.\n", __func__);
 	if (!chip)
 		return -EINVAL;
 
@@ -1318,7 +1365,7 @@ static int __ov8858_try_mbus_fmt(struct v4l2_subdev *sd,
 	int idx;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov8858_device *dev = to_ov8858_sensor(sd);
-	dev_dbg(&client->dev, "%s: width = %d, height = %d\n",
+	dev_err(&client->dev, "%s: width = %d, height = %d\n",
 		__func__, fmt->width, fmt->height);
 
 	if (!fmt)
@@ -1351,9 +1398,11 @@ static int __ov8858_try_mbus_fmt(struct v4l2_subdev *sd,
 static int ov8858_try_mbus_fmt(struct v4l2_subdev *sd,
 			       struct v4l2_mbus_framefmt *fmt)
 {
-	struct ov8858_device *dev = to_ov8858_sensor(sd);
+	struct ov8858_device *dev = to_ov8858_sensor(sd);	
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int r;
-
+	
+	dev_err(&client->dev, "ov8858_try_mbus_fmt.\n");
 	mutex_lock(&dev->input_lock);
 	r = __ov8858_try_mbus_fmt(sd, fmt);
 	mutex_unlock(&dev->input_lock);
@@ -1376,6 +1425,8 @@ static int ov8858_s_mbus_fmt(struct v4l2_subdev *sd,
 
 	mutex_lock(&dev->input_lock);
 
+	
+	dev_err(&client->dev, "ov8858_s_mbus_fmt.\n");
 	ret = __ov8858_try_mbus_fmt(sd, fmt);
 	if (ret)
 		goto out;
@@ -1451,18 +1502,18 @@ static int ov8858_detect(struct i2c_client *client, u16 *id)
 	if (!i2c_check_functionality(adapter, I2C_FUNC_I2C))
 		return -ENODEV;
 
-	dev_dbg(&client->dev, "%s: I2C functionality ok\n", __func__);
+	dev_err(&client->dev, "%s: I2C functionality ok\n", __func__);
 	ret = ov8858_read_reg(client, OV8858_8BIT, OV8858_CHIP_ID_HIGH, &id_hi);
 	if (ret)
 		return ret;
-	dev_dbg(&client->dev, "%s: id_high = 0x%04x\n", __func__, id_hi);
+	dev_err(&client->dev, "%s: id_high = 0x%04x\n", __func__, id_hi);
 	ret = ov8858_read_reg(client, OV8858_8BIT, OV8858_CHIP_ID_LOW, &id_low);
 	if (ret)
 		return ret;
-	dev_dbg(&client->dev, "%s: id_low = 0x%04x\n", __func__, id_low);
+	dev_err(&client->dev, "%s: id_low = 0x%04x\n", __func__, id_low);
 	*id = (id_hi << 8) | id_low;
 
-	dev_dbg(&client->dev, "%s: chip_id = 0x%04x\n", __func__, *id);
+	dev_err(&client->dev, "%s: chip_id = 0x%04x\n", __func__, *id);
 
 	dev_info(&client->dev, "%s: chip_id = 0x%04x\n", __func__, *id);
 	if (*id != OV8858_CHIP_ID)
@@ -1479,7 +1530,7 @@ static void __ov8858_print_timing(struct v4l2_subdev *sd)
 	u16 width = dev->curr_res_table[dev->fmt_idx].width;
 	u16 height = dev->curr_res_table[dev->fmt_idx].height;
 
-	dev_dbg(&client->dev, "Dump ov8858 timing in stream on:\n");
+	dev_err(&client->dev, "Dump ov8858 timing in stream on:\n");
 	dev_dbg(&client->dev, "width: %d:\n", width);
 	dev_dbg(&client->dev, "height: %d:\n", height);
 	dev_dbg(&client->dev, "pixels_per_line: %d:\n", dev->pixels_per_line);
@@ -1492,7 +1543,7 @@ static void __ov8858_print_timing(struct v4l2_subdev *sd)
 	dev_dbg(&client->dev, "HBlank: %d nS:\n",
 		1000 * (dev->pixels_per_line - width) /
 		(dev->vt_pix_clk_freq_mhz / 1000000));
-	dev_dbg(&client->dev, "VBlank: %d uS:\n",
+	dev_err(&client->dev, "VBlank: %d uS:\n",
 		(dev->lines_per_frame - height) * dev->pixels_per_line /
 		(dev->vt_pix_clk_freq_mhz / 1000000));
 }
@@ -1506,7 +1557,7 @@ static int ov8858_s_stream(struct v4l2_subdev *sd, int enable)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
 	u16 val;
-	dev_dbg(&client->dev, "%s: enable = %d\n", __func__, enable);
+	dev_err(&client->dev, "%s: enable = %d\n", __func__, enable);
 
 	/* Set orientation */
 	ret = ov8858_read_reg(client, OV8858_8BIT, OV8858_FORMAT2, &val);
@@ -1620,12 +1671,17 @@ static int ov8858_enum_mbus_fmt(struct v4l2_subdev *sd, unsigned int index,
 static int __update_ov8858_device_settings(struct ov8858_device *dev,
 					   u16 sensor_id)
 {
-	if (sensor_id == OV8858_CHIP_ID)
-		dev->vcm_driver = &ov8858_vcms[OV8858_SUNNY];
+	/*
+	if (sensor_id == OV8858_CHIP_ID)		
+			dev->vcm_driver = &ov8858_vcms[OV8858_SUNNY];		
 	else
 		return -ENODEV;
+	*/
 
-	return dev->vcm_driver->init(&dev->sd);
+	/*
+		return dev->vcm_driver->init(&dev->sd);
+	*/
+	return 0;
 }
 
 static int ov8858_s_config(struct v4l2_subdev *sd,
@@ -1776,6 +1832,7 @@ static int ov8858_s_ctrl(struct v4l2_ctrl *ctrl)
 	 */
 
 	/* We only handle V4L2_CID_RUN_MODE for now. */
+	dev_err(&client->dev, "ov8858_s_ctrl val:%d\n",ctrl->val);
 	switch (ctrl->id) {
 	case V4L2_CID_RUN_MODE:
 		switch (ctrl->val) {
@@ -1801,12 +1858,17 @@ static int ov8858_s_ctrl(struct v4l2_ctrl *ctrl)
 		dev_dbg(&client->dev,
 			"%s: V4L2_CID_TEST_PATTERN = %d, val = 0x%04X\n",
 			__func__, V4L2_CID_TEST_PATTERN, ctrl->val);
+		return 0;
+		/*
 		return ov8858_write_reg(client, OV8858_16BIT,
 					OV8858_TEST_PATTERN_REG, ctrl->val);
+		*/
 	case V4L2_CID_FOCUS_ABSOLUTE:
-		if (dev->vcm_driver && dev->vcm_driver->t_focus_abs)
-			return dev->vcm_driver->t_focus_abs(&dev->sd,
+		/*
+			if (dev->vcm_driver && dev->vcm_driver->t_focus_abs)
+				return dev->vcm_driver->t_focus_abs(&dev->sd,
 							    ctrl->val);
+		*/
 		return 0;
 	case V4L2_CID_EXPOSURE_AUTO_PRIORITY:
 		if (ctrl->val == V4L2_EXPOSURE_AUTO)
@@ -1837,9 +1899,11 @@ static int ov8858_g_ctrl(struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_FOCUS_STATUS:
+		/*
 		if (dev->vcm_driver && dev->vcm_driver->q_focus_status)
 			return dev->vcm_driver->q_focus_status(&dev->sd,
 							       &(ctrl->val));
+		*/
 		return 0;
 	case V4L2_CID_BIN_FACTOR_HORZ:
 		r_odd = ov8858_get_register_8bit(&dev->sd, OV8858_H_INC_ODD,
@@ -2213,7 +2277,7 @@ static int ov8858_probe(struct i2c_client *client,
 	struct camera_sensor_platform_data *pdata;
 #endif
 
-	dev_dbg(&client->dev, "%s:\n", __func__);
+	dev_err(&client->dev, "%s:\n", __func__);
 
 	/* allocate sensor device & init sub device */
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
@@ -2228,7 +2292,9 @@ static int ov8858_probe(struct i2c_client *client,
 		dev->i2c_id = id->driver_data;
 	dev->fmt_idx = 0;
 	dev->sensor_id = OV_ID_DEFAULT;
+	/*
 	dev->vcm_driver = &ov8858_vcms[OV8858_ID_DEFAULT];
+	*/
 
 	v4l2_i2c_subdev_init(&(dev->sd), client, &ov8858_ops);
 
@@ -2310,6 +2376,8 @@ static int ov8858_probe(struct i2c_client *client,
 		return ret;
 	}
 
+	
+	dev_err(&client->dev, "%s: probe success.\n", __func__);
 	return 0;
 
 out_free:
