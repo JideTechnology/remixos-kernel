@@ -276,6 +276,10 @@ struct clk *clk_get_parent(struct clk *clk);
  */
 struct clk *clk_get_sys(const char *dev_id, const char *con_id);
 
+#ifdef CONFIG_COMMON_CLK_ENABLE_SYNCBOOT_EARLY
+extern int clk_syncboot(void);
+#endif
+
 #else /* !CONFIG_HAVE_CLK */
 
 static inline struct clk *clk_get(struct device *dev, const char *id)

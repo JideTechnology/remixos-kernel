@@ -652,9 +652,6 @@ void of_sunxi_clocks_init(struct device_node *node)
 	clk_add_alias("pll8",NULL,"pll_periph1",NULL);
 	clk_add_alias("pll9",NULL,"pll_de",NULL);
 	clk_add_alias("pll10",NULL,"pll_ddr1",NULL);
-#ifdef CONFIG_COMMON_CLK_ENABLE_SYNCBOOT_EARLY
-	clk_syncboot();
-#endif
 }
 
 void of_sunxi_fixed_clk_setup(struct device_node *node)

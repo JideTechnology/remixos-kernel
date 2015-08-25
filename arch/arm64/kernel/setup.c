@@ -467,9 +467,15 @@ void __init setup_arch(char **cmdline_p)
 #endif
 }
 
+#ifdef CONFIG_COMMON_CLK_ENABLE_SYNCBOOT_EARLY
+extern int clk_syncboot(void);
+#endif
 static int __init arm64_device_init(void)
 {
 	of_clk_init(NULL);
+#ifdef CONFIG_COMMON_CLK_ENABLE_SYNCBOOT_EARLY
+	clk_syncboot();
+#endif
 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
 	return 0;
 }

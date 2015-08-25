@@ -27,9 +27,6 @@ struct sunxi_reg_ops {
 };
 extern void sunx_clk_default_source(void);
 
-#ifdef CONFIG_COMMON_CLK_ENABLE_SYNCBOOT_EARLY
-extern int clk_syncboot(void);
-#endif
 extern void __iomem *sunxi_clk_base;
 extern void __iomem *sunxi_clk_cpus_base;
 extern int	sunxi_clk_maxreg;

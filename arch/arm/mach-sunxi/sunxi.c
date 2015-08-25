@@ -20,6 +20,7 @@
 #include <linux/of_platform.h>
 #include <linux/io.h>
 #include <linux/clk-provider.h>
+#include <linux/clk.h>
 
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
@@ -131,7 +132,9 @@ void __init sunxi_map_io(void)
 static void __init sunxi_timer_init(void)
 {
 	of_clk_init(NULL);
-
+#ifdef CONFIG_COMMON_CLK_ENABLE_SYNCBOOT_EARLY
+	clk_syncboot();
+#endif
 	clocksource_of_init();
 }
 

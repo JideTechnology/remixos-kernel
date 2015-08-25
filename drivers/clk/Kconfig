@@ -23,6 +23,21 @@ config COMMON_CLK
 menu "Common Clock Framework"
 	depends on COMMON_CLK
 
+config COMMON_CLK_ENABLE_SYNCBOOT
+	bool "sync enable_count with real hardware status when register"
+	depends on COMMON_CLK && ARCH_SUNXI
+	---help---
+	sync enable_count with real hardware status when register.
+
+	If in doubt, say "N".
+config COMMON_CLK_ENABLE_SYNCBOOT_EARLY
+        bool "sync enable_count with real hardware status when register more early"
+        depends on COMMON_CLK && ARCH_SUNXI && COMMON_CLK_ENABLE_SYNCBOOT
+        ---help---
+        sync enable_count with real hardware status when register more early
+
+        If in doubt, say "N".
+
 config COMMON_CLK_DEBUG
 	bool "DebugFS representation of clock tree"
 	select DEBUG_FS
