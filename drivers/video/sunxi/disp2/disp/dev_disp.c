@@ -1612,8 +1612,6 @@ long disp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		else
 			ret = bsp_disp_get_output_type(ubuffer[0]);
 
-		//for_test
-		ret = 1;//force lcd type
 		break;
 	}
 
