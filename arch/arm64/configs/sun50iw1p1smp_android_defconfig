@@ -1210,6 +1210,7 @@ CONFIG_BCMDHD_OOB=y
 # CONFIG_WL_TI is not set
 # CONFIG_MWIFIEX is not set
 CONFIG_RTL8723BS=m
+CONFIG_RTL8189ES=m
 
 #
 # Enable WiMAX (Networking options) to see the WiMAX drivers
