@@ -1670,12 +1670,13 @@ long disp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			disp_blank(true);
 		} else {
 			if (runtime_ref!=0) break;
+#if 0
 			if (power_status_init) {
 				/* avoid first unblank, because device is ready when driver init */
 				power_status_init = 0;
 				break;
 			}
-
+#endif
 			disp_blank(false);
 			suspend_status &= ~DISPLAY_BLANK;
 #if defined(CONFIG_PM_RUNTIME)
