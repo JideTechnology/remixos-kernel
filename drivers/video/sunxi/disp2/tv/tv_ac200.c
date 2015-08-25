@@ -16,6 +16,8 @@ static u32 tv_screen_id = 0;
 static u32 tv_used = 0;
 
 static struct mutex mlock;
+static struct mutex tv_mutex;
+
 static bool tv_suspend_status;
 static int  tv_clk_enable_count = 0;
 
@@ -228,33 +230,52 @@ static int tv_pin_config(u32 bon)
 
 static s32 tv_open(void)
 {
-	tv_pin_config(1);
-	mdelay(550);
-	if(tv_source_ops.tcon_enable){
-    	tv_source_ops.tcon_enable(tv_device);
-		mutex_lock(&mlock);
-		tv_clk_enable_count++;
-		mutex_unlock(&mlock);
-    }
-    aw1683_tve_set_mode(g_tv_mode);
-	aw1683_tve_open();
+	if (mutex_trylock(&tv_mutex)) {
+		if (tv_suspend_status==true) {
+			mutex_unlock(&tv_mutex);
+			return 0;
+		}
 
+		printk("[TV] %s\n", __func__);
+		tv_pin_config(1);
+		mdelay(550);
+		if(tv_source_ops.tcon_enable){
+			tv_source_ops.tcon_enable(tv_device);
+			mutex_lock(&mlock);
+			tv_clk_enable_count++;
+			mutex_unlock(&mlock);
+	    }
+	    aw1683_tve_set_mode(g_tv_mode);
+		aw1683_tve_open();
+
+		mutex_unlock(&tv_mutex);
+	}
     return 0;
 }
 
 static s32 tv_close(void)
 {
-	tv_pin_config(0);
-	aw1683_tve_close();
-	if(tv_source_ops.tcon_disable) {
-    	tv_source_ops.tcon_disable(tv_device);
-		mutex_lock(&mlock);
-		tv_clk_enable_count--;
-		mutex_unlock(&mlock);
-    }
+	if (mutex_trylock(&tv_mutex)) {
+		if (tv_suspend_status==true) {
+			mutex_unlock(&tv_mutex);
+			return 0;
+		}
 
-    if(tv_source_ops.tcon_simple_enable)
-    	tv_source_ops.tcon_simple_enable(tv_device);
+		printk("[TV] %s\n", __func__);
+		tv_pin_config(0);
+		aw1683_tve_close();
+		if(tv_source_ops.tcon_disable) {
+			tv_source_ops.tcon_disable(tv_device);
+			mutex_lock(&mlock);
+			tv_clk_enable_count--;
+			mutex_unlock(&mlock);
+	    }
+
+	    if(tv_source_ops.tcon_simple_enable)
+			tv_source_ops.tcon_simple_enable(tv_device);
+
+		mutex_unlock(&tv_mutex);
+	}
     return 0;
 }
 
@@ -351,7 +372,6 @@ s32 tv_suspend(void)
 	}
 
 	mutex_unlock(&mlock);
-
 	return 0;
 }
 
@@ -378,16 +398,16 @@ s32 tv_resume(void)
 
 	mutex_lock(&mlock);
 	if(tv_used && (true == tv_suspend_status)) {
-		tv_suspend_status= false;
 		tv_clk_enable(g_tv_mode);
 		tv_clk_enable_count++;
 		tv_detect_enable();
 		if(tv_source_ops.tcon_simple_enable)
 			tv_source_ops.tcon_simple_enable(tv_device);
+
+		aw1683_tve_init();
+		tv_suspend_status= false;
 	}
 	mutex_unlock(&mlock);
-	aw1683_tve_init();
-
 
 	tv_open();
 	return  0;
@@ -429,7 +449,10 @@ static int tv_init(struct platform_device *pdev)
 {
 	int smooth_boot = 0;
 	unsigned int value, output_type0, output_mode0, output_type1, output_mode1;
+
 	mutex_init(&mlock);
+	mutex_init(&tv_mutex);
+
 	/* parse boot para */
 	value = disp_boot_para_parse("boot_disp");
 	output_type0 = (value >> 8) & 0xff;
@@ -460,10 +483,13 @@ static int tv_init(struct platform_device *pdev)
 	tv_suspend_status = 0;
 	tv_used = 1;
 	tv_clk_init();
-	tv_clk_enable(g_tv_mode);
+
+	if (!smooth_boot)
+		tv_clk_enable(g_tv_mode);
 
 	tv_clk_enable_count=2;	/* FIXME */
 	/*register extern tv module to vdevice*/
+
 	tv_device = tv_ac200_register();
 	disp_vdevice_get_source_ops(&tv_source_ops);
 
@@ -516,6 +542,7 @@ static int tv_ac200_probe(struct platform_device *pdev)
 	tv_clk_enable_count = tv_clk->enable_count;
 
 	tv_init(pdev);
+
 	return 0;
 }
 

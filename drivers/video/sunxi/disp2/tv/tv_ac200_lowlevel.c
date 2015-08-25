@@ -35,16 +35,19 @@ s32 aw1683_tve_init(void)
 
 	//sid for tve
 	aw1683_rd_reg(0x8002, &data);
-	if(data == 0)
-	{
+	if(data == 0) {
 		aw1683_wr_reg(0x4306, 0x28f);
+	} else if(data < 0x3f5 && data > 0) {
+		aw1683_wr_reg(0x4306, data + 10);
+	} else {
+		aw1683_wr_reg(0x4306, data);
 	}
-	else if(data < 0x3f5 && data > 0)
-	{
-		aw1683_wr_reg(0x4306, data+10);
-	}
-	else
-	{
+
+	if(data == 0) {
+		aw1683_wr_reg(0x4306, 0x28f);
+	} else if(data < 0x3f5 && data > 0) {
+		aw1683_wr_reg(0x4306, data + 10);
+	} else {
 		aw1683_wr_reg(0x4306, data);
 	}
 
@@ -83,7 +86,7 @@ s32 aw1683_tve_set_mode(u32 mode)
 	u32 syuv = ccir ? 0:1;
 	//u32 resync_pixels 	= 0x7b*c;
 
-	printk("%s==============\n",__func__);
+	printk("[TV] %s\n",__func__);
 	aw1683_wr_reg(0x5000, syuv);
 	aw1683_wr_reg(0x5008, hbp-1);
 	aw1683_wr_reg(0x500a, x*c-1);
@@ -202,7 +205,7 @@ s32 aw1683_tve_set_mode(u32 mode)
 		aw1683_wr_reg(0x413e, 0x0000);
 		aw1683_wr_reg(0x43a0, 0x0001);
 		aw1683_wr_reg(0x43a2, 0x0003);
-		aw1683_wr_reg(0x5014, 0x2148);
+		aw1683_wr_reg(0x5014, 0x2148+1);
 		aw1683_wr_reg(0x4130, 0x0380);
 		aw1683_wr_reg(0x4132, 0x2009);	//2004
 		aw1683_wr_reg(0x4000, 0x0300);
@@ -216,7 +219,7 @@ s32 aw1683_tve_set_mode(u32 mode)
 
 s32 aw1683_tve_open(void)
 {
-	printk("%s: ========\n",__func__);
+	printk("[TV] %s\n",__func__);
 	aw1683_wr_reg(0x4008,0x02a1);
 	aw1683_wr_reg(0x4000,0x0301);
 
