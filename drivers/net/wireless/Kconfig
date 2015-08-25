@@ -269,6 +269,12 @@ config WIFI_CONTROL_FUNC
 	help
 	  Enables Power/Reset/Carddetect function abstraction
 
+config WAKE_ON_WLAN
+	bool "Enable wake on wlan function"
+	default n
+	---help---
+	  Enable wake on wlan function
+
 source "drivers/net/wireless/ath/Kconfig"
 source "drivers/net/wireless/b43/Kconfig"
 source "drivers/net/wireless/b43legacy/Kconfig"

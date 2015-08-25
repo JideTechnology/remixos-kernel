@@ -1199,6 +1199,7 @@ CONFIG_WLAN=y
 # CONFIG_USB_ZD1201 is not set
 # CONFIG_USB_NET_RNDIS_WLAN is not set
 # CONFIG_WIFI_CONTROL_FUNC is not set
+# CONFIG_WAKE_ON_WLAN is not set
 # CONFIG_ATH_CARDS is not set
 CONFIG_BCMDHD=m
 CONFIG_BCMDHD_FW_PATH="/system/vendor/modules/fw_bcmdhd.bin"
