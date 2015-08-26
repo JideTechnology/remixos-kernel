@@ -13,6 +13,8 @@
 #include <linux/platform_device.h>
 #include <linux/sys_config.h>
 
+#define EXTEND_OPERATION //more operation, such as scan_device & get wifi_mac, and so on
+
 struct sunxi_wlan_platdata {
 	int bus_index;
 	struct regulator *wlan_power;
@@ -92,7 +94,7 @@ static int sunxi_wlan_on(struct sunxi_wlan_platdata *data, bool on_off)
 	int ret = 0;
 
 	if(!on_off)
-		gpio_set_value(data->gpio_wlan_regon, 0);
+		gpio_direction_output(data->gpio_wlan_regon, 0);
 
 	if(data->wlan_power_name){
 		data->wlan_power = regulator_get(dev, data->wlan_power_name);
@@ -156,7 +158,7 @@ static int sunxi_wlan_on(struct sunxi_wlan_platdata *data, bool on_off)
 
 	if(on_off){
 		mdelay(10);
-		gpio_set_value(data->gpio_wlan_regon, 1);
+		gpio_direction_output(data->gpio_wlan_regon, 1);
 	}
 	wlan_data->power_state = on_off;
 
@@ -196,8 +198,26 @@ static ssize_t power_state_store(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(power_state, S_IRUGO | S_IWUSR,
+static DEVICE_ATTR(power_state, S_IRUGO | S_IWUGO,
 	power_state_show, power_state_store);
+
+#ifdef EXTEND_OPERATION
+extern void sunxi_mmc_rescan_card(unsigned ids);
+static ssize_t scan_device_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int bus = wlan_data->bus_index;
+
+	dev_info(dev, "start scan device on bus_index: %d\n", wlan_data->bus_index);
+	if(bus < 0) {
+		dev_err(dev, "scan device fail!\n");
+		return sprintf(buf, "fail\n");
+	}
+	sunxi_mmc_rescan_card(bus);
+	return sprintf(buf, "success\n");
+}
+static DEVICE_ATTR(scan_device, 0444, scan_device_show, NULL);
+#endif
 
 static int sunxi_wlan_probe(struct platform_device *pdev)
 {
@@ -317,6 +337,9 @@ static int sunxi_wlan_probe(struct platform_device *pdev)
 	}
 
 	device_create_file(dev, &dev_attr_power_state);
+#ifdef EXTEND_OPERATION
+	device_create_file(dev, &dev_attr_scan_device);
+#endif
 	data->power_state = 0;
 
 	return 0;
@@ -325,7 +348,10 @@ static int sunxi_wlan_probe(struct platform_device *pdev)
 static int sunxi_wlan_remove(struct platform_device *pdev)
 {
 	device_remove_file(&pdev->dev, &dev_attr_power_state);
-	
+#ifdef EXTEND_OPERATION
+	device_remove_file(&pdev->dev, &dev_attr_scan_device);
+#endif
+
 	if (!IS_ERR_OR_NULL(wlan_data->lpo)) {
 		clk_disable_unprepare(wlan_data->lpo);
 		clk_put(wlan_data->lpo);
