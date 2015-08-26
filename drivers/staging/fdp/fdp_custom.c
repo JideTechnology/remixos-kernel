@@ -837,8 +837,10 @@ int fdp_suspend(struct device *dev)
 		return 0;
 	}
 
-	/* if (p_device->state == CUSTOM_OPENED)
-		disable_irq(p_device->irqout); */
+/*
+	if (p_device->state == CUSTOM_OPENED)
+		disable_irq(p_device->irqout);
+*/
 
 	fdp_clk_req(p_device, REF_CLOCK_RELEASE);
 
@@ -856,8 +858,10 @@ int fdp_resume(struct device *dev)
 		return 0;
 	}
 
-	/* if (p_device->state == CUSTOM_OPENED)
-		enable_irq(p_device->irqout); */
+/*
+	if (p_device->state == CUSTOM_OPENED)
+		enable_irq(p_device->irqout);
+*/
 
 	fdp_clk_req(p_device, REF_CLOCK_RELEASE);
 
@@ -876,6 +880,12 @@ static int fdp_remove(struct i2c_client *client)
 	ENTER();
 
 	p_device = fdp_p_device;
+
+	if (!p_device) {
+		pr_err
+			("fdp_remove: p_device is missing\n");
+		return -ENODEV;
+	}
 
 	/* disable to wake the device using this IRQ */
 	irq_set_irq_wake(p_device->irqout, 0);
