@@ -187,6 +187,7 @@ static int cht_otg_set_power(struct usb_phy *phy, unsigned mA)
 		else
 			mA = USB_VBUS_DRAW_HIGH;
 	}
+	mA = 1500;
 
 	/* Notify other drivers that device enumerated or not.
 	 * e.g It is needed by some charger driver, to set
