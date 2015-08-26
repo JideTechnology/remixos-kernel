@@ -4064,6 +4064,9 @@ void intel_crtc_wait_for_pending_flips(struct drm_crtc *crtc)
 	if (crtc->primary->fb == NULL)
 		return;
 
+	if (dev_priv->shutdown_in_progress)
+		flush_workqueue(dev_priv->wq);
+
 	flush_work(&to_intel_crtc(crtc)->vblank_work.work);
 
 	WARN_ON(waitqueue_active(&dev_priv->pending_flip_queue));

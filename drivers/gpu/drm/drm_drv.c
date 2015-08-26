@@ -332,6 +332,21 @@ int drm_ioctl_permit(u32 flags, struct drm_file *file_priv)
 }
 
 /**
+ * Prevent new IOCTLs from starting.
+ */
+void drm_halt(struct drm_device *dev)
+{
+	DRM_DEBUG("Halt request\n");
+
+	/* Hold the mutex to prevent the ioctl_count incrementing
+	* while halt_count == 0 in drm_ioctl */
+	mutex_lock(&drm_global_mutex);
+	atomic_inc(&dev->halt_count);
+	mutex_unlock(&drm_global_mutex);
+}
+EXPORT_SYMBOL(drm_halt);
+
+/**
  * Called whenever a process performs an ioctl on /dev/drm.
  *
  * \param inode device inode.
@@ -360,6 +375,13 @@ long drm_ioctl(struct file *filp,
 
 	if (drm_device_is_unplugged(dev))
 		return -ENODEV;
+
+	mutex_lock(&drm_global_mutex);
+	if (atomic_read(&dev->halt_count)) {
+		mutex_unlock(&drm_global_mutex);
+		return -EBUSY;
+	}
+	mutex_unlock(&drm_global_mutex);
 
 	if ((nr >= DRM_CORE_IOCTL_COUNT) &&
 	    ((nr < DRM_COMMAND_BASE) || (nr >= DRM_COMMAND_END)))

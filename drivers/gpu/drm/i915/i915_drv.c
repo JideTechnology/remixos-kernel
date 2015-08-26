@@ -2149,12 +2149,45 @@ static struct drm_driver driver = {
 	.patchlevel = DRIVER_PATCHLEVEL,
 };
 
+static void i915_pm_shutdown(struct pci_dev *pdev)
+{
+	struct drm_device *drm_dev = pci_get_drvdata(pdev);
+	struct drm_i915_private *dev_priv = drm_dev->dev_private;
+	struct drm_crtc *crtc;
+
+	if (drm_dev->switch_power_state == DRM_SWITCH_POWER_OFF)
+		return;
+
+	/* make sure drm stops processing new ioctls */
+	drm_halt(drm_dev);
+
+	/* Device already in suspend state */
+	if (i915_is_device_suspended(drm_dev))
+		return;
+
+	dev_priv->shutdown_in_progress = true;
+
+	/* If KMS is active, we do the leavevt stuff here */
+	if (drm_core_check_feature(drm_dev, DRIVER_MODESET)) {
+		/* Disable CRTCs */
+		list_for_each_entry(crtc, &drm_dev->mode_config.crtc_list,
+									head) {
+			drm_modeset_lock(&crtc->mutex, NULL);
+			dev_priv->display.crtc_disable(crtc);
+			drm_modeset_unlock(&crtc->mutex);
+		}
+	}
+
+	i915_drm_freeze(drm_dev);
+}
+
 static struct pci_driver i915_pci_driver = {
 	.name = DRIVER_NAME,
 	.id_table = pciidlist,
 	.probe = i915_pci_probe,
 	.remove = i915_pci_remove,
 	.driver.pm = &i915_pm_ops,
+	.shutdown = i915_pm_shutdown,
 };
 
 static int __init i915_init(void)
