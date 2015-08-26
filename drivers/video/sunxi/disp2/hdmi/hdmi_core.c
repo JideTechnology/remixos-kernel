@@ -178,7 +178,9 @@ s32 hdmi_core_loop(void)
 
 		case HDMI_State_EDID_Parse:
 			__inf("HDMI_State_EDID_Parse\n");
+			mutex_lock(&hdmi_lock);
 			hdmi_edid_parse();
+			mutex_unlock(&hdmi_lock);
 			hdmi_state = HDMI_State_HPD_Done;
 			if (0 == (hdmi_hpd_mask & 0x100))
 				hdmi_hpd_event();
@@ -564,3 +566,15 @@ s32 hdmi_core_update_detect_time(u32 time_val)
 
 	return 0;
 }
+
+int hdmi_core_cec_get_simple_msg(unsigned char *msg)
+{
+	int ret = -1;
+
+	mutex_lock(&hdmi_lock);
+	ret = bsp_hdmi_cec_get_simple_msg(msg);
+	mutex_unlock(&hdmi_lock);
+
+	return ret;
+}
+

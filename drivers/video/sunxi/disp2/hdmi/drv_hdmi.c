@@ -10,7 +10,9 @@ static disp_gpio_set_t hdmi_io[HDMI_IO_NUM];
 static u32 io_enable_count = 0;
 
 static struct semaphore *run_sem = NULL;
-static struct task_struct * HDMI_task;
+static struct task_struct * HDMI_task = NULL;
+static struct task_struct * cec_task = NULL;
+static bool hdmi_cec_support = false;
 static char hdmi_power[25];
 static bool hdmi_power_used;
 static bool hdmi_used;
@@ -407,6 +409,45 @@ static int hdmi_run_thread(void *parg)
 
 	return 0;
 }
+
+void cec_msg_sent(char *buf)
+{
+	char *envp[2];
+
+	envp[0] = buf;
+	envp[1] = NULL;
+	kobject_uevent_env(&ghdmi.dev->kobj, KOBJ_CHANGE, envp);
+}
+
+#define CEC_BUF_SIZE 32
+static int cec_thread(void *parg)
+{
+	int ret = 0;
+	char buf[CEC_BUF_SIZE];
+	unsigned char msg;
+
+	while (1) {
+		if (kthread_should_stop()) {
+			break;
+		}
+
+		mutex_lock(&mlock);
+		ret = -1;
+		if (false == b_hdmi_suspend) {
+			ret = hdmi_core_cec_get_simple_msg(&msg);
+		}
+		mutex_unlock(&mlock);
+		if (0 == ret) {
+			memset(buf, 0, CEC_BUF_SIZE);
+			snprintf(buf, sizeof(buf), "CEC_MSG=0x%x", msg);
+			cec_msg_sent(buf);
+		}
+		hdmi_delay_ms(10);
+	}
+
+	return 0;
+}
+
 #if defined(CONFIG_SWITCH) || defined(CONFIG_ANDROID_SWITCH)
 static struct switch_dev hdmi_switch_dev = {
 	.name = "hdmi",
@@ -470,6 +511,10 @@ static s32 hdmi_suspend(void)
 			kthread_stop(HDMI_task);
 			HDMI_task = NULL;
 		}
+		if (hdmi_cec_support && cec_task) {
+			kthread_stop(cec_task);
+			cec_task = NULL;
+		}
 		mutex_lock(&mlock);
 		b_hdmi_suspend = true;
 		hdmi_core_enter_lp();
@@ -527,6 +572,17 @@ static s32 hdmi_resume(void)
 			HDMI_task = NULL;
 		} else
 			wake_up_process(HDMI_task);
+
+		if (hdmi_cec_support) {
+			cec_task = kthread_create(cec_thread, (void*)0, "cec proc");
+			if (IS_ERR(cec_task)) {
+				s32 err = 0;
+				pr_warn("Unable to start kernel thread %s.\n\n", "cec proc");
+				err = PTR_ERR(cec_task);
+				cec_task = NULL;
+			} else
+				wake_up_process(cec_task);
+		}
 
 		pr_info("[HDMI]hdmi resume\n");
 	}
@@ -656,6 +712,12 @@ s32 hdmi_init(struct platform_device *pdev)
 		hdmi_hpd_mask = value;
 	}
 
+	ret = disp_sys_script_get_item("hdmi", "hdmi_cec_support", &value, 1);
+	if ((1 == ret) && (1 == value)) {
+		hdmi_cec_support = true;
+	}
+	printk("[HDMI] cec support = %d\n", hdmi_cec_support);
+
 	hdmi_core_initial(boot_hdmi);
 
 	run_sem = kmalloc(sizeof(struct semaphore),GFP_KERNEL | __GFP_ZERO);
@@ -674,6 +736,18 @@ s32 hdmi_init(struct platform_device *pdev)
 		goto err_thread;
 	}
 	wake_up_process(HDMI_task);
+
+	if (hdmi_cec_support) {
+		cec_task = kthread_create(cec_thread, (void*)0, "cec proc");
+		if (IS_ERR(cec_task)) {
+			s32 err = 0;
+			dev_err(&pdev->dev, "Unable to start kernel thread %s.\n\n", "cec proc");
+			err = PTR_ERR(cec_task);
+			cec_task = NULL;
+			goto err_thread;
+		}
+		wake_up_process(cec_task);
+	}
 
 #if defined(CONFIG_SND_SUNXI_SOC_HDMIAUDIO)
 	audio_func.hdmi_audio_enable = hdmi_audio_enable;
@@ -725,6 +799,11 @@ s32 hdmi_exit(void)
 		if (HDMI_task) {
 			kthread_stop(HDMI_task);
 			HDMI_task = NULL;
+		}
+
+		if (hdmi_cec_support && cec_task) {
+			kthread_stop(cec_task);
+			cec_task = NULL;
 		}
 
 		if ((1 == hdmi_power_used) && (0 != power_enable_count)) {
