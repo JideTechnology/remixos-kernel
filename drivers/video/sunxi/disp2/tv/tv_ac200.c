@@ -603,6 +603,14 @@ static struct platform_driver tv_ac200_driver = {
 static int tv_ac200_init(void)
 {
 	int ret = 0;
+	int tv_used = 0;
+
+	ret = disp_sys_script_get_item("ac200", "tv_used", &tv_used, 1);
+	if (ret!=1 || tv_used!=1) {
+		printk("%s: ac200 disable, skip init\n", __func__);
+		return -1;
+	}
+
 	ret = platform_driver_register(&tv_ac200_driver);
 	if (ret)
 		return -EINVAL;
