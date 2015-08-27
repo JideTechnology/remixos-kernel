@@ -710,6 +710,7 @@ CONFIG_BLK_DEV_LOOP_MIN_COUNT=8
 #
 # CONFIG_ALTERA_STAPL is not set
 # CONFIG_SUNXI_RFKILL is not set
+# CONFIG_SUNXI_CLK_PREPARE is not set
 
 #
 # SCSI device support
