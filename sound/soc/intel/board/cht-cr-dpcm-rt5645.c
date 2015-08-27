@@ -598,9 +598,9 @@ static int cht_aif1_hw_params(struct snd_pcm_substream *substream,
 		return 0;
 
 	/* TDM 4 slot 24 bit set the Rx and Tx bitmask to
-	 * 4 active slots as 0xF
+	 * 2 active slots as 0xF
 	 */
-	ret = snd_soc_dai_set_tdm_slot(codec_dai, 0xF, 0xF, 4,
+	ret = snd_soc_dai_set_tdm_slot(codec_dai, 0x3, 0x3, 2,
 			SNDRV_PCM_FORMAT_GSM);
 	if (ret < 0) {
 		pr_err("can't set codec TDM slot %d\n", ret);
@@ -608,7 +608,10 @@ static int cht_aif1_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	/* TDM slave Mode */
-	fmt =   SND_SOC_DAIFMT_DSP_B | SND_SOC_DAIFMT_IB_NF
+//	fmt =   SND_SOC_DAIFMT_DSP_B | SND_SOC_DAIFMT_IB_NF
+//		| SND_SOC_DAIFMT_CBS_CFS;
+
+	fmt =   SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF
 		| SND_SOC_DAIFMT_CBS_CFS;
 
 	/* Set codec DAI configuration */
