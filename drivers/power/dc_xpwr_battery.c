@@ -178,7 +178,8 @@
 
 #define STATUS_MON_DELAY_JIFFIES	(HZ * 60)	/*60 sec */
 #define STATUS_MON_FULL_DELAY_JIFFIES	(HZ * 30)	/*30sec */
-#define FULL_CAP_THLD			98	/* 98% capacity */
+#define FULL_CAP_THLD			100	/* 100% capacity */
+//#define FULL_CAP_THLD			98	/* 98% capacity */
 #define BATT_DET_CAP_THLD		95	/* 95% capacity */
 #define DC_FG_INTR_NUM			6
 
@@ -1057,7 +1058,6 @@ static int pmic_fg_program_vbatt_full(struct pmic_fg_info *info)
 		goto fg_prog_ocv_fail;
 	else
 		val = (ret & ~CHRG_CCCV_CV_MASK);
-
 	switch (info->pdata->design_max_volt) {
 	case CV_4100:
 		val |= (CHRG_CCCV_CV_4100MV << CHRG_CCCV_CV_BIT_POS);
