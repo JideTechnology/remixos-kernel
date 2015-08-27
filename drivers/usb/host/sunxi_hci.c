@@ -44,6 +44,8 @@
 #include  "sunxi_hci.h"
 
 static u64 sunxi_hci_dmamask = DMA_BIT_MASK(32);
+static DEFINE_MUTEX(usb_passby_lock);
+static DEFINE_MUTEX(usb_vbus_lock);
 
 #ifndef CONFIG_OF
 static char* usbc_name[2] 			= {"usbc0", "usbc1"};
@@ -60,11 +62,11 @@ static struct sunxi_hci_hcd sunxi_ehci1;
 
 #define  USBPHYC_REG_o_PHYCTL		    0x0404
 
-static u32 usb1_set_vbus_cnt = 0;
-static u32 usb2_set_vbus_cnt = 0;
+atomic_t usb1_set_vbus_cnt;
+atomic_t usb2_set_vbus_cnt;
 
-static u32 usb1_enable_passly_cnt = 0;
-static u32 usb2_enable_passly_cnt = 0;
+atomic_t usb1_enable_passly_cnt;
+atomic_t usb2_enable_passly_cnt;
 
 static s32 request_usb_regulator_io(struct sunxi_hci_hcd *sunxi_hci)
 {
@@ -416,13 +418,15 @@ static void usb_passby(struct sunxi_hci_hcd *sunxi_hci, u32 enable)
 	spinlock_t lock;
 	unsigned long flags = 0;
 
+	mutex_lock(&usb_passby_lock);
+
 	spin_lock_init(&lock);
 	spin_lock_irqsave(&lock, flags);
 
 	/*enable passby*/
 	if(sunxi_hci->usbc_no == HCI0_USBC_NO){
 		reg_value = USBC_Readl(sunxi_hci->usb_vbase + SUNXI_USB_PMU_IRQ_ENABLE);
-		if(enable && usb1_enable_passly_cnt == 0){
+		if(enable && (atomic_read(&usb1_enable_passly_cnt) == 0)){
 			if(sunxi_hci->hsic_flag){
 				reg_value = usb_get_hsic_phy_ctrl(reg_value, enable);
 			}else{
@@ -435,7 +439,7 @@ static void usb_passby(struct sunxi_hci_hcd *sunxi_hci, u32 enable)
 				reg_value |= (1 << 0);		/* enable UTMI, disable ULPI */
 #endif
 			}
-		}else if(!enable && usb1_enable_passly_cnt == 1){
+		}else if(!enable && (atomic_read(&usb1_enable_passly_cnt) == 1)){
 			if(sunxi_hci->hsic_flag){
 				reg_value = usb_get_hsic_phy_ctrl(reg_value, enable);
 			}else{
@@ -448,13 +452,13 @@ static void usb_passby(struct sunxi_hci_hcd *sunxi_hci, u32 enable)
 		USBC_Writel(reg_value, (sunxi_hci->usb_vbase + SUNXI_USB_PMU_IRQ_ENABLE));
 
 		if(enable){
-			usb1_enable_passly_cnt++;
+			atomic_add(1, &usb1_enable_passly_cnt);
 		}else{
-			usb1_enable_passly_cnt--;
+			atomic_sub(1, &usb1_enable_passly_cnt);
 		}
 	}else if(sunxi_hci->usbc_no == HCI1_USBC_NO){
 		reg_value = USBC_Readl(sunxi_hci->usb_vbase + SUNXI_USB_PMU_IRQ_ENABLE);
-		if(enable && usb2_enable_passly_cnt == 0){
+		if(enable && (atomic_read(&usb2_enable_passly_cnt) == 0)){
 			if(sunxi_hci->hsic_flag){
 				reg_value = usb_get_hsic_phy_ctrl(reg_value, enable);
 			}else{
@@ -463,7 +467,7 @@ static void usb_passby(struct sunxi_hci_hcd *sunxi_hci, u32 enable)
 				reg_value |= (1 << 8);		/* AHB Master interface INCRX align enable */
 				reg_value |= (1 << 0);		/* ULPI bypass enable */
 			}
-		}else if(!enable && usb2_enable_passly_cnt == 1){
+		}else if(!enable && (atomic_read(&usb2_enable_passly_cnt) == 1)){
 			if(sunxi_hci->hsic_flag){
 				reg_value = usb_get_hsic_phy_ctrl(reg_value, enable);
 			}else{
@@ -476,17 +480,21 @@ static void usb_passby(struct sunxi_hci_hcd *sunxi_hci, u32 enable)
 		USBC_Writel(reg_value, (sunxi_hci->usb_vbase + SUNXI_USB_PMU_IRQ_ENABLE));
 
 		if(enable){
-			usb2_enable_passly_cnt++;
+			atomic_add(1, &usb2_enable_passly_cnt);
 		}else{
-			usb2_enable_passly_cnt--;
+			atomic_sub(1, &usb2_enable_passly_cnt);
 		}
 	}else{
 		DMSG_PANIC("EER: unkown usbc_no(%d)\n", sunxi_hci->usbc_no);
 		spin_unlock_irqrestore(&lock, flags);
+
+		mutex_unlock(&usb_passby_lock);
 		return;
 	}
 
 	spin_unlock_irqrestore(&lock, flags);
+
+	mutex_unlock(&usb_passby_lock);
 
 	return;
 }
@@ -667,35 +675,39 @@ static void sunxi_set_vbus(struct sunxi_hci_hcd *sunxi_hci, int is_on)
 
 	DMSG_DEBUG("[%s]: sunxi_set_vbus cnt %d\n",
 		sunxi_hci->hci_name,
-		(sunxi_hci->usbc_no == 1) ? usb1_set_vbus_cnt : usb2_set_vbus_cnt);
+		(sunxi_hci->usbc_no == 1) ? atomic_read(&usb1_set_vbus_cnt) : atomic_read(&usb2_set_vbus_cnt));
+
+	mutex_lock(&usb_vbus_lock);
 
 	if(sunxi_hci->usbc_no == HCI0_USBC_NO){
-		if(is_on && usb1_set_vbus_cnt == 0){
+		if(is_on && (atomic_read(&usb1_set_vbus_cnt) == 0)){
 			__sunxi_set_vbus(sunxi_hci, is_on);  /* power on */
-		}else if(!is_on && usb1_set_vbus_cnt == 1){
+		}else if(!is_on && atomic_read(&usb1_set_vbus_cnt) == 1){
 			__sunxi_set_vbus(sunxi_hci, is_on);  /* power off */
 		}
 
 		if(is_on){
-			usb1_set_vbus_cnt++;
+			atomic_add(1, &usb1_set_vbus_cnt);
 		}else{
-			usb1_set_vbus_cnt--;
+			atomic_sub(1, &usb1_set_vbus_cnt);
 		}
 	}else if(sunxi_hci->usbc_no == HCI1_USBC_NO){
-		if(is_on && usb2_set_vbus_cnt == 0){
+		if(is_on && (atomic_read(&usb2_set_vbus_cnt) == 0)){
 			__sunxi_set_vbus(sunxi_hci, is_on);  /* power on */
-		}else if(!is_on && usb2_set_vbus_cnt == 1){
+		}else if(!is_on && atomic_read(&usb2_set_vbus_cnt) == 1){
 			__sunxi_set_vbus(sunxi_hci, is_on);  /* power off */
 		}
 
 		if(is_on){
-			usb2_set_vbus_cnt++;
+			atomic_add(1, &usb2_set_vbus_cnt);
 		}else{
-			usb2_set_vbus_cnt--;
+			atomic_sub(1, &usb2_set_vbus_cnt);
 		}
 	}else{
 		DMSG_INFO("[%s]: sunxi_set_vbus no: %d\n", sunxi_hci->hci_name, sunxi_hci->usbc_no);
 	}
+
+	mutex_unlock(&usb_vbus_lock);
 
 	return;
 }
@@ -1102,6 +1114,12 @@ int init_sunxi_hci(struct platform_device *pdev, int usbc_type)
 	pdev->dev.dma_mask = &sunxi_hci_dmamask;
 	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
 #endif
+
+	atomic_set(&usb1_set_vbus_cnt, 0);
+	atomic_set(&usb2_set_vbus_cnt, 0);
+
+	atomic_set(&usb1_enable_passly_cnt, 0);
+	atomic_set(&usb2_enable_passly_cnt, 0);
 
 	hci_num = sunxi_get_hci_num(pdev);
 
