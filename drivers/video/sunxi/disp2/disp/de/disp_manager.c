@@ -465,6 +465,7 @@ static s32 disp_mgr_clk_init(struct disp_manager *mgr)
 	}
 
 	mgrp->clk_parent = clk_get_parent(mgrp->clk);
+	mgrp->cfg->config.de_freq = clk_get_rate(mgrp->clk);
 
 	return 0;
 }

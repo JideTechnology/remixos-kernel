@@ -216,6 +216,7 @@ struct disp_manager_info {
 	bool enable;
 	u32 disp_device;//disp of device
 	bool blank;//true: disable all layer; false: enable layer according to layer_config.enable
+	u32 de_freq;
 };
 
 struct disp_manager_data

@@ -1,11 +1,19 @@
 #include "de_hal.h"
 
-static unsigned int g_device_fps[DEVICE_NUM] = {60};
+static unsigned int g_device_fps[DEVICE_NUM] = {60, 60};
 static bool g_de_blank[DEVICE_NUM] = {false};
+static unsigned int g_de_freq;
 
 int de_update_device_fps(unsigned int sel, u32 fps)
 {
 	g_device_fps[sel] = fps;
+
+	return 0;
+}
+
+int de_update_de_frequency(u32 de_freq)
+{
+	g_de_freq = de_freq/1000000;
 
 	return 0;
 }
@@ -34,7 +42,7 @@ static int de_calc_overlay_scaler_para(unsigned int screen_id, unsigned char chn
 	bool scaler_en;
 	unsigned char i,j,k,lay_en[CHN_NUM][LAYER_MAX_NUM_PER_CHN];
 	unsigned int midyw, midyh;
-	unsigned int lcd_fps = g_device_fps[screen_id], lcd_width = 1280, lcd_height = 720,de_freq_MHz = 254;
+	unsigned int lcd_fps = g_device_fps[screen_id], lcd_width = 1280, lcd_height = 720, de_freq_MHz = g_de_freq;
 	de_rect64 crop64[CHN_NUM][LAYER_MAX_NUM_PER_CHN];
 	de_rect frame[CHN_NUM][LAYER_MAX_NUM_PER_CHN];
 	static scaler_para para[CHN_NUM][LAYER_MAX_NUM_PER_CHN],cpara[VI_CHN_NUM][LAYER_MAX_NUM_PER_CHN];

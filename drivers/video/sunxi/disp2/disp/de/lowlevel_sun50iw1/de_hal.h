@@ -12,6 +12,7 @@ extern int de_al_mgr_update_regs(unsigned int screen_id);
 extern int de_al_query_irq(unsigned int screen_id);
 extern int de_al_enable_irq(unsigned int screen_id, unsigned en);
 int de_update_device_fps(unsigned int sel, u32 fps);
+int de_update_de_frequency(u32 de_freq);
 
 extern int de_enhance_set_size(unsigned int screen_id, struct disp_rect *size);
 extern int de_enhance_set_format(unsigned int screen_id, unsigned int format);
