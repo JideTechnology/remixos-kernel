@@ -311,8 +311,8 @@ static int uvc_v4l2_set_format(struct uvc_streaming *stream,
 	mutex_lock(&stream->mutex);
 
 	if (uvc_queue_allocated(&stream->queue)) {
-		ret = -EBUSY;
-		goto done;
+		//ret = -EBUSY;
+		//goto done;
 	}
 
 	stream->ctrl = probe;
