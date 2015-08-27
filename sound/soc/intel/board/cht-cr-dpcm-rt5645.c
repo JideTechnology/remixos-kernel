@@ -525,7 +525,7 @@ static const struct snd_kcontrol_new cht_mc_controls[] = {
 	SOC_DAPM_PIN_SWITCH("Ext Spk"),
 };
 
-
+#if 0
 static int cht_cr_aif1_hw_params(struct snd_pcm_substream *substream,
 			     struct snd_pcm_hw_params *params)
 {
@@ -581,6 +581,7 @@ static int cht_cr_aif1_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+#endif
 
 static int cht_aif1_hw_params(struct snd_pcm_substream *substream,
 			     struct snd_pcm_hw_params *params)
@@ -813,11 +814,12 @@ static int cht_aif1_startup(struct snd_pcm_substream *substream)
 			&constraints_48000);
 }
 
-
+/*
 static struct snd_soc_ops cht_cr_aif1_ops = {
 	.startup = cht_aif1_startup,
 	.hw_params = cht_cr_aif1_hw_params,
 };
+*/
 
 static struct snd_soc_ops cht_aif1_ops = {
 	.startup = cht_aif1_startup,
@@ -849,13 +851,14 @@ static struct snd_soc_dai_link cht_dailink[] = {
 		.name = "Cherrytrail Audio Port",
 		.stream_name = "Cherrytrail Audio",
 		.cpu_dai_name = "Headset-cpu-dai",
-		.codec_dai_name = "rt5645-aif1",
-		.codec_name = "i2c-10EC5645:00",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
 		.platform_name = "sst-platform",
 		.init = cht_audio_init,
 		.ignore_suspend = 1,
-//		.dynamic = 1,
-		.ops = &cht_cr_aif1_ops,
+		.dynamic = 1,
+		.ops = &cht_aif1_ops,
+//		.ops = &cht_cr_aif1_ops,
 	},
 	[CHT_DPCM_DB] = {
 		.name = "Cherrytrail DB Audio Port",
