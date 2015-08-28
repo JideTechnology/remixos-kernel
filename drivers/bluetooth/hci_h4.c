@@ -24,7 +24,6 @@
  */
 
 #include <linux/module.h>
-
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/types.h>
@@ -32,7 +31,6 @@
 #include <linux/interrupt.h>
 #include <linux/ptrace.h>
 #include <linux/poll.h>
-
 #include <linux/slab.h>
 #include <linux/tty.h>
 #include <linux/errno.h>
@@ -40,13 +38,18 @@
 #include <linux/signal.h>
 #include <linux/ioctl.h>
 #include <linux/skbuff.h>
-
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
+#include <linux/version.h>
 
 #include "hci_uart.h"
 
-#define VERSION "1.2"
+#ifdef BTCOEX
+#include "rtk_coex.h"
+extern rtk_uart_coexistence_info uart_coex_info;
+#endif
+
+//#define VERSION "1.2"
 
 struct h4_struct {
 	unsigned long rx_state;
@@ -69,7 +72,7 @@ static int h4_open(struct hci_uart *hu)
 
 	BT_DBG("hu %p", hu);
 
-	h4 = kzalloc(sizeof(*h4), GFP_KERNEL);
+	h4 = kzalloc(sizeof(*h4), GFP_ATOMIC);
 	if (!h4)
 		return -ENOMEM;
 
@@ -124,14 +127,22 @@ static int h4_enqueue(struct hci_uart *hu, struct sk_buff *skb)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 13, 0)
 static inline int h4_check_data_len(struct h4_struct *h4, int len)
+#else
+static inline int h4_check_data_len(struct hci_dev *hdev, struct h4_struct *h4, int len)
+#endif
 {
-	int room = skb_tailroom(h4->rx_skb);
+	register int room = skb_tailroom(h4->rx_skb);
 
 	BT_DBG("len %d room %d", len, room);
 
 	if (!len) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 13, 0)
 		hci_recv_frame(h4->rx_skb);
+#else
+		hci_recv_frame(hdev, h4->rx_skb);
+#endif
 	} else if (len > room) {
 		BT_ERR("Data length is too large");
 		kfree_skb(h4->rx_skb);
@@ -151,15 +162,165 @@ static inline int h4_check_data_len(struct h4_struct *h4, int len)
 /* Recv data */
 static int h4_recv(struct hci_uart *hu, void *data, int count)
 {
-	int ret;
+	struct h4_struct *h4 = hu->priv;
+	register char *ptr;
+	struct hci_event_hdr *eh;
+	struct hci_acl_hdr   *ah;
+	struct hci_sco_hdr   *sh;
+	register int len, type, dlen;
 
-	if (!test_bit(HCI_UART_REGISTERED, &hu->flags))
-		return -EUNATCH;
+#ifdef BTCOEX
+	u8* pp;
+	u8 ev_code;
+	int need_sendto_core = 1;
+	u16 cmd_code;
+#endif
 
-	ret = hci_recv_stream_fragment(hu->hdev, data, count);
-	if (ret < 0) {
-		BT_ERR("Frame Reassembly Failed");
-		return ret;
+	BT_DBG("hu %p count %d rx_state %ld rx_count %ld", 
+			hu, count, h4->rx_state, h4->rx_count);
+
+	ptr = data;
+	while (count) {
+		if (h4->rx_count) {
+			len = min_t(unsigned int, h4->rx_count, count);
+			memcpy(skb_put(h4->rx_skb, len), ptr, len);
+			h4->rx_count -= len; count -= len; ptr += len;
+
+			if (h4->rx_count)
+				continue;
+
+			switch (h4->rx_state) {
+			case H4_W4_DATA:
+				BT_DBG("Complete data");
+#ifdef BTCOEX
+			if(bt_cb(h4->rx_skb)->pkt_type == HCI_EVENT_PKT) {
+				rtk_uart_parse_event(h4->rx_skb);
+				pp = (u8*)(h4->rx_skb->data);
+				ev_code = *pp;
+						
+				if(ev_code == HCI_EV_CMD_COMPLETE) {
+					pp += 3;
+					STREAM_TO_UINT16(cmd_code, pp);
+					//RTKBT_DBG("cmd_complete, cmd_code is 0x%x, lase_send_cmd is 0x%x", cmd_code, uart_coex_info.last_send_cmd);
+					if(cmd_code == uart_coex_info.last_send_cmd)
+						need_sendto_core = 0;
+				}
+				
+				if(ev_code == HCI_EV_CMD_STATUS) {
+					pp += 4;
+					STREAM_TO_UINT16(cmd_code, pp);
+					//RTKBT_DBG("cmd_status, cmd_code is 0x%x, last_send_cmd is 0x%x", cmd_code, uart_coex_info.last_send_cmd);
+					if(cmd_code == uart_coex_info.last_send_cmd)
+						need_sendto_core = 0;
+				}
+			}
+				
+			if(bt_cb(h4->rx_skb)->pkt_type == HCI_ACLDATA_PKT)
+				rtk_uart_parse_l2cap_data_rx(h4->rx_skb);
+				
+			if(need_sendto_core) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 13, 0)
+				hci_recv_frame(h4->rx_skb);
+#else
+				hci_recv_frame(hu->hdev, h4->rx_skb);
+#endif
+			}
+
+#else
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 13, 0)
+				hci_recv_frame(h4->rx_skb);
+#else
+				hci_recv_frame(hu->hdev, h4->rx_skb);
+#endif
+
+#endif
+				h4->rx_state = H4_W4_PACKET_TYPE;
+				h4->rx_skb = NULL;
+				continue;
+
+			case H4_W4_EVENT_HDR:
+				eh = hci_event_hdr(h4->rx_skb);
+
+				BT_DBG("Event header: evt 0x%2.2x plen %d", eh->evt, eh->plen);
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 13, 0)
+				h4_check_data_len(h4, eh->plen);
+#else
+				h4_check_data_len(hu->hdev, h4, eh->plen);
+#endif
+				continue;
+
+			case H4_W4_ACL_HDR:
+				ah = hci_acl_hdr(h4->rx_skb);
+				dlen = __le16_to_cpu(ah->dlen);
+
+				BT_DBG("ACL header: dlen %d", dlen);
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 13, 0)
+				h4_check_data_len(h4, dlen);
+#else
+				h4_check_data_len(hu->hdev, h4, dlen);
+#endif
+				continue;
+
+			case H4_W4_SCO_HDR:
+				sh = hci_sco_hdr(h4->rx_skb);
+
+				BT_DBG("SCO header: dlen %d", sh->dlen);
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 13, 0)
+				h4_check_data_len(h4, sh->dlen);
+#else
+				h4_check_data_len(hu->hdev, h4, sh->dlen);
+#endif
+				continue;
+			}
+		}
+
+		/* H4_W4_PACKET_TYPE */
+		switch (*ptr) {
+		case HCI_EVENT_PKT:
+			BT_DBG("Event packet");
+			h4->rx_state = H4_W4_EVENT_HDR;
+			h4->rx_count = HCI_EVENT_HDR_SIZE;
+			type = HCI_EVENT_PKT;
+			break;
+
+		case HCI_ACLDATA_PKT:
+			BT_DBG("ACL packet");
+			h4->rx_state = H4_W4_ACL_HDR;
+			h4->rx_count = HCI_ACL_HDR_SIZE;
+			type = HCI_ACLDATA_PKT;
+			break;
+
+		case HCI_SCODATA_PKT:
+			BT_DBG("SCO packet");
+			h4->rx_state = H4_W4_SCO_HDR;
+			h4->rx_count = HCI_SCO_HDR_SIZE;
+			type = HCI_SCODATA_PKT;
+			break;
+
+		default:
+			BT_ERR("Unknown HCI packet type %2.2x", (__u8)*ptr);
+			hu->hdev->stat.err_rx++;
+			ptr++; count--;
+			continue;
+		};
+
+		ptr++; count--;
+
+		/* Allocate packet */
+		h4->rx_skb = bt_skb_alloc(HCI_MAX_FRAME_SIZE, GFP_ATOMIC);
+		if (!h4->rx_skb) {
+			BT_ERR("Can't allocate mem for new packet");
+			h4->rx_state = H4_W4_PACKET_TYPE;
+			h4->rx_count = 0;
+			return -ENOMEM;
+		}
+
+		h4->rx_skb->dev = (void *) hu->hdev;
+		bt_cb(h4->rx_skb)->pkt_type = type;
 	}
 
 	return count;

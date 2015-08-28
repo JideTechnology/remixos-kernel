@@ -1125,12 +1125,12 @@ int hci_dev_open(__u16 dev)
 
 	/* Check for rfkill but allow the HCI setup stage to proceed
 	 * (which in itself doesn't cause any RF activity).
-	 */
+	 *//*
 	if (test_bit(HCI_RFKILLED, &hdev->dev_flags) &&
 	    !test_bit(HCI_SETUP, &hdev->dev_flags)) {
 		ret = -ERFKILL;
 		goto done;
-	}
+	}*/
 
 	if (test_bit(HCI_UP, &hdev->flags)) {
 		ret = -EALREADY;

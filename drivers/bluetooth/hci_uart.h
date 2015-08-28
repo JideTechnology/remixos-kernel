@@ -22,10 +22,15 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
+#include <linux/version.h>
+#include <net/bluetooth/bluetooth.h>
+#include <net/bluetooth/hci_core.h>
 
 #ifndef N_HCI
 #define N_HCI	15
 #endif
+
+#define BTCOEX
 
 /* Ioctls */
 #define HCIUARTSETPROTO		_IOW('U', 200, int)
@@ -47,7 +52,6 @@
 #define HCI_UART_RAW_DEVICE	0
 #define HCI_UART_RESET_ON_INIT	1
 #define HCI_UART_CREATE_AMP	2
-#define HCI_UART_INIT_PENDING	3
 
 struct hci_uart;
 
@@ -67,8 +71,9 @@ struct hci_uart {
 	unsigned long		flags;
 	unsigned long		hdev_flags;
 
-	struct work_struct	init_ready;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
 	struct work_struct	write_work;
+#endif
 
 	struct hci_uart_proto	*proto;
 	void			*priv;
@@ -80,7 +85,6 @@ struct hci_uart {
 
 /* HCI_UART proto flag bits */
 #define HCI_UART_PROTO_SET	0
-#define HCI_UART_REGISTERED	1
 
 /* TX states  */
 #define HCI_UART_SENDING	1
@@ -89,13 +93,16 @@ struct hci_uart {
 int hci_uart_register_proto(struct hci_uart_proto *p);
 int hci_uart_unregister_proto(struct hci_uart_proto *p);
 int hci_uart_tx_wakeup(struct hci_uart *hu);
-int hci_uart_init_ready(struct hci_uart *hu);
 
 #ifdef CONFIG_BT_HCIUART_H4
 int h4_init(void);
 int h4_deinit(void);
 #endif
 
+int h5_init(void);
+int h5_deinit(void);
+
+/*
 #ifdef CONFIG_BT_HCIUART_BCSP
 int bcsp_init(void);
 int bcsp_deinit(void);
@@ -110,8 +117,9 @@ int ll_deinit(void);
 int ath_init(void);
 int ath_deinit(void);
 #endif
-
-#ifdef CONFIG_BT_HCIUART_3WIRE
-int h5_init(void);
-int h5_deinit(void);
+*/
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 13, 0)
+	int hci_uart_send_frame(struct sk_buff *skb);
+#else
+	int hci_uart_send_frame(struct hci_dev *hdev, struct sk_buff *skb);
 #endif
