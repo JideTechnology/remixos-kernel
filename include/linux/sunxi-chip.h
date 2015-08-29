@@ -24,5 +24,6 @@ extern int sunxi_get_pmu_chipid(u8 *chipid);
 extern int sunxi_get_serial(u8 *serial);
 extern unsigned int sunxi_get_soc_bin(void);
 extern int sunxi_soc_is_secure(void);
+extern int sunxi_boot_is_secure(void);
 
 #endif  /* __SUNXI_MACH_SUNXI_CHIP_H */

@@ -86,6 +86,11 @@ int sunxi_soc_is_secure(void)
 }
 EXPORT_SYMBOL(sunxi_soc_is_secure);
 
+int  sunxi_boot_is_secure(void)
+{
+	return sunxi_soc_secure;
+}
+EXPORT_SYMBOL(sunxi_boot_is_secure);
 /**
  * get sunxi soc bin
  *
