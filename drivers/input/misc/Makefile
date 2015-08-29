@@ -72,3 +72,4 @@ obj-$(CONFIG_INPUT_KIONIX_ACCEL) += kionix_accel.o
 obj-$(CONFIG_INPUT_LTR303)             += ltr303.o
 
 obj-$(CONFIG_SENSORS_BMG) += BMG160/
+obj-y += akm09911.o
