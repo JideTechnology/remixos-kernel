@@ -50,6 +50,7 @@
 #include <linux/regulator/consumer.h>
 //#include <mach/sunxi-chip.h>
 #include <linux/of.h>
+#include <linux/sunxi-chip.h>
 
 #ifdef CONFIG_DMA_ENGINE
 #include <linux/dmaengine.h>
@@ -1132,8 +1133,7 @@ int NAND_ReleaseVoltage(void)
 
 int NAND_IS_Secure_sys(void)
 {
-	#if 0
-	if(sunxi_soc_is_secure())
+	if(sunxi_boot_is_secure())
 	{
 		printk("secure system\n");
 		return 1;//secure
@@ -1143,7 +1143,6 @@ int NAND_IS_Secure_sys(void)
 		printk("non secure\n");
 		return 0;//non secure
 	}
-	#endif
 	return 0;
 }
 
