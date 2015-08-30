@@ -179,6 +179,8 @@ int tdm_set_fmt(unsigned int fmt,struct sunxi_tdm_info *sunxi_tdm)
 			break;
 		case SND_SOC_DAIFMT_DSP_B:      /* L data msb during FRM LRC */
 			reg_val  |= (0<<4);
+			reg_val1 |= SUNXI_DAUDIOTXn_OFFSET(1);
+			reg_val2 |= SUNXI_DAUDIORXCHSEL_RXOFFSET(1);
 			break;
 		default:
 			return -EINVAL;
