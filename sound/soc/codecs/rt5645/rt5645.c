@@ -41,11 +41,11 @@
 
 #define RT5645_DET_EXT_MIC 0
 /* #define USE_INT_CLK */
-/* #define JD1_FUNC */
+#define JD1_FUNC
 /* #define ALC_DRC_FUNC */
 
 //bring up without asrc
-//#define USE_ASRC
+#define USE_ASRC
 /* #define USE_TDM */
 
 #define VERSION "0.0.9 alsa 1.0.25"
@@ -652,7 +652,7 @@ int rt5645_headset_detect(struct snd_soc_codec *codec, int jack_insert)
 			RT5645_CBJ_MN_JD, RT5645_CBJ_MN_JD);
 		msleep(400);
 		val = snd_soc_read(codec, RT5645_CJ_CTRL3) & 0x7;
-		pr_debug("val=%d\n",val);
+		pr_info(_ML "%s, RT5645_CJ_CTRL3: %x\n",__func__, val);
 
 		switch (val) {
 		case 0x1: /* Nokia type*/
@@ -698,7 +698,7 @@ int rt5645_button_detect(struct snd_soc_codec *codec)
 
 	val = snd_soc_read(codec, RT5645_IL_CMD);
 	btn_type = val & 0xff80;
-	pr_debug("btn_type=0x%x\n",btn_type);
+	pr_info(_ML "%s, btn_type=0x%x\n",__func__, btn_type);
 	snd_soc_write(codec, RT5645_IL_CMD, val);
 	msleep(20);
 	if (btn_type == 0 ||
@@ -713,7 +713,13 @@ EXPORT_SYMBOL(rt5645_button_detect);
 
 int rt5645_check_jd_status(struct snd_soc_codec *codec)
 {
-	return snd_soc_read(codec, RT5645_A_JD_CTRL1) & 0x0020;
+	unsigned int v1, v2, v3, v4;
+	v1 = snd_soc_read(codec, RT5645_INT_IRQ_ST); v2 = v1 & 0x1000;
+	v3 = snd_soc_read(codec, RT5645_A_JD_CTRL1); v4 = v3 & 0x0020;
+	pr_info(_ML "%s, INT_IRQ_ST:%x, A_JD_CTRL1:%x\n", __func__, v1, v3);
+	pr_info(_ML "%s, v2:%x, v4:%x\n", __func__, v2, v4);
+
+	return  1;//v4;
 }
 EXPORT_SYMBOL(rt5645_check_jd_status);
 
@@ -821,7 +827,7 @@ static int rt5645_push_btn_put(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 
-	printk("ret=0x%x\n", rt5645_button_detect(codec));
+	printk(_ML "%s, ret=0x%x\n", __func__, rt5645_button_detect(codec));
 
 	return 0;
 }
@@ -844,8 +850,9 @@ static int rt5645_jack_type_put(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	int val = rt5645_headset_detect(codec, 1);
 
-	rt5645_headset_detect(codec, 1);
+	printk(_ML "%s, ret=0x%x\n", __func__, val);
 
 	return 0;
 }
@@ -2872,7 +2879,7 @@ static int rt5645_set_dai_pll(struct snd_soc_dai *dai, int pll_id, int source,
 
 	if (source == rt5645->pll_src && freq_in == rt5645->pll_in &&
 	    freq_out == rt5645->pll_out){
-	dev_info(codec->dev, "already set, shortcut");
+	    dev_info(codec->dev, "already set, shortcut");
 		return 0;
 }
 
