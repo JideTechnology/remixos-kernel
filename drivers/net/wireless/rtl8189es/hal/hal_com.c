@@ -5944,7 +5944,7 @@ void Hal_GetPhyEfuseMACAddr(PADAPTER padapter, u8* mac_addr) {
 	}
 
 	rtw_efuse_map_read(padapter, addr_offset, ETH_ALEN, mac_addr);
-
+#ifndef CONFIG_CUSTOM_MAC_ADDRESS
 	if (rtw_check_invalid_mac_address(mac_addr) == _TRUE) {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,33))
 		get_random_bytes(mac_addr, ETH_ALEN);
@@ -5961,7 +5961,7 @@ void Hal_GetPhyEfuseMACAddr(PADAPTER padapter, u8* mac_addr) {
 #endif
                 DBG_871X("MAC Address from phy efuse error, assign random MAC !!!\n");
 	}
-
+#endif
 	DBG_871X("%s: Permanent Address = %02x-%02x-%02x-%02x-%02x-%02x\n",
 			__func__, mac_addr[0], mac_addr[1], mac_addr[2],
 			mac_addr[3], mac_addr[4], mac_addr[5]);

@@ -1430,6 +1430,10 @@ func_exit:
 }
 
 extern char* rtw_initmac;
+#ifdef CONFIG_CUSTOM_MAC_ADDRESS
+extern void sunxi_wlan_custom_mac_address(u8 *mac);
+extern void sunxi_wlan_chipid_mac_address(u8 *mac);
+#endif //CONFIG_CUSTOM_MAC_ADDRESS
 /**
  * rtw_macaddr_cfg - Decide the mac address used
  * @out: buf to store mac address decided
@@ -1437,7 +1441,7 @@ extern char* rtw_initmac;
  */
 void rtw_macaddr_cfg(u8 *out, const u8 *hw_mac_addr)
 {
-	u8 mac[ETH_ALEN];
+	u8 mac[ETH_ALEN] = {0};
 	
 	if (out == NULL) {
 		rtw_warn_on(1);
@@ -1459,16 +1463,29 @@ void rtw_macaddr_cfg(u8 *out, const u8 *hw_mac_addr)
 		goto err_chk;
 #endif
 
-	/* Use the mac address stored in the Efuse */
+#ifdef CONFIG_CUSTOM_MAC_ADDRESS
+	sunxi_wlan_custom_mac_address(mac);
+	if(rtw_check_invalid_mac_address(mac) == _FALSE) {
+		DBG_871X_LEVEL(_drv_always_, "MAC Address from custom burning is "MAC_FMT"\n", MAC_ARG(mac));
+	} else
+#endif
 	if (hw_mac_addr) {
+		/* Use the mac address stored in the Efuse */
 		_rtw_memcpy(mac, hw_mac_addr, ETH_ALEN);
 		goto err_chk;
 	}
 	
 err_chk:
 	if (rtw_check_invalid_mac_address(mac) == _TRUE) {
-		DBG_871X_LEVEL(_drv_err_, "invalid mac addr:"MAC_FMT", assign default one!!!\n", MAC_ARG(mac));
-
+#ifdef CONFIG_CUSTOM_MAC_ADDRESS
+		sunxi_wlan_chipid_mac_address(mac);
+		if(!is_valid_ether_addr(mac)) {
+			random_ether_addr(mac);
+			DBG_871X_LEVEL(_drv_always_, "MAC Address from random mac is "MAC_FMT"\n", MAC_ARG(mac));
+		} else {
+			DBG_871X_LEVEL(_drv_always_, "MAC Address from chipid is "MAC_FMT"\n", MAC_ARG(mac));
+		}
+#else
 		/* use default mac address */
 		mac[0] = 0x00;
 		mac[1] = 0xe0;
@@ -1476,6 +1493,7 @@ err_chk:
 		mac[3] = 0x87;
 		mac[4] = 0x00;
 		mac[5] = 0x00;
+#endif
 	}	
 
 	_rtw_memcpy(out, mac, ETH_ALEN);

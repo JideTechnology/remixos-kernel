@@ -12,6 +12,11 @@
 #include <linux/regulator/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/sys_config.h>
+#include <linux/if_ether.h>
+#include <linux/etherdevice.h>
+#include <linux/crypto.h>
+#include <linux/err.h>
+#include <linux/scatterlist.h>
 
 #define EXTEND_OPERATION //more operation, such as scan_device & get wifi_mac, and so on
 
@@ -217,6 +222,96 @@ static ssize_t scan_device_show(struct device *dev,
 	return sprintf(buf, "success\n");
 }
 static DEVICE_ATTR(scan_device, 0444, scan_device_show, NULL);
+#endif
+
+static char wifi_mac_str[18] = {0};
+extern int sunxi_get_soc_chipid(uint8_t *chipid);
+static void sunxi_wlan_chipid_mac_address(u8 *mac)
+{
+#define MD5_SIZE	16
+#define CHIP_SIZE	16
+
+	struct crypto_hash *tfm;
+	struct hash_desc desc;
+	struct scatterlist sg;
+	u8 result[MD5_SIZE];
+	u8 chipid[CHIP_SIZE];
+	int i = 0;
+	int ret = -1;
+
+	memset(chipid, 0, sizeof(chipid));
+	memset(result, 0, sizeof(result));
+
+	sunxi_get_soc_chipid((u8 *)chipid);
+
+	tfm = crypto_alloc_hash("md5", 0, CRYPTO_ALG_ASYNC);
+	if (IS_ERR(tfm)) {
+		pr_err("Failed to alloc md5\n");
+		return;
+	}
+	desc.tfm = tfm;
+	desc.flags = 0;
+
+	ret = crypto_hash_init(&desc);
+	if (ret < 0) {
+		pr_err("crypto_hash_init() failed\n");
+		goto out;
+	}
+
+	sg_init_one(&sg, chipid, sizeof(chipid) - 1);
+	ret = crypto_hash_update(&desc, &sg, sizeof(chipid) - 1);
+	if (ret < 0) {
+		pr_err("crypto_hash_update() failed for id\n");
+		goto out;
+	}
+
+	crypto_hash_final(&desc, result);
+	if (ret < 0) {
+		pr_err("crypto_hash_final() failed for result\n");
+		goto out;
+	}
+
+	/* Choose md5 result's [0][2][4][6][8][10] byte as mac address */
+	for (i = 0; i < 6; i++) {
+		mac[i] = result[2*i];
+	}
+	mac[0] &= 0xfe;     /* clear multicast bit */
+	mac[0] &= 0xfd;     /* clear local assignment bit (IEEE802) */
+
+out:
+	crypto_free_hash(tfm);
+}
+EXPORT_SYMBOL(sunxi_wlan_chipid_mac_address);
+
+void sunxi_wlan_custom_mac_address(u8 *mac)
+{
+	int i;
+	char *p = wifi_mac_str;
+	u8 mac_addr[ETH_ALEN] = {0};
+
+	if(!strlen(p)) {
+		return;
+	}
+
+	for (i=0; i < ETH_ALEN; i++, p++) {
+		mac_addr[i] = simple_strtoul(p, &p, 16);
+	}
+
+	memcpy(mac, mac_addr, sizeof(mac_addr));
+}
+EXPORT_SYMBOL(sunxi_wlan_custom_mac_address);
+
+#ifndef MODULE
+static int __init set_wlan_mac_addr(char *str)
+{
+	char *p = str;
+
+	if (str != NULL && *str)
+		strlcpy(wifi_mac_str, p, 18);
+
+	return 0;
+}
+__setup("wifi_mac=", set_wlan_mac_addr);
 #endif
 
 static int sunxi_wlan_probe(struct platform_device *pdev)

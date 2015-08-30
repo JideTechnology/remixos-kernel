@@ -37,7 +37,7 @@ CONFIG_SDIO_HCI = y
 CONFIG_GSPI_HCI = n
 ########################## Features ###########################
 CONFIG_MP_INCLUDED = y
-CONFIG_POWER_SAVING = y
+CONFIG_POWER_SAVING = n
 CONFIG_USB_AUTOSUSPEND = n
 CONFIG_HW_PWRP_DETECTION = n
 CONFIG_WIFI_TEST = n
@@ -58,6 +58,7 @@ CONFIG_REDUCE_TX_CPU_LOADING = n
 CONFIG_BR_EXT = y
 CONFIG_ANTENNA_DIVERSITY = n
 CONFIG_TDLS = n
+CONFIG_CUSTOM_MAC_ADDRESS = y
 ######################## Wake On Lan ##########################
 ifeq ($(CONFIG_WAKE_ON_WLAN), y)
 CONFIG_WOWLAN = y
@@ -705,6 +706,10 @@ endif
 
 ifeq ($(CONFIG_80211W), y)
 EXTRA_CFLAGS += -DCONFIG_IEEE80211W
+endif
+
+ifeq ($(CONFIG_CUSTOM_MAC_ADDRESS), y)
+EXTRA_CFLAGS += -DCONFIG_CUSTOM_MAC_ADDRESS
 endif
 
 ifeq ($(CONFIG_WOWLAN), y)
