@@ -188,22 +188,58 @@ int tdm_set_fmt(unsigned int fmt,struct sunxi_tdm_info *sunxi_tdm)
 	writel(reg_val2, tdm->regs + SUNXI_DAUDIORXCHSEL);
 	/* DAI signal inversions */
 	reg_val1 = readl(tdm->regs + SUNXI_DAUDIOFAT0);
-	switch(fmt & SND_SOC_DAIFMT_INV_MASK){
-		case SND_SOC_DAIFMT_NB_NF:     /* normal bit clock + frame */
-			reg_val1 &= ~SUNXI_DAUDIOFAT0_BCLK_POLAYITY;
-			reg_val1 &= ~SUNXI_DAUDIOFAT0_LRCK_POLAYITY;
+	switch(fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
+		case SND_SOC_DAIFMT_I2S:        /* i2s mode */
+		case SND_SOC_DAIFMT_RIGHT_J:    /* Right Justified mode */
+		case SND_SOC_DAIFMT_LEFT_J:     /* Left Justified mode */
+			switch(fmt & SND_SOC_DAIFMT_INV_MASK) {
+				case SND_SOC_DAIFMT_NB_NF:     /* normal bit clock + frame */
+					reg_val1 &= ~SUNXI_DAUDIOFAT0_BCLK_POLAYITY;
+					reg_val1 &= ~SUNXI_DAUDIOFAT0_LRCK_POLAYITY;
+					break;
+				case SND_SOC_DAIFMT_NB_IF:     /* normal bclk + inv frm */
+					reg_val1 |= SUNXI_DAUDIOFAT0_LRCK_POLAYITY;
+					reg_val1 &= ~SUNXI_DAUDIOFAT0_BCLK_POLAYITY;
+					break;
+				case SND_SOC_DAIFMT_IB_NF:     /* invert bclk + nor frm */
+					reg_val1 &= ~SUNXI_DAUDIOFAT0_LRCK_POLAYITY;
+					reg_val1 |= SUNXI_DAUDIOFAT0_BCLK_POLAYITY;
+					break;
+				case SND_SOC_DAIFMT_IB_IF:     /* invert bclk + frm */
+					reg_val1 |= SUNXI_DAUDIOFAT0_LRCK_POLAYITY;
+					reg_val1 |= SUNXI_DAUDIOFAT0_BCLK_POLAYITY;
+					break;
+				default:
+					pr_warn("not support format!:%d\n", __LINE__);
+					break;
+			}
 			break;
-		case SND_SOC_DAIFMT_NB_IF:     /* normal bclk + inv frm */
-			reg_val1 |= SUNXI_DAUDIOFAT0_LRCK_POLAYITY;
-			reg_val1 &= ~SUNXI_DAUDIOFAT0_BCLK_POLAYITY;
+		case SND_SOC_DAIFMT_DSP_A:      /* L data msb after FRM LRC */
+		case SND_SOC_DAIFMT_DSP_B:      /* L data msb during FRM LRC */
+			switch(fmt & SND_SOC_DAIFMT_INV_MASK) {
+				case SND_SOC_DAIFMT_NB_NF:     /* normal bit clock + frame */
+					reg_val1 |= SUNXI_DAUDIOFAT0_LRCK_POLAYITY;
+					reg_val1 &= ~SUNXI_DAUDIOFAT0_BCLK_POLAYITY;
+					break;
+				case SND_SOC_DAIFMT_NB_IF:     /* normal bclk + inv frm */
+					reg_val1 &= ~SUNXI_DAUDIOFAT0_LRCK_POLAYITY;
+					reg_val1 &= ~SUNXI_DAUDIOFAT0_BCLK_POLAYITY;
+					break;
+				case SND_SOC_DAIFMT_IB_NF:     /* invert bclk + nor frm */
+					reg_val1 |= SUNXI_DAUDIOFAT0_LRCK_POLAYITY;
+					reg_val1 |= SUNXI_DAUDIOFAT0_BCLK_POLAYITY;
+					break;
+				case SND_SOC_DAIFMT_IB_IF:     /* invert bclk + frm */
+					reg_val1 &= ~SUNXI_DAUDIOFAT0_LRCK_POLAYITY;
+					reg_val1 |= SUNXI_DAUDIOFAT0_BCLK_POLAYITY;
+					break;
+				default:
+					pr_warn("not support format!:%d\n", __LINE__);
+					break;
+			}
 			break;
-		case SND_SOC_DAIFMT_IB_NF:     /* invert bclk + nor frm */
-			reg_val1 &= ~SUNXI_DAUDIOFAT0_LRCK_POLAYITY;
-			reg_val1 |= SUNXI_DAUDIOFAT0_BCLK_POLAYITY;
-			break;
-		case SND_SOC_DAIFMT_IB_IF:     /* invert bclk + frm */
-			reg_val1 |= SUNXI_DAUDIOFAT0_LRCK_POLAYITY;
-			reg_val1 |= SUNXI_DAUDIOFAT0_BCLK_POLAYITY;
+		default:
+			pr_warn("not support format!:%d\n", __LINE__);
 			break;
 	}
 	writel(reg_val1, tdm->regs + SUNXI_DAUDIOFAT0);
@@ -354,8 +390,23 @@ int tdm_set_clkdiv(int sample_rate,struct sunxi_tdm_info *sunxi_tdm)
 			break;
 		}
 	} else {/*pcm mode*/
-		bclk_div = ((24576000/sample_rate)/(tdm->pcm_lrck_period));
-		mclk_div = 1;
+		switch (sample_rate) {
+			case 192000:
+			case 96000:
+			case 48000:
+			case 32000:
+			case 24000:
+			case 12000:
+			case 16000:
+			case 8000:
+				bclk_div = ((24576000/sample_rate)/(tdm->pcm_lrck_period));
+				mclk_div = 1;
+			break;
+			default:
+				bclk_div = ((22579200/sample_rate)/(tdm->pcm_lrck_period));
+				mclk_div = 1;
+			break;
+		}
 	}
 
 	switch(mclk_div)
