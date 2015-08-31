@@ -32,7 +32,7 @@ static int sunxi_bt_on(struct sunxi_bt_platdata *data, bool on_off)
 	struct device *dev = &pdev->dev;
 	int ret = 0;
 
-	if(!on_off)
+	if(!on_off && gpio_is_valid(data->gpio_bt_rst))
 		gpio_direction_output(data->gpio_bt_rst, 0);
 
 	if(data->bt_power_name){
@@ -95,7 +95,7 @@ static int sunxi_bt_on(struct sunxi_bt_platdata *data, bool on_off)
 		}
 	}
 
-	if(on_off){
+	if(on_off && gpio_is_valid(data->gpio_bt_rst)){
 		mdelay(10);
 		gpio_direction_output(data->gpio_bt_rst, 1);
 	}
@@ -168,28 +168,27 @@ static int sunxi_bt_probe(struct platform_device *pdev)
 	data->gpio_bt_rst = of_get_named_gpio_flags(np, "bt_rst_n", 0, (enum of_gpio_flags *)&config);
 	if (!gpio_is_valid(data->gpio_bt_rst)) {
 		dev_err(dev, "get gpio bt_rst failed\n");
-		return -EINVAL;
-	}
+	} else {
+		dev_info(dev,"bt_rst gpio=%d  mul-sel=%d  pull=%d  drv_level=%d  data=%d\n",
+				config.gpio,
+				config.mul_sel,
+				config.pull,
+				config.drv_level,
+				config.data);
 
-	dev_info(dev,"bt_rst gpio=%d  mul-sel=%d  pull=%d  drv_level=%d  data=%d\n",
-			config.gpio,
-			config.mul_sel,
-			config.pull,
-			config.drv_level,
-			config.data);
+		ret = devm_gpio_request(dev, data->gpio_bt_rst, "bt_rst");
+		if (ret < 0) {
+			dev_err(dev,"can't request bt_rst gpio %d\n",
+				data->gpio_bt_rst);
+			return ret;
+		}
 
-	ret = devm_gpio_request(dev, data->gpio_bt_rst, "bt_rst");
-	if (ret < 0) {
-		dev_err(dev,"can't request bt_rst gpio %d\n",
-			data->gpio_bt_rst);
-		return ret;
-	}
-
-	ret = gpio_direction_output(data->gpio_bt_rst, 0);
-	if (ret < 0) {
-		dev_err(dev,"can't request output direction bt_rst gpio %d\n",
-			data->gpio_bt_rst);
-		return ret;
+		ret = gpio_direction_output(data->gpio_bt_rst, 0);
+		if (ret < 0) {
+			dev_err(dev,"can't request output direction bt_rst gpio %d\n",
+				data->gpio_bt_rst);
+			return ret;
+		}
 	}
 
 	data->lpo = of_clk_get(np, 0);

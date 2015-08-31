@@ -8,6 +8,7 @@
 #include <linux/delay.h>
 #include <linux/of_gpio.h>
 #include <linux/clk.h>
+#include <linux/interrupt.h>
 #include <linux/rfkill.h>
 #include <linux/regulator/consumer.h>
 #include <linux/platform_device.h>
@@ -43,7 +44,8 @@ void sunxi_wlan_set_power(bool on_off)
 {
 	struct platform_device *pdev;
 	int ret = 0;
-	BUG_ON(!wlan_data);
+	if(!wlan_data)
+		return;
 
 	pdev = wlan_data->pdev;
 	mutex_lock(&sunxi_wlan_mutex);
@@ -59,7 +61,8 @@ EXPORT_SYMBOL_GPL(sunxi_wlan_set_power);
 int sunxi_wlan_get_bus_index(void)
 {
 	struct platform_device *pdev;
-	BUG_ON(!wlan_data);
+	if(!wlan_data)
+		return -EINVAL;
 
 	pdev = wlan_data->pdev;
 	dev_info(&pdev->dev,"bus_index: %d\n",wlan_data->bus_index);
@@ -70,8 +73,9 @@ EXPORT_SYMBOL_GPL(sunxi_wlan_get_bus_index);
 int sunxi_wlan_get_oob_irq(void)
 {
 	struct platform_device *pdev;
-	int host_oob_irq;
-	BUG_ON(!wlan_data);
+	int host_oob_irq = 0;
+	if(!wlan_data || !gpio_is_valid(wlan_data->gpio_wlan_hostwake))
+		return 0;
 
 	pdev = wlan_data->pdev;
 	host_oob_irq = gpio_to_irq(wlan_data->gpio_wlan_hostwake);
@@ -86,7 +90,10 @@ EXPORT_SYMBOL_GPL(sunxi_wlan_get_oob_irq);
 int sunxi_wlan_get_oob_irq_flags(void)
 {
 	int oob_irq_flags;
-	oob_irq_flags = (IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE);
+	if(!wlan_data)
+		return 0;
+
+	oob_irq_flags = (IRQF_TRIGGER_HIGH | IRQF_SHARED | IRQF_NO_SUSPEND);
 
 	return oob_irq_flags;
 }
@@ -98,7 +105,7 @@ static int sunxi_wlan_on(struct sunxi_wlan_platdata *data, bool on_off)
 	struct device *dev = &pdev->dev;
 	int ret = 0;
 
-	if(!on_off)
+	if(!on_off && gpio_is_valid(data->gpio_wlan_regon))
 		gpio_direction_output(data->gpio_wlan_regon, 0);
 
 	if(data->wlan_power_name){
@@ -161,7 +168,7 @@ static int sunxi_wlan_on(struct sunxi_wlan_platdata *data, bool on_off)
 		}
 	}
 
-	if(on_off){
+	if(on_off && gpio_is_valid(data->gpio_wlan_regon)){
 		mdelay(10);
 		gpio_direction_output(data->gpio_wlan_regon, 1);
 	}
@@ -371,55 +378,53 @@ static int sunxi_wlan_probe(struct platform_device *pdev)
 	data->gpio_wlan_regon = of_get_named_gpio_flags(np, "wlan_regon", 0, (enum of_gpio_flags *)&config);
 	if (!gpio_is_valid(data->gpio_wlan_regon)) {
 		dev_err(dev, "get gpio wlan_regon failed\n");
-		return -EINVAL;
-	}
+	} else {
+		dev_info(dev,"wlan_regon gpio=%d  mul-sel=%d  pull=%d  drv_level=%d  data=%d\n",
+				config.gpio,
+				config.mul_sel,
+				config.pull,
+				config.drv_level,
+				config.data);
 
-	dev_info(dev,"wlan_regon gpio=%d  mul-sel=%d  pull=%d  drv_level=%d  data=%d\n",
-			config.gpio,
-			config.mul_sel,
-			config.pull,
-			config.drv_level,
-			config.data);
+		ret = devm_gpio_request(dev, data->gpio_wlan_regon, "wlan_regon");
+		if (ret < 0) {
+			dev_err(dev,"can't request wlan_regon gpio %d\n",
+				data->gpio_wlan_regon);
+			return ret;
+		}
 
-	ret = devm_gpio_request(dev, data->gpio_wlan_regon, "wlan_regon");
-	if (ret < 0) {
-		dev_err(dev,"can't request wlan_regon gpio %d\n",
-			data->gpio_wlan_regon);
-		return ret;
-	}
-
-	ret = gpio_direction_output(data->gpio_wlan_regon, 0);
-	if (ret < 0) {
-		dev_err(dev,"can't request output direction wlan_regon gpio %d\n",
-			data->gpio_wlan_regon);
-		return ret;
+		ret = gpio_direction_output(data->gpio_wlan_regon, 0);
+		if (ret < 0) {
+			dev_err(dev,"can't request output direction wlan_regon gpio %d\n",
+				data->gpio_wlan_regon);
+			return ret;
+		}
 	}
 
 	data->gpio_wlan_hostwake = of_get_named_gpio_flags(np, "wlan_hostwake", 0, (enum of_gpio_flags *)&config);
 	if (!gpio_is_valid(data->gpio_wlan_hostwake)) {
 		dev_err(dev, "get gpio wlan_hostwake failed\n");
-		return -EINVAL;
-	}
+	} else {
+		dev_info(dev,"wlan_hostwake gpio=%d  mul-sel=%d  pull=%d  drv_level=%d  data=%d\n",
+				config.gpio,
+				config.mul_sel,
+				config.pull,
+				config.drv_level,
+				config.data);
 
-	dev_info(dev,"wlan_hostwake gpio=%d  mul-sel=%d  pull=%d  drv_level=%d  data=%d\n",
-			config.gpio,
-			config.mul_sel,
-			config.pull,
-			config.drv_level,
-			config.data);
+		ret = devm_gpio_request(dev, data->gpio_wlan_hostwake, "wlan_hostwake");
+		if (ret < 0) {
+			dev_err(dev,"can't request wlan_hostwake gpio %d\n",
+				data->gpio_wlan_hostwake);
+			return ret;
+		}
 
-	ret = devm_gpio_request(dev, data->gpio_wlan_hostwake, "wlan_hostwake");
-	if (ret < 0) {
-		dev_err(dev,"can't request wlan_hostwake gpio %d\n",
-			data->gpio_wlan_hostwake);
-		return ret;
-	}
-
-	gpio_direction_input(data->gpio_wlan_hostwake);
-	if (ret < 0) {
-		dev_err(dev,"can't request input direction wlan_hostwake gpio %d\n",
-			data->gpio_wlan_hostwake);
-		return ret;
+		gpio_direction_input(data->gpio_wlan_hostwake);
+		if (ret < 0) {
+			dev_err(dev,"can't request input direction wlan_hostwake gpio %d\n",
+				data->gpio_wlan_hostwake);
+			return ret;
+		}
 	}
 
 	data->lpo = of_clk_get(np, 0);

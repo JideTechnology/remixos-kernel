@@ -204,7 +204,7 @@ static u8 gpio_hostwakeup_alloc_irq(PADAPTER padapter)
 	/* wifi gpio12 pin is not linked with CPU */
 	err = request_threaded_irq(oob_irq, gpio_hostwakeup_irq_thread, NULL,
 		//IRQF_TRIGGER_LOW | IRQF_ONESHOT,
-		IRQF_TRIGGER_FALLING,
+		IRQF_TRIGGER_FALLING | IRQF_NO_SUSPEND,
 		"rtw_wifi_gpio_wakeup", padapter);
 	if (err < 0) {
 		DBG_871X("Oops: can't allocate gpio irq %d err:%d\n", oob_irq, err);
