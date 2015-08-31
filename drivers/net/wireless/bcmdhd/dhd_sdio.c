@@ -3,7 +3,7 @@
  *
  * $Copyright Open Broadcom Corporation$
  *
- * $Id: dhd_sdio.c 489913 2014-07-08 18:57:48Z $
+ * $Id: dhd_sdio.c 506046 2014-10-02 12:40:12Z $
  */
 
 #include <typedefs.h>
@@ -367,6 +367,8 @@ typedef struct dhd_bus {
 #ifdef DHDENABLE_TAILPAD
 	void		*pad_pkt;
 #endif /* DHDENABLE_TAILPAD */
+    uint        txglomframes;	/* Number of tx glom frames (superframes) */
+    uint        txglompkts;		/* Number of packets from tx glom frames */
 } dhd_bus_t;
 
 /* clkstate */
@@ -792,9 +794,13 @@ dhdsdio_sr_init(dhd_bus_t *bus)
 		1 << SBSDIO_FUNC1_WCTRL_HTWAIT_SHIFT, &err);
 	val = bcmsdh_cfg_read(bus->sdh, SDIO_FUNC_1, SBSDIO_FUNC1_WAKEUPCTRL, NULL);
 
+#ifdef USE_CMD14
 	/* Add CMD14 Support */
 	dhdsdio_devcap_set(bus,
 		(SDIOD_CCCR_BRCM_CARDCAP_CMD14_SUPPORT | SDIOD_CCCR_BRCM_CARDCAP_CMD14_EXT));
+#endif /* USE_CMD14 */
+
+	dhdsdio_devcap_set(bus, SDIOD_CCCR_BRCM_CARDCAP_CMD_NODEC);
 
 	bcmsdh_cfg_write(bus->sdh, SDIO_FUNC_1,
 		SBSDIO_FUNC1_CHIPCLKCSR, SBSDIO_FORCE_HT, &err);
@@ -1559,10 +1565,6 @@ dhd_bus_txdata(struct dhd_bus *bus, void *pkt)
 	int ret = BCME_ERROR;
 	osl_t *osh;
 	uint datalen, prec;
-#if defined(DHD_TX_DUMP) || defined(DHD_8021X_DUMP)
-	uint8 *dump_data;
-	uint16 protocol;
-#endif /* DHD_TX_DUMP || DHD_8021X_DUMP */
 
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
 
@@ -1584,31 +1586,6 @@ dhd_bus_txdata(struct dhd_bus *bus, void *pkt)
 #else /* SDTEST */
 	BCM_REFERENCE(datalen);
 #endif /* SDTEST */
-
-#if defined(DHD_TX_DUMP) || defined(DHD_8021X_DUMP)
-	dump_data = PKTDATA(osh, pkt);
-	dump_data += 4; /* skip 4 bytes header */
-	protocol = (dump_data[12] << 8) | dump_data[13];
-
-	if (protocol == ETHER_TYPE_802_1X) {
-		DHD_ERROR(("ETHER_TYPE_802_1X [TX]: ver %d, type %d, replay %d\n",
-			dump_data[14], dump_data[15], dump_data[30]));
-	}
-#endif /* DHD_TX_DUMP || DHD_8021X_DUMP */
-
-#if defined(DHD_TX_DUMP) && defined(DHD_TX_FULL_DUMP)
-	{
-		int i;
-		DHD_ERROR(("TX DUMP\n"));
-
-		for (i = 0; i < (datalen - 4); i++) {
-			DHD_ERROR(("%02X ", dump_data[i]));
-			if ((i & 15) == 15)
-				printk("\n");
-		}
-		DHD_ERROR(("\n"));
-	}
-#endif /* DHD_TX_DUMP && DHD_TX_FULL_DUMP */
 
 	prec = PRIO2PREC((PKTPRIO(pkt) & PRIOMASK));
 
@@ -2144,8 +2121,11 @@ dhdsdio_sendfromq(dhd_bus_t *bus, uint maxframes)
 			break;
 		if (dhdsdio_txpkt(bus, SDPCM_DATA_CHANNEL, pkts, i, TRUE) != BCME_OK)
 			dhd->tx_errors++;
-		else
+		else {
 			dhd->dstats.tx_bytes += datalen;
+			bus->txglomframes++;
+			bus->txglompkts += num_pkt;
+		}
 		cnt += i;
 
 		/* In poll mode, need to check for other events */
@@ -2645,6 +2625,11 @@ dhd_bus_dump(dhd_pub_t *dhdp, struct bcmstrbuf *strbuf)
 #endif /* DHD_DEBUG */
 	bcm_bprintf(strbuf, "clkstate %d activity %d idletime %d idlecount %d sleeping %d\n",
 	            bus->clkstate, bus->activity, bus->idletime, bus->idlecount, bus->sleeping);
+	dhd_dump_pct(strbuf, "Tx: glom pct", (100 * bus->txglompkts), bus->dhd->tx_packets);
+	dhd_dump_pct(strbuf, ", pkts/glom", bus->txglompkts, bus->txglomframes);
+	bcm_bprintf(strbuf, "\n");
+	bcm_bprintf(strbuf, "txglomframes %u, txglompkts %u\n", bus->txglomframes, bus->txglompkts);
+	bcm_bprintf(strbuf, "\n");
 }
 
 void
@@ -2661,6 +2646,7 @@ dhd_bus_clearcounts(dhd_pub_t *dhdp)
 	bus->tx_sderrs = bus->fc_rcvd = bus->fc_xoff = bus->fc_xon = 0;
 	bus->rxglomfail = bus->rxglomframes = bus->rxglompkts = 0;
 	bus->f2rxhdrs = bus->f2rxdata = bus->f2txdata = bus->f1regdata = 0;
+	bus->txglomframes = bus->txglompkts = 0;
 }
 
 #ifdef SDTEST
@@ -3818,6 +3804,13 @@ dhdsdio_write_vars(dhd_bus_t *bus)
 	varsize = bus->varsz ? ROUNDUP(bus->varsz, 4) : 0;
 	varaddr = (bus->ramsize - 4) - varsize;
 
+	// terence 20150412: fix for nvram failed to download
+	if (bus->dhd->conf->chip == BCM43340_CHIP_ID ||
+			bus->dhd->conf->chip == BCM43341_CHIP_ID) {
+		varsize = varsize ? ROUNDUP(varsize, 64) : 0;
+		varaddr = (bus->ramsize - 64) - varsize;
+	}
+
 	varaddr += bus->dongle_ram_base;
 
 	if (bus->vars) {
@@ -4318,6 +4311,7 @@ dhd_txglom_enable(dhd_pub_t *dhdp, bool enable)
 	} else
 #endif /* BCMSDIOH_TXGLOM */
 		bus->txglom_enable = FALSE;
+	printk("%s: enable %d\n",  __FUNCTION__, bus->txglom_enable);
 }
 
 int
@@ -5666,6 +5660,15 @@ deliver:
 		dhd_os_sdunlock(bus->dhd);
 		dhd_rx_frame(bus->dhd, ifidx, pkt, pkt_count, chan);
 		dhd_os_sdlock(bus->dhd);
+#if defined(SDIO_ISR_THREAD)
+		/* terence 20150615: fix for below error due to bussleep in watchdog after dhd_os_sdunlock here,
+		  * so call BUS_WAKE to wake up bus again
+		  * dhd_bcmsdh_recv_buf: Device asleep
+		  * dhdsdio_readframes: RXHEADER FAILED: -40
+		  * dhdsdio_rxfail: abort command, terminate frame, send NAK
+		*/
+		BUS_WAKE(bus);
+#endif
 	}
 	rxcount = maxframes - rxleft;
 #ifdef DHD_DEBUG
@@ -6118,7 +6121,13 @@ dhdsdio_isr(void *arg)
 #if defined(SDIO_ISR_THREAD)
 	DHD_TRACE(("Calling dhdsdio_dpc() from %s\n", __FUNCTION__));
 	DHD_OS_WAKE_LOCK(bus->dhd);
-	dhdsdio_dpc(bus);
+	/* terence 20150209: dpc should be scheded again if dpc_sched is TRUE or dhd_bus_txdata can 
+	    not schedule anymore because dpc_sched is TRUE now.
+	 */
+	if (dhdsdio_dpc(bus)) {
+		bus->dpc_sched = TRUE;
+		dhd_sched_dpc(bus->dhd);
+	}
 	DHD_OS_WAKE_UNLOCK(bus->dhd);
 #else
 
@@ -6759,12 +6768,17 @@ dhdsdio_chipmatch(uint16 chipid)
 	return FALSE;
 }
 
+#if defined(MULTIPLE_SUPPLICANT)
+extern void wl_android_post_init(void); // terence 20120530: fix critical section in dhd_open and dhdsdio_probe
+#endif
+
 static void *
 dhdsdio_probe(uint16 venid, uint16 devid, uint16 bus_no, uint16 slot,
 	uint16 func, uint bustype, void *regsva, osl_t * osh, void *sdh)
 {
 	int ret;
 	dhd_bus_t *bus;
+	struct ether_addr ea_addr;
 
 #if defined(MULTIPLE_SUPPLICANT)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25))
@@ -6879,14 +6893,6 @@ dhdsdio_probe(uint16 venid, uint16 devid, uint16 bus_no, uint16 slot,
 		DHD_ERROR(("%s: dhdsdio_probe_attach failed\n", __FUNCTION__));
 		goto fail;
 	}
-	
-#ifdef PROP_TXSTATUS
-	// terence 20131215: disable_proptx should be set before dhd_attach
-	if ((bus->sih->chip == BCM43362_CHIP_ID) || (bus->sih->chip == BCM4330_CHIP_ID)) {
-		printf("%s: Disable prop_txstatus\n", __FUNCTION__);
-		disable_proptx = 1;
-	}
-#endif
 
 	/* Attach to the dhd/OS/network interface */
 	if (!(bus->dhd = dhd_attach(osh, bus, SDPCM_RESERVE))) {
@@ -6924,12 +6930,22 @@ dhdsdio_probe(uint16 venid, uint16 devid, uint16 bus_no, uint16 slot,
 
 	/* if firmware path present try to download and bring up bus */
 	bus->dhd->hang_report  = TRUE;
+#if 0 // terence 20150325: fix for WPA/WPA2 4-way handshake fail in hostapd
 	if (dhd_download_fw_on_driverload) {
 		if ((ret = dhd_bus_start(bus->dhd)) != 0) {
 			DHD_ERROR(("%s: dhd_bus_start failed\n", __FUNCTION__));
 				goto fail;
 		}
 	}
+#endif
+
+#ifdef GET_OTP_MAC_ENABLE
+	if (dhd_conf_get_mac(bus->dhd, sdh, ea_addr.octet)) {
+		DHD_TRACE(("%s: Can not read MAC address\n", __FUNCTION__));
+	} else
+		memcpy(bus->dhd->mac.octet, (void *)&ea_addr, ETHER_ADDR_LEN);
+#endif /* GET_CUSTOM_MAC_ENABLE */
+
 	/* Ok, have the per-port tell the stack we're open for business */
 	if (dhd_register_if(bus->dhd, 0, TRUE) != 0) {
 		DHD_ERROR(("%s: Net attach failed!!\n", __FUNCTION__));
@@ -6938,6 +6954,7 @@ dhdsdio_probe(uint16 venid, uint16 devid, uint16 bus_no, uint16 slot,
 
 
 #if defined(MULTIPLE_SUPPLICANT)
+	wl_android_post_init(); // terence 20120530: fix critical section in dhd_open and dhdsdio_probe
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25))
 	mutex_unlock(&_dhd_sdio_mutex_lock_);
 	DHD_ERROR(("%s : the lock is released.\n", __FUNCTION__));
@@ -7397,7 +7414,8 @@ dhdsdio_probe_attach(struct dhd_bus *bus, osl_t *osh, void *sdh, void *regsva,
 				bus->dongle_ram_base = CR4_4360_RAM_BASE;
 				break;
 			case BCM4345_CHIP_ID:
-				bus->dongle_ram_base = CR4_4345_RAM_BASE;
+				bus->dongle_ram_base = (bus->sih->chiprev < 6)  /* from 4345C0 */
+					? CR4_4345_LT_C0_RAM_BASE : CR4_4345_GE_C0_RAM_BASE;
 				break;
 			case BCM4349_CHIP_GRPID:
 				bus->dongle_ram_base = CR4_4349_RAM_BASE;
@@ -7587,6 +7605,15 @@ dhdsdio_probe_init(dhd_bus_t *bus, osl_t *osh, void *sdh)
 		          __FUNCTION__, (bus->sd_rxchain ? "supports" : "does not support")));
 	}
 	bus->use_rxchain = (bool)bus->sd_rxchain;
+	if (bus->dhd->conf->use_rxchain >= 0) {
+		printf("%s: set use_rxchain %d from config.txt\n", __FUNCTION__, bus->dhd->conf->use_rxchain);
+		bus->use_rxchain = (bool)bus->dhd->conf->use_rxchain;
+	}
+	/* Setting default Glom size */
+	if (bus->dhd->conf->txglomsize >= 0) {
+		printf("%s: set txglomsize %d from config.txt\n", __FUNCTION__, bus->dhd->conf->txglomsize);
+		bus->txglomsize = bus->dhd->conf->txglomsize;
+	}
 	bus->txinrx_thres = CUSTOM_TXINRX_THRES;
 	/* TX first in dhdsdio_readframes() */
 	bus->dotxinrx = TRUE;
@@ -7615,7 +7642,6 @@ dhdsdio_download_firmware(struct dhd_bus *bus, osl_t *osh, void *sdh)
 {
 	int ret;
 
-
 	DHD_TRACE_HW4(("%s: firmware path=%s, nvram path=%s\n",
 		__FUNCTION__, bus->fw_path, bus->nv_path));
 	DHD_OS_WAKE_LOCK(bus->dhd);
@@ -7625,10 +7651,9 @@ dhdsdio_download_firmware(struct dhd_bus *bus, osl_t *osh, void *sdh)
 
 	/* External conf takes precedence if specified */
 	dhd_conf_preinit(bus->dhd);
-	dhd_conf_read_config(bus->dhd);
+	dhd_conf_read_config(bus->dhd, bus->dhd->conf_path);
 	dhd_conf_set_fw_name_by_chip(bus->dhd, bus->fw_path);
-	dhd_conf_set_fw_path(bus->dhd, bus->fw_path);
-	dhd_conf_set_nv_path(bus->dhd, bus->nv_path);
+	dhd_conf_set_nv_name_by_chip(bus->dhd, bus->nv_path);
 	dhd_conf_set_fw_name_by_mac(bus->dhd, bus->sdh, bus->fw_path);
 	dhd_conf_set_nv_name_by_mac(bus->dhd, bus->sdh, bus->nv_path);
 
@@ -7986,6 +8011,14 @@ dhdsdio_download_code_file(struct dhd_bus *bus, char *pfw_path)
 
 	/* Download image */
 	while ((len = dhd_os_get_image_block((char*)memptr, MEMBLOCK, image))) {
+		// terence 20150412: fix for firmware failed to download
+		if (bus->dhd->conf->chip == BCM43340_CHIP_ID ||
+				bus->dhd->conf->chip == BCM43341_CHIP_ID) {
+	    	if (len%64 != 0) {
+	            memset(memptr+len, 0, len%64);
+	            len += (64 - len%64);
+	        }
+		}
 		if (len < 0) {
 			DHD_ERROR(("%s: dhd_os_get_image_block failed (%d)\n", __FUNCTION__, len));
 			bcmerror = BCME_ERROR;

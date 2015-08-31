@@ -336,7 +336,7 @@ wf_chspec_aton(const char *a)
 	c = tolower((int)a[0]);
 	if (c == 'g') {
 		a ++; /* consume the char */
-		
+
 		/* band must be "2" or "5" */
 		if (num == 2)
 			chspec_band = WL_CHANSPEC_BAND_2G;
@@ -365,7 +365,7 @@ wf_chspec_aton(const char *a)
 	}
 
 	a ++; /* consume the 'u','l', or '/' */
-	
+
 	/* check 'u'/'l' */
 	if (c == 'u' || c == 'l') {
 		sb_ul = c;
@@ -421,7 +421,7 @@ wf_chspec_aton(const char *a)
 		chspec_bw = WL_CHANSPEC_BW_8080;
 
 		a ++; /* consume the char '+' */
-		
+
 		/* consume the '80/' string */
 		for (i = 0; i < 3; i++) {
 			if (*a++ != *plus80++) {
@@ -437,7 +437,7 @@ wf_chspec_aton(const char *a)
 		if (a[0] != '-')
 			return 0;
 		a ++; /* consume the char */
-		
+
 		/* read secondary 80MHz channel */
 		if (!read_uint(&a, &ch2))
 			return 0;
@@ -459,7 +459,7 @@ done_read:
 	 * Need to convert ctl_ch, sb_ul, and ch1,ch2 into
 	 * a center channel (or two) and sideband.
 	 */
-	
+
 	/* if a sb u/l string was given, just use that,
 	 * guaranteed to be bw = 40 by sting parse.
 	 */
@@ -529,9 +529,9 @@ done_read:
 		/* combine 2 channel IDs in channel field of chspec */
 		chspec_ch = (((uint)ch1_id << WL_CHANSPEC_CHAN1_SHIFT) |
 		             ((uint)ch2_id << WL_CHANSPEC_CHAN2_SHIFT));
-		
+
 		/* figure out primary 20 MHz sideband */
-		
+
 		/* is the primary channel contained in the 1st 80MHz channel? */
 		sb = channel_to_sb(ch1, ctl_ch, bw);
 		if (sb < 0) {
@@ -732,7 +732,7 @@ wf_chspec_ctlchan(chanspec_t chspec)
 			uint chan_id = CHSPEC_CHAN1(chspec);
 
 			bw_mhz = 80;
-			
+
 			/* convert from channel index to channel number */
 			center_chan = wf_5g_80m_chans[chan_id];
 		}

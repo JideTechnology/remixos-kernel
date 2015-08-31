@@ -1201,7 +1201,7 @@ CONFIG_WLAN=y
 CONFIG_BCMDHD=m
 CONFIG_BCMDHD_FW_PATH="/system/vendor/modules/fw_bcmdhd.bin"
 CONFIG_BCMDHD_NVRAM_PATH="/system/vendor/modules/nvram.txt"
-CONFIG_BCMDHD_CONFIG_PATH="/system/vendor/modules/config.txt"
+CONFIG_BCMDHD_SDIO=y
 CONFIG_BCMDHD_OOB=y
 # CONFIG_BCMDHD_SDIO_IRQ is not set
 # CONFIG_BRCMFMAC is not set

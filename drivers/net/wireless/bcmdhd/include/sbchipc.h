@@ -134,7 +134,7 @@ typedef volatile struct {
 	uint32	otpcontrol;
 	uint32	otpprog;
 	uint32	otplayout;		/* corerev >= 23 */
-	
+
 	/* Interrupt control */
 	uint32	intstatus;		/* 0x20 */
 	uint32	intmask;
@@ -142,7 +142,7 @@ typedef volatile struct {
 	/* Chip specific regs */
 	uint32	chipcontrol;		/* 0x28, rev >= 11 */
 	uint32	chipstatus;		/* 0x2c, rev >= 11 */
-	
+
 	/* Jtag Master */
 	uint32	jtagcmd;		/* 0x30, rev >= 10 */
 	uint32	jtagir;
@@ -154,7 +154,7 @@ typedef volatile struct {
 	uint32	flashaddress;
 	uint32	flashdata;
 	uint32	otplayoutextension;	/* rev >= 35 */
-	
+
 	/* Silicon backplane configuration broadcast control */
 	uint32	broadcastaddress;	/* 0x50 */
 	uint32	broadcastdata;
@@ -175,7 +175,7 @@ typedef volatile struct {
 
 	/* Watchdog timer */
 	uint32	watchdog;		/* 0x80 */
-	
+
 	/* GPIO events corerev >= 11 */
 	uint32	gpioeventintpolarity;
 
@@ -220,7 +220,7 @@ typedef volatile struct {
 	/* FAB ID (corerev >= 40) */
 	uint32	otpcontrol1;
 	uint32	fabid;			/* 0xf8 */
-	
+
 	/* In AI chips, pointer to erom */
 	uint32	eromptr;		/* 0xfc */
 
@@ -2824,7 +2824,8 @@ typedef volatile struct {
 #define CCTRL2_4335_PMUWAKE		(1 << 31)
 #define PATCHTBL_SIZE			(0x800)
 #define CR4_4335_RAM_BASE                    (0x180000)
-#define CR4_4345_RAM_BASE                    (0x1b0000)
+#define CR4_4345_LT_C0_RAM_BASE              (0x1b0000)
+#define CR4_4345_GE_C0_RAM_BASE              (0x198000)
 #define CR4_4349_RAM_BASE                    (0x180000)
 #define CR4_4350_RAM_BASE                    (0x180000)
 #define CR4_4360_RAM_BASE                    (0x0)

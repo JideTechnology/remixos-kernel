@@ -24,7 +24,7 @@ extern int osl_printf(const char *fmt, ...);
 #define RELEASE_PRINT(args)	do { WL_PRINT(args); IO8Log args; } while (0)
 #else
 #define WL_PRINT(args)		do { WL_TIMESTAMP(); printf args; } while (0)
-#endif
+#endif 
 
 #if defined(EVENT_LOG_COMPILE) && defined(WLMSG_SRSCAN)
 #define _WL_SRSCAN(fmt, ...)	EVENT_LOG(EVENT_LOG_TAG_SRSCAN, fmt, ##__VA_ARGS__)

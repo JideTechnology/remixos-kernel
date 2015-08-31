@@ -683,17 +683,17 @@
 #define	BU4702_BOARD		0x0424
 
 #define	BCM94306PC_BOARD	0x0425		/* pcmcia 3.3v 4306 card */
-				
+
 #define	MPSG4306_BOARD		0x0427
-				
+
 #define	BCM94702MN_BOARD	0x0428
 
 /* BCM4702 1U CompactPCI Board */
 #define	BCM94702CPCI_BOARD	0x0429
-						
+
 /* BCM4702 with BCM95380 VLAN Router */
 #define	BCM95380RR_BOARD	0x042a
-									   
+
 /* cb4306 with SiGe PA */
 #define	BCM94306CBSG_BOARD	0x042b
 

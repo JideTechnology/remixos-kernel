@@ -59,12 +59,20 @@ static void IRQHandler(struct sdio_func *func);
 static void IRQHandlerF2(struct sdio_func *func);
 #endif /* !defined(OOB_INTR_ONLY) */
 static int sdioh_sdmmc_get_cisaddr(sdioh_info_t *sd, uint32 regaddr);
+#if defined(ENABLE_INSMOD_NO_FW_LOAD)
 extern int sdio_reset_comm(struct mmc_card *card);
-#ifdef CONFIG_ARCH_SUNXI
+#else
+int sdio_reset_comm(struct mmc_card *card)
+{
+	return 0;
+}
+#endif
+#ifdef GLOBAL_SDMMC_INSTANCE
+extern PBCMSDH_SDMMC_INSTANCE gInstance;
+#endif
+#ifdef CUSTOMER_HW_ALLWINNER
 extern int sunxi_mmc_check_r1_ready(struct mmc_host* mmc, unsigned ms);
 #endif
-
-extern PBCMSDH_SDMMC_INSTANCE gInstance;
 
 #define DEFAULT_SDIO_F2_BLKSIZE		512
 #ifndef CUSTOM_SDIO_F2_BLKSIZE
@@ -158,10 +166,16 @@ sdioh_attach(osl_t *osh, struct sdio_func *func)
 	sd->fake_func0.num = 0;
 	sd->fake_func0.card = func->card;
 	sd->func[0] = &sd->fake_func0;
+#ifdef GLOBAL_SDMMC_INSTANCE
 	if (func->num == 2)
 		sd->func[1] = gInstance->func[1];
+#else
+	sd->func[1] = func->card->sdio_func[0];
+#endif
 	sd->func[2] = func->card->sdio_func[1];
+#ifdef GLOBAL_SDMMC_INSTANCE
 	sd->func[func->num] = func;
+#endif
 	sd->num_funcs = 2;
 	sd->sd_blockmode = TRUE;
 	sd->use_client_ints = TRUE;
@@ -871,7 +885,7 @@ sdioh_request_byte(sdioh_info_t *sd, uint rw, uint func, uint regaddr, uint8 *by
 		}
 	}
 
-#ifdef CONFIG_ARCH_SUNXI
+#ifdef CUSTOMER_HW_ALLWINNER
 	//AW judge sdio read write timeout, 1s
 	if (sunxi_mmc_check_r1_ready(sd->func[func]->card->host, 1000) != 0)
 		printk("%s data timeout.\n", __FUNCTION__);
@@ -929,7 +943,7 @@ sdioh_request_word(sdioh_info_t *sd, uint cmd_type, uint rw, uint func, uint add
 		}
 	}
 
-#ifdef CONFIG_ARCH_SUNXI
+#ifdef CUSTOMER_HW_ALLWINNER
 	//AW judge sdio read write timeout, 1s
 	if (sunxi_mmc_check_r1_ready(sd->func[func]->card->host, 1000) != 0)
 		printk("%s data timeout.\n", __FUNCTION__);
@@ -952,7 +966,7 @@ sdioh_request_word(sdioh_info_t *sd, uint cmd_type, uint rw, uint func, uint add
 				sdio_writeb(sd->func[0],
 					func, SDIOD_CCCR_IOABORT, &err_ret2);
 
-#ifdef CONFIG_ARCH_SUNXI
+#ifdef CUSTOMER_HW_ALLWINNER
 				//AW judge sdio read write timeout, 1s
 				if (sunxi_mmc_check_r1_ready(sd->func[func]->card->host, 1000) != 0)
 					printk("%s data timeout, SDIO_CCCR_IOABORT.\n", __FUNCTION__);	
@@ -1126,14 +1140,14 @@ sdioh_buffer_tofrom_bus(sdioh_info_t *sd, uint fix_inc, uint write, uint func,
 	else
 		err_ret = sdio_memcpy_fromio(sd->func[func], buf, addr, len);
 
-#ifdef CONFIG_ARCH_SUNXI
+#ifdef CUSTOMER_HW_ALLWINNER
 	//AW judge sdio read write timeout, 1s
 	if (sunxi_mmc_check_r1_ready(sd->func[func]->card->host, 1000) != 0)
 		printk("%s data timeout.\n", __FUNCTION__);
 #endif
 
 	sdio_release_host(sd->func[func]);
-			
+
 	if (err_ret)
 		sd_err(("%s: %s FAILED %p, addr=0x%05x, pkt_len=%d, ERR=%d\n", __FUNCTION__,
 		       (write) ? "TX" : "RX", buf, addr, len, err_ret));

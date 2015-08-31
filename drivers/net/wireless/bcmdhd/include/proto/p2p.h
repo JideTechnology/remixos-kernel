@@ -79,7 +79,7 @@ typedef struct wifi_p2p_ie wifi_p2p_ie_t;
 #define P2P_SEID_SESSION_INFO_RESP	29	/* Session Information Response */
 #define P2P_SEID_VNDR			221	/* Vendor-specific subelement */
 
-#define P2P_SE_VS_ID_SERVICES	0x1b 
+#define P2P_SE_VS_ID_SERVICES	0x1b
 
 
 /* WiFi P2P IE subelement: P2P Capability (capabilities info) */
@@ -200,7 +200,7 @@ typedef struct wifi_p2p_status_se_s wifi_p2p_status_se_t;
 				/* Failed, rejected by user */
 #define P2P_STATSE_SUCCESS_USER_ACCEPT		12
 				/* Success, accepted by user */
-				
+
 /* WiFi P2P IE attribute: Extended Listen Timing */
 BWL_PRE_PACKED_STRUCT struct wifi_p2p_ext_se_s {
 	uint8	eltId;		/* ID: P2P_SEID_EXT_TIMING */
@@ -559,7 +559,7 @@ typedef struct wifi_p2p_noa_se wifi_p2p_noa_se_t;
 				/* NQP Query Info ID: 56797 */
 #define P2PSD_GAS_COMEBACKDEALY		0x00
 				/* Not used in the Native GAS protocol */
-				
+
 /* Service Protocol Type */
 typedef enum p2psd_svc_protype {
 	SVC_RPOTYPE_ALL = 0,

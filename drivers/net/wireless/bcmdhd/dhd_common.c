@@ -3,7 +3,7 @@
  *
  * $Copyright Open Broadcom Corporation$
  *
- * $Id: dhd_common.c 490628 2014-07-11 07:13:31Z $
+ * $Id: dhd_common.c 492215 2014-07-20 16:44:15Z $
  */
 #include <typedefs.h>
 #include <osl.h>
@@ -107,7 +107,7 @@ const char dhd_version[] = "Dongle Host Driver, version " EPI_VERSION_STR
 	DHD_COMPILED " on " __DATE__ " at " __TIME__;
 #else
 const char dhd_version[] = "\nDongle Host Driver, version " EPI_VERSION_STR "\nCompiled from ";
-#endif
+#endif 
 
 void dhd_set_timer(void *bus, uint wdtick);
 
@@ -1852,7 +1852,7 @@ wl_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata,
 		if (type != WLC_E_LINK) {
 			uint8 ifindex = (uint8)hostidx;
 			uint8 role = dhd_flow_rings_ifindex2role(dhd_pub, ifindex);
-			if (role == WLC_E_IF_ROLE_STA) {
+			if (DHD_IF_ROLE_STA(role)) {
 				dhd_flow_rings_delete(dhd_pub, ifindex);
 			} else {
 				dhd_flow_rings_delete_for_peer(dhd_pub, ifindex,
@@ -2007,7 +2007,7 @@ dhd_pktfilter_offload_enable(dhd_pub_t * dhd, char *arg, int enable, int master_
 	rc = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, buf, buf_len, TRUE, 0);
 	rc = rc >= 0 ? 0 : rc;
 	if (rc)
-		DHD_TRACE(("%s: failed to %s pktfilter %s, retcode = %d\n",
+		DHD_ERROR(("%s: failed to %s pktfilter %s, retcode = %d\n",
 		__FUNCTION__, enable?"enable":"disable", arg, rc));
 	else
 		DHD_TRACE(("%s: successfully %s pktfilter %s\n",
@@ -2151,7 +2151,7 @@ dhd_pktfilter_offload_set(dhd_pub_t * dhd, char *arg)
 	rc = rc >= 0 ? 0 : rc;
 
 	if (rc)
-		DHD_TRACE(("%s: failed to add pktfilter %s, retcode = %d\n",
+		DHD_ERROR(("%s: failed to add pktfilter %s, retcode = %d\n",
 		__FUNCTION__, arg, rc));
 	else
 		DHD_TRACE(("%s: successfully added pktfilter %s\n",

@@ -696,7 +696,7 @@ not match our unaligned address for < 2.6.24
 #define CAN_SLEEP()	((!in_atomic() && !irqs_disabled()))
 #else
 #define CAN_SLEEP()	(FALSE)
-#endif 
+#endif
 
 #define KMALLOC_FLAG (CAN_SLEEP() ? GFP_KERNEL: GFP_ATOMIC)
 

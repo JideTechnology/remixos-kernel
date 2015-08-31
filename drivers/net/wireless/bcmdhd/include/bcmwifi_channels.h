@@ -526,5 +526,5 @@ extern chanspec_t wf_chspec_primary80_chspec(chanspec_t chspec);
  * In case of 80+80 chanspec it returns the primary 80 Mhz centre channel
  */
 extern uint8 wf_chspec_channel(chanspec_t chspec);
-#endif	
+#endif
 #endif	/* _bcmwifi_channels_h_ */

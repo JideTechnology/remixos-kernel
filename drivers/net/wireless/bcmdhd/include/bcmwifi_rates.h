@@ -85,7 +85,7 @@ typedef enum clm_rates {
 	* 1 chain  *
 	************
 	*/
-	
+
 	/* 1 Stream */
 	WL_RATE_1X1_DSSS_1         = 0,
 	WL_RATE_1X1_DSSS_2         = 1,
@@ -126,7 +126,7 @@ typedef enum clm_rates {
 	* 2 chains *
 	************
 	*/
-	
+
 	/* 1 Stream expanded + 1 */
 	WL_RATE_1X2_DSSS_1         = 22,
 	WL_RATE_1X2_DSSS_2         = 23,
@@ -207,7 +207,7 @@ typedef enum clm_rates {
 	* 3 chains *
 	************
 	*/
-	
+
 	/* 1 Stream expanded + 2 */
 	WL_RATE_1X3_DSSS_1         = 64,
 	WL_RATE_1X3_DSSS_2         = 65,
@@ -310,7 +310,7 @@ typedef enum clm_rates {
 	 * TX Beamforming, 2 chains *
 	 ****************************
 	 */
-	
+
 	/* 1 Stream expanded + 1 */
 
 	WL_RATE_1X2_TXBF_OFDM_6    = 116,
@@ -367,7 +367,7 @@ typedef enum clm_rates {
 	 * TX Beamforming, 3 chains *
 	 ****************************
 	 */
-	
+
 	/* 1 Stream expanded + 2 */
 
 	WL_RATE_1X3_TXBF_OFDM_6    = 142,

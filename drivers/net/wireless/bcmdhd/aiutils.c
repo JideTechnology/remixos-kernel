@@ -342,7 +342,7 @@ ai_setcoreidx(si_t *sih, uint coreidx)
 
 	addr = cores_info->coresba[coreidx];
 	wrap = cores_info->wrapba[coreidx];
-	
+
 	/*
 	 * If the user has provided an interrupt mask enabled function,
 	 * then assert interrupts are disabled before switching the core.
@@ -695,7 +695,7 @@ ai_corereg(si_t *sih, uint coreidx, uint regoff, uint mask, uint val)
 		r = (uint32 *)((uchar *)cores_info->regs[coreidx] + regoff);
 	} else if (BUSTYPE(sih->bustype) == PCI_BUS) {
 		/* If pci/pcie, we can get at pci/pcie regs and on newer cores to chipc */
-		
+
 		if ((cores_info->coreid[coreidx] == CC_CORE_ID) && SI_FAST(sii)) {
 			/* Chipc registers are mapped at 12KB */
 
@@ -870,14 +870,14 @@ ai_core_reset(si_t *sih, uint32 bits, uint32 resetbits)
 	/* ensure there are no pending backplane operations */
 	SPINWAIT(((dummy = R_REG(sii->osh, &ai->resetstatus)) != 0), 300);
 
-	
+
 	/* put core into reset state */
 	W_REG(sii->osh, &ai->resetctrl, AIRC_RESET);
 	OSL_DELAY(10);
 
 	/* ensure there are no pending backplane operations */
 	SPINWAIT((R_REG(sii->osh, &ai->resetstatus) != 0), 300);
-	
+
 	W_REG(sii->osh, &ai->ioctrl, (bits | resetbits | SICF_FGC | SICF_CLOCK_EN));
 	dummy = R_REG(sii->osh, &ai->ioctrl);
 	BCM_REFERENCE(dummy);
