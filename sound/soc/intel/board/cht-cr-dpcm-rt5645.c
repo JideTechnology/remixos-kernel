@@ -43,6 +43,7 @@
 #include "../../codecs/rt5645/rt5645.h"
 
 #define _ML "RT5645 "
+#define CHT_RT5645_JD_SOC 406 
 
 #define CHT_PLAT_CLK_3_HZ	19200000
 
@@ -127,6 +128,17 @@ static inline void cht_set_codec_power(struct snd_soc_codec *codec,
 	}
 	snd_soc_dapm_sync(&codec->dapm);
 }
+int cht_mc_check_jd_status(struct snd_soc_codec *codec){
+	unsigned int status;
+	status = gpio_get_value(CHT_RT5645_JD_SOC);
+	pr_info(_ML "%s, jd1 pin status:%x\n", __func__, status);
+
+	rt5645_check_jd_status(codec);
+
+	return  status;
+}
+
+
 /* Identify the jack type as Headset/Headphone/None */
 static int cht_check_jack_type(struct snd_soc_jack *jack,
 					struct snd_soc_codec *codec)
@@ -136,7 +148,7 @@ static int cht_check_jack_type(struct snd_soc_jack *jack,
 	struct cht_mc_private *ctx = container_of(jack,
 					struct cht_mc_private, jack);
 
-	status = rt5645_check_jd_status(codec);
+	status = cht_mc_check_jd_status(codec);
 	/* jd status low indicates some accessory has been connected */
 	if (!status) {
 		pr_info("Jack insert intr\n");
@@ -209,7 +221,7 @@ static int cht_hs_detection(void *data)
 		/* First check for accessory removal; If not removed,
 		 * check for button events
 		 */
-		status = rt5645_check_jd_status(codec);
+		status = cht_mc_check_jd_status(codec);
 		/* jd status high indicates accessory has been disconnected.
 		 * However, confirm the removal in the delayed work
 		 */
@@ -325,7 +337,7 @@ static void cht_check_hs_remove_status(struct work_struct *work)
 
 	if (jack->status) {
 		/* jack is in connected state; look for removal event */
-		status = rt5645_check_jd_status(codec);
+		status = cht_mc_check_jd_status(codec);
 		if (status) {
 			/* jd status high implies accessory disconnected */
 			pr_info("Jack remove event\n");
@@ -377,7 +389,7 @@ static void cht_check_hs_button_status(struct work_struct *work)
 	if (((jack->status & SND_JACK_HEADSET) == SND_JACK_HEADSET)
 			&& ctx->process_button_events) {
 
-		status = rt5645_check_jd_status(codec);
+		status = cht_mc_check_jd_status(codec);
 		if (!status) {
 			/* confirm jack is connected */
 			status = rt5645_check_bp_status(codec);
@@ -778,6 +790,16 @@ if(rr){
 		return ret;
 	}
 
+// request gpio for jd status
+//        ret = gpio_is_valid(CHT_RT5645_JD_SOC);
+//        if(!ret){
+		pr_info("%s, gpio is valid. to request\n", __func__);
+		gpio_request(CHT_RT5645_JD_SOC, "JACK_DET_SOC_N");
+		gpio_direction_input(CHT_RT5645_JD_SOC);
+//	}else{
+//		pr_info("%s, gpio is NOT valid.\n", __func__);
+//	}
+
 }
 
 	/* Keep the voice call paths active during
@@ -1080,6 +1102,7 @@ static void snd_cht_unregister_jack(struct cht_mc_private *ctx)
 	cancel_delayed_work_sync(&ctx->hs_button_work);
 	cancel_delayed_work_sync(&ctx->hs_remove_work);
 	snd_soc_jack_free_gpios(&ctx->jack, 1, &hs_gpio);
+	gpio_free(CHT_RT5645_JD_SOC);
 }
 
 static int snd_cht_mc_remove(struct platform_device *pdev)

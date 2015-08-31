@@ -714,10 +714,13 @@ EXPORT_SYMBOL(rt5645_button_detect);
 int rt5645_check_jd_status(struct snd_soc_codec *codec)
 {
 	unsigned int v1, v2, v3, v4;
+	//unsigned int status;
+	//status = gpio_get_value(hs_gpio_common.gpio);
 	v1 = snd_soc_read(codec, RT5645_INT_IRQ_ST); v2 = v1 & 0x1000;
 	v3 = snd_soc_read(codec, RT5645_A_JD_CTRL1); v4 = v3 & 0x0020;
 	pr_info(_ML "%s, INT_IRQ_ST:%x, A_JD_CTRL1:%x\n", __func__, v1, v3);
 	pr_info(_ML "%s, v2:%x, v4:%x\n", __func__, v2, v4);
+	//pr_info(_ML "%s, jd1 pin status:%x\n", __func__, status);
 
 	return  1;//v4;
 }
