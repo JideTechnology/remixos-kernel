@@ -2444,7 +2444,7 @@ void mmc_rescan(struct work_struct *work)
 
 	mmc_bus_get(host);
 
-
+/*
 	if((host->caps&MMC_CAP_NEEDS_POLL)){
 		 if((host->ops->get_cd)\
 			&&(host->rescan_pre_state^sunxi_mmc_debdetect(host))){
@@ -2455,6 +2455,7 @@ void mmc_rescan(struct work_struct *work)
 				return;
 			}
 	}
+*/
 		
 
 	/*
@@ -2466,6 +2467,26 @@ void mmc_rescan(struct work_struct *work)
 		host->bus_ops->detect(host);
 
 	host->detect_change = 0;
+
+	if((host->caps&MMC_CAP_NEEDS_POLL)){
+		 if((host->ops->get_cd)\
+			&&(host->rescan_pre_state^sunxi_mmc_debdetect(host))){
+				pr_err("*%s detect cd change\n*\n",mmc_hostname(host));
+				wake_lock(&host->detect_wake_lock);
+			}else if(host->bus_dead){
+				//If card insert and put out so quict,get_cd function maybe not effective
+				//So we use host->bus_ops->detect(host)  to find if the card is in or in idle state
+				//If card is not in or in idle state,we must rescan it
+				pr_err("*%s detect card change\n*\n",mmc_hostname(host));
+				wake_lock(&host->detect_wake_lock);
+			}else{
+				mmc_bus_put(host);
+				mmc_schedule_delayed_work(&host->detect, HZ);
+				return;
+			}
+	}
+
+
 
 	/* If the card was removed the bus will be marked
 	 * as dead - extend the wakelock so userspace
