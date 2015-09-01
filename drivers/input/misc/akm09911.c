@@ -35,11 +35,13 @@
 #include <linux/compat.h>
 
 
-#define AKM_DEBUG_IF			0
+#define AKM_DEBUG_IF			1//0
 #define AKM_HAS_RESET			1
 #define AKM_INPUT_DEVICE_NAME	"compass"
 #define AKM_DRDY_TIMEOUT_MS		100
 #define AKM_BASE_NUM			10
+
+#define STATUS_ERROR(st)		(((st)&0x09) != 0x01)
 
 struct akm_compass_data {
 	struct i2c_client	*i2c;
@@ -75,6 +77,16 @@ struct akm_compass_data {
 	char layout;
 	int	irq;
 	int	gpio_rstn;
+	struct delayed_work dwork;
+	struct workqueue_struct *work_queue;
+	/* The input event last time */
+	int	last_x;
+	int	last_y;
+	int	last_z;
+	/* dummy value to avoid sensor event get eaten */
+	int	rep_cnt;
+	int	use_hrtimer;
+	struct mutex op_mutex;
 };
 
 static struct akm_compass_data *s_akm;
@@ -699,9 +711,7 @@ AKECS_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	case ECS_IOCTL_GET_LAYOUT:
-	printk("%s......RU.....akm->layout=%x....\n",__func__,akm->layout);
 		if (copy_to_user(argp, &akm->layout, sizeof(akm->layout))) {
-	printk("%s......RU.....return..\n",__func__);
 			dev_err(&akm->i2c->dev, "copy_to_user failed.");
 			return -EFAULT;
 		}
@@ -1053,6 +1063,33 @@ static void remove_device_binary_attributes(
  */
 
 /***** sysfs enable *************************************************/
+static int akm_enable_set(struct akm_compass_data *akm,
+		unsigned int enable)
+{
+	int ret = 0;
+	mutex_lock(&akm->op_mutex);
+	if (enable) {
+		AKECS_SetMode(akm, AKM_MODE_SNG_MEASURE);
+		if (akm->delay[MAG_DATA_FLAG] <= 0) {
+			akm->delay[MAG_DATA_FLAG] = 20;
+		}
+		if (akm->enable_flag == 1) {
+			cancel_delayed_work_sync(&akm->dwork);
+		}
+		printk("akm delay work : delay = %d\n",akm->delay[MAG_DATA_FLAG]);
+		queue_delayed_work(akm->work_queue, &akm->dwork,
+			(unsigned long)nsecs_to_jiffies64(
+				akm->delay[MAG_DATA_FLAG]));
+
+	} else {
+		cancel_delayed_work_sync(&akm->dwork);
+		AKECS_SetMode(akm, AKM_MODE_POWERDOWN);
+	}
+exit:
+	mutex_unlock(&akm->op_mutex);
+	return ret;
+}
+
 static void akm_compass_sysfs_update_status(
 	struct akm_compass_data *akm)
 {
@@ -1073,6 +1110,7 @@ static void akm_compass_sysfs_update_status(
 			dev_dbg(akm->class_dev, "Activated");
 		}
 	}
+	akm_enable_set(akm,en);
 	dev_dbg(&akm->i2c->dev,
 		"Status updated: enable=0x%X, active=%d",
 		en, atomic_read(&akm->active));
@@ -1236,8 +1274,11 @@ static ssize_t akm_delay_mag_store(
 	struct device *dev, struct device_attribute *attr,
 	char const *buf, size_t count)
 {
-	return akm_compass_sysfs_delay_store(
+	ssize_t ret = 0;
+	ret = akm_compass_sysfs_delay_store(
 		dev_get_drvdata(dev), buf, count, MAG_DATA_FLAG);
+	akm_enable_set(dev_get_drvdata(dev),1);
+	return ret;
 }
 
 /***** Uncalibrated Magnetic field ***/
@@ -1407,6 +1448,7 @@ static ssize_t akm_sysfs_regs_show(
 	return akm_buf_print(buf, regs, AKM_REGS_SIZE);
 }
 #endif
+
 static struct device_attribute akm_compass_attributes[] = {
 	__ATTR(enable_acc, 0666, akm_enable_acc_show, akm_enable_acc_store),
 	__ATTR(enable_mag, 0666, akm_enable_mag_show, akm_enable_mag_store),
@@ -1691,7 +1733,7 @@ static int akm_compass_suspend(struct device *dev)
 {
 	struct akm_compass_data *akm = dev_get_drvdata(dev);
 	dev_dbg(&akm->i2c->dev, "suspended\n");
-
+	cancel_delayed_work_sync(&akm->dwork);
 	return 0;
 }
 
@@ -1699,6 +1741,9 @@ static int akm_compass_resume(struct device *dev)
 {
 	struct akm_compass_data *akm = dev_get_drvdata(dev);
 	dev_dbg(&akm->i2c->dev, "resumed\n");
+	queue_delayed_work(akm->work_queue, &akm->dwork,
+		(unsigned long)nsecs_to_jiffies64(
+			akm->delay[MAG_DATA_FLAG]));
 
 	return 0;
 }
@@ -1740,6 +1785,142 @@ static int akm09911_i2c_check_device(
 	return err;
 }
 
+
+static int akm_report_data(struct akm_compass_data *akm)
+{
+	uint8_t dat_buf[AKM_SENSOR_DATA_SIZE];/* for GET_DATA */
+	int ret;
+	int mag_x, mag_y, mag_z;
+	int tmp;
+	int count = 10;
+
+	printk("akmd report data\n");
+	do {
+		/* The typical time for single measurement is 7.2ms */
+		ret = AKECS_GetData_Poll(akm, dat_buf, AKM_SENSOR_DATA_SIZE);
+		if (ret == -EAGAIN) {
+			dev_dbg(&akm->i2c->dev, "Data not ready, delay 1ms\n");
+			udelay(1000);
+		}
+	} while ((ret == -EAGAIN) && (--count));
+
+	if (!count) {
+		dev_err(&akm->i2c->dev, "Timeout get valid data.\n");
+		return -EIO;
+
+	}
+
+	tmp = dat_buf[0] | dat_buf[8];
+	if (STATUS_ERROR(tmp)) {
+		dev_warn(&akm->i2c->dev, "Status error(0x%x). Reset...\n",
+			       tmp);
+		AKECS_Reset(akm, 0);
+		return -EIO;
+	}
+
+	tmp = (int)((int16_t)(dat_buf[2]<<8)+((int16_t)dat_buf[1]));
+	tmp = tmp * akm->sense_conf[0] / 128 + tmp;
+	mag_x = tmp;
+
+	tmp = (int)((int16_t)(dat_buf[4]<<8)+((int16_t)dat_buf[3]));
+	tmp = tmp * akm->sense_conf[1] / 128 + tmp;
+	mag_y = tmp;
+
+	tmp = (int)((int16_t)(dat_buf[6]<<8)+((int16_t)dat_buf[5]));
+	tmp = tmp * akm->sense_conf[2] / 128 + tmp;
+	mag_z = tmp;
+
+	dev_dbg(&akm->i2c->dev, "mag_x:%d mag_y:%d mag_z:%d\n",
+			mag_x, mag_y, mag_z);
+	dev_dbg(&akm->i2c->dev, "raw data: %d %d %d %d %d %d %d %d\n",
+			dat_buf[0], dat_buf[1], dat_buf[2], dat_buf[3],
+			dat_buf[4], dat_buf[5], dat_buf[6], dat_buf[7]);
+	dev_dbg(&akm->i2c->dev, "asa: %d %d %d\n", akm->sense_conf[0],
+			akm->sense_conf[1], akm->sense_conf[2]);
+
+	switch (akm->layout) {
+	case 0:
+	case 1:
+		/* Fall into the default direction */
+		break;
+	case 2:
+		tmp = mag_x;
+		mag_x = mag_y;
+		mag_y = -tmp;
+		break;
+	case 3:
+		mag_x = -mag_x;
+		mag_y = -mag_y;
+		break;
+	case 4:
+		tmp = mag_x;
+		mag_x = -mag_y;
+		mag_y = tmp;
+		break;
+	case 5:
+		mag_x = -mag_x;
+		mag_z = -mag_z;
+		break;
+	case 6:
+		tmp = mag_x;
+		mag_x = mag_y;
+		mag_y = tmp;
+		mag_z = -mag_z;
+		break;
+	case 7:
+		mag_y = -mag_y;
+		mag_z = -mag_z;
+		break;
+	case 8:
+		tmp = mag_x;
+		mag_x = -mag_y;
+		mag_y = -tmp;
+		mag_z = -mag_z;
+		break;
+	}
+
+	input_report_abs(akm->input, ABS_X, mag_x);
+	input_report_abs(akm->input, ABS_Y, mag_y);
+	input_report_abs(akm->input, ABS_Z, mag_z);
+
+	/* avoid eaten by input subsystem framework */
+	if ((mag_x == akm->last_x) && (mag_y == akm->last_y) &&
+			(mag_z == akm->last_z))
+		input_report_abs(akm->input, ABS_MISC, akm->rep_cnt++);
+
+	akm->last_x = mag_x;
+	akm->last_y = mag_y;
+	akm->last_z = mag_z;
+
+	input_sync(akm->input);
+
+	printk("akmd report data finish x=%x,y=%x,z=%x\n",mag_x,mag_y,mag_z);
+	return 0;
+}
+
+static void akm_dev_poll(struct work_struct *work)
+{
+	struct akm_compass_data *akm;
+	int ret;
+
+	printk("akmd dev poll\n");
+	akm = container_of((struct delayed_work *)work,
+			struct akm_compass_data,  dwork);
+
+	ret = akm_report_data(akm);
+	if (ret < 0)
+		dev_warn(&akm->i2c->dev, "Failed to report data\n");
+
+	ret = AKECS_SetMode(akm, AKM_MODE_SNG_MEASURE);
+	if ((ret < 0) && (ret != -EBUSY))
+		dev_warn(&akm->i2c->dev, "Failed to set mode\n");
+
+	printk("akm dev poll start timer delay:%ld\n",akm->delay[MAG_DATA_FLAG]);
+	queue_delayed_work(akm->work_queue, &akm->dwork,
+		(unsigned long)nsecs_to_jiffies64(
+			akm->delay[MAG_DATA_FLAG]));
+}
+
 int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct akm09911_platform_data *pdata;
@@ -1772,6 +1953,7 @@ int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	mutex_init(&s_akm->sensor_mutex);
 	mutex_init(&s_akm->accel_mutex);
 	mutex_init(&s_akm->val_mutex);
+	mutex_init(&s_akm->op_mutex);
 
 	atomic_set(&s_akm->active, 0);
 	atomic_set(&s_akm->drdy, 0);
@@ -1820,11 +2002,12 @@ int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	input_set_drvdata(s_akm->input, s_akm);
 
 	/***** IRQ setup *****/
+/*
 	s_akm->irq = client->irq;
 
 	dev_dbg(&client->dev, "%s: IRQ is #%d.",
 			__func__, s_akm->irq);
-/*
+
 	if (s_akm->irq) {
 		err = request_threaded_irq(
 				s_akm->irq,
@@ -1840,6 +2023,10 @@ int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		}
 	}
 	*/
+
+	s_akm->work_queue = alloc_workqueue("akm_poll_work",
+			WQ_NON_REENTRANT, 0);
+	INIT_DELAYED_WORK(&s_akm->dwork, akm_dev_poll);
 
 	/***** misc *****/
 	err = misc_register(&akm_compass_dev);
@@ -1880,6 +2067,7 @@ static int akm_compass_remove(struct i2c_client *client)
 {
 	struct akm_compass_data *akm = i2c_get_clientdata(client);
 
+	cancel_delayed_work_sync(&akm->dwork);
 	remove_sysfs_interfaces(akm);
 	if (misc_deregister(&akm_compass_dev) < 0)
 		dev_err(&client->dev, "misc deregister failed.");
