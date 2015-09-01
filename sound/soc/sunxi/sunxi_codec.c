@@ -647,7 +647,13 @@ static int ac_speaker_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 		case SND_SOC_DAPM_POST_PMU:
 			sunxi_internal_codec->spkenable = true;
-			msleep(50);
+			/* for pop */
+			if (sunxi_internal_codec->first_speaker_event == 0) {
+				msleep(800);
+				sunxi_internal_codec->first_speaker_event = 1;
+			} else {
+				msleep(50);
+			}
 			if (spk_gpio.cfg)
 				gpio_set_value(spk_gpio.gpio, 1);
 

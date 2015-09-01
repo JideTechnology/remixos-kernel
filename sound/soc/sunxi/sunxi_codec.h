@@ -2089,6 +2089,7 @@ struct sunxi_codec {
 
 	bool spkenable;
 	//u8 sysconfig:1;
+	bool first_speaker_event;
 };
 #endif
 
