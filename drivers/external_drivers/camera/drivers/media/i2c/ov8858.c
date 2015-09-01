@@ -724,7 +724,6 @@ static int __power_ctrl(struct v4l2_subdev *sd, bool flag)
 		return dev->platform_data->power_ctrl(sd, flag);
 
 #ifdef CONFIG_GMIN_INTEL_MID
-	/*
 	if (dev->platform_data->v2p8_ctrl) {
 		dev_err(&client->dev, "ov8858 __power_ctrl->v2p8_ctrl.\n");
 		ret = dev->platform_data->v2p8_ctrl(sd, flag);
@@ -734,6 +733,7 @@ static int __power_ctrl(struct v4l2_subdev *sd, bool flag)
 				flag ? "up" : "down");
 			return ret;
 		}
+		msleep(1);
 	}
 
 	if (dev->platform_data->v1p8_ctrl) {
@@ -748,7 +748,6 @@ static int __power_ctrl(struct v4l2_subdev *sd, bool flag)
 			return ret;
 		}
 	}
-	*/
 
 	if (flag)
 		msleep(20); /* Wait for power lines to stabilize */
@@ -779,10 +778,11 @@ static int __gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 
 #ifdef CONFIG_GMIN_INTEL_MID
 	if (dev->platform_data->gpio0_ctrl)
-	{
+	{		
 		dev_err(&client->dev, "ov8858 __gpio_ctrl->gpio_ctrl->gpio0_ctrl.\n");
 		ret =  dev->platform_data->gpio0_ctrl(sd, flag);
 
+		msleep(2);
 		if (dev->platform_data->gpio1_ctrl)
 		{
 			dev_err(&client->dev, "ov8858 __gpio_ctrl->gpio_ctrl->gpio1_ctrl.\n");
@@ -790,6 +790,7 @@ static int __gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 
 			return ret;
 		}
+		msleep(10);
 	}
 
 #endif
