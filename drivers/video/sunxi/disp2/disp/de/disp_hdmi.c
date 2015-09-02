@@ -449,7 +449,7 @@ static s32 disp_hdmi_set_detect(struct disp_device* hdmi, bool hpd)
 		return DIS_FAIL;
 	}
 	mutex_lock(&hdmi_mlock);
-	if ((1 == hdmip->enabled) && (false == hdmip->hpd) && (true == hpd)) {
+	if ((1 == hdmip->enabled) && (true == hpd)) {
 		if (hdmip->hdmi_func.get_video_timing_info) {
 			hdmip->hdmi_func.get_video_timing_info(&(hdmip->video_info));
 			if (hdmip->video_info == NULL) {
