@@ -256,8 +256,8 @@ int de_rtmx_set_bld_reg_base(unsigned int sel, void *base);
 int de_rtmx_set_overlay_reg_base(unsigned int sel, unsigned int chno, void *base);
 int de_rtmx_set_lay_cfg(unsigned int sel, unsigned int chno, unsigned int layno, __lay_para_t *cfg);
 int de_rtmx_set_lay_haddr(unsigned int sel, unsigned int chno, unsigned int layno, unsigned char top_bot_en, unsigned char *haddr_t,unsigned char *haddr_b);
-int de_rtmx_set_lay_laddr(unsigned int sel, unsigned int chno, unsigned int layno, unsigned char fmt, de_rect crop,
-                           unsigned int *size, unsigned int *align, de_3d_in_mode trdinmode, unsigned int *addr, unsigned char *haddr);
+int de_rtmx_set_lay_laddr(unsigned int sel, unsigned int chno, unsigned int layno, unsigned char fmt,de_rect crop,
+                          unsigned int *size, unsigned int *align, de_3d_in_mode trdinmode, unsigned int *addr, unsigned char *haddr);
 int de_rtmx_get_3d_in(unsigned char fmt, de_rect crop, de_fb *size, unsigned int *align, de_3d_in_mode trdinmode,
                       unsigned int *addr, unsigned int *trd_addr, unsigned int *pitch, unsigned int *pitchr, unsigned int *lay_laddr);
 int de_rtmx_get_3d_in_single_size(de_3d_in_mode inmode, de_rect64 *size);

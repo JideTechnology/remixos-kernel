@@ -23,7 +23,6 @@ struct lcd_clk_info {
 
 int disp_al_manager_init(unsigned int disp);
 int disp_al_manager_exit(unsigned int disp);
-extern int disp_checkout_straight(unsigned int disp, struct disp_layer_config_data *data);
 extern int disp_al_manager_apply(unsigned int disp, struct disp_manager_data *data);
 extern int disp_al_layer_apply(unsigned int disp, struct disp_layer_config_data *data, unsigned int layer_num);
 extern int disp_init_al(disp_bsp_init_para * para);

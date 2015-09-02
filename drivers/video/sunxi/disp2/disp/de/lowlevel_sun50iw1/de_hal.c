@@ -4,11 +4,6 @@ static unsigned int g_device_fps[DEVICE_NUM] = {60, 60};
 static bool g_de_blank[DEVICE_NUM] = {false};
 static unsigned int g_de_freq;
 
-
-static unsigned char yv12_d1_en[VI_CHN_NUM][LAYER_MAX_NUM_PER_CHN]= {{0}};
-static enum disp_csc_type s_csc_type;
-static struct disp_color	 s_color;
-
 int de_update_device_fps(unsigned int sel, u32 fps)
 {
 	g_device_fps[sel] = fps;
@@ -50,8 +45,7 @@ static int de_calc_overlay_scaler_para(unsigned int screen_id, unsigned char chn
 	unsigned int lcd_fps = g_device_fps[screen_id], lcd_width = 1280, lcd_height = 720, de_freq_MHz = g_de_freq;
 	de_rect64 crop64[CHN_NUM][LAYER_MAX_NUM_PER_CHN];
 	de_rect frame[CHN_NUM][LAYER_MAX_NUM_PER_CHN];
-	static scaler_para para[CHN_NUM][LAYER_MAX_NUM_PER_CHN],cpara[VI_CHN_NUM][LAYER_MAX_NUM_PER_CHN],
-	p2p_para[VI_CHN_NUM][LAYER_MAX_NUM_PER_CHN];
+	static scaler_para para[CHN_NUM][LAYER_MAX_NUM_PER_CHN],cpara[VI_CHN_NUM][LAYER_MAX_NUM_PER_CHN];
 
 	unsigned int vi_chn = de_feat_get_num_vi_chns(screen_id);
 	unsigned int scaler_num = de_feat_is_support_scale(screen_id);
@@ -96,21 +90,6 @@ static int de_calc_overlay_scaler_para(unsigned int screen_id, unsigned char chn
 		}
 	}
 
-	for (j=0,k=0;j<vi_chn;j++){
-		for (i=0;i<layno;){
-			yv12_d1_en[j][i] = de_get_d1_flag(lay_en[j][i],fmt[k],crop64[j][i],frame[j][i],lcd_width,lcd_height);
-			if(yv12_d1_en[j][i]){
-				de_d1_p2p_recalc(yv12_d1_en[j][i], lcd_width,lcd_height, &crop64[j][i], &frame[j][i], &p2p_para[j][i]);
-				i++;
-				k++;
-			}
-			else{
-				i++;
-				k++;
-			}
-		}
-	}
-
 	for (j=0;j<vi_chn;j++)
 	{
 		for (i=0;i<layno;i++)
@@ -133,14 +112,8 @@ static int de_calc_overlay_scaler_para(unsigned int screen_id, unsigned char chn
 	for (j=0;j<chn;j++)
 	{
 		int gsu_sel = (j<vi_chn)?0:1;
-		if(yv12_d1_en[j][0]||yv12_d1_en[j][1]||yv12_d1_en[j][2]||yv12_d1_en[j][3]){
-			pen[j] = de_rtmx_calc_chnrect(lay_en[j], layno, frame[j], crop[j], gsu_sel, p2p_para[j],
-										  layer[j], &bld_rect[j], &ovlw[j], &ovlh[j]);
-		}
-		else{
-			pen[j] = de_rtmx_calc_chnrect(lay_en[j], layno, frame[j], crop[j], gsu_sel, para[j],
-										  layer[j], &bld_rect[j], &ovlw[j], &ovlh[j]);
-		}
+		pen[j] = de_rtmx_calc_chnrect(lay_en[j], layno, frame[j], crop[j], gsu_sel, para[j],
+							 layer[j], &bld_rect[j], &ovlw[j], &ovlh[j]);
 		premode[j] = de_rtmx_get_premul_ctl(layno,premul[j]);
 		__inf("ovl_rect[%d]=<%d,%d>\n", j,ovlw[j], ovlh[j]);
 		__inf("bld_rect[%d]=<%d,%d,%d,%d>\n", j,bld_rect[j].x, bld_rect[j].y, bld_rect[j].w, bld_rect[j].h);
@@ -167,8 +140,7 @@ static int de_calc_overlay_scaler_para(unsigned int screen_id, unsigned char chn
 					  ovlw[j], ovlh[j],bld_rect[j].w, bld_rect[j].h,
 					  &midyw, &midyh,&ovl_para[j], &ovl_cpara[j]);
 		de_vsu_set_para(screen_id, j, scaler_en,fmt[j],midyw, midyh,
-						bld_rect[j].w, bld_rect[j].h, &ovl_para[j], &ovl_cpara[j],
-						(yv12_d1_en[j][0]||yv12_d1_en[j][1]||yv12_d1_en[j][2]||yv12_d1_en[j][3]));
+						bld_rect[j].w, bld_rect[j].h, &ovl_para[j], &ovl_cpara[j]);
 	}
 
 	//get ui overlay parameter for scaler
@@ -193,7 +165,7 @@ static int de_calc_overlay_scaler_para(unsigned int screen_id, unsigned char chn
 	return 0;
 }
 
-int de_al_lyr_apply(unsigned int screen_id, struct disp_layer_config_data *data, unsigned int layer_num, u32 device_output_type)
+int de_al_lyr_apply(unsigned int screen_id, struct disp_layer_config_data *data, unsigned int layer_num)
 {
 	unsigned char i,j,k,chn,vi_chn,layno;
 	unsigned char haddr[LAYER_MAX_NUM_PER_CHN][3];
@@ -212,12 +184,6 @@ int de_al_lyr_apply(unsigned int screen_id, struct disp_layer_config_data *data,
 	de_rect pipe_rect[CHN_NUM]={{0}};
 	struct disp_rect dispsize[CHN_NUM] = {{0}};
 	struct disp_layer_config_data *data1;
-	struct disp_csc_config csc_cfg_mgr;
-	struct disp_csc_config csc_cfg_temp;
-	int isStraightYuv = -1;
-	static int tempIsStraightYuv = -1;
-	unsigned int color = 0;
-
 	data1 = data;
 
 	chn = de_feat_get_num_chns(screen_id);
@@ -290,27 +256,15 @@ int de_al_lyr_apply(unsigned int screen_id, struct disp_layer_config_data *data,
 	de_calc_overlay_scaler_para(screen_id, chn, layno, format, data, premul,premode,
 								crop,layer,bld_rect,ovlw,ovlh,pen, ovl_para, ovl_cpara);
 
-	if(device_output_type == DISP_OUTPUT_TYPE_TV)
-		isStraightYuv = disp_checkout_straight(screen_id, data);
 	for (j=0;j<vi_chn;j++) {
 		if (chn_used[j]) {
 			//de_fcc_csc_set(screen_id, j, chn_is_yuv[j], 0);//mode: FIXME
 			struct disp_csc_config csc_cfg;
-
-			if (0 == isStraightYuv) {
-				//printk("<5>ccsc self config DE_RGB.11111111111111111\n");
-				csc_cfg.in_fmt = DE_YUV;
-				csc_cfg.out_fmt = DE_YUV;
-				csc_cfg.out_mode = DISP_BT601;
-				csc_cfg.in_mode = csc_cfg.out_mode;
-			}
-			else {
-				csc_cfg.in_fmt = (chn_is_yuv[j])?DE_YUV:DE_RGB;
-				csc_cfg.out_fmt = DE_RGB;
-				csc_cfg.in_mode = cs[j];
-				csc_cfg.out_mode = DISP_BT601;
-			}
-
+			csc_cfg.in_fmt = (chn_is_yuv[j])?DE_YUV:DE_RGB;
+			csc_cfg.in_mode = cs[j];
+			//FIXME
+			csc_cfg.out_fmt = DE_RGB;
+			csc_cfg.out_mode = DISP_BT601;
 			csc_cfg.out_color_range = DISP_COLOR_RANGE_0_255;
 			csc_cfg.brightness = 50;
 			csc_cfg.contrast = 50;
@@ -318,40 +272,7 @@ int de_al_lyr_apply(unsigned int screen_id, struct disp_layer_config_data *data,
 			csc_cfg.hue = 50;
 			de_ccsc_apply(screen_id, j, &csc_cfg);
 		}
-
-		if(device_output_type == DISP_OUTPUT_TYPE_TV) {
-			if(tempIsStraightYuv != isStraightYuv) {
-				__inf("<5>isStraightYuv turned!\n");
-				de_dcsc_get_config(screen_id, &csc_cfg_temp);
-				csc_cfg_mgr.enhance_mode = csc_cfg_temp.enhance_mode;
-				csc_cfg_mgr.in_fmt = DISP_CSC_TYPE_RGB;
-				csc_cfg_mgr.in_mode = DISP_BT601;
-				if(0 == isStraightYuv) {
-					__inf("<5>close down DCSC\n");
-					csc_cfg_mgr.out_fmt = DE_RGB;
-					color = (s_color.alpha << 24) | (16 << 16)| (128 << 8) | (128 << 0);
-					de_rtmx_set_background_color(screen_id, color);
-					de_rtmx_set_blend_color(screen_id, j, color);
-				}
-				else {
-					csc_cfg_mgr.out_fmt = (DISP_CSC_TYPE_RGB == s_csc_type)?DE_RGB:DE_YUV;
-					color = (s_color.alpha << 24) | (s_color.red << 16)| (s_color.green << 8) | (s_color.blue << 0);
-					de_rtmx_set_background_color(screen_id, color);
-					de_rtmx_set_blend_color(screen_id, j, 0);
-				}
-
-				csc_cfg_mgr.out_mode = csc_cfg_temp.out_mode;
-				csc_cfg_mgr.out_color_range = csc_cfg_temp.out_color_range;
-				csc_cfg_mgr.brightness = 50;
-				csc_cfg_mgr.contrast = 50;
-				csc_cfg_mgr.saturation = 50;
-				csc_cfg_mgr.hue = 50;
-				de_dcsc_apply(screen_id, &csc_cfg_mgr);
-			}
-		}
 	}
-	if(device_output_type == DISP_OUTPUT_TYPE_TV)
-		tempIsStraightYuv = isStraightYuv;
 
 	//init lay_cfg from layer config
 	for (j=0,k=0;j<chn;j++){
@@ -423,8 +344,9 @@ int de_al_lyr_apply(unsigned int screen_id, struct disp_layer_config_data *data,
 			if (LAYER_ATTR_DIRTY & data[k].flag)
 			{
 				de_rtmx_set_lay_cfg(screen_id,j,i, &lay_cfg[k]);
-				de_rtmx_set_lay_laddr(screen_id,j,i,lay_cfg[k].fmt,crop[j][i], lay_cfg[k].pitch,
-				data[k].config.info.fb.align,(de_3d_in_mode)data[k].config.info.fb.flags,lay_cfg[k].laddr_t,haddr[i]);
+				de_rtmx_set_lay_laddr(screen_id,j,i,lay_cfg[k].fmt,crop[j][i],
+					lay_cfg[k].pitch,data[k].config.info.fb.align,
+					(de_3d_in_mode)data[k].config.info.fb.flags,lay_cfg[k].laddr_t,haddr[i]);
 			}
 			if (LAYER_VI_FC_DIRTY & data[k].flag)
 			{
@@ -485,11 +407,6 @@ int de_al_mgr_apply(unsigned int screen_id, struct disp_manager_data *data)
 	int color = (data->config.back_color.alpha << 24) | (data->config.back_color.red << 16)
 	| (data->config.back_color.green << 8) | (data->config.back_color.blue << 0);
 
-	s_color.alpha = data->config.back_color.alpha;
-	s_color.red = data->config.back_color.red;
-	s_color.green = data->config.back_color.green;
-	s_color.blue = data->config.back_color.blue;
-
 	g_de_blank[screen_id] = data->config.blank;
 
 	if (data->flag & MANAGER_BACK_COLOR_DIRTY)
@@ -510,7 +427,6 @@ int de_al_mgr_apply(unsigned int screen_id, struct disp_manager_data *data)
 		csc_cfg.in_fmt = DISP_CSC_TYPE_RGB;
 		csc_cfg.in_mode = DISP_BT601;
 
-		s_csc_type = data->config.cs;
 		csc_cfg.out_fmt = (DISP_CSC_TYPE_RGB == data->config.cs)?DE_RGB:DE_YUV;
 		if ((data->config.size.width < 1280) && (data->config.size.height < 720))
 		  csc_cfg.out_mode = DISP_BT601;

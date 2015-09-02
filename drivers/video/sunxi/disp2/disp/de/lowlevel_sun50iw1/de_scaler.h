@@ -45,7 +45,7 @@ int de_vsu_set_reg_base(unsigned int sel, unsigned int chno, void *base);
 int de_vsu_enable(unsigned int sel, unsigned int chno, unsigned int en);
 int de_vsu_set_para(unsigned int sel, unsigned int chno, unsigned int enable, unsigned char fmt,
 					unsigned int in_w, unsigned int in_h,unsigned int out_w, unsigned int out_h,
-					scaler_para *ypara,scaler_para *cpara, unsigned char yv12_d1_en);
+					scaler_para *ypara,scaler_para *cpara);
 int de_vsu_calc_scaler_para(unsigned char fmt, de_rect64 crop, de_rect frame, de_rect *crop_fix,
 							scaler_para *ypara,scaler_para *cpara);
 int de_vsu_sel_ovl_scaler_para(unsigned char *en, scaler_para *layer_luma_scale_para, scaler_para *layer_chroma_scale_para,
@@ -56,11 +56,6 @@ int de_vsu_recalc_scale_para(int coarse_status, unsigned int vsu_outw, unsigned 
 int de_recalc_ovl_bld_for_scale(unsigned int scaler_en, unsigned char *lay_en, int laynum, scaler_para *step,
 						 de_rect *layer, de_rect *bld_rect, unsigned int *ovlw, unsigned int *ovlh,
 						 unsigned int gsu_sel, unsigned int scn_w, unsigned scn_h);
-
-int de_get_d1_flag(unsigned int layer_en, unsigned char fmt, de_rect64 crop, de_rect frame,
-                   unsigned int lcd_width, unsigned int lcd_height);
-void de_d1_p2p_recalc(unsigned char yv12_d1_en, unsigned int lcd_width, unsigned int lcd_height,
-                      de_rect64 *crop64, de_rect *frame, scaler_para *p2p_para);
 
 //GSU FUNCTION
 int de_gsu_init(unsigned int sel, uintptr_t reg_base);
