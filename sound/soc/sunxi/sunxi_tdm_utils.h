@@ -27,29 +27,29 @@
 	#define SUNXI_DAUDIOCTL_SDO1EN					(1<<9)
 	#define SUNXI_DAUDIOCTL_SDO0EN					(1<<8)
 	#define SUNXI_DAUDIOCTL_OUTMUTE					(1<<6)
-	#define SUNXI_DAUDIOCTL_MODESEL					(3<<4)
+	#define SUNXI_DAUDIOCTL_MODESEL(v)				((v)<<4)
 	#define SUNXI_DAUDIOCTL_LOOP					(1<<3)
 	#define SUNXI_DAUDIOCTL_TXEN					(1<<2)
 	#define SUNXI_DAUDIOCTL_RXEN					(1<<1)
-	#define SUNXI_DAUDIOCTL_GEN					(1<<0)
+	#define SUNXI_DAUDIOCTL_GEN						(1<<0)
 
 #define SUNXI_DAUDIOFAT0 							(0x04)
-	#define SUNXI_DAUDIOFAT0_SDI_SYNC_SEL				(1<<31)
+	#define SUNXI_DAUDIOFAT0_SDI_SYNC_SEL			(1<<31)
 	#define SUNXI_DAUDIOFAT0_LRCK_WIDTH				(1<<30)
-	#define SUNXI_DAUDIOFAT0_LRCKR_PERIOD(v)			((v)<<20)
-	#define SUNXI_DAUDIOFAT0_LRCK_POLAYITY				(1<<19)
-	#define SUNXI_DAUDIOFAT0_LRCK_PERIOD(v)				((v)<<8)
-	#define SUNXI_DAUDIOFAT0_BCLK_POLAYITY				(1<<7)
-	#define SUNXI_DAUDIOFAT0_SR					(7<<4)
-	#define SUNXI_DAUDIOFAT0_EDGE_TRANSFER				(1<<3)
-	#define SUNXI_DAUDIOFAT0_SW					(7<<0)
+	#define SUNXI_DAUDIOFAT0_LRCKR_PERIOD(v)		((v)<<20)
+	#define SUNXI_DAUDIOFAT0_LRCK_POLAYITY			(1<<19)
+	#define SUNXI_DAUDIOFAT0_LRCK_PERIOD(v)			((v)<<8)
+	#define SUNXI_DAUDIOFAT0_BCLK_POLAYITY			(1<<7)
+	#define SUNXI_DAUDIOFAT0_SR(v)					((v)<<4)
+	#define SUNXI_DAUDIOFAT0_EDGE_TRANSFER			(1<<3)
+	#define SUNXI_DAUDIOFAT0_SW(v)					((v)<<0)
 
 #define SUNXI_DAUDIOFAT1							(0x08)
 	#define SUNXI_DAUDIOFAT1_RX_MLS					(1<<7)
 	#define SUNXI_DAUDIOFAT1_TX_MLS					(1<<6)
-	#define SUNXI_DAUDIOFAT1_SEXT					(3<<4)
-	#define SUNXI_DAUDIOFAT1_RX_PDM					(3<<2)
-	#define SUNXI_DAUDIOFAT1_TX_PDM					(3<<0)
+	#define SUNXI_DAUDIOFAT1_SEXT(v)				((v)<<4)
+	#define SUNXI_DAUDIOFAT1_RX_PDM(v)				((v)<<2)
+	#define SUNXI_DAUDIOFAT1_TX_PDM(v)				((v)<<0)
 
 #define SUNXI_DAUDIOISTA 							(0x0c)
 	#define SUNXI_DAUDIOSTA_TXU_INT					(1<<6)
@@ -68,7 +68,7 @@
 	#define SUNXI_DAUDIOFCTL_TXTL(v)				((v)<<12)
 	#define SUNXI_DAUDIOFCTL_RXTL(v)				((v)<<4)
 	#define SUNXI_DAUDIOFCTL_TXIM					(1<<2)
-	#define SUNXI_DAUDIOFCTL_RXOM					(1<<0)
+	#define SUNXI_DAUDIOFCTL_RXOM(v)				((v)<<0)
 
 #define SUNXI_DAUDIOFSTA   							(0x18)
 	#define SUNXI_DAUDIOFSTA_TXE					(1<<28)
@@ -100,13 +100,8 @@
 #define SUNXI_CHCFG								(0x30)
 	#define SUNXI_TXCHCFG_TX_SLOT_HIZ				(1<<9)
 	#define SUNXI_TXCHCFG_TX_STATE					(1<<8)
-#ifdef CONFIG_ARCH_SUN8IW10
-	#define SUNXI_TXCHCFG_RX_SLOT_NUM				(15<<4)
-	#define SUNXI_TXCHCFG_TX_SLOT_NUM				(15<<0)
-#else
-	#define SUNXI_TXCHCFG_RX_SLOT_NUM				(7<<4)
-	#define SUNXI_TXCHCFG_TX_SLOT_NUM				(7<<0)
-#endif
+	#define SUNXI_TXCHCFG_RX_SLOT_NUM(v)		((v)<<4)
+	#define SUNXI_TXCHCFG_TX_SLOT_NUM(v)		((v)<<0)
 
 #define SUNXI_DAUDIOTX0CHSEL							(0x34)
 #define SUNXI_DAUDIOTX1CHSEL							(0x38)
@@ -216,15 +211,37 @@
 
 #define SUNXI_DAUDIODBG								(0x5C)
 #endif
+/*
+* fs = samplerate;
+* bclk_freq = pll_audio_freq/bclk_div;
+* i2s mode: bclk_freq = 2 * pcm_lrck_period * fs;
+* make sure:
+	i2s mode:channel * slot_width_select <= 2*pcm_lrck_period;
+*/
+struct _i2s_bclk_div_s {
+	int i2s_lrck_period;
+	int pll_audio_freq;
+	int sample_rate;
+	int bclk_freq;
+	int bclk_div;
+	int bclk_div_regval;
+};
 
-#define SUNXI_DAUDIOCLKD_MCLK_MASK   0x0f
-#define SUNXI_DAUDIOCLKD_MCLK_OFFS   0
-#define SUNXI_DAUDIOCLKD_BCLK_MASK   0x070
-#define SUNXI_DAUDIOCLKD_BCLK_OFFS   4
-#define SUNXI_DAUDIOCLKD_MCLKEN_OFFS 7
-
-#define SUNXI_DAUDIO_DIV_MCLK	(0)
-#define SUNXI_DAUDIO_DIV_BCLK	(1)
+/*
+* fs = samplerate;
+* bclk_freq = pll_audio_freq/bclk_div;
+* pcm mode: bclk_freq = pcm_lrck_period * fs;
+* make sure:
+	pcm mode:channel * slot_width_select <= pcm_lrck_period;
+*/
+struct _pcm_bclk_div_s {
+	int pcm_lrck_period;
+	int pll_audio_freq;
+	int sample_rate;
+	int bclk_freq;
+	int bclk_div;
+	int bclk_div_regval;
+};
 
 struct sunxi_tdm_info {
 	void __iomem   *regs;

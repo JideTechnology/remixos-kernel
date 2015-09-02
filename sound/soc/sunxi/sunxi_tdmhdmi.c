@@ -83,13 +83,13 @@ static int sunxi_hdmi_hw_params(struct snd_pcm_substream *substream,
 		sunxi_tdmhdmi->samp_res = 24;
 	}
 	reg_val = readl(sunxi_tdmhdmi->regs + SUNXI_DAUDIOFAT0);
-	reg_val &= ~SUNXI_DAUDIOFAT0_SR;
+	reg_val &= ~SUNXI_DAUDIOFAT0_SR(7);
 	if(sunxi_tdmhdmi->samp_res == 16)
-		reg_val |= (3<<4);
+		reg_val |= SUNXI_DAUDIOFAT0_SR(3);
 	else if(sunxi_tdmhdmi->samp_res == 20)
-		reg_val |= (4<<4);
+		reg_val |= SUNXI_DAUDIOFAT0_SR(4);
 	else
-		reg_val |= (5<<4);
+		reg_val |= SUNXI_DAUDIOFAT0_SR(5);
 	writel(reg_val, sunxi_tdmhdmi->regs + SUNXI_DAUDIOFAT0);
 
 	if (sunxi_tdmhdmi->samp_res == 24) {
