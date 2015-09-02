@@ -345,7 +345,7 @@ static s32 tv_get_interface_para(void* para)
 //0:rgb;  1:yuv
 static s32 tv_get_input_csc(void)
 {
-	return 1;
+	return 0;
 }
 
 s32 tv_suspend(void)
