@@ -145,6 +145,8 @@ s32 hdmi_core_loop(void)
 		if ((hdmi_state > HDMI_State_Wait_Hpd)  || (hdmi_state == HDMI_State_Idle)) {
 			__inf("plugout\n");
 			hdmi_state = HDMI_State_Idle;
+			if (1 == video_on)
+				hdmi_clk_disable_prepare();
 			video_on = 0;
 			audio_on = 0;
 			if (0 == (hdmi_hpd_mask & 0x100))
@@ -284,6 +286,8 @@ s32 hdmi_core_set_hdcp_enable(u32 enable)
 	hdcp_enable = enable;
 	/* change the hdmi state, video will be reconfig if it output currently */
 	hdmi_state = HDMI_State_Idle;
+	if (1 == video_on)
+		hdmi_clk_disable_prepare();
 	video_on = 0;
 	audio_on = 0;
 
@@ -451,6 +455,7 @@ s32 hdmi_core_set_video_enable(bool enable)
 			goto video_en_end;
 		}
 
+		hdmi_clk_enable_prepare();
 		bsp_hdmi_set_video_en(enable);
 		video_on = 1;
 
@@ -466,8 +471,11 @@ s32 hdmi_core_set_video_enable(bool enable)
 	}
 	else
 	{
+		if ((1 == video_on) && (!enable)) {
+			bsp_hdmi_set_video_en(enable);
+			hdmi_clk_disable_prepare();
+		}
 		video_on = 0;
-		bsp_hdmi_set_video_en(enable);
 	}
 
 	video_enable = enable;

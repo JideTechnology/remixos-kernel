@@ -94,6 +94,8 @@ extern u32 is_exp;
 
 extern void hdmi_delay_ms(unsigned long ms);
 extern void hdmi_delay_us(unsigned long us);
+extern int hdmi_clk_enable_prepare(void);
+extern int hdmi_clk_disable_prepare(void);
 extern unsigned int hdmi_get_soc_version(void);
 
 #endif

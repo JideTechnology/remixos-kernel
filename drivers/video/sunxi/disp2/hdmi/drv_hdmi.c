@@ -3,6 +3,7 @@
 #include "../disp/disp_sys_intf.h"
 #include <linux/regulator/consumer.h>
 #include <linux/clk-private.h>
+#include <linux/sunxi-clk-prepare.h>
 
 #define HDMI_IO_NUM 5
 static bool hdmi_io_used[HDMI_IO_NUM]={0};
@@ -148,6 +149,36 @@ static int hdmi_clk_enable(void){}
 static int hdmi_clk_disable(void){}
 static int hdmi_clk_config(u32 vic){}
 #endif
+
+/* hdmi_clk_enable_prepare - prepare for hdmi enable
+ * if there is some other clk will affect hdmi module,
+ * should enable these clk before enable hdmi
+ */
+int hdmi_clk_enable_prepare(void)
+{
+	int ret = 0;
+
+	pr_warn("%s()L%d\n", __func__, __LINE__);
+	if (hdmi_clk)
+		ret = sunxi_clk_enable_prepare(hdmi_clk);
+	if (0 != ret)
+		return ret;
+
+	return ret;
+}
+
+/* hdmi_clk_disable_prepare - prepare for hdmi disable
+ * if there is some other clk will affect hdmi module,
+ * should disable these clk after disable hdmi
+ */
+int hdmi_clk_disable_prepare(void)
+{
+	pr_warn("%s()L%d\n", __func__, __LINE__);
+	if (hdmi_clk)
+		sunxi_clk_disable_prepare(hdmi_clk);
+
+	return 0;
+}
 
 #ifdef CONFIG_AW_AXP
 static int hdmi_power_enable(char *name)
