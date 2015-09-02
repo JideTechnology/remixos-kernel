@@ -271,8 +271,8 @@ static s32 tv_close(void)
 			mutex_unlock(&mlock);
 	    }
 
-	    if(tv_source_ops.tcon_simple_enable)
-			tv_source_ops.tcon_simple_enable(tv_device);
+	    if(tv_source_ops.tcon_simple_disable)
+			tv_source_ops.tcon_simple_disable(tv_device);
 
 		mutex_unlock(&tv_mutex);
 	}
@@ -345,7 +345,7 @@ static s32 tv_get_interface_para(void* para)
 //0:rgb;  1:yuv
 static s32 tv_get_input_csc(void)
 {
-	return 0;
+	return 1;
 }
 
 s32 tv_suspend(void)
