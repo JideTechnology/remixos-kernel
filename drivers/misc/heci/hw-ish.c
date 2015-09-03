@@ -138,7 +138,9 @@ void ish_intr_enable(struct heci_device *dev)
 			(dev->pdev->revision & REVISION_ID_SI_MASK) ==
 			REVISION_ID_CHT_Bx_SI ||
 			(dev->pdev->revision & REVISION_ID_SI_MASK) ==
-			REVISION_ID_CHT_Kx_SI) {
+			REVISION_ID_CHT_Kx_SI ||
+			(dev->pdev->revision & REVISION_ID_SI_MASK) ==
+			REVISION_ID_CHT_Dx_SI) {
 		uint32_t	host_comm_val;
 
 		host_comm_val = ish_reg_read(dev, IPC_REG_HOST_COMM);
@@ -163,7 +165,9 @@ void ish_intr_disable(struct heci_device *dev)
 			(dev->pdev->revision & REVISION_ID_SI_MASK) ==
 			REVISION_ID_CHT_Bx_SI ||
 			(dev->pdev->revision & REVISION_ID_SI_MASK) ==
-			REVISION_ID_CHT_Kx_SI) {
+			REVISION_ID_CHT_Kx_SI ||
+			(dev->pdev->revision & REVISION_ID_SI_MASK) ==
+			REVISION_ID_CHT_Dx_SI) {
 		uint32_t	host_comm_val;
 
 		host_comm_val = ish_reg_read(dev, IPC_REG_HOST_COMM);

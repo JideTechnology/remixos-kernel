@@ -896,7 +896,9 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		(pdev->revision & REVISION_ID_SI_MASK) ==
 			REVISION_ID_CHT_Bx_SI ? "CHT B0" :
 		(pdev->revision & REVISION_ID_SI_MASK) ==
-			REVISION_ID_CHT_Kx_SI ? "CHT Kx/Cx" : "Unknown",
+			REVISION_ID_CHT_Kx_SI ? "CHT Kx/Cx" :
+		(pdev->revision & REVISION_ID_SI_MASK) ==
+			REVISION_ID_CHT_Dx_SI ? "CHT Dx" : "Unknown",
 		pdev->revision);
 #if defined(SUPPORT_Ax_ONLY)
 	pdev->revision = REVISION_ID_CHT_A0;
