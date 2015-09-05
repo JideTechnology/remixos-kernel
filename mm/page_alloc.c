@@ -782,13 +782,16 @@ void __meminit __free_pages_bootmem(struct page *page, unsigned int order)
 }
 
 #ifdef CONFIG_CMA
-void adjust_managed_cma_page_count(struct zone *zone, long count)
+void adjust_managed_cma_page_count(struct zone *zone, long count, int adjust)
 {
 	unsigned long flags;
 	long total, cma, movable;
 
 	spin_lock_irqsave(&zone->lock, flags);
-	zone->managed_cma_pages += count;
+	if (adjust == 1)
+		zone->managed_cma_pages += count;
+	else
+		zone->managed_cma_pages -= count;
 
 	total = zone->managed_pages;
 	cma = zone->managed_cma_pages;
@@ -1158,9 +1161,6 @@ static struct page *__rmqueue_cma(struct zone *zone, unsigned int order)
 {
 	struct page *page;
 
-	if (zone->nr_try_movable > 0)
-		goto alloc_movable;
-
 	if (zone->nr_try_cma > 0) {
 		/* Okay. Now, we can try to allocate the page from cma region */
 		zone->nr_try_cma -= 1 << order;
@@ -1172,6 +1172,8 @@ static struct page *__rmqueue_cma(struct zone *zone, unsigned int order)
 
 		return page;
 	}
+	if (zone->nr_try_movable > 0)
+		goto alloc_movable;
 
 	/* Reset counter */
 	zone->nr_try_movable = zone->max_try_movable;
@@ -1922,10 +1924,6 @@ static int zlc_zone_worth_trying(struct zonelist *zonelist, struct zoneref *z,
 }
 
 static void zlc_mark_zone_full(struct zonelist *zonelist, struct zoneref *z)
-{
-}
-
-static void zlc_clear_zones_full(struct zonelist *zonelist)
 {
 }
 
