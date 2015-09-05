@@ -711,9 +711,25 @@ static int cht_set_bias_level(struct snd_soc_card *card,
 	return ret;
 }
 
+static irqreturn_t jd_soc_irq_handler(int irq, void *dev_id)
+{
+	pr_info("%s, enter\n", __func__);
+	pr_info("going to call cht_hs_detection(null) \n");
+	cht_hs_detection(NULL);
+	return IRQ_HANDLED;
+}
+
+#ifdef TEST_JD_CODEC
+static irqreturn_t jd_codec_irq_handler(int irq, void *dev_id)
+{
+	pr_info("%s, enter\n", __func__);
+	return IRQ_HANDLED;
+}
+#endif
+
 static int cht_audio_init(struct snd_soc_pcm_runtime *runtime)
 {
-	int ret; int rr = 1;
+	int ret;
 	struct snd_soc_codec *codec;
 	struct snd_soc_card *card = runtime->card;
 	struct cht_mc_private *ctx = snd_soc_card_get_drvdata(runtime->card);
@@ -731,10 +747,8 @@ static int cht_audio_init(struct snd_soc_pcm_runtime *runtime)
 	cht_set_bias_level(card, &card->dapm, SND_SOC_BIAS_OFF);
 	card->dapm.idle_bias_off = true;
 
-	snd_soc_update_bits(codec, RT5645_JD_CTRL,
-			RT5645_JD_MASK, RT5645_JD_JD1_IN4P);
-
-if(rr){
+//	snd_soc_update_bits(codec, RT5645_JD_CTRL,
+//			RT5645_JD_MASK, RT5645_JD_JD1_IN4P);
 
 	desc = devm_gpiod_get_index(codec->dev, NULL, 0);
 	if (!IS_ERR(desc)) {
@@ -784,23 +798,36 @@ if(rr){
 
 	snd_jack_set_key(ctx->jack.jack, SND_JACK_BTN_0, KEY_MEDIA);
 
+#ifdef TEST_JD_CODEC
+	gpio_request(codec_gpio, "JD_CODEC_N");
+	gpio_direction_input(codec_gpio);
+	ret = request_any_context_irq(gpio_to_irq(codec_gpio), jd_codec_irq_handler,
+            IRQF_DISABLED| IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING, "jd_codec_irq", NULL);
+	if (ret != 1) {
+		pr_info("unable to get jd_codec IRQ\n");
+	}else{
+		pr_info("gpio_to_irq(307) = %d", gpio_to_irq(codec_gpio));
+	}
+#endif
+
+
+#ifndef TEST_JD_CODEC
 	ret = snd_soc_jack_add_gpios(&ctx->jack, 1, &hs_gpio);
 	if (ret) {
 		pr_err("adding jack GPIO failed\n");
 		return ret;
 	}
+#endif
 
-// request gpio for jd status
-//        ret = gpio_is_valid(CHT_RT5645_JD_SOC);
-//        if(!ret){
-		pr_info("%s, gpio is valid. to request\n", __func__);
-		gpio_request(CHT_RT5645_JD_SOC, "JACK_DET_SOC_N");
-		gpio_direction_input(CHT_RT5645_JD_SOC);
-//	}else{
-//		pr_info("%s, gpio is NOT valid.\n", __func__);
-//	}
+	gpio_request(CHT_RT5645_JD_SOC, "JD_SOC_N");
+	gpio_direction_input(CHT_RT5645_JD_SOC);
 
-}
+	ret = request_any_context_irq(gpio_to_irq(CHT_RT5645_JD_SOC), jd_soc_irq_handler, IRQF_DISABLED| IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING, "jd_soc_irq", NULL);
+	if (ret != 1) {
+		pr_info("unable to get jd_soc IRQ\n");
+	}else{
+		pr_info("gpio_to_irq(406) = %d", gpio_to_irq(CHT_RT5645_JD_SOC));
+	}
 
 	/* Keep the voice call paths active during
 	 * suspend. Mark the end points ignore_suspend
@@ -816,6 +843,8 @@ if(rr){
 	snd_soc_dapm_enable_pin(&card->dapm, "Headphone");
 	snd_soc_dapm_enable_pin(&card->dapm, "Ext Spk");
 	snd_soc_dapm_enable_pin(&card->dapm, "Int Mic");
+
+	snd_soc_dapm_enable_pin(&card->dapm, "JD Power");
 
 	snd_soc_dapm_sync(&card->dapm);
 	return ret;
