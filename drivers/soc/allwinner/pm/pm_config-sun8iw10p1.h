@@ -119,9 +119,9 @@
 
 #define AW_RTC_BASE		(SUNXI_RTC_PBASE)
 #define AW_SRAMCTRL_BASE	(SUNXI_SRAMCTRL_PBASE)
-#define GPIO_REG_LENGTH		((0x258+0x4)>>2)
+#define GPIO_REG_LENGTH		((0x278+0x4)>>2)
 #define CPUS_GPIO_REG_LENGTH	((0x218+0x4)>>2)
-#define SRAM_REG_LENGTH		((0xa4+0x4)>>2)
+#define SRAM_REG_LENGTH		((0xF4+0x4)>>2)
 #define CCU_REG_LENGTH		((0x2d8+0x4)>>2)
 
 //int src no.

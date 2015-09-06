@@ -29,6 +29,9 @@ static void query_wakeup_source(struct aw_pm_info *arg);
 int standby_main(struct aw_pm_info *arg)
 {
 	save_mem_status(STANDBY_START | 0X01);
+
+	/* module test */
+	return 0;
 	/* copy standby parameter from dram */
 	standby_memcpy(&pm_info, arg, sizeof(pm_info));
 
