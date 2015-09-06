@@ -115,7 +115,7 @@
 			uart5_pins_a: uart5@0 {
 				allwinner,pins = "PD2", "PD3", "PD4", "PD5";
 				allwinner,pname = "uart5_tx", "uart5_rx", "uart5_rts", "uart5_cts";
-				allwinner,function = "uart4";
+				allwinner,function = "uart5";
 				allwinner,muxsel = <3>;
 				allwinner,drive = <1>;
 				allwinner,pull = <1>;

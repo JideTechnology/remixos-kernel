@@ -410,7 +410,7 @@
 		twi2: twi@0x01c2b400{
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "allwinner,sun50i-twi";
+			compatible = "allwinner,sun8i-twi";
 			device_type = "twi2";
 			reg = <0x0 0x01c2b400 0x0 0x400>;
 			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
