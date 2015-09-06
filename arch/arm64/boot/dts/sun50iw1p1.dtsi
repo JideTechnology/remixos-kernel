@@ -1112,13 +1112,16 @@
 				status	= "disabled";
 			};
 		};
+
 		Vdevice: vdevice@0{
 			compatible = "allwinner,sun50i-vdevice";
+			device_type = "Vdevice";
 			pinctrl-names = "default";
 			pinctrl-0 = <&vdevice_pins_a>;
 			test-gpios = <&r_pio PL 0 1 2 3 4>;
 			status = "okay";
 		};
+
 		cryptoengine: ce@1c15000 {
 			compatible = "allwinner,sunxi-ce";
 			reg = <0x0 0x01c15000 0x0 0x80>, /* non-secure space */
