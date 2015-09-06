@@ -84,10 +84,10 @@ scene_extended_standby_t extended_standby[] = {
 													    //hsic pll can be disabled, cpus can change cci400 clk from hsic_pll.
 		.soc_pwr_dep.cpux_clk_state.exit_pll_en    = 0x0,
 		.soc_pwr_dep.cpux_clk_state.pll_change     = BITMAP(PM_PLL_PERIPH),
-		.soc_pwr_dep.cpux_clk_state.pll_factor[PM_PLL_PERIPH] = { ////PLL_PERIPH freq = 24*1*1/2= 12M
-		    .factor1 = 0, //N=1
-		    .factor2 = 0, //Div1 = 0 + 1 = 1
-		    .factor3 = 0, //Div2 = 0 + 1 = 1, only used in plltest debug;
+		.soc_pwr_dep.cpux_clk_state.pll_factor[PM_PLL_PERIPH] = { ////PLL_PERIPH freq = 24*25*2/2= 12M
+		    .factor1 = 1, //M=2
+		    .factor2 = 1, //K=2
+		    .factor3 = 24, //N=25
 		},
 		.soc_pwr_dep.cpux_clk_state.bus_change     = BITMAP(BUS_AHB1) | BITMAP(BUS_AHB2),
 		.soc_pwr_dep.cpux_clk_state.bus_factor[BUS_AHB1]     = {
