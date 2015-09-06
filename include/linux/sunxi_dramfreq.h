@@ -24,6 +24,7 @@
 
 #define PTR2                        (0x04c)
 #define RFSHTMG                     (0x090)
+#define VTFCR                       (0x0b8)
 #define PGCR0                       (0x100)
 #define ODTMAP                      (0x120)
 #define DXnGCR0(x)                  (0x344 + 0x80 * (x))

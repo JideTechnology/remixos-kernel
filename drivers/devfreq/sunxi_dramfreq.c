@@ -286,6 +286,7 @@ static int mdfs_dfs(unsigned int freq_jump, struct sunxi_dramfreq *dramfreq,
 	unsigned int rank_num, trefi, trfc, ctrl_freq;
 	unsigned int i, n = 4;
 	unsigned int div, source;
+	unsigned int vtf_status;
 	// unsigned int hdr_clk_status;
 	unsigned int timeout = 1000000;
 	struct dram_para_t *para = &dramfreq->dram_para;
@@ -330,6 +331,14 @@ static int mdfs_dfs(unsigned int freq_jump, struct sunxi_dramfreq *dramfreq,
 	// reg_val &= ~(0xf<<12);
 	// reg_val |= (0x5<<12);
 	// writel(reg_val, dramfreq->dramctl_base + PGCR0);
+
+	/* save vtf status,global vtf off when DFS */
+	reg_val = readl(dramfreq->dramctl_base + VTFCR);
+	vtf_status = (reg_val & (0x1<<8));
+	if (vtf_status) {
+		reg_val &= ~(0x1<<8);
+		writel(reg_val, dramfreq->dramctl_base + VTFCR);
+	}
 
 	/* set dual buffer for timing change and power save */
 	reg_val = readl(dramfreq->dramcom_base + MC_MDFSCR);
@@ -406,6 +415,13 @@ static int mdfs_dfs(unsigned int freq_jump, struct sunxi_dramfreq *dramfreq,
 
 	if (timeout == 0)
 		return -EBUSY;
+
+	/* recovery vtf status */
+	if (vtf_status) {
+		reg_val = readl(dramfreq->dramctl_base + VTFCR);
+		vtf_status |= (0x1<<8);
+		writel(reg_val, dramfreq->dramctl_base + VTFCR);
+	}
 
 	/* turn off dual buffer */
 	reg_val = readl(dramfreq->dramcom_base + MC_MDFSCR);
