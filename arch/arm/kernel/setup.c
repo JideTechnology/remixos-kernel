@@ -30,7 +30,6 @@
 #include <linux/bug.h>
 #include <linux/compiler.h>
 #include <linux/sort.h>
-#include <linux/clk-provider.h>
 
 #include <asm/unified.h>
 #include <asm/cp15.h>
@@ -867,14 +866,6 @@ void __init setup_arch(char **cmdline_p)
 	if (mdesc->init_early)
 		mdesc->init_early();
 }
-
-static int __init arm_device_init(void)
-{
-	of_clk_init(NULL);
-	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
-	return 0;
-}
-arch_initcall_sync(arm_device_init);
 
 static int __init topology_init(void)
 {

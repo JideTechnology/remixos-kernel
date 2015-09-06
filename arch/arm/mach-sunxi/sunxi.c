@@ -19,6 +19,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
 #include <linux/io.h>
+#include <linux/clk-provider.h>
 
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
@@ -129,12 +130,16 @@ void __init sunxi_map_io(void)
 
 static void __init sunxi_timer_init(void)
 {
+	of_clk_init(NULL);
+
 	clocksource_of_init();
 }
 
 static void __init sunxi_dt_init(void)
 {
 	sunxi_setup_restart();
+
+	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
 }
 
 static const char * const sunxi_board_dt_compat[] = {
