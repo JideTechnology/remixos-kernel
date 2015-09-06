@@ -417,6 +417,17 @@
 			status = "disable";
 		};
 
+		box_start_os: box_start_os0 {
+			compatible = "allwinner,box_start_os";
+			start_type = <0x0>;
+			irkey_used = <0x0>;
+			pmukey_used = <0x0>;
+			pmukey_num = <0x0>;
+			led_power = <0x0>;
+			led_state = <0x0>;
+			status = "disable";
+		};
+
 		soc_timer0: timer@1c20c00 {
 			compatible = "allwinner,sunxi-timer";
 			device_type = "timer";
