@@ -198,9 +198,9 @@ static void sunxi_check_hs_button_status(struct work_struct *work)
 	struct mc_private *ctx = container_of(work, struct mc_private, hs_button_work.work);
 	u32 i = 0;
 	mutex_lock(&ctx->jack_mlock);
-	for (i = 0;i < 5; i++){
+	for (i = 0;i < 1; i++){
 		if (ctx->key_hook == 0 ){
-			pr_debug("Hook (2)!!\n");
+			pr_info("Hook (2)!!\n");
 			ctx->switch_status &= ~SND_JACK_BTN_0;
 			snd_jack_report(ctx->jack.jack, ctx->switch_status);
 			break;
@@ -281,16 +281,16 @@ static irqreturn_t jack_interrupt(int irq, void *dev_id)
 					ctx->switch_status &= ~SND_JACK_BTN_2;
 					snd_jack_report(ctx->jack.jack, ctx->switch_status);
 				}
-			} else if (tempdata == 1 || tempdata == 0) {
+			} else if (tempdata == 0xa ||tempdata == 0xb ||tempdata == 0x9) {
 				ctx->key_volup = 0;
 				ctx->key_voldown = 0;
-				ctx->key_hook ++;
-				if (ctx->key_hook >= 40) {
-					ctx->key_hook = 1;
+				ctx->key_hook++;
+				if (ctx->key_hook >= 1) {
+					ctx->key_hook = 0;
 					if ((ctx->switch_status & SND_JACK_BTN_0) == 0) {
 						ctx->switch_status |= SND_JACK_BTN_0;
 						snd_jack_report(ctx->jack.jack, ctx->switch_status);
-						pr_debug("Hook (1)!!\n");
+						pr_info("Hook (1)!!\n");
 					}
 					schedule_delayed_work(&ctx->hs_button_work,msecs_to_jiffies(180));
 				}
