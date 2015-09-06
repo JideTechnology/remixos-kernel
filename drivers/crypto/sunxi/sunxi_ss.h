@@ -119,7 +119,11 @@
 
 #define SS_RES_NS_INDEX	0
 #define SS_RES_S_INDEX	1
+#ifdef CONFIG_EVB_PLATFORM
+#define SS_RES_INDEX	SS_RES_NS_INDEX
+#else
 #define SS_RES_INDEX	SS_RES_S_INDEX
+#endif
 
 #ifdef SS_SCATTER_ENABLE
 
