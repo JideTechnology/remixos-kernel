@@ -311,7 +311,7 @@ u32 hdmi_core_get_csc_type(void)
 {
 	int csc = 1;
 
-	if ((hdmi_core_get_cts_enable() == 1) &&(hdmi_edid_is_yuv() == 0))
+	if (hdmi_edid_is_yuv() == 0)
 		csc = 0;
 
 	if ((is_exp == 1) &&
