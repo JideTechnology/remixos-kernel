@@ -33,6 +33,10 @@
 
 #define res_size(_r) (((_r)->end - (_r)->start) + 1)
 
+#define USB_PHY  0xcc
+#define USB_PHY0_RESET (0x1 << 0)
+#define USB_PHY0_GATING (0x1 << 8)
+
 u32  open_usb_clock(sunxi_udc_io_t *sunxi_udc_io)
 {
 	DMSG_INFO_UDC("open_usb_clock\n");
@@ -43,11 +47,19 @@ u32  open_usb_clock(sunxi_udc_io_t *sunxi_udc_io)
 		}
 
 		udelay(10);
-
+#if !defined (CONFIG_ARCH_SUN50I)
 		if (clk_prepare_enable(sunxi_udc_io->mod_usbphy)) {
 			DMSG_PANIC("ERR:try to prepare_enable sunxi_udc_io->mod_usbphy failed!\n");
 		}
-
+#else
+{
+		int reg_val = 0;
+		reg_val = USBC_Readl(sunxi_udc_io->clock_vbase + USB_PHY);
+		reg_val |= USB_PHY0_RESET;
+		reg_val |= USB_PHY0_GATING;
+		USBC_Writel(reg_val, (sunxi_udc_io->clock_vbase + USB_PHY));
+}
+#endif
 		udelay(10);
 
 		sunxi_udc_io->clk_is_open = 1;
@@ -71,9 +83,9 @@ u32 close_usb_clock(sunxi_udc_io_t *sunxi_udc_io)
 
 	if (sunxi_udc_io->ahb_otg && sunxi_udc_io->mod_usbphy && sunxi_udc_io->clk_is_open) {
 		sunxi_udc_io->clk_is_open = 0;
-
+#if !defined (CONFIG_ARCH_SUN50I)
 		clk_disable_unprepare(sunxi_udc_io->mod_usbphy);
-
+#endif
 		clk_disable_unprepare(sunxi_udc_io->ahb_otg);
 		udelay(10);
 

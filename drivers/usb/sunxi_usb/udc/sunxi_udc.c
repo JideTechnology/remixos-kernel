@@ -2403,6 +2403,14 @@ static int sunxi_get_udc_base(struct platform_device *pdev, sunxi_udc_io_t *sunx
 		return -EINVAL;
 	}
 
+#if defined (CONFIG_ARCH_SUN50I)
+	sunxi_udc_io->clock_vbase  = of_iomap(np, 2);
+	if (sunxi_udc_io->clock_vbase == NULL) {
+		dev_err(&pdev->dev, "can't get clock_vbase resource\n");
+		return -EINVAL;
+	}
+#endif
+
 	//DMSG_INFO("usbc base:%p\n", sunxi_udc_io->usb_vbase);
 	return 0;
 }

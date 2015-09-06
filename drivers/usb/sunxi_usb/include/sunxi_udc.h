@@ -208,6 +208,7 @@ typedef struct sunxi_udc_io{
 	struct resource	*sram_base_req;   	/* SRAM resources 		*/
 	void __iomem	*sram_vbase;		/* SRAM base address 		*/
 
+
 	struct resource	*clock_base_res;   	/* clock resources 		*/
 	struct resource	*clock_base_req;   	/* clock resources 		*/
 	void __iomem	*clock_vbase;		/* clock base address 		*/
