@@ -4011,7 +4011,6 @@ static int vfe_actuator_subdev_register(struct vfe_dev *dev, struct ccm_config  
 	}
 
 	ccm_cfg->sd_act = NULL;
-	//vfe_print("registered act sub device, slave=0x%x~~~\n",ccm_cfg->act_slave);
 	act_i2c_board->addr = (unsigned short)(ccm_cfg->act_slave>>1);
 	strcpy(act_i2c_board->type,ccm_cfg->act_name);
 	ccm_cfg->sd_act = v4l2_i2c_new_subdev_board(v4l2_dev,i2c_adap_act,act_i2c_board,NULL);
@@ -4023,7 +4022,6 @@ static int vfe_actuator_subdev_register(struct vfe_dev *dev, struct ccm_config  
 		vfe_print("registered actuator device succeed!\n");
 	}
 	ccm_cfg->act_ctrl = (struct actuator_ctrl_t *)container_of(ccm_cfg->sd_act,struct actuator_ctrl_t, sdev);
-	//printk("ccm_cfg->act_ctrl=%x\n",(unsigned int )ccm_cfg->act_ctrl);
 	return 0;
 }
 #endif
@@ -4365,9 +4363,9 @@ static void probe_work_handle(struct work_struct *work)
 	struct vfe_dev *dev= container_of(work, struct vfe_dev, probe_work.work);
 	int ret = 0;
 	int input_num;
+	int device_valid_count = 0;
 	struct video_device *vfd;
 	struct vb2_queue *q;
-    
 	mutex_lock(&probe_hdl_lock);
 	vfe_print("probe_work_handle start!\n");
 	vfe_dbg(0,"v4l2_device_register\n");
@@ -4375,7 +4373,7 @@ static void probe_work_handle(struct work_struct *work)
 	ret = v4l2_device_register(&dev->pdev->dev, &dev->v4l2_dev); 
 	if (ret) {
 		vfe_err("Error registering v4l2 device\n");
-		goto probe_hdl_free_dev;
+		goto probe_hdl_end;
 	}
 
 	ret = vfe_init_controls(&dev->ctrl_handler);    
@@ -4450,6 +4448,7 @@ static void probe_work_handle(struct work_struct *work)
 			//goto snesor_register_end;
 		}else{
 			dev->device_valid_flag[input_num] = 1;
+			device_valid_count ++;
 		}
 		if(dev->ccm_cfg[input_num]->is_isp_used && dev->ccm_cfg[input_num]->is_bayer_raw)
 		{
@@ -4483,16 +4482,18 @@ snesor_register_end:
 	}
 	*vfd = vfe_template[dev->id];
 	vfd->v4l2_dev = &dev->v4l2_dev;
-	ret = video_register_device(vfd, VFL_TYPE_GRABBER, dev->id);
-	if (ret < 0)
+	if(0 != device_valid_count)
 	{
-		vfe_err("Error video_register_device!!\n");		
-		goto probe_hdl_rel_vdev;
+		ret = video_register_device(vfd, VFL_TYPE_GRABBER, dev->id);
+		if (ret < 0)
+		{
+			vfe_err("Error video_register_device!!\n"); 	
+			goto probe_hdl_rel_vdev;
+		} 
 	} 
 	//Provide a mutex to v4l2 core. It will be used to protect all fops and v4l2 ioctls.
 	//vfd->lock = &dev->buf_lock;
 	video_set_drvdata(vfd, dev);
-	/*add device list*/
 	/* Now that everything is fine, let's add it to device list */
 	list_add_tail(&dev->devlist, &devlist);
 
@@ -4535,9 +4536,7 @@ close_clk_pin_power:
 probe_hdl_unreg_dev:
 	vfe_print("v4l2_device_unregister @ probe_hdl!\n");
 	v4l2_device_unregister(&dev->v4l2_dev); 
-probe_hdl_free_dev: 
-	vfe_print("vfe_resource_release @ probe_hdl!\n");
-	vfe_resource_release(dev);
+probe_hdl_end: 
 	vfe_err("Failed to install at probe handle\n");
 	mutex_unlock(&probe_hdl_lock);
 	return ;
@@ -4630,7 +4629,6 @@ static int vfe_probe(struct platform_device *pdev)
 	//=======================================
 	/* init video dma queues */
 	INIT_LIST_HEAD(&dev->vidq.active);
-	//init_waitqueue_head(&dev->vidq.wq);
 	INIT_DELAYED_WORK(&dev->probe_work, probe_work_handle);
 	mutex_init(&dev->stream_lock);
 	mutex_init(&dev->opened_lock);
@@ -4705,12 +4703,10 @@ static int vfe_remove(struct platform_device *pdev)
 	}
 	vfe_resource_release(dev);
 	v4l2_info(&dev->v4l2_dev, "unregistering %s\n", video_device_node_name(dev->vfd));
-	//video_device_release(dev->vfd);
 	video_unregister_device(dev->vfd);  
 	v4l2_device_unregister(&dev->v4l2_dev);
 	v4l2_ctrl_handler_free(&dev->ctrl_handler);
 	vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
-	//kfree(dev);
 	vfe_print("vfe_remove ok!\n");
 	return 0;
 }
