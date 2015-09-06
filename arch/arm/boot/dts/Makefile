@@ -177,13 +177,8 @@ dtb-$(CONFIG_ARCH_SPEAR3XX)+= spear300-evb.dtb \
 	spear320-evb.dtb \
 	spear320-hmi.dtb
 dtb-$(CONFIG_ARCH_SPEAR6XX)+= spear600-evb.dtb
-dtb-$(CONFIG_ARCH_SUNXI) += \
-	sun4i-a10-cubieboard.dtb \
-	sun4i-a10-mini-xplus.dtb \
-	sun4i-a10-hackberry.dtb \
-	sun5i-a13-olinuxino.dtb \
-	sun8iw10p1-fpga.dtb \
-	sun8iw11p1-fpga.dtb
+dtb-$(CONFIG_ARCH_SUN8IW10P1) += sun8iw10p1-fpga.dtb
+dtb-$(CONFIG_ARCH_SUN8IW11P1) += sun8iw11p1-fpga.dtb
 dtb-$(CONFIG_ARCH_TEGRA) += tegra20-harmony.dtb \
 	tegra20-iris-512.dtb \
 	tegra20-medcom-wide.dtb \
