@@ -340,29 +340,9 @@ static int open_clock(struct sunxi_hci_hcd *sunxi_hci, u32 ohci)
 				}
 			}
 		}else{
-
-#if !defined (CONFIG_ARCH_SUN50I)
 			if(clk_prepare_enable(sunxi_hci->mod_usbphy)){
 				DMSG_PANIC("ERR:try to prepare_enable %s_usbphy failed!\n", sunxi_hci->hci_name);
 			}
-#else
-{
-			int reg_val = 0;
-			if(sunxi_hci->usbc_no == HCI0_USBC_NO){
-				reg_val = USBC_Readl(sunxi_hci->clock_vbase + USB_PHY);
-				reg_val |= USB_PHY0_RESET;
-				reg_val |= USB_PHY0_GATING;
-				USBC_Writel(reg_val, (sunxi_hci->clock_vbase + USB_PHY));
-			}
-
-			if(sunxi_hci->usbc_no == HCI1_USBC_NO){
-				reg_val = USBC_Readl(sunxi_hci->clock_vbase + USB_PHY);
-				reg_val |= USB_PHY1_RESET;
-				reg_val |= USB_PHY1_GATING;
-				USBC_Writel(reg_val, (sunxi_hci->clock_vbase + USB_PHY));
-			}
-}
-#endif
 		}
 
 		udelay(10);
@@ -398,9 +378,8 @@ static int close_clock(struct sunxi_hci_hcd *sunxi_hci, u32 ohci)
 				clk_disable_unprepare(sunxi_hci->pll_hsic);
 			}
 		}else{
-#if !defined (CONFIG_ARCH_SUN50I)
+
 			clk_disable_unprepare(sunxi_hci->mod_usbphy);
-#endif
 		}
 
 		clk_disable_unprepare(sunxi_hci->ahb);
@@ -751,13 +730,6 @@ static int sunxi_get_hci_base(struct platform_device *pdev, struct sunxi_hci_hcd
 		return -EINVAL;
 	}
 
-#if defined (CONFIG_ARCH_SUN50I)
-	sunxi_hci->clock_vbase  = of_iomap(np, 3);
-	if (sunxi_hci->clock_vbase == NULL) {
-		dev_err(&pdev->dev, "%s, can't get clock_vbase resource\n", sunxi_hci->hci_name);
-		return -EINVAL;
-	}
-#endif
 		//DMSG_INFO("OTG,Vbase:0x%p\n", sunxi_hci->otg_vbase);
 
 	ret = of_address_to_resource(np, 0, &res);

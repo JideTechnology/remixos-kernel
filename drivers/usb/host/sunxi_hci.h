@@ -34,12 +34,6 @@
 #define HCI2_USBC_NO    2
 #define HCI3_USBC_NO    3
 
-#define USB_PHY  0xcc
-#define USB_PHY0_RESET (0x1 << 0)
-#define USB_PHY0_GATING (0x1 << 8)
-#define USB_PHY1_RESET (0x1 << 1)
-#define USB_PHY1_GATING (0x1 << 9)
-
 #if 0
 #define DMSG_DEBUG                              DMSG_PRINT
 #else

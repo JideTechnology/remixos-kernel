@@ -582,8 +582,7 @@
 		udc:udc-controller@0x01c19000 {
 			compatible          = "allwinner,sunxi-udc";
 			reg                 = <0x0 0x01c19000 0x0 0x1000>, /*udc base*/
-			                      <0x0 0x01c00000 0x0 0x100>, /*sram base*/
-			                      <0x0 0x01c20000 0x0 0x100>; /*ccmu base*/
+			                      <0x0 0x01c00000 0x0 0x100>; /*sram base*/
 			interrupts          = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
 			clocks              = <&clk_usbphy0>, <&clk_usbotg>;
 			status              = "okay";
@@ -593,8 +592,7 @@
 			compatible          = "allwinner,sunxi-ehci0";
 			reg                 = <0x0 0x01c1a000 0x0 0xFFF>, /*hci0 base*/
 			                      <0x0 0x01c00000 0x0 0x100>, /*sram base*/
-			                      <0x0 0x01c19000 0x0 0x1000>, /*otg base*/
-			                      <0x0 0x01c20000 0x0 0x100>; /*ccmu base*/
+			                      <0x0 0x01c19000 0x0 0x1000>; /*otg base*/
 			interrupts          = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
 			clocks              = <&clk_usbphy0>, <&clk_usbehci0>;
 			hci_ctrl_no         = <0>;
@@ -605,8 +603,7 @@
 			compatible          = "allwinner,sunxi-ohci0";
 			reg                 = <0x0 0x01c1a000 0x0 0xFFF>, /*hci0 base*/
 			                      <0x0 0x01c00000 0x0 0x100>, /*sram base*/
-			                      <0x0 0x01c19000 0x0 0x1000>, /*otg base*/
-			                      <0x0 0x01c20000 0x0 0x100>; /*ccmu base*/
+			                      <0x0 0x01c19000 0x0 0x1000>; /*otg base*/
 			interrupts          = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>;
 			clocks              = <&clk_usbphy0>, <&clk_usbohci0>;
 			hci_ctrl_no         = <0>;
@@ -637,8 +634,7 @@
 			compatible          = "allwinner,sunxi-ehci1";
 			reg                 = <0x0 0x01c1b000 0x0 0xFFF>,/*hci1 base*/
 			                      <0x0 0x01c00000 0x0 0x100>, /*sram base*/
-			                      <0x0 0x01c19000 0x0 0x1000>, /*otg base*/
-			                      <0x0 0x01c20000 0x0 0x100>; /*ccmu base*/
+			                      <0x0 0x01c19000 0x0 0x1000>; /*otg base*/
 			interrupts          = <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>;
 			clocks              = <&clk_usbphy1>, <&clk_usbehci1>, <&clk_usbhsic>, <&clk_usbhsic12m>, <&clk_pll_hsic>;
 			hci_ctrl_no         = <1>;
@@ -649,8 +645,7 @@
 			compatible          = "allwinner,sunxi-ohci1";
 			reg                 = <0x0 0x01c1b000 0x0 0xFFF>, /*hci1 base*/
 			                      <0x0 0x01c00000 0x0 0x100>, /*sram base*/
-			                      <0x0 0x01c19000 0x0 0x1000>, /*otg base*/
-			                      <0x0 0x01c20000 0x0 0x100>; /*ccmu base*/
+			                      <0x0 0x01c19000 0x0 0x1000>; /*otg base*/
 			interrupts          = <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH>;
 			clocks              = <&clk_usbphy1>, <&clk_usbohci1>;
 			hci_ctrl_no         = <1>;
