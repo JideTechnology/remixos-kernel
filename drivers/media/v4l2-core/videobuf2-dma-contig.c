@@ -74,7 +74,7 @@ static int ion_alloc_coherent(struct vb2_dc_buf *mem)
 		printk("ion_map_kernel failed!!\n");
 		goto err_map_kernel;
 	}
-	if(ion_phys(mem->client, mem->handle, (ion_phys_addr_t *)&mem->dma_addr, &mem->size ))
+	if(ion_phys(mem->client, mem->handle, (ion_phys_addr_t *)&mem->dma_addr, (size_t *)&mem->size ))
 	{
 		printk("ion_phys failed!!\n");
 		goto err_phys;

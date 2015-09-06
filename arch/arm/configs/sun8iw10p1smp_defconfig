@@ -552,7 +552,7 @@ CONFIG_FW_LOADER_USER_HELPER=y
 CONFIG_REGMAP=y
 CONFIG_REGMAP_I2C=y
 CONFIG_REGMAP_SPI=y
-# CONFIG_DMA_SHARED_BUFFER is not set
+CONFIG_DMA_SHARED_BUFFER=y
 CONFIG_DMA_CMA=y
 
 #
@@ -1181,7 +1181,94 @@ CONFIG_BCMA_POSSIBLE=y
 CONFIG_VEXPRESS_CONFIG=y
 # CONFIG_VEXPRESS_SPC is not set
 # CONFIG_REGULATOR is not set
-# CONFIG_MEDIA_SUPPORT is not set
+CONFIG_MEDIA_SUPPORT=y
+
+#
+# Multimedia core support
+#
+CONFIG_MEDIA_CAMERA_SUPPORT=y
+# CONFIG_MEDIA_ANALOG_TV_SUPPORT is not set
+# CONFIG_MEDIA_DIGITAL_TV_SUPPORT is not set
+# CONFIG_MEDIA_RADIO_SUPPORT is not set
+# CONFIG_MEDIA_RC_SUPPORT is not set
+# CONFIG_MEDIA_CONTROLLER is not set
+CONFIG_VIDEO_DEV=y
+CONFIG_VIDEO_V4L2=y
+# CONFIG_VIDEO_ADV_DEBUG is not set
+# CONFIG_VIDEO_FIXED_MINOR_RANGES is not set
+CONFIG_VIDEOBUF2_CORE=m
+CONFIG_VIDEOBUF2_MEMOPS=m
+CONFIG_VIDEOBUF2_DMA_CONTIG=m
+# CONFIG_VIDEO_V4L2_INT_DEVICE is not set
+# CONFIG_TTPCI_EEPROM is not set
+
+#
+# Media drivers
+#
+# CONFIG_MEDIA_USB_SUPPORT is not set
+CONFIG_V4L_PLATFORM_DRIVERS=y
+# CONFIG_VIDEO_TIMBERDALE is not set
+# CONFIG_SOC_CAMERA is not set
+CONFIG_VIDEO_SUNXI_VFE=m
+CONFIG_CSI_VFE=m
+# CONFIG_V4L_MEM2MEM_DRIVERS is not set
+# CONFIG_V4L_TEST_DRIVERS is not set
+
+#
+# Supported MMC/SDIO adapters
+#
+# CONFIG_CYPRESS_FIRMWARE is not set
+
+#
+# Media ancillary drivers (tuners, sensors, i2c, frontends)
+#
+CONFIG_MEDIA_SUBDRV_AUTOSELECT=y
+
+#
+# Audio decoders, processors and mixers
+#
+
+#
+# RDS decoders
+#
+
+#
+# Video decoders
+#
+
+#
+# Video and audio decoders
+#
+
+#
+# Video encoders
+#
+
+#
+# Camera sensor devices
+#
+
+#
+# Flash devices
+#
+
+#
+# Video improvement chips
+#
+
+#
+# Miscelaneous helper chips
+#
+
+#
+# Sensors used on soc_camera driver
+#
+
+#
+# Tools to develop new frontends
+#
+# CONFIG_DVB_DUMMY_FE is not set
+# CONFIG_VIDEO_ENCODER_DECODER_SUNXI is not set
 
 #
 # Graphics support
@@ -1469,9 +1556,6 @@ CONFIG_USB_GADGET_STORAGE_NUM_BUFFERS=2
 # CONFIG_USB_NET2272 is not set
 CONFIG_USB_SUNXI_UDC0=y
 # CONFIG_USB_DUMMY_HCD is not set
-CONFIG_USB_LIBCOMPOSITE=y
-CONFIG_USB_F_ACM=y
-CONFIG_USB_U_SERIAL=y
 # CONFIG_USB_ZERO is not set
 # CONFIG_USB_AUDIO is not set
 # CONFIG_USB_GADGETFS is not set
@@ -1480,11 +1564,10 @@ CONFIG_USB_U_SERIAL=y
 # CONFIG_USB_G_SERIAL is not set
 # CONFIG_USB_MIDI_GADGET is not set
 # CONFIG_USB_G_PRINTER is not set
-CONFIG_USB_G_ANDROID=y
-# CONFIG_USB_ANDROID_RNDIS_DWORD_ALIGNED is not set
 # CONFIG_USB_G_ACM_MS is not set
 # CONFIG_USB_G_HID is not set
 # CONFIG_USB_G_DBGP is not set
+# CONFIG_USB_G_WEBCAM is not set
 CONFIG_USB_SUNXI_USB=y
 CONFIG_USB_SUNXI_USB_MANAGER=y
 CONFIG_USB_SUNXI_USB_DEBUG=y
@@ -1608,7 +1691,45 @@ CONFIG_SUNXI_DMA=y
 #
 # Microsoft Hyper-V guest support
 #
-# CONFIG_STAGING is not set
+CONFIG_STAGING=y
+# CONFIG_ECHO is not set
+# CONFIG_COMEDI is not set
+# CONFIG_ASUS_OLED is not set
+# CONFIG_RTS5139 is not set
+# CONFIG_TRANZPORT is not set
+# CONFIG_LINE6_USB is not set
+# CONFIG_ZSMALLOC is not set
+# CONFIG_USB_ENESTORAGE is not set
+# CONFIG_FT1000 is not set
+
+#
+# Speakup console speech
+#
+# CONFIG_SPEAKUP is not set
+# CONFIG_TOUCHSCREEN_CLEARPAD_TM1217 is not set
+# CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4 is not set
+# CONFIG_STAGING_MEDIA is not set
+
+#
+# Android
+#
+CONFIG_ANDROID=y
+# CONFIG_ANDROID_BINDER_IPC is not set
+# CONFIG_ASHMEM is not set
+# CONFIG_ANDROID_LOGGER is not set
+CONFIG_ANDROID_TIMED_OUTPUT=y
+# CONFIG_ANDROID_TIMED_GPIO is not set
+# CONFIG_ANDROID_LOW_MEMORY_KILLER is not set
+# CONFIG_ANDROID_INTF_ALARM_DEV is not set
+# CONFIG_SYNC is not set
+CONFIG_ION=y
+# CONFIG_ION_TEST is not set
+# CONFIG_ION_DUMMY is not set
+CONFIG_ION_SUNXI=y
+# CONFIG_FIQ_DEBUGGER is not set
+# CONFIG_FIQ_WATCHDOG is not set
+# CONFIG_CED1401 is not set
+# CONFIG_DGRP is not set
 CONFIG_CLKDEV_LOOKUP=y
 CONFIG_HAVE_CLK_PREPARE=y
 CONFIG_COMMON_CLK=y
