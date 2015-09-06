@@ -216,13 +216,15 @@ static void arch_timer_set_mode_phys_mem(enum clock_event_mode mode,
 	timer_set_mode(ARCH_TIMER_MEM_PHYS_ACCESS, mode, clk);
 }
 #ifdef  CONFIG_ARCH_SUN50I
-#define ARCH_TVAL_TRY_MAX_TIME (8)
+#define ARCH_TVAL_TRY_MAX_TIME (12)
+#define ARCH_CVAL_MAX_DELTA    (8)
 static __always_inline void set_next_event(const int access, unsigned long evt,
 				  struct clock_event_device *clk)
 {
 	unsigned int  retry = 0;
 	unsigned long ctrl;
 	unsigned long tval;
+	u64           cnt, cval;
 
 	ctrl = arch_timer_reg_read(access, ARCH_TIMER_REG_CTRL, clk);
 	ctrl |= ARCH_TIMER_CTRL_ENABLE;
@@ -232,9 +234,18 @@ static __always_inline void set_next_event(const int access, unsigned long evt,
 	 * we should try to fix this.
 	 */
 	while (retry < ARCH_VCNT_TRY_MAX_TIME) {
-		arch_timer_reg_write(access, ARCH_TIMER_REG_TVAL, evt, clk);
-		tval = arch_timer_reg_read(access, ARCH_TIMER_REG_TVAL, clk);
-		if (tval <= evt) {
+		if (access == ARCH_TIMER_PHYS_ACCESS) {
+			cnt = arch_counter_get_cntpct();
+			arch_timer_reg_write(access, ARCH_TIMER_REG_TVAL, evt, clk);
+			asm volatile("mrs %0, cntp_cval_el0" : "=r" (cval));
+		} else {
+			cnt = arch_counter_get_cntvct();
+			arch_timer_reg_write(access, ARCH_TIMER_REG_TVAL, evt, clk);
+			asm volatile("mrs %0, cntv_cval_el0" : "=r" (cval));
+		}
+
+		tval = cval - cnt;
+		if ((tval - evt) <= ARCH_CVAL_MAX_DELTA) {
 			/* set tval succeeded, let timer running */
 			arch_timer_reg_write(access, ARCH_TIMER_REG_CTRL, ctrl, clk);
 			return;
