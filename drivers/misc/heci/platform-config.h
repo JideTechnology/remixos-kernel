@@ -17,7 +17,7 @@
 #define PLATFORM_CONFIG__H
 
 /* Build ID string */
-#define	BUILD_ID	"0181-fix-wake-irq"
+#define	BUILD_ID	"0195-fix-recv-hid-hw-reset"
 
 #define	ISH_DEBUG	0
 #if ISH_DEBUG

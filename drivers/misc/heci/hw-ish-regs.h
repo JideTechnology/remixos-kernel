@@ -66,13 +66,12 @@
 ISS FW may not write to them */
 #define	IPC_HOST_OWNS_MSG_BIT		(1<<IPC_HOST_OWNS_MSG_OFFS)
 
+/*
+ * Host status bits (HOSTCOMM)
+ */
 /* bit corresponds host ready bit in Host Status Register (HOST_COMM) */
-#define IPC_HOST_READY_OFFS		(7)
-#define IPC_HOST_READY_BIT		(1<<IPC_HOST_READY_OFFS)
-
-/* bit corresponds host ready bit in ISS FW Status Register */
-#define IPC_ISH_READY_OFFS              (1)
-#define IPC_ISH_READY_BIT               (1<<IPC_ISH_READY_OFFS)
+#define IPC_HOSTCOMM_READY_OFFS		(7)
+#define IPC_HOSTCOMM_READY_BIT		(1<<IPC_HOSTCOMM_READY_OFFS)
 
 #define	IPC_HOSTCOMM_INT_EN_OFFS	(31)
 #define	IPC_HOSTCOMM_INT_EN_BIT		(1<<IPC_HOSTCOMM_INT_EN_OFFS)
@@ -83,6 +82,23 @@ ISS FW may not write to them */
  */
 #define IPC_ILUP_OFFS			(0)
 #define IPC_ILUP_BIT			(1<<IPC_ILUP_OFFS)
+
+/*
+ * FW status bits (relevant)
+ */ 
+#define	IPC_FWSTS_ILUP		0x1
+#define	IPC_FWSTS_HECI_UP	(1<<1)
+#define	IPC_FWSTS_DMA0		(1<<16)
+#define	IPC_FWSTS_DMA1		(1<<17)
+#define	IPC_FWSTS_DMA2		(1<<18)
+#define	IPC_FWSTS_DMA3		(1<<19)
+
+#define	IPC_ISH_IN_DMA		\
+	(IPC_FWSTS_DMA0 | IPC_FWSTS_DMA1 | IPC_FWSTS_DMA2 | IPC_FWSTS_DMA3)
+
+/* bit corresponds host ready bit in ISS FW Status Register */
+#define IPC_ISH_HECI_READY_OFFS              (1)
+#define IPC_ISH_HECI_READY_BIT               (1<<IPC_ISH_HECI_READY_OFFS)
 
 #define	IPC_RMP2_DMA_ENABLED	0x1	/* Value to enable DMA, per D3 RCR */
 
@@ -124,13 +140,13 @@ ISS FW may not write to them */
 
 
 #define IPC_SET_HOST_READY(host_status)		\
-				((host_status) |= (IPC_HOST_READY_BIT))
+				((host_status) |= (IPC_HOSTCOMM_READY_BIT))
 
 #define IPC_SET_HOST_ILUP(host_status)		\
 				((host_status) |= (IPC_ILUP_BIT))
 
 #define IPC_CLEAR_HOST_READY(host_status)	\
-				((host_status) ^= (IPC_HOST_READY_BIT))
+				((host_status) ^= (IPC_HOSTCOMM_READY_BIT))
 
 #define IPC_CLEAR_HOST_ILUP(host_status)	\
 				((host_status) ^= (IPC_ILUP_BIT))
@@ -149,7 +165,7 @@ ISS FW may not write to them */
 
 
 #define IPC_IS_ISH_HECI_READY(ish_status)       \
-		(((ish_status)&IPC_ISH_READY_BIT) == ((u32)IPC_ISH_READY_BIT))
+		(((ish_status)&IPC_ISH_HECI_READY_BIT) == ((u32)IPC_ISH_HECI_READY_BIT))
 
 #define IPC_IS_ISH_ILUP(ish_status)		\
 			(((ish_status)&IPC_ILUP_BIT) == ((u32)IPC_ILUP_BIT))

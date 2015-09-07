@@ -730,13 +730,71 @@ void ish_clr_host_rdy(struct heci_device *dev)
 		host_status);
 }
 
+
+static int ish_hw_reset(struct heci_device *dev)
+{
+	struct pci_dev *pdev = dev->pdev;
+	struct ish_hw *hw = to_ish_hw(dev);
+	int	rv;
+	u16 csr;
+
+#define	MAX_DMA_DELAY	20
+	unsigned	dma_delay;
+
+	if (!pdev)
+		return	-ENODEV;
+
+	rv = pci_reset_function(pdev);
+	if (!rv)
+		dev->dev_state = HECI_DEV_RESETTING;
+
+	if (!pdev->pm_cap) {
+		dev_err(&pdev->dev, "Can't reset - no PM caps\n");
+		return	-EINVAL;
+	}
+
+	/* Now trigger reset to FW */
+	writel(0, hw->mem_addr + IPC_REG_ISH_RMP2);
+
+	for (dma_delay = 0; dma_delay < MAX_DMA_DELAY &&
+		ish_reg_read(dev, IPC_REG_ISH_HOST_FWSTS) & (IPC_ISH_IN_DMA);
+		dma_delay += 5);
+			mdelay(5);
+
+	if (dma_delay >= MAX_DMA_DELAY) {
+		dev_err(&pdev->dev,
+			"Can't reset - stuck with DMA in-progress\n");
+		return	-EBUSY;
+	}
+
+	pci_read_config_word(pdev, pdev->pm_cap + PCI_PM_CTRL, &csr);
+
+	csr &= ~PCI_PM_CTRL_STATE_MASK;
+	csr |= PCI_D3hot;
+	pci_write_config_word(pdev, pdev->pm_cap + PCI_PM_CTRL, csr);
+
+	mdelay(pdev->d3_delay);
+
+	csr &= ~PCI_PM_CTRL_STATE_MASK;
+	csr |= PCI_D0;
+	pci_write_config_word(pdev, pdev->pm_cap + PCI_PM_CTRL, csr);
+
+	writel(IPC_RMP2_DMA_ENABLED, hw->mem_addr + IPC_REG_ISH_RMP2);
+
+	/* Send 0 IPC message so that ISS FW wakes up if it was already
+	 asleep */
+	writel(IPC_DRBL_BUSY_BIT, hw->mem_addr + IPC_REG_HOST2ISH_DRBL);
+
+	return	0;
+}
+
+
 /**
- * ish_hw_reset - resets host and fw.
+ * ish_ipc_reset - resets host and fw IPC and upper layers.
  *
  * @dev: the device structure
- * @intr_enable: if interrupt should be enabled after reset.
  */
-static int ish_hw_reset(struct heci_device *dev, bool intr_enable)
+static int ish_ipc_reset(struct heci_device *dev)
 {
 	struct ipc_rst_payload_type ipc_mng_msg;
 	int	rv = 0;
@@ -861,6 +919,7 @@ static const struct heci_hw_ops ish_hw_ops = {
 	.host_is_ready = ish_host_is_ready,
 	.hw_is_ready = ish_hw_is_ready,
 	.hw_reset = ish_hw_reset,
+	.ipc_reset = ish_ipc_reset,
 	.hw_config = ish_hw_config,
 	.hw_start = ish_hw_start,
 	.read = ish_read,

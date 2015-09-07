@@ -483,6 +483,11 @@ static long heci_ioctl(struct file *file, unsigned int cmd, unsigned long data)
 	dev = cl->dev;
 	dev_dbg(&dev->pdev->dev, "IOCTL cmd = 0x%x", cmd);
 
+	/* Test API for triggering PCI reset */
+	if (cmd == 0x12341234) {
+		return	heci_hw_reset(dev);
+	}
+
 	/* Test API for triggering host-initiated IPC reset to ISS */
 	if (cmd == 0x12345678) {
 		ISH_DBG_PRINT(KERN_ALERT "%s(): ISS FW reset is requested\n",

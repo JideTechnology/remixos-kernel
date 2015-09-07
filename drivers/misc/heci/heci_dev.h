@@ -127,7 +127,8 @@ struct wr_msg_ctl_info {
 struct heci_hw_ops {
 	bool (*host_is_ready)(struct heci_device *dev);
 	bool (*hw_is_ready)(struct heci_device *dev);
-	int (*hw_reset)(struct heci_device *dev, bool enable);
+	int (*hw_reset)(struct heci_device *dev);
+	int (*ipc_reset)(struct heci_device *dev);
 	int (*hw_start)(struct heci_device *dev);
 	void (*hw_config)(struct heci_device *dev);
 	int (*write)(struct heci_device *dev, struct heci_msg_hdr *hdr,
@@ -292,9 +293,15 @@ static inline void heci_hw_config(struct heci_device *dev)
 {
 	dev->ops->hw_config(dev);
 }
-static inline int heci_hw_reset(struct heci_device *dev, bool enable)
+
+static inline int heci_ipc_reset(struct heci_device *dev)
 {
-	return dev->ops->hw_reset(dev, enable);
+	return dev->ops->ipc_reset(dev);
+}
+
+static inline int heci_hw_reset(struct heci_device *dev)
+{
+	return dev->ops->hw_reset(dev);
 }
 
 static inline int heci_hw_start(struct heci_device *dev)
@@ -306,6 +313,7 @@ static inline bool heci_host_is_ready(struct heci_device *dev)
 {
 	return dev->ops->host_is_ready(dev);
 }
+
 static inline bool heci_hw_is_ready(struct heci_device *dev)
 {
 	return dev->ops->hw_is_ready(dev);
