@@ -597,7 +597,7 @@ static s32 pre_recv_entry(union recv_frame *precvframe, struct recv_buf	*precvbu
 	{
 		//clone/copy to if2
 		u8 shift_sz = 0;
-		u32 alloc_sz, skb_len;		
+		u32 alloc_sz, skb_len = 0;		
 		_pkt	 *pkt_copy = NULL;
 		struct rx_pkt_attrib *pattrib = NULL;
 		

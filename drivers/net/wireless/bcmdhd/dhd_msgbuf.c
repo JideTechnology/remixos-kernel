@@ -1285,9 +1285,9 @@ dhd_prot_print_metadata(dhd_pub_t *dhd, void *ptr, int len)
 static INLINE void BCMFASTPATH
 dhd_prot_packet_free(dhd_pub_t *dhd, uint32 pktid)
 {
-	void *PKTBUF;
-	dmaaddr_t pa;
-	uint32 pa_len;
+	void *PKTBUF = NULL;
+	dmaaddr_t pa = 0;
+	uint32 pa_len = 0;
 	void *secdma;
 	PKTBUF = PKTID_TO_NATIVE(dhd->prot->pktid_map_handle, pktid, pa, pa_len, secdma);
 
@@ -1306,9 +1306,9 @@ dhd_prot_packet_free(dhd_pub_t *dhd, uint32 pktid)
 static INLINE void * BCMFASTPATH
 dhd_prot_packet_get(dhd_pub_t *dhd, uint32 pktid)
 {
-	void *PKTBUF;
-	dmaaddr_t pa;
-	uint32 pa_len;
+	void *PKTBUF = NULL;
+	dmaaddr_t pa = 0;
+	uint32 pa_len = 0;
 	void *secdma;
 	PKTBUF = PKTID_TO_NATIVE(dhd->prot->pktid_map_handle, pktid, pa, pa_len, secdma);
 	if (PKTBUF) {
@@ -1983,8 +1983,8 @@ dhd_prot_txstatus_process(dhd_pub_t *dhd, void * buf, uint16 msglen)
 	unsigned long flags;
 	uint32 pktid;
 	void *pkt;
-	ulong pa;
-	uint32 pa_len;
+	ulong pa = 0;
+	uint32 pa_len = 0;
 	void *secdma;
 	/* locks required to protect circular buffer accesses */
 	DHD_GENERAL_LOCK(dhd, flags);
@@ -2200,9 +2200,9 @@ dhd_prot_txdata(dhd_pub_t *dhd, void *PKTBUF, uint8 ifidx)
 	unsigned long flags;
 	dhd_prot_t *prot = dhd->prot;
 	host_txbuf_post_t *txdesc = NULL;
-	dmaaddr_t physaddr, meta_physaddr;
+	dmaaddr_t physaddr = 0, meta_physaddr;
 	uint8 *pktdata;
-	uint32 pktlen;
+	uint32 pktlen = 0;
 	uint32 pktid;
 	uint8	prio;
 	uint16 flowid = 0;

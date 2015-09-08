@@ -1306,7 +1306,7 @@ void
 testcrc32(void)
 {
 	uint j, k, l;
-	uint8 *buf;
+	uint8 *buf = NULL;
 	uint len[CNBUFS];
 	uint32 crcr;
 	uint32 crc32tv[CNBUFS] =

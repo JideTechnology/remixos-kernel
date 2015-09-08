@@ -190,7 +190,7 @@ void mp_wi_callback(
 
 static int init_mp_priv_by_os(struct mp_priv *pmp_priv)
 {
-	struct mp_wi_cntx *pmp_wi_cntx;
+	struct mp_wi_cntx *pmp_wi_cntx = NULL;
 
 	if (pmp_priv == NULL) return _FAIL;
 
