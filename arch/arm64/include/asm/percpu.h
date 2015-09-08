@@ -259,6 +259,9 @@ static inline unsigned long __percpu_xchg(void *ptr, unsigned long val,
 #define this_cpu_xchg_4(pcp, val) _percpu_xchg(pcp, val)
 #define this_cpu_xchg_8(pcp, val) _percpu_xchg(pcp, val)
 
+//@jide hack. force inclusion of cmpxchg.h to ensure code using the same version of cmpxchg
+#include <asm/cmpxchg.h>
+
 #include <asm-generic/percpu.h>
 
 #endif /* __ASM_PERCPU_H */
