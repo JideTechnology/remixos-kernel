@@ -5,6 +5,7 @@ dtb-$(CONFIG_ARCH_XGENE) += apm-mustang.dtb
 dtb-$(CONFIG_ARCH_SUN50I) += sun50iw1p1-fpga.dtb  sun50iw1p1-perf1_v1_0.dtb \
 				sun50iw1p1-perf2_v1_0.dtb sun50iw1p1-t1.dtb \
 				sun50iw1p1-rabbit-p1.dtb \
+				sun50iw1p1-rabbit-cmccwasu-p1.dtb \
 				sun50iw1p1-soc.dtb
 
 targets += dtbs
