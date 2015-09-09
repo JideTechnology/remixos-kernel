@@ -229,20 +229,24 @@ static void intel_setup_dollar_cove_sd_regulators(void)
 {
 	memcpy((void *)&dcovex_vmmc_data, (void *)&vmmc_data,
 				sizeof(struct regulator_init_data));
+#ifdef CONFIG_SUPPORT_UHS
 	memcpy((void *)&dcovex_vqmmc_data, (void *)&vqmmc_data,
 				sizeof(struct regulator_init_data));
-
+#endif
 	/* set enable time for vqmmc regulator, stabilize power rail */
 	dcovex_vqmmc_data.constraints.enable_time = 10000;
 
 	dcovex_vmmc_data.constraints.name = "LDO_2";
+#ifdef CONFIG_SUPPORT_UHS
 	dcovex_vqmmc_data.constraints.name = "LDO_3";
-
+#endif
 	/* register SD card regulator for dollar cove PMIC */
 	intel_soc_pmic_set_pdata("dcovex_regulator", &dcove_vmmc_info,
 		sizeof(struct dcovex_regulator_info), DCOVEX_ID_LDO2 + 1);
+#ifdef CONFIG_SUPPORT_UHS
 	intel_soc_pmic_set_pdata("dcovex_regulator", &dcove_vqmmc_info,
 		sizeof(struct dcovex_regulator_info), DCOVEX_ID_LDO3 + 1);
+#endif
 }
 
 /*************************************************************
