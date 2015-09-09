@@ -33,6 +33,27 @@ static unsigned int sunxi_soc_ver;
 static int sunxi_soc_secure = 0;
 static unsigned int sunxi_soc_bin = 0;
 
+#if (defined CONFIG_ARCH_SUN50IW1P1)
+
+#define ARM_SVC_EFUSE_BASE_AARCH64       (0xc0000000)
+/*cmd to call ATF service*/
+#define ARM_SVC_EFUSE_PROBE_SECURE_ENABLE_AARCH64    (ARM_SVC_EFUSE_BASE_AARCH64 + 0xfe03)
+#define ARM_SVC_READ_SEC_REG_AARCH64                (0xC000ff05)
+int invoke_smc_fn(u32 function_id, u64 arg0, u64 arg1, u64 arg2);
+static u64 phy_sid_base = 0;
+
+/*interface for smc */
+int sunxi_smc_read(u64 addr)
+{
+	return invoke_smc_fn(ARM_SVC_READ_SEC_REG_AARCH64, addr, 0, 0);
+}
+int sunxi_smc_probe_secure(void)
+{
+
+	return invoke_smc_fn(ARM_SVC_EFUSE_PROBE_SECURE_ENABLE_AARCH64, 0, 0, 0);
+}
+#endif
+
 /**
  * soc version:
  */
@@ -112,6 +133,7 @@ static int sunxi_chipid_probe(struct platform_device *pdev)
 	struct resource *res;
 	u32 type = 0;
 
+
 	if (!dev->of_node) {
 		dev_err(dev, "device tree node not found\n");
 		return -ENODEV;
@@ -122,14 +144,25 @@ static int sunxi_chipid_probe(struct platform_device *pdev)
 	if (IS_ERR(sun50i_sid_base))
 		return PTR_ERR(sun50i_sid_base);
 
+#if (defined CONFIG_ARCH_SUN50IW1P1)
+	phy_sid_base =  res->start;
+	//printk("phy addr: 0x%llx virt addr:0x%p", phy_sid_base, sun50i_sid_base);
+	sunxi_soc_chipid[0] = sunxi_smc_read(phy_sid_base + 0x0);
+	sunxi_soc_chipid[1] = sunxi_smc_read(phy_sid_base  + 0x4);
+	sunxi_soc_chipid[2] = sunxi_smc_read(phy_sid_base  + 0x8);
+	sunxi_soc_chipid[3] = sunxi_smc_read(phy_sid_base  + 0xc);
+
+	/* soc secure bit */
+	sunxi_soc_secure =  ((sunxi_smc_read(phy_sid_base  + 0x0f4)) >> 11) & 1;//sunxi_smc_probe_secure();
+#else
 	sunxi_soc_chipid[0] = readl(sun50i_sid_base + 0x200);
 	sunxi_soc_chipid[1] = readl(sun50i_sid_base + 0x200 + 0x4);
 	sunxi_soc_chipid[2] = readl(sun50i_sid_base + 0x200 + 0x8);
 	sunxi_soc_chipid[3] = readl(sun50i_sid_base + 0x200 + 0xc);
-
 	/* soc secure bit */
 	sunxi_soc_secure = ((readl(sun50i_sid_base + 0x0f4)) >> 11) & 1;
 
+#endif
 	/* chip version init */
 	sunxi_soc_ver = 0;
 
