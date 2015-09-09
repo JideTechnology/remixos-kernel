@@ -1073,13 +1073,12 @@ static int akm_enable_set(struct akm_compass_data *akm,
 		if (akm->delay[MAG_DATA_FLAG] <= 0) {
 			akm->delay[MAG_DATA_FLAG] = 20;
 		}
+		
 		if (akm->enable_flag == 1) {
 			cancel_delayed_work_sync(&akm->dwork);
 		}
 		printk("akm delay work : delay = %d\n",akm->delay[MAG_DATA_FLAG]);
-		queue_delayed_work(akm->work_queue, &akm->dwork,
-			(unsigned long)nsecs_to_jiffies64(
-				akm->delay[MAG_DATA_FLAG]));
+		queue_delayed_work(akm->work_queue, &akm->dwork, akm->delay[MAG_DATA_FLAG] * HZ /1000);
 
 	} else {
 		cancel_delayed_work_sync(&akm->dwork);
@@ -1741,9 +1740,7 @@ static int akm_compass_resume(struct device *dev)
 {
 	struct akm_compass_data *akm = dev_get_drvdata(dev);
 	dev_dbg(&akm->i2c->dev, "resumed\n");
-	queue_delayed_work(akm->work_queue, &akm->dwork,
-		(unsigned long)nsecs_to_jiffies64(
-			akm->delay[MAG_DATA_FLAG]));
+	queue_delayed_work(akm->work_queue, &akm->dwork, akm->delay[MAG_DATA_FLAG] * HZ /1000);
 
 	return 0;
 }
@@ -1902,7 +1899,7 @@ static void akm_dev_poll(struct work_struct *work)
 {
 	struct akm_compass_data *akm;
 	int ret;
-
+	
 	printk("akmd dev poll\n");
 	akm = container_of((struct delayed_work *)work,
 			struct akm_compass_data,  dwork);
@@ -1916,9 +1913,7 @@ static void akm_dev_poll(struct work_struct *work)
 		dev_warn(&akm->i2c->dev, "Failed to set mode\n");
 
 	printk("akm dev poll start timer delay:%ld\n",akm->delay[MAG_DATA_FLAG]);
-	queue_delayed_work(akm->work_queue, &akm->dwork,
-		(unsigned long)nsecs_to_jiffies64(
-			akm->delay[MAG_DATA_FLAG]));
+	queue_delayed_work(akm->work_queue, &akm->dwork,akm->delay[MAG_DATA_FLAG] * HZ /1000);
 }
 
 int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
@@ -1927,6 +1922,7 @@ int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	int err = 0;
 	int i;
 	printk("%s.........RU..........\n", __func__);
+	
 
 	dev_dbg(&client->dev, "start probing.");
 
