@@ -1514,6 +1514,7 @@ static int sunxi_mmc_probe(struct platform_device *pdev)
 	mmc->caps	       |= MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED | MMC_CAP_ERASE \
 						| MMC_CAP_WAIT_WHILE_BUSY;
 	//mmc->caps2	  |= MMC_CAP2_HS400_1_8V;
+	mmc->max_busy_timeout = 0x7ffffff;//ms
 
 #ifndef CONFIG_REGULATOR
 	//Because fpga has no regulator,so we add it manully

@@ -832,6 +832,9 @@ int mmc_chk_hstiming_set(struct mmc_card *card,u8 hs_timing)
 	return rval;
 }
 
+
+
+
 static int mmc_select_hs400(struct mmc_card *card)
 {
 	struct mmc_host *host = card->host;
@@ -845,7 +848,7 @@ static int mmc_select_hs400(struct mmc_card *card)
 	      host->ios.bus_width == MMC_BUS_WIDTH_8))
 		return 0;
 
-
+	mmc_set_clock(host, 52000000);
 	/*
 	 * Before switching to dual data rate operation for HS400,
 	 * it is required to convert from HS200 mode to HS mode.
@@ -853,7 +856,7 @@ static int mmc_select_hs400(struct mmc_card *card)
 	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			   EXT_CSD_HS_TIMING, 1,
 			   card->ext_csd.generic_cmd6_time,
-			   true, true, true);
+			   true, false, true);
 	if (err) {
 		pr_warn("%s: switch to high-speed from hs200 failed, err:%d\n",
 			mmc_hostname(host), err);
@@ -862,6 +865,13 @@ static int mmc_select_hs400(struct mmc_card *card)
 
 	mmc_set_timing(card->host, MMC_TIMING_MMC_HS);
 	mmc_set_clock(host, 52000000);
+	err = sunxi_mmc_check_timing_switch_done(card,0);
+	if(err){
+		pr_err("%s: wait back to hs ready failed, err:%d\n",
+			mmc_hostname(host), err);	
+		return err;
+	}
+	
 
 	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			 EXT_CSD_BUS_WIDTH,
@@ -876,7 +886,7 @@ static int mmc_select_hs400(struct mmc_card *card)
 	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			   EXT_CSD_HS_TIMING, EXT_CSD_TIMING_HS400 |drv_str,
 			   card->ext_csd.generic_cmd6_time,
-			   true, true, true);
+			   true, false, true);
 	if (err) {
 		pr_warn("%s: switch to hs400 failed, err:%d\n",
 			 mmc_hostname(host), err);
@@ -886,6 +896,13 @@ static int mmc_select_hs400(struct mmc_card *card)
 	mmc_set_timing(host, MMC_TIMING_MMC_HS400);
 	mmc_set_clock(host, card->ext_csd.hs_max_dtr);
 	mmc_card_set_hs400(card);
+	err = sunxi_mmc_check_timing_switch_done(card,0);
+	if(err){
+		pr_err("%s: wait hs400 ready failed, err:%d\n",
+			mmc_hostname(host), err);	
+		return err;
+	}
+
 
 #ifdef CHECK_HSTIIMING
 	mmc_chk_hstiming_set(card,EXT_CSD_TIMING_HS400 |drv_str);
@@ -977,7 +994,7 @@ static int mmc_select_hs200(struct mmc_card *card)
 		err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			   EXT_CSD_HS_TIMING, hs_timing,
 			   card->ext_csd.generic_cmd6_time,
-			   true, true, true);
+			   true, false, true);
 #ifdef CHECK_HSTIIMING
 		mmc_chk_hstiming_set(card,hs_timing);
 #endif
@@ -1203,7 +1220,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 			err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			   	EXT_CSD_HS_TIMING, 1,
 			   	card->ext_csd.generic_cmd6_time,
-			   	true, true, true);
+			   	true, false, true);
 
 		if (err && err != -EBADMSG)
 			goto free_card;
@@ -1218,9 +1235,21 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 				mmc_card_set_hs200(card);
 				mmc_set_timing(card->host,
 					       MMC_TIMING_MMC_HS200);
+				err = sunxi_mmc_check_timing_switch_done(card,0);
+				if(err){
+					pr_err("%s: wait hs200 ready failed, err:%d\n",
+						mmc_hostname(host), err);	
+					goto free_card;
+				}				
 			} else {
 				mmc_card_set_highspeed(card);
 				mmc_set_timing(card->host, MMC_TIMING_MMC_HS);
+				err = sunxi_mmc_check_timing_switch_done(card,0);
+				if(err){
+					pr_err("%s: wait hs ready failed, err:%d\n",
+						mmc_hostname(host), err);	
+					goto free_card;
+				}					
 			}
 		}
 	}
