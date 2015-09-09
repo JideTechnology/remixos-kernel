@@ -1975,7 +1975,7 @@ int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		/* Platform data is not available.
 		   Layout and information should be set by each application. */
 		dev_dbg(&client->dev, "%s: No platform data.", __func__);
-		s_akm->layout = 1;
+		s_akm->layout = 8;
 		s_akm->gpio_rstn = 0;
 	}
 
