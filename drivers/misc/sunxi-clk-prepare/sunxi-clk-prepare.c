@@ -36,9 +36,11 @@ int sunxi_clk_enable_prepare(struct clk *clk)
 	}
 
 	for (i=0; i<CLK_MAX_MODULE_VALUE; i++) {
-		if (!strcmp(clk_bitmap_name_mapping[i].id_name, clk->name)) {
-			mask_bit = clk_bitmap_name_mapping[i].mask_bit;
-			break;
+		if (0 != clk_bitmap_name_mapping[i].mask_bit) {
+			if (!strcmp(clk_bitmap_name_mapping[i].id_name, clk->name)) {
+				mask_bit = clk_bitmap_name_mapping[i].mask_bit;
+				break;
+			}
 		}
 	}
 
@@ -50,7 +52,7 @@ int sunxi_clk_enable_prepare(struct clk *clk)
 	for (i=0; i<CLK_MAX_ID_VALUE; i++) {
 		if ((1<<i) & mask_bit) {
 			clk_handle = clk_get(NULL, id_name[i]);
-			if (!clk_handle || IS_ERR(clk_handle)) {
+			if (IS_ERR_OR_NULL(clk_handle)) {
 				printk(KERN_ERR "%s: try to get %s failed!\n", __func__, id_name[i]);
 				continue;
 			}
@@ -88,9 +90,11 @@ int sunxi_clk_disable_prepare(struct clk *clk)
 	}
 
 	for (i=0; i<CLK_MAX_MODULE_VALUE; i++) {
-		if (!strcmp(clk->name, clk_bitmap_name_mapping[i].id_name)) {
-			mask_bit = clk_bitmap_name_mapping[i].mask_bit;
-			break;
+		if (0 != clk_bitmap_name_mapping[i].mask_bit) {
+			if (!strcmp(clk->name, clk_bitmap_name_mapping[i].id_name)) {
+				mask_bit = clk_bitmap_name_mapping[i].mask_bit;
+				break;
+			}
 		}
 	}
 
@@ -102,7 +106,7 @@ int sunxi_clk_disable_prepare(struct clk *clk)
 	for (i=0; i<CLK_MAX_ID_VALUE; i++) {
 		if ((1<<i) & mask_bit) {
 			clk_handle = clk_get(NULL, id_name[i]);
-			if (!clk_handle || IS_ERR(clk_handle)) {
+			if (IS_ERR_OR_NULL(clk_handle)) {
 				printk(KERN_ERR "%s: try to get %s failed!\n", __func__, id_name[i]);
 				continue;
 			}
