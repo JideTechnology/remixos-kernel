@@ -46,6 +46,7 @@
 static u64 sunxi_hci_dmamask = DMA_BIT_MASK(32);
 static DEFINE_MUTEX(usb_passby_lock);
 static DEFINE_MUTEX(usb_vbus_lock);
+static DEFINE_MUTEX(usb_clock_lock);
 
 #ifndef CONFIG_OF
 static char* usbc_name[2] 			= {"usbc0", "usbc1"};
@@ -181,7 +182,6 @@ int usb_phyx_tp_write(struct sunxi_hci_hcd *sunxi_hci, int addr, int data, int l
 		return -1;
 	}
 
-
 	reg_value = USBC_Readl(sunxi_hci->otg_vbase + SUNXI_OTG_PHY_CFG);
 	reg_temp = reg_value;
 	reg_value |= 0x01;
@@ -288,6 +288,7 @@ static void USBC_Clean_SIDDP(struct sunxi_hci_hcd *sunxi_hci)
 static int open_clock(struct sunxi_hci_hcd *sunxi_hci, u32 ohci)
 {
 	//DMSG_INFO("[%s]: open clock, is_open: %d\n", sunxi_hci->hci_name, sunxi_hci->clk_is_open);
+	mutex_lock(&usb_clock_lock);
 
 #ifdef  SUNXI_USB_FPGA
 	fpga_config_use_hci(sunxi_hci);
@@ -297,10 +298,6 @@ static int open_clock(struct sunxi_hci_hcd *sunxi_hci, u32 ohci)
 	if(sunxi_hci->usbc_no == HCI0_USBC_NO){
 		USBC_SelectPhyToHci(sunxi_hci);
 	}
-
-	USBC_Clean_SIDDP(sunxi_hci);
-
-	usb_phyx_tp_write(sunxi_hci, 0x2a, 3, 2);
 
 	if(sunxi_hci->ahb && sunxi_hci->mod_usbphy && !sunxi_hci->clk_is_open){
 		sunxi_hci->clk_is_open = 1;
@@ -353,6 +350,12 @@ static int open_clock(struct sunxi_hci_hcd *sunxi_hci, u32 ohci)
 			sunxi_hci->ahb, sunxi_hci->mod_usbphy, sunxi_hci->clk_is_open,
 			sunxi_hci->mod_usb);
 	}
+
+	USBC_Clean_SIDDP(sunxi_hci);
+
+	usb_phyx_tp_write(sunxi_hci, 0x2a, 3, 2);
+
+	mutex_unlock(&usb_clock_lock);
 
 	//DMSG_INFO("[%s]: open clock end\n", sunxi_hci->hci_name);
 	return 0;
