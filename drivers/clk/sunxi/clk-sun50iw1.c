@@ -616,7 +616,7 @@ struct sunxi_clk_comgate com_gates[]={
 };
 
 /*
-SUNXI_CLK_PERIPH(name,           mux_reg,    mux_sft, mux_wid,  div_reg,            div_msft,  div_mwid, div_nsft, div_nwid, gate_flag,       en_reg,         rst_reg,      bus_gate_reg,  drm_gate_reg,  en_sft,    rst_sft, bus_gate_sft, dram_gate_sft, lock,  com_gate,   com_gate_off)
+SUNXI_CLK_PERIPH(                name,               mux_reg,           mux_sft, mux_wid,      div_reg,                div_msft,  div_mwid,     div_nsft,      div_nwid,     gate_flag,     en_reg,            rst_reg,             bus_gate_reg,     drm_gate_reg,  en_sft,       rst_sft,       bus_gate_sft,     dram_gate_sft, lock,  com_gate,     com_gate_off)
 */
 SUNXI_CLK_PERIPH(cpu,            CPU_CFG,         16,   2,          0,                  0,      0,          0,          0,          0,          0,               0,               0,             0,         0,          0,          0,              0,   &clk_lock, NULL,             0);
 SUNXI_CLK_PERIPH(cpuapb,         0,               0,    0,          CPU_CFG,            8,      2,          0,          0,          0,          0,               0,               0,             0,         0,          0,          0,              0,   &clk_lock, NULL,             0);
@@ -696,6 +696,8 @@ SUNXI_CLK_PERIPH(cpurahbs,       0,               0,    0,          0,          
 SUNXI_CLK_PERIPH(cpurapbs,       0,               0,    0,          CPUS_APB0,          0,      2,          0,          0,          0,          0,               0,               0,             0,         0,          0,          0,              0,   &clk_lock, NULL,             0);
 SUNXI_CLK_PERIPH(cpurpio,        0,               0,    0,          0,                  0,      0,          0,          0,          0,          0,               CPUS_APB0_GATE,  0,             0,         0,          0,          0,              0,   &clk_lock, NULL,             0);
 SUNXI_CLK_PERIPH(losc_out,       0,               0,    0,          0,                  0,      0,          0,          0,          0,          0,               0,               LOSC_OUT_GATE, 0,         0,          0,          0,              0,   &clk_lock, NULL,             0);
+SUNXI_CLK_PERIPH(adda_com,       0,               0,    0,          0,                  0,      0,          0,          0,          0,          ADDA_PR_CFG_REG, 0,               0,             0,         6,          0,          0,              0,   &clk_lock, NULL,             0);
+
 
 struct periph_init_data sunxi_periphs_init[] = {
 	{"cpu",            CLK_GET_RATE_NOCACHE, cpu_parents,            ARRAY_SIZE(cpu_parents),            &sunxi_clk_periph_cpu              },
@@ -779,6 +781,7 @@ struct periph_init_data sunxi_periphs_cpus_init[] = {
 	{"cpurapbs",        CLK_GET_RATE_NOCACHE|CLK_READONLY,  cpurapbs_parents,       ARRAY_SIZE(cpurapbs_parents),       &sunxi_clk_periph_cpurapbs      },
 	{"cpurpio",         0,                                  cpurpio_parents,        ARRAY_SIZE(cpurpio_parents),        &sunxi_clk_periph_cpurpio       },
 	{"losc_out",        0,                                  losc_parents,           ARRAY_SIZE(losc_parents),           &sunxi_clk_periph_losc_out      },
+	{"adda_com",        0,                                  losc_parents,           ARRAY_SIZE(losc_parents),           &sunxi_clk_periph_adda_com      },
 };
 
 
@@ -856,6 +859,57 @@ void __init sunxi_init_clocks(void)
 #endif
 }
 
+u32 adda_com_reg_readl(void __iomem * reg)
+{
+	u32 reg_temp = 0x40;
+	printk("%s: reg = 0x%lx\n", __func__, (unsigned long)reg);
+	reg_temp = readl(reg);
+	reg_temp |= (0x1<<28);
+	writel(reg_temp, reg);
+
+	reg_temp = readl(reg);
+	reg_temp &= ~(0x1<<24);
+	writel(reg_temp, reg);
+
+	reg_temp = readl(reg);
+	reg_temp &= ~(0x1f<<16);
+	reg_temp |= (0x00<<16);
+	writel(reg_temp, reg);
+
+	reg_temp = readl(reg);
+	reg_temp &= (0xff<<0);
+
+	return reg_temp;
+};
+
+void adda_com_reg_writel(u32 val,void __iomem * reg)
+{
+	u32 reg_temp;
+	printk("%s: val = 0x%x, reg = 0x%lx\n", __func__, val, (unsigned long)reg);
+	reg_temp = readl(reg);
+	reg_temp |= (0x1<<28);
+	writel(reg_temp, reg);
+
+	reg_temp = readl(reg);
+	reg_temp &= ~(0x1f<<16);
+	reg_temp |= (0x00<<16);
+	writel(reg_temp, reg);
+
+	reg_temp = readl(reg);
+	reg_temp &= ~(0xff<<8);
+	reg_temp |= (val<<8);
+	writel(reg_temp, reg);
+
+	reg_temp = readl(reg);
+	reg_temp |= (0x1<<24);
+	writel(reg_temp, reg);
+
+	reg_temp = readl(reg);
+	reg_temp &= ~(0x1<<24);
+	writel(reg_temp, reg);
+
+	return ;
+};
 
 #ifdef CONFIG_OF
 /**
@@ -1092,6 +1146,7 @@ void of_periph_clk_setup(struct device_node *node)
 	pr_err("clk %s not found in %s\n",clk_name , __func__ );
 }
 
+struct sunxi_reg_ops priv_regops;
 /**
  * of_periph_cpus_clk_setup() - Setup function for periph cpus clk
  */
@@ -1109,6 +1164,11 @@ void of_periph_cpus_clk_setup(struct device_node *node)
 		periph = &sunxi_periphs_cpus_init[i];
 		if( 0 == strcmp(clk_name , periph->name) )
 		{
+			if( 0 == strcmp("adda_com" , periph->name) ) {
+				priv_regops.reg_readl = adda_com_reg_readl;
+				priv_regops.reg_writel = adda_com_reg_writel;
+				periph->periph->priv_regops = &priv_regops;
+			}
 			/*register clk */
 			clk = sunxi_clk_register_periph( clk_name, periph->parent_names,
 						periph->num_parents, periph->flags, 0 == strcmp(clk_name , "losc_out") ? 0 :sunxi_clk_cpus_base, periph->periph);
