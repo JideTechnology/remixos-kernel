@@ -201,6 +201,7 @@ clocks {
 		};	
 		clk_ahb1: ahb1 {
 			#clock-cells = <0>;
+			assigned-clock-rates = <200000000>;
 			compatible = "allwinner,sunxi-periph-clock";
 			clock-output-names = "ahb1";
 		};	
