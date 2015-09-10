@@ -125,6 +125,7 @@ static unsigned int sunxi_clk_check_flags(unsigned int mask_bit)
 {
 	unsigned int i = 0;
 	struct device_node *np;
+	u32 out_value = 0;
 
 	for (i=0; i<CLK_MAX_ID_VALUE; i++) {
 		if ((1<<i) & mask_bit) {
@@ -132,6 +133,15 @@ static unsigned int sunxi_clk_check_flags(unsigned int mask_bit)
 			if (!np) {
 				dprintk(DEBUG_INIT, "%s: failed to find node %s\n", __func__, dts_module_id[i]);
 				continue;
+			}
+			if (0 == strcmp("codec", dts_module_id[i])) {
+				if (of_property_read_u32(np, "headphone_en", &out_value))
+					continue;
+				else {
+					if (0 == out_value)
+						mask_bit &= ~(1<<i);
+					continue;
+				}
 			}
 			if (!of_device_is_available(np)) {
 				mask_bit &= ~(1<<i);
