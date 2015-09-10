@@ -27,6 +27,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/delay.h>
 #include <linux/serial_hsu.h>
+#define BT_WAKE_HOST_GPIO_LOW_ACTIVE
 
 enum {
 	gpio_wake_acpi_idx,
@@ -264,16 +265,33 @@ static void update_host_wake_locked(int host_wake)
 
 static irqreturn_t host_wake_isr(int irq, void *dev)
 {
+    int gpio_value;
 	int host_wake;
 
-	host_wake = gpio_get_value(bt_lpm.gpio_host_wake);
+    gpio_value = gpio_get_value(bt_lpm.gpio_host_wake);
+#ifdef BT_WAKE_HOST_GPIO_LOW_ACTIVE
+    host_wake = gpio_value ? 0 : 1;
+#else
+    host_wake = gpio_value;
+#endif
 
 	pr_debug("%s: lpm %s\n", __func__, host_wake ? "off" : "on");
 
+#ifdef BT_WAKE_HOST_GPIO_LOW_ACTIVE
+	irq_set_irq_type(irq, host_wake ? IRQF_TRIGGER_RISING :
+							IRQF_TRIGGER_FALLING);
+#else
 	irq_set_irq_type(irq, host_wake ? IRQF_TRIGGER_FALLING :
 							IRQF_TRIGGER_RISING);
+#endif							
 
 	if (!bt_lpm.tty_dev) {
+		bt_lpm.host_wake = host_wake;
+		return IRQ_HANDLED;
+	}
+	
+	if (!bt_enabled)
+	{
 		bt_lpm.host_wake = host_wake;
 		return IRQ_HANDLED;
 	}
@@ -289,8 +307,13 @@ static void activate_irq_handler(void)
 
 	pr_debug("%s\n", __func__);
 
+#ifdef BT_WAKE_HOST_GPIO_LOW_ACTIVE
+	ret = request_irq(bt_lpm.int_host_wake, host_wake_isr,
+				IRQF_TRIGGER_FALLING, "bt_host_wake", NULL);
+#else
 	ret = request_irq(bt_lpm.int_host_wake, host_wake_isr,
 				IRQF_TRIGGER_RISING, "bt_host_wake", NULL);
+#endif				
 
 	if (ret < 0) {
 		pr_err("Error lpm request IRQ");
@@ -530,6 +553,7 @@ static int bt_lpm_remove(struct platform_device *pdev)
 #ifndef DBG_DISABLE_BT_LOW_POWER
 int bt_lpm_suspend(struct platform_device *pdev, pm_message_t state)
 {
+    int gpio_value;
 	int host_wake;
 
 	pr_debug("%s\n", __func__);
@@ -545,7 +569,14 @@ int bt_lpm_suspend(struct platform_device *pdev, pm_message_t state)
 	 */
 	disable_irq(bt_lpm.int_host_wake);
 
-	host_wake = gpio_get_value(bt_lpm.gpio_host_wake);
+    gpio_value  = gpio_get_value(bt_lpm.gpio_host_wake);
+
+#ifdef BT_WAKE_HOST_GPIO_LOW_ACTIVE
+    host_wake = gpio_value ? 0 : 1;
+#else
+    host_wake = gpio_value;
+#endif
+
 	if (host_wake) {
 		enable_irq(bt_lpm.int_host_wake);
 		pr_err("%s suspend error, gpio %d set\n", __func__,
