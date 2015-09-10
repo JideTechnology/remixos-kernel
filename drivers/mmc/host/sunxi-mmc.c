@@ -197,7 +197,7 @@ static void sunxi_mmc_init_idma_des(struct sunxi_mmc_host *host,
 			pdes[i].buf_size = data->sg[i].length;
 
 		pdes[i].buf_addr_ptr1 = sg_dma_address(&data->sg[i]);
-		pdes[i].buf_addr_ptr2 = (u32)(u64)&pdes_pa[i + 1];
+		pdes[i].buf_addr_ptr2 = (u32)(size_t)&pdes_pa[i + 1];//We use size_t only to avoid compile waring
 	}
 
 	pdes[0].config |= SDXC_IDMAC_DES0_FD;

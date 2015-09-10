@@ -98,7 +98,7 @@ void dump_reg(struct sunxi_mmc_host *host)
 	printk("Dump sdmmc regs:\n");
 	for (i=0; i<0x180; i+=4) {
 		if (!(i&0xf))
-			printk("\n0x%08llx : ", (u64)(host->reg_base + i));
+			printk("\n0x%pK : ", (host->reg_base + i));
 		printk("%08x ", readl(host->reg_base + i));
 	}
 	printk("\n");
@@ -108,7 +108,7 @@ void dump_reg(struct sunxi_mmc_host *host)
 	
 	for (i=0; i<0x120; i+=4) {
 		if (!(i&0xf))
-			printk("\n0x%08llx : ", (u64)(gpio_ptr + i));
+			printk("\n0x%pK : ", (gpio_ptr + i));
 		printk("%08x ", readl(gpio_ptr + i));
 	}
 	printk("\n");
@@ -116,7 +116,7 @@ void dump_reg(struct sunxi_mmc_host *host)
 	printk("Dump gpio irqc regs:\n");
 	for (i=0x200; i<0x260; i+=4) {
 		if (!(i&0xf))
-			printk("\n0x%08llx : ", (u64)(gpio_ptr + i));
+			printk("\n0x%pK : ", (gpio_ptr + i));
 		printk("%08x ", readl(gpio_ptr + i));
 	}
 	printk("\n");
@@ -125,7 +125,7 @@ void dump_reg(struct sunxi_mmc_host *host)
 	printk("Dump ccmu regs:gating\n");
 	for (i=0x60; i<=0x80; i+=4) {
 		if (!(i&0xf))
-			printk("\n0x%08llx : ", (u64)(ccmu_ptr + i));
+			printk("\n0x%pK : ", (ccmu_ptr + i));
 		printk("%08x ", readl(ccmu_ptr + i));
 	}
 	printk("\n");
@@ -134,7 +134,7 @@ void dump_reg(struct sunxi_mmc_host *host)
 	printk("Dump ccmu regs:module clk\n");
 	for (i=0x80; i<=0x100; i+=4) {
 		if (!(i&0xf))
-			printk("\n0x%08llx : ", (u64)(ccmu_ptr + i));
+			printk("\n0x%pK : ", (ccmu_ptr + i));
 		printk("%08x ", readl(ccmu_ptr + i));
 	}
 	printk("\n");
@@ -142,7 +142,7 @@ void dump_reg(struct sunxi_mmc_host *host)
 	printk("Dump ccmu regs:reset\n");
 	for (i=0x2c0; i<=0x2e0; i+=4) {
 		if (!(i&0xf))
-			printk("\n0x%08llx : ", (u64)(ccmu_ptr + i));
+			printk("\n0x%pK : ", (ccmu_ptr + i));
 		printk("%08x ", readl(ccmu_ptr + i));
 	}
 	printk("\n");
@@ -242,7 +242,7 @@ static ssize_t dump_host_reg_show(struct device *dev, struct device_attribute *a
 	p += sprintf(p, "Dump sdmmc regs:\n");
 	for (i=0; i<0x180; i+=4) {
 		if (!(i&0xf))
-			p += sprintf(p, "\n0x%08llx : ", (u64)(host->reg_base + i));
+			p += sprintf(p, "\n0x%pK : ", (host->reg_base + i));
 		p += sprintf(p, "%08x ", readl(host->reg_base + i));
 	}
 	p += sprintf(p, "\n");
@@ -263,7 +263,7 @@ static ssize_t dump_gpio_reg_show(struct device *dev, struct device_attribute *a
 	p += sprintf(p, "Dump gpio regs:\n");
 	for (i=0; i<0x120; i+=4) {
 		if (!(i&0xf))
-			p += sprintf(p, "\n0x%08llx : ", (u64)(gpio_ptr + i));
+			p += sprintf(p, "\n0x%pK : ", (gpio_ptr + i));
 		p += sprintf(p, "%08x ", readl(gpio_ptr + i));
 	}
 	p += sprintf(p, "\n");
@@ -271,7 +271,7 @@ static ssize_t dump_gpio_reg_show(struct device *dev, struct device_attribute *a
 	p += sprintf(p, "Dump gpio irqc regs:\n");
 	for (i=0x200; i<0x260; i+=4) {
 		if (!(i&0xf))
-			p += sprintf(p, "\n0x%08llx : ", (u64)(gpio_ptr + i));
+			p += sprintf(p, "\n0x%pK : ", (gpio_ptr + i));
 		p += sprintf(p, "%08x ", readl(gpio_ptr + i));
 	}
 	p += sprintf(p, "\n");
@@ -295,7 +295,7 @@ static ssize_t dump_ccmu_reg_show(struct device *dev, struct device_attribute *a
 	p += sprintf(p, "Dump ccmu\n");
 	for (i=0x0; i<=0x400; i+=4) {
 		if (!(i&0xf))
-			p += sprintf(p, "\n0x%08llx : ", (u64)(ccmu_ptr + i));
+			p += sprintf(p, "\n0x%pK : ", (ccmu_ptr + i));
 		p += sprintf(p, "%08x ", readl(ccmu_ptr + i));
 	}
 	p += sprintf(p, "\n");
@@ -343,7 +343,7 @@ int mmc_create_sys_fs(struct sunxi_mmc_host* host,struct platform_device *pdev)
 	host->dump_register = dump_register;
 	host->dump_register[0].show = dump_host_reg_show;
 	sysfs_attr_init(host->dump_register[0].attr);
-	host->dump_register[0].attr.name = "sunxi_dump_host_regster";
+	host->dump_register[0].attr.name = "sunxi_dump_host_register";
 	host->dump_register[0].attr.mode = S_IRUGO;
 	ret = device_create_file(&pdev->dev, &host->dump_register[0]);
 	if(ret)
@@ -351,7 +351,7 @@ int mmc_create_sys_fs(struct sunxi_mmc_host* host,struct platform_device *pdev)
 
 	host->dump_register[1].show = dump_gpio_reg_show;
 	sysfs_attr_init(host->dump_register[1].attr);
-	host->dump_register[1].attr.name = "sunxi_dump_gpio_regster";
+	host->dump_register[1].attr.name = "sunxi_dump_gpio_register";
 	host->dump_register[1].attr.mode = S_IRUGO;
 	ret = device_create_file(&pdev->dev, &host->dump_register[1]);
 	if(ret)
@@ -360,7 +360,7 @@ int mmc_create_sys_fs(struct sunxi_mmc_host* host,struct platform_device *pdev)
 
 	host->dump_register[2].show = dump_ccmu_reg_show;
 	sysfs_attr_init(host->dump_register[2].attr);
-	host->dump_register[2].attr.name = "sunxi_dump_ccmu_regster";
+	host->dump_register[2].attr.name = "sunxi_dump_ccmu_register";
 	host->dump_register[2].attr.mode = S_IRUGO;
 	ret = device_create_file(&pdev->dev, &host->dump_register[2]);
 	if(ret)

@@ -450,7 +450,7 @@ static irqreturn_t sunxi_mmc_irq(int irq, void *dev_id)
 
 	if (finalize)
 		ret = sunxi_mmc_finalize_request(host);
-out:
+//out:
 	spin_unlock(&host->lock);
 
 	if (finalize && ret == IRQ_HANDLED)
@@ -463,14 +463,14 @@ out:
 }
 
 
-
+/*
 static int sunxi_check_r1_ready(struct sunxi_mmc_host *smc_host, unsigned ms)
 {
 	//struct sunxi_mmc_host *smc_host = mmc_priv(mmc);
 	dev_info(mmc_dev(smc_host->mmc),"no imple %s %d\n",__FUNCTION__,__LINE__);
 	return 1;
 }
-
+*/
 
 static int sunxi_check_r1_ready_may_sleep(struct sunxi_mmc_host *smc_host, unsigned ms)
 {
