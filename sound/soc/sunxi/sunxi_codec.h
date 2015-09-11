@@ -2060,6 +2060,7 @@ struct sunxi_codec {
 	void __iomem *codec_dbase;
 	void __iomem *codec_abase;
 	struct clk *srcclk;
+	struct clk *hp_en;
 
 	struct pinctrl *pinctrl;
 	struct pinctrl_state  *aif2_pinstate;

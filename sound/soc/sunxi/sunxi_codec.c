@@ -278,6 +278,9 @@ static int codec_init(struct sunxi_codec *sunxi_internal_codec)
 	snd_soc_update_bits(sunxi_internal_codec->codec, MIC1_CTRL, (0x7<<MIC1BOOST), (sunxi_internal_codec->gain_config.maingain<<MIC1BOOST));
 	snd_soc_update_bits(sunxi_internal_codec->codec, MIC2_CTRL, (0x7<<MIC2BOOST), (sunxi_internal_codec->gain_config.headsetmicgain<<MIC2BOOST));
 
+	if (sunxi_internal_codec->hp_en)
+		clk_prepare_enable(sunxi_internal_codec->hp_en);
+
 	if (sunxi_internal_codec->hwconfig.adcagc_cfg)
 		adcagc_config(sunxi_internal_codec->codec);
 
@@ -574,13 +577,13 @@ static int ac_headphone_event(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMU:
 		/*open*/
 		//snd_soc_update_bits(codec, HP_PA_CTRL, (0xf<<HPOUTPUTENABLE), (0xf<<HPOUTPUTENABLE));
-		snd_soc_update_bits(codec, HP_CTRL, (0x1<<HPPA_EN), (0x1<<HPPA_EN));
+		//snd_soc_update_bits(codec, HP_CTRL, (0x1<<HPPA_EN), (0x1<<HPPA_EN));
 		msleep(10);
 		snd_soc_update_bits(codec, MIX_DAC_CTRL, (0x3<<LHPPAMUTE), (0x3<<LHPPAMUTE));
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		/*close*/
-		snd_soc_update_bits(codec, HP_CTRL, (0x1<<HPPA_EN), (0x0<<HPPA_EN));
+		//snd_soc_update_bits(codec, HP_CTRL, (0x1<<HPPA_EN), (0x0<<HPPA_EN));
 		//snd_soc_update_bits(codec, HP_PA_CTRL, (0xf<<HPOUTPUTENABLE), (0x0<<HPOUTPUTENABLE));
 		snd_soc_update_bits(codec, MIX_DAC_CTRL, (0x3<<LHPPAMUTE), (0x0<<LHPPAMUTE));
 		break;
@@ -2311,6 +2314,12 @@ static int __init sunxi_internal_codec_probe(struct platform_device *pdev)
 		ret = PTR_ERR(sunxi_internal_codec->srcclk);
 		goto err1;
 	}
+	sunxi_internal_codec->hp_en = of_clk_get(node,1);
+	if (IS_ERR(sunxi_internal_codec->hp_en)){
+		dev_err(&pdev->dev, "[audio-codec]Can't get hp_en clocks\n");
+		ret = PTR_ERR(sunxi_internal_codec->hp_en);
+		goto err1;
+	}
 	/*initial speaker gpio */
 	spk_gpio.gpio = of_get_named_gpio_flags(node, "gpio-spk", 0, (enum of_gpio_flags *)&config);
 	if (!gpio_is_valid(spk_gpio.gpio)) {
@@ -2517,9 +2526,11 @@ static void sunxi_internal_codec_shutdown(struct platform_device *pdev)
 {
 	struct sunxi_codec * sunxi_internal_codec = dev_get_drvdata(&pdev->dev);
 
-	snd_soc_update_bits(sunxi_internal_codec->codec, HP_CTRL, (0x1<<HPPA_EN), (0x0<<HPPA_EN));
+//	snd_soc_update_bits(sunxi_internal_codec->codec, HP_CTRL, (0x1<<HPPA_EN), (0x0<<HPPA_EN));
 	snd_soc_update_bits(sunxi_internal_codec->codec, MIX_DAC_CTRL, (0x3<<LHPPAMUTE), (0x0<<LHPPAMUTE));
 	snd_soc_update_bits(sunxi_internal_codec->codec, JACK_MIC_CTRL, (0x1<<HMICBIASEN), (0x0<<HMICBIASEN));
+	if (sunxi_internal_codec->hp_en)
+		clk_disable_unprepare(sunxi_internal_codec->hp_en);
 	if (spk_gpio.cfg)
 		gpio_set_value(spk_gpio.gpio, 0);
 }

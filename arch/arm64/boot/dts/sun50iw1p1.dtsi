@@ -666,7 +666,7 @@
 			compatible = "allwinner,sunxi-internal-codec";
 			reg = <0x0 0x01c22c00 0x0 0x478>,/*digital baseadress*/
 			      <0x0 0x01f015c0 0x0 0x0>;/*analog baseadress*/
-			clocks = <&clk_pll_audiox4>;
+			clocks = <&clk_pll_audiox4>,<&clk_adda_com>;
 
 			pinctrl-names = "aif2-default","aif3-default","aif2-sleep","aif3-sleep";
 			pinctrl-0 = <&aif2_pins_a>;
