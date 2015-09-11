@@ -73,6 +73,7 @@ void sunxi_bootup_extend_fix(unsigned int *cmd)
     if (bootup_extend_enabel == 1) {
         if (*cmd == LINUX_REBOOT_CMD_POWER_OFF) {
             __rtc_reg_write(2, 0x2);
+            *cmd = LINUX_REBOOT_CMD_RESTART;
             printk(KERN_INFO "will enter boot_start_os\n");
         } else if (*cmd == LINUX_REBOOT_CMD_RESTART ||
                    *cmd == LINUX_REBOOT_CMD_RESTART2 ) {
