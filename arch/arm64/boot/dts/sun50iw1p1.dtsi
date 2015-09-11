@@ -1270,10 +1270,11 @@
 			reg = <0x0 0x0 0x0 0x0>;
 			#cooling-cells = <2>;
 			status = "okay";
-			state_cnt = <3>;
+			state_cnt = <4>;
 			state0 = <0>;
-			state1 = <360>;
-			state2 = <144>;
+			state1 = <456>;
+			state2 = <360>;
+			state3 = <144>;
 		};
 
 		thermal-zones{
@@ -1314,7 +1315,12 @@
 						type = "passive";
 						hysteresis = <0>;
 					};
-					crt_trip:t6{
+					gpu_trip2:t6{
+						temperature = <105>;
+						type = "passive";
+						hysteresis = <0>;
+					};
+					crt_trip:t7{
 						temperature = <110>;
 						type = "critical";
 						hysteresis = <0>;
@@ -1351,6 +1357,11 @@
 						contribution = <0>;
 						trip = <&gpu_trip1>;
 						cooling-device = <&gpu_cooling 2 2>;
+					};
+					bind6{
+						contribution = <0>;
+						trip = <&gpu_trip2>;
+						cooling-device = <&gpu_cooling 3 3>;
 					};
 				};
 			};
