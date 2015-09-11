@@ -828,7 +828,8 @@ static void execlists_context_unqueue(struct intel_engine_cs *ring)
  * the elsp_counter in this special case the execlist state machine would
  * expect a corresponding lite restore interrupt, which is never produced.
  */
-static void execlists_TDR_context_unqueue(struct intel_engine_cs *ring)
+static void execlists_TDR_context_unqueue(struct intel_engine_cs *ring,
+					  bool from_force_resubmit)
 {
 	struct intel_ctx_submit_request *req0 = NULL, *req1 = NULL;
 
@@ -854,6 +855,17 @@ static void execlists_TDR_context_unqueue(struct intel_engine_cs *ring)
 	WARN_ON(execlists_submit_context(ring, req0->ctx, req0->tail,
 					 req1 ? req1->ctx : NULL,
 					 req1 ? req1->tail : 0));
+
+	/*
+	 * force_resubmit is not sent during a hang, so increment the elsp
+	 * resubmit counter to keep it in sync with the number of ctx events
+	 * we'll get from hw.
+	 */
+	if (from_force_resubmit) {
+		req0->elsp_submitted++;
+		if (req1)
+			req1->elsp_submitted++;
+	}
 }
 
 /**
@@ -1216,7 +1228,7 @@ int intel_execlists_TDR_context_queue(struct intel_engine_cs *ring,
 		    (unsigned int) c_ctxid, ring->name,
 		    (unsigned int) to_ctxid);
 
-		execlists_TDR_context_unqueue(ring);
+		execlists_TDR_context_unqueue(ring, false);
 
 		spin_unlock_irqrestore(&ring->execlist_lock, flags);
 	}
@@ -3562,7 +3574,7 @@ void intel_execlists_TDR_force_resubmit(struct drm_i915_private *dev_priv,
 		goto exit;
 	}
 
-	execlists_TDR_context_unqueue(ring);
+	execlists_TDR_context_unqueue(ring, true);
 
 exit:
 	if (ctx)
