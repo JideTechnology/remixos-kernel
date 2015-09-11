@@ -709,7 +709,7 @@ static void sunxi_ehci_hcd_shutdown(struct platform_device* pdev)
 		scene_lock_destroy(&ehci_standby_lock[sunxi_ehci->usbc_no]);
 	}
 #endif
-	usb_hcd_platform_shutdown(pdev);
+	//usb_hcd_platform_shutdown(pdev);
 
 	sunxi_stop_ehci(sunxi_ehci);
 
