@@ -185,6 +185,13 @@ enum hpd_pin {
 	HPD_NUM_PINS
 };
 
+enum chv_planes {
+	PRIMARY_PLANE = 0,
+	SPRITE_A_PLANE,
+	SPRITE_B_PLANE,
+	CHV_MAX_PLANES
+};
+
 #define I915_GEM_GPU_DOMAINS \
 	(I915_GEM_DOMAIN_RENDER | \
 	 I915_GEM_DOMAIN_SAMPLER | \

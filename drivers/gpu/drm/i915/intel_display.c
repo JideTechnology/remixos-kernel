@@ -10840,27 +10840,27 @@ static int intel_crtc_set_pixel_format(struct drm_crtc *crtc,
 }
 
 static void i915_commit(struct drm_i915_private *dev_priv,
-		struct intel_plane *intel_plane,
-		enum pipe pipe, enum planes type)
+		struct intel_crtc *intel_crtc, enum plane plane,
+		enum planes type, void *intel_disp_ptr)
 {
-	struct drm_crtc *crtc = dev_priv->pipe_to_crtc_mapping[pipe];
-	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	int pipe = intel_crtc->pipe;
+	struct intel_plane *intel_plane = NULL;
 	struct intel_disp_reg *reg;
-	int plane = 0;
+
+	if (type == SPRITE_PLANE) {
+		intel_plane = (struct intel_plane *) intel_disp_ptr;
+		reg = &intel_plane->reg;
+	} else
+		reg = &intel_crtc->reg;
 
 	/* Enable Primary plane */
 	if (type == SPRITE_PLANE) {
-		reg = &intel_plane->reg;
-		plane = intel_plane->plane;
 		if (intel_plane->pri_update && (reg->dspcntr & (1 << 31))) {
 			I915_WRITE(DSPCNTR(pipe), reg->dspcntr);
 			I915_MODIFY_DISPBASE(DSPSURF(pipe),
 				I915_READ(DSPSURF(pipe)));
 			intel_plane->pri_update = false;
 		}
-	} else {
-		reg = &intel_crtc->reg;
-		plane = intel_crtc->plane;
 	}
 
 	if (dev_priv->pfit_changed) {
@@ -10903,8 +10903,8 @@ static void i915_commit(struct drm_i915_private *dev_priv,
 }
 
 int intel_set_disp_plane_update(struct drm_mode_set_display *disp,
-	struct intel_crtc *intel_crtc,
-	struct drm_device *dev, struct drm_file *file_priv, int i)
+	struct intel_crtc *intel_crtc, struct drm_device *dev,
+	struct drm_file *file_priv, void *intel_disp_ptr[CHV_MAX_PLANES], int i)
 {
 	struct drm_mode_crtc_page_flip *flip;
 	struct drm_mode_set_plane *plane;
@@ -10946,8 +10946,10 @@ int intel_set_disp_plane_update(struct drm_mode_set_display *disp,
 			disp->errored |= (1 << i);
 			kfree(flip);
 			return tmp_ret;
-		} else
+		} else {
 			disp->presented |= (1 << i);
+			intel_disp_ptr[PRIMARY_PLANE] = intel_crtc;
+		}
 		kfree(flip);
 	} else {
 		plane = kzalloc(sizeof(struct drm_mode_set_plane),
@@ -11003,8 +11005,13 @@ int intel_set_disp_plane_update(struct drm_mode_set_display *disp,
 			disp->errored |= (1<<i);
 			kfree(plane);
 			return tmp_ret;
-		} else
+		} else {
 			disp->presented |= (1<<i);
+			if (intel_plane->plane == 0)
+				intel_disp_ptr[SPRITE_A_PLANE] = intel_plane;
+			else
+				intel_disp_ptr[SPRITE_B_PLANE] = intel_plane;
+		}
 		kfree(plane);
 	}
 	return ret;
@@ -11012,7 +11019,7 @@ int intel_set_disp_plane_update(struct drm_mode_set_display *disp,
 
 int intel_set_disp_calc_flip(struct drm_mode_set_display *disp,
 	struct drm_device *dev, struct drm_file *file_priv,
-	struct intel_crtc *intel_crtc)
+	struct intel_crtc *intel_crtc, void *intel_disp_ptr[PRIMARY_PLANE])
 {
 	struct drm_display_mode *mode = &intel_crtc->config.requested_mode;
 	struct drm_i915_plane_180_rotation *rotate;
@@ -11142,20 +11149,18 @@ int intel_set_disp_calc_flip(struct drm_mode_set_display *disp,
 		if (disp->plane[i].update_flag &
 			DRM_MODE_SET_DISPLAY_PLANE_UPDATE_PRESENT) {
 			ret = intel_set_disp_plane_update(disp, intel_crtc,
-					dev, file_priv, i);
+					dev, file_priv, intel_disp_ptr, i);
 		}
 	}
 	return ret;
 }
 
 int intel_set_disp_commit_regs(struct drm_mode_set_display *disp,
-	struct drm_device *dev, struct intel_crtc *intel_crtc)
+			struct drm_device *dev, struct intel_crtc *intel_crtc,
+			void *intel_disp_ptr[CHV_MAX_PLANES])
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct drm_plane *drm_plane;
-	struct drm_mode_object *obj;
-	struct intel_plane *intel_plane;
-	int i, ret = 0;
+	int ret = 0;
 
 	/* make sure to start from a fresh vsync, it we are close to vblank */
 	if (disp->update_flag & DRM_MODE_SET_DISPLAY_UPDATE_ZORDER) {
@@ -11169,29 +11174,16 @@ int intel_set_disp_commit_regs(struct drm_mode_set_display *disp,
 				I915_READ(SPSURF(intel_crtc->pipe, 1)));
 	}
 
-	/* Write to all display registers */
-	for (i = disp->num_planes-1; i >= 0; i--) {
+	if (intel_disp_ptr[SPRITE_B_PLANE] != NULL)
+		i915_commit(dev_priv, intel_crtc, 1, SPRITE_PLANE,
+						intel_disp_ptr[SPRITE_B_PLANE]);
+	if (intel_disp_ptr[SPRITE_A_PLANE] != NULL)
+		i915_commit(dev_priv, intel_crtc, 0, SPRITE_PLANE,
+						intel_disp_ptr[SPRITE_A_PLANE]);
+	if (intel_disp_ptr[PRIMARY_PLANE] != NULL)
+		i915_commit(dev_priv, intel_crtc, 0, DISPLAY_PLANE,
+						intel_disp_ptr[PRIMARY_PLANE]);
 
-		/* plane_id is contained in obj_id-2 from user layer */
-		if (!(disp->update_flag & DRM_MODE_SET_DISPLAY_UPDATE_PLANE(i)))
-			continue;
-
-		if (disp->plane[i].update_flag &
-			DRM_MODE_SET_DISPLAY_PLANE_UPDATE_PRESENT) {
-			if (disp->plane[i].obj_type == DRM_MODE_OBJECT_CRTC) {
-				i915_commit(dev_priv, NULL, intel_crtc->pipe,
-					DISPLAY_PLANE);
-			} else {
-				obj = drm_mode_object_find(dev,
-					disp->plane[i].obj_id,
-					DRM_MODE_OBJECT_PLANE);
-				drm_plane = obj_to_plane(obj);
-				intel_plane = to_intel_plane(drm_plane);
-				i915_commit(dev_priv, (void *)intel_plane,
-					intel_crtc->pipe, SPRITE_PLANE);
-			}
-		}
-	}
 	return ret;
 }
 
@@ -11244,6 +11236,14 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	/*
+	 * intel_disp_ptr will contain intel_crtc and intel_plane which
+	 * current flip is updating. intel_disp_ptr[PRIMARY_PLANE] will have
+	 * intel_crtc intel_disp_ptr[SPRITE_A_PLANE] will have intel_plane for
+	 * sprite A and intel_disp_ptr[SPRITE_B_PLANE] will have intel_plane
+	 * for sprite B.
+	 */
+	void *intel_disp_ptr[CHV_MAX_PLANES];
 	int i, ret = 0;
 	int plane_cnt = 0;
 	int pipe_stat = VLV_PIPE_STATS(dev_priv->pipe_plane_stat);
@@ -11252,6 +11252,10 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 	int pipe = intel_crtc->pipe;
 	disp->errored = 0;
 	disp->presented = 0;
+
+	intel_disp_ptr[PRIMARY_PLANE] = NULL;
+	intel_disp_ptr[SPRITE_A_PLANE] = NULL;
+	intel_disp_ptr[SPRITE_B_PLANE] = NULL;
 
 	/* If HWC version and size of the struct doesnt match, return NULL */
 	if (!(disp->version == DRM_MODE_SET_DISPLAY_VERSION &&
@@ -11291,7 +11295,8 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 
 
 	/* Calculation for Flips */
-	ret = intel_set_disp_calc_flip(disp, dev, file_priv, intel_crtc);
+	ret = intel_set_disp_calc_flip(disp, dev, file_priv, intel_crtc,
+								intel_disp_ptr);
 
 	prev_plane_stat = VLV_PLANE_STATS(dev_priv->prev_pipe_plane_stat, pipe);
 	plane_stat = VLV_PLANE_STATS(dev_priv->pipe_plane_stat, pipe);
@@ -11318,11 +11323,15 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 		intel_pipe_vblank_evade(crtc);
 	}
 
+	preempt_disable();
+
 	/* Commit to registers */
-	ret = intel_set_disp_commit_regs(disp, dev, intel_crtc);
+	ret = intel_set_disp_commit_regs(disp, dev, intel_crtc, intel_disp_ptr);
 
 	if (IS_CHERRYVIEW(dev))
 		vlv_update_dsparb(intel_crtc);
+
+	preempt_enable();
 
 	/* Enable maxfifo if needed */
 	if (!dev_priv->maxfifo_enabled && single_pipe_enabled(pipe_stat)
