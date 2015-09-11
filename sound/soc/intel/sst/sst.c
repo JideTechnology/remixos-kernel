@@ -1304,9 +1304,6 @@ static int intel_sst_suspend(struct device *dev)
 	struct sst_platform_cb_params cb_params;
 
 	pr_debug("Enter: %s\n", __func__);
-	mutex_lock(&ctx->sst_lock);
-	sst_drv_ctx->sst_suspend_state = true;
-	mutex_unlock(&ctx->sst_lock);
 
 	if (ctx->sst_state == SST_RESET) {
 		pr_debug("LPE is already in RESET state, No action");
@@ -1315,9 +1312,14 @@ static int intel_sst_suspend(struct device *dev)
 
 	usage_count = atomic_read(&ctx->pm_usage_count);
 	if (usage_count) {
-		pr_warn("sst usage count is: %d; But go ahead suspending\n", usage_count);
+		pr_warn("sst usage count is: %d; Ret error for suspend\n", usage_count);
+		return -EBUSY;
 	}
 
+	mutex_lock(&ctx->sst_lock);
+	sst_drv_ctx->sst_suspend_state = true;
+	mutex_unlock(&ctx->sst_lock);
+	
 	if (ctx->pdata->start_recovery_timer)
 		sst_set_timer(&ctx->monitor_lpe, false);
 
