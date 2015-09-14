@@ -1113,12 +1113,9 @@ void of_periph_clk_setup(struct device_node *node)
 	struct clk *clk;
 	const char *clk_name = node->name;
 	struct periph_init_data *periph;
-	unsigned int periph_enabled = 0;
 	unsigned int i;
 
 	of_property_read_string(node, "clock-output-names", &clk_name);
-
-	of_property_read_u32(node, "clock-enabled", &periph_enabled);
 
 	/*get periph clk init config */
 	for(i=0; i<ARRAY_SIZE(sunxi_periphs_init); i++)
@@ -1136,8 +1133,6 @@ void of_periph_clk_setup(struct device_node *node)
 				of_clk_add_provider(node, of_clk_src_simple_get, clk);
 				__set_clk_parents(node , clk);
 				__set_clk_rates(node , clk);
-				if (0 != periph_enabled)
-					clk_prepare_enable(clk);
 				/*pr_err( "%s : %s \n", __func__ , clk_name );*/
 				return ;
 			}
