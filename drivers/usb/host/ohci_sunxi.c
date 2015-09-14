@@ -422,7 +422,7 @@ static void sunxi_ohci_hcd_shutdown(struct platform_device* pdev)
 		scene_lock_destroy(&ohci_standby_lock[sunxi_ohci->usbc_no]);
 	}
 #endif
-	//usb_hcd_platform_shutdown(pdev);
+	usb_hcd_platform_shutdown(pdev);
 	sunxi_stop_ohci(sunxi_ohci);
 
 	DMSG_INFO("[%s]: ohci shutdown end\n", sunxi_ohci->hci_name);
