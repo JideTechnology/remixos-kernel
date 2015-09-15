@@ -30,6 +30,7 @@ ENTRY(	\name	)
 	eor	w0, w0, w3		// Clear low bits
 	mov	x2, #1
 	add	x1, x1, x0, lsr #3	// Get word offset
+	prfm	pstl1strm, [x1]
 	lsl	x3, x2, x3		// Create mask
 1:	ldxr	x2, [x1]
 	\instr	x2, x2, x3
@@ -45,6 +46,7 @@ ENTRY(	\name	)
 	eor	w0, w0, w3		// Clear low bits
 	mov	x2, #1
 	add	x1, x1, x0, lsr #3	// Get word offset
+	prfm	pstl1strm, [x1]
 	lsl	x4, x2, x3		// Create mask
 1:	ldxr	x2, [x1]
 	lsr	x0, x2, x3		// Save old value of bit

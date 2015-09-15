@@ -104,3 +104,8 @@ modules/gpu/mali400/kernel_mode/driver/src/devicedrv/mali/Module.symvers
 modules/nand/Module.symvers
 samples/hidraw/hid-example
 
+# @jide
+tools/gator/daemon/defaults_xml.h
+tools/gator/daemon/escape
+tools/gator/daemon/events.xml
+tools/gator/daemon/events_xml.h

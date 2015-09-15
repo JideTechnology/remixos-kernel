@@ -30,6 +30,7 @@ static inline unsigned long __xchg(unsigned long x, volatile void *ptr, int size
 	switch (size) {
 	case 1:
 		asm volatile("//	__xchg1\n"
+		"	prfm	pstl1strm, %2\n"
 		"1:	ldxrb	%w0, %2\n"
 		"	stlxrb	%w1, %w3, %2\n"
 		"	cbnz	%w1, 1b\n"
@@ -39,6 +40,7 @@ static inline unsigned long __xchg(unsigned long x, volatile void *ptr, int size
 		break;
 	case 2:
 		asm volatile("//	__xchg2\n"
+		"	prfm	pstl1strm, %2\n"
 		"1:	ldxrh	%w0, %2\n"
 		"	stlxrh	%w1, %w3, %2\n"
 		"	cbnz	%w1, 1b\n"
@@ -48,6 +50,7 @@ static inline unsigned long __xchg(unsigned long x, volatile void *ptr, int size
 		break;
 	case 4:
 		asm volatile("//	__xchg4\n"
+		"	prfm	pstl1strm, %2\n"
 		"1:	ldxr	%w0, %2\n"
 		"	stlxr	%w1, %w3, %2\n"
 		"	cbnz	%w1, 1b\n"
@@ -57,6 +60,7 @@ static inline unsigned long __xchg(unsigned long x, volatile void *ptr, int size
 		break;
 	case 8:
 		asm volatile("//	__xchg8\n"
+		"	prfm	pstl1strm, %2\n"
 		"1:	ldxr	%0, %2\n"
 		"	stlxr	%w1, %3, %2\n"
 		"	cbnz	%w1, 1b\n"
@@ -89,6 +93,7 @@ static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
 	case 1:
 		do {
 			asm volatile("// __cmpxchg1\n"
+			"	prfm	pstl1strm, %2\n"
 			"	ldxrb	%w1, %2\n"
 			"	mov	%w0, #0\n"
 			"	cmp	%w1, %w3\n"
@@ -104,6 +109,7 @@ static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
 	case 2:
 		do {
 			asm volatile("// __cmpxchg2\n"
+			"	prfm	pstl1strm, %2\n"
 			"	ldxrh	%w1, %2\n"
 			"	mov	%w0, #0\n"
 			"	cmp	%w1, %w3\n"
@@ -119,6 +125,7 @@ static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
 	case 4:
 		do {
 			asm volatile("// __cmpxchg4\n"
+			"	prfm	pstl1strm, %2\n"
 			"	ldxr	%w1, %2\n"
 			"	mov	%w0, #0\n"
 			"	cmp	%w1, %w3\n"
@@ -134,6 +141,7 @@ static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
 	case 8:
 		do {
 			asm volatile("// __cmpxchg8\n"
+			"	prfm	pstl1strm, %2\n"
 			"	ldxr	%1, %2\n"
 			"	mov	%w0, #0\n"
 			"	cmp	%1, %3\n"
@@ -166,6 +174,7 @@ static inline int __cmpxchg_double(volatile void *ptr1, volatile void *ptr2,
 		VM_BUG_ON((unsigned long *)ptr2 - (unsigned long *)ptr1 != 1);
 		do {
 			asm volatile("// __cmpxchg_double8\n"
+			"	prfm	pstl1strm, %2\n"
 			"	ldxp	%0, %1, %2\n"
 			"	eor	%0, %0, %3\n"
 			"	eor	%1, %1, %4\n"
@@ -246,14 +255,30 @@ static inline unsigned long __cmpxchg_mb(volatile void *ptr, unsigned long old,
 	__ret; \
 })
 
-#define this_cpu_cmpxchg_1(ptr, o, n) cmpxchg_local(__this_cpu_ptr(&(ptr)), o, n)
-#define this_cpu_cmpxchg_2(ptr, o, n) cmpxchg_local(__this_cpu_ptr(&(ptr)), o, n)
-#define this_cpu_cmpxchg_4(ptr, o, n) cmpxchg_local(__this_cpu_ptr(&(ptr)), o, n)
-#define this_cpu_cmpxchg_8(ptr, o, n) cmpxchg_local(__this_cpu_ptr(&(ptr)), o, n)
+#define _protect_cmpxchg_local(pcp, o, n)			\
+({								\
+	typeof(*raw_cpu_ptr(&(pcp))) __ret;			\
+	preempt_disable();					\
+	__ret = cmpxchg_local(__this_cpu_ptr(&(pcp)), o, n);	\
+	preempt_enable();					\
+	__ret;							\
+})
 
-#define this_cpu_cmpxchg_double_8(ptr1, ptr2, o1, o2, n1, n2) \
-	cmpxchg_double_local(__this_cpu_ptr(&(ptr1)), __this_cpu_ptr(&(ptr2)), \
-				o1, o2, n1, n2)
+#define this_cpu_cmpxchg_1(ptr, o, n) _protect_cmpxchg_local(ptr, o, n)
+#define this_cpu_cmpxchg_2(ptr, o, n) _protect_cmpxchg_local(ptr, o, n)
+#define this_cpu_cmpxchg_4(ptr, o, n) _protect_cmpxchg_local(ptr, o, n)
+#define this_cpu_cmpxchg_8(ptr, o, n) _protect_cmpxchg_local(ptr, o, n)
+
+#define this_cpu_cmpxchg_double_8(ptr1, ptr2, o1, o2, n1, n2)		\
+({									\
+	int __ret;							\
+	preempt_disable();						\
+	__ret = cmpxchg_double_local(	__this_cpu_ptr(&(ptr1)),		\
+					__this_cpu_ptr(&(ptr2)),		\
+					o1, o2, n1, n2);		\
+	preempt_enable();						\
+	__ret;								\
+})
 
 #define cmpxchg64(ptr,o,n)		cmpxchg((ptr),(o),(n))
 #define cmpxchg64_local(ptr,o,n)	cmpxchg_local((ptr),(o),(n))
