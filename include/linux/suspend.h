@@ -216,11 +216,15 @@ extern void arch_suspend_disable_irqs(void);
 extern void arch_suspend_enable_irqs(void);
 
 extern int pm_suspend(suspend_state_t state);
+extern int pm_suspend_set_state(suspend_state_t state);
+extern suspend_state_t pm_suspend_get_state(void);
 #else /* !CONFIG_SUSPEND */
 #define suspend_valid_only_mem	NULL
 
 static inline void suspend_set_ops(const struct platform_suspend_ops *ops) {}
 static inline int pm_suspend(suspend_state_t state) { return -ENOSYS; }
+static inline int pm_suspend_set_state(suspend_state_t state){ return -ENOSYS; }
+static inline suspend_state_t pm_suspend_get_state(void){ return -ENOSYS; }
 static inline void freeze_wake(void) {}
 #endif /* !CONFIG_SUSPEND */
 

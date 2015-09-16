@@ -42,7 +42,7 @@
 #include <linux/notifier.h>
 #include <linux/jiffies.h>
 #include <linux/uaccess.h>
-
+#include <linux/suspend.h>
 #include <asm/irq_regs.h>
 
 extern void ctrl_alt_del(void);
@@ -1019,6 +1019,13 @@ static int kbd_update_leds_helper(struct input_handle *handle, void *data)
 	unsigned char leds = *(unsigned char *)data;
 
 	if (test_bit(EV_LED, handle->dev->evbit)) {
+	#ifdef CONFIG_PM
+		if(PM_SUSPEND_MEM == pm_suspend_get_state())
+		{
+			printk("ignore the event\n");
+			return 0;
+		}
+	#endif
 		input_inject_event(handle, EV_LED, LED_SCROLLL, !!(leds & 0x01));
 		input_inject_event(handle, EV_LED, LED_NUML,    !!(leds & 0x02));
 		input_inject_event(handle, EV_LED, LED_CAPSL,   !!(leds & 0x04));
