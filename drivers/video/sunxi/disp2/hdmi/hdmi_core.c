@@ -17,7 +17,7 @@ static HDMI_AUDIO_INFO audio_info;
 static struct mutex hdmi_lock;
 static s32 audio_config_internal(void);
 extern u32 is_exp;
-u32	hdmi_print = 1;
+u32	hdmi_print = 0;
 u32 hdmi_hpd_mask = 0x00;//0x10: force unplug; 0x11: force plug; 0x1xx: unreport hpd state
 static u32 hdmi_detect_time = 200;//ms
 
