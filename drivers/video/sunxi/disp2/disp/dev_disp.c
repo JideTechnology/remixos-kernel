@@ -468,6 +468,14 @@ static s32 parser_disp_init_para(const struct device_node *np, disp_init_para * 
 		__inf("of_property_read disp_init.fb1_height fail\n");
 	}
 	init_para->fb_height[1]= value;
+
+	value = (int)disp_boot_para_parse("init_disp");
+	if((value & 0xFF00) == (init_para->output_type[0] << 8)) {
+		init_para->output_mode[0] = value & 0xFF;
+	}
+	if((value & 0xFF000000) == (init_para->output_type[1] << 24)) {
+		init_para->output_mode[1] = (value >> 16) & 0xFF;
+	}
 #if 0
 	//fb2
 	init_para->buffer_num[2]= 2;
