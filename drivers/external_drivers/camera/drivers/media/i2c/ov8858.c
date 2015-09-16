@@ -862,6 +862,8 @@ static int power_down(struct v4l2_subdev *sd)
 	if (ret)
 		dev_err(&client->dev, "power rail off failed.\n");
 
+	msleep(20);
+
 	return ret;
 }
 
@@ -890,6 +892,9 @@ static int __ov8858_s_power(struct v4l2_subdev *sd, int on)
 				return ret;
 			}
 		}
+
+		msleep(20);
+
 		return __ov8858_init(sd);
 	}
 
