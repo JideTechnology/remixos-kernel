@@ -1802,6 +1802,8 @@ static int rt5645_bst2_event(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMU:
 		snd_soc_update_bits(codec, RT5645_PWR_ANLG2,
 			RT5645_PWR_BST2_P, RT5645_PWR_BST2_P);
+		snd_soc_update_bits(codec, RT5645_PWR_ANLG2,
+			RT5645_PWR_MB1, RT5645_PWR_MB1);
 		break;
 
 	case SND_SOC_DAPM_PRE_PMD:
@@ -3352,10 +3354,10 @@ static int rt5645_probe(struct snd_soc_codec *codec)
 
 	snd_soc_update_bits(codec, RT5645_PWR_ANLG1, RT5645_LDO_SEL_MASK, 0x0);
 
-	/* dc_calibrate(codec); */
+	dc_calibrate(codec);
     // set bias off
 	codec->dapm.bias_level = SND_SOC_BIAS_OFF;
-	//rt5645_set_bias_level(codec, SND_SOC_BIAS_OFF);
+	rt5645_set_bias_level(codec, SND_SOC_BIAS_OFF);
 
 
 	rt5645->codec = codec;
