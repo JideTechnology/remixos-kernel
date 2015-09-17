@@ -24,7 +24,21 @@
 #include <linux/sysfs.h>
 #include <linux/init.h>
 #include <linux/gpio/consumer.h>
+
+#include <linux/kthread.h>
+#include <linux/delay.h>
+
+
 #include "mcd_acpi.h"
+
+
+struct modem_reset_info_t {
+	struct gpio_desc *gpio_power_on;
+	struct gpio_desc *gpio_reset;
+	struct mdm_ctrl_pmic_data *pmic_data;
+};
+
+struct modem_reset_info_t modem_reset_info;
 
 
 /* Modem data */
@@ -176,6 +190,71 @@ acpi_status get_acpi_param(acpi_handle handle, int type, char *id,
 	return status;
 }
 #endif
+static inline int mdm_ctrl_configure_gpio2(struct gpio_desc *gpio,
+					  int direction,
+					  int value)
+{
+	int ret = 0;
+
+	if (direction)
+		ret += gpiod_direction_output(gpio, value);
+	else
+		ret += gpiod_direction_input(gpio);
+
+	if (ret) {
+		pr_err(DRVNAME ": Unable to configure GPIO%d\n",
+						desc_to_gpio(gpio));
+		ret = -ENODEV;
+	}
+
+	return ret;
+}
+
+
+
+#ifndef SLEEP_MILLI_SEC
+#define SLEEP_MILLI_SEC(nMilliSec)\
+do { \
+long timeout = (nMilliSec) * HZ / 1000; \
+while (timeout > 0) { \
+timeout = schedule_timeout(timeout); \
+} \
+} while (0);
+#endif
+
+extern int pmic_io_power_on_mdm(void *data);
+extern int pmic_io_power_off_mdm(void *data);
+
+static int modem_reset_thread(void *data)
+{
+	struct modem_reset_info_t *modem_reset_info_ptr = (struct modem_reset_info_t *)data;
+
+	/*pr_info("modem_reset_thread enter, gpio_reset(%d), power_on(%d)", modem_reset_info_ptr->gpio_reset, modem_reset_info_ptr->gpio_power_on);*/
+	/* power off first*/
+	gpiod_direction_output(modem_reset_info_ptr->gpio_reset, 0);
+	/*schedule_timeout(msecs_to_jiffies(5));*/
+	SLEEP_MILLI_SEC(5);
+	gpiod_direction_output(modem_reset_info_ptr->gpio_power_on, 0);
+	/* pmic_io_power_off_mdm( modem_reset_info_ptr->pmic_data );*/
+
+	/*schedule_timeout(msecs_to_jiffies(1500));*/
+	SLEEP_MILLI_SEC(1500);
+	gpiod_direction_output(modem_reset_info_ptr->gpio_reset, 1);
+	SLEEP_MILLI_SEC(5);
+	/*schedule_timeout(msecs_to_jiffies(5));*/
+	gpiod_direction_output(modem_reset_info_ptr->gpio_power_on, 1);
+	/*pmic_io_power_on_mdm(modem_reset_info_ptr->pmic_data);*/
+
+	pr_info("modem_reset_thread exit");
+	return 0;
+}
+
+
+
+//#define POWER_ON 234
+//#define POWER_OFF 492
+//#define RESET_BB 343
+//#define RESET_OUT 348
 
 /*
  * Access ACPI resources/data to populate global object mcd_reg_info
@@ -319,6 +398,16 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 	mcd_reg_info->pmic_data = pmic_data;
 
 	nb_mdms = 1;
+	mdm_ctrl_configure_gpio2( cpu_data->entries[0], 1, 0);
+	pr_err("\r\nPOWER_ON=%d\r\n", desc_to_gpio( cpu_data->entries[0]) );
+	if (1) {
+		struct task_struct *modem_reset_thread_task;
+
+		modem_reset_info.gpio_power_on = cpu_data->entries[0];
+		modem_reset_info.gpio_reset = cpu_data->entries[2];
+		modem_reset_info.pmic_data = pmic_data;
+		modem_reset_thread_task = kthread_run(modem_reset_thread, &modem_reset_info, "kthread_run");
+	}
 
 	return mcd_reg_info;
 

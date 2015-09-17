@@ -174,5 +174,7 @@ source "drivers/powercap/Kconfig"
 
 source "drivers/sldriver/Kconfig"
 
+source "drivers/rmnet/Kconfig"
+
 endmenu
 source "drivers/external_drivers/Kconfig"

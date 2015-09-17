@@ -105,7 +105,17 @@ int mcd_mdm_cold_boot(void *data)
 		gpio_set_value(pwr_on, 1);
 		usleep_range(mdm_data->on_duration, mdm_data->on_duration + 1);
 		gpio_set_value(pwr_on, 0);
-	} else {
+	}else if (pwr_on_ctrl == POWER_ON_GPIO) {
+		gpio_set_value(rst, 0);
+		msleep(5);
+		gpio_set_value(pwr_on, 0);
+
+		msleep(2000);
+		
+		gpio_set_value(rst, 1);
+		msleep(5);
+		gpio_set_value(pwr_on, 1);
+	}  else {
 		pr_err(DRVNAME ": Power on method not supported");
 		ret = -1;
 	}
@@ -157,6 +167,7 @@ int mcd_mdm_power_off(void *data)
 
 	int ret = 0;
 	int rst = cpu->get_gpio_rst(cpu_data);
+	int pwr_on = cpu->get_gpio_pwr(cpu_data);
 	int pwr_on_ctrl = mdm->pdata->pwr_on_ctrl;
 
 	if (pwr_on_ctrl == POWER_ON_PMIC_GPIO) {
@@ -179,7 +190,14 @@ int mcd_mdm_power_off(void *data)
 			pr_err(DRVNAME ": Error PMIC power-OFF.");
 			ret = -1;
 		}
-	} else {
+	}
+	else if (pwr_on_ctrl == POWER_ON_GPIO) {
+		/* Set the RESET_BB_N to 0 */
+		gpio_set_value(rst, 0);
+		msleep(5);
+		gpio_set_value(pwr_on, 0);
+	} 
+	else {
 		pr_err(DRVNAME ": Power on method not supported");
 		ret = -1;
 	}
