@@ -477,7 +477,6 @@ static int AKECS_GetData_Poll(
 static int AKECS_GetOpenStatus(
 	struct akm_compass_data *akm)
 {
-		printk("%s......RU...%d.\n",__func__,__LINE__);
 	return wait_event_interruptible(
 			akm->open_wq, (atomic_read(&akm->active) > 0));
 }
@@ -491,7 +490,6 @@ static int AKECS_GetCloseStatus(
 
 static int AKECS_Open(struct inode *inode, struct file *file)
 {
-	printk("%s........RU..........\n", __func__);
 	file->private_data = s_akm;
 	return nonseekable_open(inode, file);
 }
@@ -516,7 +514,6 @@ AKECS_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	uint8_t mode;			/* for SET_MODE*/
 	int status;			/* for OPEN/CLOSE_STATUS */
 	int ret = 0;		/* Return value. */
-	printk("%s....cmd=%x.....RU..........\n", __func__, cmd);
 
 	switch (cmd) {
 	case ECS_IOCTL_READ:
@@ -617,7 +614,6 @@ AKECS_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	case ECS_IOCTL_GET_OPEN_STATUS:
 		dev_vdbg(&akm->i2c->dev, "IOCTL_GET_OPEN_STATUS called.");
-		printk("%s......RU...%d.\n",__func__,__LINE__);
 		ret = AKECS_GetOpenStatus(akm);
 		if (ret < 0) {
 			dev_err(&akm->i2c->dev,
@@ -738,7 +734,6 @@ static long AKECS_compat_ioctl(struct file *file, unsigned int cmd, unsigned lon
 	
 	if (!file->f_op || !file->f_op->unlocked_ioctl)
 		return -ENOTTY;
-		printk("%s......RU.cmd=%x....\n",__func__,cmd);
 	
 	switch (cmd) {
 		 case ECS_IOCTL_WRITE:
@@ -1732,7 +1727,6 @@ static int akm_compass_suspend(struct device *dev)
 {
 	struct akm_compass_data *akm = dev_get_drvdata(dev);
 	dev_dbg(&akm->i2c->dev, "suspended\n");
-	cancel_delayed_work_sync(&akm->dwork);
 	return 0;
 }
 
@@ -1740,7 +1734,6 @@ static int akm_compass_resume(struct device *dev)
 {
 	struct akm_compass_data *akm = dev_get_drvdata(dev);
 	dev_dbg(&akm->i2c->dev, "resumed\n");
-	queue_delayed_work(akm->work_queue, &akm->dwork, akm->delay[MAG_DATA_FLAG] * HZ /1000);
 
 	return 0;
 }
@@ -1791,7 +1784,6 @@ static int akm_report_data(struct akm_compass_data *akm)
 	int tmp;
 	int count = 10;
 
-	printk("akmd report data\n");
 	do {
 		/* The typical time for single measurement is 7.2ms */
 		ret = AKECS_GetData_Poll(akm, dat_buf, AKM_SENSOR_DATA_SIZE);
@@ -1891,7 +1883,6 @@ static int akm_report_data(struct akm_compass_data *akm)
 
 	input_sync(akm->input);
 
-	printk("akmd report data finish x=%x,y=%x,z=%x\n",mag_x,mag_y,mag_z);
 	return 0;
 }
 
@@ -1900,7 +1891,6 @@ static void akm_dev_poll(struct work_struct *work)
 	struct akm_compass_data *akm;
 	int ret;
 	
-	printk("akmd dev poll\n");
 	akm = container_of((struct delayed_work *)work,
 			struct akm_compass_data,  dwork);
 
@@ -1912,7 +1902,6 @@ static void akm_dev_poll(struct work_struct *work)
 	if ((ret < 0) && (ret != -EBUSY))
 		dev_warn(&akm->i2c->dev, "Failed to set mode\n");
 
-	printk("akm dev poll start timer delay:%ld\n",akm->delay[MAG_DATA_FLAG]);
 	queue_delayed_work(akm->work_queue, &akm->dwork,akm->delay[MAG_DATA_FLAG] * HZ /1000);
 }
 
@@ -1921,7 +1910,6 @@ int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	struct akm09911_platform_data *pdata;
 	int err = 0;
 	int i;
-	printk("%s.........RU..........\n", __func__);
 	
 
 	dev_dbg(&client->dev, "start probing.");
@@ -2039,7 +2027,6 @@ int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 			"%s: create sysfs failed.", __func__);
 		goto exit6;
 	}
-	printk("%s.........RU...probe is ok.......\n", __func__);
 
 	dev_info(&client->dev, "successfully probed.");
 	return 0;
