@@ -872,7 +872,7 @@ struct ov2680_control {
 };
 #define N_RES_PREVIEW (ARRAY_SIZE(ov2680_res_preview))
 
-/*
+
 static struct ov2680_resolution ov2680_res_still[] = {
 	{
 		.desc = "ov2680_1616x1216_30fps",
@@ -940,7 +940,6 @@ static struct ov2680_resolution ov2680_res_video[] = {
 	},
 };
 #define N_RES_VIDEO (ARRAY_SIZE(ov2680_res_video))
-*/
 
 static struct ov2680_resolution *ov2680_res = ov2680_res_preview;
 static int N_RES = N_RES_PREVIEW;

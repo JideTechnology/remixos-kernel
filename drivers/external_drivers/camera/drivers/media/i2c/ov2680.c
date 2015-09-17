@@ -240,7 +240,7 @@ static int ov2680_write_reg_array(struct i2c_client *client,
 	const struct ov2680_reg *next = reglist;
 	struct ov2680_write_ctrl ctrl;
 	int err;
-	dev_err(&client->dev,  "++++write reg array\n");
+	//dev_err(&client->dev,  "++++write reg array\n");
 	ctrl.index = 0;
 	for (; next->type != OV2680_TOK_TERM; next++) {
 		switch (next->type & OV2680_TOK_MASK) {
@@ -255,7 +255,7 @@ static int ov2680_write_reg_array(struct i2c_client *client,
 			 * If next address is not consecutive, data needs to be
 			 * flushed before proceed.
 			 */
-			 dev_err(&client->dev,  "+++ov2680_write_reg_array reg=%x->%x\n", next->reg,next->val);
+			//dev_err(&client->dev,  "+++ov2680_write_reg_array reg=%x->%x\n", next->reg,next->val);
 			if (!__ov2680_write_reg_is_consecutive(client, &ctrl,
 								next)) {
 				err = __ov2680_flush_reg_array(client, &ctrl);
@@ -407,7 +407,7 @@ static long __ov2680_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 	u16 vts,hts;
 	int ret,exp_val;
 	
-       dev_err(&client->dev, "+++++++__ov2680_set_exposure coarse_itg %d, gain %d, digitgain %d++\n",coarse_itg, gain, digitgain);
+    //dev_err(&client->dev, "+++++++__ov2680_set_exposure coarse_itg %d, gain %d, digitgain %d++\n",coarse_itg, gain, digitgain);
 
 	hts = ov2680_res[dev->fmt_idx].pixels_per_line;
 	vts = ov2680_res[dev->fmt_idx].lines_per_frame;
@@ -1163,12 +1163,13 @@ static int ov2680_try_mbus_fmt(struct v4l2_subdev *sd,
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int idx = 0;
+	struct ov2680_device *dev = to_ov2680_sensor(sd);
 
 	if (!fmt)
 		return -EINVAL;
 	
-	dev_err(&client->dev, "+ %s idx %d width %d height %d\n", __func__, idx,
-		  fmt->width, fmt->height);
+	dev_err(&client->dev, "+ %s idx %d width %d height %d,dev->mode is:0x%x.\n", __func__, idx,
+		  fmt->width, fmt->height,dev->run_mode);
 	idx = nearest_resolution_index(fmt->width, fmt->height);
 	if (idx == -1) {
 		/* return the largest resolution */
@@ -1206,7 +1207,8 @@ static int ov2680_s_mbus_fmt(struct v4l2_subdev *sd,
 
 	dev->fmt_idx = get_resolution_index(fmt->width,
 					      fmt->height);
-	dev_err(&client->dev, "+++++get_resolution_index=%d+++++l\n",dev->fmt_idx );
+	dev_err(&client->dev, "+++++get_resolution_index=%d+++++l dev->run_mode:0x%x.\n",
+			dev->fmt_idx,dev->run_mode);
 	if (dev->fmt_idx == -1) {
 		dev_err(&client->dev, "get resolution fail\n");
 		mutex_unlock(&dev->input_lock);
@@ -1471,7 +1473,6 @@ static int ov2680_s_parm(struct v4l2_subdev *sd,
 
 	mutex_lock(&dev->input_lock);
 	switch (dev->run_mode) {
-	/*
 	case CI_MODE_VIDEO:
 		ov2680_res = ov2680_res_video;
 		N_RES = N_RES_VIDEO;
@@ -1479,8 +1480,7 @@ static int ov2680_s_parm(struct v4l2_subdev *sd,
 	case CI_MODE_STILL_CAPTURE:
 		ov2680_res = ov2680_res_still;
 		N_RES = N_RES_STILL;
-		break;
-	*/
+		break;	
 	default:
 		ov2680_res = ov2680_res_preview;
 		N_RES = N_RES_PREVIEW;
@@ -1730,7 +1730,7 @@ static struct i2c_driver ov2680_driver = {
 
 static int init_ov2680(void)
 {
-	printk("====ov2680_init_mod=====.\n");
+	//printk("====ov2680_init_mod=====.\n");
 	return i2c_add_driver(&ov2680_driver);
 }
 
