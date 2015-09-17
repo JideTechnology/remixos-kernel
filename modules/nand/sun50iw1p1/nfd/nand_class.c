@@ -12,6 +12,7 @@ extern uint32 gc_one(void* zone);
 extern uint32 prio_gc_one(void* zone,uint16 block,uint32 flag);
 extern void print_nftl_zone(void * zone);
 extern void print_free_list(void* zone);
+extern void print_smart(void * zone);
 extern void print_block_invalid_list(void* zone);
 extern void print_logic_page_map(void * _zone,uint32 num);
 extern uint32 nftl_set_zone_test(void * _zone,uint32 num);
@@ -201,6 +202,13 @@ static ssize_t nand_test_store(struct kobject *kobject,struct attribute *attr, c
         nand_dbg_err("nand debug cmd:\n");
         nand_dbg_err("  blk debug \n");
         debug_data = param0;
+        goto NAND_TEST_STORE_EXIT;
+    }
+    else if(strcmp(cmd,"smart") == 0)
+    {
+        nand_dbg_err("nand debug cmd:\n");
+        nand_dbg_err("smart info\n");
+        print_smart(nand_kobj->nftl_blk->nftl_zone);
         goto NAND_TEST_STORE_EXIT;
     }
     else if(strcmp(cmd,"read1") == 0)

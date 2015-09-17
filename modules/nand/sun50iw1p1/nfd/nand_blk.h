@@ -56,6 +56,7 @@
 #include <linux/kmod.h>
 #include <linux/of_address.h>
 #include <linux/of.h>
+#include <linux/time.h>
 
 #if defined CONFIG_ARCH_SUN8IW1P1
 #define  SUN8IW1P1

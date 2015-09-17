@@ -5,7 +5,7 @@
 
 extern struct nand_blk_ops mytr;
 extern struct _nand_info* p_nand_info;
-extern unsigned int flush_cache_num;
+
 
 extern int  init_blklayer(void);
 extern int init_blklayer_for_dragonboard(void);
@@ -460,7 +460,7 @@ int __init nand_init(void)
         nand_capacity_level.val = 0;
     }
 
-    flush_cache_num = nand_flush_cache_num.val;
+    //flush_cache_num = nand_flush_cache_num.val;
 
     //nand_dbg_err("flush_cache_num ! %d",flush_cache_num);
 
@@ -472,7 +472,7 @@ int __init nand_init(void)
 
 #endif
 
-	flush_cache_num = nand_flush_cache_num;
+	//flush_cache_num = nand_flush_cache_num;
 
     //storage_type = NAND_get_storagetype();
     dragonboard_flag = NAND_Get_Dragonboard_Flag();

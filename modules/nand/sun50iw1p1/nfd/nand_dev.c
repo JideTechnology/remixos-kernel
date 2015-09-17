@@ -10,10 +10,10 @@
 #define NFTL_FLUSH_DATA_TIME	 1
 #define WEAR_LEVELING 1
 
-unsigned int flush_cache_num = 32;
 static int dev_num = 0;
 
 unsigned long nand_active_time = 0;
+unsigned long nand_write_active_time = 0;
 
 struct nand_kobject* s_nand_kobj;
 struct _nand_info* p_nand_info = NULL;
@@ -30,10 +30,8 @@ extern struct _nand_disk* get_disk_from_phy_partition(struct _nand_phy_partition
 extern uint16 get_partitionNO(struct _nand_phy_partition* phy_partition);
 extern int nftl_exit(struct _nftl_blk *nftl_blk);
 extern int NAND_Print_DBG(const char *fmt, ...);
-extern struct _nftl_blk* get_nftl_need_read_claim(struct _nftl_blk* start_blk);
-extern void set_nftl_read_claim_complete(struct _nftl_blk* nftl_blk);
-extern unsigned int get_blk_logic_page_num(struct _nftl_blk *nftl_blk);
-extern  int read_reclaim(void *zone,uchar*buf,uint32 start_page,uint32 total_pages);
+extern struct _nftl_blk* get_nftl_need_read_claim(struct _nftl_blk* start_blk,uint32 utc);
+extern  int read_reclaim(struct _nftl_blk *start_blk,struct _nftl_blk *nftl_blk,uchar*buf,uint32 utc);
 
 
 int _dev_nand_read(struct _nand_dev *nand_dev,__u32 start_sector,__u32 len,unsigned char *buf);
@@ -45,7 +43,7 @@ int dev_initialize(struct _nand_dev *nand_dev,struct _nftl_blk *nftl_blk,__u32 o
 int nand_flush(struct nand_blk_dev *dev);
 int add_nand(struct nand_blk_ops *tr, struct _nand_phy_partition* phy_partition);
 int remove_nand(struct nand_blk_ops *tr);
-unsigned int nand_read_reclaim(struct _nftl_blk *nftl_blk,unsigned char *buf);
+unsigned int nand_read_reclaim(struct _nftl_blk *nftl_blk,unsigned char *buf,uint32 utc);
 
 /*****************************************************************************
 *Name         :
@@ -56,29 +54,44 @@ unsigned int nand_read_reclaim(struct _nftl_blk *nftl_blk,unsigned char *buf);
 *****************************************************************************/
 int nand_thread(void *arg)
 {
-    unsigned long time;
+    unsigned long time,utc,ret,time_val;
     struct nand_blk_ops* tr = (struct nand_blk_ops*)arg;
 
-    unsigned int start_time = 480*10;
+    unsigned int start_time = 4800;
     unsigned char * temp_buf = kmalloc(64*1024, GFP_KERNEL);
+
+    time_val = NAND_SCHEDULE_TIMEOUT;
 
     while (!kthread_should_stop())
     {
         if(start_time != 0)
         {
             start_time--;
+            if(start_time < 3)
+            {
+                utc = get_seconds();
+            }
             goto  nand_thread_exit;
         }
 
         time = jiffies;
-        if (time_after(time, nand_active_time+HZ))
+        if (time_after(time, nand_active_time + HZ) != 0)
         {
-            nand_read_reclaim(tr->nftl_blk_head.nftl_blk_next,temp_buf);
+            ret = nand_read_reclaim(tr->nftl_blk_head.nftl_blk_next,temp_buf,utc);
+            if(ret == 1)
+            {
+                time_val = HZ << 5;   //32s
+                utc = get_seconds();
+            }
+            else
+            {
+                time_val = NAND_SCHEDULE_TIMEOUT;
+            }
         }
 
 nand_thread_exit:
         set_current_state(TASK_INTERRUPTIBLE);
-        schedule_timeout(NAND_SCHEDULE_TIMEOUT);
+        schedule_timeout(time_val);
     }
 
     return 0;
@@ -91,112 +104,60 @@ nand_thread_exit:
 *Return       :
 *Note         :
 *****************************************************************************/
-/*
 static int nftl_thread(void *arg)
 {
     struct _nftl_blk *nftl_blk = arg;
     unsigned long time;
-
-    nftl_blk->time_flush = NFTL_FLUSH_DATA_TIME * HZ;
-    nftl_blk->time_flush = HZ;
-
-    while (!kthread_should_stop()) {
-
-        mutex_lock(nftl_blk->blk_lock);
-
-        if(nftl_get_zone_write_cache_nums(nftl_blk->nftl_zone) > 0){
-            time = jiffies;
-           if (time_after(time,nftl_blk->time + nftl_blk->time_flush+HZ*4)){
-                nftl_blk->flush_write_cache(nftl_blk,16);
-           }
-        }
-
-//#if  SUPPORT_WEAR_LEVELING
-//        if(do_static_wear_leveling(nftl_blk->nftl_zone) != 0){
-//            nand_dbg_err("nftl_thread do_static_wear_leveling error!\n");
-//        }
-//#endif
-
-        if(garbage_collect(nftl_blk->nftl_zone) != 0){
-            nand_dbg_err("nftl_thread garbage_collect error!\n");
-        }
-
-        if(do_prio_gc(nftl_blk->nftl_zone) != 0){
-            nand_dbg_err("nftl_thread do_prio_gc error!\n");
-        }
-
-        mutex_unlock(nftl_blk->blk_lock);
-        set_current_state(TASK_INTERRUPTIBLE);
-        schedule_timeout(NFTL_SCHEDULE_TIMEOUT);
-    }
-
-    nftl_blk->nftl_thread = (void*)NULL;
-    return 0;
-}
-*/
-
-/*****************************************************************************
-*Name         :
-*Description  :
-*Parameter    :
-*Return       :
-*Note         :
-*****************************************************************************/
-static int nftl_thread(void *arg)
-{
-    struct _nftl_blk *nftl_blk = arg;
-    unsigned long time;
-
+    int cache_nums;
 	unsigned long swl_time = jiffies;
 	int first_miss_swl = 0;
 	int need_swl = 0;
 	int swl_done = 0;
-    nftl_blk->time_flush = 2*HZ;
 
     while (!kthread_should_stop())
     {
         mutex_lock(nftl_blk->blk_lock);
 
+        cache_nums = nftl_get_zone_write_cache_nums(nftl_blk->nftl_zone);
         time = jiffies;
-        if(nftl_get_zone_write_cache_nums(nftl_blk->nftl_zone) > 64)
+
+        if(cache_nums > 300)
         {
-           //if (time_after(time,nftl_blk->time + nftl_blk->time_flush))
+           if (time_after((unsigned long)time,(unsigned long)(nand_write_active_time + HZ)) != 0)
            {
-                nftl_blk->flush_write_cache(nftl_blk,16);
+                nftl_blk->flush_write_cache(nftl_blk,32);
            }
         }
-//        else if(nftl_get_zone_write_cache_nums(nftl_blk->nftl_zone) > 200)
-//        {
-//           time = jiffies;
-//           if (time_after(time,nftl_blk->time + nftl_blk->time_flush)){
-//                nftl_blk->flush_write_cache(nftl_blk,6);
-//           }
-//        }
-//        else if(nftl_get_zone_write_cache_nums(nftl_blk->nftl_zone) > 100)
-//        {
-//            time = jiffies;
-//           if (time_after(time,nftl_blk->time + nftl_blk->time_flush)){
-//                nftl_blk->flush_write_cache(nftl_blk,8);
-//           }
-//        }
+        else if(cache_nums > 200)
+        {
+           if (time_after((unsigned long)time,(unsigned long)(nand_write_active_time + HZ)) != 0)
+           {
+                nftl_blk->flush_write_cache(nftl_blk,8);
+           }
+        }
+        else if(cache_nums > 100)
+        {
+           if (time_after((unsigned long)time,(unsigned long)(nand_write_active_time + HZ)) != 0)
+           {
+                nftl_blk->flush_write_cache(nftl_blk,4);
+           }
+        }
+        else if(cache_nums > 50)
+        {
+           if (time_after((unsigned long)time,(unsigned long)(nand_write_active_time + HZ)) != 0)
+           {
+                nftl_blk->flush_write_cache(nftl_blk,2);
+           }
+        }
         else
         {
-           if (time_after((unsigned long)time,(unsigned long)(nftl_blk->time + nftl_blk->time_flush)) != 0)
+           if (time_after((unsigned long)time,(unsigned long)(nand_write_active_time + HZ + HZ)) != 0)
            {
-                nftl_blk->flush_write_cache(nftl_blk,flush_cache_num);
+                nftl_blk->flush_write_cache(nftl_blk,2);
            }
         }
 
 #if WEAR_LEVELING
-		/**
-        if (time_after(time,(HZ<<4)+nftl_blk->time))
-        {
-            if(do_static_wear_leveling(nftl_blk->nftl_zone) != 0)
-            {
-                nand_dbg_err("nftl_thread do_static_wear_leveling error!\n");
-            }
-        }
-        */
 
         /** add static WL:
          * we do the static WL when nftl ops is idle over 4s;
@@ -451,7 +412,7 @@ int add_nand_for_dragonboard_test(struct nand_blk_ops *tr)
 
     nand_dev->nbd.size = 1024*4096;
     nand_dev->nbd.priv = (void*)nand_dev;
-	
+
     dev_num = 0;
     nand_dev->nbd.devnum = dev_num;
 	printk("befor add nand blktrans dev\n");
@@ -625,6 +586,7 @@ int _dev_nand_write(struct _nand_dev *nand_dev,__u32 start_sector,__u32 len,unsi
     struct _nftl_blk *nftl_blk = nand_dev->nftl_blk;
 
     nand_active_time = jiffies;
+    nand_write_active_time = jiffies;
 
     mutex_lock(nftl_blk->blk_lock);
 
@@ -641,8 +603,8 @@ int _dev_nand_write(struct _nand_dev *nand_dev,__u32 start_sector,__u32 len,unsi
 
 _dev_nand_write_end:
 
-    nftl_blk->time = jiffies;
     nand_active_time = jiffies;
+    nand_write_active_time = jiffies;
 
     mutex_unlock(nftl_blk->blk_lock);
 
@@ -663,7 +625,7 @@ int _dev_nand_discard(struct _nand_dev *nand_dev,__u32 start_sector,__u32 len)
 
     mutex_lock(nftl_blk->blk_lock);
 
-    nand_dbg_err("==========nand_discard========== %d,%d\n",start_sector,len);
+    //nand_dbg_err("==========nand_discard========== %d,%d\n",start_sector,len);
 
     ret = nand_dev->nftl_blk->discard(nand_dev->nftl_blk,start_sector + nand_dev->offset,len);
 
@@ -692,7 +654,6 @@ int _dev_flush_write_cache(struct _nand_dev *nand_dev, __u32 num)
 
     ret = nand_dev->nftl_blk->flush_write_cache(nand_dev->nftl_blk,num);
 
-    //nftl_blk->time = jiffies;
     nand_active_time = jiffies;
 
     mutex_unlock(nftl_blk->blk_lock);
@@ -715,8 +676,6 @@ int _dev_flush_sector_write_cache(struct _nand_dev *nand_dev, __u32 num)
     mutex_lock(nftl_blk->blk_lock);
 
     ret = nand_dev->nftl_blk->flush_sector_write_cache(nand_dev->nftl_blk,num);
-
-    //nftl_blk->time = jiffies;
 
     mutex_unlock(nftl_blk->blk_lock);
 
@@ -817,9 +776,6 @@ int _dev_nand_write2(char * name,unsigned int start_sector,unsigned int len,unsi
     return ret;
 }
 
-
-
-
 /*****************************************************************************
 *Name         :
 *Description  :
@@ -827,34 +783,22 @@ int _dev_nand_write2(char * name,unsigned int start_sector,unsigned int len,unsi
 *Return       :
 *Note         :
 *****************************************************************************/
-static uint32 st_start_page = 0;
-uint32 nand_read_reclaim(struct _nftl_blk *start_blk,unsigned char *buf)
+uint32 nand_read_reclaim(struct _nftl_blk *start_blk,unsigned char *buf,uint32 utc)
 {
-    uint32 total_pages,ret;
+    uint32 ret = 0;
     struct _nftl_blk *nftl_blk;
 
-    nftl_blk = get_nftl_need_read_claim(start_blk);
+    nftl_blk = get_nftl_need_read_claim(start_blk,utc);
     if(nftl_blk == NULL)
     {
-        return 0;
+        return 1;
     }
-
-    total_pages = get_blk_logic_page_num(nftl_blk);
 
     mutex_lock(nftl_blk->blk_lock);
 
-    ret = read_reclaim(nftl_blk->nftl_zone,buf,st_start_page,total_pages);
-    if(ret == 0xffffffff)
-    {
-        st_start_page = 0;
-        set_nftl_read_claim_complete(nftl_blk);
-    }
-    else
-    {
-        st_start_page = ret;
-    }
+    ret = read_reclaim(start_blk,nftl_blk,buf,utc);
 
     mutex_unlock(nftl_blk->blk_lock);
 
-    return 0;
+    return ret;
 }
