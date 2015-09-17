@@ -25,5 +25,7 @@ extern int sunxi_get_serial(u8 *serial);
 extern unsigned int sunxi_get_soc_bin(void);
 extern int sunxi_soc_is_secure(void);
 extern int sunxi_boot_is_secure(void);
+extern int sunxi_smc_readl(phys_addr_t addr);
+extern int sunxi_smc_writel(phys_addr_t addr, u32 value);
 
 #endif  /* __SUNXI_MACH_SUNXI_CHIP_H */

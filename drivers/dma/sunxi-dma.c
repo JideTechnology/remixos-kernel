@@ -28,6 +28,7 @@
 #include <linux/slab.h>
 #include <linux/debugfs.h>
 #include <linux/dma/sunxi-dma.h>
+#include <linux/sunxi-chip.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
@@ -59,7 +60,8 @@
 #define DMA_IRQ_EN(x)	(0x000 + ((x) << 2))	/* Interrupt enable register */
 #define DMA_IRQ_STAT(x)	(0x010 + ((x) << 2))	/* Inetrrupt status register */
 
-#if defined(CONFIG_ARCH_SUN9I)
+#if defined(CONFIG_ARCH_SUN9I) \
+	|| defined(CONFIG_ARCH_SUN50I)
 #define DMA_SECU	0x20			/* DMA security register */
 #define DMA_GATE	0x28			/* DMA gating rgister */
 #else
@@ -157,6 +159,7 @@ struct sunxi_dma_lli {
 struct sunxi_dmadev {
 	struct dma_device	dma_dev;
 	void __iomem		*base;
+	phys_addr_t             pbase;
 	struct clk		*ahb_clk;	/* AHB clock gate for DMA */
 
 	spinlock_t		lock;
@@ -1085,6 +1088,10 @@ static void sunxi_dma_hw_init(struct sunxi_dmadev *dev)
 	struct sunxi_dmadev *sunxi_dev = dev;
 
 	clk_prepare_enable(sunxi_dev->ahb_clk);
+#if defined(CONFIG_ARCH_SUN50I)
+	sunxi_smc_writel(sunxi_dev->pbase + DMA_SECU, 0xff);
+#endif
+
 #if defined(CONFIG_ARCH_SUN8IW3) || \
 	defined(CONFIG_ARCH_SUN8IW5) || \
 	defined(CONFIG_ARCH_SUN8IW6) || \
@@ -1114,6 +1121,7 @@ static int sunxi_probe(struct platform_device *pdev)
 		goto io_err;
 	}
 
+	sunxi_dev->pbase = res->start;
 	sunxi_dev->base = ioremap(res->start, resource_size(res));
 	if (!sunxi_dev->base) {
 		dev_err(&pdev->dev, "Remap I/O memory failed!\n");
