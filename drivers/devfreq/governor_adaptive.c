@@ -40,9 +40,9 @@ static ssize_t store_pause(struct device *dev, struct device_attribute *attr,
 		goto out;
 
 	if (value && (!dramfreq->pause))
-		dramfreq->governor_state_update(STATE_PAUSE);
+		dramfreq->governor_state_update(dramfreq->devfreq->governor_name, STATE_PAUSE);
 	else if ((!value) && dramfreq->pause)
-		dramfreq->governor_state_update(STATE_RUNNING);
+		dramfreq->governor_state_update(dramfreq->devfreq->governor_name, STATE_RUNNING);
 
 	ret = count;
 
@@ -102,7 +102,7 @@ static int adaptive_init(struct devfreq *devfreq)
 		return -EINVAL;
 	}
 
-	dramfreq->governor_state_update(STATE_INIT);
+	dramfreq->governor_state_update(devfreq->governor_name, STATE_INIT);
 
 	return 0;
 }
@@ -119,7 +119,7 @@ static void adaptive_exit(struct devfreq *devfreq)
 		return;
 	}
 
-	dramfreq->governor_state_update(STATE_EXIT);
+	dramfreq->governor_state_update(devfreq->governor_name, STATE_EXIT);
 }
 
 static int devfreq_adaptive_handler(struct devfreq *devfreq,

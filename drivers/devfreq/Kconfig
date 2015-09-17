@@ -69,6 +69,12 @@ config DEVFREQ_GOV_ADAPTIVE
 	help
 	  Sets the frequency according to dram master access or idle.
 
+config DEVFREQ_GOV_TEMPTRIGGER
+	depends on SUN50IW1P1_THERMAL
+	tristate "Temptrigger"
+	help
+	  Sets the frequency according to temperature control.
+
 comment "DEVFREQ Drivers"
 
 config ARM_EXYNOS4_BUS_DEVFREQ
