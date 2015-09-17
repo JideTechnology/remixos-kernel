@@ -508,7 +508,7 @@ static const struct snd_soc_dapm_widget cht_dapm_widgets[] = {
 static const struct snd_soc_dapm_route cht_audio_map[] = {
 	{"IN1P", NULL, "Headset Mic"},
 	{"IN1N", NULL, "Headset Mic"},
-	{"Int Mic", NULL, "micbias1"},
+	{"micbias1", NULL, "Int Mic"},
 //	{"DMIC L1", NULL, "Int Mic"},
 //	{"DMIC R1", NULL, "Int Mic"},
 	{"Headphone", NULL, "HPOL"},

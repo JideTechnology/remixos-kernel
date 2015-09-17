@@ -1802,8 +1802,6 @@ static int rt5645_bst2_event(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMU:
 		snd_soc_update_bits(codec, RT5645_PWR_ANLG2,
 			RT5645_PWR_BST2_P, RT5645_PWR_BST2_P);
-		snd_soc_update_bits(codec, RT5645_PWR_ANLG2,
-			RT5645_PWR_MB1, RT5645_PWR_MB1);
 		break;
 
 	case SND_SOC_DAPM_PRE_PMD:
@@ -2311,6 +2309,8 @@ static const struct snd_soc_dapm_route rt5645_dapm_routes[] = {
 	{ "BST1", NULL, "Mic Det Power" },
 	{ "BST2", NULL, "IN2P" },
 	{ "BST2", NULL, "IN2N" },
+	// make micbias1 connected to sp&&ep while recording
+	{ "BST2", NULL, "micbias1" },
 
 	{ "INL VOL", NULL, "IN2P" },
 	{ "INR VOL", NULL, "IN2N" },
