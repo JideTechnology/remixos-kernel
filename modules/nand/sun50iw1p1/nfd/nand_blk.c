@@ -191,8 +191,8 @@ static int do_blktrans_request(struct nand_blk_ops *tr,struct nand_blk_dev *dev,
 
     if (req->cmd_flags & REQ_DISCARD)
     {
-        nand_dbg_err("REQ_DISCARD block: %d nsect: %d\n", block,nsect);
-        rq_flush_dcache_pages(req);
+        //nand_dbg_err("REQ_DISCARD block: %d nsect: %d\n", block,nsect);
+        //rq_flush_dcache_pages(req);
         nand_dev->discard(nand_dev,block,nsect);
         goto request_exit;
     }
