@@ -61,6 +61,8 @@
 
 #define I2C_LENGTH_FRAME_SIZE   5
 
+#define	MAX_NB_READ_FAILURE		20
+
 #define ENTER() \
 	pr_debug("%s\n", __func__)
 
@@ -198,49 +200,6 @@ static void fdp_reset(struct fdp_custom_device *p_device)
 }
 
 /**
-  *  Function used to initialize stack state management.
-  *
-  *  Prefered method is to use REFIOH, fallback to RESET
-  *
-  */
-
-static int fdp_initialize_stack_state(struct fdp_custom_device *p_device)
-{
-	int rc = 0;
-
-	ENTER();
-
-	if (!p_device) {
-		pr_err
-			("fdp_initialize_stack_state: p_device is missing\n");
-		return -1;
-	}
-
-	rc = gpiod_direction_output(p_device->rst_gpio, RST_NO_RESET);
-
-	return rc;
-}
-
-/**
-  *  Function used to update stack state.
-  *
-  *  Prefered method is to use REFIOH, fallback to RESET
-  *
-  */
-
-static void fdp_update_stack_state(struct fdp_custom_device *p_device,
-				   uint8_t active)
-{
-	ENTER();
-
-	if (!p_device) {
-		pr_err
-			("fdp_update_stack_state: p_device is missing\n");
-		return;
-	}
-}
-
-/**
   * Function used to request the reference clock from the platform
   *
   * @return 0 on success, a negative value on failure.
@@ -300,9 +259,7 @@ int fdp_custom_open(struct inode *inode, struct file *filp)
 
 	p_device->state = CUSTOM_OPENED;
 
-	/* Inform the chip that the stack is active */
-	fdp_update_stack_state(p_device, 1);
-
+	/* request clock */
 	fdp_clk_req(p_device, REF_CLOCK_REQUEST);
 
  end:
@@ -536,9 +493,7 @@ int fdp_custom_release(struct inode *inode, struct file *filp)
 
 	mutex_lock(&p_device->mutex);
 
-	/* Inform the chip the stack is no longer active */
-	fdp_update_stack_state(p_device, 0);
-
+	/* release clock */
 	fdp_clk_req(p_device, REF_CLOCK_RELEASE);
 
 	/* Go back to PROBED state */
@@ -558,6 +513,7 @@ static void fdp_irqout_read(struct fdp_custom_device *p_device)
 	int rc = 0, i;
 	uint8_t lrc;
 	uint8_t *p_buffer;
+	uint8_t nb_successive_read_failure = 0;
 
 	/* Do NOT interrupt an outgoing WRITE cycle */
 	mutex_lock(&p_device->mutex);
@@ -583,17 +539,25 @@ static void fdp_irqout_read(struct fdp_custom_device *p_device)
 
 		if (rc != p_device->next_receive_length) {
 			/* We did not received the amount of bytes expected.
-			 * This is very strange, since FDP should never
-			 * NAK on reception
-			 * A transmission error during I2C ACK bit
-			 * may explain this situation ... */
+			 * this is very strange... */
 
 			pr_err("%s: i2c_master_recv() failed(%d)\n",
 				 __func__, rc);
 
 			p_device->next_receive_length = 5;
+			nb_successive_read_failure++;
+
+			if (nb_successive_read_failure == MAX_NB_READ_FAILURE)
+			{
+				/* seems we enter in an unrecoverable error */
+				fdp_reset(p_device);
+				return;
+			}
+
 			continue;
 		}
+
+		nb_successive_read_failure = 0;
 
 		/* Check the received I2C paquet integrity */
 
@@ -719,9 +683,10 @@ static int fdp_acpi_probe(struct i2c_client *client,
 		return -ENODEV;
 	}
 
-	ret = gpiod_direction_output(gpio, 0);
+	ret = gpiod_direction_output(gpio, RST_NO_RESET);
 	if (ret)
 		return ret;
+
 	fdp_dev->rst_gpio = gpio;
 
 	status = acpi_evaluate_integer(ACPI_HANDLE(dev), "I2C_MTU",
@@ -789,15 +754,6 @@ static int fdp_probe(struct i2c_client *client, const struct i2c_device_id *idp)
 	/* Map IRQ nb to GPIO id */
 	client->irq = gpiod_to_irq(p_device->irq_gpio);
 	pr_info("fdp_probe: IRQ %d", client->irq);
-
-	/* Phone ON/OFF management */
-	rc = fdp_initialize_stack_state(p_device);
-
-	if (rc < 0) {
-		pr_err("fail to initialize stack state management\n");
-		goto unlock;
-	}
-
 	p_device->irqout = client->irq;
 
 	p_device->next_receive_length = I2C_LENGTH_FRAME_SIZE;
