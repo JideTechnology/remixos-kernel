@@ -3359,7 +3359,6 @@ static int rt5645_probe(struct snd_soc_codec *codec)
 	codec->dapm.bias_level = SND_SOC_BIAS_OFF;
 	rt5645_set_bias_level(codec, SND_SOC_BIAS_OFF);
 
-
 	rt5645->codec = codec;
 	rt5645->combo_jack_en = true; /* enable combo jack */
 

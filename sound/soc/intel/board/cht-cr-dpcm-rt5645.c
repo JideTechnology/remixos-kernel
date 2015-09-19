@@ -48,6 +48,7 @@
 #define CHT_PLAT_CLK_3_HZ	19200000
 
 #define CHT_INTR_DEBOUNCE               0
+#define CHT_HS_DET_DELAY                100
 #define CHT_HS_INSERT_DET_DELAY         400
 #define CHT_HS_REMOVE_DET_DELAY         500
 #define CHT_BUTTON_DET_DELAY            100
@@ -58,6 +59,7 @@
 
 struct cht_mc_private {
 	struct snd_soc_jack jack;
+	struct delayed_work hs_detect_work;
 	struct delayed_work hs_insert_work;
 	struct delayed_work hs_remove_work;
 	struct delayed_work hs_button_work;
@@ -68,6 +70,7 @@ struct cht_mc_private {
 	 */
 	struct delayed_work hs_button_en_work;
 	int intr_debounce;
+	int hs_det_delay;
 	int hs_insert_det_delay;
 	int hs_remove_det_delay;
 	int button_det_delay;
@@ -712,11 +715,28 @@ static int cht_set_bias_level(struct snd_soc_card *card,
 	return ret;
 }
 
+static void cht_detect_hs_status(struct work_struct *work){
+	cht_hs_detection(NULL);
+}
+
 static irqreturn_t jd_soc_irq_handler(int irq, void *dev_id)
 {
-	pr_info("%s, enter\n", __func__);
-	pr_info("going to call cht_hs_detection(null) \n");
-	cht_hs_detection(NULL);
+	struct snd_soc_jack_gpio *gpio = &hs_gpio;
+	struct snd_soc_jack *jack = gpio->jack;
+//	struct snd_soc_codec *codec = jack->codec;
+	struct cht_mc_private *ctx = container_of(jack,
+						struct cht_mc_private, jack);
+
+	int ret = 0;
+
+	ret = schedule_delayed_work(&ctx->hs_detect_work,
+				msecs_to_jiffies(ctx->hs_det_delay));
+		if (!ret)
+			pr_info("cht_detect_hs_status already queued\n");
+		else
+			pr_info("%s: detect hs status after %d msec\n",
+					__func__, ctx->hs_det_delay);
+
 	return IRQ_HANDLED;
 }
 
@@ -774,6 +794,7 @@ static int cht_audio_init(struct snd_soc_pcm_runtime *runtime)
 	hs_gpio.gpio = codec_gpio;
 
 	ctx->intr_debounce = CHT_INTR_DEBOUNCE;
+	ctx->hs_det_delay = CHT_HS_DET_DELAY;
 	ctx->hs_insert_det_delay = CHT_HS_INSERT_DET_DELAY;
 	ctx->hs_remove_det_delay = CHT_HS_REMOVE_DET_DELAY;
 	ctx->button_det_delay = CHT_BUTTON_DET_DELAY;
@@ -782,6 +803,7 @@ static int cht_audio_init(struct snd_soc_pcm_runtime *runtime)
 	ctx->button_en_delay = CHT_BUTTON_EN_DELAY;
 	ctx->process_button_events = false;
 
+	INIT_DELAYED_WORK(&ctx->hs_detect_work, cht_detect_hs_status);
 	INIT_DELAYED_WORK(&ctx->hs_insert_work, cht_check_hs_insert_status);
 	INIT_DELAYED_WORK(&ctx->hs_remove_work, cht_check_hs_remove_status);
 	INIT_DELAYED_WORK(&ctx->hs_button_work, cht_check_hs_button_status);
@@ -1127,6 +1149,7 @@ static void snd_cht_unregister_jack(struct cht_mc_private *ctx)
 	/* Set process button events to false so that the button
 	   delayed work will not be scheduled.*/
 	ctx->process_button_events = false;
+	cancel_delayed_work_sync(&ctx->hs_detect_work);
 	cancel_delayed_work_sync(&ctx->hs_insert_work);
 	cancel_delayed_work_sync(&ctx->hs_button_en_work);
 	cancel_delayed_work_sync(&ctx->hs_button_work);
