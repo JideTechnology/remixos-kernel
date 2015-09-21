@@ -23,10 +23,9 @@ extern int ths_read_data(int value);
 extern int sunxi_get_sensor_temp(u32 sensor_num, long *temperature);
 #endif
 
-#ifndef CONFIG_CPU_BUDGET_THERMAL
-extern int gpu_thermal_cool_register(int (*cool) (int));
+#ifdef CONFIG_SUNXI_GPU_COOLING
 extern int gpu_thermal_cool_unregister(void);
-#endif /* CONFIG_CPU_BUDGET_THERMAL */
+#endif /* CONFIG_SUNXI_GPU_COOLING */
 
 static struct mali_gpu_device_data mali_gpu_data;
 static struct mali_gpu_device_data mali_gpu_data;
@@ -784,8 +783,6 @@ int aw_mali_platform_device_register(void)
 
 #ifdef CONFIG_CPU_BUDGET_THERMAL
 	register_budget_cooling_notifier(&gpu_throttle_notifier);
-#else /* CONFIG_CPU_BUDGET_THERMAL */
-	gpu_thermal_cool_register(gpu_thermal_cool);
 #endif
 
     return err;

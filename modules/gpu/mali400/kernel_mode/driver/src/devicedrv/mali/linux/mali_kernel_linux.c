@@ -175,6 +175,11 @@ extern int mali_platform_device_unregister(void);
 extern int aw_mali_platform_device_register(void);
 #endif
 
+#ifdef CONFIG_SUNXI_GPU_COOLING
+extern int gpu_thermal_cool(int freq /* MHz */);
+extern int gpu_thermal_cool_register(int (*cool) (int));
+#endif /* CONFIG_SUNXI_GPU_COOLING */
+
 /* Linux power management operations provided by the Mali device driver */
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 29))
 struct pm_ext_ops mali_dev_ext_pm_ops = {
@@ -424,6 +429,10 @@ int mali_module_init(void)
 				      mali_gpu_clk[0].vol / 1000,
 				      0, 0, 0);
 #endif
+
+#ifdef CONFIG_SUNXI_GPU_COOLING
+	gpu_thermal_cool_register(gpu_thermal_cool);
+#endif /* CONFIG_SUNXI_GPU_COOLING */
 
 	MALI_PRINT(("Mali device driver loaded\n"));
 
