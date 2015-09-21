@@ -1180,7 +1180,7 @@ static struct console sw_console = {
 	.write = sw_console_write,
 	.device = uart_console_device,
 	.setup = sw_console_setup,
-	.flags = CON_PRINTBUFFER | CON_ANYTIME,
+	.flags = CON_PRINTBUFFER,
 	.index = -1,
 	.data = &sw_uart_driver,
 };
