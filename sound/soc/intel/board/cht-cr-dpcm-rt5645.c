@@ -519,6 +519,7 @@ static const struct snd_soc_dapm_route cht_audio_map[] = {
 	{"Ext Spk", NULL, "SPOL"},
 	{"Ext Spk", NULL, "SPOR"},
 
+	{ "PLL1", NULL, "AIF1 Playback"},
 	{ "AIF1 Playback", NULL, "ssp2 Tx"},
 	{ "ssp2 Tx", NULL, "codec_out0"},
 	{ "ssp2 Tx", NULL, "codec_out1"},
