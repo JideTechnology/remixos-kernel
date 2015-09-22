@@ -212,7 +212,7 @@ typedef struct pwr_dm_state{
     // such as: we want to keep the vdd_sys at 1.0v at standby period.
     //		we actually do not care how to do it.
     //		it can be sure that cpus can do it with the pmu's help.
-    unsigned short volt[VCC_MAX_INDEX]; //unsigned short is 16bit width.  
+    unsigned int volt[VCC_MAX_INDEX]; //unsigned short is 16bit width.
 }pwr_dm_state_t;
 
 typedef struct pm_dram_para{

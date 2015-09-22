@@ -39,21 +39,25 @@ scene_extended_standby_t extended_standby[] = {
 		.soc_pwr_dep.id  		= USB_STANDBY_FLAG,
 		//note: vcc_io for phy;	
 		.soc_pwr_dep.soc_pwr_dm_state.state	   = BITMAP(VCC_DRAM_BIT) | BITMAP(VDD_CPUS_BIT) |\
-							     BITMAP(VCC_LPDDR_BIT) | BITMAP(VCC_PL_BIT) | \
-							     BITMAP(VDD_SYS_BIT) | BITMAP(VCC_IO_BIT) | \
+							     BITMAP(VCC_LPDDR_BIT) | BITMAP(VCC_PL_BIT) |\
+							     BITMAP(VDD_SYS_BIT) | BITMAP(VCC_IO_BIT) |\
 							     BITMAP(VCC_PLL_BIT),
-		.soc_pwr_dep.soc_pwr_dm_state.volt[0]      = 0x0,	//mean: donot need care about the voltage.
-		.soc_pwr_dep.cpux_clk_state.osc_en         = BITMAP(OSC_LOSC_BIT) | BITMAP(OSC_HOSC_BIT) | BITMAP(OSC_LDO1_BIT) | BITMAP(OSC_LDO0_BIT),	// mean all osc is off. +losc, +hosc
-		.soc_pwr_dep.cpux_clk_state.init_pll_dis   = BITMAP(PM_PLL_DRAM) | BITMAP(PM_PLL_PERIPH), //mean pll5 is shutdowned & open by dram driver.
-													    //hsic pll can be disabled, cpus can change cci400 clk from hsic_pll.
+
+		.soc_pwr_dep.soc_pwr_dm_state.volt[0]           = 0x0,
+		.soc_pwr_dep.soc_pwr_dm_state.volt[VDD_SYS_BIT] = 980,
+		.soc_pwr_dep.soc_pwr_dm_state.volt[VCC_PLL_BIT] = 2500,
+		.soc_pwr_dep.soc_pwr_dm_state.volt[VCC_IO_BIT]  = 3000,
+		.soc_pwr_dep.cpux_clk_state.osc_en         = BITMAP(OSC_LOSC_BIT), //mean all osc is off except losc
+		.soc_pwr_dep.cpux_clk_state.init_pll_dis   = BITMAP(PM_PLL_DRAM),  //mean pll5 is shutdowned & open by dram driver.
+										   //hsic pll can be disabled, cpus can change cci400 clk from hsic_pll.
 		.soc_pwr_dep.cpux_clk_state.exit_pll_en    = 0x0,
-		.soc_pwr_dep.cpux_clk_state.pll_change     = BITMAP(PM_PLL_PERIPH),
-		.soc_pwr_dep.cpux_clk_state.pll_factor[PM_PLL_PERIPH] = { ////PLL_PERIPH freq = 24*25*2/2= 12M
+		.soc_pwr_dep.cpux_clk_state.pll_change     = 0x0,
+		.soc_pwr_dep.cpux_clk_state.pll_factor[PM_PLL_PERIPH] = { ////PLL_PERIPH freq = 24*4*2/2= 24M
 		    .factor1 = 1, //M=2
 		    .factor2 = 1, //K=2
-		    .factor3 = 24, //N=25
+		    .factor3 = 0, //N=25
 		},
-		.soc_pwr_dep.cpux_clk_state.bus_change     = BITMAP(BUS_AHB1) | BITMAP(BUS_AHB2),
+		.soc_pwr_dep.cpux_clk_state.bus_change     = BITMAP(BUS_AHB1) | BITMAP(BUS_AHB2) | BITMAP(BUS_APB1) | BITMAP(BUS_APB2),
 		.soc_pwr_dep.cpux_clk_state.bus_factor[BUS_AHB1]     = {
 		    .src = CLK_SRC_LOSC,				//need make sure losc is on.
 		    .pre_div = 0,
@@ -63,6 +67,16 @@ scene_extended_standby_t extended_standby[] = {
 		    .src = CLK_SRC_AHB1,				//need make sure AHB1 is on.
 		    .pre_div = 0,
 		    .div_ratio = 0,
+		},
+		.soc_pwr_dep.cpux_clk_state.bus_factor[BUS_APB1]     = {
+		    .src = CLK_SRC_AHB1,				//need make sure AHB1 is on.
+		    .pre_div = 0,
+		    .div_ratio = 0,
+		},
+		.soc_pwr_dep.cpux_clk_state.bus_factor[BUS_APB2]     = {
+		    .src = CLK_SRC_LOSC,				//need make sure AHB1 is on.
+		    .n = 0,
+		    .m = 0,
 		},
 		.soc_pwr_dep.soc_dram_state.selfresh_flag     = 0x1,
 		.soc_pwr_dep.soc_io_state.hold_flag     = 0x0,
