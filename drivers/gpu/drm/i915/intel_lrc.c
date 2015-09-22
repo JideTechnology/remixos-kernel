@@ -2256,6 +2256,8 @@ static int gen8_init_common_ring(struct intel_engine_cs *ring)
 {
 	struct drm_device *dev = ring->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	unsigned long flags;
+	u8 next_context_status_buffer_hw;
 
 	I915_WRITE_IMR(ring, ~(ring->irq_enable_mask | ring->irq_keep_mask));
 	I915_WRITE(RING_HWSTAM(ring->mmio_base), 0xffffffff);
@@ -2264,7 +2266,30 @@ static int gen8_init_common_ring(struct intel_engine_cs *ring)
 		   _MASKED_BIT_DISABLE(GFX_REPLAY_MODE) |
 		   _MASKED_BIT_ENABLE(GFX_RUN_LIST_ENABLE));
 	POSTING_READ(RING_MODE_GEN7(ring));
-	DRM_DEBUG_DRIVER("Execlists enabled for %s\n", ring->name);
+
+	/*
+	 * Instead of resetting the Context Status Buffer (CSB) read pointer to
+	 * zero, we need to read the write pointer from hardware and use its
+	 * value because "this register is power context save restored".
+	 * Effectively, these states have been observed:
+	 *
+	 *      | Suspend-to-idle (freeze) | Suspend-to-RAM (mem) |
+	 * BDW  | CSB regs not reset       | CSB regs reset       |
+	 * CHT  | CSB regs not reset       | CSB regs not reset   |
+	 */
+	next_context_status_buffer_hw = I915_READ(RING_CONTEXT_STATUS_PTR(ring)) & 0x07;
+
+	/*
+	 * When the CSB registers are reset (also after power-up / engine reset),
+	 * CSB write pointer is set to all 1's, which is not valid, use 0 int
+	 * this special case.
+	 */
+	if (next_context_status_buffer_hw == 0x7)
+		next_context_status_buffer_hw = 0;
+
+	spin_lock_irqsave(&ring->execlist_lock, flags);
+	ring->next_context_status_buffer = next_context_status_buffer_hw;
+	spin_unlock_irqrestore(&ring->execlist_lock, flags);
 
 	return 0;
 }
@@ -2809,7 +2834,6 @@ static int logical_ring_init(struct drm_device *dev, struct intel_engine_cs *rin
 	INIT_LIST_HEAD(&ring->execlist_queue);
 	INIT_LIST_HEAD(&ring->execlist_retired_req_list);
 	spin_lock_init(&ring->execlist_lock);
-	ring->next_context_status_buffer = 0;
 
 	ret = i915_cmd_parser_init_ring(ring);
 	if (ret)
