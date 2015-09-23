@@ -62,7 +62,7 @@
 
 #define BMG_DELAY_MIN (1)
 /* #define BMG_DELAY_DEFAULT (200) */
-#define BMG_DELAY_DEFAULT (20)
+#define BMG_DELAY_DEFAULT (5)
 
 
 #define BMG_VALUE_MAX (32767)
@@ -486,7 +486,6 @@ static int bmg_i2c_write_wrapper(u8 dev_addr, u8 reg_addr, u8 *data, u8 len)
 	return err;
 }
 
-
 static void bmg_work_func(struct work_struct *work)
 {
 	struct bmg_client_data *client_data =
@@ -500,7 +499,6 @@ static void bmg_work_func(struct work_struct *work)
 	BMG_CALL_API(get_dataXYZ)(&gyro_data);
 	/*remapping for BMG160 sensor*/
 	bmg160_remap_sensor_data(&gyro_data, client_data);
-
 
 	input_report_abs(client_data->input, ABS_X, gyro_data.datax);
 	input_report_abs(client_data->input, ABS_Y, gyro_data.datay);

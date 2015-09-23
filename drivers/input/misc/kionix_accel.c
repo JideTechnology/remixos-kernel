@@ -405,7 +405,7 @@ static int kionix_accel_grp1_operate(struct kionix_accel_driver *acceld)
 	if (err < 0)
 		return err;
 
-	queue_delayed_work(acceld->accel_workqueue, &acceld->accel_work, 0);
+	queue_delayed_work(acceld->accel_workqueue, &acceld->accel_work, acceld->poll_delay);
 
 	return 0;
 }
@@ -551,13 +551,14 @@ static int kionix_accel_grp2_operate(struct kionix_accel_driver *acceld)
 {
 	int err;
 
+
 	err = i2c_smbus_write_byte_data(acceld->client, ACCEL_GRP2_CTRL_REG1, \
 			acceld->accel_registers[accel_grp2_ctrl_reg1] | ACCEL_GRP2_PC1_ON);
 	if (err < 0)
 		return err;
 
 	if(acceld->accel_drdy == 0)
-		queue_delayed_work(acceld->accel_workqueue, &acceld->accel_work, 0);
+		queue_delayed_work(acceld->accel_workqueue, &acceld->accel_work, acceld->poll_delay);
 
 	return 0;
 }
@@ -760,7 +761,7 @@ static int kionix_accel_grp4_operate(struct kionix_accel_driver *acceld)
 		return err;
 
 	if(acceld->accel_drdy == 0)
-		queue_delayed_work(acceld->accel_workqueue, &acceld->accel_work, 0);
+		queue_delayed_work(acceld->accel_workqueue, &acceld->accel_work, acceld->poll_delay);
 
 	return 0;
 }
@@ -1598,7 +1599,7 @@ static int  kionix_accel_probe(struct i2c_client *client,
 	int err;
 	struct proc_dir_entry *proc_dir, *proc_entry;
 	const struct acpi_device_id *aid;
-    struct device *dev = &client->dev;
+        struct device *dev = &client->dev;
 
 
 	if (!client)
@@ -1766,6 +1767,7 @@ static int  kionix_accel_probe(struct i2c_client *client,
 	mutex_init(&acceld->mutex_resume);
 	rwlock_init(&acceld->rwlock_accel_data);
 
+        acceld->accel_pdata.poll_interval = 5;
 	acceld->poll_interval = acceld->accel_pdata.poll_interval;
 	acceld->poll_delay = msecs_to_jiffies(acceld->poll_interval);
 	acceld->kionix_accel_update_odr(acceld, acceld->poll_interval);
