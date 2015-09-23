@@ -480,6 +480,11 @@ static int sunxi_ohci_hcd_suspend(struct device *dev)
 		val |= OHCI_INTR_RD;
 		val |= OHCI_INTR_MIE;
 		ohci_writel(ohci, val, &ohci->regs->intrenable);
+
+		if(sunxi_ohci->clk_usbohci12m && sunxi_ohci->clk_losc){
+			clk_set_parent(sunxi_ohci->clk_usbohci12m, sunxi_ohci->clk_losc);
+		}
+
 	}else{
 		DMSG_INFO("[%s]: sunxi_ohci_hcd_suspend\n", sunxi_ohci->hci_name);
 
@@ -528,6 +533,10 @@ static int sunxi_ohci_hcd_resume(struct device *dev)
 
 	if(sunxi_ohci->wakeup_suspend){
 		DMSG_INFO("[%s]: controller not suspend, need not resume\n", sunxi_ohci->hci_name);
+
+		if(sunxi_ohci->clk_usbohci12m && sunxi_ohci->clk_hoscx2){
+			clk_set_parent(sunxi_ohci->clk_usbohci12m, sunxi_ohci->clk_hoscx2);
+		}
 
 		scene_unlock(&ohci_standby_lock[sunxi_ohci->usbc_no]);
 		disable_wakeup_src(CPUS_USBMOUSE_SRC, 0);

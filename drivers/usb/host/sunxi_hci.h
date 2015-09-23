@@ -215,7 +215,12 @@ struct sunxi_hci_hcd{
 	struct clk	*mod_usbphy;            /* PHY0 clock handle */
 	struct clk	*hsic_usbphy;            /* hsic clock handle */
 	struct clk	*pll_hsic;               /* pll_hsic clock handle */
-	struct clk	*clk_usbhsic12m;               /* pll_hsic clock handle */
+	struct clk	*clk_usbhsic12m;          /* pll_hsic clock handle */
+
+	struct clk	*clk_usbohci12m;          /* clk_usbohci12m clock handle */
+	struct clk	*clk_hoscx2;              /* clk_hoscx2 clock handle */
+	struct clk	*clk_hosc;                /* clk_hosc clock handle */
+	struct clk	*clk_losc;	          /* clk_losc clock handle */
 
 	__u32 clk_is_open;                      /* is usb clock open */
 

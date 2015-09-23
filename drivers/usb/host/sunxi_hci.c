@@ -744,6 +744,42 @@ static int sunxi_get_hci_base(struct platform_device *pdev, struct sunxi_hci_hcd
 	return 0;
 }
 
+static int sunxi_get_ohci_clock_src(struct platform_device *pdev, struct sunxi_hci_hcd *sunxi_hci)
+{
+	struct device_node *np = pdev->dev.of_node;
+
+	sunxi_hci->clk_usbohci12m = of_clk_get(np, 2);
+	if (IS_ERR(sunxi_hci->clk_usbohci12m)) {
+		sunxi_hci->clk_usbohci12m = NULL;
+		DMSG_PANIC("ERR: %s get usb clk_usbohci12m clk failed.\n", sunxi_hci->hci_name);
+		return -EINVAL;
+	}
+
+	sunxi_hci->clk_hoscx2 = of_clk_get(np, 3);
+	if (IS_ERR(sunxi_hci->clk_hoscx2)) {
+		sunxi_hci->clk_hoscx2 = NULL;
+		DMSG_PANIC("ERR: %s get usb clk_hoscx2 clk failed.\n", sunxi_hci->hci_name);
+		return -EINVAL;
+	}
+
+	sunxi_hci->clk_hosc = of_clk_get(np, 4);
+	if (IS_ERR(sunxi_hci->clk_hosc)) {
+		sunxi_hci->clk_hosc = NULL;
+		DMSG_PANIC("ERR: %s get usb clk_hosc failed.\n", sunxi_hci->hci_name);
+		return -EINVAL;
+	}
+
+	sunxi_hci->clk_losc = of_clk_get(np, 5);
+	if (IS_ERR(sunxi_hci->clk_losc)) {
+		sunxi_hci->clk_losc = NULL;
+		DMSG_PANIC("ERR: %s get usb clk_losc clk failed.\n", sunxi_hci->hci_name);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+
 static int sunxi_get_hci_clock(struct platform_device *pdev, struct sunxi_hci_hcd *sunxi_hci)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -1155,6 +1191,12 @@ int init_sunxi_hci(struct platform_device *pdev, int usbc_type)
 	}
 
 	ret = sunxi_get_hci_resource(pdev, sunxi_hci, usbc_no);
+
+	if(usbc_type == SUNXI_USB_OHCI){
+		ret = sunxi_get_ohci_clock_src(pdev, sunxi_hci);
+	}
+
+
 
 	return ret;
 }

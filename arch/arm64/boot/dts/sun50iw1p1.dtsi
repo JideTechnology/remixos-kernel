@@ -238,7 +238,7 @@
 		compatible = "arm,cortex-a15-gic", "arm,cortex-a9-gic";
 		#interrupt-cells = <3>;
 		#address-cells = <0>;
-		device_type = "gic"; 
+		device_type = "gic";
 		interrupt-controller;
 		reg = <0x0 0x01c81000 0 0x1000>, /* GIC Dist */
 		      <0x0 0x01c82000 0 0x2000>, /* GIC CPU */
@@ -616,7 +616,7 @@
 			                      <0x0 0x01c00000 0x0 0x100>, /*sram base*/
 			                      <0x0 0x01c19000 0x0 0x1000>; /*otg base*/
 			interrupts          = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>;
-			clocks              = <&clk_usbphy0>, <&clk_usbohci0>;
+			clocks              = <&clk_usbphy0>, <&clk_usbohci0>, <&clk_usbohci012m>, <&clk_hoscx2>, <&clk_hosc>, <&clk_losc>;
 			hci_ctrl_no         = <0>;
 			status              = "okay";
 		};
@@ -658,7 +658,7 @@
 			                      <0x0 0x01c00000 0x0 0x100>, /*sram base*/
 			                      <0x0 0x01c19000 0x0 0x1000>; /*otg base*/
 			interrupts          = <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH>;
-			clocks              = <&clk_usbphy1>, <&clk_usbohci1>;
+			clocks              = <&clk_usbphy1>, <&clk_usbohci1>, <&clk_usbohci112m>, <&clk_hoscx2>, <&clk_hosc>, <&clk_losc>;
 			hci_ctrl_no         = <1>;
 			status              = "okay";
 		};
@@ -845,7 +845,7 @@
       /*non-removable;*/
       /*max-frequency = <200000000>;*/
        max-frequency = <50000000>;
-  
+
 			/*-- speed mode --*/
 			/*sm0: DS26_SDR12*/
 			/*sm1: HSSDR52_SDR25*/
@@ -903,7 +903,7 @@
 			/* vdmc-supply = <&reg_3p3v>;*/
 			/*vmmc = "vcc-card";*/
 			/*vqmc = "";*/
-			/*vdmc = "";*/	
+			/*vdmc = "";*/
 			/*sd-uhs-sdr50;*/
 			/*sd-uhs-ddr50;*/
 			/*cap-sdio-irq;*/
@@ -1220,7 +1220,7 @@
 			pinctrl-0 = <&nand0_pins_a &nand0_pins_b>;
 			pinctrl-1 = <&nand0_pins_c>;
 			nand0_regulator1 = "vcc-nand";
-			nand0_regulator2 = "none";			
+			nand0_regulator2 = "none";
 			nand0_cache_level = <0x55aaaa55>;
 			nand0_flush_cache_num = <0x55aaaa55>;
 			nand0_capacity_level = <0x55aaaa55>;
