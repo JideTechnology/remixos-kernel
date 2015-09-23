@@ -178,6 +178,14 @@ clocks {
 			clock-div = <2>;
 			clock-output-names = "hoscd2";
 		};	
+		clk_hoscx2: hoscx2 {
+			#clock-cells = <0>;
+			compatible = "allwinner,fixed-factor-clock";
+			clocks = <&clk_hosc>;
+			clock-mult = <2>;
+			clock-div = <1>;
+			clock-output-names = "hoscx2";
+		};
 /* register allwinner,sunxi-periph-clock */
 		clk_cpu: cpu {
 			#clock-cells = <0>;
@@ -336,6 +344,16 @@ clocks {
 			compatible = "allwinner,sunxi-periph-clock";
 			clock-output-names = "usbhsic12m";
 		};		
+		clk_usbohci112m: usbohci112m {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-clock";
+			clock-output-names = "usbohci112m";
+		};
+		clk_usbohci012m: usbohci012m {
+			#clock-cells = <0>;
+			compatible = "allwinner,sunxi-periph-clock";
+			clock-output-names = "usbohci012m";
+		};
 		clk_usbohci1: usbohci1 {
 			#clock-cells = <0>;
 			compatible = "allwinner,sunxi-periph-clock";

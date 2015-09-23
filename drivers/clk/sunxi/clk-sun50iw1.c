@@ -606,6 +606,7 @@ static const char *cpurapbs_parents[] = {"cpurahbs"};
 static const char *cpurdev_parents[]  = {"losc", "hosc","",""};
 static const char *cpurpio_parents[]  = {"cpurapbs"};
 static const char *usbohci_parents[] = {"usbohci_16"};
+static const char *usbohci12m_parents[] = {"hoscx2","hosc","losc",""};
 static const char *losc_parents[] = {"losc"};
 
 struct sunxi_clk_comgate com_gates[]={
@@ -649,6 +650,8 @@ SUNXI_CLK_PERIPH(usbphy0,        0,               0,    0,          0,          
 SUNXI_CLK_PERIPH(usbphy1,        0,               0,    0,          0,                  0,      0,          0,          0,          0,          USB_CFG,         USB_CFG,         0,             0,         9,          1,          0,              0,   &clk_lock, NULL,             0);
 SUNXI_CLK_PERIPH(usbhsic,        0,               0,    0,          0,                  0,      0,          0,          0,          0,          USB_CFG,         USB_CFG,         0,             0,         10,         2,          0,              0,   &clk_lock, NULL,             0);
 SUNXI_CLK_PERIPH(usbhsic12m,     0,               0,    0,          0,                  0,      0,          0,          0,          0,          USB_CFG,         0,               0,             0,         11,         0,          0,              0,   &clk_lock, NULL,             0);
+SUNXI_CLK_PERIPH(usbohci012m,    USB_CFG,         20,   2,          0,                  0,      0,          0,          0,          0,          0,               0,               0,             0,         0,          0,          0,              0,   &clk_lock, NULL,             0);
+SUNXI_CLK_PERIPH(usbohci112m,    USB_CFG,         22,   2,          0,                  0,      0,          0,          0,          0,          0,               0,               0,             0,         0,          0,          0,              0,   &clk_lock, NULL,             0);
 SUNXI_CLK_PERIPH(usbohci_16,     0,               0,    0,          0,                  0,      0,          0,          0,          0,          USB_CFG,         0,               0,             0,         16,         0,          0,              0,   &clk_lock, NULL,             0);
 SUNXI_CLK_PERIPH(usbohci1,       0,               0,    0,          0,                  0,      0,          0,          0,          0,          USB_CFG,         BUS_RST0,        BUS_GATE0,     BUS_RST0,  17,         29,         29,             25,  &clk_lock, &com_gates[2],    0);
 SUNXI_CLK_PERIPH(usbohci0,       0,               0,    0,          0,                  0,      0,          0,          0,          0,          0,               BUS_RST0,        BUS_GATE0,     BUS_RST0,  0,          28,         28,             24,  &clk_lock, &com_gates[3],    0);
@@ -731,6 +734,8 @@ struct periph_init_data sunxi_periphs_init[] = {
 	{"usbphy1",        0,                    hosc_parents,           ARRAY_SIZE(hosc_parents),           &sunxi_clk_periph_usbphy1          },
 	{"usbhsic",        0,                    hsic_parents,           ARRAY_SIZE(hsic_parents),           &sunxi_clk_periph_usbhsic          },
 	{"usbhsic12m",     0,                    hoscd2_parents,         ARRAY_SIZE(hoscd2_parents),         &sunxi_clk_periph_usbhsic12m       },
+	{"usbohci012m",    0,                    usbohci12m_parents,     ARRAY_SIZE(usbohci12m_parents),     &sunxi_clk_periph_usbohci012m      },
+	{"usbohci112m",    0,                    usbohci12m_parents,     ARRAY_SIZE(usbohci12m_parents),     &sunxi_clk_periph_usbohci112m      },
 	{"usbohci_16",     0,                    ahb2mod_parents,        ARRAY_SIZE(ahb2mod_parents),        &sunxi_clk_periph_usbohci_16       },
 	{"usbohci1",       0,                    usbohci_parents,        ARRAY_SIZE(usbohci_parents),        &sunxi_clk_periph_usbohci1         },
 	{"usbohci0",       0,                    usbohci_parents,        ARRAY_SIZE(usbohci_parents),        &sunxi_clk_periph_usbohci0         },
