@@ -32,7 +32,6 @@
 #include <linux/reboot.h>
 #include <linux/suspend.h>
 #include <linux/sunxi_dramfreq.h>
-#include <linux/workqueue.h>
 
 enum {
 	DEBUG_NONE = 0,
@@ -713,33 +712,10 @@ unlock:
 	return ret;
 }
 
-#ifdef CONFIG_DEVFREQ_GOV_TEMPTRIGGER
-extern int sunxi_get_sensor_temp(u32 sensor_num, long *temperature);
-bool temptrigger_initialized = false;
-
-static int sunxi_get_dev_status(struct device *dev,
-				      struct devfreq_dev_status *stat)
-{
-	int i;
-	long temp, max_temp = 0, std_temp = 0;
-
-	for (i = 0; i < 3; i++) {
-		sunxi_get_sensor_temp(i, &temp);
-		max_temp = max(max_temp, temp);
-	}
-
-	stat->private_data = temptrigger_initialized ? &max_temp : &std_temp;
-	return 0;
-}
-#endif
-
 static struct devfreq_dev_profile sunxi_dramfreq_profile = {
 	.get_cur_freq = sunxi_dramfreq_get_cur_freq,
 	.target       = sunxi_dramfreq_target,
 	.freq_table   = sunxi_dramfreq_table,
-#ifdef CONFIG_DEVFREQ_GOV_TEMPTRIGGER
-	.get_dev_status	= sunxi_get_dev_status,
-#endif
 	.max_state    = LV_END,
 };
 
@@ -771,83 +747,37 @@ static void sunxi_dramfreq_masters_state_init(struct sunxi_dramfreq *dramfreq)
 		dramfreq->key_masters[i] = (i == MASTER_CSI) ? 0 : 1;
 }
 
-#ifdef CONFIG_DEVFREQ_GOV_TEMPTRIGGER
-struct delayed_work sunxi_temp_work;
-struct workqueue_struct *dramfreq_temp_workqueue;
-
-static void sunxi_dramfreq_temp_work_func(struct work_struct *work)
+static int sunxi_dramfreq_governor_state_update(enum GOVERNOR_STATE type)
 {
-	if ((dramfreq == NULL) || (dramfreq->devfreq == NULL)) {
-		DRAMFREQ_ERR("%s: para error\n", __func__);
-		return;
+	switch (type) {
+	case STATE_INIT:
+		dramfreq->pause = 1;
+		sunxi_dramfreq_task = kthread_create(sunxi_dramfreq_task_func,
+											dramfreq->devfreq, "dramfreq_task");
+		if (IS_ERR(sunxi_dramfreq_task))
+			return PTR_ERR(sunxi_dramfreq_task);
+
+		get_task_struct(sunxi_dramfreq_task);
+		wake_up_process(sunxi_dramfreq_task);
+		break;
+	case STATE_RUNNING:
+		dramfreq->pause = 0;
+		wake_up_process(sunxi_dramfreq_task);
+		break;
+	case STATE_PAUSE:
+		dramfreq->pause = 1;
+		wake_up_process(sunxi_dramfreq_task);
+		break;
+	case STATE_EXIT:
+		dramfreq->pause = 1;
+		mutex_lock(&dramfreq->devfreq->lock);
+		update_devfreq(dramfreq->devfreq);
+		mutex_unlock(&dramfreq->devfreq->lock);
+
+		kthread_stop(sunxi_dramfreq_task);
+		put_task_struct(sunxi_dramfreq_task);
+		break;
 	}
-
-	mutex_lock(&dramfreq->devfreq->lock);
-	update_devfreq(dramfreq->devfreq);
-	mutex_unlock(&dramfreq->devfreq->lock);
-
-	queue_delayed_work_on(0, dramfreq_temp_workqueue, &sunxi_temp_work, msecs_to_jiffies(100));
-}
-#endif
-
-static int sunxi_dramfreq_governor_state_update(char *name, enum GOVERNOR_STATE type)
-{
-	if (!strcmp(name, "adaptive")) {
-		switch (type) {
-		case STATE_INIT:
-			dramfreq->pause = 1;
-			sunxi_dramfreq_task = kthread_create(sunxi_dramfreq_task_func,
-												dramfreq->devfreq, "dramfreq_task");
-			if (IS_ERR(sunxi_dramfreq_task))
-				return PTR_ERR(sunxi_dramfreq_task);
-
-			get_task_struct(sunxi_dramfreq_task);
-			wake_up_process(sunxi_dramfreq_task);
-			break;
-		case STATE_RUNNING:
-			dramfreq->pause = 0;
-			wake_up_process(sunxi_dramfreq_task);
-			break;
-		case STATE_PAUSE:
-			dramfreq->pause = 1;
-			wake_up_process(sunxi_dramfreq_task);
-			break;
-		case STATE_EXIT:
-			dramfreq->pause = 1;
-			mutex_lock(&dramfreq->devfreq->lock);
-			update_devfreq(dramfreq->devfreq);
-			mutex_unlock(&dramfreq->devfreq->lock);
-
-			kthread_stop(sunxi_dramfreq_task);
-			put_task_struct(sunxi_dramfreq_task);
-			break;
-		}
-	}
-#ifdef CONFIG_DEVFREQ_GOV_TEMPTRIGGER
-	else if (!strcmp(name, "temptrigger")) {
-		switch (type) {
-		case STATE_INIT:
-			temptrigger_initialized = true;
-			dramfreq_temp_workqueue = create_singlethread_workqueue("dramfreq_temp");
-			INIT_DELAYED_WORK(&sunxi_temp_work, sunxi_dramfreq_temp_work_func);
-			queue_delayed_work_on(0, dramfreq_temp_workqueue, &sunxi_temp_work, msecs_to_jiffies(100));
-			break;
-		case STATE_RUNNING:
-		case STATE_PAUSE:
-			break;
-		case STATE_EXIT:
-			temptrigger_initialized = false;
-
-			mutex_lock(&dramfreq->devfreq->lock);
-			update_devfreq(dramfreq->devfreq);
-			mutex_unlock(&dramfreq->devfreq->lock);
-
-			cancel_delayed_work_sync(&sunxi_temp_work);
-			destroy_workqueue(dramfreq_temp_workqueue);
-			break;
-		}
-	}
-#endif
 
 	return 0;
 }
