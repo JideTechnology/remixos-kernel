@@ -2431,6 +2431,7 @@ void mmc_rescan(struct work_struct *work)
 	int i;
 	bool extend_wakelock = false;
 	bool present         = false;
+	struct mmc_bus_ops * pre_bus_ops = NULL;			
 
 	if (host->rescan_disable)
 		return;
@@ -2457,7 +2458,7 @@ void mmc_rescan(struct work_struct *work)
 	}
 */
 		
-
+	pre_bus_ops = (struct mmc_bus_ops *)host->bus_ops;
 	/*
 	 * if there is a _removable_ card registered, check whether it is
 	 * still present
@@ -2467,25 +2468,6 @@ void mmc_rescan(struct work_struct *work)
 		host->bus_ops->detect(host);
 
 	host->detect_change = 0;
-
-	if((host->caps&MMC_CAP_NEEDS_POLL)){
-		 if((host->ops->get_cd)\
-			&&(host->rescan_pre_state^sunxi_mmc_debdetect(host))){
-				pr_err("*%s detect cd change\n*\n",mmc_hostname(host));
-				wake_lock(&host->detect_wake_lock);
-			}else if(host->bus_dead){
-				//If card insert and put out so quict,get_cd function maybe not effective
-				//So we use host->bus_ops->detect(host)  to find if the card is in or in idle state
-				//If card is not in or in idle state,we must rescan it
-				pr_err("*%s detect card change\n*\n",mmc_hostname(host));
-				wake_lock(&host->detect_wake_lock);
-			}else{
-				mmc_bus_put(host);
-				mmc_schedule_delayed_work(&host->detect, HZ);
-				return;
-			}
-	}
-
 
 
 	/* If the card was removed the bus will be marked
@@ -2502,6 +2484,29 @@ void mmc_rescan(struct work_struct *work)
 	 */
 	mmc_bus_put(host);
 	mmc_bus_get(host);
+
+	if((host->caps&MMC_CAP_NEEDS_POLL)){
+		int cd_sta = sunxi_mmc_debdetect(host);
+		 if((host->ops->get_cd)\
+			&&(host->rescan_pre_state^cd_sta)){
+				pr_err("*%s detect cd change*\n",mmc_hostname(host));
+				wake_lock(&host->detect_wake_lock);
+				pr_err("*%s lock*\n",mmc_hostname(host));
+			}else if((pre_bus_ops != NULL) \
+						&& (host->bus_ops == NULL)){
+				//If card insert and put out so quict,get_cd function maybe not effective
+				//So we use host->bus_ops->detect(host)  to find if the card is in or in idle state
+				//If card is not in or in idle state,we must rescan it
+				pr_err("*%s detect card change*\n",mmc_hostname(host));
+				wake_lock(&host->detect_wake_lock);
+				pr_err("*%s lock*\n",mmc_hostname(host));
+			}else{
+				mmc_bus_put(host);
+				mmc_schedule_delayed_work(&host->detect, HZ);
+				return;
+			}
+	}
+
 
 	/* if there still is a card present, stop here */
 	if (host->bus_ops != NULL) {
@@ -2537,10 +2542,13 @@ void mmc_rescan(struct work_struct *work)
 	mmc_release_host(host);
 
  out:
-	if (extend_wakelock)
+	if (extend_wakelock){
 		wake_lock_timeout(&host->detect_wake_lock, HZ / 2);
-	else
+		pr_err("*%s lock timeout*\n",mmc_hostname(host));
+	}else{
 		wake_unlock(&host->detect_wake_lock);
+		pr_err("*%s unlock*\n",mmc_hostname(host));
+	}
 	if (host->caps & MMC_CAP_NEEDS_POLL) {
 		host->rescan_pre_state = present;
 		//wake_lock(&host->detect_wake_lock);
