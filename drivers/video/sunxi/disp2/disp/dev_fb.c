@@ -172,6 +172,29 @@ static void *Fb_map_kernel(unsigned long phys_addr, unsigned long size)
 	return vaddr;
 }
 
+static void *Fb_map_kernel_cache(unsigned long phys_addr, unsigned long size)
+{
+	int npages = PAGE_ALIGN(size) / PAGE_SIZE;
+	struct page **pages = vmalloc(sizeof(struct page *) * npages);
+	struct page **tmp = pages;
+	struct page *cur_page = phys_to_page(phys_addr);
+	pgprot_t pgprot;
+	void *vaddr = NULL;
+	int i;
+
+	if (!pages)
+		return NULL;
+
+	for (i = 0; i < npages; i++)
+		*(tmp++) = cur_page++;
+
+	pgprot = PAGE_KERNEL;
+	vaddr = vmap(pages, npages, VM_MAP, pgprot);
+
+	vfree(pages);
+	return vaddr;
+}
+
 static void Fb_unmap_kernel(void *vaddr)
 {
 	vunmap(vaddr);
@@ -873,7 +896,7 @@ static int Fb_map_kernel_logo(u32 sel, struct fb_info *info)
 
 	/* parser bmp header */
 	offset = paddr & ~PAGE_MASK;
-	vaddr = (void *)Fb_map_kernel(paddr, sizeof(bmp_header_t));
+	vaddr = (void *)Fb_map_kernel_cache(paddr, sizeof(bmp_header_t));
 	if (NULL == vaddr) {
 		__wrn("fb_map_kernel failed, paddr=0x%p,size=0x%x\n", (void*)paddr, (unsigned int)sizeof(bmp_header_t));
 		return -1;
@@ -920,7 +943,7 @@ static int Fb_map_kernel_logo(u32 sel, struct fb_info *info)
 	Fb_unmap_kernel(vaddr);
 
 	/* map the total bmp buffer */
-	vaddr = (void *)Fb_map_kernel(paddr, x * y * bmp_bpix + sizeof(bmp_header_t));
+	vaddr = (void *)Fb_map_kernel_cache(paddr, x * y * bmp_bpix + sizeof(bmp_header_t));
 	if (NULL == vaddr) {
 		__wrn("fb_map_kernel failed, paddr=0x%p,size=0x%x\n", (void*)paddr, (unsigned int)(x * y * bmp_bpix + sizeof(bmp_header_t)));
 		return -1;
