@@ -1281,7 +1281,7 @@ static ssize_t akm_compass_sysfs_delay_store(
 		if (val == 20)
 			val = val - 5;
 		else if (val == 10)
-			val = val - 22;
+			val = val - 2;
 		akm->delay[pos] = val;
 	} else {
         akm->delay[pos] = val;
