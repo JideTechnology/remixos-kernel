@@ -461,6 +461,9 @@ void mmc_of_parse(struct mmc_host *host)
 		host->caps2 |= MMC_CAP2_HS400_1_8V | MMC_CAP2_HS200_1_8V_SDR;
 	if (of_find_property(np, "mmc-hs400-1_2v", &len))
 		host->caps2 |= MMC_CAP2_HS400_1_2V | MMC_CAP2_HS200_1_2V_SDR;
+
+	if (of_find_property(np, "mmc-cache-ctrl", &len))
+		host->caps2 |= MMC_CAP2_CACHE_CTRL;	
 }
 
 EXPORT_SYMBOL(mmc_of_parse);

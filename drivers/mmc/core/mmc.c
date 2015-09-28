@@ -1483,6 +1483,8 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 			err = 0;
 		} else {
 			card->ext_csd.cache_ctrl = 1;
+			pr_info("***%s: Cache is turn on***\n",
+					mmc_hostname(card->host));			
 		}
 	}
 
