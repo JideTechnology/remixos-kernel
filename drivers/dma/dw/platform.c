@@ -234,13 +234,6 @@ static int dw_remove(struct platform_device *pdev)
 	return dw_dma_remove(chip);
 }
 
-static void dw_shutdown(struct platform_device *pdev)
-{
-	struct dw_dma_chip *chip = platform_get_drvdata(pdev);
-
-	dw_dma_shutdown(chip);
-}
-
 #ifdef CONFIG_OF
 static const struct of_device_id dw_dma_of_id_table[] = {
 	{ .compatible = "snps,dma-spear1340" },
@@ -292,7 +285,6 @@ static const struct dev_pm_ops dw_dev_pm_ops = {
 static struct platform_driver dw_driver = {
 	.probe		= dw_probe,
 	.remove		= dw_remove,
-	.shutdown	= dw_shutdown,
 	.driver = {
 		.name	= "dw_dmac",
 		.pm	= &dw_dev_pm_ops,

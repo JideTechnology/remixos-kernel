@@ -1669,16 +1669,6 @@ int dw_dma_remove(struct dw_dma_chip *chip)
 }
 EXPORT_SYMBOL_GPL(dw_dma_remove);
 
-void dw_dma_shutdown(struct dw_dma_chip *chip)
-{
-	struct dw_dma *dw = chip->dw;
-
-	dw_dma_off(dw);
-	if (dw->clk)
-		clk_disable_unprepare(dw->clk);
-}
-EXPORT_SYMBOL_GPL(dw_dma_shutdown);
-
 #ifdef CONFIG_PM_SLEEP
 
 int dw_dma_suspend(struct dw_dma_chip *chip)
