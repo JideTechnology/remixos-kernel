@@ -369,7 +369,8 @@ static irqreturn_t sunxi_mmc_finalize_request(struct sunxi_mmc_host *host)
 
 		//To avoid that "wait busy" and "maual stop" occur at the same time,
 		//We wait busy only on not error occur.
-		if(mrq->cmd->flags & MMC_RSP_BUSY){
+		if((mrq->cmd->flags & MMC_RSP_BUSY)\
+			||((mrq->cmd->data) && (mrq->cmd->data->flags& MMC_DATA_WRITE))){
 			host->mrq_busy = host->mrq;
 		}
 	}
@@ -513,7 +514,7 @@ int sunxi_check_r1_ready_may_sleep(struct sunxi_mmc_host *smc_host, unsigned ms)
 				"Wait r1 rdy %d ms timeout\n", ms);
 		return -1;
 	} else{
-		dev_info(mmc_dev(smc_host->mmc), \
+		dev_dbg(mmc_dev(smc_host->mmc), \
 			"*All wait r1 rdy %d ms*\n", cnt);
 		return 0;
 	}
