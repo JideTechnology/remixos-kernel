@@ -477,7 +477,7 @@ static int snd_compr_allocate_buffer(struct snd_compr_stream *stream,
 		 * the data from core
 		 */
 	} else {
-		buffer = kmalloc(buffer_size, GFP_KERNEL);
+		buffer = kmalloc(buffer_size, GFP_KERNEL | GFP_DMA);
 		if (!buffer)
 			return -ENOMEM;
 	}
