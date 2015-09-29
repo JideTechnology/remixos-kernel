@@ -1614,7 +1614,7 @@ void sunxi_mmc_regs_restore(struct sunxi_mmc_host* host)
 	mmc_writel(host, REG_DBGC , bak_regs->debugc  );
 	mmc_writel(host, REG_DMAC , bak_regs->idmacc  );
 	mmc_writel(host, REG_DLBA , bak_regs->dlba	);
-	mmc_writel(host, REG_IMASK , bak_regs->dlba	);
+	mmc_writel(host, REG_IMASK , bak_regs->imask);
 
 
 	if(host->sunxi_mmc_restore_spec_reg){
