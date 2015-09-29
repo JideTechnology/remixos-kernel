@@ -14,9 +14,6 @@
 #include "core.h"
 #include "rdev-ops.h"
 
-#ifndef WLAN_CIPHER_SUITE_SMS4
-#define WLAN_CIPHER_SUITE_SMS4 0x00147201
-#endif
 
 struct ieee80211_rate *
 ieee80211_get_response_rate(struct ieee80211_supported_band *sband,
@@ -212,10 +209,6 @@ bool cfg80211_supported_cipher_suite(struct wiphy *wiphy, u32 cipher)
 	for (i = 0; i < wiphy->n_cipher_suites; i++)
 		if (cipher == wiphy->cipher_suites[i])
 			return true;
-
-	if(cipher == WLAN_CIPHER_SUITE_SMS4)
-		return true;
-
 	return false;
 }
 
@@ -245,10 +238,6 @@ int cfg80211_validate_key_settings(struct cfg80211_registered_device *rdev,
 	     (params->cipher == WLAN_CIPHER_SUITE_AES_CMAC)))
 		return -EINVAL;
 
-        if (params->cipher == WLAN_CIPHER_SUITE_SMS4)
-                if (pairwise && (key_idx != 0) && (key_idx !=1))
-                        return -EINVAL;
-
 	switch (params->cipher) {
 	case WLAN_CIPHER_SUITE_WEP40:
 		if (params->key_len != WLAN_KEY_LEN_WEP40)
@@ -270,9 +259,6 @@ int cfg80211_validate_key_settings(struct cfg80211_registered_device *rdev,
 		if (params->key_len != WLAN_KEY_LEN_AES_CMAC)
 			return -EINVAL;
 		break;
-	case WLAN_CIPHER_SUITE_SMS4:
-        	break;
-
 	default:
 		/*
 		 * We don't know anything about this algorithm,
