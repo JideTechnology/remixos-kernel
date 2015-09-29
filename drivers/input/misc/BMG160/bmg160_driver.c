@@ -1494,13 +1494,17 @@ static void bmg_late_resume(struct early_suspend *handler)
 	mutex_unlock(&client_data->mutex_op_mode);
 }
 #else
-static int bmg_suspend(struct i2c_client *client, pm_message_t mesg)
+static int bmg_suspend(struct device *dev)
+//static int bmg_suspend(struct i2c_client *client, pm_message_t mesg)
 {
 	int err = 0;
+	printk("bmg...................function entrance\n");
+	#if 0
 	struct bmg_client_data *client_data =
 		(struct bmg_client_data *)i2c_get_clientdata(client);
 
 	dev_info(&client->dev, "function entrance");
+	printk("bmg...................function entrance\n");
 
 	mutex_lock(&client_data->mutex_op_mode);
 	if (client_data->enable) {
@@ -1509,13 +1513,16 @@ static int bmg_suspend(struct i2c_client *client, pm_message_t mesg)
 				BMG_VAL_NAME(MODE_SUSPEND));
 	}
 	mutex_unlock(&client_data->mutex_op_mode);
+	#endif
 	return err;
 }
 
-static int bmg_resume(struct i2c_client *client)
+static int bmg_resume(struct device *dev)
+//static int bmg_resume(struct i2c_client *client)
 {
 
 	int err = 0;
+	#if 0
 	struct bmg_client_data *client_data =
 		(struct bmg_client_data *)i2c_get_clientdata(client);
 
@@ -1529,7 +1536,8 @@ static int bmg_resume(struct i2c_client *client)
 	/* post resume operation */
 	bmg_post_resume(client);
 
-	mutex_unlock(&client_data->mutex_op_mode);
+	mutex_unlock(&client_data->mutex_op_mode);	
+	#endif
 	return err;
 }
 #endif
@@ -1582,6 +1590,13 @@ static int bmg_remove(struct i2c_client *client)
 
 /* static SIMPLE_DEV_PM_OPS(bmg160_pm_ops, bmg_suspend, bmg_resume); */
 
+
+static const struct dev_pm_ops bmg160_pm_ops = {
+        .suspend        = bmg_suspend,
+        .resume         = bmg_resume,
+};
+
+
 static const struct acpi_device_id bmg160_acpi_match[] = {
 	{"BMGY0160", 0},
 	{"BMBG0160", 0},
@@ -1601,7 +1616,7 @@ static struct i2c_driver bmg_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = SENSOR_NAME,
-                /* .pm = &bmg160_pm_ops, */
+                 .pm = &bmg160_pm_ops, 
                 .acpi_match_table = ACPI_PTR(bmg160_acpi_match),
 	},
 	.class = I2C_CLASS_HWMON,
@@ -1610,8 +1625,8 @@ static struct i2c_driver bmg_driver = {
 	.remove = bmg_remove,
 	.shutdown = bmg_shutdown,
 #ifndef CONFIG_HAS_EARLYSUSPEND
-	.suspend = bmg_suspend,
-	.resume = bmg_resume,
+//	.suspend = bmg_suspend,
+//	.resume = bmg_resume,
 #endif
 };
 
