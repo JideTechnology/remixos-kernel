@@ -144,7 +144,7 @@ struct gsl_platform_data gsl_pdata = {
 //#define GPIO_TP_PWDN 	161
 #define GPIO_TP_RESET 	19
 #define GPIO_TP_IRQ		18
-static u16 TS_RST_GPIO = 19;
+static u16 TS_RST_GPIO = 0;
 
 static u16 TS_INT_GPIO = 18;
 
@@ -1202,50 +1202,32 @@ static void gsl_timer_sw_init(struct work_struct *work)
 }
 
 #ifdef CONFIG_PM
-static void gsl_ts_resume(struct device *dev)
+static int gsl_ts_resume(struct device *dev)
 {
 	struct i2c_client *client = ddata->client;
 	struct gsl_ts_platform_data *gsl_pdata;
 	int ret;
-//	int ret = 0;
 	printk("[GSL] : Resume START\n");
-#if 0
-	gsl_pdata = client->dev.platform_data;
-	if (gsl_pdata->pins_default)
-		gsl_set_pinctrl_state(&client->dev,
-				gsl_pdata->pins_default);
-	if (gsl_pdata->pm_platdata &&
-			gsl_pdata->pm_platdata->pm_state_D0_name) {
-		ret = device_state_pm_set_state_by_name(&client->dev,
-				gsl_pdata->pm_platdata->pm_state_D0_name);
-	}
-#endif
+	gpio_set_value(ddata->gpio_reset, 1);
+	msleep(20);
 	gsl_reset_core(client);
 	gsl_start_core(client);
 	msleep(20);
 	check_mem_data(client);
         enable_irq(client->irq);
+	return 0;
 }
-static void gsl_ts_suspend(struct device *dev)
+static int gsl_ts_suspend(struct device *dev)
 {
 	int ret;
 	struct i2c_client *client = ddata->client;
 	struct gsl_ts_platform_data *gsl_pdata;
 
 	gsl_pdata = client->dev.platform_data;
-	disable_irq(client->irq);
-#if 0
-	if (gsl_pdata->pins_sleep)
-		gsl_set_pinctrl_state(&client->dev,
-				gsl_pdata->pins_sleep);
-	if (gsl_pdata->pm_platdata &&
-			gsl_pdata->pm_platdata->pm_state_D3_name) {
-		ret = device_state_pm_set_state_by_name(&client->dev,
-				gsl_pdata->pm_platdata->pm_state_D3_name);
-	}
 	printk("[GSL]: gsl_ts_suspend\n");
-#endif
-	return;
+	disable_irq(client->irq);
+	gpio_set_value(ddata->gpio_reset, 0);
+	return 0;
 }
 #endif //CONFIG_PM
 
@@ -1434,6 +1416,7 @@ static int gsl_acpi_probe(struct gsl_ts_data *ts_data)
 	}
 
 	ts_data->gpio_reset = desc_to_gpio(gpio);
+	TS_RST_GPIO = ts_data->gpio_reset;
 
 	index++;
 
@@ -1733,7 +1716,7 @@ static int gsl_ts_remove(struct i2c_client *client)
 	return 0;
 }
 
-static SIMPLE_DEV_PM_OPS(gsl_pm_ops, gsl_ts_suspend, gsl_ts_resume);
+//static SIMPLE_DEV_PM_OPS(gsl_pm_ops, gsl_ts_suspend, gsl_ts_resume);
 
 static const struct acpi_device_id gsl_acpi_match[] = {
 	{"MSSL1680", 0},
@@ -1759,6 +1742,11 @@ static struct of_device_id gsl_match_table[] = {
 #else
 #define gsl_match_table NULL
 #endif
+
+static const struct dev_pm_ops gsl_pm_ops = {
+        .suspend        = gsl_ts_suspend,
+        .resume         = gsl_ts_resume,
+};
 
 static struct i2c_driver gsl_ts_driver = {
 	.probe = gsl_ts_probe,
