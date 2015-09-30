@@ -432,46 +432,39 @@ static void kionix_accel_grp1_report_accel_data(struct kionix_accel_driver *acce
 	int loop = KIONIX_I2C_RETRY_COUNT;
 
 	if(atomic_read(&acceld->accel_enabled) > 0) {
-		if(atomic_read(&acceld->accel_enable_resume) > 0)
-		{
-			while(loop) {
-				mutex_lock(&input_dev->mutex);
-				err = kionix_i2c_read(acceld->client, ACCEL_GRP1_XOUT, accel_data, 6);
-				mutex_unlock(&input_dev->mutex);
-				if(err < 0){
-					loop--;
-					mdelay(KIONIX_I2C_RETRY_TIMEOUT);
-				}
-				else
-					loop = 0;
+		while(loop) {
+			mutex_lock(&input_dev->mutex);
+			err = kionix_i2c_read(acceld->client, ACCEL_GRP1_XOUT, accel_data, 6);
+			mutex_unlock(&input_dev->mutex);
+			if(err < 0){
+				loop--;
+				mdelay(KIONIX_I2C_RETRY_TIMEOUT);
 			}
-			if (err < 0) {
-				KMSGERR(&acceld->client->dev, "%s: read data output error = %d\n", __func__, err);
-			}
-			else {
-				write_lock(&acceld->rwlock_accel_data);
-
-				x = ((s16) le16_to_cpu(((s16)(accel_data[acceld->axis_map_x] >> 2)) - 32)) << 6;
-				y = ((s16) le16_to_cpu(((s16)(accel_data[acceld->axis_map_y] >> 2)) - 32)) << 6;
-				z = ((s16) le16_to_cpu(((s16)(accel_data[acceld->axis_map_z] >> 2)) - 32)) << 6;
-
-				acceld->accel_data[acceld->axis_map_x] = (acceld->negate_x ? -x : x) + acceld->accel_cali[acceld->axis_map_x];
-				acceld->accel_data[acceld->axis_map_y] = (acceld->negate_y ? -y : y) + acceld->accel_cali[acceld->axis_map_y];
-				acceld->accel_data[acceld->axis_map_z] = (acceld->negate_z ? -z : z) + acceld->accel_cali[acceld->axis_map_z];
-
-				if(atomic_read(&acceld->accel_input_event) > 0) {
-					input_report_abs(acceld->input_dev, ABS_X, acceld->accel_data[acceld->axis_map_x]);
-					input_report_abs(acceld->input_dev, ABS_Y, acceld->accel_data[acceld->axis_map_y]);
-					input_report_abs(acceld->input_dev, ABS_Z, acceld->accel_data[acceld->axis_map_z]);
-					input_sync(acceld->input_dev);
-				}
-
-				write_unlock(&acceld->rwlock_accel_data);
-			}
+			else
+				loop = 0;
 		}
-		else
-		{
-			atomic_inc(&acceld->accel_enable_resume);
+		if (err < 0) {
+			KMSGERR(&acceld->client->dev, "%s: read data output error = %d\n", __func__, err);
+		}
+		else {
+			write_lock(&acceld->rwlock_accel_data);
+
+			x = ((s16) le16_to_cpu(((s16)(accel_data[acceld->axis_map_x] >> 2)) - 32)) << 6;
+			y = ((s16) le16_to_cpu(((s16)(accel_data[acceld->axis_map_y] >> 2)) - 32)) << 6;
+			z = ((s16) le16_to_cpu(((s16)(accel_data[acceld->axis_map_z] >> 2)) - 32)) << 6;
+
+			acceld->accel_data[acceld->axis_map_x] = (acceld->negate_x ? -x : x) + acceld->accel_cali[acceld->axis_map_x];
+			acceld->accel_data[acceld->axis_map_y] = (acceld->negate_y ? -y : y) + acceld->accel_cali[acceld->axis_map_y];
+			acceld->accel_data[acceld->axis_map_z] = (acceld->negate_z ? -z : z) + acceld->accel_cali[acceld->axis_map_z];
+
+			if(atomic_read(&acceld->accel_input_event) > 0) {
+				input_report_abs(acceld->input_dev, ABS_X, acceld->accel_data[acceld->axis_map_x]);
+				input_report_abs(acceld->input_dev, ABS_Y, acceld->accel_data[acceld->axis_map_y]);
+				input_report_abs(acceld->input_dev, ABS_Z, acceld->accel_data[acceld->axis_map_z]);
+				input_sync(acceld->input_dev);
+			}
+
+			write_unlock(&acceld->rwlock_accel_data);
 		}
 	}
 }
@@ -590,47 +583,40 @@ static void kionix_accel_grp2_report_accel_data(struct kionix_accel_driver *acce
 
 	/* Only read the output registers if enabled */
 	if(atomic_read(&acceld->accel_enabled) > 0) {
-		if(atomic_read(&acceld->accel_enable_resume) > 0)
-		{
-			loop = KIONIX_I2C_RETRY_COUNT;
-			while(loop) {
-				mutex_lock(&input_dev->mutex);
-				err = kionix_i2c_read(acceld->client, ACCEL_GRP2_XOUT_L, (u8 *)accel_data.accel_data_s16, 6);
-				mutex_unlock(&input_dev->mutex);
-				if(err < 0){
-					loop--;
-					mdelay(KIONIX_I2C_RETRY_TIMEOUT);
-				}
-				else
-					loop = 0;
+		loop = KIONIX_I2C_RETRY_COUNT;
+		while(loop) {
+			mutex_lock(&input_dev->mutex);
+			err = kionix_i2c_read(acceld->client, ACCEL_GRP2_XOUT_L, (u8 *)accel_data.accel_data_s16, 6);
+			mutex_unlock(&input_dev->mutex);
+			if(err < 0){
+				loop--;
+				mdelay(KIONIX_I2C_RETRY_TIMEOUT);
 			}
-			if (err < 0) {
-				KMSGERR(&acceld->client->dev, "%s: read data output error = %d\n", __func__, err);
-			}
-			else {
-				write_lock(&acceld->rwlock_accel_data);
-
-				x = ((s16) le16_to_cpu(accel_data.accel_data_s16[acceld->axis_map_x])) >> acceld->shift;
-				y = ((s16) le16_to_cpu(accel_data.accel_data_s16[acceld->axis_map_y])) >> acceld->shift;
-				z = ((s16) le16_to_cpu(accel_data.accel_data_s16[acceld->axis_map_z])) >> acceld->shift;
-
-				acceld->accel_data[acceld->axis_map_x] = (acceld->negate_x ? -x : x) + acceld->accel_cali[acceld->axis_map_x];
-				acceld->accel_data[acceld->axis_map_y] = (acceld->negate_y ? -y : y) + acceld->accel_cali[acceld->axis_map_y];
-				acceld->accel_data[acceld->axis_map_z] = (acceld->negate_z ? -z : z) + acceld->accel_cali[acceld->axis_map_z];
-
-				if(atomic_read(&acceld->accel_input_event) > 0) {
-					input_report_abs(acceld->input_dev, ABS_X, acceld->accel_data[acceld->axis_map_x]);
-					input_report_abs(acceld->input_dev, ABS_Y, acceld->accel_data[acceld->axis_map_y]);
-					input_report_abs(acceld->input_dev, ABS_Z, acceld->accel_data[acceld->axis_map_z]);
-					input_sync(acceld->input_dev);
-				}
-
-				write_unlock(&acceld->rwlock_accel_data);
-			}
+			else
+				loop = 0;
 		}
-		else
-		{
-			atomic_inc(&acceld->accel_enable_resume);
+		if (err < 0) {
+			KMSGERR(&acceld->client->dev, "%s: read data output error = %d\n", __func__, err);
+		}
+		else {
+			write_lock(&acceld->rwlock_accel_data);
+
+			x = ((s16) le16_to_cpu(accel_data.accel_data_s16[acceld->axis_map_x])) >> acceld->shift;
+			y = ((s16) le16_to_cpu(accel_data.accel_data_s16[acceld->axis_map_y])) >> acceld->shift;
+			z = ((s16) le16_to_cpu(accel_data.accel_data_s16[acceld->axis_map_z])) >> acceld->shift;
+
+			acceld->accel_data[acceld->axis_map_x] = (acceld->negate_x ? -x : x) + acceld->accel_cali[acceld->axis_map_x];
+			acceld->accel_data[acceld->axis_map_y] = (acceld->negate_y ? -y : y) + acceld->accel_cali[acceld->axis_map_y];
+			acceld->accel_data[acceld->axis_map_z] = (acceld->negate_z ? -z : z) + acceld->accel_cali[acceld->axis_map_z];
+
+			if(atomic_read(&acceld->accel_input_event) > 0) {
+				input_report_abs(acceld->input_dev, ABS_X, acceld->accel_data[acceld->axis_map_x]);
+				input_report_abs(acceld->input_dev, ABS_Y, acceld->accel_data[acceld->axis_map_y]);
+				input_report_abs(acceld->input_dev, ABS_Z, acceld->accel_data[acceld->axis_map_z]);
+				input_sync(acceld->input_dev);
+			}
+
+			write_unlock(&acceld->rwlock_accel_data);
 		}
 	}
 
@@ -793,52 +779,40 @@ static void kionix_accel_grp4_report_accel_data(struct kionix_accel_driver *acce
 
 	/* Only read the output registers if enabled */
 	if(atomic_read(&acceld->accel_enabled) > 0) {
-		if(atomic_read(&acceld->accel_enable_resume) > 0)
-		{
-			loop = KIONIX_I2C_RETRY_COUNT;
-			while(loop) {
-				mutex_lock(&input_dev->mutex);
-				err = kionix_i2c_read(acceld->client, ACCEL_GRP4_XOUT_L, (u8 *)accel_data.accel_data_s16, 6);
-				mutex_unlock(&input_dev->mutex);
-				if(err < 0){
-					loop--;
-					mdelay(KIONIX_I2C_RETRY_TIMEOUT);
-				}
-				else
-					loop = 0;
+		loop = KIONIX_I2C_RETRY_COUNT;
+		while(loop) {
+			mutex_lock(&input_dev->mutex);
+			err = kionix_i2c_read(acceld->client, ACCEL_GRP4_XOUT_L, (u8 *)accel_data.accel_data_s16, 6);
+			mutex_unlock(&input_dev->mutex);
+			if(err < 0){
+				loop--;
+				mdelay(KIONIX_I2C_RETRY_TIMEOUT);
 			}
-			if (err < 0) {
-				KMSGERR(&acceld->client->dev, "%s: read data output error = %d\n", __func__, err);
-			}
-			else {
-				write_lock(&acceld->rwlock_accel_data);
-
-				x = ((s16) le16_to_cpu(accel_data.accel_data_s16[acceld->axis_map_x])) >> acceld->shift;
-				y = ((s16) le16_to_cpu(accel_data.accel_data_s16[acceld->axis_map_y])) >> acceld->shift;
-				z = ((s16) le16_to_cpu(accel_data.accel_data_s16[acceld->axis_map_z])) >> acceld->shift;
-				
-				/*
-				acceld->accel_data[acceld->axis_map_x] = (acceld->negate_x ? -x : x) + acceld->accel_cali[acceld->axis_map_x];
-				acceld->accel_data[acceld->axis_map_y] = (acceld->negate_y ? -y : y) + acceld->accel_cali[acceld->axis_map_y];
-				acceld->accel_data[acceld->axis_map_z] = (acceld->negate_z ? -z : z) + acceld->accel_cali[acceld->axis_map_z];
-				*/
-				acceld->accel_data[acceld->axis_map_y] = (acceld->negate_x ? x : -x) + acceld->accel_cali[acceld->axis_map_x];
-				acceld->accel_data[acceld->axis_map_x] = (acceld->negate_y ? -y : y) + acceld->accel_cali[acceld->axis_map_y];
-				acceld->accel_data[acceld->axis_map_z] = (acceld->negate_z ? -z : z) + acceld->accel_cali[acceld->axis_map_z];
-
-				if(atomic_read(&acceld->accel_input_event) > 0) {
-					input_report_abs(acceld->input_dev, ABS_X, acceld->accel_data[acceld->axis_map_x]);
-					input_report_abs(acceld->input_dev, ABS_Y, acceld->accel_data[acceld->axis_map_y]);
-					input_report_abs(acceld->input_dev, ABS_Z, acceld->accel_data[acceld->axis_map_z]);
-					input_sync(acceld->input_dev);
-				}
-
-				write_unlock(&acceld->rwlock_accel_data);
-			}
+			else
+				loop = 0;
 		}
-		else
-		{
-			atomic_inc(&acceld->accel_enable_resume);
+		if (err < 0) {
+			KMSGERR(&acceld->client->dev, "%s: read data output error = %d\n", __func__, err);
+		}
+		else {
+			write_lock(&acceld->rwlock_accel_data);
+
+			x = ((s16) le16_to_cpu(accel_data.accel_data_s16[acceld->axis_map_x])) >> acceld->shift;
+			y = ((s16) le16_to_cpu(accel_data.accel_data_s16[acceld->axis_map_y])) >> acceld->shift;
+			z = ((s16) le16_to_cpu(accel_data.accel_data_s16[acceld->axis_map_z])) >> acceld->shift;
+
+			acceld->accel_data[acceld->axis_map_y] = (acceld->negate_x ? x : -x) + acceld->accel_cali[acceld->axis_map_x];
+			acceld->accel_data[acceld->axis_map_x] = (acceld->negate_y ? -y : y) + acceld->accel_cali[acceld->axis_map_y];
+			acceld->accel_data[acceld->axis_map_z] = (acceld->negate_z ? -z : z) + acceld->accel_cali[acceld->axis_map_z];
+
+			if(atomic_read(&acceld->accel_input_event) > 0) {
+				input_report_abs(acceld->input_dev, ABS_X, acceld->accel_data[acceld->axis_map_x]);
+				input_report_abs(acceld->input_dev, ABS_Y, acceld->accel_data[acceld->axis_map_y]);
+				input_report_abs(acceld->input_dev, ABS_Z, acceld->accel_data[acceld->axis_map_z]);
+				input_sync(acceld->input_dev);
+			}
+
+			write_unlock(&acceld->rwlock_accel_data);
 		}
 	}
 
@@ -966,7 +940,7 @@ static int kionix_accel_grp4_update_odr(struct kionix_accel_driver *acceld, unsi
 	return 0;
 }
 
-static int kionix_accel_power_on(struct kionix_accel_driver *acceld)
+/*static int kionix_accel_power_on(struct kionix_accel_driver *acceld)
 {
 	if (acceld->accel_pdata.power_on)
 		return acceld->accel_pdata.power_on();
@@ -979,7 +953,7 @@ static void kionix_accel_power_off(struct kionix_accel_driver *acceld)
 	if (acceld->accel_pdata.power_off)
 		acceld->accel_pdata.power_off();
 }
-
+*/
 static irqreturn_t kionix_accel_isr(int irq, void *dev)
 {
 	struct kionix_accel_driver *acceld = dev;
@@ -1033,36 +1007,27 @@ static void kionix_accel_update_direction(struct kionix_accel_driver *acceld)
 static int kionix_accel_enable(struct kionix_accel_driver *acceld)
 {
 	int err = 0;
-	long remaining;
 
 	mutex_lock(&acceld->mutex_earlysuspend);
-
-	atomic_set(&acceld->accel_suspend_continue, 0);
 
 	/* Make sure that the sensor had successfully resumed before enabling it */
 	if(atomic_read(&acceld->accel_suspended) == 1) {
 		KMSGINF(&acceld->client->dev, "%s: waiting for resume\n", __func__);
-		remaining = wait_event_interruptible_timeout(acceld->wqh_suspend, \
-				atomic_read(&acceld->accel_suspended) == 0, \
-				msecs_to_jiffies(KIONIX_ACCEL_EARLYSUSPEND_TIMEOUT));
-
+		ndelay(1000);
 		if(atomic_read(&acceld->accel_suspended) == 1) {
 			KMSGERR(&acceld->client->dev, "%s: timeout waiting for resume\n", __func__);
 			err = -ETIME;
 			goto exit;
 		}
 	}
-
 	err = acceld->kionix_accel_operate(acceld);
-
 	if (err < 0) {
 		KMSGERR(&acceld->client->dev, \
 				"%s: kionix_accel_operate returned err = %d\n", __func__, err);
 		goto exit;
 	}
 
-	atomic_inc(&acceld->accel_enabled);
-
+	atomic_set(&acceld->accel_enabled, 1);
 exit:
 	mutex_unlock(&acceld->mutex_earlysuspend);
 
@@ -1073,27 +1038,19 @@ static int kionix_accel_disable(struct kionix_accel_driver *acceld)
 {
 	int err = 0;
 
-	mutex_lock(&acceld->mutex_resume);
-
-	atomic_set(&acceld->accel_suspend_continue, 1);
-
 	if(atomic_read(&acceld->accel_enabled) > 0){
 		if(atomic_dec_and_test(&acceld->accel_enabled)) {
-			if(atomic_read(&acceld->accel_enable_resume) > 0)
-				atomic_set(&acceld->accel_enable_resume, 0);
-			err = acceld->kionix_accel_standby(acceld);
+			err = i2c_smbus_write_byte_data(acceld->client,
+					ACCEL_GRP1_CTRL_REG1, acceld->accel_registers[accel_grp1_ctrl_reg1] & 0x7F);
 			if (err < 0) {
 				KMSGERR(&acceld->client->dev, \
 						"%s: kionix_accel_standby returned err = %d\n", __func__, err);
 				goto exit;
 			}
-			wake_up_interruptible(&acceld->wqh_suspend);
 		}
 	}
 
 exit:
-	mutex_unlock(&acceld->mutex_resume);
-
 	return err;
 }
 
@@ -1114,7 +1071,6 @@ static void kionix_accel_input_close(struct input_dev *dev)
 }
 
 static void  kionix_accel_init_input_device(struct kionix_accel_driver *acceld,
-//static void __devinit kionix_accel_init_input_device(struct kionix_accel_driver *acceld,
 					      struct input_dev *input_dev)
 {
 	__set_bit(EV_ABS, input_dev->evbit);
@@ -1128,7 +1084,6 @@ static void  kionix_accel_init_input_device(struct kionix_accel_driver *acceld,
 }
 
 static int  kionix_accel_setup_input_device(struct kionix_accel_driver *acceld)
-//static int __devinit kionix_accel_setup_input_device(struct kionix_accel_driver *acceld)
 {
 	struct input_dev *input_dev;
 	int err;
@@ -1170,15 +1125,16 @@ static ssize_t kionix_accel_get_enable(struct device *dev,
 
 /* Allow users to enable/disable the device */
 static ssize_t kionix_accel_set_enable(struct device *dev, struct device_attribute *attr,
-						const char *buf, size_t count)
+		const char *buf, size_t count)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct kionix_accel_driver *acceld = i2c_get_clientdata(client);
 	struct input_dev *input_dev = acceld->input_dev;
 	char *buf2;
 	const int enable_count = 1;
-	unsigned long enable;
+	unsigned int enable;
 	int err = 0;
+	long en = 0;
 
 	/* Lock the device to prevent races with open/close (and itself) */
 	mutex_lock(&input_dev->mutex);
@@ -1187,37 +1143,21 @@ static ssize_t kionix_accel_set_enable(struct device *dev, struct device_attribu
 		KMSGERR(&acceld->client->dev, \
 				"%s: No enable data being read. " \
 				"No enable data will be updated.\n", __func__);
-	}
-
-	else {
+	}else {
 		/* Removes any leading negative sign */
 		while(*buf2 == '-')
 			buf2++;
-		#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,35))
-		err = kstrtouint((const char *)buf2, 10, (unsigned int *)&enable);
-		if (err < 0) {
-			KMSGERR(&acceld->client->dev, \
-					"%s: kstrtouint returned err = %d\n", __func__, err);
-			goto exit;
-		}
-		#else
-		err = strict_strtoul((const char *)buf2, 10, &enable);
-		if (err < 0) {
-			KMSGERR(&acceld->client->dev, \
-					"%s: strict_strtoul returned err = %d\n", __func__, err);
-			goto exit;
-		}
-		#endif
-
-		if(enable)
+		if (strict_strtol(buf, 10, &en))
+			return -EINVAL;
+		en = en ? 1 : 0;
+		printk("%s........RU.....en = %d\n",__func__, en);
+		if(en) 
 			err = kionix_accel_enable(acceld);
-		else
+		else 
 			err = kionix_accel_disable(acceld);
 	}
-
 exit:
 	mutex_unlock(&input_dev->mutex);
-
 	return (err < 0) ? err : count;
 }
 
@@ -1527,29 +1467,17 @@ static int  kionix_verify(struct kionix_accel_driver *acceld)
 void kionix_accel_earlysuspend_suspend(struct early_suspend *h)
 {
 	struct kionix_accel_driver *acceld = container_of(h, struct kionix_accel_driver, early_suspend);
-	long remaining;
+	int err = 0;
 
 	mutex_lock(&acceld->mutex_earlysuspend);
 
-	/* Only continue to suspend if enable did not intervene */
-	if(atomic_read(&acceld->accel_suspend_continue) > 0) {
-		/* Make sure that the sensor had successfully disabled before suspending it */
-		if(atomic_read(&acceld->accel_enabled) > 0) {
-			KMSGINF(&acceld->client->dev, "%s: waiting for disable\n", __func__);
-			remaining = wait_event_interruptible_timeout(acceld->wqh_suspend, \
-					atomic_read(&acceld->accel_enabled) < 1, \
-					msecs_to_jiffies(KIONIX_ACCEL_EARLYSUSPEND_TIMEOUT));
-
-			if(atomic_read(&acceld->accel_enabled) > 0) {
-				KMSGERR(&acceld->client->dev, "%s: timeout waiting for disable\n", __func__);
-			}
-		}
-
-		kionix_accel_power_off(acceld);
-
-		atomic_set(&acceld->accel_suspended, 1);
+	if(atomic_read(&acceld->accel_enabled) > 0){ 
+		err = i2c_smbus_write_byte_data(acceld->client,
+				ACCEL_GRP1_CTRL_REG1, acceld->accel_registers[accel_grp1_ctrl_reg1] & 0x7F);
+		if (err < 0)
+			return ;
 	}
-
+	atomic_set(&acceld->accel_suspended, 1);
 	mutex_unlock(&acceld->mutex_earlysuspend);
 
 	return;
@@ -1558,39 +1486,25 @@ void kionix_accel_earlysuspend_suspend(struct early_suspend *h)
 void kionix_accel_earlysuspend_resume(struct early_suspend *h)
 {
 	struct kionix_accel_driver *acceld = container_of(h, struct kionix_accel_driver, early_suspend);
-	int err;
-
-	mutex_lock(&acceld->mutex_resume);
+	int err = 0;
 
 	if(atomic_read(&acceld->accel_suspended) == 1) {
-		err = kionix_accel_power_on(acceld);
-		if (err < 0) {
-			KMSGERR(&acceld->client->dev, "%s: kionix_accel_power_on returned err = %d\n", __func__, err);
-			goto exit;
-		}
-
-		/* Only needs to reinitialized the registers if Vdd is pulled low during suspend */
-		if(err > 0) {
-			err = acceld->kionix_accel_power_on_init(acceld);
-			if (err) {
-				KMSGERR(&acceld->client->dev, "%s: kionix_accel_power_on_init returned err = %d\n", __func__, err);
+		if(atomic_read(&acceld->accel_enabled) > 0){ 
+			err = acceld->kionix_accel_operate(acceld);
+			if (err < 0) {
+				KMSGERR(&acceld->client->dev, \
+						"%s: kionix_accel_operate returned err = %d\n", __func__, err);
 				goto exit;
 			}
 		}
-
 		atomic_set(&acceld->accel_suspended, 0);
 	}
 
-	wake_up_interruptible(&acceld->wqh_suspend);
-
 exit:
-	mutex_unlock(&acceld->mutex_resume);
-
 	return;
 }
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 
-//static int __devinit kionix_accel_probe(struct i2c_client *client,
 static int  kionix_accel_probe(struct i2c_client *client,
 				 const struct i2c_device_id *id)
 {
@@ -1761,7 +1675,7 @@ static int  kionix_accel_probe(struct i2c_client *client,
 	atomic_set(&acceld->accel_suspend_continue, 1);
 	atomic_set(&acceld->accel_enabled, 0);
 	atomic_set(&acceld->accel_input_event, 0);
-	atomic_set(&acceld->accel_enable_resume, 0);
+	//atomic_set(&acceld->accel_enable_resume, 0);
 
 	mutex_init(&acceld->mutex_earlysuspend);
 	mutex_init(&acceld->mutex_resume);
@@ -1784,7 +1698,7 @@ static int  kionix_accel_probe(struct i2c_client *client,
 
 	acceld->accel_workqueue = create_workqueue("Kionix Accel Workqueue");
 	INIT_DELAYED_WORK(&acceld->accel_work, kionix_accel_work);
-	init_waitqueue_head(&acceld->wqh_suspend);
+//	init_waitqueue_head(&acceld->wqh_suspend);
 
 	if (acceld->accel_drdy) {
 		err = request_threaded_irq(client->irq, NULL, kionix_accel_isr, \
@@ -1832,8 +1746,8 @@ err_free_accel_registers:
 err_accel_pdata_exit:
 	if (accel_pdata->exit)
 		accel_pdata->exit();
-err_accel_pdata_power_off:
-	kionix_accel_power_off(acceld);
+/*err_accel_pdata_power_off:
+	kionix_accel_power_off(acceld);*/
 err_free_mem:
 	kfree(acceld);
 	return err;
@@ -1853,9 +1767,9 @@ static int  kionix_accel_remove(struct i2c_client *client)
 	destroy_workqueue(acceld->accel_workqueue);
 	input_unregister_device(acceld->input_dev);
 	kfree(acceld->accel_registers);
-	if (acceld->accel_pdata.exit)
-		acceld->accel_pdata.exit();
-	kionix_accel_power_off(acceld);
+/*	if (acceld->accel_pdata.exit)
+		acceld->accel_pdata.exit(); */
+//	kionix_accel_power_off(acceld);
 	kfree(acceld);
 
 	return 0;
