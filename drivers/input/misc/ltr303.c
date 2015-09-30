@@ -3059,6 +3059,65 @@ err_out:
 	return ret;
 }
 
+static int ltr303_suspend(struct device *dev)
+{
+	int ret = 0;
+        struct ltr303_data *ltr303 = sensor_info;
+
+	disable_irq(ltr303->irq);
+        if (ltr303->is_suspend != 0) {
+                dev_err(&ltr303->i2c_client->dev, "%s Asked to suspend when already suspended\n", __func__);
+                return -1;
+        }
+        ltr303->is_suspend = 1;
+
+        /* Save away the state of the devices at suspend point */
+        ltr303->als_suspend_enable_flag = ltr303->als_enable_flag;
+
+        /* Disable the devices for suspend if configured */
+        if (ltr303->disable_als_on_suspend && ltr303->als_enable_flag) {
+                ret += als_disable(ltr303);
+        }
+
+        if (ret) {
+                dev_err(&ltr303->i2c_client->dev, "%s Unable to complete suspend\n", __func__);
+        } else {
+                dev_info(&ltr303->i2c_client->dev, "%s Suspend completed\n", __func__);
+        }
+	return 0;
+}
+
+
+static int ltr303_resume(struct device *dev)
+{
+	struct ltr303_data *ltr303 = sensor_info;
+        int ret = 0;
+
+        if (ltr303->is_suspend != 1) {
+                dev_err(&ltr303->i2c_client->dev, "%s Asked to resume when not suspended\n", __func__);
+                return -1;
+        }
+        ltr303->is_suspend = 0;
+
+        /* If ALS was enbled before suspend, enable during resume */
+        if (ltr303->als_suspend_enable_flag) {
+                ret += als_enable_init(ltr303);
+                ltr303->als_suspend_enable_flag = 0;
+        }       
+
+        if (ret) {
+                dev_err(&ltr303->i2c_client->dev, "%s Unable to complete resume\n", __func__);
+        } else {
+                dev_info(&ltr303->i2c_client->dev, "%s Resume completed\n", __func__);
+        }
+	enable_irq(ltr303->irq);
+	return 0;
+}
+
+static const struct dev_pm_ops ltr303_pm_ops = {
+        .suspend        = ltr303_suspend,
+        .resume         = ltr303_resume,
+};
 
 static const struct i2c_device_id ltr303_id[] = {
 	{ "LTER0303:00", 0 },
@@ -3072,6 +3131,7 @@ static struct i2c_driver ltr303_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = DEVICE_NAME,
+		.pm             = &ltr303_pm_ops,
 	},
 };
 
