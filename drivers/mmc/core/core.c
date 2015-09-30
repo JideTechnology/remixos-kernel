@@ -45,6 +45,10 @@
 #include "sd_ops.h"
 #include "sdio_ops.h"
 
+void sunxi_dump_reg(struct mmc_host *mmc);
+#define SUNXI_TIMEOUT_INT_MS  (60*1000)
+
+
 /* If the device is not responding */
 #define MMC_CORE_TIMEOUT_MS	(10 * 60 * 1000) /* 10 minute timeout */
 
@@ -395,11 +399,35 @@ static int mmc_wait_for_data_req_done(struct mmc_host *host,
 	struct mmc_context_info *context_info = &host->context_info;
 	int err;
 	unsigned long flags;
+	int ret = 0;
 
 	while (1) {
+		/*
 		wait_event_interruptible(context_info->wait,
 				(context_info->is_done_rcv ||
 				 context_info->is_new_req));
+		*/
+		do{
+			ret = wait_event_interruptible_timeout(context_info->wait,
+					(context_info->is_done_rcv ||
+					 context_info->is_new_req),msecs_to_jiffies(SUNXI_TIMEOUT_INT_MS));
+			if(ret == 0){
+				pr_err("****%s:data req timeout (CMD%u): err %d retry****\n",
+					mmc_hostname(host),
+					mrq->cmd->opcode, mrq->cmd->error);
+				sunxi_dump_reg(host);
+			}else if(ret > 0){
+				break;
+			}else if(ret == -ERESTARTSYS){
+				pr_err("****%s: data req interrupted by signal (CMD%u): err %d retry****\n",
+					mmc_hostname(host),
+					mrq->cmd->opcode, mrq->cmd->error);				
+			}else{
+				pr_err("****%s: data req unknow err (CMD%u): %d ret err %d retry****\n",
+					mmc_hostname(host),
+					mrq->cmd->opcode, mrq->cmd->error,ret);				
+			}
+		}while(1);
 		spin_lock_irqsave(&context_info->lock, flags);
 		context_info->is_waiting_last_req = false;
 		spin_unlock_irqrestore(&context_info->lock, flags);
@@ -436,11 +464,28 @@ static void mmc_wait_for_req_done(struct mmc_host *host,
 				  struct mmc_request *mrq)
 {
 	struct mmc_command *cmd;
+	int ret = 0;
 
 	while (1) {
-		wait_for_completion(&mrq->completion);
-
+		//wait_for_completion(&mrq->completion);
 		cmd = mrq->cmd;
+		do{
+			ret = wait_for_completion_timeout(&mrq->completion, msecs_to_jiffies(SUNXI_TIMEOUT_INT_MS));
+			if (ret == 0){
+				pr_err("****%s:req timout (CMD%u): err %d, retry****\n",
+					mmc_hostname(host), 
+					cmd->opcode, cmd->error);				
+				sunxi_dump_reg(host);
+			}else if(ret > 0){
+				break;
+			}else{
+				pr_err("****%s:unknow req err (CMD%u): err %d, ret %x retry****\n",
+					mmc_hostname(host), 
+					cmd->opcode, cmd->error,ret);					
+			}
+		}while(1);
+		
+
 		if (!cmd->error || !cmd->retries ||
 		    mmc_card_removed(host->card))
 			break;

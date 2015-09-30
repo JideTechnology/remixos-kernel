@@ -88,12 +88,12 @@ static ssize_t maual_insert_store(struct device *dev, struct device_attribute *a
 }
 
 
-void dump_reg(struct sunxi_mmc_host *host)
+void sunxi_dump_reg(struct mmc_host *mmc)
 {
 	int i = 0;
+	struct sunxi_mmc_host *host = mmc_priv(mmc);	
 	void __iomem *gpio_ptr =  ioremap(GPIO_BASE_ADDR, 0x300);
 	void __iomem *ccmu_ptr =  ioremap(CCMU_BASE_ADDR, 0x400);
-
 
 	printk("Dump sdmmc regs:\n");
 	for (i=0; i<0x180; i+=4) {

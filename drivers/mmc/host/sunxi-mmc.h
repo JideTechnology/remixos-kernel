@@ -26,7 +26,7 @@
 
 
 #define DRIVER_NAME "sunxi-mmc"
-#define DRIVER_RIVISION "v0.28 2015-9-29 14:31"
+#define DRIVER_RIVISION "v0.29 2015-9-30 14:48"
 #define DRIVER_VERSION "SD/MMC/SDIO Host Controller Driver(" DRIVER_RIVISION ")" \
 			" Compiled in " __DATE__ " at " __TIME__""
 
