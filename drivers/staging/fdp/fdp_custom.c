@@ -551,7 +551,7 @@ static void fdp_irqout_read(struct fdp_custom_device *p_device)
 			{
 				/* seems we enter in an unrecoverable error */
 				fdp_reset(p_device);
-				return;
+				break;
 			}
 
 			continue;
