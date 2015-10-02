@@ -206,7 +206,8 @@ static struct mt_class mt_classes[] = {
 		.quirks = MT_QUIRK_ALWAYS_VALID |
 			MT_QUIRK_IGNORE_DUPLICATES |
 			MT_QUIRK_HOVERING |
-			MT_QUIRK_CONTACT_CNT_ACCURATE },
+			MT_QUIRK_CONTACT_CNT_ACCURATE |
+			MT_QUIRK_NOT_SEEN_MEANS_UP },
 	{ .name = MT_CLS_EXPORT_ALL_INPUTS,
 		.quirks = MT_QUIRK_ALWAYS_VALID |
 			MT_QUIRK_CONTACT_CNT_ACCURATE,
@@ -1110,7 +1111,8 @@ static int mt_probe(struct hid_device *hdev, const struct hid_device_id *id)
 		return -ENOMEM;
 	}
 
-	if (id->vendor == HID_ANY_ID && id->product == HID_ANY_ID)
+	if (id->vendor == HID_ANY_ID && id->product == HID_ANY_ID &&
+		id->group != HID_GROUP_MULTITOUCH_WIN_8)
 		td->serial_maybe = true;
 
 	ret = hid_parse(hdev);
