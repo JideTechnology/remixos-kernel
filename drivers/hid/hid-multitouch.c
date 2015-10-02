@@ -597,6 +597,10 @@ static void mt_complete_slot(struct mt_device *td, struct input_dev *input)
 	    td->num_received >= td->num_expected)
 		return;
 
+	if (td->curdata.x == 0xffff && td->curdata.x == td->curdata.y &&
+	    td->curdata.w == 0xffff && td->curdata.w == td->curdata.h)
+		goto inc_num_received;
+
 	if (td->curvalid || (td->mtclass.quirks & MT_QUIRK_ALWAYS_VALID)) {
 		int slotnum = mt_compute_slot(td, input);
 		struct mt_slot *s = &td->curdata;
@@ -635,6 +639,7 @@ static void mt_complete_slot(struct mt_device *td, struct input_dev *input)
 		}
 	}
 
+inc_num_received:
 	td->num_received++;
 }
 
