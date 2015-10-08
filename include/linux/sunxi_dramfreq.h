@@ -120,7 +120,7 @@ struct sunxi_dramfreq {
 	struct clk *clk_pll_ddr0;
 	struct clk *clk_pll_ddr1;
 
-	int (*governor_state_update)(enum GOVERNOR_STATE);
+	int (*governor_state_update)(char *name, enum GOVERNOR_STATE);
 };
 
 extern struct sunxi_dramfreq *dramfreq;
