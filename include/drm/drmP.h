@@ -1172,7 +1172,10 @@ struct drm_device {
 	struct drm_vma_offset_manager *vma_offset_manager;
 	/*@} */
 	int switch_power_state;
+	struct mutex halt_mutex;
 	atomic_t halt_count;
+	atomic_t ioctl_count;
+	wait_queue_head_t halt_queue;
 };
 
 #define DRM_SWITCH_POWER_ON 0
@@ -1478,6 +1481,7 @@ extern int drm_clients_info(struct seq_file *m, void* data);
 extern int drm_gem_name_info(struct seq_file *m, void *data);
 
 extern void drm_halt(struct drm_device *dev);
+extern int drm_wait_idle(struct drm_device *dev, unsigned timeout);
 
 extern struct dma_buf *drm_gem_prime_export(struct drm_device *dev,
 		struct drm_gem_object *obj, int flags);

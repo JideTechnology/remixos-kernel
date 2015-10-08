@@ -2153,7 +2153,6 @@ static void i915_pm_shutdown(struct pci_dev *pdev)
 {
 	struct drm_device *drm_dev = pci_get_drvdata(pdev);
 	struct drm_i915_private *dev_priv = drm_dev->dev_private;
-	struct drm_crtc *crtc;
 
 	if (drm_dev->switch_power_state == DRM_SWITCH_POWER_OFF)
 		return;
@@ -2161,24 +2160,22 @@ static void i915_pm_shutdown(struct pci_dev *pdev)
 	/* make sure drm stops processing new ioctls */
 	drm_halt(drm_dev);
 
+	/* wait for drm to go idle */
+	if (drm_wait_idle(drm_dev, 5000))
+		DRM_ERROR("Failed to halt DRM. going for shutdown anyway...\n");
+
+	/* take struct_mutex to avoid sync issue with i915_gem_fault */
+	mutex_lock(&drm_dev->struct_mutex);
+	dev_priv->shutdown_in_progress = true;
+	mutex_unlock(&drm_dev->struct_mutex);
+
 	/* Device already in suspend state */
 	if (i915_is_device_suspended(drm_dev))
 		return;
 
-	dev_priv->shutdown_in_progress = true;
-
-	/* If KMS is active, we do the leavevt stuff here */
-	if (drm_core_check_feature(drm_dev, DRIVER_MODESET)) {
-		/* Disable CRTCs */
-		list_for_each_entry(crtc, &drm_dev->mode_config.crtc_list,
-									head) {
-			drm_modeset_lock(&crtc->mutex, NULL);
-			dev_priv->display.crtc_disable(crtc);
-			drm_modeset_unlock(&crtc->mutex);
-		}
-	}
-
 	i915_drm_freeze(drm_dev);
+	pci_disable_device(drm_dev->pdev);
+	pci_set_power_state(drm_dev->pdev, PCI_D3hot);
 }
 
 static struct pci_driver i915_pci_driver = {

@@ -49,6 +49,9 @@ static int drm_setup(struct drm_device * dev)
 {
 	int ret;
 
+	atomic_set(&dev->ioctl_count, 0);
+	atomic_set(&dev->halt_count, 0);
+
 	if (dev->driver->firstopen &&
 	    !drm_core_check_feature(dev, DRIVER_MODESET)) {
 		ret = dev->driver->firstopen(dev);
