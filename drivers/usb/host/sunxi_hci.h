@@ -85,6 +85,7 @@
 #define SUNXI_OTG_PHY_CTRL                      0x410
 #define SUNXI_OTG_PHY_CFG                       0x420
 #define SUNXI_OTG_PHY_STATUS                    0x424
+#define SUNXI_USBC_REG_INTUSBE                  0x0050
 
 #define EHCI_CAP_OFFSET		(0x00)
 #define EHCI_CAP_LEN		(0x10)

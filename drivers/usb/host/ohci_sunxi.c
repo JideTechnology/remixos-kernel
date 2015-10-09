@@ -411,7 +411,7 @@ static void sunxi_ohci_hcd_shutdown(struct platform_device* pdev)
 	}
 
 	if(sunxi_ohci->probe == 0){
-		DMSG_PANIC("ERR: %s, %s is disable, need not shutdown\n",  __func__, sunxi_ohci->hci_name);
+		DMSG_INFO("%s, %s is disable, need not shutdown\n",  __func__, sunxi_ohci->hci_name);
 		return ;
 	}
 
@@ -423,6 +423,12 @@ static void sunxi_ohci_hcd_shutdown(struct platform_device* pdev)
 	}
 #endif
 	usb_hcd_platform_shutdown(pdev);
+
+	/* disable usb otg INTUSBE, To solve usb0 device mode catch audio udev on reboot system is fail*/
+	if(sunxi_ohci->otg_vbase){
+		USBC_Writel(0, (sunxi_ohci->otg_vbase + SUNXI_USBC_REG_INTUSBE));
+	}
+
 	sunxi_stop_ohci(sunxi_ohci);
 
 	DMSG_INFO("[%s]: ohci shutdown end\n", sunxi_ohci->hci_name);
