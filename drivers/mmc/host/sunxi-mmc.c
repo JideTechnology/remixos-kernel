@@ -505,7 +505,8 @@ int sunxi_check_r1_ready_may_sleep(struct sunxi_mmc_host *smc_host, unsigned ms)
 			dev_info(mmc_dev(smc_host->mmc),\
 				"*Has wait r1 rdy %d ms*\n", cnt);
 		}
-		msleep(1);
+		//msleep(1);
+		usleep_range(1000,1200);
 	} while ((cnt++)<ms);
 
 	if ((mmc_readl(smc_host, REG_STAS) & SDXC_CARD_DATA_BUSY)) {
@@ -517,6 +518,7 @@ int sunxi_check_r1_ready_may_sleep(struct sunxi_mmc_host *smc_host, unsigned ms)
 			"*All wait r1 rdy %d ms*\n", cnt);
 		return 0;
 	}
+	return 0;
 }
 
 
