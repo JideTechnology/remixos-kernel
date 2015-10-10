@@ -764,12 +764,22 @@ static const struct ov8858_reg ov8858_8M[] = {
 	{OV8858_8BIT, 0x401F, 0x00}, /* BLC CTRL1F */
 	{OV8858_8BIT, 0x4020, 0x00}, /* Anchor left start = 0x0004 */
 	{OV8858_8BIT, 0x4021, 0x04}, /* Anchor left start = 0x0004 */
+#if 0
 	{OV8858_8BIT, 0x4022, 0x0B}, /* Anchor left end = 0x0BC3 */
 	{OV8858_8BIT, 0x4023, 0xC3}, /* Anchor left end = 0x0BC3 */
 	{OV8858_8BIT, 0x4024, 0x0C}, /* Anchor right start = 0x0C36 */
 	{OV8858_8BIT, 0x4025, 0x36}, /* Anchor right start = 0x0C36 */
 	{OV8858_8BIT, 0x4026, 0x0C}, /* Anchor right end = 0x0C37 */
 	{OV8858_8BIT, 0x4027, 0x37}, /* Anchor right end = 0x0C37 */
+#endif
+#if 1
+	{OV8858_8BIT, 0x4022, 0x0c}, /* Anchor left end = 0x0BC3 */
+	{OV8858_8BIT, 0x4023, 0x60}, /* Anchor left end = 0x0BC3 */
+	{OV8858_8BIT, 0x4024, 0x0f}, /* Anchor right start = 0x0C36 */
+	{OV8858_8BIT, 0x4025, 0x36}, /* Anchor right start = 0x0C36 */
+	{OV8858_8BIT, 0x4026, 0x0f}, /* Anchor right end = 0x0C37 */
+	{OV8858_8BIT, 0x4027, 0x37}, /* Anchor right end = 0x0C37 */ 
+#endif
 	{OV8858_8BIT, 0x4028, 0x00}, /* Top zero line start = 0 */
 	{OV8858_8BIT, 0x4029, 0x02}, /* Top zero line number = 2 */
 	{OV8858_8BIT, 0x402A, 0x04}, /* Top black line start = 4 */
