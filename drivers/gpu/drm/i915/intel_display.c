@@ -11294,10 +11294,15 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 			plane_cnt++;
 	}
 
-	/* Disable maxfifo when moving from single plane to multiple plane */
+	/*
+	 * Disable maxfifo when moving from single plane to multiple plane or
+	 * when zorder is updated. Zorder cannot be updated in maxfifo mode.
+	 */
 	if (dev_priv->maxfifo_enabled && ((plane_cnt > 1) ||
 				!single_pipe_enabled(pipe_stat) ||
-				(pipe_stat & PIPE_ENABLE(PIPE_C)))) {
+				(pipe_stat & PIPE_ENABLE(PIPE_C) ||
+				(disp->update_flag &
+					DRM_MODE_SET_DISPLAY_UPDATE_ZORDER)))) {
 		intel_update_maxfifo(dev_priv, crtc, false);
 		dev_priv->wait_vbl = true;
 		dev_priv->vblcount =
