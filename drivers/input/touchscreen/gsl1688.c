@@ -1220,12 +1220,17 @@ static int gsl_ts_resume(struct device *dev)
 static int gsl_ts_suspend(struct device *dev)
 {
 	int ret;
+	u8 buf[4] = {0x00};
 	struct i2c_client *client = ddata->client;
 	struct gsl_ts_platform_data *gsl_pdata;
 
 	gsl_pdata = client->dev.platform_data;
 	printk("[GSL]: gsl_ts_suspend\n");
 	disable_irq(client->irq);
+
+        buf[0] = 0xb5;
+        gsl_write_interface(client,0xe4,buf,4);
+        msleep(2);
 	gpio_set_value(ddata->gpio_reset, 0);
 	return 0;
 }
