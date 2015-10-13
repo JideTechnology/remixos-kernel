@@ -1600,6 +1600,7 @@ static ssize_t ltr303_enable_store(struct device *dev, struct device_attribute *
         sscanf(buf, "%d", &param);
         dev_dbg(&ltr303->i2c_client->dev, "%s: store value = %d\n", __func__, param);
 
+	ltr303->als_enable_flag = param;
         ret = als_mode_setup((uint8_t)param, ltr303);
         if (ret < 0) {
                 dev_err(&ltr303->i2c_client->dev, "%s: ALS mode setup Fail...\n", __func__);
@@ -2798,15 +2799,14 @@ static int ltr303_setup(struct ltr303_data *ltr303)
 		goto err_out2;
 	}
 	dev_dbg(&ltr303->i2c_client->dev, "%s Enabled interrupt to device\n", __func__);
-
 	/* Turn on ALS */
 	ret = als_enable_init(ltr303);
 	if (ret < 0) {
 		dev_err(&ltr303->i2c_client->dev, "%s Unable to enable ALS", __func__);
 		goto err_out2;
 	}
-	dev_info(&ltr303->i2c_client->dev, "%s Turned on ambient light sensor\n", __func__);
-
+	als_disable(ltr303);
+	dev_info(&ltr303->i2c_client->dev, "%s Turned off ambient light sensor\n", __func__);
 	return ret;
 
 err_out2:
@@ -2970,7 +2970,7 @@ static int ltr303_probe(struct i2c_client *client, const struct i2c_device_id *i
 
 	/* Set initial defaults */
 	ltr303->als_enable_flag = 0;
-	
+	ltr303->disable_als_on_suspend = 1;
 	ltr303->i2c_client = client;
 	//ltr303->irq = client->irq;
 	ret = ltr303_acpi_probe(ltr303);
