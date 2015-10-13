@@ -641,7 +641,7 @@ static void kionix_accel_grp2_update_g_range(struct kionix_accel_driver *acceld)
 {
 	acceld->accel_registers[accel_grp2_ctrl_reg1] &= ~ACCEL_GRP2_G_MASK;
 
-	switch (acceld->accel_pdata.accel_g_range) {
+/*	switch (acceld->accel_pdata.accel_g_range) {
 		case KIONIX_ACCEL_G_8G:
 		case KIONIX_ACCEL_G_6G:
 			acceld->shift = 2;
@@ -657,7 +657,7 @@ static void kionix_accel_grp2_update_g_range(struct kionix_accel_driver *acceld)
 			acceld->accel_registers[accel_grp2_ctrl_reg1] |= ACCEL_GRP2_G_2G;
 			break;
 	}
-
+*/
 	return;
 }
 
@@ -836,8 +836,7 @@ static void kionix_accel_grp4_report_accel_data(struct kionix_accel_driver *acce
 static void kionix_accel_grp4_update_g_range(struct kionix_accel_driver *acceld)
 {
 	acceld->accel_registers[accel_grp4_ctrl_reg1] &= ~ACCEL_GRP4_G_MASK;
-
-	switch (acceld->accel_pdata.accel_g_range) {
+/*	switch (acceld->accel_pdata.accel_g_range) {
 		case KIONIX_ACCEL_G_8G:
 		case KIONIX_ACCEL_G_6G:
 			acceld->shift = 2;
@@ -852,7 +851,10 @@ static void kionix_accel_grp4_update_g_range(struct kionix_accel_driver *acceld)
 			acceld->shift = 4;
 			acceld->accel_registers[accel_grp4_ctrl_reg1] |= ACCEL_GRP4_G_2G;
 			break;
-	}
+			}*/
+
+	acceld->shift = 4;
+	acceld->accel_registers[accel_grp4_ctrl_reg1] |= ACCEL_GRP4_G_2G;
 
 	return;
 }
@@ -975,7 +977,8 @@ static void kionix_accel_work(struct work_struct *work)
 
 static void kionix_accel_update_direction(struct kionix_accel_driver *acceld)
 {
-	unsigned int direction = acceld->accel_pdata.accel_direction;
+//	unsigned int direction = acceld->accel_pdata.accel_direction;
+	unsigned int direction = 0;
 	unsigned int accel_group = acceld->accel_group;
 
 	write_lock(&acceld->rwlock_accel_data);
@@ -1219,7 +1222,8 @@ static ssize_t kionix_accel_set_delay(struct device *dev, struct device_attribut
 		 * Set current interval to the greater of the minimum interval or
 		 * the requested interval
 		 */
-		acceld->poll_interval = max((unsigned int)interval, acceld->accel_pdata.min_interval);
+		//acceld->poll_interval = max((unsigned int)interval, acceld->accel_pdata.min_interval);
+		acceld->poll_interval = (unsigned int)interval;
 		acceld->poll_delay = msecs_to_jiffies(acceld->poll_interval);
 
 		err = acceld->kionix_accel_update_odr(acceld, acceld->poll_interval);
@@ -1238,10 +1242,12 @@ exit:
 static ssize_t kionix_accel_get_direct(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
+	unsigned int direction = 0;
 	struct i2c_client *client = to_i2c_client(dev);
 	struct kionix_accel_driver *acceld = i2c_get_clientdata(client);
 
-	return sprintf(buf, "%d\n", acceld->accel_pdata.accel_direction);
+	//return sprintf(buf, "%d\n", accel_pdata.accel_direction);
+	return sprintf(buf, "%d\n", direction);
 }
 
 /* Allow users to change the direction the device */
@@ -1289,7 +1295,7 @@ static ssize_t kionix_accel_set_direct(struct device *dev, struct device_attribu
 			KMSGERR(&acceld->client->dev, "%s: invalid direction = %d\n", __func__, (unsigned int) direction);
 
 		else {
-			acceld->accel_pdata.accel_direction = (u8) direction;
+		//	acceld->accel_pdata.accel_direction = (u8) direction;
 			kionix_accel_update_direction(acceld);
 		}
 	}
@@ -1462,7 +1468,46 @@ static int  kionix_verify(struct kionix_accel_driver *acceld)
 
 	return retval;
 }
+static int kionix_suspend(struct device *dev)
+{
+	int err = 0;
+	struct i2c_client *client = to_i2c_client(dev); 
+	struct kionix_accel_driver *acceld = i2c_get_clientdata(client);
 
+	mutex_lock(&acceld->mutex_earlysuspend);
+
+	if(atomic_read(&acceld->accel_enabled) > 0){
+		err = i2c_smbus_write_byte_data(acceld->client,
+				ACCEL_GRP1_CTRL_REG1, acceld->accel_registers[accel_grp1_ctrl_reg1] & 0x7F);
+		if (err < 0)
+			return err ;
+	}
+	atomic_set(&acceld->accel_suspended, 1);
+	mutex_unlock(&acceld->mutex_earlysuspend);
+
+	return 0;
+}
+
+static int kionix_resume(struct device *dev)
+{
+	int err = 0;
+	struct i2c_client *client = to_i2c_client(dev);
+	struct kionix_accel_driver *acceld = i2c_get_clientdata(client);
+
+	if(atomic_read(&acceld->accel_suspended) == 1) {
+		if(atomic_read(&acceld->accel_enabled) > 0){
+			err = acceld->kionix_accel_operate(acceld);
+			if (err < 0) {
+				KMSGERR(&acceld->client->dev, \
+						"%s: kionix_accel_operate returned err = %d\n", __func__, err);
+				return err;
+			}
+		}
+		atomic_set(&acceld->accel_suspended, 0);
+	}
+
+	return 0;
+}
 #ifdef    CONFIG_HAS_EARLYSUSPEND
 void kionix_accel_earlysuspend_suspend(struct early_suspend *h)
 {
@@ -1508,7 +1553,7 @@ exit:
 static int  kionix_accel_probe(struct i2c_client *client,
 				 const struct i2c_device_id *id)
 {
-	const struct kionix_accel_platform_data *accel_pdata = client->dev.platform_data;
+	// const struct kionix_accel_platform_data *accel_pdata = client->dev.platform_data;
 	struct kionix_accel_driver *acceld;
 	int err;
 	struct proc_dir_entry *proc_dir, *proc_entry;
@@ -1534,10 +1579,10 @@ static int  kionix_accel_probe(struct i2c_client *client,
 		return -ENXIO;
 	}
 
-	//if (!accel_pdata) {
-	//	KMSGERR(&client->dev, "platform data is NULL. Abort.\n");
-	//	return -EINVAL;
-	//}
+	/*if (!accel_pdata) {
+		KMSGERR(&client->dev, "platform data is NULL. Abort.\n");
+		return -EINVAL;
+	}*/
 
 	acceld = kzalloc(sizeof(*acceld), GFP_KERNEL);
 	if (acceld == NULL) {
@@ -1547,19 +1592,19 @@ static int  kionix_accel_probe(struct i2c_client *client,
 	}
 
 	acceld->client = client;
-	//ruacceld->accel_pdata = *accel_pdata;
+	//acceld->accel_pdata = *accel_pdata;
 	i2c_set_clientdata(client, acceld);
 
-	//ruerr = kionix_accel_power_on(acceld);
-	//ruif (err < 0)
-		//rugoto err_free_mem;
+	/*	err = kionix_accel_power_on(acceld);
+		if (err < 0)
+		goto err_free_mem;
 
-/*ru	if (accel_pdata->init) {
+		if (accel_pdata->init) {
 		err = accel_pdata->init();
 		if (err < 0)
-			goto err_accel_pdata_power_off;
-	}
-*/
+		goto err_accel_pdata_power_off;
+		}
+	 */
 	err = kionix_verify(acceld);
 	if (err < 0) {
 		KMSGERR(&acceld->client->dev, "%s: kionix_verify returned err = %d. Abort.\n", __func__, err);
@@ -1597,7 +1642,7 @@ static int  kionix_accel_probe(struct i2c_client *client,
 					"failed to allocate memory for accel_registers. Abort.\n");
 				goto err_accel_pdata_exit;
 			}
-			switch(acceld->accel_pdata.accel_res) {
+			/*switch(acceld->accel_pdata.accel_res) {
 				case KIONIX_ACCEL_RES_6BIT:
 				case KIONIX_ACCEL_RES_8BIT:
 					acceld->accel_registers[accel_grp2_ctrl_reg1] |= ACCEL_GRP2_RES_8BIT;
@@ -1613,7 +1658,7 @@ static int  kionix_accel_probe(struct i2c_client *client,
 				acceld->accel_drdy = 1;
 			}
 			else
-				acceld->accel_drdy = 0;
+				acceld->accel_drdy = 0;*/
 			kionix_accel_grp2_update_g_range(acceld);
 			acceld->kionix_accel_report_accel_data	= kionix_accel_grp2_report_accel_data;
 			acceld->kionix_accel_update_odr			= kionix_accel_grp2_update_odr;
@@ -1637,7 +1682,7 @@ static int  kionix_accel_probe(struct i2c_client *client,
 					"failed to allocate memory for accel_registers. Abort.\n");
 				goto err_accel_pdata_exit;
 			}
-			switch(acceld->accel_pdata.accel_res) {
+	/*		switch(acceld->accel_pdata.accel_res) {
 				case KIONIX_ACCEL_RES_6BIT:
 				case KIONIX_ACCEL_RES_8BIT:
 					acceld->accel_registers[accel_grp4_ctrl_reg1] |= ACCEL_GRP4_RES_8BIT;
@@ -1653,7 +1698,7 @@ static int  kionix_accel_probe(struct i2c_client *client,
 				acceld->accel_drdy = 1;
 			}
 			else
-				acceld->accel_drdy = 0;
+				acceld->accel_drdy = 0; */
 			kionix_accel_grp4_update_g_range(acceld);
 			acceld->kionix_accel_report_accel_data	= kionix_accel_grp4_report_accel_data;
 			acceld->kionix_accel_update_odr			= kionix_accel_grp4_update_odr;
@@ -1681,8 +1726,8 @@ static int  kionix_accel_probe(struct i2c_client *client,
 	mutex_init(&acceld->mutex_resume);
 	rwlock_init(&acceld->rwlock_accel_data);
 
-        acceld->accel_pdata.poll_interval = 5;
-	acceld->poll_interval = acceld->accel_pdata.poll_interval;
+	// acceld->poll_interval = acceld->accel_pdata.poll_interval;
+	acceld->poll_interval = 5;
 	acceld->poll_delay = msecs_to_jiffies(acceld->poll_interval);
 	acceld->kionix_accel_update_odr(acceld, acceld->poll_interval);
 	kionix_accel_update_direction(acceld);
@@ -1690,12 +1735,12 @@ static int  kionix_accel_probe(struct i2c_client *client,
 	proc_dir = proc_mkdir("sensors", NULL);
 	if (proc_dir == NULL)
 		KMSGERR(&client->dev, "failed to create /proc/sensors\n");
-	else {
-		//proc_entry = create_proc_entry( "accelinfo", 0644, proc_dir);
-		//if (proc_entry == NULL)
-		//	KMSGERR(&client->dev, "failed to create /proc/cpu/accelinfo\n");
+/*	else {
+		proc_entry = create_proc_entry( "accelinfo", 0644, proc_dir);
+		if (proc_entry == NULL)
+			KMSGERR(&client->dev, "failed to create /proc/cpu/accelinfo\n");
 	}
-
+*/
 	acceld->accel_workqueue = create_workqueue("Kionix Accel Workqueue");
 	INIT_DELAYED_WORK(&acceld->accel_work, kionix_accel_work);
 //	init_waitqueue_head(&acceld->wqh_suspend);
@@ -1744,9 +1789,9 @@ err_free_irq:
 err_free_accel_registers:
 	kfree(acceld->accel_registers);
 err_accel_pdata_exit:
-	if (accel_pdata->exit)
+/*	if (accel_pdata->exit)
 		accel_pdata->exit();
-/*err_accel_pdata_power_off:
+err_accel_pdata_power_off:
 	kionix_accel_power_off(acceld);*/
 err_free_mem:
 	kfree(acceld);
@@ -1768,8 +1813,8 @@ static int  kionix_accel_remove(struct i2c_client *client)
 	input_unregister_device(acceld->input_dev);
 	kfree(acceld->accel_registers);
 /*	if (acceld->accel_pdata.exit)
-		acceld->accel_pdata.exit(); */
-//	kionix_accel_power_off(acceld);
+		acceld->accel_pdata.exit(); 
+	kionix_accel_power_off(acceld);*/
 	kfree(acceld);
 
 	return 0;
@@ -1789,12 +1834,17 @@ static const struct acpi_device_id kionix_acpi_match[] = {
 };
 
 MODULE_DEVICE_TABLE(acpi, kionix_acpi_match);
+static const struct dev_pm_ops kionix_pm_ops = {
+	.suspend    = kionix_suspend,
+	.resume     = kionix_resume,
+};
 
 static struct i2c_driver kionix_accel_driver = {
 	.driver = {
 		.name	= KIONIX_ACCEL_NAME,
 		.owner	= THIS_MODULE,
 		.acpi_match_table = ACPI_PTR(kionix_acpi_match),
+		.pm		=	&kionix_pm_ops,
 	},
 	.probe		= kionix_accel_probe,
 	.remove		= kionix_accel_remove,
