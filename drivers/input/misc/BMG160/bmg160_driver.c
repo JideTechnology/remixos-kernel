@@ -661,20 +661,28 @@ static ssize_t bmg_store_enable(struct device *dev,
 		return err;
 
 	data = data ? 1 : 0;
+	mutex_lock(&client_data->mutex_op_mode);
 	mutex_lock(&client_data->mutex_enable);
 	if (data != client_data->enable) {
 		if (data) {
+			err = BMG_CALL_API(set_mode)(
+					BMG_VAL_NAME(MODE_NORMAL));
 			schedule_delayed_work(
 					&client_data->work,
 					msecs_to_jiffies(atomic_read(
 							&client_data->delay)));
 		} else {
 			cancel_delayed_work_sync(&client_data->work);
+			err = BMG_CALL_API(set_mode)(
+					BMG_VAL_NAME(MODE_SUSPEND));
 		}
 
 		client_data->enable = data;
 	}
 	mutex_unlock(&client_data->mutex_enable);
+	mutex_unlock(&client_data->mutex_op_mode);
+	if (err)
+		return err;
 
 	return count;
 }
@@ -1378,10 +1386,8 @@ static int bmg_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	client_data->fifo_count = 0;
 
 	/* now it's power on which is considered as resuming from suspend */
-	/* err = BMG_CALL_API(set_mode)( */
-	/* 		BMG_VAL_NAME(MODE_SUSPEND)); */
-	err = BMG_CALL_API(set_mode)(
-			BMG_VAL_NAME(MODE_NORMAL));
+	 err = BMG_CALL_API(set_mode)(
+			 BMG_VAL_NAME(MODE_SUSPEND));
 	if (err < 0)
 		goto exit_err_sysfs;
 
