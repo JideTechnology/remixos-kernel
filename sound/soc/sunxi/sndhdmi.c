@@ -181,8 +181,8 @@ int sndhdmi_perpare(struct snd_pcm_substream *substream,
 	}
 	if (atomic_read(&pcm_count_num) <= 1) {
 		g_hdmi_func.hdmi_set_audio_para(&hdmi_para);
+		g_hdmi_func.hdmi_audio_enable(1, 1);
 	}
-	g_hdmi_func.hdmi_audio_enable(1, 1);
 #ifdef CONFIG_ARCH_SUN9I
 	is_play = g_hdmi_func.hdmi_is_playback();
 	i = 0;

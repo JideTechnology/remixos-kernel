@@ -222,11 +222,13 @@ int txctrl_tdm(int on,int hub_en,struct sunxi_tdm_info *sunxi_tdm)
 		reg_val |= SUNXI_DAUDIOINT_TXDRQEN;
 		writel(reg_val, tdm->regs + SUNXI_DAUDIOINT);
 	} else {
-		/*DISABLE TXEN*/
-		reg_val = readl(tdm->regs + SUNXI_DAUDIOCTL);
-		reg_val &= ~SUNXI_DAUDIOCTL_TXEN;
-		writel(reg_val, tdm->regs + SUNXI_DAUDIOCTL);
-		/* DISBALE dma DRQ mode */
+                if(tdm->others == 0){
+		        /*DISABLE TXEN*/
+		        reg_val = readl(tdm->regs + SUNXI_DAUDIOCTL);
+		        reg_val &= ~SUNXI_DAUDIOCTL_TXEN;
+		        writel(reg_val, tdm->regs + SUNXI_DAUDIOCTL);
+                }
+                /* DISBALE dma DRQ mode*/
 		reg_val = readl(tdm->regs + SUNXI_DAUDIOINT);
 		reg_val &= ~SUNXI_DAUDIOINT_TXDRQEN;
 		writel(reg_val, tdm->regs + SUNXI_DAUDIOINT);
