@@ -32,6 +32,7 @@ static unsigned int sunxi_serial[4];
 static unsigned int sunxi_soc_ver;
 static int sunxi_soc_secure = 0;
 static unsigned int sunxi_soc_bin = 0;
+static unsigned int sunxi_rotpk_burn_flag = 0;
 
 #if (defined CONFIG_ARCH_SUN50IW1P1)
 
@@ -40,6 +41,9 @@ static unsigned int sunxi_soc_bin = 0;
 #define ARM_SVC_EFUSE_PROBE_SECURE_ENABLE_AARCH64    (ARM_SVC_EFUSE_BASE_AARCH64 + 0xfe03)
 #define ARM_SVC_READ_SEC_REG_AARCH64                (0xC000ff05)
 #define ARM_SVC_WRITE_SEC_REG_AARCH64               (0xC000ff06)
+
+#define SCC_ROTPK_BURNED_FLAG						(3)
+
 int invoke_smc_fn(u32 function_id, u64 arg0, u64 arg1, u64 arg2);
 static u64 phy_sid_base = 0;
 
@@ -134,6 +138,12 @@ unsigned int sunxi_get_soc_bin(void)
 }
 EXPORT_SYMBOL(sunxi_get_soc_bin);
 
+unsigned int sunxi_rotpk_is_burn(void)
+{
+	return sunxi_rotpk_burn_flag;
+}
+EXPORT_SYMBOL(sunxi_rotpk_is_burn);
+
 static int sunxi_chipid_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -193,6 +203,10 @@ static int sunxi_chipid_probe(struct platform_device *pdev)
 		break;
 	}
 	pr_info("%s,%d: soc bin:%d\n", __func__, __LINE__, sunxi_soc_bin);
+
+#if (defined CONFIG_ARCH_SUN50IW1P1)
+	sunxi_rotpk_burn_flag = (sunxi_smc_readl(phy_sid_base + 0xfc) >> SCC_ROTPK_BURNED_FLAG) & 1;
+#endif
 
 	return 0;
 }

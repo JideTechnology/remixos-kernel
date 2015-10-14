@@ -38,6 +38,8 @@
 #define CHECK_SOC_VERSION     0x01
 #define CHECK_SOC_BONDING     0x03
 #define CHECK_SOC_BOOT_ATTR   0x04
+#define CHECK_ROTPK_BURN_FLAG 0x05
+
 
 
 static int soc_info_open(struct inode *inode, struct file *file)
@@ -81,6 +83,13 @@ static long soc_info_ioctl(struct file *file, unsigned int ioctl_num,
 				pr_debug("secure boot %d\n",err);
 			else
 				pr_debug("normal boot %d\n",err);
+			break;
+		case CHECK_ROTPK_BURN_FLAG:
+			err = sunxi_rotpk_is_burn();
+			if(err)
+				pr_debug("rotpk is burn\n");
+			else
+				pr_debug("rotpk not burn\n");
 			break;
 		default:
 			pr_err("un supported cmd:%d\n", ioctl_num);
@@ -135,7 +144,6 @@ static int soc_version_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, soc_version_show, inode->i_private);
 }
-
 
 static const struct file_operations soc_is_secure_ops = {
 	.open		= soc_is_secure_open,
@@ -196,6 +204,9 @@ static ssize_t sys_info_show(struct class *class, \
 	size += sprintf(buf + size, "sunxi_batchno     : %x\n", \
 	                sunxi_get_soc_ver()&0x0ffff);
 
+	/* rotpk burn flag */
+	size += sprintf(buf + size, "rotpk_burn_flag   : %x\n", \
+	                sunxi_rotpk_is_burn());
 	return size;
 }
 

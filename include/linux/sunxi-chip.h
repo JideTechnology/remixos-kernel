@@ -27,5 +27,6 @@ extern int sunxi_soc_is_secure(void);
 extern int sunxi_boot_is_secure(void);
 extern int sunxi_smc_readl(phys_addr_t addr);
 extern int sunxi_smc_writel(u32 value, phys_addr_t addr);
+extern unsigned int sunxi_rotpk_is_burn(void);
 
 #endif  /* __SUNXI_MACH_SUNXI_CHIP_H */
