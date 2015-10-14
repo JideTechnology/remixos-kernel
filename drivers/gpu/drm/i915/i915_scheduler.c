@@ -582,8 +582,10 @@ static void i915_scheduler_seqno_complete(struct intel_engine_cs *ring, uint32_t
 			return;
 		}
 
-		if (seqno == node->params.request->seqno)
+		if ((node->params.request->seqno != 0) &&
+		    (i915_seqno_passed(seqno, node->params.request->seqno))) {
 			break;
+		}
 	}
 
 	/*
