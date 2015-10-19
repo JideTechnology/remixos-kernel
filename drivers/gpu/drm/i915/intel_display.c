@@ -11071,6 +11071,16 @@ int intel_set_disp_calc_flip(struct drm_mode_set_display *disp,
 					(disp->panel_fitter.src_w / disp->panel_fitter.src_h))
 				pfit_mode |= PFIT_SCALING_AUTO;
 
+			/*
+			 * After calculating the aspect ratio and determining the mode
+			 * check for multi-planes. If multi planes panel fitter has to
+			 * be enabled only in AUTO mode.
+			 */
+			if (!dev_priv->maxfifo_enabled) {
+				pfit_mode &= MASK_PFIT_SCALING_MODE;
+				pfit_mode |= PFIT_SCALING_AUTO;
+			}
+
 			/* Enable Panel fitter if any valid mode is set */
 			pfit_control = (1 << 31) | pfit_control;
 			if (disp->panel_fitter.mode == AUTOSCALE) {
