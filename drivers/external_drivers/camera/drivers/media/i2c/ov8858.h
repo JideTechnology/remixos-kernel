@@ -734,7 +734,7 @@ static struct ov8858_reg ov8858_BasicSettings[] = {
 	{OV8858_8BIT, 0x5E00, 0x00}, /* PRE CTRL00 = default */
 	{OV8858_8BIT, 0x5E01, 0x41}, /* PRE_CTRL01 = default */
 #else
-	
+	{OV8858_8BIT, 0x0103, 0x01}, /* software_reset */	
 	{OV8858_8BIT,0x100,0x00},
 	{OV8858_8BIT,0x300,0x05},//;02;05 andy PLL
 	{OV8858_8BIT,0x302,0xAF},//;4b;AF andy PLL 
@@ -1052,7 +1052,7 @@ static struct ov8858_reg ov8858_BasicSettings[] = {
 	{OV8858_8BIT,0x4041,0xc6},
 	{OV8858_8BIT,0x3007,0x01},//;80;01    ;andy  embedded data 
 	{OV8858_8BIT,0x400a,0x01},
-	{OV8858_8BIT,0x100 ,0x01},
+	//{OV8858_8BIT,0x100 ,0x01},
 
 #endif
 	{OV8858_TOK_TERM, 0, 0}
@@ -1123,6 +1123,7 @@ static const struct ov8858_reg ov8858_8M[] = {
 	{OV8858_8BIT, 0x4601, 0x97}, /* Unknown */
 	{OV8858_8BIT, 0x4837, 0x14}, /* pclk_period = 0x14 */
 #else
+	{OV8858_8BIT, 0x0100, 0x00}, /* software_standby */	
 	{OV8858_8BIT,0x0300,0x05},
 	{OV8858_8BIT,0x0302,0xaf},
 	{OV8858_8BIT,0x030d,0x4e},
