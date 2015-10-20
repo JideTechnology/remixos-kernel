@@ -2609,8 +2609,10 @@ void mmc_start_host(struct mmc_host *host)
 	host->rescan_disable = 0;
 	if (host->caps2 & MMC_CAP2_NO_PRESCAN_POWERUP)
 		mmc_power_off(host);
-	else
-		mmc_power_up(host);
+	else{
+		if(!(host->caps&MMC_CAP_NEEDS_POLL))
+			mmc_power_up(host);
+	}
 	mmc_detect_change(host, 0);
 }
 
