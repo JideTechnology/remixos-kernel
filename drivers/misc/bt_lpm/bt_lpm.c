@@ -71,6 +71,7 @@ struct bluetooth_low_power_mode {
 
 	struct device *tty_dev;
 #ifndef DBG_DISABLE_BT_LOW_POWER
+    int wake_lock_status;
 	struct wake_lock wake_lock;
 	char wake_lock_name[100];
 #endif /* !DBG_DISABLE_BT_LOW_POWER */
@@ -207,7 +208,13 @@ static void set_wake_locked(int wake)
 	bt_lpm.wake = wake;
 
 	if (!wake)
-		wake_unlock(&bt_lpm.wake_lock);
+    {
+        if (bt_lpm.wake_lock_status != wake)
+        {
+            wake_unlock(&bt_lpm.wake_lock);
+            bt_lpm.wake_lock_status = wake;
+        }
+    }
 
 	if (!wake_uart_enabled && wake) {
 		WARN_ON(!bt_lpm.tty_dev);
@@ -241,7 +248,11 @@ static void update_host_wake_locked(int host_wake)
 	bt_lpm.host_wake = host_wake;
 
 	if (host_wake) {
-		wake_lock(&bt_lpm.wake_lock);
+        if (host_wake != bt_lpm.wake_lock_status)
+        {
+            bt_lpm.wake_lock_status = host_wake;
+		    wake_lock(&bt_lpm.wake_lock);
+        }
 		if (!host_wake_uart_enabled) {
 			WARN_ON(!bt_lpm.tty_dev);
 			uart_enable(bt_lpm.tty_dev);
@@ -255,8 +266,12 @@ static void update_host_wake_locked(int host_wake)
 		 * Take a timed wakelock, so that upper layers can take it.
 		 * The chipset deasserts the hostwake lock, when there is no
 		 * more data to send.
-		 */
-		wake_lock_timeout(&bt_lpm.wake_lock, HZ/2);
+         */
+        if (host_wake != bt_lpm.wake_lock_status)
+        {
+            bt_lpm.wake_lock_status = host_wake;
+    	    wake_lock_timeout(&bt_lpm.wake_lock, HZ/2);
+        }
 	}
 
 	host_wake_uart_enabled = host_wake;
@@ -385,6 +400,7 @@ static int bluetooth_lpm_init(struct platform_device *pdev)
 			"BTLowPower");
 	wake_lock_init(&bt_lpm.wake_lock, WAKE_LOCK_SUSPEND,
 			 bt_lpm.wake_lock_name);
+    bt_lpm.wake_lock_status = 0;
 
 	bt_lpm_wake_peer(tty_dev);
 	return 0;
@@ -546,6 +562,7 @@ static int bt_lpm_remove(struct platform_device *pdev)
 	gpio_free(bt_lpm.gpio_wake);
 	gpio_free(bt_lpm.gpio_host_wake);
 	wake_lock_destroy(&bt_lpm.wake_lock);
+	bt_lpm.wake_lock_status = 0;
 #endif /* !DBG_DISABLE_BT_LOW_POWER */
 	gpiod_put(bt_lpm_gpiod);
 	return 0;
