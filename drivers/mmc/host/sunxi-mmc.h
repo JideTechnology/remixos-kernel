@@ -26,7 +26,7 @@
 
 
 #define DRIVER_NAME "sunxi-mmc"
-#define DRIVER_RIVISION "v0.31 2015-10-20 13:55"
+#define DRIVER_RIVISION "v0.32 2015-10-22 20:43"
 #define DRIVER_VERSION "SD/MMC/SDIO Host Controller Driver(" DRIVER_RIVISION ")" \
 			" Compiled in " __DATE__ " at " __TIME__""
 
@@ -297,6 +297,12 @@ struct sunxi_mmc_host {
 	int phy_index;
 
 	u32  dat3_imask;
+
+
+	/*no wait busy if wrtie end, only for customer need*/
+	#define NO_MANUAL_WAIT_BUSY_WRITE_END  0x1
+	u32 ctl_spec_cap;//control specal function control,for customer need
+	
 };
 
 
