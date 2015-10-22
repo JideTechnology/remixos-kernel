@@ -35,6 +35,7 @@
 #include "intel_drv.h"
 #include "intel_lrc_tdr.h"
 #include "i915_scheduler.h"
+#include "intel_sync.h"
 
 #include <linux/console.h>
 #include <linux/module.h>
@@ -912,6 +913,30 @@ int i915_handle_hung_ring(struct drm_device *dev, uint32_t ringid)
 	acthd = intel_ring_get_active_head(ring);
 	completed_seqno = ring->get_seqno(ring, false);
 
+	/*
+	 * Flag that engine recovery is in progress.
+	 *
+	 * The DRM_I915_HANGCHECK_RESETTING state is used to prevent the forced
+	 * CSB checker from faking any context event interrupts during this
+	 * critical path. Between engine reset and context resubmission the CSB
+	 * will be in a dedicated init state (e.g. CSB write pointer = 7),
+	 * which must not be disturbed. A faked context event interrupt at this
+	 * time would disturb the init state since the interrupt handler would
+	 * cause side-effects on the CSB read/write pointers and move the write
+	 * pointer value (7) out of its dedicated init state value, which we
+	 * don't want to do before context resubmission.
+	 *
+	 * The reason why there might be a forced CSB check between engine
+	 * reset and context resubmission is that the engine reset will force
+	 * the hardware into idle state post-reset but the driver will still
+	 * seemingly have submitted work in the execlist queue, which the
+	 * consistency checker potentially will interpret as an inconsistent
+	 * context submission state and try to rectify by forcing a CSB check.
+	 */
+	atomic_set_mask(
+		DRM_I915_HANGCHECK_RESETTING,
+		&ring->hangcheck.flags);
+
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 
 	/* Take wake lock to prevent power saving mode */
@@ -1117,6 +1142,10 @@ handle_hung_ring_error:
 	/* Release power lock */
 	gen6_gt_force_wake_put(dev_priv, FORCEWAKE_ALL);
 
+	atomic_clear_mask(
+		DRM_I915_HANGCHECK_RESETTING,
+		&ring->hangcheck.flags);
+
 	return ret;
 }
 
@@ -1212,6 +1241,7 @@ int i915_reset(struct drm_device *dev)
 
 		}
 	}
+
 	i915_gem_reset(dev);
 
 	simulated = dev_priv->gpu_error.stop_rings != 0;
@@ -1235,6 +1265,9 @@ int i915_reset(struct drm_device *dev)
 		} else
 			dev_priv->gpu_error.last_reset = get_seconds();
 	}
+
+	/* Clear simulated lost context event interrupts */
+	dev_priv->gpu_error.faked_lost_ctx_event_irq = 0;
 
 	if (ret) {
 		DRM_ERROR("Failed to reset chip: %i\n", ret);

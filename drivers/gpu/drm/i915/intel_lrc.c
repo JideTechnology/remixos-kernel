@@ -903,8 +903,9 @@ intel_execlists_TDR_get_submitted_context(struct intel_engine_cs *ring,
 {
 	struct drm_i915_private *dev_priv = ring->dev->dev_private;
 	unsigned long flags;
-	struct intel_ctx_submit_request *req;
+	struct intel_ctx_submit_request *tmpreq;
 	unsigned hw_context = 0;
+	unsigned sw_context = 0;
 	enum context_submission_status status =
 			CONTEXT_SUBMISSION_STATUS_UNDEFINED;
 	struct intel_context *tmpctx = NULL;
@@ -913,20 +914,45 @@ intel_execlists_TDR_get_submitted_context(struct intel_engine_cs *ring,
 	spin_lock_irqsave(&ring->execlist_lock, flags);
 	hw_context = I915_READ(RING_EXECLIST_STATUS_CTX_ID(ring));
 
-	req = list_first_entry_or_null(&ring->execlist_queue,
+	tmpreq = list_first_entry_or_null(&ring->execlist_queue,
 		struct intel_ctx_submit_request, execlist_link);
 
-	if (req && req->ctx) {
-		tmpctx = req->ctx;
+	if (tmpreq) {
+		sw_context =
+			intel_execlists_ctx_id((tmpreq->ctx)->engine[ring->id].state);
 
-		if (ctx)
-			i915_gem_context_reference(tmpctx);
+		if (tmpreq->elsp_submitted > 0) {
+			/*
+			 * If the caller has not passed a non-NULL req parameter then
+			 * it is not interested in getting a request reference back.
+			 * Don't temporarily grab a reference since holding the execlist
+			 * lock is enough to ensure that the execlist code will hold its
+			 * reference all throughout this function. As long as that reference
+			 * is kept there is no need for us to take yet another reference.
+			 * The reason why this is of interest is because certain callers, such
+			 * as the TDR hang checker, cannot grab struct_mutex before calling
+			 * and because of that we cannot dereference any requests (DRM might
+			 * assert if we do). Just rely on the execlist code to provide
+			 * indirect protection.
+			 */
+			if (tmpreq->ctx)
+				tmpctx = tmpreq->ctx;
+
+			if (ctx)
+				i915_gem_context_reference(tmpctx);
+
+		} else {
+			DRM_DEBUG_TDR("Head request in %s is inactive " \
+				      "(elsp_submitted=%d, hw_context=%x, sw_context=%x)\n",
+				ring->name,
+				tmpreq->elsp_submitted,
+				hw_context,
+				sw_context);
+		}
+
 	}
 
 	if (tmpctx) {
-		unsigned sw_context =
-			intel_execlists_ctx_id((tmpctx)->engine[ring->id].state);
-
 		status = ((hw_context == sw_context) && (0 != hw_context)) ?
 			CONTEXT_SUBMISSION_STATUS_OK :
 			CONTEXT_SUBMISSION_STATUS_SUBMITTED;
@@ -940,6 +966,12 @@ intel_execlists_TDR_get_submitted_context(struct intel_engine_cs *ring,
 			CONTEXT_SUBMISSION_STATUS_SUBMITTED :
 			CONTEXT_SUBMISSION_STATUS_NONE_SUBMITTED;
 	}
+
+	if (status == CONTEXT_SUBMISSION_STATUS_SUBMITTED)
+		DRM_DEBUG_TDR("hw_ctx=%x, sw_ctx=%x, elsp_submitted=%d\n",
+			hw_context,
+			sw_context,
+			tmpreq ? tmpreq->elsp_submitted : 0);
 
 	if (ctx)
 		*ctx = tmpctx;
@@ -981,13 +1013,63 @@ static bool execlists_check_remove_request(struct intel_engine_cs *ring,
 }
 
 /**
+ * fake_lost_ctx_event_irq() - Checks for pending faked lost context event IRQs.
+ * @dev_priv: ...
+ * @ring: Engine to check pending faked lost IRQs for.
+ *
+ * Checks the bits in dev_priv->gpu_error.faked_lost_ctx_event_irq corresponding
+ * to the specified engine and updates the bits and returns a value accordingly.
+ *
+ * Return:
+ * 	true: If the current IRQ is to be lost.
+ * 	false: If the current IRQ is to be processed as normal.
+ */
+static inline bool fake_lost_ctx_event_irq(struct drm_i915_private *dev_priv,
+				           struct intel_engine_cs *ring)
+{
+	u32 *faked_lost_irq_mask =
+		&dev_priv->gpu_error.faked_lost_ctx_event_irq;
+
+	/*
+	 * Point out the least significant bit in the nibble of the faked lost
+	 * context event IRQ mask that corresponds to the engine at hand.
+	 */
+	u32 engine_nibble = (ring->id << 2);
+
+	/* Check engine nibble for any pending IRQs to be simulated as lost */
+	if (*faked_lost_irq_mask & (0xf << engine_nibble)) {
+		DRM_INFO("Faked lost interrupt on %s! (%x)\n",
+			ring->name,
+			*faked_lost_irq_mask);
+
+		/*
+		 * Subtract the IRQ that is to be simulated as lost from the
+		 * engine nibble.
+		 */
+		*faked_lost_irq_mask -= (0x1 << engine_nibble);
+
+		DRM_INFO("New fake lost irq mask: %x\n",
+			*faked_lost_irq_mask);
+
+		/* Tell the IRQ handler to simulate lost context event IRQ */
+		return true;
+	}
+
+	return false;
+}
+
+/**
  * intel_execlists_handle_ctx_events() - handle Context Switch interrupts
  * @ring: Engine Command Streamer to handle.
+ * @do_lock: Lock execlist spinlock (if false the caller is responsible for this)
  *
  * Check the unread Context Status Buffers and manage the submission of new
  * contexts to the ELSP accordingly.
+ *
+ * Return:
+ * 	The number of unqueued contexts.
  */
-void intel_execlists_handle_ctx_events(struct intel_engine_cs *ring)
+int intel_execlists_handle_ctx_events(struct intel_engine_cs *ring, bool do_lock)
 {
 	struct drm_i915_private *dev_priv = ring->dev->dev_private;
 	u32 status_pointer;
@@ -997,14 +1079,15 @@ void intel_execlists_handle_ctx_events(struct intel_engine_cs *ring)
 	u32 status_id;
 	u32 submit_contexts = 0;
 
+	if (do_lock)
+		spin_lock(&ring->execlist_lock);
+
 	status_pointer = I915_READ(RING_CONTEXT_STATUS_PTR(ring));
 
 	read_pointer = ring->next_context_status_buffer;
 	write_pointer = status_pointer & 0x07;
 	if (read_pointer > write_pointer)
 		write_pointer += 6;
-
-	spin_lock(&ring->execlist_lock);
 
 	while (read_pointer < write_pointer) {
 		read_pointer++;
@@ -1015,6 +1098,24 @@ void intel_execlists_handle_ctx_events(struct intel_engine_cs *ring)
 
 		if (status & GEN8_CTX_STATUS_PREEMPTED) {
 			if (status & GEN8_CTX_STATUS_LITE_RESTORE) {
+				if (fake_lost_ctx_event_irq(dev_priv, ring)) {
+					/*
+					 * If we want to simulate the loss of a
+					 * context event IRQ (only for such
+					 * events that could affect the
+					 * execlist queue, since this is
+					 * something that could affect the
+					 * HW/driver consistency checker) then
+					 * just exit the IRQ handler early with
+					 * no side-effects!  We want to pretend
+					 * like this IRQ never happened.  The
+					 * next time the IRQ handler is entered
+					 * for this engine the CSB events
+					 * should remain in the CSB, waiting to
+					 * be processed.
+					 */
+					goto exit;
+				}
 				if (execlists_check_remove_request(ring, status_id))
 					WARN(1, "Lite Restored request removed from queue\n");
 			} else
@@ -1023,6 +1124,10 @@ void intel_execlists_handle_ctx_events(struct intel_engine_cs *ring)
 
 		 if ((status & GEN8_CTX_STATUS_ACTIVE_IDLE) ||
 		     (status & GEN8_CTX_STATUS_ELEMENT_SWITCH)) {
+
+			if (fake_lost_ctx_event_irq(dev_priv, ring))
+			    goto exit;
+
 			if (execlists_check_remove_request(ring, status_id))
 				submit_contexts++;
 		}
@@ -1031,13 +1136,17 @@ void intel_execlists_handle_ctx_events(struct intel_engine_cs *ring)
 	if (submit_contexts != 0)
 		execlists_context_unqueue(ring);
 
-	spin_unlock(&ring->execlist_lock);
-
 	WARN(submit_contexts > 2, "More than two context complete events?\n");
 	ring->next_context_status_buffer = write_pointer % 6;
 
 	I915_WRITE(RING_CONTEXT_STATUS_PTR(ring),
 		   ((u32)ring->next_context_status_buffer & 0x07) << 8);
+
+exit:
+	if (do_lock)
+		spin_unlock(&ring->execlist_lock);
+
+	return submit_contexts;
 }
 
 static int execlists_context_queue(struct intel_engine_cs *ring,
@@ -3522,62 +3631,81 @@ error_pm:
 }
 
 /**
- * execlists_TDR_force_resubmit() - resubmit pending context if EXECLIST_STATUS
- * context ID is stuck to 0.
+ * execlists_TDR_force_CSB_check() - check CSB manually to act on pending
+ * context status events.
  *
  * @dev_priv: ...
- * @ringid: engine to resubmit context to.
+ * @ringid: engine whose CSB is to be checked.
  *
- * This function is simply a hack to work around a hardware oddity that
- * manifests itself through stuck context ID zero in EXECLIST_STATUS register
- * even though context is pending post-submission. There is no reason for this
- * hardware behaviour but until we have resolved this issue we need this
- * workaround.
+ * In case we missed a context event interrupt we can fake this interrupt by
+ * acting on pending CSB events manually by calling this function. This is
+ * normally what would happen in interrupt context but that does not prevent us
+ * from calling it from a user thread.
+ *
+ * Returns:
+ *	True if faked context event IRQ was effective.
+ *	False otherwise.
  */
-void intel_execlists_TDR_force_resubmit(struct drm_i915_private *dev_priv,
+bool intel_execlists_TDR_force_CSB_check(struct drm_i915_private *dev_priv,
 		unsigned ringid)
 {
 	unsigned long flags;
 	struct intel_engine_cs *ring = &dev_priv->ring[ringid];
-	struct intel_ctx_submit_request *req = NULL;
-	struct intel_context *ctx = NULL;
-	unsigned hw_context = I915_READ(RING_EXECLIST_STATUS_CTX_ID(ring));
+	int ret = 0;
+	enum context_submission_status status =
+			CONTEXT_SUBMISSION_STATUS_UNDEFINED;
 
-	if (spin_is_locked(&ring->execlist_lock))
-		return;
-	else
+	if (atomic_read(&ring->hangcheck.flags)
+		& DRM_I915_HANGCHECK_RESETTING) {
+
+		/*
+		 * Normally it's not a problem to fake context event interrupts
+		 * at any point even though the real interrupt might come in as
+		 * well. However, following a per-engine reset the read pointer
+		 * is set to 0 and the write pointer is set to 7.
+		 * Seeing as 7 % 6 = 1 (% 6 meaning there are 6 event slots),
+		 * which is 1 above the post-reset read pointer position, that
+		 * means that we've got a CSB window of non-zero size that
+		 * might be populated with context events by the hardware
+		 * following the TDR context resubmission. If we do a faked
+		 * interrupt too early (before finishing hang recovery) we
+		 * clear out this window by setting read pointer = write
+		 * pointer = 1 expecting that all contained events have been
+		 * processed (following a reset there will be nothing but
+		 * zeroes in there, though). This does not prevent the hardware
+		 * from filling in CSB slots 0 and 1 with events after this
+		 * point in time, though. By checking the CSB before allowing
+		 * the hardware fill in the events we hide these events from
+		 * being processed, potentially causing irrecoverable hangs.
+		 *
+		 * Solution: Do not fake interrupts while hang recovery is ongoing.
+		 */
+		DRM_DEBUG_TDR("Hang recovery on %s. No CSB check!\n", ring->name);
+
+		/*
+		 * Return true to allow another attempt for recovery since this
+		 * is a transitory state.
+		 */
+		return true;
+	}
+
+	status = intel_execlists_TDR_get_submitted_context(ring, NULL);
+
+	if (status == CONTEXT_SUBMISSION_STATUS_SUBMITTED) {
 		spin_lock_irqsave(&ring->execlist_lock, flags);
 
-	if (hw_context) {
-		WARN(1, "EXECLIST_STATUS context ID (%u) on %s is " \
-			"not zero - no need for forced resubmission!\n",
-			hw_context, ring->name);
-		goto exit;
+		WARN(1, "Inconsistent context state. Faking interrupt on %s!",
+			ring->name);
+
+		ret = intel_execlists_handle_ctx_events(ring, false);
+		if (!ret)
+			DRM_ERROR("Forced CSB check of %s ineffective!\n",
+				ring->name);
+
+		spin_unlock_irqrestore(&ring->execlist_lock, flags);
+		wake_up_all(&ring->irq_queue);
 	}
 
-	req = list_first_entry_or_null(&ring->execlist_queue,
-			struct intel_ctx_submit_request, execlist_link);
-
-	if (req) {
-		if (req->ctx) {
-			ctx = req->ctx;
-			i915_gem_context_reference(ctx);
-
-		} else {
-			WARN(1, "No context in request %p!", req);
-			goto exit;
-		}
-	} else {
-		WARN(1, "No context submitted to %s!\n", ring->name);
-		goto exit;
-	}
-
-	execlists_TDR_context_unqueue(ring, true);
-
-exit:
-	if (ctx)
-		i915_gem_context_unreference(ctx);
-
-	spin_unlock_irqrestore(&ring->execlist_lock, flags);
+	return !!ret;
 }
 

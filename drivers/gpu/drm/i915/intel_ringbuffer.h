@@ -220,12 +220,16 @@ struct intel_ring_hangcheck {
 	 * head may be a graphics address in a ring buffer */
 	u32 last_head;
 
+	/* Last recorded engine seqno */
+	u32 last_seqno;
+
 	/* Last recorded instdone */
 	u32 prev_instdone[I915_NUM_INSTDONE_REG];
 
 	/* Flag to indicate if ring reset required */
-#define DRM_I915_HANGCHECK_HUNG 0x01 /* Indicates this ring has hung */
-#define DRM_I915_HANGCHECK_RESET 0x02 /* Indicates request to reset this ring */
+#define DRM_I915_HANGCHECK_HUNG 	0x01 /* This ring has hung */
+#define DRM_I915_HANGCHECK_RESET 	0x02 /* Request to reset this ring */
+#define DRM_I915_HANGCHECK_RESETTING 	0x04 /* Ring reset is imminent */
 	atomic_t flags;
 
 	/* Keep a record of the last time the ring was reset */
@@ -240,16 +244,6 @@ struct intel_ring_hangcheck {
 
 	/* Number of watchdog hang detections for this ring */
 	u32 watchdog_count;
-
-	/* Forced resubmission counter */
-	u32 forced_resubmission_cnt;
-
-	/*
-	 * Number of detections before forced resubmission is
-	 * carried out. Yes, this number is arbitrary and is based
-	 * on empirical evidence.
-	 */
-#define DRM_I915_FORCED_RESUBMISSION_THRESHOLD 2
 
 };
 

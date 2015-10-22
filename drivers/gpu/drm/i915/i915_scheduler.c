@@ -544,6 +544,13 @@ void i915_scheduler_kill_all(struct drm_device *dev)
 				/* Wot no state?! */
 				BUG();
 			}
+
+			/*
+			 * Signal the fences of all pending work (it is
+			 * harmless to signal work that has already been
+			 * signalled)
+			 */
+			i915_sync_hung_request(node->params.request);
 		}
 	}
 

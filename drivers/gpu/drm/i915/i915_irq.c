@@ -1757,7 +1757,7 @@ static irqreturn_t gen8_gt_irq_handler(struct drm_device *dev,
 			if (rcs & GT_RENDER_USER_INTERRUPT)
 				notify_ring(dev, ring);
 			if (rcs & GT_CONTEXT_SWITCH_INTERRUPT)
-				intel_execlists_handle_ctx_events(ring);
+				intel_execlists_handle_ctx_events(ring, true);
 			if (rcs & GT_GEN8_RCS_WATCHDOG_INTERRUPT) {
 				struct intel_engine_cs *ring;
 
@@ -1774,7 +1774,7 @@ static irqreturn_t gen8_gt_irq_handler(struct drm_device *dev,
 			if (bcs & GT_RENDER_USER_INTERRUPT)
 				notify_ring(dev, ring);
 			if (bcs & GT_CONTEXT_SWITCH_INTERRUPT)
-				intel_execlists_handle_ctx_events(ring);
+				intel_execlists_handle_ctx_events(ring, true);
 		} else
 			DRM_ERROR("The master control interrupt lied (GT0)!\n");
 	}
@@ -1790,7 +1790,7 @@ static irqreturn_t gen8_gt_irq_handler(struct drm_device *dev,
 			if (vcs & GT_RENDER_USER_INTERRUPT)
 				notify_ring(dev, ring);
 			if (vcs & GT_CONTEXT_SWITCH_INTERRUPT)
-				intel_execlists_handle_ctx_events(ring);
+				intel_execlists_handle_ctx_events(ring, true);
 			if (vcs & GT_GEN8_VCS_WATCHDOG_INTERRUPT) {
 				struct intel_engine_cs *ring;
 
@@ -1807,7 +1807,7 @@ static irqreturn_t gen8_gt_irq_handler(struct drm_device *dev,
 			if (vcs & GT_RENDER_USER_INTERRUPT)
 				notify_ring(dev, ring);
 			if (vcs & GT_CONTEXT_SWITCH_INTERRUPT)
-				intel_execlists_handle_ctx_events(ring);
+				intel_execlists_handle_ctx_events(ring, true);
 			if (vcs & GT_GEN8_VCS_WATCHDOG_INTERRUPT) {
 				struct intel_engine_cs *ring;
 
@@ -1844,7 +1844,7 @@ static irqreturn_t gen8_gt_irq_handler(struct drm_device *dev,
 			if (vcs & GT_RENDER_USER_INTERRUPT)
 				notify_ring(dev, ring);
 			if (vcs & GT_CONTEXT_SWITCH_INTERRUPT)
-				intel_execlists_handle_ctx_events(ring);
+				intel_execlists_handle_ctx_events(ring, true);
 		} else
 			DRM_ERROR("The master control interrupt lied (GT3)!\n");
 	}
@@ -3460,13 +3460,14 @@ static bool kick_ring(struct intel_engine_cs *ring)
  * This function is called when the TDR algorithm detects that the
  * hardware has not advanced during the last sampling period
  */
-static bool i915_hangcheck_hung(struct intel_ring_hangcheck *hc)
+static bool i915_hangcheck_hung(struct intel_ring_hangcheck *hc, u32 seqno)
 {
 	struct drm_device *dev = hc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	uint32_t mbox_wait;
 	uint32_t threshold;
 	struct intel_engine_cs *ring;
+	bool force_full_GPU_reset = false;
 
 	DRM_DEBUG_TDR("Ring [%d] hc->count = %d\n", hc->ringid, hc->count);
 	ring = &dev_priv->ring[hc->ringid];
@@ -3485,7 +3486,84 @@ static bool i915_hangcheck_hung(struct intel_ring_hangcheck *hc)
 
 	DRM_DEBUG_TDR("mbox_wait = %u threshold = %u", mbox_wait, threshold);
 
-	if (hc->count++ > threshold) {
+	if (i915.enable_execlists) {
+		/*
+		 * TODO:
+		 * We could trace the context submission status history
+		 * from the previous hang checks but the question is
+		 * how we would interpret the information. If we're not
+		 * stuck in an inconsistent state in every sample
+		 * period and it's fluctuating then how do we react? We
+		 * might as well try an inconsistency check just before
+		 * making a decision on hang recovery and if that gives
+		 * an inconsistent result we can't go for engine reset
+		 * anyway so there's not much in terms of options at
+		 * this point.
+		 *
+		 * WARNING:
+		 * When checking consistency in the hang checker as a
+		 * pre-stage to scheduling hang recovery then watchdog
+		 * timeout will break if there is an inconsistent state
+		 * and the hang checker has been disabled. The way
+		 * around this is by moving consistency checking to the
+		 * start of the engine hang recovery path which is
+		 * shared for all forms of hang recovery.
+		 */
+		/*
+		 * Consistency checking needs to happen before the 3-second
+		 * userland timeout happens, which means that we cannot wait
+		 * for 3 full hang check sample periods. Instead, do the
+		 * consistency check within 2 sample periods, that is if seqno
+		 * has not progressed in between two sample periods. Once
+		 * i915_hangcheck_hung() is called lack of execution progress
+		 * between 2 sample periods has already been detected. In some
+		 * cases (e.g. when HEAD is zero due to hardware being idle and
+		 * the last recorded HEAD value was zero too we might end up in
+		 * i915_hangcheck_hung() as soon as the first hang check sample
+		 * period. In order to avoid consistency checking happening
+		 * before a preliminary hang detection has been done make sure
+		 * to check seqno progress at this point. HEAD might go to zero
+		 * and cause false positive hang detections that way but seqnos
+		 * will always progress.
+		 */
+		if (seqno == hc->last_seqno) {
+			enum context_submission_status status =
+				i915_gem_context_get_current_context(ring, NULL);
+
+			if (status == CONTEXT_SUBMISSION_STATUS_SUBMITTED) {
+				DRM_DEBUG_TDR("Inconsistent context state. Faking interrupt on %s!", ring->name);
+
+				if (!intel_execlists_TDR_force_CSB_check(dev_priv, hc->ringid)) {
+					if (i915.enable_inconsistency_reset) {
+						WARN(1, "Inconsistency rectification failed! Falling back to full GPU reset!\n");
+						force_full_GPU_reset = true;
+					} else {
+						WARN(1, "Inconsistency rectification failed! Will not fall back to full GPU reset!\n");
+						/*
+						 * WARNING:
+						 * Without a way to fall back
+						 * to full GPU reset in the
+						 * case of a theoretical
+						 * irrecoverably inconsistent
+						 * state it is conceivable that
+						 * the device might hang until
+						 * reboot.
+						 */
+						force_full_GPU_reset = false;
+					}
+				} else {
+					/*
+					 * Hang was apparently due to inconsistent HW/driver state.
+					 * No need for hang recovery right now.
+					 */
+					hc->count = 0;
+					return false;
+				}
+			}
+		}
+	}
+
+	if ((hc->count++ > threshold) || force_full_GPU_reset) {
 		bool hung = true;
 
 		DRM_DEBUG_TDR("Hang check period expired... %s hung\n",
@@ -3494,9 +3572,10 @@ static bool i915_hangcheck_hung(struct intel_ring_hangcheck *hc)
 		/* Reset the counter */
 		hc->count = 0;
 
-		i915_sync_hung_ring(ring);
+		if (!force_full_GPU_reset)
+			i915_sync_hung_ring(ring);
 
-		if (!IS_GEN2(dev)) {
+		if (!force_full_GPU_reset && !IS_GEN2(dev)) {
 			/* If the ring is hanging on a WAIT_FOR_EVENT
 			* then simply poke the RB_WAIT bit
 			* and break the hang. This should work on
@@ -3510,7 +3589,10 @@ static bool i915_hangcheck_hung(struct intel_ring_hangcheck *hc)
 		if (hung) {
 			hc->tdr_count++;
 			ring->hangcheck.action = HANGCHECK_HUNG;
-			i915_handle_error(dev, hc, 0, "%s hung", ring->name);
+			if (force_full_GPU_reset)
+				i915_handle_error(dev, NULL, 0, "Full GPU reset fall-back from %s", ring->name);
+			else
+				i915_handle_error(dev, hc, 0, "%s hung", ring->name);
 		}
 		return hung;
 	}
@@ -3531,7 +3613,7 @@ void i915_hangcheck_sample(struct work_struct *work)
 	int pending_work = 1;
 	int resched_timer = 1;
 	struct drm_i915_gem_request *last_req = NULL;
-	uint32_t head, tail, acthd, instdone[I915_NUM_INSTDONE_REG];
+	uint32_t head, tail, acthd, instdone[I915_NUM_INSTDONE_REG], seqno;
 	struct drm_device *dev;
 	struct drm_i915_private *dev_priv;
 	struct intel_engine_cs *ring;
@@ -3555,6 +3637,7 @@ void i915_hangcheck_sample(struct work_struct *work)
 	tail = I915_READ_TAIL(ring) & TAIL_ADDR;
 	acthd = intel_ring_get_active_head(ring);
 	empty = list_empty(&ring->request_list);
+	seqno = ring->get_seqno(ring, false);
 
 	i915_get_extra_instdone(dev, instdone, ring);
 	instdone_cmp = (memcmp(hc->prev_instdone,
@@ -3580,12 +3663,14 @@ void i915_hangcheck_sample(struct work_struct *work)
 		      "status: %u\n", ring->id, (unsigned int) head,
 		      (unsigned int) hc->last_hd, (unsigned int) acthd,
 		      (unsigned int) hc->last_acthd, instdone_cmp, status);
-	DRM_DEBUG_TDR("[%u] E:%d PW:%d TL:0x%08x Csq:0x%08x (%ld) Lsq:0x%08x (%ld) Idle: %s\n",
+	DRM_DEBUG_TDR("[%u] E:%d PW:%d TL:0x%08x Csq:0x%08x (%ld) Lsq:0x%08x (%ld) Psq:0x%08x (%ld) Idle: %s\n",
 		      ring->id, empty, pending_work, (unsigned int) tail,
-		      (unsigned int) ring->get_seqno(ring, false),
-		      (long int) ring->get_seqno(ring, false),
+		      (unsigned int) seqno,
+		      (long int) seqno,
 		      (unsigned int) i915_gem_request_get_seqno(last_req),
 		      (long int) i915_gem_request_get_seqno(last_req),
+		      (unsigned int) hc->last_seqno,
+		      (long int) hc->last_seqno,
 		      (idle ? "true" : "false"));
 
 	/*
@@ -3600,6 +3685,22 @@ void i915_hangcheck_sample(struct work_struct *work)
 	 * cases even without checking ACTHD.
 	 */
 	acthd = 0;
+
+	/*
+	 * INSTDONE has been shown to be very random in its behaviour and does
+	 * not give us much information about the state of the command
+	 * streamer. It has been observed that the INSTDONE register keeps
+	 * changing state even when all command streamers are hung and are in a
+	 * stable state. For now disable the INSTDONE register check to make
+	 * the hang check algorithm more predictable in its behaviour and hang
+	 * check decision time.
+	 *
+	 * One destructive side-effect of having a somewhat unpredictable hang
+	 * detection time is that the Android userland sometimes tends to time
+	 * out during hangs, resulting in the display in a frozen state. That
+	 * is something we'd like to avoid if possible.
+	 */
+	instdone_cmp = 1;
 
 	/* Check both head and active head.
 	* Neither is enough on its own - acthd can be pointing within the
@@ -3617,7 +3718,7 @@ void i915_hangcheck_sample(struct work_struct *work)
 	    && (hc->last_hd == head)
 	    && instdone_cmp) {
 		/* Ring hasn't advanced in this sampling period */
-		if (idle && (status == CONTEXT_SUBMISSION_STATUS_OK)) {
+		if (idle && (status != CONTEXT_SUBMISSION_STATUS_NONE_SUBMITTED)) {
 			ring->hangcheck.action = HANGCHECK_IDLE;
 
 			/* The hardware is idle */
@@ -3631,18 +3732,18 @@ void i915_hangcheck_sample(struct work_struct *work)
 				DRM_DEBUG_TDR("Possible stuck wait (0x%08x)\n",
 					ring->last_irq_seqno);
 				wake_up_all(&ring->irq_queue);
-				i915_hangcheck_hung(hc);
+				i915_hangcheck_hung(hc, seqno);
 			} else {
 				/* Hardware and driver both idle */
 				hc->count = 0;
 				resched_timer = 0;
 			}
-		} else if (status == CONTEXT_SUBMISSION_STATUS_OK) {
+		} else if (status != CONTEXT_SUBMISSION_STATUS_NONE_SUBMITTED) {
 			/*
 			 * The hardware is busy but has not advanced
 			 * since the last sample - possible hang
 			 */
-			i915_hangcheck_hung(hc);
+			i915_hangcheck_hung(hc, seqno);
 		}
 	} else {
 		/* The state has changed so the hardware is active */
@@ -3653,33 +3754,8 @@ void i915_hangcheck_sample(struct work_struct *work)
 	/* Always update last sampled state */
 	hc->last_hd = head;
 	hc->last_acthd = acthd;
+	hc->last_seqno = seqno;
 	memcpy(hc->prev_instdone, instdone, sizeof(instdone));
-
-	if (i915.enable_execlists) {
-		if (resched_timer & (status == CONTEXT_SUBMISSION_STATUS_SUBMITTED)) {
-			u32 remaining_detections =
-				(DRM_I915_FORCED_RESUBMISSION_THRESHOLD -
-					++hc->forced_resubmission_cnt);
-
-			DRM_DEBUG_TDR("HACK: EXECLIST_STATUS context ID=0 on" \
-				      " %s with requests pending! " \
-				      "Forced submission in %u\n",
-				      ring->name,
-				      (unsigned int) remaining_detections);
-
-		} else {
-			/* Wait some more before forcing resubmission again */
-			hc->forced_resubmission_cnt = 0;
-		}
-
-		if (hc->forced_resubmission_cnt ==
-				DRM_I915_FORCED_RESUBMISSION_THRESHOLD) {
-			DRM_DEBUG_TDR("HACK: Forcing resubmission to move " \
-				      "%s forward.\n", ring->name);
-			intel_execlists_TDR_force_resubmit(dev_priv, hc->ringid);
-			hc->forced_resubmission_cnt = 0;
-		}
-	}
 
 	resched_timer &= (status != CONTEXT_SUBMISSION_STATUS_NONE_SUBMITTED);
 

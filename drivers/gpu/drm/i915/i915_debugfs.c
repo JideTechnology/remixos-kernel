@@ -4186,6 +4186,84 @@ DEFINE_SIMPLE_ATTRIBUTE(i915_wedged_fops,
 			i915_wedged_get, i915_wedged_set,
 			"%llu\n");
 
+static int
+i915_fake_ctx_submission_inconsistency_get(void *data, u64 *val)
+{
+	struct drm_device *dev = data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_engine_cs *ring;
+	unsigned i;
+
+	DRM_INFO("Faked inconsistent context submission state: %x\n",
+		dev_priv->gpu_error.faked_lost_ctx_event_irq);
+
+	for_each_ring(ring, dev_priv, i) {
+		u32 fake_cnt =
+			(dev_priv->gpu_error.faked_lost_ctx_event_irq >> (i<<2)) & 0xf;
+
+		DRM_INFO("%s: Faking %s [%u IRQs left to drop]\n",
+			ring->name,
+			fake_cnt?"enabled":"disabled",
+			fake_cnt);
+	}
+
+	*val = (u64) dev_priv->gpu_error.faked_lost_ctx_event_irq;
+
+	return 0;
+}
+
+static int
+i915_fake_ctx_submission_inconsistency_set(void *data, u64 val)
+{
+	struct drm_device *dev = data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 fake_status;
+
+	/*
+	 * val contains the new faked_lost_ctx_event_irq word that is to be
+	 * merged with the already set faked_lost_ctx_event_irq word.
+	 *
+	 * val == 0 means clear all previously set fake bits.
+	 *
+	 * Each nibble contains a number between 0-15 denoting the number of
+	 * interrupts left to lose on the engine that nibble corresponds to.
+	 *
+	 * RCS: faked_lost_ctx_event_irq[3:0]
+	 * VCS: faked_lost_ctx_event_irq[7:4]
+	 * BCS: faked_lost_ctx_event_irq[11:8]
+	 * VECS: faked_lost_ctx_event_irq[15:12]
+	 * VCS2: faked_lost_ctx_event_irq[19:16]
+	 *
+	 * The number in each nibble is decremented by the interrupt handler in
+	 * intel_lrc.c once the faked interrupt loss is executed. If a
+	 * targetted interrupt is received when bit corresponding to that
+	 * engine is set that interrupt will be dropped without side-effects.
+	 */
+
+	fake_status =
+		dev_priv->gpu_error.faked_lost_ctx_event_irq;
+
+	DRM_INFO("Faking lost context event IRQ (new status: %x, old status: %x)\n",
+		(u32) val, fake_status);
+
+	if (val) {
+		dev_priv->gpu_error.faked_lost_ctx_event_irq |= ((u32) val);
+	} else {
+		DRM_INFO("Clearing lost context event IRQ mask\n");
+
+		dev_priv->gpu_error.faked_lost_ctx_event_irq = 0;
+	}
+
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(i915_fake_ctx_submission_inconsistency_fops,
+			i915_fake_ctx_submission_inconsistency_get,
+			i915_fake_ctx_submission_inconsistency_set,
+			"%llu\n");
+
+
 static const char *ringid_to_str(enum intel_ring_id ring_id)
 {
 	switch (ring_id) {
@@ -5121,6 +5199,7 @@ static const struct i915_debugfs_files {
 	const struct file_operations *fops;
 } i915_debugfs_files[] = {
 	{"i915_wedged", &i915_wedged_fops},
+	{"i915_fake_ctx_inconsistency", &i915_fake_ctx_submission_inconsistency_fops},
 	{"i915_max_freq", &i915_max_freq_fops},
 	{"i915_min_freq", &i915_min_freq_fops},
 	{"i915_cur_freq", &i915_cur_freq_fops},

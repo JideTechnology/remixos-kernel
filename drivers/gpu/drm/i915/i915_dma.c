@@ -1629,15 +1629,17 @@ i915_hangcheck_init(struct drm_device *dev)
 	int ret = 0;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
+	dev_priv->gpu_error.faked_lost_ctx_event_irq = 0;
+
 	for (i = 0; i < I915_NUM_RINGS; i++) {
 		dev_priv->ring[i].hangcheck.count = 0;
 		dev_priv->ring[i].hangcheck.tdr_count = 0;
 		dev_priv->ring[i].hangcheck.watchdog_count = 0;
 		dev_priv->ring[i].hangcheck.total = 0;
 		dev_priv->ring[i].hangcheck.last_acthd = 0;
+		dev_priv->ring[i].hangcheck.last_seqno = 0;
 		dev_priv->ring[i].hangcheck.ringid = i;
 		dev_priv->ring[i].hangcheck.dev = dev;
-		dev_priv->ring[i].hangcheck.forced_resubmission_cnt = 0;
 
 		INIT_DELAYED_WORK(&dev_priv->ring[i].hangcheck.work,
 			i915_hangcheck_sample);

@@ -1360,6 +1360,18 @@ struct i915_gpu_error {
 #define I915_STOP_RING_ALLOW_BAN       (1 << 31)
 #define I915_STOP_RING_ALLOW_WARN      (1 << 30)
 
+	/*
+	 * Bit mask for simulation of lost context event IRQs on each
+	 * respective engine.
+	 *
+	 *   Bits 0:3:		Number of lost IRQs to be faked on RCS
+	 *   Bits 4:7:		Number of lost IRQs to be faked on VCS
+	 *   Bits 8:11:		Number of lost IRQs to be faked on BCS
+	 *   Bits 12:15:	Number of lost IRQs to be faked on VECS
+	 *   Bits 16:19:	Number of lost IRQs to be faked on VCS2
+	 */
+	u32 faked_lost_ctx_event_irq;
+
 	unsigned long total_resets;
 
 	/* For missed irq/seqno simulation. */
@@ -2493,6 +2505,7 @@ struct i915_params {
 	unsigned int gpu_reset_min_alive_period;
 	/* leave bools at the end to not create holes */
 	bool enable_hangcheck;
+	bool enable_inconsistency_reset;
 	bool fastboot;
 	bool prefault_disable;
 	bool reset;
