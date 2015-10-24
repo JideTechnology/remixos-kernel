@@ -10,6 +10,8 @@
 #include <video/sunxi_display2.h>
 #include <linux/sunxi_tr.h>
 
+typedef u32 compat_uptr_t;
+
 #define DBG_TIME_TYPE 3
 #define DBG_TIME_SIZE 100
 #define WB_CHECK_SIZE  5
@@ -624,6 +626,7 @@ typedef struct {
     enum disp_pixel_format       format;
     unsigned int            phys_addr;
 }WriteBack_t;
+
 typedef struct
 {
     int                 layer_num[2];
@@ -636,6 +639,22 @@ typedef struct
     unsigned int        androidfrmnum;
     WriteBack_t         *WriteBackdata;
 }setup_dispc_data_t;
+
+#ifdef CONFIG_COMPAT
+typedef struct
+{
+    int                 layer_num[2];
+    struct disp_layer_config   layer_info[2][16];
+    compat_uptr_t                aquireFenceFd;
+    int                 aquireFenceCnt;
+    compat_uptr_t                returnfenceFd;
+    bool                needWB[2];
+    unsigned int        ehancemode[2]; //0 is close,1 is whole,2 is half mode
+    unsigned int        androidfrmnum;
+    compat_uptr_t       WriteBackdata;
+}compat_setup_dispc_data_t;
+#endif
+
 typedef struct
 {
     struct list_head    list;
@@ -925,7 +944,7 @@ static int hwc_commit(setup_dispc_data_t *disp_data)
 	user_fencefd = (int *)(fencefd + disp_data->aquireFenceCnt);
     if(copy_from_user(user_fencefd, (void __user *)disp_data->aquireFenceFd, disp_data->aquireFenceCnt * sizeof(int)))
     {
-            printk("copy_from_user fail\n");
+            printk("%s,%d: copy_from_user fail\n", __func__, __LINE__);
             kfree(fencefd);
             return  -1;
     }
@@ -1002,13 +1021,64 @@ static int hwc_commit_ioctl(unsigned int cmd, unsigned long arg)
         memset(composer_priv.tmptransfer, 0, sizeof(setup_dispc_data_t));
         if(copy_from_user(composer_priv.tmptransfer, (void __user *)ubuffer[1], sizeof(setup_dispc_data_t)))
         {
-            printk("copy_from_user fail\n");
+            printk("%s,%d: copy_from_user fail\n", __func__, __LINE__);
             return  -EFAULT;
 		}
         ret = hwc_commit(composer_priv.tmptransfer);
 	}
 	return ret;
 }
+
+#ifdef CONFIG_COMPAT
+static int hwc_compat_commit_ioctl(unsigned int cmd, unsigned long arg)
+{
+    int ret = 0;
+
+    switch(cmd)
+    {
+    case DISP_HWC_COMMIT:
+        {
+        unsigned long __user * ubuffer = (unsigned long *)arg;
+        compat_setup_dispc_data_t compat_dispc_data;
+        setup_dispc_data_t dispc_data;
+        if(copy_from_user((void *)&compat_dispc_data,
+            (void __user *)ubuffer[1],
+            sizeof(compat_setup_dispc_data_t)))
+        {
+            printk("%s,%d: copy_from_user fail. sizeof(compat_uptr_t):%d\n", __func__, __LINE__, sizeof(compat_uptr_t));
+            return  -EFAULT;
+        }
+
+        memcpy((void *)dispc_data.layer_num,
+            (void *)compat_dispc_data.layer_num,
+            sizeof(dispc_data.layer_num));
+        memcpy((void *)dispc_data.layer_info,
+            (void *)compat_dispc_data.layer_info,
+            sizeof(dispc_data.layer_info));
+        memcpy((void *)dispc_data.needWB,
+            (void *)compat_dispc_data.needWB,
+            sizeof(dispc_data.needWB));
+        memcpy((void *)dispc_data.ehancemode,
+            (void *)compat_dispc_data.ehancemode,
+            sizeof(dispc_data.ehancemode));
+        dispc_data.aquireFenceFd = compat_dispc_data.aquireFenceFd;
+        dispc_data.aquireFenceCnt = compat_dispc_data.aquireFenceCnt;
+        dispc_data.returnfenceFd = compat_dispc_data.returnfenceFd;
+        dispc_data.androidfrmnum = compat_dispc_data.androidfrmnum;
+        dispc_data.WriteBackdata = compat_dispc_data.WriteBackdata;
+
+        ret = hwc_commit(&dispc_data);
+        }
+        break;
+    default:
+        ret = -1;
+        printk("%s,line=%d: cmd=%d\n", __func__, __LINE__, cmd);
+    break;
+    }
+
+    return ret;
+}
+#endif
 
 static void disp_composer_proc(u32 sel)
 {
@@ -1209,6 +1279,9 @@ s32 composer_init(disp_drv_info *psg_disp_drv)
 	spin_lock_init(&(composer_priv.update_reg_lock));
     spin_lock_init(&(composer_priv.dumplyr_lock));
 	disp_register_ioctl_func(DISP_HWC_COMMIT, hwc_commit_ioctl);
+#ifdef CONFIG_COMPAT
+	disp_register_compat_ioctl_func(DISP_HWC_COMMIT, hwc_compat_commit_ioctl);
+#endif
     disp_register_sync_finish_proc(disp_composer_proc);
 	disp_register_standby_func(hwc_suspend, hwc_resume);
     composer_priv.tmptransfer = kzalloc(sizeof(setup_dispc_data_t), GFP_ATOMIC);
