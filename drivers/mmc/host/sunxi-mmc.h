@@ -246,7 +246,7 @@ struct sunxi_mmc_host {
 	struct clk	*clk_ahb;
 	struct clk	*clk_mmc;
 	struct clk	*clk_rst;
-	
+
 	int (*sunxi_mmc_clk_set_rate)(struct sunxi_mmc_host *host, struct mmc_ios *ios);
 
 	/* irq */
