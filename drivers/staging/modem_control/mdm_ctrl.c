@@ -38,6 +38,21 @@
 /* Modem readiness wait duration (sec) */
 #define MDM_MODEM_READY_DELAY	60
 
+#ifndef SLEEP_MILLI_SEC
+#define SLEEP_MILLI_SEC(nMilliSec)\
+do { \
+long timeout = (nMilliSec) * HZ / 1000; \
+while (timeout > 0) { \
+timeout = schedule_timeout(timeout); \
+} \
+} while (0);
+#endif
+
+//#define MDM_MODEM_RESET_PIN  *((volatile unsigned int *)0xFFD8C428)
+
+
+//#define IIO_DEV_ATTR_MDM_RESET(_mode, _show, _store, _addr)	\
+	IIO_DEVICE_ATTR(modem_rst, _mode, _show, _store, _addr)
 /**
  *  mdm_ctrl_handle_hangup - This function handle the modem reset/coredump
  *  @work: a reference to work queue element
@@ -201,24 +216,28 @@ static int mdm_ctrl_cold_reset(struct mdm_info *mdm)
 static irqreturn_t mdm_ctrl_coredump_it(int irq, void *data)
 {
 	struct mdm_info *mdm = data;
+// kz.mcd currently, H350 does not need to support coredump, and the acpi coredump gpio value
+// is not correct, coredump interupt is coming randomly. this will make recovery failed due to
+// wrong state of mcd.
+// once bios config ready, should remove comment
 
+	return IRQ_HANDLED;
+/*
 	pr_err(DRVNAME ": CORE_DUMP it");
 
-	/* Ignoring event if we are in OFF state. */
 	if (mdm_ctrl_get_state(mdm) == MDM_CTRL_STATE_OFF) {
 		pr_err(DRVNAME ": CORE_DUMP while OFF\n");
 		goto out;
 	}
 
-	/* Ignoring if Modem reset is ongoing. */
 	if (atomic_read(&mdm->rst_ongoing) == 1) {
 		pr_err(DRVNAME ": CORE_DUMP while Modem Reset is ongoing\n");
 		goto out;
 	}
 
-	/* Set the reason & launch the work to handle the hangup */
 	mdm->hangup_causes |= MDM_CTRL_HU_COREDUMP;
 	queue_work(mdm->hu_wq, &mdm->hangup_work);
+*/
 
  out:
 	return IRQ_HANDLED;
@@ -363,6 +382,18 @@ static int mcd_init(struct mdm_info *mdm)
 {
 	int ret = 0;
 
+/*
+	ret = MDM_MODEM_RESET_PIN;
+	pr_err(DRVNAME ": modem reset reg value = 0x%08x.\n",ret);
+
+	MDM_MODEM_RESET_PIN = ret & (~(1<<1));
+	ret = MDM_MODEM_RESET_PIN;
+	pr_err(DRVNAME ": modem reset reg value = 0x%08x.\n",ret);
+
+	MDM_MODEM_RESET_PIN = ret | ((1<<1));
+	ret = MDM_MODEM_RESET_PIN;
+	pr_err(DRVNAME ": modem reset reg value = 0x%08x.\n",ret);
+*/
 	if (mdm->pdata->mdm.init(mdm->pdata->modem_data)) {
 		pr_err(DRVNAME ": MDM init failed...returning -ENODEV.");
 		ret = -ENODEV;
@@ -415,20 +446,26 @@ static int mcd_init(struct mdm_info *mdm)
 		pr_info(DRVNAME ": No IRQ COREDUMP\n");
 
 	/* Modem power off sequence */
-	if (mdm->pdata->pmic.get_early_pwr_off(mdm->pdata->pmic_data)) {
+//kz.mcd
+// h350 use pwr_off to control modem, currently could not set value to 1.
+// once bios provide good config, we should add pwr_off gpio control to it.
+//	if (mdm->pdata->pmic.get_early_pwr_off(mdm->pdata->pmic_data)) {
+	pr_info(DRVNAME ": kz.mcd mdm_ctrl_power_off");
 		if (mdm_ctrl_power_off(mdm)) {
 			ret = -EPROBE_DEFER;
 			goto free_all;
 		}
-	}
+//	}
 
 	/* Modem cold boot sequence */
-	if (mdm->pdata->pmic.get_early_pwr_on(mdm->pdata->pmic_data)) {
+//	if (mdm->pdata->pmic.get_early_pwr_on(mdm->pdata->pmic_data)) {
+	pr_info(DRVNAME ": kz.mcd mdm_ctrl_cold_boot");
 		if (mdm_ctrl_cold_boot(mdm)) {
 			ret = -EPROBE_DEFER;
 			goto free_all;
 		}
-	}
+//kz.mcd
+//	}
 
 	pr_info(DRVNAME ": %s initialization has succeed\n", __func__);
 	goto out;
@@ -471,7 +508,6 @@ long mdm_ctrl_dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	mdm = &mdm_drv->mdm[minor];
 
 	pr_info(DRVNAME ": ioctl request 0x%x received on %d\n", cmd, minor);
-
 	if (!mcd_is_initialized(mdm)) {
 		if (cmd == MDM_CTRL_SET_CFG) {
 			ret = copy_from_user(&cfg, (void *)arg, sizeof(cfg));
@@ -538,10 +574,20 @@ long mdm_ctrl_dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 
 	case MDM_CTRL_WARM_RESET:
 		/* Allowed in any state unless OFF */
+		pr_err(DRVNAME ": kz.mcd MDM_CTRL_WARM_RESET");
+//kz.mcd debug
+/*	
+        gpiod_direction_output(346, 0);
+        SLEEP_MILLI_SEC(300);
+        gpiod_direction_output(346, 1);
+
+*/
+///*	
 		if (mdm_state != MDM_CTRL_STATE_OFF)
 			mdm_ctrl_normal_warm_reset(mdm);
 		else
 			pr_err(DRVNAME ": Warm reset not allowed (Modem OFF)");
+//*/
 		break;
 
 	case MDM_CTRL_FLASHING_WARM_RESET:
@@ -555,7 +601,11 @@ long mdm_ctrl_dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	case MDM_CTRL_COLD_RESET:
 		/* Allowed in any state unless OFF */
 		if (mdm_state != MDM_CTRL_STATE_OFF)
+		{
+//kz.mcd
+			pr_err(DRVNAME "kz.mcd reset (Modem OFF)");
 			mdm_ctrl_cold_reset(mdm);
+		}
 		else
 			pr_err(DRVNAME ": Cold reset not allowed (Modem OFF)");
 		break;
@@ -785,6 +835,7 @@ static int mdm_ctrl_module_probe(struct platform_device *pdev)
 	char name[25];
 
 	pr_info(DRVNAME ": probing mdm_ctrl\n");
+
 	/* Allocate modem struct data */
 	new_drv = kzalloc(sizeof(struct mdm_ctrl), GFP_KERNEL);
 	if (!new_drv) {

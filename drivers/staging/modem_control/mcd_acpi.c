@@ -229,7 +229,167 @@ static int modem_reset_thread(void *data)
 {
 	struct modem_reset_info_t *modem_reset_info_ptr = (struct modem_reset_info_t *)data;
 
-	/*pr_info("modem_reset_thread enter, gpio_reset(%d), power_on(%d)", modem_reset_info_ptr->gpio_reset, modem_reset_info_ptr->gpio_power_on);*/
+	pr_info("kz.mcd enter modem_reset_thread");
+	int retval1 = 0;
+        int err1 = 0;
+
+
+//kz.mcd debug start
+       /* pr_info("DRVNAME: kz IRQ request for GPIO (pwr_on: %d)", 346);
+        retval1 = gpio_request(346, "pwr_off");
+
+        if (retval1 < 0)
+        {
+                pr_info("DRVNAME: IRQ request failed for GPIO (POWER_ON)");
+                retval1 = -ENODEV;
+                //return retval1;
+        }
+*/
+/*
+        pr_info("DRVNAME : kz start export gpio 346");
+        err1 = 0;
+        err1 = gpio_export(346, 1);
+        if(err1)
+                pr_info("DRVNAME : can't export gpio 346");
+        pr_info("DRVNAME : kz finish export gpio 346");
+*/
+	int value = 0;
+/*
+	value = gpio_get_value(342);
+        pr_info("DRVNAME : kz gpio 342 value: %d", value);
+*/
+
+	int direction = 0;
+//GPIO_343
+        retval1 = gpio_request(343, "pwr_off");
+
+        if (retval1 < 0)
+        {
+                pr_info("DRVNAME:  343 request failed");
+        }
+	value = gpio_get_value(343);
+        pr_info("DRVNAME : kz gpio 343 value: %d", value);
+
+        err1 = gpio_export(343, 1);
+        if(err1)
+                pr_info("DRVNAME : can't export gpio 343");
+
+	//direction = gpiod_get_direction(343);
+        //pr_info("DRVNAME : kz gpio 343 direction : %d", direction);
+
+//GPIO_344
+        retval1 = gpio_request(344, "pwr_off");
+
+        if (retval1 < 0)
+        {
+                pr_info("DRVNAME:  344 request failed");
+        }
+	value = gpio_get_value(344);
+        pr_info("DRVNAME : kz gpio 344 value: %d", value);
+
+	err1 = gpio_export(344, 1);
+        if(err1)
+                pr_info("DRVNAME : can't export gpio 344");
+
+
+	//direction = gpiod_get_direction(344);
+        //pr_info("DRVNAME : kz gpio 344 direction : %d", direction);
+
+//GPIO_345
+        retval1 = gpio_request(345, "pwr_off");
+
+        if (retval1 < 0)
+        {
+                pr_info("DRVNAME:  345 request failed");
+        }
+	value = gpio_get_value(345);
+        pr_info("DRVNAME : kz gpio 345 value: %d", value);
+
+	err1 = gpio_export(345, 1);
+        if(err1)
+                pr_info("DRVNAME : can't export gpio 345");
+
+
+	//direction = gpiod_get_direction(345);
+        //pr_info("DRVNAME : kz gpio 345 direction : %d", direction);
+
+//GPIO_346
+        retval1 = gpio_request(346, "pwr_off");
+
+        if (retval1 < 0)
+        {
+                pr_info("DRVNAME:  346 request failed");
+        }
+	value = gpio_get_value(346);
+        pr_info("DRVNAME : kz gpio 346 value: %d", value);
+
+	err1 = gpio_export(346, 1);
+        if(err1)
+                pr_info("DRVNAME : can't export gpio 346");
+
+
+	//direction = gpiod_get_direction(345);
+        //pr_info("DRVNAME : kz gpio 345 direction : %d", direction);
+
+//GPIO_359
+        retval1 = gpio_request(359, "pwr_off");
+
+        if (retval1 < 0)
+        {
+                pr_info("DRVNAME:  359request failed");
+        }
+	value = gpio_get_value(359);
+        pr_info("DRVNAME : kz gpio 359value: %d", value);
+
+        err1 = gpio_export(359, 1);
+        if(err1)
+                pr_info("DRVNAME : can't export gpio 359");
+
+
+//GPIO_103
+/*
+        retval1 = gpio_request(103, "pwr_off");
+
+        if (retval1 < 0)
+        {
+                pr_info("DRVNAME:  103 failed");
+        }
+	value = gpio_get_value(103);
+        pr_info("DRVNAME : kz gpio 103 : %d", value);
+
+        err1 = gpio_export(103, 1);
+        if(err1)
+                pr_info("DRVNAME : can't export gpio 103");
+*/
+
+
+/*
+	direction = gpiod_get_direction(342);
+        pr_info("DRVNAME : kz gpio 342 direction : %d", direction);
+*/
+
+/*
+	*/
+
+/*
+        pr_info("DRVNAME : kz start export gpio 342");
+        err1 = 0;
+        err1 = gpio_export(342, 1);
+        if(err1)
+                pr_info("DRVNAME : can't export gpio 342");
+        pr_info("DRVNAME : kz finish export gpio 342");
+
+        pr_info("DRVNAME : kz start export gpio 345");
+        err1 = 0;
+        err1 = gpio_export(345, 1);
+        if(err1)
+                pr_info("DRVNAME : can't export gpio 345");
+        pr_info("DRVNAME : kz finish export gpio 345");
+
+*/
+//kz.mcd debug end
+
+	pr_info("modem_reset_thread enter, gpio_reset(%d), power_on(%d)", desc_to_gpio(modem_reset_info_ptr->gpio_reset), desc_to_gpio(modem_reset_info_ptr->gpio_power_on));
 	/* power off first*/
 	gpiod_direction_output(modem_reset_info_ptr->gpio_reset, 0);
 	/*schedule_timeout(msecs_to_jiffies(5));*/
@@ -255,6 +415,7 @@ static int modem_reset_thread(void *data)
 //#define POWER_OFF 492
 //#define RESET_BB 343
 //#define RESET_OUT 348
+
 
 /*
  * Access ACPI resources/data to populate global object mcd_reg_info
@@ -399,7 +560,8 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 
 	nb_mdms = 1;
 	mdm_ctrl_configure_gpio2( cpu_data->entries[0], 1, 0);
-	pr_err("\r\nPOWER_ON=%d\r\n", desc_to_gpio( cpu_data->entries[0]) );
+//	pr_err("\r\nPOWER_ON=%d\r\n", desc_to_gpio( cpu_data->entries[0]) );
+	pr_err("\rPOWER_ON=%d, reset=%d\r\n", desc_to_gpio( cpu_data->entries[0]),desc_to_gpio( cpu_data->entries[2]));	
 	if (1) {
 		struct task_struct *modem_reset_thread_task;
 
