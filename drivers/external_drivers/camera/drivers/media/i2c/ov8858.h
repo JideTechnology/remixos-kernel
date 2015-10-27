@@ -1170,6 +1170,7 @@ static const struct ov8858_reg ov8858_8M[] = {
 };
 
 static const struct ov8858_reg ov8858_6M[] = {
+#if 0
 	{OV8858_8BIT, 0x0100, 0x00}, /* software_standby */
 	{OV8858_8BIT, 0x3778, 0x16}, /* Unknown */
 	{OV8858_8BIT, 0x3800, 0x00}, /* h_crop_start high */
@@ -1228,6 +1229,58 @@ static const struct ov8858_reg ov8858_6M[] = {
 	{OV8858_8BIT, 0x4600, 0x01}, /* Unknown */
 	{OV8858_8BIT, 0x4601, 0x97}, /* Unknown */
 	{OV8858_8BIT, 0x4837, 0x14}, /* pclk_period = 0x14 */
+#else
+	{OV8858_8BIT,0x100,0x00}, 
+	{OV8858_8BIT,0x0300,0x05}, 
+	{OV8858_8BIT,0x0302,0xaf}, 
+	{OV8858_8BIT,0x030d,0x4e},
+	{OV8858_8BIT,0x3501,0x74},
+	{OV8858_8BIT,0x3502,0x80},
+	{OV8858_8BIT,0x3808,0x0c},
+	{OV8858_8BIT,0x3809,0xd0},
+	{OV8858_8BIT,0x380a,0x07},
+	{OV8858_8BIT,0x380b,0x3C},
+	{OV8858_8BIT,0x380c,0x07},
+	{OV8858_8BIT,0x380d,0x94},
+	{OV8858_8BIT,0x380e,0x0a},
+	{OV8858_8BIT,0x380f,0x0d},
+	{OV8858_8BIT,0x3810,0x00},
+	{OV8858_8BIT,0x3811,0x04},
+	{OV8858_8BIT,0x3813,0x02},
+	{OV8858_8BIT,0x3814,0x01},
+	{OV8858_8BIT,0x3815,0x01},
+	{OV8858_8BIT,0x3820,0x00},
+	{OV8858_8BIT,0x3821,0x46},
+	{OV8858_8BIT,0x382a,0x01},
+	{OV8858_8BIT,0x382b,0x01},
+	{OV8858_8BIT,0x3830,0x06},
+	{OV8858_8BIT,0x3836,0x01},
+	{OV8858_8BIT,0x3837,0x18},
+	{OV8858_8BIT,0x3841,0xff},
+	{OV8858_8BIT,0x3846,0x48},
+	{OV8858_8BIT,0x3f08,0x10},
+	{OV8858_8BIT,0x4020,0x00},
+	{OV8858_8BIT,0x4021,0x04},
+	{OV8858_8BIT,0x4022,0x0c},
+	{OV8858_8BIT,0x4023,0x60},
+	{OV8858_8BIT,0x4024,0x0f},
+	{OV8858_8BIT,0x4025,0x36},
+	{OV8858_8BIT,0x4026,0x0f},
+	{OV8858_8BIT,0x4027,0x37},
+	{OV8858_8BIT,0x4028,0x00},
+	{OV8858_8BIT,0x4029,0x02},
+	{OV8858_8BIT,0x402a,0x04},
+	{OV8858_8BIT,0x402b,0x08},
+	{OV8858_8BIT,0x402c,0x00},
+	{OV8858_8BIT,0x402d,0x02},
+	{OV8858_8BIT,0x402e,0x04},
+	{OV8858_8BIT,0x402f,0x08},
+	{OV8858_8BIT,0x4503,0x18},
+	{OV8858_8BIT,0x4600,0x00},
+	{OV8858_8BIT,0x4601,0xF1},
+	{OV8858_8BIT,0x4837,0x13},
+	//{OV8858_8BIT,0x0100,0x01}, 
+#endif
 	{OV8858_TOK_TERM, 0, 0}
 };
 
@@ -1294,6 +1347,7 @@ static const struct ov8858_reg ov8858_1080P_60[] = {
 };
 
 static const struct ov8858_reg ov8858_1080P_30[] = {
+#if 0
 	{OV8858_8BIT, 0x0100, 0x00}, /* software_standby */
 	{OV8858_8BIT, 0x3778, 0x17}, /* Unknown */
 	{OV8858_8BIT, 0x3800, 0x02}, /* h_crop_start high */
@@ -1352,10 +1406,63 @@ static const struct ov8858_reg ov8858_1080P_30[] = {
 	{OV8858_8BIT, 0x4600, 0x00}, /* Unknown */
 	{OV8858_8BIT, 0x4601, 0xef}, /* Unknown */
 	{OV8858_8BIT, 0x4837, 0x16}, /* pclk_period = 0x16 */
+#else
+	{OV8858_8BIT,0x100,0x00},
+	{OV8858_8BIT,0x0300,0x05},
+	{OV8858_8BIT,0x0302,0xaf},
+	{OV8858_8BIT,0x030d,0x4e},
+	{OV8858_8BIT,0x3500,0x00},
+	{OV8858_8BIT,0x3501,0x44},
+	{OV8858_8BIT,0x3502,0xa0},
+	{OV8858_8BIT,0x3808,0x07},
+	{OV8858_8BIT,0x3809,0x90},//;8c
+	{OV8858_8BIT,0x380a,0x04},
+	{OV8858_8BIT,0x380b,0x48},//;44
+	{OV8858_8BIT,0x380c,0x07},//;08
+	{OV8858_8BIT,0x380d,0x94},//;5e
+	{OV8858_8BIT,0x380e,0x0a},//;08
+	{OV8858_8BIT,0x380f,0x0d},//;c1;A4
+	{OV8858_8BIT,0x3810,0x00},
+	{OV8858_8BIT,0x3811,0x04},
+	{OV8858_8BIT,0x3813,0x02},
+	{OV8858_8BIT,0x3814,0x01},
+	{OV8858_8BIT,0x3815,0x01},
+	{OV8858_8BIT,0x3820,0x00},
+	{OV8858_8BIT,0x3821,0x46},
+	{OV8858_8BIT,0x382a,0x01},
+	{OV8858_8BIT,0x382b,0x01},
+	{OV8858_8BIT,0x3830,0x06},
+	{OV8858_8BIT,0x3836,0x01},
+	{OV8858_8BIT,0x3837,0x18},
+	{OV8858_8BIT,0x3841,0xff},
+	{OV8858_8BIT,0x3846,0x48},
+	{OV8858_8BIT,0x3f08,0x10},
+	{OV8858_8BIT,0x4020,0x00},
+	{OV8858_8BIT,0x4021,0x04},
+	{OV8858_8BIT,0x4022,0x07},
+	{OV8858_8BIT,0x4023,0x20},
+	{OV8858_8BIT,0x4024,0x0f},
+	{OV8858_8BIT,0x4025,0x36},
+	{OV8858_8BIT,0x4026,0x0f},
+	{OV8858_8BIT,0x4027,0x37},
+	{OV8858_8BIT,0x4028,0x00},
+	{OV8858_8BIT,0x4029,0x02},
+	{OV8858_8BIT,0x402a,0x04},
+	{OV8858_8BIT,0x402b,0x08},
+	{OV8858_8BIT,0x402c,0x00},
+	{OV8858_8BIT,0x402d,0x02},
+	{OV8858_8BIT,0x402e,0x04},
+	{OV8858_8BIT,0x4503,0x18},
+	{OV8858_8BIT,0x4600,0x00},
+	{OV8858_8BIT,0x4601,0xef},
+	{OV8858_8BIT,0x4837,0x13},                         
+                         
+#endif
 	{OV8858_TOK_TERM, 0, 0}
 };
 
 static const struct ov8858_reg ov8858_1640x1232[] = {
+#if 0
 	{OV8858_8BIT, 0x0100, 0x00}, /* software_standby */
 	{OV8858_8BIT, 0x3778, 0x16}, /* Unknown */
 	{OV8858_8BIT, 0x3800, 0x00}, /* h_crop_start high */
@@ -1414,10 +1521,52 @@ static const struct ov8858_reg ov8858_1640x1232[] = {
 	{OV8858_8BIT, 0x4600, 0x00}, /* Unknown */
 	{OV8858_8BIT, 0x4601, 0xCB}, /* Unknown */
 	{OV8858_8BIT, 0x4837, 0x14}, /* pclk_period = 0x14 */
+#else
+	{OV8858_8BIT,0x0100,0x00},
+
+	{OV8858_8BIT,0x0300,0x05},
+	{OV8858_8BIT,0x0302,0xaf},
+	{OV8858_8BIT,0x030d,0x4e},
+
+	{OV8858_8BIT,0x3501,0x4d}, //; exposure M
+	{OV8858_8BIT,0x3502,0x40}, //; exposure L
+	{OV8858_8BIT,0x3508,0x04}, //; gain H
+	{OV8858_8BIT,0x3808,0x06}, //; x output size H
+	{OV8858_8BIT,0x3809,0x68},//;60 ; x output size L
+	{OV8858_8BIT,0x380a,0x04},// ; y output size H
+	{OV8858_8BIT,0x380b,0xD0},//;c8 ; y output size L
+	{OV8858_8BIT,0x380c,0x07},// ; HTS H
+	{OV8858_8BIT,0x380d,0x94},//;88 ; HTS L
+	{OV8858_8BIT,0x380e,0x0a},//;09;04 ; VTS H
+	{OV8858_8BIT,0x380f,0x0d},//;aa;dc ; VTS L
+	{OV8858_8BIT,0x3814,0x03},// ; x odd inc
+	{OV8858_8BIT,0x3821,0x67},// ; mirror on, bin on
+	{OV8858_8BIT,0x382a,0x03},// ; y odd inc
+	{OV8858_8BIT,0x3830,0x08},
+	{OV8858_8BIT,0x3836,0x02},
+	{OV8858_8BIT,0x3f0a,0x00},
+	{OV8858_8BIT,0x4001,0x10}, //; total 128 black column
+	{OV8858_8BIT,0x4022,0x06}, //; Anchor left end H
+	{OV8858_8BIT,0x4023,0x00}, //; Anchor left end L
+	{OV8858_8BIT,0x4025,0x2a}, //; Anchor right start L
+	{OV8858_8BIT,0x4027,0x2b}, //; Anchor right end L
+	{OV8858_8BIT,0x402b,0x04}, //; top black line number
+	{OV8858_8BIT,0x402f,0x04}, //; interpolation x disable, interpolation y disable, Anchor one 
+	                       
+	//disable
+	{OV8858_8BIT,0x4500,0x58},
+	{OV8858_8BIT,0x4600,0x00},
+	{OV8858_8BIT,0x4601,0xcb},
+	{OV8858_8BIT,0x382d,0x7f},
+	{OV8858_8BIT,0x3841,0xff},
+	{OV8858_8BIT,0x4837,0x13},
+
+#endif
 	{OV8858_TOK_TERM, 0, 0}
 };
 
 static const struct ov8858_reg ov8858_1640x926[] = {
+#if 0
 	{OV8858_8BIT, 0x0100, 0x00}, /* software_standby */
 	{OV8858_8BIT, 0x3778, 0x16}, /* Unknown */
 	{OV8858_8BIT, 0x3800, 0x00}, /* h_crop_start high */
@@ -1476,6 +1625,47 @@ static const struct ov8858_reg ov8858_1640x926[] = {
 	{OV8858_8BIT, 0x4600, 0x00}, /* Unknown */
 	{OV8858_8BIT, 0x4601, 0xCB}, /* Unknown */
 	{OV8858_8BIT, 0x4837, 0x14}, /* pclk_period = 0x14 */
+#else
+	{OV8858_8BIT,0x0100,0x00},
+
+	{OV8858_8BIT,0x0300,0x05},
+	{OV8858_8BIT,0x0302,0xaf},
+	{OV8858_8BIT,0x030d,0x4e},
+
+	{OV8858_8BIT,0x3501,0x4d},// ; exposure M
+	{OV8858_8BIT,0x3502,0x40},// ; exposure L
+	{OV8858_8BIT,0x3508,0x04},// ; gain H
+	{OV8858_8BIT,0x3808,0x06},// ; x output size H
+	{OV8858_8BIT,0x3809,0x68},//;60 ; x output size L
+	{OV8858_8BIT,0x380a,0x03},//;04 ; y output size H
+	{OV8858_8BIT,0x380b,0x9e},//;D0;c8 ; y output size L
+	{OV8858_8BIT,0x380c,0x07},// ; HTS H
+	{OV8858_8BIT,0x380d,0x94},//;88 ; HTS L
+	{OV8858_8BIT,0x380e,0x0a},//;09;04 ; VTS H
+	{OV8858_8BIT,0x380f,0x0d},//;aa;dc ; VTS L
+	{OV8858_8BIT,0x3814,0x03},// ; x odd inc
+	{OV8858_8BIT,0x3821,0x67},// ; mirror on, bin on
+	{OV8858_8BIT,0x382a,0x03},// ; y odd inc
+	{OV8858_8BIT,0x3830,0x08},
+	{OV8858_8BIT,0x3836,0x02},
+	{OV8858_8BIT,0x3f0a,0x00},
+	{OV8858_8BIT,0x4001,0x10}, //; total 128 black column
+	{OV8858_8BIT,0x4022,0x06}, //; Anchor left end H
+	{OV8858_8BIT,0x4023,0x00}, //; Anchor left end L
+	{OV8858_8BIT,0x4025,0x2a}, //; Anchor right start L
+	{OV8858_8BIT,0x4027,0x2b}, //; Anchor right end L
+	{OV8858_8BIT,0x402b,0x04}, //; top black line number
+	{OV8858_8BIT,0x402f,0x04}, //; interpolation x disable, interpolation y disable, Anchor one 
+
+	//disable
+	{OV8858_8BIT,0x4500,0x58},
+	{OV8858_8BIT,0x4600,0x00},
+	{OV8858_8BIT,0x4601,0xcb},
+	{OV8858_8BIT,0x382d,0x7f},
+	{OV8858_8BIT,0x3841,0xff},
+	{OV8858_8BIT,0x4837,0x13},
+
+#endif
 	{OV8858_TOK_TERM, 0, 0}
 };
 
