@@ -72,8 +72,9 @@ int cpu_init_gpio(void *data)
 	struct mdm_ctrl_cpu_data *cpu_data = mdm->pdata->cpu_data;
 	int ret;
 
-	pr_debug("cpu_init");
+	pr_err("cpu_init_gpio");
 
+#if 0
 	/* Configure the RESET_BB gpio */
 	if (cpu_data->gpio_rst_bbn) {
 		ret = mdm_ctrl_configure_gpio(cpu_data->gpio_rst_bbn, 1, 0);
@@ -83,6 +84,7 @@ int cpu_init_gpio(void *data)
 		}
 	} else
 		pr_info("No RST_BBN GPIO set");
+#endif
 
 	/* Configure the ON gpio */
 	if (cpu_data->gpio_pwr_on) {
@@ -108,7 +110,7 @@ int cpu_init_gpio(void *data)
 		}
 	} else {
 		cpu_data->irq_reset = INVALID_GPIO;
-		pr_info("No RST_OUT GPIO set");
+		pr_err("No RST_OUT GPIO set");
 	}
 
 	/* Configure the CORE_DUMP gpio & irq */
@@ -126,7 +128,7 @@ int cpu_init_gpio(void *data)
 		}
 	} else {
 		cpu_data->irq_cdump = INVALID_GPIO;
-		pr_info("No CORE_DUMP GPIO set");
+		pr_err("No CORE_DUMP GPIO set");
 	}
 
 	pr_info(DRVNAME
@@ -191,6 +193,7 @@ int get_gpio_rst(void *data)
 int get_gpio_pwr(void *data)
 {
 	struct mdm_ctrl_cpu_data *cpu_data = data;
+		return 234;
 	if (cpu_data->gpio_pwr_on)
 		return desc_to_gpio(cpu_data->gpio_pwr_on);
 	else

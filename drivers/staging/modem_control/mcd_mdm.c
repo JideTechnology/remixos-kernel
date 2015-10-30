@@ -88,13 +88,17 @@ int mcd_mdm_cold_boot(void *data)
 	int pwr_on = cpu->get_gpio_pwr(cpu_data);
 	int pwr_on_ctrl = mdm->pdata->pwr_on_ctrl;
 
+	pr_err(DRVNAME ": mcd_mdm_cold_boot");
+
 	if (pwr_on_ctrl == POWER_ON_PMIC) {
+	pr_err(DRVNAME ":  POWER_ON_PMIC");		
 		/* Toggle modem ctrl signals using only PMIC */
 		if (pmic->power_on_mdm(pmic_data)) {
 			pr_err(DRVNAME ": Error PMIC power-ON.");
 			ret = -1;
 		}
 	} else if (pwr_on_ctrl == POWER_ON_PMIC_GPIO) {
+
 		/* Toggle power_on signal using PMIC */
 		if (pmic->power_on_mdm(pmic_data)) {
 			pr_err(DRVNAME ": Error PMIC power-ON.");
@@ -104,6 +108,8 @@ int mcd_mdm_cold_boot(void *data)
 		if ((rst == INVALID_GPIO)
 			|| (pwr_on == INVALID_GPIO))
 			return -EINVAL;
+		pr_err(DRVNAME ": POWER_ON_GPIO rst:%d, pwr_on:%d",rst,pwr_on);
+		
 		/* Toggle the RESET_BB_N */
 		gpio_set_value(rst, 1);
 

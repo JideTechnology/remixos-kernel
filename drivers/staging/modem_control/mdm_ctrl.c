@@ -48,9 +48,6 @@ timeout = schedule_timeout(timeout); \
 } while (0);
 #endif
 
-//#define MDM_MODEM_RESET_PIN  *((volatile unsigned int *)0xFFD8C428)
-
-
 //#define IIO_DEV_ATTR_MDM_RESET(_mode, _show, _store, _addr)	\
 	IIO_DEVICE_ATTR(modem_rst, _mode, _show, _store, _addr)
 /**
@@ -256,6 +253,10 @@ static irqreturn_t mdm_ctrl_reset_it(int irq, void *data)
 	struct mdm_info *mdm = data;
 
 	value = mdm->pdata->cpu.get_mdm_state(mdm->pdata->cpu_data);
+	if (1) {
+		pr_err(DRVNAME ": kz.mcd unexpected RESET_OUT happens, ignore it");
+		return IRQ_HANDLED;
+	}
 
 	/* Ignoring event if we are in OFF state. */
 	if (mdm_ctrl_get_state(mdm) == MDM_CTRL_STATE_OFF) {
@@ -382,18 +383,6 @@ static int mcd_init(struct mdm_info *mdm)
 {
 	int ret = 0;
 
-/*
-	ret = MDM_MODEM_RESET_PIN;
-	pr_err(DRVNAME ": modem reset reg value = 0x%08x.\n",ret);
-
-	MDM_MODEM_RESET_PIN = ret & (~(1<<1));
-	ret = MDM_MODEM_RESET_PIN;
-	pr_err(DRVNAME ": modem reset reg value = 0x%08x.\n",ret);
-
-	MDM_MODEM_RESET_PIN = ret | ((1<<1));
-	ret = MDM_MODEM_RESET_PIN;
-	pr_err(DRVNAME ": modem reset reg value = 0x%08x.\n",ret);
-*/
 	if (mdm->pdata->mdm.init(mdm->pdata->modem_data)) {
 		pr_err(DRVNAME ": MDM init failed...returning -ENODEV.");
 		ret = -ENODEV;
@@ -529,6 +518,7 @@ long mdm_ctrl_dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 			} else {
 				mdm->pdata->pwr_on_ctrl = cfg.pwr_on;
 			}
+			mdm->pdata->pwr_on_ctrl = POWER_ON_GPIO;
 			/* Set the usb hub control */
 			mdm->pdata->usb_hub_ctrl = cfg.usb_hub;
 
@@ -575,19 +565,10 @@ long mdm_ctrl_dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	case MDM_CTRL_WARM_RESET:
 		/* Allowed in any state unless OFF */
 		pr_err(DRVNAME ": kz.mcd MDM_CTRL_WARM_RESET");
-//kz.mcd debug
-/*	
-        gpiod_direction_output(346, 0);
-        SLEEP_MILLI_SEC(300);
-        gpiod_direction_output(346, 1);
-
-*/
-///*	
 		if (mdm_state != MDM_CTRL_STATE_OFF)
 			mdm_ctrl_normal_warm_reset(mdm);
 		else
 			pr_err(DRVNAME ": Warm reset not allowed (Modem OFF)");
-//*/
 		break;
 
 	case MDM_CTRL_FLASHING_WARM_RESET:
