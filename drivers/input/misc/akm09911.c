@@ -33,10 +33,6 @@
 #include <linux/workqueue.h>
 #include <linux/acpi.h>
 #include <linux/compat.h>
-#include <linux/sched.h>
-#include <linux/sched/rt.h>
-#include <linux/hrtimer.h>
-#include <linux/kthread.h>
 
 
 #define AKM_DEBUG_IF			1//0
@@ -102,10 +98,6 @@ struct akm_compass_data {
 	int	use_hrtimer;
 	struct mutex op_mutex;
 	struct hrtimer	poll_timer;
-	struct hrtimer work_timer;
-	struct completion report_complete;
-	struct task_struct *thread;
-	bool hrtimer_running;
 };
 
 static struct akm_compass_data *s_akm;
@@ -485,19 +477,20 @@ static int AKECS_GetData_Poll(
 	}
 
 	/* Check ST bit */
-/*	if (!(AKM_DRDY_IS_HIGH(buffer[0])))
+	if (!(AKM_DRDY_IS_HIGH(buffer[0])))
 	{
-		dev_err(&akm->i2c->dev, "drdy is low use prev data");
-		//return -EAGAIN;
+		//dev_err(&akm->i2c->dev, "drdy is low use prev data");
+		return -EAGAIN;
 
-	 Read rest data 
+	/* Read rest data 
 	buffer[1] = AKM_REG_STATUS + 1;
 	err = akm_i2c_rxdata(akm->i2c, &(buffer[1]), AKM_SENSOR_DATA_SIZE-1);
 	if (err < 0) {
 		dev_err(&akm->i2c->dev, "%s failed.", __func__);
 		return err;
-	}
 */
+	}
+
 	memcpy(rbuf, buffer, size);
 	atomic_set(&akm->drdy, 0);
 
@@ -1099,23 +1092,33 @@ static int akm_enable_set(struct akm_compass_data *akm,
 {
 	int ret = 0;
 	uint8_t mode;
-	ktime_t poll_delay;
-
 	mutex_lock(&akm->op_mutex);
 	if (enable) {
 		mode = akm_select_frequency(akm->delay[MAG_DATA_FLAG]);
 		AKECS_SetMode(akm, mode);
-		if (akm->enable_flag == 2) {
-			hrtimer_cancel(&akm->work_timer);
+		
+		if (akm->use_hrtimer) {
+			if (akm->enable_flag == 2) {
+				hrtimer_cancel(&akm->poll_timer);
+				cancel_work_sync(&akm->dwork.work);
+			}
+			hrtimer_start(&akm->poll_timer,
+				ns_to_ktime(akm->delay[MAG_DATA_FLAG]*1000000),
+				HRTIMER_MODE_REL);
+		} else {
+			if (akm->enable_flag == 2) {
+				cancel_delayed_work_sync(&akm->dwork);
+			}
+			queue_delayed_work(akm->work_queue, &akm->dwork, akm->delay[MAG_DATA_FLAG] * HZ /1000);
 		}
 
-		if (akm->delay[MAG_DATA_FLAG] > 0) {
-
-			poll_delay = ktime_set(0, akm->delay[MAG_DATA_FLAG] * NSEC_PER_MSEC);
-		}
-		hrtimer_start(&akm->work_timer, poll_delay, HRTIMER_MODE_REL);
 	} else {
-		hrtimer_cancel(&akm->work_timer);
+		if (akm->use_hrtimer) {
+			hrtimer_cancel(&akm->poll_timer);
+			cancel_work_sync(&akm->dwork.work);
+		} else {
+			cancel_delayed_work_sync(&akm->dwork);
+		}
 		AKECS_SetMode(akm, AKM_MODE_POWERDOWN);
 	}
 exit:
@@ -1836,6 +1839,7 @@ static int akm_report_data(struct akm_compass_data *akm)
 	int mag_x, mag_y, mag_z;
 	int tmp;
 	int count = 10;
+
 	ret = AKECS_GetData_Poll(akm, dat_buf, AKM_SENSOR_DATA_SIZE);
 	tmp = (int)((int16_t)(dat_buf[2]<<8)+((int16_t)dat_buf[1]));
 	tmp = tmp * akm->sense_conf[0] / 128 + tmp;
@@ -1916,49 +1920,33 @@ static int akm_report_data(struct akm_compass_data *akm)
 	return 0;
 }
 
-/*
- * general polling func
- * create a seperate work queue for all sensor drivers ?
- */
-static int report_event(void *data)
+static void akm_dev_poll(struct work_struct *work)
 {
-	int xyz[3] = { 0 };
-	struct akm_compass_data *pdata = data;
-	int ret = 0;
+	struct akm_compass_data *akm;
+	int ret;
+	
+	akm = container_of((struct delayed_work *)work,
+			struct akm_compass_data,  dwork);
 
-	while(1)
-	{
-		/* wait for report event */
-		wait_for_completion(&pdata->report_complete);
-		ret = akm_report_data(pdata);
-		if (ret < 0)
-			dev_warn(&pdata->i2c->dev, "Failed to report data\n");
+	ret = akm_report_data(akm);
+	if (ret < 0)
+		dev_warn(&akm->i2c->dev, "Failed to report data\n");
 
-	//	ret = AKECS_SetMode(data, AKM_MODE_SNG_MEASURE);
-	}
-
-	return 0;
+ret = AKECS_SetMode(akm, AKM_MODE_SNG_MEASURE);
+	if (!akm->use_hrtimer)
+		queue_delayed_work(akm->work_queue, &akm->dwork,akm->delay[MAG_DATA_FLAG] * HZ /1000);
 }
-
-static enum hrtimer_restart sensor_poll_work(struct hrtimer *timer)
+static enum hrtimer_restart akm_timer_func(struct hrtimer *timer)
 {
-	ktime_t poll_delay;
-	int ret = 0;
-	struct akm_compass_data *data = container_of((struct hrtimer *)timer,
-			struct akm_compass_data, work_timer);
-/*
-	if (data->state != STATE_EN) {
-		data->launched = 0;
-		return HRTIMER_NORESTART;
-	}*/
-	complete(&data->report_complete);
+	struct akm_compass_data *akm;
 
-	if (data->delay[MAG_DATA_FLAG] > 0) {
-		poll_delay = ktime_set(0, data->delay[MAG_DATA_FLAG] * NSEC_PER_MSEC);
-	}
-	hrtimer_start(&data->work_timer, poll_delay, HRTIMER_MODE_REL);
+	akm = container_of(timer, struct akm_compass_data, poll_timer);
 
-	return HRTIMER_NORESTART;
+	queue_work(akm->work_queue, &akm->dwork.work);
+	hrtimer_forward_now(&akm->poll_timer,
+			ns_to_ktime(akm->delay[MAG_DATA_FLAG]*1000000));
+
+	return HRTIMER_RESTART;
 }
 
 int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
@@ -1966,6 +1954,7 @@ int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	struct akm09911_platform_data *pdata;
 	int err = 0;
 	int i;
+	
 
 	dev_dbg(&client->dev, "start probing.");
 
@@ -2039,7 +2028,6 @@ int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		goto exit3;
 	}
 	input_set_drvdata(s_akm->input, s_akm);
-	struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
 
 	/***** IRQ setup *****/
 /*
@@ -2064,19 +2052,18 @@ int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	}
 	*/
 	s_akm->use_hrtimer = 0;
-	hrtimer_init(&s_akm->work_timer, CLOCK_MONOTONIC,HRTIMER_MODE_REL);
-	s_akm->work_timer.function = sensor_poll_work;
-	s_akm->hrtimer_running = false;
-
-	init_completion(&s_akm->report_complete);
-	s_akm->thread = kthread_run(report_event, s_akm, "sensor_report_event");
-	if (IS_ERR(s_akm->thread)) {
-		dev_err(&s_akm->i2c->dev,
-				"unable to create report_event thread\n");
-				goto exit0;
+	if (s_akm->use_hrtimer) {
+		hrtimer_init(&s_akm->poll_timer, CLOCK_MONOTONIC,
+				HRTIMER_MODE_REL);
+		s_akm->poll_timer.function = akm_timer_func;
+		s_akm->work_queue = alloc_workqueue("akm_poll_work",
+			WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_HIGHPRI, 1);
+		INIT_WORK(&s_akm->dwork.work, akm_dev_poll);
+	} else {
+		s_akm->work_queue = alloc_workqueue("akm_poll_work",
+				WQ_NON_REENTRANT, 0);
+		INIT_DELAYED_WORK(&s_akm->dwork, akm_dev_poll);
 	}
-	sched_setscheduler_nocheck(s_akm->thread, SCHED_FIFO, &param);
-
 
 	/***** misc *****/
 	err = misc_register(&akm_compass_dev);
