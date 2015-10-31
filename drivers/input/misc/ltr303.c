@@ -535,8 +535,8 @@ static uint16_t read_als_adc_value(struct ltr303_data *ltr303)
 		        ch0_val);
 	}
 	ch0_val &= ALS_VALID_MEASURE_MASK;
-	input_report_abs(ltr303->als_input_dev, ABS_MISC, ch0_val);
-	input_sync(ltr303->als_input_dev);
+	//input_report_abs(ltr303->als_input_dev, ABS_MISC, ch0_val);
+	//input_sync(ltr303->als_input_dev);
 
 	/* ALS Ch1 */
  	ch1_val = (uint16_t)buffer[0] | ((uint16_t)buffer[1] << 8);
@@ -550,8 +550,8 @@ static uint16_t read_als_adc_value(struct ltr303_data *ltr303)
 		        ch1_val);
 	}
 	ch1_val &= ALS_VALID_MEASURE_MASK;
-	input_report_abs(ltr303->als_input_dev, ABS_MISC, ch1_val);
-	input_sync(ltr303->als_input_dev);
+	//input_report_abs(ltr303->als_input_dev, ABS_MISC, ch1_val);
+	//input_sync(ltr303->als_input_dev);
 
 	buffer[0] = LTR303_ALS_STATUS;
 	ret = I2C_Read(buffer, 1);
@@ -1212,7 +1212,6 @@ static void ltr303_schedwork(struct work_struct *work)
 }
 
 static DECLARE_WORK(irq_workqueue, ltr303_schedwork);
-
 
 /* IRQ Handler */
 static irqreturn_t ltr303_irq_handler(int irq, void *data)
