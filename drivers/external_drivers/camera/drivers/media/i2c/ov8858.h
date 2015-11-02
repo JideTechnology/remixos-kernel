@@ -1170,7 +1170,7 @@ static const struct ov8858_reg ov8858_8M[] = {
 };
 
 static const struct ov8858_reg ov8858_6M[] = {
-#if 0
+#if 1
 	{OV8858_8BIT, 0x0100, 0x00}, /* software_standby */
 	{OV8858_8BIT, 0x3778, 0x16}, /* Unknown */
 	{OV8858_8BIT, 0x3800, 0x00}, /* h_crop_start high */
@@ -1347,7 +1347,7 @@ static const struct ov8858_reg ov8858_1080P_60[] = {
 };
 
 static const struct ov8858_reg ov8858_1080P_30[] = {
-#if 0
+#if 1
 	{OV8858_8BIT, 0x0100, 0x00}, /* software_standby */
 	{OV8858_8BIT, 0x3778, 0x17}, /* Unknown */
 	{OV8858_8BIT, 0x3800, 0x02}, /* h_crop_start high */
@@ -1462,7 +1462,7 @@ static const struct ov8858_reg ov8858_1080P_30[] = {
 };
 
 static const struct ov8858_reg ov8858_1640x1232[] = {
-#if 0
+#if 1
 	{OV8858_8BIT, 0x0100, 0x00}, /* software_standby */
 	{OV8858_8BIT, 0x3778, 0x16}, /* Unknown */
 	{OV8858_8BIT, 0x3800, 0x00}, /* h_crop_start high */
@@ -1566,7 +1566,7 @@ static const struct ov8858_reg ov8858_1640x1232[] = {
 };
 
 static const struct ov8858_reg ov8858_1640x926[] = {
-#if 0
+#if 1
 	{OV8858_8BIT, 0x0100, 0x00}, /* software_standby */
 	{OV8858_8BIT, 0x3778, 0x16}, /* Unknown */
 	{OV8858_8BIT, 0x3800, 0x00}, /* h_crop_start high */
