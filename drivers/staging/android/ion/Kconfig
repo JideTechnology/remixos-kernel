@@ -38,3 +38,11 @@ config ION_SUNXI
 	depends on ARCH_SUNXI && ION
 	help
 	  ION for sunxi platforms.
+
+config ION_POOL_CACHE_POLICY
+	bool "Ion set page pool cache policy"
+	depends on ION
+	default y if X86
+	help
+	  Choose this option if need to explicity set cache policy of the
+	  pages in the page pool.
