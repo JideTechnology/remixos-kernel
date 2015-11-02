@@ -2065,6 +2065,10 @@ zonelist_scan:
 		}
 
 try_this_zone:
+#ifdef CONFIG_CMA
+		if (gfp_mask & ___GFP_WRITE)
+			migratetype = MIGRATE_RECLAIMABLE;
+#endif
 		page = buffered_rmqueue(preferred_zone, zone, order,
 						gfp_mask, migratetype);
 		if (page)
