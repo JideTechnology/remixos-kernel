@@ -199,8 +199,10 @@ static void hsu_set_termios(struct uart_port *p, struct ktermios *termios,
 	/* DesignWare UART CTS is auto controlled by HW IP,
 	 * ignore sw-assisted CTS flow control
 	 */
-	if (termios->c_cflag & CRTSCTS)
+	if (termios->c_cflag & CRTSCTS) {
 		clear_bit(ASYNCB_CTS_FLOW, &tport->flags);
+		p->flags |= UPF_HARD_FLOW;
+	}
 
 	serial_hsu_do_set_termios(p, termios, old);
 }
