@@ -503,32 +503,37 @@ int sunxi_check_r1_ready(struct sunxi_mmc_host *smc_host, unsigned ms)
 }
 
 
-int sunxi_check_r1_ready_may_sleep(struct sunxi_mmc_host *smc_host, unsigned ms)
+int sunxi_check_r1_ready_may_sleep(struct sunxi_mmc_host *smc_host)
 {
 	unsigned cnt = 0;
-	do {
-		if (!(mmc_readl(smc_host, REG_STAS) & SDXC_CARD_DATA_BUSY)){
-			break;
-		}
-		if(cnt/1000){
-			//print to tell that we are waiting busy
-			dev_info(mmc_dev(smc_host->mmc),\
-				"*Has wait r1 rdy %d ms*\n", cnt);
-		}
-		//msleep(1);
-		usleep_range(1000,1200);
-	} while ((cnt++)<ms);
+        const unsigned int delay_max_cnt[]={10000,100,0x7fffffff};
+        int i = 0;
 
-	if ((mmc_readl(smc_host, REG_STAS) & SDXC_CARD_DATA_BUSY)) {
-		dev_err(mmc_dev(smc_host->mmc), \
-				"Wait r1 rdy %d ms timeout\n", ms);
-		return -1;
-	} else{
-		dev_info(mmc_dev(smc_host->mmc), \
-			"*All wait r1 rdy %d ms*\n", cnt);
-		return 0;
+        for(i=0;i<3;i++,cnt=0){
+            do {
+                if (!(mmc_readl(smc_host, REG_STAS) & SDXC_CARD_DATA_BUSY)){
+                    dev_dbg(mmc_dev(smc_host->mmc), \
+                            "Wait r1 rdy ok c%d i%d \n",cnt,i);
+                    return 0;
+                }
+                if(cnt/2000){
+                    //print to tell that we are waiting busy
+                    dev_dbg(mmc_dev(smc_host->mmc),\
+                            "Has wait r1 rdy c%d i%d\n", cnt,i);
+                }
+                if(i==0){
+                    ndelay(1);
+                }else if(i==1){
+                    usleep_range(10,20);
+                }else{
+                    usleep_range(1000,1200);
+                }
+            } while ((cnt++)<delay_max_cnt[i]);
 	}
-	return 0;
+
+        dev_err(mmc_dev(smc_host->mmc), \
+                "Wait r1 rdy timeout\n");
+        return -1;
 }
 
 
@@ -552,7 +557,8 @@ static irqreturn_t sunxi_mmc_handle_bottom_half(int irq, void *dev_id)
 		//Here,we don't use the timeout value in mrq_busy->busy_timeout
 		//Because this value may not right for example when useing TRIM
 		//So we use max wait time and print time value every 1 second
-		sunxi_check_r1_ready_may_sleep(host,0x7ffffff);
+		//sunxi_check_r1_ready_may_sleep(host,0x7ffffff);
+                sunxi_check_r1_ready_may_sleep(host);
     	spin_lock_irqsave(&host->lock, iflags);
 		host->mrq_busy = NULL;
     	spin_unlock_irqrestore(&host->lock, iflags);
@@ -1531,7 +1537,6 @@ static int sunxi_mmc_probe(struct platform_device *pdev)
 	mmc->f_max		= 50000000;
 	mmc->caps	       |= MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED | MMC_CAP_ERASE \
 						| MMC_CAP_WAIT_WHILE_BUSY;
-	//mmc->caps2	  |= MMC_CAP2_HS400_1_8V;
 	mmc->max_busy_timeout = 0x7ffffff;//ms
 
 #ifndef CONFIG_REGULATOR
