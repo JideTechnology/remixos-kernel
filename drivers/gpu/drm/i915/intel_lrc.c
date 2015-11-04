@@ -3169,7 +3169,7 @@ int intel_logical_rings_init(struct drm_device *dev)
 			goto cleanup_vebox_ring;
 	}
 
-	ret = i915_gem_set_seqno(dev, ((u32)~0 - 0x1000));
+	ret = i915_gem_set_seqno(dev, 1);
 	if (ret)
 		goto cleanup_bsd2_ring;
 
