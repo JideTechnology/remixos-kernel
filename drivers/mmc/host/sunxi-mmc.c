@@ -503,38 +503,47 @@ int sunxi_check_r1_ready(struct sunxi_mmc_host *smc_host, unsigned ms)
 }
 
 
-int sunxi_check_r1_ready_may_sleep(struct sunxi_mmc_host *smc_host)
+static int sunxi_check_r1_ready_may_sleep(struct sunxi_mmc_host *smc_host)
 {
-	unsigned cnt = 0;
-        const unsigned int delay_max_cnt[]={10000,100,0x7fffffff};
+	unsigned int cnt = 0;
+        const unsigned int delay_max_cnt[]={1000,0x7fffffff};
         int i = 0;
+        unsigned long expire = jiffies + msecs_to_jiffies(10);
 
-        for(i=0;i<3;i++,cnt=0){
+        /*****dead wait******/
+        do {
+            if (!(mmc_readl(smc_host, REG_STAS) & SDXC_CARD_DATA_BUSY))
+                break;
+        } while (time_before(jiffies, expire));
+
+        if (!(mmc_readl(smc_host, REG_STAS) & SDXC_CARD_DATA_BUSY)) {
+            dev_dbg(mmc_dev(smc_host->mmc), \
+                    "dead Wait r1 rdy ok\n");
+            return 0;
+        }
+
+
+        /*****no dead wait*****/
+        for(i=0;i<2;i++,cnt=0){
             do {
                 if (!(mmc_readl(smc_host, REG_STAS) & SDXC_CARD_DATA_BUSY)){
                     dev_dbg(mmc_dev(smc_host->mmc), \
                             "Wait r1 rdy ok c%d i%d \n",cnt,i);
                     return 0;
                 }
-                if(cnt/2000){
+                if(cnt/1000){
                     //print to tell that we are waiting busy
-                    dev_dbg(mmc_dev(smc_host->mmc),\
+                    dev_info(mmc_dev(smc_host->mmc),\
                             "Has wait r1 rdy c%d i%d\n", cnt,i);
                 }
-                if(i==0){
-                    ndelay(1);
-                }else if(i==1){
-                    usleep_range(10,20);
-                }else{
-                    usleep_range(1000,1200);
-                }
+                i?usleep_range(1000,1200):usleep_range(10,20);
             } while ((cnt++)<delay_max_cnt[i]);
 	}
 
-        dev_err(mmc_dev(smc_host->mmc), \
-                "Wait r1 rdy timeout\n");
+        dev_err(mmc_dev(smc_host->mmc),"Wait r1 rdy timeout\n");
         return -1;
 }
+
 
 
 
