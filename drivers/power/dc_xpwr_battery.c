@@ -46,6 +46,7 @@
 #include <linux/power/dc_xpwr_battery.h>
 #include <linux/power/battery_id.h>
 #include <linux/efi.h>
+#include "power_supply_charger.h"
 
 #define DC_PS_STAT_REG			0x00
 #define PS_STAT_VBUS_TRIGGER		(1 << 0)
@@ -192,6 +193,10 @@
 
 #define DEV_NAME			"dollar_cove_battery"
 
+#define  SCH_SEC 90
+#define  CAP_THR 90
+static int f_capacity = CAP_THR;
+static bool f_start = false;
 enum {
 	QWBTU_IRQ = 0,
 	WBTU_IRQ,
@@ -212,6 +217,7 @@ struct pmic_fg_info {
 	int			btemp;
 	/* Worker to monitor status and faults */
 	struct delayed_work status_monitor;
+	struct delayed_work capacity_monitor;
 };
 
 static enum power_supply_property pmic_fg_props[] = {
@@ -740,7 +746,16 @@ static int pmic_fg_get_battery_property(struct power_supply *psy,
 		ret = pmic_fg_get_capacity(info);
 		if (ret < 0)
 			goto pmic_fg_read_err;
+		if (ret >= CAP_THR) {
+			if (f_start == true)
+				ret = f_capacity;
+			else
+				f_capacity = ret;
+			if (!delayed_work_pending(&info->capacity_monitor))
+				schedule_delayed_work(&info->capacity_monitor,
+							SCH_SEC*HZ);
 
+		}
 		val->intval = ret;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
@@ -848,6 +863,60 @@ static int pmic_fg_set_battery_property(struct power_supply *psy,
 	return ret;
 }
 
+static void fg_capacity_monitor(struct work_struct *work)
+{
+	int cur, ret, r_capacity;
+	struct power_supply *psy;
+	struct pmic_fg_info *info = container_of(work,
+		struct pmic_fg_info, capacity_monitor.work);
+
+	psy = power_supply_get_by_name ("dollar_cove_charger");
+
+	r_capacity = pmic_fg_get_capacity(info);
+	if (r_capacity < 0) {
+		pr_info("%s get capacity failed %d\n", __func__, r_capacity);
+		schedule_delayed_work(&info->capacity_monitor, SCH_SEC*HZ);
+	}
+
+	if (r_capacity == 100)
+		return;
+	if (IS_ONLINE(psy)) {
+		ret = pmic_fg_get_current(info, &cur);
+		if (ret < 0) {
+			pr_info("%s get current failed %d\n", __func__, ret);
+			goto err;
+		}
+		if (cur < 50) {
+			if (f_capacity < r_capacity) {
+				f_capacity = r_capacity;
+			} else  {
+				f_capacity++;
+				if (f_capacity > 100)
+					return;
+			}
+			f_start = true;
+			power_supply_changed(&info->bat);
+		} else {
+			f_start = false;
+			f_capacity = r_capacity;
+		}
+	} else { //off line
+		if (f_capacity > r_capacity) {
+			f_start = true;
+			f_capacity --;
+			power_supply_changed(&info->bat);
+		} else {
+			f_start = false;
+		}
+	}
+err:
+	if (r_capacity > CAP_THR) {
+		schedule_delayed_work(&info->capacity_monitor,
+						SCH_SEC*HZ);
+	} else {
+		f_start = false;
+	}
+}
 static void pmic_fg_status_monitor(struct work_struct *work)
 {
 	struct pmic_fg_info *info = container_of(work,
@@ -1300,6 +1369,7 @@ static int pmic_fg_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, info);
 	mutex_init(&info->lock);
 	INIT_DELAYED_WORK(&info->status_monitor, pmic_fg_status_monitor);
+	INIT_DELAYED_WORK(&info->capacity_monitor, fg_capacity_monitor);
 
 	pmic_fg_init_config_regs(info);
 	pmic_fg_init_psy(info);
