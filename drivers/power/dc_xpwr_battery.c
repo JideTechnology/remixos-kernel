@@ -194,7 +194,7 @@
 #define DEV_NAME			"dollar_cove_battery"
 
 #define  SCH_SEC 90
-#define  CAP_THR 90
+#define  CAP_THR 70
 static int f_capacity = CAP_THR;
 static bool f_start = false;
 enum {
@@ -756,7 +756,7 @@ static int pmic_fg_get_battery_property(struct power_supply *psy,
 							SCH_SEC*HZ);
 
 		}
-		val->intval = ret;
+		val->intval = (ret > 100)?100:ret;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		ret = pmic_fg_get_btemp(info, &value);
@@ -891,26 +891,34 @@ static void fg_capacity_monitor(struct work_struct *work)
 				f_capacity = r_capacity;
 			} else  {
 				f_capacity++;
-				if (f_capacity > 100)
+				if (f_capacity > 100) {
+					f_capacity = 100;
 					return;
+				}
 			}
 			f_start = true;
 			power_supply_changed(&info->bat);
 		} else {
-			f_start = false;
-			f_capacity = r_capacity;
+			if (f_start == true && abs(f_capacity-r_capacity) > 1) {
+				;//do nothing
+			} else {
+				f_start = false;
+				f_capacity = r_capacity;
+			}
 		}
 	} else { //off line
 		if (f_capacity > r_capacity) {
 			f_start = true;
-			f_capacity --;
+			f_capacity--;
+			if (f_capacity < 0)
+				f_capacity = 0;
 			power_supply_changed(&info->bat);
 		} else {
 			f_start = false;
 		}
 	}
 err:
-	if (r_capacity > CAP_THR) {
+	if (r_capacity >= CAP_THR) {
 		schedule_delayed_work(&info->capacity_monitor,
 						SCH_SEC*HZ);
 	} else {
