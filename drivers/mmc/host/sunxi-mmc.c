@@ -531,7 +531,7 @@ static int sunxi_check_r1_ready_may_sleep(struct sunxi_mmc_host *smc_host)
                             "Wait r1 rdy ok c%d i%d \n",cnt,i);
                     return 0;
                 }
-                if(cnt/1000){
+                if(i?cnt/5000:cnt/500000){
                     //print to tell that we are waiting busy
                     dev_info(mmc_dev(smc_host->mmc),\
                             "Has wait r1 rdy c%d i%d\n", cnt,i);
