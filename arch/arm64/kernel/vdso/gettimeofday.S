@@ -247,14 +247,25 @@ ENTRY(__do_get_tspec)
 	mul	x10, x10, x11
 
 	/* Use the kernel time to calculate the new timespec. */
-	mov	x11, #NSEC_PER_SEC_LO16
-	movk	x11, #NSEC_PER_SEC_HI16, lsl #16
-	lsl	x11, x11, x12
-	add	x15, x10, x14
-	udiv	x14, x15, x11
-	add	x10, x13, x14
-	mul	x13, x14, x11
-	sub	x11, x15, x13
+	mov x15, #NSEC_PER_SEC_LO16
+	movk x15, #NSEC_PER_SEC_HI16, lsl #16
+	lsl x15, x15, x12
+	add x11, x10, x14
+	mov x10, x13
+
+	/*
+	 * Use a loop instead of a division as this is most
+	 * likely going to be only giving a 1 or 0 and that is faster
+	 * than a division.
+	 */
+	cmp x11, x15
+	b.lt 1f
+2:
+	sub x11, x11, x15
+	add x10, x10, 1
+	cmp x11, x15
+	b.ge 2b
+1:
 
 	ret
 	.cfi_endproc
