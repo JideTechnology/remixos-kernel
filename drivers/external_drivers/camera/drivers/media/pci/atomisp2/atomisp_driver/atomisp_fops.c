@@ -470,7 +470,7 @@ int atomisp_qbuffers_to_css(struct atomisp_sub_device *asd)
 	}
 
 #ifdef ISP2401_NEW_INPUT_SYSTEM
-	if (asd->isp->inputs[asd->input_curr].type == SOC_CAMERA || raw_mode) {
+	if (asd->copy_mode) {
 		css_capture_pipe_id = CSS_PIPE_ID_COPY;
 		css_preview_pipe_id = CSS_PIPE_ID_COPY;
 		css_video_pipe_id = CSS_PIPE_ID_COPY;

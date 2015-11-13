@@ -523,28 +523,34 @@ static int axp_regulator_set(int sel_reg, u8 setting, int ctrl_reg, int shift, b
 
 static int axp_v1p8_on(struct gmin_subdev *gs)
 {
-	int ret;
+	int ret;	
+	struct i2c_client *client = v4l2_get_subdevdata(gs->subdev);	
+	struct device *dev = client ? &client->dev : NULL;
 	ret = axp_regulator_set(gs->eldo2_sel_reg, gs->eldo2_1p8v,
-		ELDO_CTRL_REG, gs->eldo2_ctrl_shift, true);
-	if (ret)
-		return ret;
+					ELDO_CTRL_REG, gs->eldo2_ctrl_shift, true);
 
 	pr_err("axp_v1p8_on.\n");
 	/* This sleep comes out of the gc2235 driver, which is the
 	 * only one I currently see that wants to set both 1.8v rails. */
 	usleep_range(110, 150);
 
-	ret = axp_regulator_set(gs->eldo1_sel_reg, gs->eldo1_1p8v,
-		ELDO_CTRL_REG, gs->eldo1_ctrl_shift, true);
-	if (ret)
-		axp_regulator_set(gs->eldo2_sel_reg, gs->eldo2_1p8v,
-		ELDO_CTRL_REG, gs->eldo2_ctrl_shift, false);
+	if (strcmp(dev->driver->acpi_match_table->id,"OVTI2680") ==0)
+	{
+		ret = axp_regulator_set(gs->eldo1_sel_reg, gs->eldo1_1p8v,
+				ELDO_CTRL_REG, gs->eldo1_ctrl_shift, true);
+		if (ret)
+			axp_regulator_set(gs->eldo1_sel_reg, gs->eldo2_1p8v,
+				ELDO_CTRL_REG, gs->eldo1_ctrl_shift, false);
+	}
 	
-	ret = axp_regulator_set(gs->fldo2_sel_reg, gs->fldo2_1p2v,
-		FLDO_CTRL_REG, gs->fldo2_ctrl_shift, true);
-	if (ret)
-		axp_regulator_set(gs->fldo2_sel_reg, gs->fldo2_1p2v,
-		FLDO_CTRL_REG, gs->fldo2_ctrl_shift, true);
+	if (strcmp(dev->driver->acpi_match_table->id,"INT3477") ==0)
+	{
+		ret = axp_regulator_set(gs->fldo2_sel_reg, gs->fldo2_1p2v,
+				FLDO_CTRL_REG, gs->fldo2_ctrl_shift, true);
+		if (ret)
+			axp_regulator_set(gs->fldo2_sel_reg, gs->fldo2_1p2v,
+				FLDO_CTRL_REG, gs->fldo2_ctrl_shift, false);
+	}
 	/*
 	ret = axp_regulator_set(gs->aldo1_sel_reg, gs->aldo1_2p8v,
 		ELDO_CTRL_REG, gs->aldo1_ctrl_shift, true);
@@ -559,16 +565,26 @@ static int axp_v1p8_on(struct gmin_subdev *gs)
 static int axp_v1p8_off(struct gmin_subdev *gs)
 {
 	int ret;
+	struct i2c_client *client = v4l2_get_subdevdata(gs->subdev);	
+	struct device *dev = client ? &client->dev : NULL;
 
 	pr_err("axp_v1p8_off.\n");
-	ret = axp_regulator_set(gs->eldo1_sel_reg, gs->eldo1_1p8v,
-		ELDO_CTRL_REG, gs->eldo1_ctrl_shift, false);
-	ret |= axp_regulator_set(gs->eldo2_sel_reg, gs->eldo2_1p8v,
+	ret = axp_regulator_set(gs->eldo2_sel_reg, gs->eldo2_1p8v,
 		ELDO_CTRL_REG, gs->eldo2_ctrl_shift, false);
 
 	
-	ret |= axp_regulator_set(gs->fldo2_sel_reg, gs->fldo2_1p2v,
-		FLDO_CTRL_REG, gs->fldo2_ctrl_shift, false);
+	if (strcmp(dev->driver->acpi_match_table->id,"OVTI2680") ==0)
+	{
+		ret |= axp_regulator_set(gs->eldo1_sel_reg, gs->eldo1_1p8v,
+			ELDO_CTRL_REG, gs->eldo1_ctrl_shift, false);
+	}
+
+	
+	if (strcmp(dev->driver->acpi_match_table->id,"INT3477") ==0)
+	{
+		ret |= axp_regulator_set(gs->fldo2_sel_reg, gs->fldo2_1p2v,
+			FLDO_CTRL_REG, gs->fldo2_ctrl_shift, false);
+	}
 	/*
 	ret |= axp_regulator_set(gs->aldo1_sel_reg, gs->aldo1_2p8v,
 		ELDO_CTRL_REG, gs->aldo1_ctrl_shift, false);

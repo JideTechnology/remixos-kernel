@@ -406,6 +406,15 @@ int atomisp_subdev_set_selection(struct v4l2_subdev *sd,
 			padding_h = 12;
 		}
 
+		/* Adjust ISP padding for CHT OV2740 1080p video recording case. 
+		 * since the maxinum resolution of front camera ov2740 is 1932x1092 
+		 * and cannot use pad_w > 12*/
+		if (!strncmp(isp->inputs[isp_sd->input_curr].camera->name,
+				"ov2740", 6) && crop[pad]->height == 1092) {
+			padding_w = 12;
+			padding_h = 12;
+		}
+
 		if (isp->inputs[isp_sd->input_curr].type == SOC_CAMERA) {
 			padding_w = 0;
 			padding_h = 0;

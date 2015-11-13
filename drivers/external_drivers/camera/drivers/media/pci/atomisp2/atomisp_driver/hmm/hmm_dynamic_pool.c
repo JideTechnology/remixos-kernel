@@ -102,7 +102,8 @@ static void free_pages_to_dynamic_pool(void *pool,
 		/* free page directly back to system */
 		ret = set_pages_wb(page_obj->page, 1);
 		if (ret)
-			dev_err(atomisp_dev, "set page to WB err ...\n");
+			dev_err(atomisp_dev,
+				"set page to WB err ...ret=%d\n", ret);
 		/*
 		W/A: set_pages_wb seldom return value = -EFAULT
 		indicate that address of page is not in valid
@@ -110,7 +111,7 @@ static void free_pages_to_dynamic_pool(void *pool,
 		then, _free_pages would panic; Do not know why page
 		address be valid, it maybe memory corruption by lowmemory
 		*/
-		if (-EFAULT != ret) {
+		if (!ret) {
 			__free_pages(page_obj->page, 0);
 			hmm_mem_stat.sys_size--;
 		}
@@ -128,8 +129,9 @@ static void free_pages_to_dynamic_pool(void *pool,
 		/* free page directly */
 		ret = set_pages_wb(page_obj->page, 1);
 		if (ret)
-			dev_err(atomisp_dev, "set page to WB err ...\n");
-		if (-EFAULT != ret) {
+			dev_err(atomisp_dev,
+				"set page to WB err ...ret=%d\n", ret);
+		if (!ret) {
 			__free_pages(page_obj->page, 0);
 			hmm_mem_stat.sys_size--;
 		}
@@ -210,8 +212,9 @@ static void hmm_dynamic_pool_exit(void **pool)
 		/* can cause thread sleep, so cannot be put into spin_lock */
 		ret = set_pages_wb(hmm_page->page, 1);
 		if (ret)
-			dev_err(atomisp_dev, "set page to WB err...\n");
-		if (-EFAULT != ret) {
+			dev_err(atomisp_dev,
+				"set page to WB err...ret=%d\n", ret);
+		if (!ret) {
 			__free_pages(hmm_page->page, 0);
 			hmm_mem_stat.dyc_size--;
 			hmm_mem_stat.sys_size--;
