@@ -64,10 +64,22 @@ ENTRY(__kernel_gettimeofday)
 	bl	__do_get_tspec
 	seqcnt_check w9, 1b
 
-	/* Convert ns to us. */
-	mov	x13, #1000
-	lsl	x13, x13, x12
-	udiv	x11, x11, x13
+	/* Undo the shift. */
+        lsr     x11, x11, x12
+
+	/* Convert ns to us (division by 1000 by using multiply high).
+	 * This is how GCC converts the division by 1000 into.
+	 * This is faster than divide on most cores.
+	 */
+        mov     x13, 63439
+        movk    x13, 0xe353, lsl 16
+        lsr     x11, x11, 3
+        movk    x13, 0x9ba5, lsl 32
+        movk    x13, 0x20c4, lsl 48
+	/* x13 = 0x20c49ba5e353f7cf */
+        umulh   x11, x11, x13
+        lsr     x11, x11, 4
+
 	stp	x10, x11, [x0, #TVAL_TV_SEC]
 2:
 	/* If tz is NULL, return 0. */
