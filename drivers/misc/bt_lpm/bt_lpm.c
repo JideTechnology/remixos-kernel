@@ -30,8 +30,8 @@
 #define BT_WAKE_HOST_GPIO_LOW_ACTIVE
 
 enum {
-	gpio_wake_acpi_idx,
 	gpio_enable_bt_acpi_idx,
+	gpio_wake_acpi_idx,
 	host_wake_acpi_idx
 };
 static struct gpio_desc *bt_lpm_gpiod;
