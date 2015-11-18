@@ -114,7 +114,7 @@ extern unsigned int gsl_mask_tiaoping(void);
 #if 1
 static unsigned int gsl_config_data_id[] =
 {
-	0x810e7b,  
+	0x81cf1a,  
 	0x200,
 	0,0,
 	0,
@@ -252,7 +252,7 @@ static const struct fw_data GSLX68X_FW_1[] = {
 {0x78,0x00000000},
 {0x7c,0x1019101a},
 {0xf0,0x3},
-{0x00,0x8c39333f},
+{0x00,0x8c39333e},
 {0x04,0x00000000},
 {0x08,0x00000000},
 {0x0c,0x00000000},
@@ -357,7 +357,7 @@ static const struct fw_data GSLX68X_FW_1[] = {
 {0x0c,0x04020402},
 {0x10,0x00000032},
 {0x14,0x140a010a},
-{0x18,0x00000000},
+{0x18,0x00000001},
 {0x1c,0x00000001},
 {0x20,0x00002904},
 {0x24,0x00000320},
@@ -5111,3 +5111,4 @@ static const struct fw_data GSLX68X_FW_1[] = {
 
 };
 #endif
+
