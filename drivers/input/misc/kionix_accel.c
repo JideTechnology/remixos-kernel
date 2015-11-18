@@ -1135,7 +1135,6 @@ static ssize_t kionix_accel_set_enable(struct device *dev, struct device_attribu
 	struct input_dev *input_dev = acceld->input_dev;
 	char *buf2;
 	const int enable_count = 1;
-	unsigned int enable;
 	int err = 0;
 	long en = 0;
 
@@ -1244,9 +1243,7 @@ static ssize_t kionix_accel_get_direct(struct device *dev,
 {
 	unsigned int direction = 0;
 	struct i2c_client *client = to_i2c_client(dev);
-	struct kionix_accel_driver *acceld = i2c_get_clientdata(client);
 
-	//return sprintf(buf, "%d\n", accel_pdata.accel_direction);
 	return sprintf(buf, "%d\n", direction);
 }
 
@@ -1556,9 +1553,9 @@ static int  kionix_accel_probe(struct i2c_client *client,
 	// const struct kionix_accel_platform_data *accel_pdata = client->dev.platform_data;
 	struct kionix_accel_driver *acceld;
 	int err;
-	struct proc_dir_entry *proc_dir, *proc_entry;
 	const struct acpi_device_id *aid;
-        struct device *dev = &client->dev;
+	struct device *dev = &client->dev;
+	struct proc_dir_entry *proc_dir, *proc_entry;
 
 
 	if (!client)
@@ -1747,7 +1744,7 @@ static int  kionix_accel_probe(struct i2c_client *client,
 
 	if (acceld->accel_drdy) {
 		err = request_threaded_irq(client->irq, NULL, kionix_accel_isr, \
-					   IRQF_TRIGGER_RISING | IRQF_ONESHOT, \
+					   IRQF_TRIGGER_LOW | IRQF_ONESHOT, \
 					   KIONIX_ACCEL_IRQ, acceld);
 		if (err) {
 			KMSGERR(&acceld->client->dev, "%s: request_threaded_irq returned err = %d\n", __func__, err);
@@ -1764,7 +1761,6 @@ static int  kionix_accel_probe(struct i2c_client *client,
 		KMSGERR(&acceld->client->dev, "%s: kionix_accel_power_on_init returned err = %d. Abort.\n", __func__, err);
 		goto err_free_irq;
 	}
-printk("%s......sysfs_create_group.....%s...\n", __func__, &client->dev.kobj);
 	err = sysfs_create_group(&client->dev.kobj, &kionix_accel_attribute_group);
 	if (err) {
 		KMSGERR(&acceld->client->dev, "%s: sysfs_create_group returned err = %d. Abort.\n", __func__, err);
