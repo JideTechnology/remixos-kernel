@@ -1588,8 +1588,7 @@ static int gsl_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
         /*request irq*/
         /* printk("GSL_request_threaded_irq irq =%d from GPIO %d, flag = %x, name = %s, result = %d\n",client->irq,gsl_pdata->irq_pin,IRQF_TRIGGER_FALLING,GSL_TS_NAME,err); */
 //	err = request_threaded_irq(client->irq, gsl_ts_interrupt_isr, gsl_ts_interrupt, IRQF_TRIGGER_FALLING, client->dev.driver->name, ddata);
-        /* err = request_irq(ddata->irq, gsl_ts_interrupt, IRQF_TRIGGER_FALLING, GSL_TS_NAME, ddata); */
-        err = request_irq(ddata->irq, gsl_ts_interrupt, IRQF_TRIGGER_RISING, GSL_TS_NAME, ddata);
+        err = request_irq(ddata->irq, gsl_ts_interrupt, IRQF_TRIGGER_FALLING, GSL_TS_NAME, ddata);
 	if (err < 0) {
 		dev_err(&client->dev, "GSL_probe: request irq failed err = %d\n", err);
 		goto exit_irq_request_failed;
