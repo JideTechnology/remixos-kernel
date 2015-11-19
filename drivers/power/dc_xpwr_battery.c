@@ -871,6 +871,10 @@ static void fg_capacity_monitor(struct work_struct *work)
 		struct pmic_fg_info, capacity_monitor.work);
 
 	psy = power_supply_get_by_name ("dollar_cove_charger");
+	if (!psy) {
+		pr_err("Cannot find power supply: dollar_cove_charger\n");
+		return;
+	}
 
 	r_capacity = pmic_fg_get_capacity(info);
 	if (r_capacity < 0) {

@@ -283,7 +283,7 @@ static void bmg_i2c_delay(BMG160_U16 msec)
 static void bmg_dump_reg(struct i2c_client *client)
 {
 	int i;
-	u8 dbg_buf[64];
+	u8 dbg_buf[64] = "";
 	u8 dbg_buf_str[64 * 3 + 1] = "";
 
 	for (i = 0; i < BYTES_PER_LINE; i++) {
