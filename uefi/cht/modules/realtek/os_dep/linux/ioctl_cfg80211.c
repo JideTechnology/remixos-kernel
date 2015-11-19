@@ -1305,7 +1305,7 @@ _func_enter_;
 		wep_key_idx = param->u.crypt.idx;
 		wep_key_len = param->u.crypt.key_len;
 
-		if ((wep_key_idx > WEP_KEYS) || (wep_key_len <= 0))
+		if ((wep_key_idx >= WEP_KEYS) || (wep_key_len <= 0))
 		{
 			ret = -EINVAL;
 			goto exit;
@@ -1476,11 +1476,13 @@ _func_enter_;
 			list_for_each_entry(pWapiSta, &pWapiInfo->wapiSTAUsedList, list) {
 				if(_rtw_memcmp(pWapiSta->PeerMacAddr,param->sta_addr,6))
 				{
+					u8 * key_temp = param->u.crypt.key;
+					
 					_rtw_memcpy(pWapiSta->lastTxUnicastPN,WapiASUEPNInitialValueSrc,16);
 
 					pWapiSta->wapiUsk.bSet = true;
-					_rtw_memcpy(pWapiSta->wapiUsk.dataKey,param->u.crypt.key,16);
-					_rtw_memcpy(pWapiSta->wapiUsk.micKey,param->u.crypt.key+16,16);
+					_rtw_memcpy(pWapiSta->wapiUsk.dataKey,key_temp,16);
+					_rtw_memcpy(pWapiSta->wapiUsk.micKey, &key_temp[16],16);
 					pWapiSta->wapiUsk.keyId = param->u.crypt.idx ;
 					pWapiSta->wapiUsk.bTxEnable = true;
 
@@ -1505,9 +1507,10 @@ _func_enter_;
 			list_for_each_entry(pWapiSta, &pWapiInfo->wapiSTAUsedList, list) {
 				if(_rtw_memcmp(pWapiSta->PeerMacAddr,get_bssid(pmlmepriv),6))
 				{
+					u8 * key_temp = param->u.crypt.key;
 					pWapiSta->wapiMsk.bSet = true;
-					_rtw_memcpy(pWapiSta->wapiMsk.dataKey,param->u.crypt.key,16);
-					_rtw_memcpy(pWapiSta->wapiMsk.micKey,param->u.crypt.key+16,16);
+					_rtw_memcpy(pWapiSta->wapiMsk.dataKey,key_temp,16);
+					_rtw_memcpy(pWapiSta->wapiMsk.micKey,&key_temp[16],16);
 					pWapiSta->wapiMsk.keyId = param->u.crypt.idx ;
 					pWapiSta->wapiMsk.bTxEnable = false;
 					if(!pWapiSta->bSetkeyOk)

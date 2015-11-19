@@ -636,10 +636,10 @@ _func_exit_;
 _recv_indicatepkt_drop:
 
 	 //enqueue back to free_recv_queue
-	 if(precv_frame)
-		 rtw_free_recvframe(precv_frame, pfree_recv_queue);
+	 //if(precv_frame)
+	rtw_free_recvframe(precv_frame, pfree_recv_queue);
 
-	 return _FAIL;
+	return _FAIL;
 
 _func_exit_;
 
