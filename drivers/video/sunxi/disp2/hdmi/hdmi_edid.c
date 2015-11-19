@@ -297,6 +297,8 @@ static s32 edid_parse_vsdb(u8 * pbuf,u8 size)
 		is_hdmi = 1;
 		__inf("Find HDMI Vendor Specific DataBlock\n");
 	} else {
+		is_hdmi = 0;
+		is_yuv = 0;
 		return 0;
 	}
 
@@ -370,8 +372,8 @@ s32 hdmi_edid_parse(void)
 
 	memset(Device_Support_VIC,0,sizeof(Device_Support_VIC));
 	memset(EDID_Buf,0,sizeof(EDID_Buf));
-	is_hdmi = 0;
-	is_yuv = 0;
+	is_hdmi = 1;
+	is_yuv = 1;
 	is_exp = 0;
 	ddc_init();
 
@@ -401,7 +403,10 @@ s32 hdmi_edid_parse(void)
 		is_exp = 1;
 	}
 
-	if ( BlockCount > 0 ) {
+	if ( BlockCount == 0 ) {
+		is_hdmi = 0;
+		is_yuv = 0;
+	} else {
 		if ( BlockCount > 4 )
 			BlockCount = 4 ;
 
@@ -421,7 +426,8 @@ s32 hdmi_edid_parse(void)
 							__inf("rgb only test!\n");
 							is_yuv = 0;
 						}
-					}
+					} else
+						is_yuv = 0;
 				}
 
 				offset = EDID_Buf[0x80*i+2];
