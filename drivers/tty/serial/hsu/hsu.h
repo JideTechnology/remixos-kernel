@@ -59,12 +59,12 @@ enum hsu_wake_src {
 struct uart_hsu_port;
 
 struct hsu_port_pin_cfg {
-	int wake_gpio;
-	int wake_src;
-	int rx_gpio;
-	int tx_gpio;
-	int rts_gpio;
-	int cts_gpio;
+	struct gpio_desc *wake_gpio;
+	enum hsu_wake_src wake_src;
+	struct gpio_desc *rx_gpio;
+	struct gpio_desc *tx_gpio;
+	struct gpio_desc *rts_gpio;
+	struct gpio_desc *cts_gpio;
 };
 
 struct hsu_port_cfg {
@@ -238,7 +238,6 @@ struct uart_hsu_port {
 	void			*dma_priv;
 	struct hsu_dma_ops	*dma_ops;
 	int			dma_inited;
-	int			prev_mcr;
 	struct hsu_port_cfg	*port_cfg;
 };
 
@@ -263,13 +262,9 @@ static inline unsigned int serial_in(struct uart_hsu_port *up, int offset)
 {
 	unsigned int val;
 
-	if (offset > UART_MSR || up->hw_type == hsu_dw) {
+	if (offset > UART_MSR || up->hw_type == hsu_dw)
 		val = readl(up->port.membase + (offset << 2));
-		if (offset == UART_MSR && up->prev_mcr & UART_MCR_AFE) {
-			val |= UART_MSR_CTS;
-			val &= ~UART_MSR_DCTS;
-		}
-	} else
+	else
 		val = (unsigned int)readb(up->port.membase + offset);
 
 	return val;
