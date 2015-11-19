@@ -86,6 +86,7 @@ int mcd_mdm_cold_boot(void *data)
 	int ret = 0;
 	int rst = cpu->get_gpio_rst(cpu_data);
 	int pwr_on = cpu->get_gpio_pwr(cpu_data);
+	int pwr_off = cpu->get_gpio_pwr_off(cpu_data);
 	int pwr_on_ctrl = mdm->pdata->pwr_on_ctrl;
 
 	pr_err(DRVNAME ": mcd_mdm_cold_boot");
@@ -123,16 +124,21 @@ int mcd_mdm_cold_boot(void *data)
 		gpio_set_value(pwr_on, 0);
 	}else if (pwr_on_ctrl == POWER_ON_GPIO) {
 
-		pr_err(DRVNAME ": kz.mcd POWER_ON_GPIO rst:%d, pwr_on:%d",rst,pwr_on);
+		pr_err(DRVNAME ": %s kz.mcd rst:%d, pwr_on:%d, pwr_off:%d \n",__func__, rst,pwr_on,pwr_off);
 		gpio_set_value(rst, 0);
 		msleep(5);
 		gpio_set_value(pwr_on, 0);
+		msleep(5);
+		gpio_set_value(pwr_off, 0);
 
 		msleep(2000);
 
+		gpio_set_value(pwr_off, 1);
+		msleep(5);
 		gpio_set_value(rst, 1);
 		msleep(5);
 		gpio_set_value(pwr_on, 1);
+
 	}  else {
 		pr_err(DRVNAME ": Power on method not supported");
 		ret = -1;
@@ -186,11 +192,12 @@ int mcd_mdm_power_off(void *data)
 	int ret = 0;
 	int rst = cpu->get_gpio_rst(cpu_data);
 	int pwr_on = cpu->get_gpio_pwr(cpu_data);
+	int pwr_off = cpu->get_gpio_pwr_off(cpu_data);
 	int pwr_on_ctrl = mdm->pdata->pwr_on_ctrl;
 
-	pr_err(DRVNAME ": kz.mcd pwr_on_ctrl %d", pwr_on_ctrl);
+	pr_err(DRVNAME ": kz.mcd pwr_on_ctrl: %d\n", pwr_on_ctrl);
 	pwr_on_ctrl = 2;
-	pr_err(DRVNAME ": kz.mcd set pwr_on_ctrl to 2 anyway for H350");
+	pr_err(DRVNAME ": kz.mcd set pwr_on_ctrl to 2 anyway for H350\n");
 	if (pwr_on_ctrl == POWER_ON_PMIC_GPIO) {
 
 		if (rst == INVALID_GPIO)
@@ -214,10 +221,12 @@ int mcd_mdm_power_off(void *data)
 	}
 	else if (pwr_on_ctrl == POWER_ON_GPIO) {
 		/* Set the RESET_BB_N to 0 */
-		pr_err(DRVNAME ": kz.mcd POWER_ON_GPIO Set the RESET_BB_N rst:%d, pwr_on:%d",rst,pwr_on);
+		pr_err(DRVNAME ": %s kz.mcd rst:%d, pwr_on:%d, pwr_off: %d \n",__func__, rst,pwr_on,pwr_off);
 		gpio_set_value(rst, 0);
 		msleep(5);
 		gpio_set_value(pwr_on, 0);
+		msleep(5);
+		gpio_set_value(pwr_off, 0);
 	}
 	else {
 		pr_err(DRVNAME ": Power on method not supported");

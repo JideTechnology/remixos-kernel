@@ -68,6 +68,7 @@
 #include <linux/slab.h>
 #include "xhci.h"
 #include "xhci-trace.h"
+#include <linux/wakelock.h>
 
 static int handle_cmd_in_cmd_wait_list(struct xhci_hcd *xhci,
 		struct xhci_virt_device *virt_dev,
@@ -1664,6 +1665,7 @@ static void handle_device_notification(struct xhci_hcd *xhci,
 		usb_wakeup_notification(udev->parent, udev->portnum);
 }
 
+extern struct wake_lock	xhci_wake_lock; 
 static void handle_port_status(struct xhci_hcd *xhci,
 		union xhci_trb *event)
 {
@@ -1745,6 +1747,8 @@ static void handle_port_status(struct xhci_hcd *xhci,
 
 	if ((temp & PORT_PLC) && (temp & PORT_PLS_MASK) == XDEV_RESUME) {
 		xhci_dbg(xhci, "port resume event for port %d\n", port_id);
+
+        wake_lock_timeout(&xhci_wake_lock,msecs_to_jiffies(5 * 1000));
 
 		temp1 = readl(&xhci->op_regs->command);
 		if (!(temp1 & CMD_RUN)) {

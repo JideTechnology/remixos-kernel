@@ -795,6 +795,7 @@ static int usbdev_open(struct inode *inode, struct file *file)
 	struct dev_state *ps;
 	int ret;
 
+	printk(KERN_DEBUG "[linhong]: %s\n", __func__);
 	ret = -ENOMEM;
 	ps = kmalloc(sizeof(struct dev_state), GFP_KERNEL);
 	if (!ps)
@@ -841,6 +842,7 @@ static int usbdev_open(struct inode *inode, struct file *file)
 	usb_unlock_device(dev);
 	snoop(&dev->dev, "opened by process %d: %s\n", task_pid_nr(current),
 			current->comm);
+    dev_err(&dev->dev, "opened by process %d: %s\n", task_pid_nr(current), current->comm);
 	return ret;
 
  out_unlock_device:
@@ -858,6 +860,7 @@ static int usbdev_release(struct inode *inode, struct file *file)
 	unsigned int ifnum;
 	struct async *as;
 
+	printk(KERN_DEBUG "[linhong]: %s\n", __func__);
 	usb_lock_device(dev);
 	usb_hub_release_all_ports(dev, ps);
 

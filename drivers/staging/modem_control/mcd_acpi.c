@@ -363,12 +363,17 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 	/* set GPIOs Names */
 	cpu_data->gpio_rst_out_name = GPIO_RST_OUT;
 	cpu_data->gpio_pwr_on_name = GPIO_PWR_ON;
+	cpu_data->gpio_pwr_off_name = GPIO_PWR_OFF;
 	cpu_data->gpio_rst_bbn_name = GPIO_RST_BBN;
 	cpu_data->gpio_cdump_name = GPIO_CDUMP;
 
 	for (i = 0; i < ARRAY_SIZE(cpu_data->entries); i++)
+	{
 		cpu_data->entries[i] =
 			devm_gpiod_get_index(&pdev->dev, NULL, i);
+		//cht-cr-h350 bios totally has 6 entries for mdm, the last entry is PWR_OFF,
+		pr_err("kz.mcd  enteried[%d]:(gpio): %d  \n", i, desc_to_gpio( cpu_data->entries[i]) );
+	}
 
 	status = get_acpi_param(handle, ACPI_TYPE_PACKAGE, "EPWR", &out_obj);
 	if (ACPI_FAILURE(status)) {
@@ -435,14 +440,16 @@ int mcd_finalize_cpu_data(struct mcd_base_info *mcd_reg_info)
 				desc_to_gpio(cpu_data->gpio_rst_usbhub));
 		}
 	} else if (mcd_reg_info->board_type == BOARD_AOB) {
-//		cpu_data->gpio_pwr_on = cpu_data->entries[0];
+		cpu_data->gpio_pwr_on = cpu_data->entries[0];
 //		cpu_data->gpio_cdump = cpu_data->entries[1];
 //		cpu_data->gpio_rst_out = cpu_data->entries[2];
 		cpu_data->gpio_rst_bbn = cpu_data->entries[3];
+		cpu_data->gpio_pwr_off = cpu_data->entries[5];
 
-		pr_info("%s: zoujuanSetup GPIOs(PO:%d, RO:%d, RB:%d, CD:%d)\n",
+		pr_info("%s: kz.mcd Setup GPIOs(PON:%d, POFF:%d RO:%d, RB:%d, CD:%d)\n",
 				__func__,
 				desc_to_gpio(cpu_data->gpio_pwr_on),
+				desc_to_gpio(cpu_data->gpio_pwr_off),
 				desc_to_gpio(cpu_data->gpio_rst_out),
 				desc_to_gpio(cpu_data->gpio_rst_bbn),
 				desc_to_gpio(cpu_data->gpio_cdump));

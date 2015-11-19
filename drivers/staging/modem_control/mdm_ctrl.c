@@ -254,7 +254,7 @@ static irqreturn_t mdm_ctrl_reset_it(int irq, void *data)
 
 	value = mdm->pdata->cpu.get_mdm_state(mdm->pdata->cpu_data);
 	if (1) {
-		pr_err(DRVNAME ": kz.mcd unexpected RESET_OUT happens, ignore it");
+		pr_err(DRVNAME ": kz.mcd unexpected RESET_OUT happens, ignore it \n");
 		return IRQ_HANDLED;
 	}
 
@@ -439,7 +439,7 @@ static int mcd_init(struct mdm_info *mdm)
 // h350 use pwr_off to control modem, currently could not set value to 1.
 // once bios provide good config, we should add pwr_off gpio control to it.
 //	if (mdm->pdata->pmic.get_early_pwr_off(mdm->pdata->pmic_data)) {
-	pr_info(DRVNAME ": kz.mcd mdm_ctrl_power_off");
+	pr_info(DRVNAME ": kz.mcd mdm_ctrl_power_off \n");
 		if (mdm_ctrl_power_off(mdm)) {
 			ret = -EPROBE_DEFER;
 			goto free_all;
@@ -448,7 +448,7 @@ static int mcd_init(struct mdm_info *mdm)
 
 	/* Modem cold boot sequence */
 //	if (mdm->pdata->pmic.get_early_pwr_on(mdm->pdata->pmic_data)) {
-	pr_info(DRVNAME ": kz.mcd mdm_ctrl_cold_boot");
+	pr_info(DRVNAME ": kz.mcd mdm_ctrl_cold_boot \n");
 		if (mdm_ctrl_cold_boot(mdm)) {
 			ret = -EPROBE_DEFER;
 			goto free_all;
@@ -564,7 +564,7 @@ long mdm_ctrl_dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 
 	case MDM_CTRL_WARM_RESET:
 		/* Allowed in any state unless OFF */
-		pr_err(DRVNAME ": kz.mcd MDM_CTRL_WARM_RESET");
+		pr_err(DRVNAME ": kz.mcd MDM_CTRL_WARM_RESET \n");
 		if (mdm_state != MDM_CTRL_STATE_OFF)
 			mdm_ctrl_normal_warm_reset(mdm);
 		else
@@ -584,7 +584,7 @@ long mdm_ctrl_dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		if (mdm_state != MDM_CTRL_STATE_OFF)
 		{
 //kz.mcd
-			pr_err(DRVNAME "kz.mcd reset (Modem OFF)");
+			pr_err(DRVNAME "kz.mcd reset (Modem OFF) \n");
 			mdm_ctrl_cold_reset(mdm);
 		}
 		else

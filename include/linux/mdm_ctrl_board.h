@@ -67,6 +67,7 @@ struct cpu_ops {
 	int	(*get_irq_rst)(void *data);
 	int	(*get_gpio_rst)(void *data);
 	int	(*get_gpio_pwr)(void *data);
+	int	(*get_gpio_pwr_off)(void *data);
 	int	(*get_gpio_rst_usbhub)(void *data);
 };
 
@@ -106,10 +107,11 @@ struct mcd_base_info {
 
 /* GPIO names */
 #define GPIO_RST_OUT	"ifx_mdm_rst_out"
-#define GPIO_PWR_ON	"ifx_mdm_pwr_on"
+#define GPIO_PWR_ON	    "ifx_mdm_pwr_on"
+#define GPIO_PWR_OFF	"ifx_mdm_pwr_off"
 #define GPIO_PWR_ON_2	"xenon_trigger"
 #define GPIO_RST_BBN	"ifx_mdm_rst_pmu"
-#define GPIO_CDUMP	"modem-gpio2"
+#define GPIO_CDUMP	    "modem-gpio2"
 #define GPIO_CDUMP_MRFL	"MODEM_CORE_DUMP"
 
 /* Retrieve modem parameters on ACPI framework */
@@ -125,6 +127,7 @@ int mcd_finalize_cpu_data(struct mcd_base_info *mcd_reg_info);
 /* struct mcd_cpu_data
  * @gpio_rst_out: Reset out gpio (self reset indicator)
  * @gpio_pwr_on: Power on gpio (ON1 - Power up pin)
+ * @gpio_pwr_off: Power off gpio
  * @gpio_rst_bbn: RST_BB_N gpio (Reset pin)
  * @gpio_cdump: CORE DUMP indicator
  * @irq_cdump: CORE DUMP irq
@@ -132,13 +135,16 @@ int mcd_finalize_cpu_data(struct mcd_base_info *mcd_reg_info);
  * @gpio_rst_usbhub: USB HUB reset
  */
 struct mdm_ctrl_cpu_data {
-	struct gpio_desc	*entries[5];
+	//cht-cr-h350 bios has 6 entries for MCD, the last one is PWR_OFF
+	struct gpio_desc	*entries[6];
 
 	/* GPIOs */
 	char	*gpio_rst_out_name;
 	struct gpio_desc	*gpio_rst_out;
 	char	*gpio_pwr_on_name;
 	struct gpio_desc	*gpio_pwr_on;
+	char	*gpio_pwr_off_name;
+	struct gpio_desc	*gpio_pwr_off;
 	char	*gpio_rst_bbn_name;
 	struct gpio_desc	*gpio_rst_bbn;
 	char	*gpio_cdump_name;

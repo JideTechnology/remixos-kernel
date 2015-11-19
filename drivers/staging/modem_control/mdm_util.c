@@ -120,6 +120,7 @@ void mdm_ctrl_set_mdm_cpu(struct mdm_info *mdm)
 	pdata->cpu.get_irq_rst = get_gpio_irq_rst;
 	pdata->cpu.get_gpio_rst = get_gpio_rst;
 	pdata->cpu.get_gpio_pwr = get_gpio_pwr;
+	pdata->cpu.get_gpio_pwr_off = get_gpio_pwr_off;
 	pdata->cpu.get_gpio_rst_usbhub = get_gpio_rst_usbhub;
 
 	switch (board_type) {

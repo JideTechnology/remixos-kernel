@@ -193,9 +193,17 @@ int get_gpio_rst(void *data)
 int get_gpio_pwr(void *data)
 {
 	struct mdm_ctrl_cpu_data *cpu_data = data;
-		return 234;
 	if (cpu_data->gpio_pwr_on)
 		return desc_to_gpio(cpu_data->gpio_pwr_on);
+	else
+		return INVALID_GPIO;
+}
+
+int get_gpio_pwr_off(void *data)
+{
+	struct mdm_ctrl_cpu_data *cpu_data = data;
+	if (cpu_data->gpio_pwr_off)
+		return desc_to_gpio(cpu_data->gpio_pwr_off);
 	else
 		return INVALID_GPIO;
 }
