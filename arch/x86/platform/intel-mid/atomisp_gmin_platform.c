@@ -381,7 +381,7 @@ static struct gmin_subdev *gmin_subdev_add(struct v4l2_subdev *subdev)
 	//for back camera
 	if (strcmp(dev->driver->acpi_match_table->id,"INT3477") ==0)
 	{
-		gmin_subdevs[i].clock_num = gmin_get_var_int(dev, "CamClk", 0);
+		gmin_subdevs[i].clock_num = gmin_get_var_int(dev, "CamClk", 4);
 		/*WA:CHT requires XTAL clock as PLL is not stable.*/
 		gmin_subdevs[i].csi_port = gmin_get_var_int(dev, "CsiPort", 1);
 		gmin_subdevs[i].csi_lanes = gmin_get_var_int(dev, "CsiLanes", 4);
@@ -391,7 +391,7 @@ static struct gmin_subdev *gmin_subdev_add(struct v4l2_subdev *subdev)
 	else if (strcmp(dev->driver->acpi_match_table->id,"OVTI2680") ==0)//for small camera	
 	{
 		#if 1
-		gmin_subdevs[i].clock_num = gmin_get_var_int(dev, "CamClk", 1);
+		gmin_subdevs[i].clock_num = gmin_get_var_int(dev, "CamClk", 2);
 		gmin_subdevs[i].csi_port = gmin_get_var_int(dev, "CsiPort", 0);	
 		gmin_subdevs[i].csi_lanes = gmin_get_var_int(dev, "CsiLanes", 1);
 		gmin_subdevs[i].gpio0 = gpiod_get_index(dev, "cam_gpio0", 0);
@@ -729,7 +729,7 @@ int gmin_flisclk_ctrl(struct v4l2_subdev *subdev, int on)
 {
 	int ret = 0;
 	struct gmin_subdev *gs = find_gmin_subdev(subdev);
-	if (on)
+   	if (on)
 		ret = vlv2_plat_set_clock_freq(gs->clock_num, gs->clock_src);
 	if (ret)
 		return ret;
