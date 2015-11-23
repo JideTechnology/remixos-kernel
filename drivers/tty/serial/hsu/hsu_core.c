@@ -834,8 +834,13 @@ static unsigned int serial_hsu_get_mctrl(struct uart_port *port)
 {
 	struct uart_hsu_port *up =
 		container_of(port, struct uart_hsu_port, port);
-	unsigned char status = up->msr;
+	unsigned char status;
 	unsigned int ret = 0;
+
+	if (likely(!test_bit(flag_suspend, &up->flags)))
+		up->msr = serial_in(up, UART_MSR);
+
+	status = up->msr;
 
 	if (status & UART_MSR_DCD)
 		ret |= TIOCM_CAR;
@@ -1225,10 +1230,9 @@ serial_hsu_do_set_termios(struct uart_port *port, struct ktermios *termios,
 
 	serial_out(up, UART_IER, up->ier);
 
-	if (termios->c_cflag & CRTSCTS) {
+	if (termios->c_cflag & CRTSCTS)
 		up->mcr |= UART_MCR_AFE | UART_MCR_RTS;
-		up->prev_mcr = up->mcr;
-	} else
+	else
 		up->mcr &= ~UART_MCR_AFE;
 
 	up->dll	= quot & 0xff;
@@ -1502,12 +1506,19 @@ static struct uart_driver serial_hsu_reg = {
 static void hsu_regs_context(struct uart_hsu_port *up, int op)
 {
 	struct hsu_port_cfg *cfg = up->port_cfg;
+	int retry = 10;
 
 	if (op == context_load) {
-		usleep_range(10, 100);
+		do {
+			if (cfg->hw_reset)
+				cfg->hw_reset(up->port.membase);
 
-		if (cfg->hw_reset)
-			cfg->hw_reset(up->port.membase);
+			if (serial_in(up, UART_IIR))
+				break;
+		} while (--retry);
+
+		if (unlikely(retry == 0))
+			pr_err("HSU resume failed\n");
 
 		serial_out(up, UART_LCR, up->lcr);
 		serial_out(up, UART_LCR, up->lcr | UART_LCR_DLAB);
