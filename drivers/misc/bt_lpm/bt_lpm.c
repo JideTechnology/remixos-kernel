@@ -27,7 +27,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/delay.h>
 #include <linux/serial_hsu.h>
-#define BT_WAKE_HOST_GPIO_LOW_ACTIVE
+//#define BT_WAKE_HOST_GPIO_LOW_ACTIVE
 
 enum {
 	gpio_enable_bt_acpi_idx,
