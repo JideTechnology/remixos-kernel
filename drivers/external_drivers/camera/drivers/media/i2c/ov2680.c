@@ -959,17 +959,16 @@ static int gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 		
 		dev_err(&client->dev,"ov2680 gpio_ctrl gpio1_ctrl up.\n");
 		ret |= dev->platform_data->gpio1_ctrl(sd, flag);
-		msleep(3);
+		msleep(13);
 		
 		if (ret != 0)		
 			dev_err(&client->dev,"ov2680 gpio_ctrl gpio1_ctrl up failed.\n");
 	} else {
-
-		msleep(3);
 		
 		dev_err(&client->dev,"ov2680 gpio_ctrl gpio1_ctrl down.\n");
 		ret = dev->platform_data->gpio1_ctrl(sd, flag);
-		
+		msleep(3);
+				
 		if (ret != 0)		
 			dev_err(&client->dev,"ov2680 gpio_ctrl gpio0_ctrl down failed.\n");
 	}

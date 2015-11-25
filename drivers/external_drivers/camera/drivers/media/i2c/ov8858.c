@@ -937,16 +937,16 @@ static int __ov8858_update_frame_timing(struct v4l2_subdev *sd,
 	int ret;
 
 
-	dev_err(&client->dev, "%s OV8858_TIMING_HTS=0x%04x\n",
-		__func__, *hts);
+	//dev_err(&client->dev, "%s OV8858_TIMING_HTS=0x%04x\n",
+		//__func__, *hts);
 
 	/* HTS = pixel_per_line / 2 */
 	ret = ov8858_write_reg(client, OV8858_16BIT,
 				OV8858_TIMING_HTS, *hts >> 1);
 	if (ret)
 		return ret;
-	dev_err(&client->dev, "%s OV8858_TIMING_VTS=0x%04x\n",
-		__func__, *vts);
+	//dev_err(&client->dev, "%s OV8858_TIMING_VTS=0x%04x\n",
+		//__func__, *vts);
 
 	return ov8858_write_reg(client, OV8858_16BIT, OV8858_TIMING_VTS, *vts);
 }
@@ -958,8 +958,8 @@ static int __ov8858_set_exposure(struct v4l2_subdev *sd, int exposure, int gain,
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int exp_val, ret;
 
-	dev_err(&client->dev, "%s, exposure = %d, gain=%d, dig_gain=%d\n",
-		__func__, exposure, gain, dig_gain);
+	//dev_err(&client->dev, "%s, exposure = %d, gain=%d, dig_gain=%d\n",
+		//__func__, exposure, gain, dig_gain);
 
 	if (dev->limit_exposure_flag) {
 		if (exposure > *vts - OV8858_INTEGRATION_TIME_MARGIN)
@@ -1175,6 +1175,7 @@ static int __ov8858_init(struct v4l2_subdev *sd)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov8858_device *dev = to_ov8858_sensor(sd);
+	int ret = 0;
 	dev_err(&client->dev, "%s\n", __func__);
 
 	if (dev->sensor_id == OV8858_ID_DEFAULT)
@@ -1197,7 +1198,13 @@ static int __ov8858_init(struct v4l2_subdev *sd)
 #endif
 	dev_err(&client->dev, "%s: Writing basic settings to ov8858\n",
 		__func__);
-	return ov8858_write_reg_array(client, ov8858_BasicSettings);
+
+	ret = ov8858_write_reg_array(client, ov8858_BasicSettings);
+
+	if (ret)
+		dev_err(&client->dev,"%s writing init setting failed.\n",__func__);
+	
+	return ret;
 }
 
 static int ov8858_init(struct v4l2_subdev *sd, u32 val)
@@ -1285,6 +1292,7 @@ static int __power_ctrl(struct v4l2_subdev *sd, bool flag)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 #endif
 
+	dev_err(&client->dev, "ov8858 __power_ctrl.\n");
 	if (!dev || !dev->platform_data)
 		return -ENODEV;
 
@@ -1294,20 +1302,23 @@ static int __power_ctrl(struct v4l2_subdev *sd, bool flag)
 
 #ifdef CONFIG_GMIN_INTEL_MID
 	if (dev->platform_data->v2p8_ctrl) {
+		dev_err(&client->dev, "ov8858 __power_ctrl->v2p8_ctrl.\n");
 		ret = dev->platform_data->v2p8_ctrl(sd, flag);
 		if (ret) {
 			dev_err(&client->dev,
-				"failed to power %s 2.8v power rail\n",
+				"ov8858 failed to power %s 2.8v power rail\n",
 				flag ? "up" : "down");
 			return ret;
 		}
+		msleep(1);
 	}
 
 	if (dev->platform_data->v1p8_ctrl) {
+		dev_err(&client->dev, "ov8858 __power_ctrl->v1p8_ctrl.\n");
 		ret = dev->platform_data->v1p8_ctrl(sd, flag);
 		if (ret) {
 			dev_err(&client->dev,
-				"failed to power %s 1.8v power rail\n",
+				"ov8858 failed to power %s 1.8v power rail\n",
 				flag ? "up" : "down");
 			if (dev->platform_data->v2p8_ctrl)
 				dev->platform_data->v2p8_ctrl(sd, 0);
@@ -1332,7 +1343,7 @@ static int __gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 
 	client = v4l2_get_subdevdata(sd);
 	dev = to_ov8858_sensor(sd);
-
+	
 	if (!client || !dev || !dev->platform_data)
 		return -ENODEV;
 
@@ -1344,23 +1355,34 @@ static int __gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 #ifdef CONFIG_GMIN_INTEL_MID
 	if (dev->platform_data->gpio0_ctrl)
 	{		
+		if (flag ==1)			
+			ret =  dev->platform_data->gpio0_ctrl(sd, 0);
 		dev_err(&client->dev, "ov8858 __gpio_ctrl->gpio_ctrl->gpio0_ctrl.\n");
+		msleep(2);
 		ret =  dev->platform_data->gpio0_ctrl(sd, flag);
-
+		
 		msleep(2);
 		if (dev->platform_data->gpio1_ctrl)
 		{
 			dev_err(&client->dev, "ov8858 __gpio_ctrl->gpio_ctrl->gpio1_ctrl.\n");
-			ret |= dev->platform_data->gpio1_ctrl(sd, flag);
+			if (flag ==1)			
+				ret =  dev->platform_data->gpio1_ctrl(sd, 0);
 
+			if (ret)				
+				dev_err(&client->dev, "ov8858 __gpio_ctrl->gpio_ctrl->gpio1_ctrl down failed.\n");
+		
+			ret |= dev->platform_data->gpio1_ctrl(sd, flag);
+			if (ret)	
+				dev_err(&client->dev, "ov8858 __gpio_ctrl->gpio_ctrl->gpio1_ctrl failed again.\n");
+				
+			msleep(15);
 			return ret;
 		}
-		msleep(10);
 	}
 
 #endif
 
-	dev_err(&client->dev, "failed to find platform gpio callback\n");
+	dev_err(&client->dev, "ov8858 failed to find platform gpio callback\n");
 
 	return -EINVAL;
 }
@@ -1455,7 +1477,6 @@ static int __ov8858_s_power(struct v4l2_subdev *sd, int on)
 				return ret;
 			}
 		}
-
 		msleep(20);
 
 		return __ov8858_init(sd);
