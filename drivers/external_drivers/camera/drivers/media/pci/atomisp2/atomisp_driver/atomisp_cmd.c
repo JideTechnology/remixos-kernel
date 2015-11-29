@@ -3391,7 +3391,6 @@ int atomisp_cp_lsc_table(struct atomisp_sub_device *asd,
 	unsigned int len_table;
 	struct atomisp_css_shading_table *shading_table;
 	struct atomisp_css_shading_table *old_table;
-	struct atomisp_shading_table st;
 
 	if (!source_st)
 		return 0;
@@ -3402,18 +3401,10 @@ int atomisp_cp_lsc_table(struct atomisp_sub_device *asd,
 	if (!from_user && css_param->update_flag.shading_table)
 		return 0;
 
-	if (copy_from_compatible(&st, source_st,
-				 sizeof(struct atomisp_shading_table),
-				 from_user)) {
-		dev_err(asd->isp->dev, "copy shading table failed!");
-		return -EFAULT;
-	}
-
 	old_table = css_param->shading_table;
 
-
 	/* user config is to disable the shading table. */
-	if (!st.enable) {
+	if (!source_st->enable) {
 		/* Generate a minimum table with enable = 0. */
 		shading_table = atomisp_css_shading_table_alloc(1, 1);
 		if (!shading_table)
@@ -3424,39 +3415,33 @@ int atomisp_cp_lsc_table(struct atomisp_sub_device *asd,
 
 	/* Setting a new table. Validate first - all tables must be set */
 	for (i = 0; i < ATOMISP_NUM_SC_COLORS; i++) {
-		if (!st.data[i]) {
-			dev_err(asd->isp->dev, "shading table validate failed");
+		if (!source_st->data[i])
 			return -EINVAL;
-		}
 	}
 
 	/* Shading table size per color */
-	if (st.width > SH_CSS_MAX_SCTBL_WIDTH_PER_COLOR ||
-	    st.height > SH_CSS_MAX_SCTBL_HEIGHT_PER_COLOR) {
-		dev_err(asd->isp->dev, "shading table w/h validate failed!");
+	if (source_st->width > SH_CSS_MAX_SCTBL_WIDTH_PER_COLOR ||
+		source_st->height > SH_CSS_MAX_SCTBL_HEIGHT_PER_COLOR)
 		return -EINVAL;
-	}
 
-	shading_table = atomisp_css_shading_table_alloc(st.width,
-							st.height);
-	if (!shading_table) {
-		dev_err(asd->isp->dev, "shading table alloc failed!");
-		return -ENOMEM;
-	}
+	shading_table = atomisp_css_shading_table_alloc(source_st->width,
+							source_st->height);
+	if (!shading_table)
+			return -ENOMEM;
 
-	len_table = st.width * st.height * ATOMISP_SC_TYPE_SIZE;
+	len_table = source_st->width * source_st->height * ATOMISP_SC_TYPE_SIZE;
 	for (i = 0; i < ATOMISP_NUM_SC_COLORS; i++) {
 		if (copy_from_compatible(shading_table->data[i],
-			st.data[i], len_table, from_user)) {
+			source_st->data[i], len_table, from_user)) {
 			atomisp_css_shading_table_free(shading_table);
 			return -EFAULT;
 		}
 
 	}
-	shading_table->sensor_width = st.sensor_width;
-	shading_table->sensor_height = st.sensor_height;
-	shading_table->fraction_bits = st.fraction_bits;
-	shading_table->enable = st.enable;
+	shading_table->sensor_width = source_st->sensor_width;
+	shading_table->sensor_height = source_st->sensor_height;
+	shading_table->fraction_bits = source_st->fraction_bits;
+	shading_table->enable = source_st->enable;
 
 	/* No need to update shading table if it is the same */
 	if (old_table != NULL &&
@@ -3503,7 +3488,6 @@ int atomisp_css_cp_dvs2_coefs(struct atomisp_sub_device *asd,
 	struct atomisp_css_dvs_grid_info *cur =
 		atomisp_css_get_dvs_grid_info(&asd->params.curr_grid_info);
 	int dvs_hor_coef_bytes, dvs_ver_coef_bytes;
-	struct ia_css_dvs2_coefficients dvs2_coefs;
 
 	if (!coefs || !cur)
 		return 0;
@@ -3511,15 +3495,8 @@ int atomisp_css_cp_dvs2_coefs(struct atomisp_sub_device *asd,
 	if (!from_user && css_param->update_flag.dvs2_coefs)
 		return 0;
 
-	if (copy_from_compatible(&dvs2_coefs, coefs,
-				 sizeof(struct ia_css_dvs2_coefficients),
-				 from_user)) {
-		dev_err(asd->isp->dev, "copy dvs2 coef failed");
-		return -EFAULT;
-	}
-
-	if (sizeof(*cur) != sizeof(dvs2_coefs.grid) ||
-	    memcmp(&dvs2_coefs.grid, cur, sizeof(dvs2_coefs.grid))) {
+	if (sizeof(*cur) != sizeof(coefs->grid) ||
+	    memcmp(&coefs->grid, cur, sizeof(*cur))) {
 		dev_err(asd->isp->dev, "dvs grid mis-match!\n");
 		/* If the grid info in the argument differs from the current
 		   grid info, we tell the caller to reset the grid size and
@@ -3527,14 +3504,14 @@ int atomisp_css_cp_dvs2_coefs(struct atomisp_sub_device *asd,
 		return -EAGAIN;
 	}
 
-	if (dvs2_coefs.hor_coefs.odd_real == NULL ||
-	    dvs2_coefs.hor_coefs.odd_imag == NULL ||
-	    dvs2_coefs.hor_coefs.even_real == NULL ||
-	    dvs2_coefs.hor_coefs.even_imag == NULL ||
-	    dvs2_coefs.ver_coefs.odd_real == NULL ||
-	    dvs2_coefs.ver_coefs.odd_imag == NULL ||
-	    dvs2_coefs.ver_coefs.even_real == NULL ||
-	    dvs2_coefs.ver_coefs.even_imag == NULL)
+	if (coefs->hor_coefs.odd_real == NULL ||
+	    coefs->hor_coefs.odd_imag == NULL ||
+	    coefs->hor_coefs.even_real == NULL ||
+	    coefs->hor_coefs.even_imag == NULL ||
+	    coefs->ver_coefs.odd_real == NULL ||
+	    coefs->ver_coefs.odd_imag == NULL ||
+	    coefs->ver_coefs.even_real == NULL ||
+	    coefs->ver_coefs.even_imag == NULL)
 		return -EINVAL;
 
 	if (!css_param->dvs2_coeff) {
@@ -3547,21 +3524,21 @@ int atomisp_css_cp_dvs2_coefs(struct atomisp_sub_device *asd,
 	dvs_hor_coef_bytes = asd->params.dvs_hor_coef_bytes;
 	dvs_ver_coef_bytes = asd->params.dvs_ver_coef_bytes;
 	if (copy_from_compatible(css_param->dvs2_coeff->hor_coefs.odd_real,
-	    dvs2_coefs.hor_coefs.odd_real, dvs_hor_coef_bytes, from_user) ||
+	    coefs->hor_coefs.odd_real, dvs_hor_coef_bytes, from_user) ||
 	    copy_from_compatible(css_param->dvs2_coeff->hor_coefs.odd_imag,
-	    dvs2_coefs.hor_coefs.odd_imag, dvs_hor_coef_bytes, from_user) ||
+	    coefs->hor_coefs.odd_imag, dvs_hor_coef_bytes, from_user) ||
 	    copy_from_compatible(css_param->dvs2_coeff->hor_coefs.even_real,
-	    dvs2_coefs.hor_coefs.even_real, dvs_hor_coef_bytes, from_user) ||
+	    coefs->hor_coefs.even_real, dvs_hor_coef_bytes, from_user) ||
 	    copy_from_compatible(css_param->dvs2_coeff->hor_coefs.even_imag,
-	    dvs2_coefs.hor_coefs.even_imag, dvs_hor_coef_bytes, from_user) ||
+	    coefs->hor_coefs.even_imag, dvs_hor_coef_bytes, from_user) ||
 	    copy_from_compatible(css_param->dvs2_coeff->ver_coefs.odd_real,
-	    dvs2_coefs.ver_coefs.odd_real, dvs_ver_coef_bytes, from_user) ||
+	    coefs->ver_coefs.odd_real, dvs_ver_coef_bytes, from_user) ||
 	    copy_from_compatible(css_param->dvs2_coeff->ver_coefs.odd_imag,
-	    dvs2_coefs.ver_coefs.odd_imag, dvs_ver_coef_bytes, from_user) ||
+	    coefs->ver_coefs.odd_imag, dvs_ver_coef_bytes, from_user) ||
 	    copy_from_compatible(css_param->dvs2_coeff->ver_coefs.even_real,
-	    dvs2_coefs.ver_coefs.even_real, dvs_ver_coef_bytes, from_user) ||
+	    coefs->ver_coefs.even_real, dvs_ver_coef_bytes, from_user) ||
 	    copy_from_compatible(css_param->dvs2_coeff->ver_coefs.even_imag,
-	    dvs2_coefs.ver_coefs.even_imag, dvs_ver_coef_bytes, from_user)) {
+	    coefs->ver_coefs.even_imag, dvs_ver_coef_bytes, from_user)) {
 		ia_css_dvs2_coefficients_free(css_param->dvs2_coeff);
 		css_param->dvs2_coeff = NULL;
 		return -EFAULT;
@@ -3579,7 +3556,6 @@ int atomisp_cp_dvs_6axis_config(struct atomisp_sub_device *asd,
 {
 	struct atomisp_css_dvs_6axis_config *dvs_6axis_config;
 	struct atomisp_css_dvs_6axis_config *old_6axis_config;
-	struct atomisp_css_dvs_6axis_config t_6axis_config;
 	struct ia_css_stream *stream =
 			asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL].stream;
 	struct atomisp_css_dvs_grid_info *dvs_grid_info =
@@ -3603,19 +3579,11 @@ int atomisp_cp_dvs_6axis_config(struct atomisp_sub_device *asd,
 	/* check whether need to reallocate for 6 axis config */
 	old_6axis_config = css_param->dvs_6axis;
 	dvs_6axis_config = old_6axis_config;
-
-	if (copy_from_compatible(&t_6axis_config, source_6axis_config,
-			   sizeof(struct atomisp_dvs_6axis_config),
-			   from_user)) {
-		dev_err(asd->isp->dev, "copy morph table failed!");
-		return -EFAULT;
-	}
-
 	if (old_6axis_config &&
-	    (old_6axis_config->width_y != t_6axis_config.width_y ||
-	     old_6axis_config->height_y != t_6axis_config.height_y ||
-	     old_6axis_config->width_uv != t_6axis_config.width_uv ||
-	     old_6axis_config->height_uv != t_6axis_config.height_uv)) {
+	    (old_6axis_config->width_y != source_6axis_config->width_y ||
+	     old_6axis_config->height_y != source_6axis_config->height_y ||
+	     old_6axis_config->width_uv != source_6axis_config->width_uv ||
+	     old_6axis_config->height_uv != source_6axis_config->height_uv)) {
 		ia_css_dvs2_6axis_config_free(css_param->dvs_6axis);
 		css_param->dvs_6axis = NULL;
 
@@ -3628,34 +3596,34 @@ int atomisp_cp_dvs_6axis_config(struct atomisp_sub_device *asd,
 			return -ENOMEM;
 	}
 
-	dvs_6axis_config->exp_id = t_6axis_config.exp_id;
+	dvs_6axis_config->exp_id = source_6axis_config->exp_id;
 
 	if (copy_from_compatible(dvs_6axis_config->xcoords_y,
-			   t_6axis_config.xcoords_y,
-			   t_6axis_config.width_y *
-			   t_6axis_config.height_y *
-			   sizeof(*dvs_6axis_config->xcoords_y),
+			   source_6axis_config->xcoords_y,
+			   source_6axis_config->width_y *
+			   source_6axis_config->height_y *
+			   sizeof(*source_6axis_config->xcoords_y),
 			   from_user))
 		goto error;
 	if (copy_from_compatible(dvs_6axis_config->ycoords_y,
-			   t_6axis_config.ycoords_y,
-			   t_6axis_config.width_y *
-			   t_6axis_config.height_y *
-			   sizeof(*dvs_6axis_config->ycoords_y),
+			   source_6axis_config->ycoords_y,
+			   source_6axis_config->width_y *
+			   source_6axis_config->height_y *
+			   sizeof(*source_6axis_config->ycoords_y),
 			   from_user))
 		goto error;
 	if (copy_from_compatible(dvs_6axis_config->xcoords_uv,
-			   t_6axis_config.xcoords_uv,
-			   t_6axis_config.width_uv *
-			   t_6axis_config.height_uv *
-			   sizeof(*dvs_6axis_config->xcoords_uv),
+			   source_6axis_config->xcoords_uv,
+			   source_6axis_config->width_uv *
+			   source_6axis_config->height_uv *
+			   sizeof(*source_6axis_config->xcoords_uv),
 			   from_user))
 		goto error;
 	if (copy_from_compatible(dvs_6axis_config->ycoords_uv,
-			   t_6axis_config.ycoords_uv,
-			   t_6axis_config.width_uv *
-			   t_6axis_config.height_uv *
-			   sizeof(*dvs_6axis_config->ycoords_uv),
+			   source_6axis_config->ycoords_uv,
+			   source_6axis_config->width_uv *
+			   source_6axis_config->height_uv *
+			   sizeof(*source_6axis_config->ycoords_uv),
 			   from_user))
 		goto error;
 
@@ -3678,7 +3646,6 @@ int atomisp_cp_morph_table(struct atomisp_sub_device *asd,
 	int ret = -EFAULT;
 	unsigned int i;
 	struct atomisp_css_morph_table *morph_table;
-	struct atomisp_css_morph_table mtbl;
 	struct atomisp_css_morph_table *old_morph_table;
 
 	if (!source_morph_table)
@@ -3689,31 +3656,24 @@ int atomisp_cp_morph_table(struct atomisp_sub_device *asd,
 
 	old_morph_table = css_param->morph_table;
 
-	if (copy_from_compatible(&mtbl, source_morph_table,
-				 sizeof(struct atomisp_morph_table),
-				 from_user)) {
-		dev_err(asd->isp->dev, "copy morph table failed!");
-		return -EFAULT;
-	}
-
 	morph_table = atomisp_css_morph_table_allocate(
-		mtbl.width,
-		mtbl.height);
+		source_morph_table->width,
+		source_morph_table->height);
 	if (!morph_table)
 		return -ENOMEM;
 
 	for (i = 0; i < CSS_MORPH_TABLE_NUM_PLANES; i++) {
 		if (copy_from_compatible(morph_table->coordinates_x[i],
 			source_morph_table->coordinates_x[i],
-			mtbl.height * mtbl.width *
-			sizeof(*morph_table->coordinates_x[i]),
+			source_morph_table->height * source_morph_table->width *
+			sizeof(*source_morph_table->coordinates_x[i]),
 			from_user))
 			goto error;
 
 		if (copy_from_compatible(morph_table->coordinates_y[i],
 			source_morph_table->coordinates_y[i],
-			mtbl.height * mtbl.width *
-			sizeof(*morph_table->coordinates_y[i]),
+			source_morph_table->height * source_morph_table->width *
+			sizeof(*source_morph_table->coordinates_y[i]),
 			from_user))
 			goto error;
 	}
@@ -3875,13 +3835,6 @@ int atomisp_set_parameters(struct video_device *vdev,
 	dev_dbg(asd->isp->dev, "%s: set parameter(per_frame_setting %d) for asd%d with isp_config_id %d of %s\n",
 		__func__, arg->per_frame_setting, asd->index,
 		arg->isp_config_id, vdev->name);
-
-	if (atomisp_is_vf_pipe(pipe) && arg->per_frame_setting) {
-		dev_err(asd->isp->dev, "%s: vf pipe not support per_frame_setting",
-			__func__);
-		return -EINVAL;
-	}
-
 	if (arg->per_frame_setting && !atomisp_is_vf_pipe(pipe)) {
 		/*
 		 * Per-frame setting enabled, we allocate a new paramter
@@ -4735,8 +4688,7 @@ static int __enable_continuous_mode(struct atomisp_sub_device *asd,
 		"continuous mode %d, raw buffers %d, stop preview %d\n",
 		enable, asd->continuous_raw_buffer_size->val,
 		!asd->continuous_viewfinder->val);
-        printk("change to update mode for new xnr config\r\n");
-	atomisp_update_capture_mode(asd);
+	atomisp_css_capture_set_mode(asd, CSS_CAPTURE_MODE_PRIMARY);
 	/* in case of ANR, force capture pipe to offline mode */
 	atomisp_css_capture_enable_online(asd, ATOMISP_INPUT_STREAM_GENERAL,
 			asd->params.low_light ? false : !enable);

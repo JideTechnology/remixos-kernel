@@ -72,7 +72,6 @@ else ifneq ($(ISP2400B0), )
 DEFINES += -DSYSTEM_hive_isp_css_2400_system -DISP2400
 else
 DEFINES += -DSYSTEM_hive_isp_css_system
-#$(error Undefined HIVE ISP CSS system version)
 endif
 
 ccflags-y += $(INCLUDES) $(DEFINES) -fno-common -Werror

@@ -1402,7 +1402,6 @@ void
 sh_css_invalidate_shading_tables(struct ia_css_stream *stream)
 {
 	int i;
-	struct ia_css_shading_table *sc_config;
 	assert(stream != NULL);
 
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE,
@@ -1411,13 +1410,6 @@ sh_css_invalidate_shading_tables(struct ia_css_stream *stream)
 	for (i=0; i<stream->num_pipes; i++) {
 		assert(stream->pipes[i] != NULL);
 		sh_css_pipe_free_shading_table(stream->pipes[i]);
-	}
-
-	/*invalidate the sc_config even unlikely it's not NULL*/
-	sc_config = stream->isp_params_configs->sc_config;
-	if (sc_config) {
-		ia_css_shading_table_free(sc_config);
-		stream->isp_params_configs->sc_config = NULL;
 	}
 
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE,

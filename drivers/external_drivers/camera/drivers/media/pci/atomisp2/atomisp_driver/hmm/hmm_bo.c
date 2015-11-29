@@ -710,8 +710,7 @@ static void free_private_bo_pages(struct hmm_buffer_object *bo,
 			ret = set_pages_wb(bo->page_obj[i].page, 1);
 			if (ret)
 				dev_err(atomisp_dev,
-						"set page to WB err ...ret = %d\n",
-							ret);
+						"set page to WB err ...\n");
 			/*
 			W/A: set_pages_wb seldom return value = -EFAULT
 			indicate that address of page is not in valid
@@ -719,7 +718,7 @@ static void free_private_bo_pages(struct hmm_buffer_object *bo,
 			then, _free_pages would panic; Do not know why page
 			address be valid,it maybe memory corruption by lowmemory
 			*/
-			if (!ret) {
+			if (-EFAULT != ret) {
 				__free_pages(bo->page_obj[i].page, 0);
 				hmm_mem_stat.sys_size--;
 			}

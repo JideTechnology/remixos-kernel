@@ -691,13 +691,10 @@ static int put_atomisp_acc_s_mapped_arg32(struct atomisp_acc_s_mapped_arg *kp,
 static int get_atomisp_parameters32(struct atomisp_parameters *kp,
 					struct atomisp_parameters32 __user *up)
 {
-        int n = offsetof(struct atomisp_parameters32, output_frame) /
+	int n = offsetof(struct atomisp_parameters32, output_frame) /
 				sizeof(compat_uptr_t);
-
-        unsigned int size, offset = 0;
-        void  __user *user_ptr;
-	unsigned int stp, mtp, dcp, dscp = 0;
-
+	unsigned int size, offset = 0;
+	void  __user *user_ptr;
 	if (!access_ok(VERIFY_READ, up, sizeof(struct atomisp_parameters32)))
 			return -EFAULT;
 
@@ -710,11 +707,7 @@ static int get_atomisp_parameters32(struct atomisp_parameters *kp,
 		n--;
 	}
 	if (get_user(kp->isp_config_id, &up->isp_config_id) ||
-	    get_user(kp->per_frame_setting, &up->per_frame_setting) ||
-	    get_user(stp, &up->shading_table) ||
-	    get_user(mtp, &up->morph_table) ||
-	    get_user(dcp, &up->dvs2_coefs) ||
-	    get_user(dscp, &up->dvs_6axis_config))
+	    get_user(kp->per_frame_setting, &up->per_frame_setting))
 		return -EFAULT;
 
 	{
@@ -732,10 +725,10 @@ static int get_atomisp_parameters32(struct atomisp_parameters *kp,
 		user_ptr = compat_alloc_user_space(size);
 
 		/* handle shading table */
-		if (stp != 0) {
+		if (up->shading_table != 0) {
 			if (get_atomisp_shading_table32(&karg.shading_table,
 				(struct atomisp_shading_table32 __user *)
-						(uintptr_t)stp))
+						(uintptr_t)up->shading_table))
 				return -EFAULT;
 
 			kp->shading_table = user_ptr + offset;
@@ -750,10 +743,10 @@ static int get_atomisp_parameters32(struct atomisp_parameters *kp,
 		}
 
 		/* handle morph table */
-		if (mtp != 0) {
+		if (up->morph_table != 0) {
 			if (get_atomisp_morph_table32(&karg.morph_table,
 					(struct atomisp_morph_table32 __user *)
-						(uintptr_t)mtp))
+						(uintptr_t)up->morph_table))
 				return -EFAULT;
 
 			kp->morph_table = user_ptr + offset;
@@ -767,10 +760,10 @@ static int get_atomisp_parameters32(struct atomisp_parameters *kp,
 		}
 
 		/* handle dvs2 coefficients */
-		if (dcp != 0) {
+		if (up->dvs2_coefs != 0) {
 			if (get_atomisp_dis_coefficients32(&karg.dvs2_coefs,
 				(struct atomisp_dis_coefficients32 __user *)
-						(uintptr_t)dcp))
+						(uintptr_t)up->dvs2_coefs))
 				return -EFAULT;
 
 			kp->dvs2_coefs = user_ptr + offset;
@@ -783,10 +776,10 @@ static int get_atomisp_parameters32(struct atomisp_parameters *kp,
 				return -EFAULT;
 		}
 		/* handle dvs 6axis configuration */
-		if (dscp != 0) {
+		if (up->dvs_6axis_config != 0) {
 			if (get_atomisp_dvs_6axis_config32(&karg.dvs_6axis_config,
 				(struct atomisp_dvs_6axis_config32 __user *)
-						(uintptr_t)dscp))
+						(uintptr_t)up->dvs_6axis_config))
 				return -EFAULT;
 
 			kp->dvs_6axis_config = user_ptr + offset;
