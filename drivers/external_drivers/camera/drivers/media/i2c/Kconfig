@@ -6,6 +6,7 @@ source "drivers/external_drivers/camera/drivers/media/i2c/mt9e013/Kconfig"
 source "drivers/external_drivers/camera/drivers/media/i2c/ov5693/Kconfig"
 source "drivers/external_drivers/camera/drivers/media/i2c/imx/Kconfig"
 source "drivers/external_drivers/camera/drivers/media/i2c/imx135VB/Kconfig"
+source "drivers/external_drivers/camera/drivers/media/i2c/crmrd/Kconfig"
 
 config VIDEO_OV9724
        tristate "OVT ov9724 sensor support"
@@ -28,17 +29,6 @@ config VIDEO_OV2685
           OVT is a 2M soc sensor.
 
           It currently only works with the atomisp driver.
-
-config VIDEO_OV2680
-       tristate "Omnivision OV2680 sensor support"
-       depends on I2C && VIDEO_V4L2
-       ---help---
-         This is a Video4Linux2 sensor-level driver for the Omnivision
-         OV2680 raw camera.
-
-         ov2680 is a 2M raw sensor.
-
-         It currently only works with the atomisp driver.
 
 config VIDEO_OV2722
        tristate "OVT ov2722 sensor support"
@@ -93,17 +83,6 @@ config VIDEO_OV8830
          ov8830 RAW sensor.
 
 	 OV8830 is a 8M raw sensor.
-
-         It currently only works with the atomisp driver.
-
-config VIDEO_OV8858
-       tristate "Omnivision ov8858 sensor support"
-       depends on I2C && VIDEO_V4L2 && VIDEO_ATOMISP
-       ---help---
-         This is a Video4Linux2 sensor-level driver for the Omnivision
-         ov8858 RAW sensor.
-
-	 OV8858 is a 8M raw sensor.
 
          It currently only works with the atomisp driver.
 
