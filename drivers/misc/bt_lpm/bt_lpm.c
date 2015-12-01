@@ -81,15 +81,29 @@ struct bluetooth_low_power_mode {
 #ifndef DBG_DISABLE_BT_LOW_POWER
 static void uart_enable(struct device *tty)
 {
+    if (wake_uart_enabled)
+    {
+	    pr_debug("%s: uart already enabled\n", __func__);
+        return;
+    }
+        
 	pr_debug("%s: runtime get\n", __func__);
 	/* Tell PM runtime to power on the tty device and block s0i3 */
+	wake_uart_enabled = true;
 	pm_runtime_get(tty);
 }
 
 static void uart_disable(struct device *tty)
 {
+    if (!wake_uart_enabled)
+    {
+	    pr_debug("%s: uart already disabled\n", __func__);
+        return;
+    }
+        
 	pr_debug("%s: runtime put\n", __func__);
 	/* Tell PM runtime to release tty device and allow s0i3 */
+	wake_uart_enabled = false;
 	pm_runtime_put(tty);
 }
 #endif /* !DBG_DISABLE_BT_LOW_POWER */
@@ -216,18 +230,17 @@ static void set_wake_locked(int wake)
         }
     }
 
-	if (!wake_uart_enabled && wake) {
+	if (wake) {
 		WARN_ON(!bt_lpm.tty_dev);
 		uart_enable(bt_lpm.tty_dev);
 	}
 
 	gpio_set_value(bt_lpm.gpio_wake, wake);
 
-	if (wake_uart_enabled && !wake) {
+	if (!wake) {
 		WARN_ON(!bt_lpm.tty_dev);
 		uart_disable(bt_lpm.tty_dev);
 	}
-	wake_uart_enabled = wake;
 }
 
 static enum hrtimer_restart enter_lpm(struct hrtimer *timer)
@@ -403,6 +416,8 @@ static int bluetooth_lpm_init(struct platform_device *pdev)
     bt_lpm.wake_lock_status = 0;
 
 	bt_lpm_wake_peer(tty_dev);
+	set_wake_locked(0);
+	
 	return 0;
 }
 #endif /* !DBG_DISABLE_BT_LOW_POWER */
