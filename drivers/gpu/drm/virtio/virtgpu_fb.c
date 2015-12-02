@@ -207,6 +207,23 @@ static int virtio_gpu_3d_mmap(struct fb_info *info, struct vm_area_struct *vma)
 	return ttm_fbdev_mmap(vma, &obj->tbo);
 }
 
+static int virtio_gpu_3d_pan_display(struct fb_var_screeninfo *var,
+				     struct fb_info *info)
+{
+	struct virtio_gpu_fbdev *vfbdev = info->par;
+	int ret;
+
+	ret = drm_fb_helper_pan_display(var, info);
+	if (ret)
+		return ret;
+
+	virtio_gpu_dirty_update(&vfbdev->vgfb, true, var->xoffset, var->yoffset,
+				var->xres, var->yres);
+	schedule_delayed_work(&vfbdev->work, VIRTIO_GPU_FBCON_POLL_PERIOD);
+
+	return 0;
+}
+
 static struct fb_ops virtio_gpufb_ops = {
 	.owner = THIS_MODULE,
 	.fb_mmap = virtio_gpu_3d_mmap,
@@ -215,7 +232,7 @@ static struct fb_ops virtio_gpufb_ops = {
 	.fb_fillrect = virtio_gpu_3d_fillrect,
 	.fb_copyarea = virtio_gpu_3d_copyarea,
 	.fb_imageblit = virtio_gpu_3d_imageblit,
-	.fb_pan_display = drm_fb_helper_pan_display,
+	.fb_pan_display = virtio_gpu_3d_pan_display,
 	.fb_blank = drm_fb_helper_blank,
 	.fb_setcmap = drm_fb_helper_setcmap,
 	.fb_debug_enter = drm_fb_helper_debug_enter,
