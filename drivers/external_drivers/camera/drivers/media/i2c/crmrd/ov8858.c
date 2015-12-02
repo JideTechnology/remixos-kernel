@@ -22,6 +22,7 @@
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <asm/spid.h>
+/*#define DEBUG*/
 #include <media/v4l2-device.h>
 #include <linux/acpi.h>
 #ifdef CONFIG_GMIN_INTEL_MID
@@ -1329,18 +1330,26 @@ static int __gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 #ifdef CONFIG_GMIN_INTEL_MID
 	if (dev->platform_data->gpio0_ctrl)
 	{		
-		dev_err(&client->dev, "ov8858 __gpio_ctrl->gpio_ctrl->gpio0_ctrl.\n");
-		ret =  dev->platform_data->gpio0_ctrl(sd, flag);
-
-		msleep(2);
+	    if (flag) {
+		dev_info(&client->dev, "ov8858 __gpio_ctrl->gpio_ctrl->gpio0_ctrl.\n");
+		ret =  dev->platform_data->gpio0_ctrl(sd, 1);
+		msleep(5);
+		ret =  dev->platform_data->gpio0_ctrl(sd, 0);
+		msleep(5);
+		ret =  dev->platform_data->gpio0_ctrl(sd, 1);
+		msleep(5);
 		if (dev->platform_data->gpio1_ctrl)
 		{
 			dev_err(&client->dev, "ov8858 __gpio_ctrl->gpio_ctrl->gpio1_ctrl.\n");
 			ret |= dev->platform_data->gpio1_ctrl(sd, flag);
 
-			return ret;
 		}
+	     }else {
+		ret =  dev->platform_data->gpio0_ctrl(sd, 0);
+		ret =  dev->platform_data->gpio1_ctrl(sd, 0);
+	     }
 		msleep(10);
+		return ret;
 	}
 
 #endif

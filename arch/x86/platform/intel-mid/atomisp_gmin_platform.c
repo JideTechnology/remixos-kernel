@@ -36,18 +36,16 @@ EXPORT_SYMBOL(spid);
 #define VLV2_CLK_OFF     2
 
 /* X-Powers AXP288 register hackery */
-#define ALDO1_SEL_REG	0x28
 #define ALDO1_CTRL3_REG	0x13
+#define ALDO1_SEL_REG	0x28
 #define ALDO1_2P8V	0x15   //0x2a  default:0x16
 #define ALDO1_CTRL3_SHIFT 0x05
 
 #define ELDO_CTRL_REG   0x12
-
 #define ELDO1_SEL_REG	0x19
-#define ELDO1_1P8V	0x12
-// (voltage-min_voltage)/50mA
+#define ELDO1_1P6V	0x09
 #define ELDO1_CTRL_SHIFT 0x0 
-
+/* 50mv step for following*/
 #define ELDO2_SEL_REG	0x1a
 #define ELDO2_1P8V	0x16   
 #define ELDO2_CTRL_SHIFT 0x01
@@ -373,60 +371,40 @@ static struct gmin_subdev *gmin_subdev_add(struct v4l2_subdev *subdev)
 		pmic_id);
 
 	gmin_subdevs[i].subdev = subdev;
-	
-	gmin_subdevs[i].clock_src = gmin_get_var_int(dev, "ClkSrc",
-							VLV2_CLK_PLL_19P2MHZ);
 
-	dev_err(dev, "===gmin dev name is %s.=====\n", dev->driver->acpi_match_table->id);
-	//for back camera
-	if (strcmp(dev->driver->acpi_match_table->id,"INT3477") ==0)
-	{
-		gmin_subdevs[i].clock_num = gmin_get_var_int(dev, "CamClk", 0);
-		/*WA:CHT requires XTAL clock as PLL is not stable.*/
-		gmin_subdevs[i].csi_port = gmin_get_var_int(dev, "CsiPort", 1);
-		gmin_subdevs[i].csi_lanes = gmin_get_var_int(dev, "CsiLanes", 4);
-		gmin_subdevs[i].gpio0 = gpiod_get_index(dev, "cam_gpio0", 0);
-		gmin_subdevs[i].gpio1 = gpiod_get_index(dev, "cam_gpio1", 1);
-	}
-	else if (strcmp(dev->driver->acpi_match_table->id,"OVTI2680") ==0)//for small camera	
-	{
-		#if 1
-		gmin_subdevs[i].clock_num = gmin_get_var_int(dev, "CamClk", 1);
-		gmin_subdevs[i].csi_port = gmin_get_var_int(dev, "CsiPort", 0);	
-		gmin_subdevs[i].csi_lanes = gmin_get_var_int(dev, "CsiLanes", 1);
-		gmin_subdevs[i].gpio0 = gpiod_get_index(dev, "cam_gpio0", 0);
-		gmin_subdevs[i].gpio1 = gpiod_get_index(dev, "cam_gpio1", 1);	
-		#endif
-		
-	}
-	
-	gmin_subdevs[i].eldo1_1p8v = gmin_get_var_int(dev, "eldo1_1p8v",
-							ELDO1_1P8V);
-	gmin_subdevs[i].eldo1_sel_reg =
-		gmin_get_var_int(dev, "eldo1_sel_reg", ELDO1_SEL_REG);
-	gmin_subdevs[i].eldo1_ctrl_shift =
-		gmin_get_var_int(dev, "eldo1_ctrl_shift", ELDO1_CTRL_SHIFT);
-	gmin_subdevs[i].eldo2_1p8v =
-		gmin_get_var_int(dev, "eldo2_1p8v", ELDO2_1P8V);
-	gmin_subdevs[i].eldo2_sel_reg = gmin_get_var_int(dev, "eldo2_sel_reg",
-							ELDO2_SEL_REG);
-	gmin_subdevs[i].eldo2_ctrl_shift =
-		gmin_get_var_int(dev, "eldo2_ctrl_shift", ELDO2_CTRL_SHIFT);
+        gmin_subdevs[i].subdev = subdev;
+        dev_info(dev, "suddev name = %s",subdev->name);
+        if (0 == strcmp(dev->driver->acpi_match_table->id,"INT3477")){
+                gmin_subdevs[i].clock_num = 4;
+                gmin_subdevs[i].clock_src = 0;
+                gmin_subdevs[i].csi_port = 1;
+                gmin_subdevs[i].csi_lanes = 4;
+        }else {
+                gmin_subdevs[i].clock_num = 2;
+                gmin_subdevs[i].clock_src = 0;
+                gmin_subdevs[i].csi_port = 0;
+                gmin_subdevs[i].csi_lanes = 1;
 
-	/*
-	gmin_subdevs[i].aldo1_2p8v = gmin_get_var_int(dev, "aldo1_2p8v",
-							ALDO1_2P8V);
-	gmin_subdevs[i].aldo1_sel_reg =
-			gmin_get_var_int(dev, "aldo1_sel_reg", ALDO1_SEL_REG);
-	gmin_subdevs[i].aldo1_ctrl_shift =
-			gmin_get_var_int(dev, "aldo1_ctrl_shift", ALDO1_CTRL_SHIFT);
-	*/
-	gmin_subdevs[i].fldo2_1p2v = gmin_get_var_int(dev, "fldo2_1p2v",
-								FLDO2_1P2V);
-	gmin_subdevs[i].fldo2_sel_reg =
-			gmin_get_var_int(dev, "fldo2_sel_reg", FLDO2_SEL_REG);
-	gmin_subdevs[i].fldo2_ctrl_shift =
-			gmin_get_var_int(dev, "fldo2_ctrl_shift", FLDO2_CTRL_SHIFT);
+        }
+
+        gmin_subdevs[i].gpio0 = gpiod_get_index(dev, "cam_gpio0", 0);
+        gmin_subdevs[i].gpio1 = gpiod_get_index(dev, "cam_gpio1", 1);
+	
+	gmin_subdevs[i].eldo1_1p8v = ELDO1_1P6V;
+	gmin_subdevs[i].eldo1_sel_reg = ELDO1_SEL_REG;
+	gmin_subdevs[i].eldo1_ctrl_shift = ELDO1_CTRL_SHIFT;
+
+	gmin_subdevs[i].eldo2_1p8v = ELDO2_1P8V;
+	gmin_subdevs[i].eldo2_sel_reg = ELDO2_SEL_REG;
+	gmin_subdevs[i].eldo2_ctrl_shift = ELDO2_CTRL_SHIFT;
+#if 0
+	gmin_subdevs[i].aldo1_2p8v = ALDO1_2P8V;
+	gmin_subdevs[i].aldo1_sel_reg = ALDO1_SEL_REG;
+	gmin_subdevs[i].aldo1_ctrl_shift = ALDO1_CTRL_SHIFT;
+#endif
+	gmin_subdevs[i].fldo2_1p2v = FLDO2_1P2V;
+	gmin_subdevs[i].fldo2_sel_reg = FLDO2_SEL_REG;
+	gmin_subdevs[i].fldo2_ctrl_shift = FLDO2_CTRL_SHIFT;
 
 	if (!IS_ERR(gmin_subdevs[i].gpio0)) {
 		ret = gpiod_direction_output(gmin_subdevs[i].gpio0, 0);
@@ -526,39 +504,24 @@ static int axp_v1p8_on(struct gmin_subdev *gs)
 	int ret;	
 	struct i2c_client *client = v4l2_get_subdevdata(gs->subdev);	
 	struct device *dev = client ? &client->dev : NULL;
+
 	ret = axp_regulator_set(gs->eldo2_sel_reg, gs->eldo2_1p8v,
 					ELDO_CTRL_REG, gs->eldo2_ctrl_shift, true);
 
-	pr_err("axp_v1p8_on.\n");
 	/* This sleep comes out of the gc2235 driver, which is the
 	 * only one I currently see that wants to set both 1.8v rails. */
 	usleep_range(110, 150);
 
 	if (strcmp(dev->driver->acpi_match_table->id,"OVTI2680") ==0)
-	{
 		ret = axp_regulator_set(gs->eldo1_sel_reg, gs->eldo1_1p8v,
 				ELDO_CTRL_REG, gs->eldo1_ctrl_shift, true);
-		if (ret)
-			axp_regulator_set(gs->eldo1_sel_reg, gs->eldo2_1p8v,
-				ELDO_CTRL_REG, gs->eldo1_ctrl_shift, false);
-	}
 	
 	if (strcmp(dev->driver->acpi_match_table->id,"INT3477") ==0)
-	{
 		ret = axp_regulator_set(gs->fldo2_sel_reg, gs->fldo2_1p2v,
 				FLDO_CTRL_REG, gs->fldo2_ctrl_shift, true);
-		if (ret)
-			axp_regulator_set(gs->fldo2_sel_reg, gs->fldo2_1p2v,
-				FLDO_CTRL_REG, gs->fldo2_ctrl_shift, false);
-	}
-	/*
-	ret = axp_regulator_set(gs->aldo1_sel_reg, gs->aldo1_2p8v,
-		ELDO_CTRL_REG, gs->aldo1_ctrl_shift, true);
-	if (ret)
-		axp_regulator_set(gs->aldo1_sel_reg, gs->aldo1_2p8v,
-		ELDO_CTRL_REG, gs->aldo1_ctrl_shift, true);
-	*/
-	
+
+	ret = axp_regulator_set(gs->eldo2_sel_reg, gs->eldo2_1p8v,
+				ELDO_CTRL_REG, gs->eldo2_ctrl_shift, true);
 	return ret;
 }
 
@@ -568,7 +531,6 @@ static int axp_v1p8_off(struct gmin_subdev *gs)
 	struct i2c_client *client = v4l2_get_subdevdata(gs->subdev);	
 	struct device *dev = client ? &client->dev : NULL;
 
-	pr_err("axp_v1p8_off.\n");
 	ret = axp_regulator_set(gs->eldo2_sel_reg, gs->eldo2_1p8v,
 		ELDO_CTRL_REG, gs->eldo2_ctrl_shift, false);
 
@@ -585,10 +547,6 @@ static int axp_v1p8_off(struct gmin_subdev *gs)
 		ret |= axp_regulator_set(gs->fldo2_sel_reg, gs->fldo2_1p2v,
 			FLDO_CTRL_REG, gs->fldo2_ctrl_shift, false);
 	}
-	/*
-	ret |= axp_regulator_set(gs->aldo1_sel_reg, gs->aldo1_2p8v,
-		ELDO_CTRL_REG, gs->aldo1_ctrl_shift, false);
-	*/
 	return ret;
 }
 
