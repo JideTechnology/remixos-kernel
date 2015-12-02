@@ -199,8 +199,17 @@ static void virtio_gpu_3d_imageblit(struct fb_info *info,
 	schedule_delayed_work(&vfbdev->work, VIRTIO_GPU_FBCON_POLL_PERIOD);
 }
 
+static int virtio_gpu_3d_mmap(struct fb_info *info, struct vm_area_struct *vma)
+{
+	struct virtio_gpu_fbdev *vfbdev = info->par;
+	struct virtio_gpu_object *obj = gem_to_virtio_gpu_obj(vfbdev->vgfb.obj);
+
+	return ttm_fbdev_mmap(vma, &obj->tbo);
+}
+
 static struct fb_ops virtio_gpufb_ops = {
 	.owner = THIS_MODULE,
+	.fb_mmap = virtio_gpu_3d_mmap,
 	.fb_check_var = drm_fb_helper_check_var,
 	.fb_set_par = drm_fb_helper_set_par, /* TODO: copy vmwgfx */
 	.fb_fillrect = virtio_gpu_3d_fillrect,
@@ -340,9 +349,12 @@ static int virtio_gpufb_create(struct drm_fb_helper *helper,
 
 	info->screen_base = obj->vmap;
 	info->screen_size = obj->gem_base.size;
+	info->fix.smem_len = obj->gem_base.size;
 	drm_fb_helper_fill_fix(info, fb->pitches[0], fb->depth);
 	drm_fb_helper_fill_var(info, &vfbdev->helper,
 			       sizes->fb_width, sizes->fb_height);
+
+	drm_vma_offset_remove(&obj->tbo.bdev->vma_manager, &obj->tbo.vma_node);
 
 	info->fix.mmio_start = 0;
 	info->fix.mmio_len = 0;
