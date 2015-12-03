@@ -935,6 +935,106 @@ static const struct ov8858_reg ov8858_1080P_30[] = {
 	{OV8858_TOK_TERM, 0, 0}
 };
 
+static const struct ov8858_reg ov8858_1640_926_30[] = {
+    {OV8858_8BIT, 0x3501,  0x4d}, // ; exposure M
+    {OV8858_8BIT, 0x3502,  0x40}, // ; exposure L
+    {OV8858_8BIT, 0x3508,  0x04}, // ; gain H
+    {OV8858_8BIT, 0x3808,  0x06}, // ; x output size H
+    {OV8858_8BIT, 0x3809,  0x68}, //;60 ; x output size L
+    {OV8858_8BIT, 0x380a,  0x03}, //;04 ; y output size H
+    {OV8858_8BIT, 0x380b,  0x9e}, //;D0;c8 ; y output size L
+    {OV8858_8BIT, 0x380c,  0x07}, // ; HTS H
+    {OV8858_8BIT, 0x380d,  0x94}, //;88 ; HTS L
+    {OV8858_8BIT, 0x380e,  0x0a}, //;09;04 ; VTS H
+    {OV8858_8BIT, 0x380f,  0x0d}, //;aa;dc ; VTS L
+    {OV8858_8BIT, 0x3814,  0x03}, // ; x odd inc
+    {OV8858_8BIT, 0x3821,  0x67}, // ; mirror on, bin on
+    {OV8858_8BIT, 0x382a,  0x03}, // ; y odd inc
+    {OV8858_8BIT, 0x3830,  0x08}, //
+    {OV8858_8BIT, 0x3836,  0x02}, //
+    {OV8858_8BIT, 0x3f0a,  0x00}, //
+    {OV8858_8BIT, 0x4001,  0x10}, // ; total 128 black column
+    {OV8858_8BIT, 0x4022,  0x06}, // ; Anchor left end H
+    {OV8858_8BIT, 0x4023,  0x00}, // ; Anchor left end L
+    {OV8858_8BIT, 0x4025,  0x2a}, // ; Anchor right start L
+    {OV8858_8BIT, 0x4027,  0x2b}, // ; Anchor right end L
+    {OV8858_8BIT, 0x402b,  0x04}, // ; top black line number
+    {OV8858_8BIT, 0x402f,  0x04}, // ; interpolation x disable, interpolation y disable, Anchor one
+    {OV8858_8BIT, 0x4500,  0x58}, //
+    {OV8858_8BIT, 0x4600,  0x00}, //
+    {OV8858_8BIT, 0x4601,  0xcb}, //
+    {OV8858_8BIT, 0x382d,  0x7f}, //
+    {OV8858_8BIT, 0x3841,  0xff}, //
+    {OV8858_8BIT, 0x4837,  0x13}, //
+    {OV8858_TOK_TERM, 0, 0}
+};
+
+static const struct ov8858_reg ov8858_1640_1232_30[] = {
+    {OV8858_8BIT, 0x3501,  0x4d}, // ; exposure M
+    {OV8858_8BIT, 0x3502,  0x40}, // ; exposure L
+    {OV8858_8BIT, 0x3508,  0x04}, // ; gain H
+    {OV8858_8BIT, 0x3808,  0x06}, // ; x output size H
+    {OV8858_8BIT, 0x3809,  0x68}, //;60 ; x output size L
+    {OV8858_8BIT, 0x380a,  0x04}, // ; y output size H
+    {OV8858_8BIT, 0x380b,  0xD0}, //;c8 ; y output size L
+    {OV8858_8BIT, 0x380c,  0x07}, // ; HTS H
+    {OV8858_8BIT, 0x380d,  0x94}, //;88 ; HTS L
+    {OV8858_8BIT, 0x380e,  0x0a}, //;09;04 ; VTS H
+    {OV8858_8BIT, 0x380f,  0x0d}, //;aa;dc ; VTS L
+    {OV8858_8BIT, 0x3814,  0x03}, // ; x odd inc
+    {OV8858_8BIT, 0x3821,  0x67}, // ; mirror on, bin on
+    {OV8858_8BIT, 0x382a,  0x03}, // ; y odd inc
+    {OV8858_8BIT, 0x3830,  0x08}, //
+    {OV8858_8BIT, 0x3836,  0x02}, //
+    {OV8858_8BIT, 0x3f0a,  0x00}, //
+    {OV8858_8BIT, 0x4001,  0x10}, // ; total 128 black column
+    {OV8858_8BIT, 0x4022,  0x06}, // ; Anchor left end H
+    {OV8858_8BIT, 0x4023,  0x00}, // ; Anchor left end L
+    {OV8858_8BIT, 0x4025,  0x2a}, // ; Anchor right start L
+    {OV8858_8BIT, 0x4027,  0x2b}, // ; Anchor right end L
+    {OV8858_8BIT, 0x402b,  0x04}, // ; top black line number
+    {OV8858_8BIT, 0x402f,  0x04}, // ; interpolation x disable, interpolation y disable, Anchor one
+    {OV8858_8BIT, 0x4500,  0x58}, //
+    {OV8858_8BIT, 0x4600,  0x00}, //
+    {OV8858_8BIT, 0x4601,  0xcb}, //
+    {OV8858_8BIT, 0x382d,  0x7f}, //
+    {OV8858_8BIT, 0x3841,  0xff}, //
+    {OV8858_8BIT, 0x4837,  0x13}, //
+    {OV8858_TOK_TERM, 0, 0}
+};
+static const struct ov8858_reg ov8858_1640_1096_30[] = {
+    {OV8858_8BIT, 0x3501,  0x4d}, // ; exposure M
+    {OV8858_8BIT, 0x3502,  0x40}, // ; exposure L
+    {OV8858_8BIT, 0x3508,  0x04}, // ; gain H
+    {OV8858_8BIT, 0x3808,  0x06}, // ; x output size H
+    {OV8858_8BIT, 0x3809,  0x68}, //;60 ; x output size L
+    {OV8858_8BIT, 0x380a,  0x04}, // ; y output size H
+    {OV8858_8BIT, 0x380b,  0x48}, //;D0;c8 ; y output size L
+    {OV8858_8BIT, 0x380c,  0x07}, // ; HTS H
+    {OV8858_8BIT, 0x380d,  0x94}, //;88 ; HTS L
+    {OV8858_8BIT, 0x380e,  0x0a}, //;09;04 ; VTS H
+    {OV8858_8BIT, 0x380f,  0x0d}, //;aa;dc ; VTS L
+    {OV8858_8BIT, 0x3814,  0x03}, // ; x odd inc
+    {OV8858_8BIT, 0x3821,  0x67}, // ; mirror on, bin on
+    {OV8858_8BIT, 0x382a,  0x03}, // ; y odd inc
+    {OV8858_8BIT, 0x3830,  0x08}, //
+    {OV8858_8BIT, 0x3836,  0x02}, //
+    {OV8858_8BIT, 0x3f0a,  0x00}, //
+    {OV8858_8BIT, 0x4001,  0x10}, // ; total 128 black column
+    {OV8858_8BIT, 0x4022,  0x06}, // ; Anchor left end H
+    {OV8858_8BIT, 0x4023,  0x00}, // ; Anchor left end L
+    {OV8858_8BIT, 0x4025,  0x2a}, // ; Anchor right start L
+    {OV8858_8BIT, 0x4027,  0x2b}, // ; Anchor right end L
+    {OV8858_8BIT, 0x402b,  0x04}, // ; top black line number
+    {OV8858_8BIT, 0x402f,  0x04}, // ; interpolation x disable, interpolation y disable, Anchor one
+    {OV8858_8BIT, 0x4500,  0x58}, //
+    {OV8858_8BIT, 0x4600,  0x00}, //
+    {OV8858_8BIT, 0x4601,  0xcb}, //
+    {OV8858_8BIT, 0x382d,  0x7f}, //
+    {OV8858_8BIT, 0x3841,  0xff}, //
+    {OV8858_8BIT, 0x4837,  0x13}, //
+    {OV8858_TOK_TERM, 0, 0}
+};
 static struct ov8858_resolution ov8858_res_preview[] = {
 	{
 		.desc = "ov8858_6M_PREVIEW",
@@ -1019,14 +1119,52 @@ static struct ov8858_resolution ov8858_res_still[] = {
 };
 
 static struct ov8858_resolution ov8858_res_video[] = {
-    	{
-		.desc = "ov8858_1080P_30_VIDEO",
-		.width = 1936,
+     {
+		.desc = "ov8858_1640_926_30",
+		.width = 1640,
+		.height = 926,
+		.used = 0,
+		.regs = ov8858_1640_926_30,
+		.bin_factor_x = 1,
+		.bin_factor_y = 1,
+		.skip_frames = 1,
+		.fps_options =  {
+			{
+				.fps = 30,
+				.pixels_per_line = 3880,
+				.lines_per_frame = 2573,
+			},
+			{
+			}
+		},
+	},
+     {
+		.desc = "ov8858_1640_1232_30",
+		.width = 1640,
+		.height = 1232,
+		.used = 0,
+		.regs = ov8858_1640_1232_30,
+		.bin_factor_x = 1,
+		.bin_factor_y = 1,
+		.skip_frames = 1,
+		.fps_options =  {
+			{
+				.fps = 30,
+				.pixels_per_line = 3880,
+				.lines_per_frame = 2573,
+			},
+			{
+			}
+		},
+	},
+	{
+		.desc = "ov8858_1640_1096_30",
+		.width = 1640,
 		.height = 1096,
 		.used = 0,
-		.regs = ov8858_1080P_30,
-		.bin_factor_x = 0,
-		.bin_factor_y = 0,
+		.regs = ov8858_1640_1096_30,
+		.bin_factor_x = 1,
+		.bin_factor_y = 1,
 		.skip_frames = 1,
 		.fps_options =  {
 			{
