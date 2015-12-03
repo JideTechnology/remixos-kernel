@@ -1108,9 +1108,9 @@ static struct ov8858_resolution ov8858_res_still[] = {
 		.fps_options = {
 			{
 				/* Pixel clock: 149.76MHZ */
-				.fps = 10,
+				.fps = 30,
 				.pixels_per_line = 3880,
-				.lines_per_frame = 3859,
+				.lines_per_frame = 2573,
 			},
 			{
 			}
