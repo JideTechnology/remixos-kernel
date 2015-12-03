@@ -519,7 +519,7 @@ static const struct snd_soc_dapm_route cht_audio_map[] = {
 	{"Ext Spk", NULL, "SPOL"},
 	{"Ext Spk", NULL, "SPOR"},
 
-	{ "PLL1", NULL, "AIF1 Playback"},
+//	{ "PLL1", NULL, "AIF1 Playback"},
 	{ "AIF1 Playback", NULL, "ssp2 Tx"},
 	{ "ssp2 Tx", NULL, "codec_out0"},
 	{ "ssp2 Tx", NULL, "codec_out1"},
@@ -535,6 +535,9 @@ static const struct snd_soc_dapm_route cht_audio_map[] = {
 
 	{"AIF1 Playback", NULL, "Platform Clock"},
 	{"AIF1 Capture", NULL, "Platform Clock"},
+	{"PLL1", NULL, "Platform Clock"},
+	{"Headphone", NULL, "PLL1"},
+	{"Ext Spk", NULL, "PLL1"},
 };
 
 static const struct snd_kcontrol_new cht_mc_controls[] = {
