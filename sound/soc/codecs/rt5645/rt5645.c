@@ -2597,9 +2597,9 @@ static int get_clk_info(int sclk, int rate)
 	pr_info("rt5645 " "get_clk_info, sclk:%d, rate:%d\n", 
 sclk, rate);
 
-#ifdef USE_ASRC
-	return 0;
-#endif
+//#ifdef USE_ASRC
+//    return 0;
+//#endif
 	if (sclk <= 0 || rate <= 0)
 		return -EINVAL;
 
@@ -2660,9 +2660,11 @@ __func__, pre_div);
 
 	switch (dai->id) {
 	case RT5645_AIF1:
- 		mask_clk = RT5645_I2S_BCLK_MS1_MASK | RT5645_I2S_PD1_MASK;
-		val_clk = bclk_ms << RT5645_I2S_BCLK_MS1_SFT |
-			pre_div << RT5645_I2S_PD1_SFT;
+                //mask_clk = RT5645_I2S_BCLK_MS1_MASK | RT5645_I2S_PD1_MASK;
+		//val_clk = bclk_ms << RT5645_I2S_BCLK_MS1_SFT |
+		//	pre_div << RT5645_I2S_PD1_SFT;
+                mask_clk = RT5645_I2S_PD1_MASK;
+		val_clk = pre_div << RT5645_I2S_PD1_SFT;
 		snd_soc_update_bits(codec, RT5645_I2S1_SDP,
 			RT5645_I2S_DL_MASK, val_len);
 		snd_soc_update_bits(codec, RT5645_ADDA_CLK1, mask_clk, val_clk);
