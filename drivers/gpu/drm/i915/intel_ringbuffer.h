@@ -532,8 +532,9 @@ intel_write_status_page(struct intel_engine_cs *ring,
  * 0x06: ring 2 head pointer (915-class)
  * 0x10-0x1b: Context status DWords (GM45)
  * 0x1f: Last written status offset. (GM45)
+ * 0x20-0x2f: Reserved (Gen6+)
  *
- * The area from dword 0x20 to 0x3ff is available for driver usage.
+ * The area from dword 0x30 to 0x3ff is available for driver usage.
  *
  * Note: in general the allocation of these indices is arbitrary, as long
  * as they are all unique. But a few of them are used with instructions that
@@ -543,33 +544,33 @@ intel_write_status_page(struct intel_engine_cs *ring,
  *
  *	I915_GEM_SCRATCH_INDEX	    must be EVEN
  */
-#define I915_GEM_HWS_INDEX		0x20
-#define I915_GEM_ACTIVE_SEQNO_INDEX	0x21  /* Executing seqno for TDR only */
-#define I915_GEM_PGFLIP_INDEX		0x22
+#define I915_GEM_HWS_INDEX		0x30
+#define I915_GEM_ACTIVE_SEQNO_INDEX	0x31  /* Executing seqno for TDR only */
+#define I915_GEM_PGFLIP_INDEX		0x32
 
-#define I915_GEM_HWS_SCRATCH_INDEX	0x24  /* QWord */
+#define I915_GEM_HWS_SCRATCH_INDEX	0x34  /* QWord */
 #define I915_GEM_HWS_SCRATCH_ADDR	(I915_GEM_HWS_SCRATCH_INDEX << MI_STORE_DWORD_INDEX_SHIFT)
 
 /*
  * Tracking; these are updated by the GPU at the beginning and/or end of every
  * batch. One pair for regular buffers, the other for preemptive ones.
  */
-#define I915_BATCH_DONE_SEQNO		0x30  /* Completed batch seqno        */
-#define I915_BATCH_ACTIVE_SEQNO		0x31  /* In progress batch seqno      */
-#define I915_PREEMPTIVE_DONE_SEQNO	0x32  /* Completed preemptive batch   */
-#define I915_PREEMPTIVE_ACTIVE_SEQNO	0x33  /* In progress preemptive batch */
+#define I915_BATCH_DONE_SEQNO		0x40  /* Completed batch seqno        */
+#define I915_BATCH_ACTIVE_SEQNO		0x41  /* In progress batch seqno      */
+#define I915_PREEMPTIVE_DONE_SEQNO	0x42  /* Completed preemptive batch   */
+#define I915_PREEMPTIVE_ACTIVE_SEQNO	0x43  /* In progress preemptive batch */
 
 /*
  * Preemption; these are used by the GPU to save important registers
  */
-#define I915_SAVE_PREEMPTED_RING_PTR	0x34  /* HEAD before preemption     */
-#define I915_SAVE_PREEMPTED_BB_PTR	0x35  /* BB ptr before preemption   */
-#define I915_SAVE_PREEMPTED_SBB_PTR	0x36  /* SBB before preemption      */
-#define I915_SAVE_PREEMPTED_UHPTR	0x37  /* UHPTR after preemption     */
-#define I915_SAVE_PREEMPTED_HEAD	0x38  /* HEAD after preemption      */
-#define I915_SAVE_PREEMPTED_TAIL	0x39  /* TAIL after preemption      */
-#define I915_SAVE_PREEMPTED_STATUS	0x3A  /* RS preemption status       */
-#define I915_SAVE_PREEMPTED_NOPID	0x3B  /* Dummy                      */
+#define I915_SAVE_PREEMPTED_RING_PTR	0x44  /* HEAD before preemption     */
+#define I915_SAVE_PREEMPTED_BB_PTR	0x45  /* BB ptr before preemption   */
+#define I915_SAVE_PREEMPTED_SBB_PTR	0x46  /* SBB before preemption      */
+#define I915_SAVE_PREEMPTED_UHPTR	0x47  /* UHPTR after preemption     */
+#define I915_SAVE_PREEMPTED_HEAD	0x48  /* HEAD after preemption      */
+#define I915_SAVE_PREEMPTED_TAIL	0x49  /* TAIL after preemption      */
+#define I915_SAVE_PREEMPTED_STATUS	0x4A  /* RS preemption status       */
+#define I915_SAVE_PREEMPTED_NOPID	0x4B  /* Dummy                      */
 
 void intel_unpin_ringbuffer_obj(struct intel_ringbuffer *ringbuf);
 int intel_pin_and_map_ringbuffer_obj(struct drm_device *dev,

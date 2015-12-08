@@ -672,13 +672,18 @@ void intel_fbdev_set_suspend(struct drm_device *dev, int state)
 
 	info = ifbdev->helper.fbdev;
 
+	/* On CHT due to unknown reason, at s3 resuming, memset_io the FB stolen
+	 * memory when i915 resumes might ruin some memory. Don't clear the
+	 * stolen memory.
+	 */
+#if 0
 	/* On resume from hibernation: If the object is shmemfs backed, it has
 	 * been restored from swap. If the object is stolen however, it will be
 	 * full of whatever garbage was left in there.
 	 */
 	if (state == FBINFO_STATE_RUNNING && ifbdev->fb->obj->stolen)
 		memset_io(info->screen_base, 0, info->screen_size);
-
+#endif
 	fb_set_suspend(info, state);
 }
 
