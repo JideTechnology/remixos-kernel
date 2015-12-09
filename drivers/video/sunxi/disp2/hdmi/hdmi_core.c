@@ -7,8 +7,6 @@ static bool		video_enable = 0;
 static bool		audio_enable = false;
 static u32		cts_enable = 0;
 static u32		hdcp_enable = 0;
-static u8		isHDMI = 0;
-static u8		YCbCr444_Support = 0;
 static s32		HPD = 0;
 static struct audio_para glb_audio_para;
 static struct video_para glb_video_para;
@@ -365,6 +363,8 @@ bool hdmi_core_get_audio_enable(void)
 
 static s32 audio_config_internal(void)
 {
+	__u8 isHDMI = hdmi_edid_is_hdmi();
+
 	__inf("audio_config_internal, type code:%d\n", glb_audio_para.type);
 	__inf("audio_config_internal, sample_rate:%d\n", glb_audio_para.sample_rate);
 	__inf("audio_config_internal, sample_bit:%d\n", glb_audio_para.sample_bit);
@@ -502,6 +502,8 @@ s32 hdmi_core_get_list_num(void)
 static s32 video_config(u32 vic)
 {
 	int ret = 0;
+	__u8 isHDMI = 1;
+	__u8 YCbCr444_Support = 1;
 
 	isHDMI = hdmi_edid_is_hdmi();
 	YCbCr444_Support = hdmi_edid_is_yuv();
