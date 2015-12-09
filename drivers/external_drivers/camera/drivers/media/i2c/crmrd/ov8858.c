@@ -1883,8 +1883,8 @@ static int nearest_resolution_index(struct v4l2_subdev *sd, int w, int h)
 {
 	int i;
 	int idx = -1;
-	int dist = 0;
-	int fps_diff = 0;
+	int dist;
+	int fps_diff;
 	int min_fps_diff = INT_MAX;
 	int min_dist = INT_MAX;
 	const struct ov8858_resolution *tmp_res = NULL;
@@ -1892,49 +1892,44 @@ static int nearest_resolution_index(struct v4l2_subdev *sd, int w, int h)
 	struct ov8858_device *dev = to_ov8858_sensor(sd);
 
 	dev_dbg(&client->dev, "%s: w = %d, h = %d.\n", __func__, w, h);
-
 	if ((dev->curr_res_table == ov8858_res_preview) ||
 		(dev->curr_res_table == ov8858_res_still)) {
-		if ((w == 1320 && h == 1080) ||
-				(w == 1336 && h == 1096) ||
-				(w == 352 && h == 288) ||
-				(w == 368 && h == 304) ||
-				(w == 176 && h == 144) ||
-				(w == 192 && h == 160)) {
+		if (((w == 1336 && h == 1096)) ||
+				((w == 1320 && h == 1080)) ||
+				((w == 352 && h == 288)) ||
+				((w == 368 && h == 304)) ||
+				((w == 176 && h == 144)) ||
+				((w == 192 && h == 160))) {
 			w = 1640;
 			h = 1232;
 		}
 
-		if ((w == 720 && h == 480) ||
-				(w == 736 && h == 496)) {
+		if (((w == 720 && h == 480)) ||
+				((w == 736 && h == 496))) {
 			w = 1640;
 			h = 926;
 		}
 	}
 
 	if (dev->curr_res_table == ov8858_res_video) {
-		if ((w == 720 && h == 480) ||
-				(w == 736 && h == 496) ||
-				(w == 640 && h == 480) ||
-				(w == 656 && h == 496) ||
-				(w == 320 && h == 240) ||
-				(w == 336 && h == 256)) {
+		if (((w == 720 && h == 480)) ||
+				((w == 736 && h == 496))) {
 			w = 1640;
 			h = 926;
 		}
 	}
 
 	if (dev->curr_res_table == ov8858_res_preview) {
-		if ((w == 1280 && h == 720) ||
-				(w == 1296 && h == 736)) {
+		if (((w == 1280 && h == 720)) ||
+				((w == 1296 && h == 736))) {
 			w = 1640;
 			h = 926;
 		}
 	}
 
 	if (dev->curr_res_table == ov8858_res_still) {
-		if ((w == 1280 && h == 720) ||
-				(w == 1296 && h == 736)) {
+		if (((w == 1280 && h == 720)) ||
+				((w == 1296 && h == 736))) {
 			w = 3216;
 			h = 1816;
 		}
