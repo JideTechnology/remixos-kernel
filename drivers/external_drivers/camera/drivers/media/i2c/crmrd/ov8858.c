@@ -74,7 +74,7 @@ struct ov8858_otp_struct {
 	int B_gain;
 };
 
-#if 0
+#ifdef DUMP_OTP
 static int dump_otp(struct i2c_client *client)
 {
 	int i    = 0;
@@ -211,20 +211,26 @@ static void ov8858_otp_apply(struct i2c_client *client)
 {
 	if ((otp_ptr != NULL) && (otp_ptr->otp_en == 1)) {
 		dev_dbg(&client->dev,
-				"ov8858_otp_apply apply otp as flag: 0x%.4X.\n",
-				otp_ptr->flag);
+				"%s(): apply otp as flag: 0x%.4X.\n",
+				__func__, otp_ptr->flag);
+	} else {
+		dev_dbg(&client->dev,
+				"%s(): return.\n", __func__);
+		return;
 	}
 
 	if ((otp_ptr->flag & 0xc0) == 0xc0) {
-		dev_dbg(&client->dev,
-				"ov8858_otp_apply->update_awb_gain.\n");
+		dev_info(&client->dev,
+				"%s(): call update_awb_gain.\n",
+                __func__);
 
 		update_awb_gain(client);
 	}
 
 	if ((otp_ptr->flag & 0x10) == 0x10) {
-		dev_dbg(&client->dev,
-				"ov8858_otp_apply->update_lenc.\n");
+		dev_info(&client->dev,
+				"%s(): call update_lenc.\n",
+                __func__);
 
 		update_lenc(client);
 	}
@@ -252,7 +258,7 @@ static int ov8858_otp_read(struct i2c_client *client)
 	/* stream on */
 	ov8858_write_reg(client, OV8858_8BIT, 0x0100, 0x1);
 
-	/*set 0x5002[3] to "0" before ops*/
+	/* set 0x5002[3] to "0" before ops */
 	ret = ov8858_read_reg(client, OV8858_8BIT, 0x5002, &temp);
 	if (IS_ERR_VALUE(ret)) {
 		dev_err(&client->dev,
@@ -521,7 +527,7 @@ static int  __ov8858_read_otp_lenc(struct i2c_client *client)
 			&temp);
 	temp |= 0x80;
 
-	dev_dbg(&client->dev, "@%s: 0x%.4X: [0x%.4X]\n",
+	dev_info(&client->dev, "@%s: 0x%.4X: [0x%.4X]\n",
 			__func__, 0x5000, temp);
 #endif
 
@@ -765,9 +771,8 @@ static int otp_read_ctrl(const char *val, struct kernel_param *kp)
 		    ov8858_write_reg(client, OV8858_8BIT, OV8858_STREAM_MODE,
 			    0x01);
 			ov8858_otp_read(client);
-			//apply_otp(&ov8858_otp_struct);
 			ov8858_otp_apply(client);
-		    ov8858_write_reg(client, OV8858_8BIT, OV8858_STREAM_MODE,0x00);
+		    ov8858_write_reg(client, OV8858_8BIT, OV8858_STREAM_MODE, 0x00);
 		    break;
 		default:
 		    break;
@@ -1173,6 +1178,7 @@ error3:
 
 static int __ov8858_init(struct v4l2_subdev *sd)
 {
+	int ret = 0;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov8858_device *dev = to_ov8858_sensor(sd);
 
@@ -1198,7 +1204,23 @@ static int __ov8858_init(struct v4l2_subdev *sd)
 #endif
 	dev_dbg(&client->dev, "%s: Writing basic settings to ov8858\n",
 		__func__);
-	return ov8858_write_reg_array(client, ov8858_BasicSettings);
+	ret = ov8858_write_reg_array(client, ov8858_BasicSettings);
+
+	if (otp_ptr != NULL && otp_ptr->otp_en == 1) {
+		dev_info(&client->dev,
+				"%s(%d), apply otp as flag: 0x%.2X!\n",
+				__func__,
+				__LINE__,
+				otp_ptr->flag);
+
+		ov8858_otp_apply(client);
+
+	#ifdef DUMP_OTP
+		dump_otp(client);
+	#endif
+	}
+
+	return ret;
 }
 
 static int ov8858_init(struct v4l2_subdev *sd, u32 val)
@@ -1466,10 +1488,8 @@ static int __ov8858_s_power(struct v4l2_subdev *sd, int on)
 		}
 
 		msleep(20);
-
 		return __ov8858_init(sd);
 	}
-
 	return ret;
 }
 
@@ -1966,7 +1986,7 @@ static int nearest_resolution_index(struct v4l2_subdev *sd, int w, int h)
 static int __ov8858_try_mbus_fmt(struct v4l2_subdev *sd,
 				 struct v4l2_mbus_framefmt *fmt)
 {
-	int idx;
+	int idx = 0;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov8858_device *dev = to_ov8858_sensor(sd);
 
@@ -1992,7 +2012,7 @@ static int __ov8858_try_mbus_fmt(struct v4l2_subdev *sd,
 		if (idx == -1)
 			idx = dev->entries_curr_table - 1;
 
-		fmt->width = dev->curr_res_table[idx].width;
+		fmt->width  = dev->curr_res_table[idx].width;
 		fmt->height = dev->curr_res_table[idx].height;
 	}
 
@@ -2112,7 +2132,7 @@ static int ov8858_detect(struct i2c_client *client, u16 *id)
 	ret = ov8858_read_reg(client, OV8858_8BIT, OV8858_CHIP_ID_LOW, &id_low);
 	if (ret)
 		return ret;
-	dev_info(&client->dev, "%s: id_low = 0x%04x\n", __func__, id_low);
+	dev_info(&client->dev, "%s: id_low  = 0x%04x\n", __func__, id_low);
 	*id = (id_hi << 8) | id_low;
 
 	dev_info(&client->dev, "%s: chip_id = 0x%04x\n", __func__, *id);
@@ -2192,15 +2212,6 @@ static int ov8858_s_stream(struct v4l2_subdev *sd, int enable)
 			goto out;
 		}
 		dev->streaming = 1;
-
-		/*set otp*/
-		//apply_otp(&ov8858_otp_struct);
-		ov8858_otp_apply(client);
-	#ifdef DUMP_OTP
-		dev_err(&client->dev, "ov8858_s_stream on->dump_otp enable:%d.\n",
-				enable);
-		dump_otp(client);
-	#endif
 	} else {
 		ret = ov8858_write_reg_array(client, ov8858_soft_standby);
 		if (ret != 0) {
@@ -2341,13 +2352,11 @@ static int ov8858_s_config(struct v4l2_subdev *sd,
 	if (ret)
 		goto fail_detect;
 
-    /* stream on */
-	ov8858_write_reg(client, OV8858_8BIT, OV8858_STREAM_MODE, 1);
 	/* read otp */
-	//read_otp(client,&ov8858_otp_struct);
-	ov8858_otp_read(client);
-    /* stream off */
-	ov8858_write_reg(client, OV8858_8BIT, OV8858_STREAM_MODE, 0);
+	if (!IS_ERR_VALUE(ov8858_otp_read(client)) &&
+			(otp_ptr->flag != 0)) {
+		otp_ptr->otp_en = 1;
+    }
 
 	/* power off sensor */
 	ret = __ov8858_s_power(sd, 0);
@@ -2463,6 +2472,7 @@ static int ov8858_s_ctrl(struct v4l2_ctrl *ctrl)
 			dev->curr_res_table = ov8858_res_preview;
 			dev->entries_curr_table =
 					ARRAY_SIZE(ov8858_res_preview);
+            break;
 		}
 
 		dev_dbg(&client->dev, "V4L2_CID_RUN_MODE = %d\n",
