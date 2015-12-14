@@ -512,6 +512,9 @@ static int axp_v1p8_on(struct gmin_subdev *gs)
 	 * only one I currently see that wants to set both 1.8v rails. */
 	usleep_range(110, 150);
 
+        if (dev ==NULL)
+	        return ret;
+
 	if (strcmp(dev->driver->acpi_match_table->id,"OVTI2680") ==0)
 		ret = axp_regulator_set(gs->eldo1_sel_reg, gs->eldo1_1p8v,
 				ELDO_CTRL_REG, gs->eldo1_ctrl_shift, true);
@@ -534,6 +537,8 @@ static int axp_v1p8_off(struct gmin_subdev *gs)
 	ret = axp_regulator_set(gs->eldo2_sel_reg, gs->eldo2_1p8v,
 		ELDO_CTRL_REG, gs->eldo2_ctrl_shift, false);
 
+        if (dev ==NULL)
+	        return ret;
 	
 	if (strcmp(dev->driver->acpi_match_table->id,"OVTI2680") ==0)
 	{
