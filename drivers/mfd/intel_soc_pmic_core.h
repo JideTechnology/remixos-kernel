@@ -77,6 +77,8 @@ struct intel_soc_pmic {
 	int				(*init)(void);
 	int				(*readb)(int);
 	int				(*writeb)(int, u8);
+	int 			        (*readmul)(int, u8, u8*);
+	int 			        (*writemul)(int, u8, u8*);
 	struct intel_pmic_irqregmap	*irq_regmap;
 	struct mfd_cell			*cell_dev;
 	struct intel_pmic_opregion	*opregion;

@@ -37,6 +37,31 @@ static struct intel_soc_pmic *pmic_i2c;
 #define I2C_ADDR_SHIFT		8
 #define I2C_REG_MASK		0xFF
 
+
+static int pmic_i2c_read_multi_byte(int reg, u8 len, u8 *buf)
+{
+	if (reg & I2C_ADDR_MASK)
+		pmic_i2c_client->addr = (reg & I2C_ADDR_MASK)
+						>> I2C_ADDR_SHIFT;
+	else
+		pmic_i2c_client->addr = pmic_i2c->default_client;
+
+	reg &= I2C_REG_MASK;
+	return i2c_smbus_read_i2c_block_data(pmic_i2c_client, reg, len, buf);
+}
+
+static int pmic_i2c_write_multi_byte(int reg, u8 len, u8 *buf)
+{
+	if (reg & I2C_ADDR_MASK)
+		pmic_i2c_client->addr = (reg & I2C_ADDR_MASK)
+						>> I2C_ADDR_SHIFT;
+	else
+		pmic_i2c_client->addr = pmic_i2c->default_client;
+
+	reg &= I2C_REG_MASK;
+	return i2c_smbus_write_i2c_block_data(pmic_i2c_client, reg, len, buf);
+}
+
 static int pmic_i2c_readb(int reg)
 {
 	if (reg & I2C_ADDR_MASK)
@@ -118,6 +143,8 @@ static int pmic_i2c_probe(struct i2c_client *i2c,
 	pmic_i2c->pmic_int_gpio = pmic_i2c_lookup_gpio(pmic_i2c->dev, 0);
 	pmic_i2c->readb	= pmic_i2c_readb;
 	pmic_i2c->writeb = pmic_i2c_writeb;
+	pmic_i2c->readmul = pmic_i2c_read_multi_byte;
+	pmic_i2c->writemul = pmic_i2c_write_multi_byte;
 
 	if (gpio_is_valid(pmic_i2c->pmic_int_gpio)) {
 		ret = gpio_request_one(pmic_i2c->pmic_int_gpio,
