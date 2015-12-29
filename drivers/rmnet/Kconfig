@@ -1,0 +1,10 @@
+#
+# RMNET Driver.
+#
+
+config RMNET 
+	bool "RMNET driver"
+	default y
+	---help---
+    rmnet driver for connect net and usb cdc-acm
+

@@ -1168,6 +1168,8 @@ int xhci_bus_suspend(struct usb_hcd *hcd)
 	struct xhci_bus_state *bus_state;
 	unsigned long flags;
 
+	pr_info("wgq[%s-%d]\n",__func__,__LINE__);
+
 	max_ports = xhci_get_ports(hcd, &port_array);
 	bus_state = &xhci->bus_state[hcd_index(hcd)];
 
@@ -1176,13 +1178,13 @@ int xhci_bus_suspend(struct usb_hcd *hcd)
 	if (hcd->self.root_hub->do_remote_wakeup) {
 		if (bus_state->resuming_ports) {
 			spin_unlock_irqrestore(&xhci->lock, flags);
-			xhci_dbg(xhci, "suspend failed because "
+			xhci_err(xhci, "suspend failed because "
 						"a port is resuming\n");
 			return -EBUSY;
 		}
 		if (usb_hub_port_waking_up(hcd->self.root_hub)) {
 			spin_unlock_irqrestore(&xhci->lock, flags);
-			xhci_dbg(xhci,
+			xhci_err(xhci,
 				"suspend failed as a SS port is resuming\n");
 			return -EBUSY;
 		}
@@ -1190,7 +1192,7 @@ int xhci_bus_suspend(struct usb_hcd *hcd)
 
 	if (bus_state->port_remote_wakeup) {
 		spin_unlock_irqrestore(&xhci->lock, flags);
-		xhci_dbg(xhci,
+		xhci_err(xhci,
 			"suspend failed as a SS port is resuming in phase 1\n");
 		return -EBUSY;
 	}
@@ -1206,7 +1208,7 @@ int xhci_bus_suspend(struct usb_hcd *hcd)
 		t2 = xhci_port_state_to_neutral(t1);
 
 		if ((t1 & PORT_PE) && !(t1 & PORT_PLS_MASK)) {
-			xhci_dbg(xhci, "port %d not suspended\n", port_index);
+			xhci_err(xhci, "port %d not suspended\n", port_index);
 			slot_id = xhci_find_slot_id_by_port(hcd, xhci,
 					port_index + 1);
 			if (slot_id) {
@@ -1251,6 +1253,8 @@ int xhci_bus_resume(struct usb_hcd *hcd)
 	struct xhci_bus_state *bus_state;
 	u32 temp;
 	unsigned long flags;
+
+	pr_info("wgq[%s-%d]\n",__func__,__LINE__);
 
 	max_ports = xhci_get_ports(hcd, &port_array);
 	bus_state = &xhci->bus_state[hcd_index(hcd)];

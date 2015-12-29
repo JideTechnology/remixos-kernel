@@ -28,6 +28,8 @@
 #include "xhci-trace.h"
 #include "xhci-intel-cap.h"
 
+#include <linux/wakelock.h>
+
 /* Device for a quirk */
 #define PCI_VENDOR_ID_FRESCO_LOGIC	0x1b73
 #define PCI_DEVICE_ID_FRESCO_LOGIC_PDK	0x1000
@@ -299,6 +301,9 @@ static int xhci_pci_setup(struct usb_hcd *hcd)
  * We need to register our own PCI probe function (instead of the USB core's
  * function) in order to create a second roothub under xHCI.
  */
+ 
+struct usb_device *xhci_root_hub = NULL; /* Root hub */
+struct wake_lock	xhci_wake_lock; 
 static int xhci_pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 {
 	int retval;
@@ -348,6 +353,10 @@ static int xhci_pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 	 */
 	if (xhci->quirks & XHCI_LPM_SUPPORT)
 		hcd_to_bus(xhci->shared_hcd)->root_hub->lpm_capable = 1;
+	
+	xhci_root_hub = hcd->self.root_hub;
+	
+	wake_lock_init(&xhci_wake_lock, WAKE_LOCK_SUSPEND, "xhci_wake_lock");
 
 	if (device_create_file(&dev->dev, &dev_attr_ssic_port_enable))
 		dev_err(&dev->dev, "can't create ssic_port_enable attribute\n");
@@ -381,14 +390,33 @@ static void xhci_pci_remove(struct pci_dev *dev)
 		pci_set_power_state(dev, PCI_D3hot);
 
 	kfree(xhci);
+	wake_lock_destroy(&xhci_wake_lock);
 }
 
 #ifdef CONFIG_PM
+int usb_reattach_modem(int para)
+{
+	trace_printk("[%s]\n",__func__);
+	pr_info("[%s]\n",__func__);
+	pr_info("[%s], xhci_root_hub pointer:0x%x\n",__func__,xhci_root_hub);
+	wake_lock_timeout(&xhci_wake_lock,msecs_to_jiffies(3 * 60 * 1000));
+	if (xhci_root_hub != NULL) {
+		pm_runtime_set_autosuspend_delay(&xhci_root_hub->dev,3 * 60 * 1000);
+		pm_runtime_get_sync(&xhci_root_hub->dev);
+		pm_runtime_put_sync(&xhci_root_hub->dev);
+	}
+    return 0;
+}
+
 static int xhci_pci_suspend(struct usb_hcd *hcd, bool do_wakeup)
 {
 	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
 	struct pci_dev		*pdev = to_pci_dev(hcd->self.controller);
 	int			retval = 0;
+
+	pr_info("[%s], xhci_root_hub pointer:0x%x\n",__func__,xhci_root_hub);
+	if(xhci_root_hub != NULL)
+		pm_runtime_set_autosuspend_delay(&xhci_root_hub->dev,0);
 
 	/*
 	 * Systems with the TI redriver that loses port status change events

@@ -21,7 +21,7 @@
 
 #include <drv_types.h>
 
-u32 GlobalDebugLevel = _drv_err_;
+u32 GlobalDebugLevel = _drv_debug_;
 
 #ifdef CONFIG_DEBUG_RTL871X
 
@@ -67,7 +67,7 @@ u32 GlobalDebugLevel = _drv_err_;
 void dump_drv_version(void *sel)
 {
 	DBG_871X_SEL_NL(sel, "%s %s\n", DRV_NAME, DRIVERVERSION);
-	DBG_871X_SEL_NL(sel, "build time: %s %s\n", "today", "then");
+	DBG_871X_SEL_NL(sel, "build time: %s %s\n", __DATE__, __TIME__);
 }
 
 void dump_log_level(void *sel)

@@ -158,6 +158,7 @@ obj-$(CONFIG_FMC)		+= fmc/
 obj-$(CONFIG_POWERCAP)		+= powercap/
 obj-$(CONFIG_EXTERNAL_DRIVERS)+= external_drivers/
 
+obj-$(CONFIG_RMNET)+= rmnet/
 
 # Silent Lake drivers
 obj-$(CONFIG_VIDT)		+= sldriver/

@@ -53,6 +53,7 @@ static const struct sdio_device_id sdio_ids[] =
 #endif //CONFIG_RTL8723A
 #ifdef CONFIG_RTL8723B
 	{ SDIO_DEVICE(0x024c, 0xB723),.driver_data = RTL8723B},
+	{ SDIO_DEVICE(0x024c, 0x0626),.driver_data = RTL8723B}, /* Add this for PR-AA2 */
 #endif
 #ifdef CONFIG_RTL8188E
 	{ SDIO_DEVICE(0x024c, 0x8179),.driver_data = RTL8188E},

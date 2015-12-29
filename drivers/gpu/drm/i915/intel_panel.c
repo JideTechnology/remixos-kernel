@@ -758,7 +758,7 @@ static void vlv_disable_backlight_dis_ddi(struct intel_connector *connector)
 static void vlv_disable_mipi_backlight(struct intel_connector *connector)
 {
 	struct drm_device *dev = connector->base.dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_i915_private *dev_priv = dev->dev_private; 
 	struct intel_dsi *intel_dsi = NULL;
 	struct drm_crtc *crtc = NULL;
 	struct intel_encoder *encoder = NULL;
@@ -772,12 +772,13 @@ static void vlv_disable_mipi_backlight(struct intel_connector *connector)
 
 	intel_panel_actually_set_backlight(connector, 0);
 
-	if (intel_dsi->dev.dev_ops->disable_backlight)
-		intel_dsi->dev.dev_ops->disable_backlight(&intel_dsi->dev);
+	//if (intel_dsi->dev.dev_ops->disable_backlight)
+	//	intel_dsi->dev.dev_ops->disable_backlight(&intel_dsi->dev);
+	//printk("vlv_disable_mipi_backlight....\n");
 
-	if (dev_priv->vbt.dsi.config->pmic_soc_blc) {
-		lpio_bl_write_bits(0, LPIO_PWM_CTRL, 0x00, 0x80000000);
-	}
+	 if (dev_priv->vbt.dsi.config->pmic_soc_blc) { 
+	 	lpio_bl_write_bits(0, LPIO_PWM_CTRL, 0x00, 0x80000000); 
+	 } 
 }
 
 void intel_panel_disable_backlight(struct intel_connector *connector)
@@ -817,6 +818,7 @@ void intel_panel_disable_backlight(struct intel_connector *connector)
 	 * in case of MIPI we use PMIC cals which cannot be done within
 	 * mutex
 	 */
+//	printk("intel_panel_disable_backlight....\n");
 	dev_priv->display.disable_backlight(connector);
 }
 
@@ -1081,7 +1083,7 @@ static void vlv_enable_mipi_backlight(struct intel_connector *connector)
 	struct intel_panel *panel = &connector->panel;
 
 	struct drm_device *dev = connector->base.dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_i915_private *dev_priv = dev->dev_private; 
 	struct intel_dsi *intel_dsi = NULL;
 	struct drm_crtc *crtc = NULL;
 	struct intel_encoder *encoder = NULL;
@@ -1093,12 +1095,12 @@ static void vlv_enable_mipi_backlight(struct intel_connector *connector)
 		}
 	}
 
-	if (dev_priv->vbt.dsi.config->pmic_soc_blc)
-		lpio_enable_backlight(dev);
+	 if (dev_priv->vbt.dsi.config->pmic_soc_blc) 
+	 	lpio_enable_backlight(dev); 
 
-	if (intel_dsi->dev.dev_ops->enable_backlight)
-		intel_dsi->dev.dev_ops->enable_backlight(&intel_dsi->dev);
-
+	//if (intel_dsi->dev.dev_ops->enable_backlight)
+	//	intel_dsi->dev.dev_ops->enable_backlight(&intel_dsi->dev);
+	//printk("vlv_enable_mipi_backlight..........\n");
 	intel_panel_actually_set_backlight(connector, panel->backlight.level);
 }
 

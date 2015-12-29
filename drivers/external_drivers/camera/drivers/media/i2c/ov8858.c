@@ -31,6 +31,576 @@
 #endif
 #include "ov8858.h"
 
+//static struct otp_struct ov8858_otp_struct ;
+static struct ov8858_device *global_dev =  NULL;
+static int ov8858_s_power(struct v4l2_subdev *sd, int on);
+static int dw9714_vcm_ctrl(const char *val, struct kernel_param *kp);
+static int ov8858_read_reg(struct i2c_client *client, u16 type, u16 reg,
+			   u16 *val);
+static int  __ov8858_read_otp_wb(struct i2c_client *client);
+static int  __ov8858_read_otp_vcm(struct i2c_client *client);
+static int  __ov8858_read_otp_lenc(struct i2c_client *client);
+static int ov8858_write_reg(struct i2c_client *client, u16 data_length, u16 reg, u16 val);
+
+
+static unsigned int ctrl_value;
+
+static int BG_Ratio_Typical = 0x144;//read it from 0x7019 & 0x701A
+static int RG_Ratio_Typical = 0x117;//read it from 0x7018 & 0x701A
+
+static struct ov8858_otp_struct *otp_ptr;
+
+#if 0
+	#define DUMP_OTP
+#endif
+
+struct ov8858_otp_struct {
+	int otp_en;
+	int flag;
+	u16 module_integrator_id;
+	u16 lens_id;
+	u16 production_year;
+	u16 production_month;
+	u16 production_day;
+	int rg_ratio;
+	int bg_ratio;
+	u16 lenc[240];
+	u16 checksum;
+	int VCM_start;
+	int VCM_end;
+	int VCM_dir;
+	int R_gain;
+	int G_gain;
+	int B_gain;
+};
+
+int dump_otp(struct i2c_client *client)
+{
+	u16 temp = 0;
+	int ret = 0;
+	int i;
+	ret |= ov8858_read_reg(client, OV8858_8BIT,0x5032,
+						&temp);
+	dev_err(&client->dev,
+		"ov8858 @%s: 0x5032: [0x%x]\n", __func__, temp);
+	ret |= ov8858_read_reg(client, OV8858_8BIT,0x5033,
+						&temp);
+	dev_err(&client->dev,
+		"ov8858 @%s: 0x5033: [0x%x]\n", __func__, temp);
+	ret |= ov8858_read_reg(client, OV8858_8BIT,0x5034,
+						&temp);
+	dev_err(&client->dev,
+		"ov8858  @%s: 0x5034: [0x%x]\n", __func__, temp);
+	ret |= ov8858_read_reg(client, OV8858_8BIT,0x5035,
+						&temp);
+	dev_err(&client->dev,
+		"ov8858 @%s: 0x5035: [0x%x]\n", __func__, temp);
+	ret |= ov8858_read_reg(client, OV8858_8BIT,0x5036,
+						&temp);
+	dev_err(&client->dev,
+		"ov8858 @%s: 0x5036: [0x%x]\n", __func__, temp);
+	ret |= ov8858_read_reg(client, OV8858_8BIT,0x5037,
+						&temp);
+	dev_err(&client->dev,
+		"ov8858 @%s: 0x5037: [0x%x]\n", __func__, temp);
+
+	ret |= ov8858_read_reg(client, OV8858_8BIT, 0x5000, &temp);
+	dev_err(&client->dev,
+		"ov8858 @%s: 0x5000: [0x%x]\n", __func__, temp);
+
+	for (i = 0; i < 240; i++) {
+		ret |= ov8858_read_reg(client, OV8858_8BIT,(0x5800 + i),&temp);
+		dev_err(&client->dev,
+			"ov8858 @%s: 0x%x: [0x%x]\n", __func__, (0x5800+i), temp);
+	}
+
+	return ret;
+}
+
+
+
+int update_awb_gain(struct i2c_client *client)
+{
+	u16 R_gain = otp_ptr->R_gain;
+	u16 G_gain = otp_ptr->G_gain;
+	u16 B_gain = otp_ptr->B_gain;
+	int ret = 0;
+	//u16 tmp = 0;
+
+	if (R_gain > 0x400) {
+		
+		dev_dbg(&client->dev,"update_awb_gain value of 0x5032 is :0x%x.\n",R_gain>>8);
+		ret |= ov8858_write_reg(client, OV8858_8BIT, 0x5032,
+							R_gain>>8);
+			
+		dev_dbg(&client->dev,"update_awb_gain value of 0x5033 is :0x%x.\n",R_gain & 0x00ff);
+		ret |= ov8858_write_reg(client, OV8858_8BIT, 0x5033,
+							R_gain & 0x00ff);
+	}
+	if (G_gain > 0x400) {		
+		dev_dbg(&client->dev,"update_awb_gain value of 0x5034 is :0x%x.\n",G_gain>>8);
+		ret |= ov8858_write_reg(client, OV8858_8BIT,0x5034,
+							G_gain>>8);
+		
+		dev_dbg(&client->dev,"update_awb_gain value of 0x5035 is :0x%x.\n",G_gain & 0x00ff);
+		ret |= ov8858_write_reg(client, OV8858_8BIT, 0x5035,
+							G_gain & 0x00ff);
+	}
+	if (B_gain > 0x400) {
+		
+		dev_dbg(&client->dev,"update_awb_gain value of 0x5036 is :0x%x.\n",B_gain>>8);
+		ret |= ov8858_write_reg(client, OV8858_8BIT,0x5036,
+							B_gain>>8);
+		
+		dev_dbg(&client->dev,"update_awb_gain value of 0x5037 is :0x%x.\n",B_gain & 0x00ff);
+		ret |= ov8858_write_reg(client, OV8858_8BIT, 0x5037,
+							B_gain & 0x00ff);
+	}
+
+	if (IS_ERR_VALUE(ret))
+		dev_err(&client->dev,"otp awb gain apply failed\n");
+	else
+		dev_dbg(&client->dev,
+					"ov8858 update_awb_gain:%s, rgain:%x ggain %x bgain %x\n",
+					__func__, R_gain, G_gain, B_gain);
+
+	return ret;
+}
+
+
+int update_lenc(struct i2c_client *client)
+{
+	int i, ret = 0;
+	u16 temp = 0;
+	//u16 tmp = 0;
+	ret |= ov8858_read_reg(client, OV8858_8BIT, 0x5000, &temp);
+
+	temp = 0x80 | temp;
+	ret |= ov8858_write_reg(client, OV8858_8BIT, 0x5000, temp);
+
+	#ifdef DUMP_OTP	
+	dev_err(&client->dev,"ov8858_otp_read value of 0x5000 is :0x%x.\n",temp);
+	#endif
+	
+	if (IS_ERR_VALUE(ret)) {
+		dev_err(&client->dev,"otp lenc apply failed at beginning\n");
+		return ret;
+	}
+
+	for (i = 0; i < 240; i++) {
+		#ifdef DUMP_OTP	
+		dev_err(&client->dev,"ov8858_otp_read value of 0x%x is :0x%x.\n",(0x5800 + i),otp_ptr->lenc[i]);
+		#endif
+		ret |= ov8858_write_reg(client, OV8858_8BIT, (0x5800 + i),
+						otp_ptr->lenc[i]);
+		if (IS_ERR_VALUE(ret)) {
+			dev_err(&client->dev,"otp lenc apply failed during procesing\n");
+			break;
+		}
+	}
+
+	return ret;
+}
+
+static int ov8858_otp_apply(struct i2c_client *client)
+{
+	if (otp_ptr != NULL && otp_ptr->otp_en == 1) 
+	{
+		dev_err(&client->dev,"ov8858_otp_apply apply otp as flag: %0x\n",
+				otp_ptr->flag);
+	}
+	if ((otp_ptr->flag & 0xc0) == 0xc0)
+	{
+		dev_err(&client->dev,"ov8858_otp_apply->update_awb_gain.\n");
+		update_awb_gain(client);
+	}
+
+	if ((otp_ptr->flag & 0x10) == 0x10)
+	{		
+		dev_err(&client->dev,"ov8858_otp_apply->update_lenc.\n");
+		update_lenc(client);
+	}
+
+	return 0;
+}
+static int ov8858_otp_read(struct i2c_client *client)
+{
+	int ret = 0;
+	u16 temp = 0;	
+	u16 reg = 0;
+
+	dev_err(&client->dev, "ov8858_otp_read \n");
+
+	if (otp_ptr != NULL) {
+		dev_err(&client->dev, "ov8858_otp_read OTP data loaded already\n");
+		return 0;
+	} else {
+		otp_ptr = kzalloc(sizeof(*otp_ptr), GFP_KERNEL);
+		if (!otp_ptr) {
+			dev_err(&client->dev, "ov8858_otp_read otp alloc fail!\n");
+			return -ENOMEM;
+		}
+	}
+
+	ov8858_write_reg(client, OV8858_8BIT,0x0100,0x1);
+
+	/*set 0x5002[3] to "0" before ops*/
+	ret = ov8858_read_reg(client, OV8858_8BIT, 0x5002, &temp);
+	if (IS_ERR_VALUE(ret)) {
+		dev_err(&client->dev,
+			"ov8858_otp_read otp read failed at phase1\n");
+		return ret;
+	} else {		
+		dev_err(&client->dev, "ov8858_otp_read otp read phase1 pass\n");
+	}
+
+	ret |= ov8858_write_reg(client, OV8858_8BIT,0x5002,
+					(0x00 & 0x08) | (temp & (~0x08)));
+	
+	ret |= ov8858_write_reg(client, OV8858_8BIT,0x3d84, 0xc0);
+	
+	/*otp start addr*/
+	ret |= ov8858_write_reg(client, OV8858_8BIT,0x3d88, 0x70);
+	
+	ret |= ov8858_write_reg(client, OV8858_8BIT,0x3d89, 0x10);
+	/*otp end addr*/
+	ret |= ov8858_write_reg(client, OV8858_8BIT,0x3d8A, 0x72);
+	
+	ret |= ov8858_write_reg(client, OV8858_8BIT,0x3d8B, 0x0a);
+	
+	/*load otp into buffer*/
+	ret |= ov8858_write_reg(client, OV8858_8BIT,0x3d81, 0x01);
+	if (IS_ERR_VALUE(ret)) {
+		dev_err(&client->dev,
+			"ov8858_otp_read otp read failed at phase2\n");
+		return ret;
+	} else {	
+		dev_err(&client->dev, "ov8858_otp_read otp read phase2 pass\n");
+	}
+
+	usleep_range(10000, 15000);
+
+	/*otp wb read*/
+	ret = __ov8858_read_otp_wb(client);
+	if (ret)
+		dev_err(&client->dev,"ov8858_otp_read fail to read OTP wb!\n");
+	else
+		dev_err(&client->dev, "ov8858_otp_read read otp wb success\n");
+
+	/*otp vcm read*/
+	ret = __ov8858_read_otp_vcm(client);
+	if (ret)
+		dev_err(&client->dev,"ov8858_otp_read fail to read OTP vcm!\n");
+	else
+		dev_err(&client->dev,"ov8858_otp_read read otp vcm success\n");
+
+	/*otp lenc read*/
+	ret = __ov8858_read_otp_lenc(client);
+	if (ret)
+		dev_err(&client->dev, "ov8858_otp_read fail to read OTP lenc!\n");
+	else
+		dev_err(&client->dev, "ov8858_otp_read read otp lenc success\n");
+
+	/*clear data afer read*/
+	for (reg = 0x7010; reg <= 0x720a; reg++) {
+		ret |= ov8858_write_reg(client, OV8858_8BIT,reg, 0);
+		if (IS_ERR_VALUE(ret)) {
+			dev_err(&client->dev,
+				"ov8858_otp_read otp clear data failed at phase3\n");
+			return ret;
+		}
+	}
+
+	/*set 0x5002[3] to "1" after ops*/
+	ret = ov8858_read_reg(client, OV8858_8BIT, 0x5002, &temp);
+	if (IS_ERR_VALUE(ret)) {
+		dev_err(&client->dev,
+			"ov8858_otp_read otp exit failed at phase 4\n");
+		return ret;
+	} else {
+		dev_err(&client->dev, "ov8858_otp_read 0x5002 is 0x%.4X\n", temp);
+	}
+
+	ret |= ov8858_write_reg(client, OV8858_8BIT,0x5002,
+					(0x08 & 0x08) | (temp & (~0x08)));
+	ov8858_write_reg(client, OV8858_8BIT,0x0100, 0);
+
+	dev_err(&client->dev, "ov8858_otp_read finished.\n");
+	return ret;
+}
+
+
+static int  __ov8858_read_otp_wb(struct i2c_client *client)
+{
+	u16 otp_flag = 0;
+	u16 addr     = 0;
+	int ret      = 0;
+	u16 temp1    = 0;
+	u16 temp2    = 0;
+
+	ret = ov8858_read_reg(client, OV8858_8BIT,0x7010, &otp_flag);
+	if (IS_ERR_VALUE(ret)) {
+		dev_err(&client->dev,"otp wb flag read failed\n");
+		return ret;
+	}
+
+	dev_err(&client->dev, "__ov8858_read_otp_wb otp wb flag is 0x%.2X\n", otp_flag);
+
+	if ((otp_flag & 0xc0) == 0x40)
+		addr = 0x7011; /*set addr to group 1 base*/
+	else if ((otp_flag & 0x30) == 0x10)
+		addr = 0x7019; /*set addr to group 2 base*/
+
+	if (addr != 0) {
+		dev_err(&client->dev,
+					"__ov8858_read_otp_wb otp wb addr is 0x%.2X\n", addr);
+
+		otp_ptr->flag = 0xc0;
+		ret |= ov8858_read_reg(client, OV8858_8BIT,
+				addr,
+				&otp_ptr->module_integrator_id);
+		ret |= ov8858_read_reg(client, OV8858_8BIT,
+				addr + 1,
+				&otp_ptr->lens_id);
+		ret |= ov8858_read_reg(client, OV8858_8BIT,
+				addr + 2,
+				&otp_ptr->production_year);
+		ret |= ov8858_read_reg(client, OV8858_8BIT,
+				addr + 3,
+				&otp_ptr->production_month);
+		ret |= ov8858_read_reg(client, OV8858_8BIT,
+				addr + 4,
+				&otp_ptr->production_day);
+		ret |= ov8858_read_reg(client, OV8858_8BIT,
+				addr + 5,
+				&temp1);
+		ret |= ov8858_read_reg(client, OV8858_8BIT,
+				addr + 7,
+				&temp2);
+		otp_ptr->rg_ratio = (temp1 << 2) + (temp2 >> 6 & 0x03);
+		ret |= ov8858_read_reg(client, OV8858_8BIT,
+				addr + 6,
+				&temp1);
+		otp_ptr->bg_ratio = (temp1 << 2) + (temp2 >> 4 & 0x03);
+
+		if (IS_ERR_VALUE(ret))
+			dev_err(&client->dev,
+				"__ov8858_read_otp_wb otp wb data read failed\n");
+	 } else {
+		dev_err(&client->dev,
+			"__ov8858_read_otp_wb no valid module info and awb data in otp\n");
+
+		otp_ptr->flag = 0;
+		return ret;
+	}
+
+	otp_ptr->R_gain = (RG_Ratio_Typical * 1000) / otp_ptr->rg_ratio;
+	otp_ptr->B_gain = (BG_Ratio_Typical * 1000) / otp_ptr->bg_ratio;
+	otp_ptr->G_gain = 1000;
+
+	if (otp_ptr->R_gain < 1000 || otp_ptr->B_gain < 1000) {
+		if (otp_ptr->R_gain < otp_ptr->B_gain)
+			temp1 = otp_ptr->R_gain;
+		else
+			temp1 = otp_ptr->B_gain;
+	} else {
+		temp1 = otp_ptr->G_gain;
+	}
+
+	otp_ptr->R_gain = 0x400 * otp_ptr->R_gain / temp1;
+	otp_ptr->B_gain = 0x400 * otp_ptr->B_gain / temp1;
+	otp_ptr->G_gain = 0x400 * otp_ptr->G_gain / temp1;
+
+#ifdef DUMP_OTP
+	dev_err(&client->dev, "=====__ov8858_read_otp_wb===============\n");
+	dev_err(&client->dev,"@%s: rg_ratio: [0x%.4X]\n",
+			__func__,
+			otp_ptr->rg_ratio);
+	dev_err(&client->dev, "@%s: bg_ratio: [0x%.4X]\n",
+			__func__,
+			otp_ptr->bg_ratio);
+	dev_err(&client->dev, "++++++++++++++++++++++++++++++++++++++++++\n");
+	dev_err(&client->dev, "@%s: R_gain  : [0x%.4X]\n",
+			__func__,
+			otp_ptr->R_gain);
+	dev_err(&client->dev, "@%s: G_gain  : [0x%.4X]\n",
+			__func__,
+			otp_ptr->G_gain);
+	dev_err(&client->dev, "@%s: B_gain  : [0x%.4X]\n",
+			__func__,
+			otp_ptr->B_gain);
+	dev_err(&client->dev, "++++++++++++++++++++++++++++++++++++++++++\n");
+#endif
+
+	return ret;
+}
+
+static int  __ov8858_read_otp_vcm(struct i2c_client *client)
+{
+	u16 otp_flag = 0;
+	u16 addr = 0;
+	int ret = 0;
+	u16 temp1 = 0, temp2 = 0;
+
+	ret = ov8858_read_reg(client, OV8858_8BIT, 0x7021, &otp_flag);
+	if (IS_ERR_VALUE(ret)) {
+		dev_err(&client->dev,
+			"__ov8858_read_otp_vcm otp vcm flag read failed\n");
+		return ret;
+	}
+	dev_err(&client->dev, "__ov8858_read_otp_vcm otp vcm flag is %0x\n", otp_flag);
+
+	if ((otp_flag & 0xc0) == 0x40)
+		addr = 0x7022; /*set addr to group 1 base*/
+	else if ((otp_flag & 0x30) == 0x10)
+		addr = 0x7025; /*set addr to group 2 base*/
+
+	if (addr != 0) {
+		dev_err(&client->dev,
+					"__ov8858_read_otp_vcm otp vcm addr is %0x\n", addr);
+		otp_ptr->flag |= 0x20;
+		ret |= ov8858_read_reg(client, OV8858_8BIT, addr, &temp1);
+		ret |= ov8858_read_reg(client, OV8858_8BIT, addr + 2, &temp2);
+		otp_ptr->VCM_start = (temp1 << 2) | ((temp1 >> 6) & 0x03);
+		ret |= ov8858_read_reg(client, OV8858_8BIT,  addr + 1, &temp1);
+		otp_ptr->VCM_end = (temp1 << 2) + ((temp2 >> 4) & 0x03);
+		otp_ptr->VCM_dir = ((temp2 >> 2) & 0x03);
+
+		if (IS_ERR_VALUE(ret))
+			dev_err(&client->dev,
+						"__ov8858_read_otp_vcm otp vcm read fail!\n");
+	} else {
+		dev_err(&client->dev,
+					"__ov8858_read_otp_vcm no valid vcm data in otp\n");
+	}
+
+	return ret;
+}
+
+static int  __ov8858_read_otp_lenc(struct i2c_client *client)
+{
+	u16 otp_flag = 0;
+	u16 addr = 0;
+	int ret = 0, i = 0;
+	int checksum = 0;
+#ifdef DUMP_OTP
+	u16 temp = 0;
+#endif
+
+	ret = ov8858_read_reg(client, OV8858_8BIT,0x7028, &otp_flag);
+	if (IS_ERR_VALUE(ret)) {
+		dev_err(&client->dev,
+			"__ov8858_read_otp_lenc otp lenc flag read failed\n");
+		return ret;
+	}
+
+	dev_err(&client->dev,
+				"__ov8858_read_otp_lenc otp lenc flag is 0x%.4X\n", otp_flag);
+
+	if ((otp_flag & 0xc0) == 0x40)
+		addr = 0x7029; /*set addr to group 1 base*/
+	else if ((otp_flag & 0x30) == 0x10)
+		addr = 0x711a; /*set addr to group 2 base*/
+
+
+#ifdef DUMP_OTP
+	ret |= ov8858_read_reg(client, OV8858_8BIT,
+			0x5000,
+			&temp);
+	temp |= 0x80;
+
+	dev_err(&client->dev, "@%s: 0x%.4X: [0x%.4X]\n",
+			__func__,
+			0x5000,
+			temp);
+#endif
+
+	if (addr != 0) {
+		for (i = 0; i < 240; i++) {
+			ret |= ov8858_read_reg(client, OV8858_8BIT,
+					addr + i,
+					&otp_ptr->lenc[i]);
+			if (IS_ERR_VALUE(ret)) {
+				dev_err(&client->dev,
+					"__ov8858_read_otp_lenc otp lenc data read failed\n");
+					return ret;
+			}
+			checksum += otp_ptr->lenc[i];
+
+	#ifdef DUMP_OTP
+			dev_err(&client->dev, "@%s: 0x%.4X: [0x%.4X]\n",
+					__func__,
+					addr + i,
+					otp_ptr->lenc[i]);
+	#endif
+		}
+	#ifdef DUMP_OTP
+		dev_err(&client->dev, "==========__ov8858_read_otp_lenc=============================\n");
+	#endif
+
+		checksum = (checksum) % 255 + 1;
+		ret |= ov8858_read_reg(client, OV8858_8BIT,(addr + 240),
+						&(otp_ptr->checksum));
+		if (IS_ERR_VALUE(ret)) {
+			dev_err(&client->dev,
+				"__ov8858_read_otp_lenc otp lenc checksum read failed\n");
+				return ret;
+		}
+
+		if (otp_ptr->checksum == checksum)
+			otp_ptr->flag |= 0x10;
+		else
+			dev_err(&client->dev,
+				"__ov8858_read_otp_lenc otp lenc checksum no match!\n");
+
+	} else {
+			dev_err(&client->dev,
+				"__ov8858_read_otp_lenc no valid lenc data in otp\n");
+	}
+
+	return ret;
+}
+
+
+module_param_call(vcm_ctrl, dw9714_vcm_ctrl, param_get_uint,
+				&ctrl_value, S_IRUGO | S_IWUSR);
+
+
+static int otp_read_ctrl(const char *val, struct kernel_param *kp);
+static unsigned int otp_values;
+
+module_param_call(otp_ctrl,otp_read_ctrl,param_get_uint,
+				&otp_values,S_IRUGO | S_IWUSR);
+
+static int dw9714_vcm_ctrl(const char *val, struct kernel_param *kp)
+{
+	int rv = param_set_int(val, kp);
+
+	if (rv)
+		return rv;
+	if (!global_dev) return -1;
+		/* Enable power */
+	ov8858_s_power(&(global_dev->sd),1);
+	switch (ctrl_value) {
+		case 1:
+			global_dev->vcm_driver->t_focus_abs(&(global_dev->sd), 0x100);
+			break;
+		case 2:
+			global_dev->vcm_driver->t_focus_abs(&(global_dev->sd), 0x200);
+			break;
+		case 3:
+			global_dev->vcm_driver->t_focus_abs(&(global_dev->sd), 0x3FF);
+			break;
+		case 4:
+			global_dev->vcm_driver->t_focus_abs(&(global_dev->sd), 0x0);
+			break;
+	}
+
+	msleep(100);
+	ov8858_s_power(&(global_dev->sd),0);
+	return 0;
+}
+
 static int ov8858_i2c_read(struct i2c_client *client, u16 len, u16 addr,
 			   u8 *buf)
 {
@@ -170,6 +740,29 @@ ov8858_write_reg(struct i2c_client *client, u16 data_length, u16 reg, u16 val)
 	return ret;
 }
 
+static int otp_read_ctrl(const char *val, struct kernel_param *kp)
+{
+	int rv = param_set_int(val, kp);
+	struct i2c_client *client = v4l2_get_subdevdata(&(global_dev->sd));
+	if (rv)
+		return rv;
+	ov8858_s_power(&(global_dev->sd),1);
+	switch (otp_values ) {
+		case 1:
+		    ov8858_write_reg(client, OV8858_8BIT, OV8858_STREAM_MODE,
+			    0x01);
+			ov8858_otp_read(client);
+			//apply_otp(&ov8858_otp_struct);
+			ov8858_otp_apply(client);
+		    ov8858_write_reg(client, OV8858_8BIT, OV8858_STREAM_MODE,0x00);
+		    break;
+		default:
+		    break;
+	}
+	ov8858_s_power(&(global_dev->sd),0);
+
+	return 0;
+}
 /*
  * ov8858_write_reg_array - Initializes a list of registers
  * @client: i2c driver client structure
@@ -342,16 +935,16 @@ static int __ov8858_update_frame_timing(struct v4l2_subdev *sd,
 	int ret;
 
 
-	dev_dbg(&client->dev, "%s OV8858_TIMING_HTS=0x%04x\n",
-		__func__, *hts);
+	//dev_err(&client->dev, "%s OV8858_TIMING_HTS=0x%04x\n",
+		//__func__, *hts);
 
 	/* HTS = pixel_per_line / 2 */
 	ret = ov8858_write_reg(client, OV8858_16BIT,
 				OV8858_TIMING_HTS, *hts >> 1);
 	if (ret)
 		return ret;
-	dev_dbg(&client->dev, "%s OV8858_TIMING_VTS=0x%04x\n",
-		__func__, *vts);
+	//dev_err(&client->dev, "%s OV8858_TIMING_VTS=0x%04x\n",
+		//__func__, *vts);
 
 	return ov8858_write_reg(client, OV8858_16BIT, OV8858_TIMING_VTS, *vts);
 }
@@ -362,8 +955,9 @@ static int __ov8858_set_exposure(struct v4l2_subdev *sd, int exposure, int gain,
 	struct ov8858_device *dev = to_ov8858_sensor(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int exp_val, ret;
-	dev_dbg(&client->dev, "%s, exposure = %d, gain=%d, dig_gain=%d\n",
-		__func__, exposure, gain, dig_gain);
+
+	//dev_err(&client->dev, "%s, exposure = %d, gain=%d, dig_gain=%d\n",
+		//__func__, exposure, gain, dig_gain);
 
 	if (dev->limit_exposure_flag) {
 		if (exposure > *vts - OV8858_INTEGRATION_TIME_MARGIN)
@@ -428,9 +1022,12 @@ static int ov8858_set_exposure(struct v4l2_subdev *sd, int exposure, int gain,
 				int dig_gain)
 {
 	struct ov8858_device *dev = to_ov8858_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	const struct ov8858_resolution *res;
 	u16 hts, vts;
 	int ret;
+
+	/*disable gain/exposure setting as tuning is not ready*/
 
 	mutex_lock(&dev->input_lock);
 
@@ -443,6 +1040,13 @@ static int ov8858_set_exposure(struct v4l2_subdev *sd, int exposure, int gain,
 	/* Validate digital gain: must not exceed 12 bit value*/
 	dig_gain = clamp_t(int, dig_gain, 0, OV8858_MWB_GAIN_MAX);
 
+	/* Group hold is valid only if sensor is streaming. */
+	if (dev->streaming) {
+		ret = ov8858_write_reg_array(client, ov8858_param_hold);
+		if (ret)
+			goto out;
+	}
+
 	res = &dev->curr_res_table[dev->fmt_idx];
 	/*
 	 * Vendor: HTS reg value is half the total pixel line
@@ -451,6 +1055,13 @@ static int ov8858_set_exposure(struct v4l2_subdev *sd, int exposure, int gain,
 	vts = res->fps_options[dev->fps_index].lines_per_frame;
 
 	ret = __ov8858_set_exposure(sd, exposure, gain, dig_gain, &hts, &vts);
+	if (ret)
+		goto out;
+out:
+	/* Group hold launch - delayed launch */
+	if (dev->streaming)
+		ret = ov8858_write_reg_array(client, ov8858_param_update);
+
 
 	mutex_unlock(&dev->input_lock);
 
@@ -472,6 +1083,7 @@ static int ov8858_priv_int_data_init(struct v4l2_subdev *sd)
 	int r;
 	u16 isp_ctrl2 = 0;
 
+//	mutex_lock(&dev->input_lock);
 	if (!dev->otp_data) {
 		dev->otp_data = devm_kzalloc(&client->dev, size, GFP_KERNEL);
 		if (!dev->otp_data) {
@@ -547,8 +1159,16 @@ static int ov8858_priv_int_data_init(struct v4l2_subdev *sd)
 			goto error1;
 		}
 	}
+#if 0
+	if (copy_to_user(priv->data, dev->otp_data,
+			 min_t(__u32, priv->size, size))) {
+		r = -EFAULT;
+		goto error3;
+	}
 
-
+	priv->size = size;
+	mutex_unlock(&dev->input_lock);
+#endif
 	return 0;
 
 error1:
@@ -560,6 +1180,7 @@ error2:
 	devm_kfree(&client->dev, dev->otp_data);
 	dev->otp_data = NULL;
 error3:
+	mutex_unlock(&dev->input_lock);
 	dev_err(&client->dev, "%s: OTP reading failed\n", __func__);
 	return r;
 }
@@ -598,13 +1219,11 @@ static int __ov8858_init(struct v4l2_subdev *sd)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov8858_device *dev = to_ov8858_sensor(sd);
-	int ret;
-	dev_dbg(&client->dev, "%s\n", __func__);
+	int ret = 0;
+	dev_err(&client->dev, "%s\n", __func__);
 
-#ifndef CONFIG_GMIN_INTEL_MID
 	if (dev->sensor_id == OV8858_ID_DEFAULT)
 		return 0;
-#endif
 
 	/* Sets the default FPS */
 	dev->fps_index = 0;
@@ -621,13 +1240,15 @@ static int __ov8858_init(struct v4l2_subdev *sd)
 		ov8858_BasicSettings[3].val = 0x50; /* pll1_multiplier = 80 */
 	}
 #endif
-	dev_dbg(&client->dev, "%s: Writing basic settings to ov8858\n",
+	dev_err(&client->dev, "%s: Writing basic settings to ov8858\n",
 		__func__);
-	ret = ov8858_write_reg_array(client, ov8858_BasicSettings);
-	if (ret)
-		return ret;
 
-	return ov8858_priv_int_data_init(sd);
+	ret = ov8858_write_reg_array(client, ov8858_BasicSettings);
+
+	if (ret)
+		dev_err(&client->dev,"%s writing init setting failed.\n",__func__);
+	
+	return ret;
 }
 
 static int ov8858_init(struct v4l2_subdev *sd, u32 val)
@@ -755,6 +1376,7 @@ static int __gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 {
 	struct i2c_client *client;
 	struct ov8858_device *dev;
+	int ret = 0;
 
 	if (!sd)
 		return -EINVAL;
@@ -771,7 +1393,32 @@ static int __gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 
 #ifdef CONFIG_GMIN_INTEL_MID
 	if (dev->platform_data->gpio0_ctrl)
-		return dev->platform_data->gpio0_ctrl(sd, flag);
+	{		
+		if (flag ==1)			
+			ret =  dev->platform_data->gpio0_ctrl(sd, 0);
+		dev_err(&client->dev, "ov8858 __gpio_ctrl->gpio_ctrl->gpio0_ctrl.\n");
+		msleep(2);
+		ret =  dev->platform_data->gpio0_ctrl(sd, flag);
+		
+		msleep(2);
+		if (dev->platform_data->gpio1_ctrl)
+		{
+			dev_err(&client->dev, "ov8858 __gpio_ctrl->gpio_ctrl->gpio1_ctrl.\n");
+			if (flag ==1)			
+				ret =  dev->platform_data->gpio1_ctrl(sd, 0);
+
+			if (ret)				
+				dev_err(&client->dev, "ov8858 __gpio_ctrl->gpio_ctrl->gpio1_ctrl down failed.\n");
+		
+			ret |= dev->platform_data->gpio1_ctrl(sd, flag);
+			if (ret)	
+				dev_err(&client->dev, "ov8858 __gpio_ctrl->gpio_ctrl->gpio1_ctrl failed again.\n");
+				
+			msleep(15);
+			return ret;
+		}
+	}
+
 #endif
 
 	dev_err(&client->dev, "failed to find platform gpio callback\n");
@@ -788,24 +1435,18 @@ static int power_up(struct v4l2_subdev *sd)
 
 	/* Enable power */
 	ret = __power_ctrl(sd, 1);
-	if (ret) {
-		dev_err(&client->dev, "power rail on failed %d.\n", ret);
+	if (ret)
 		goto fail_power;
-	}
 
 	/* Enable clock */
 	ret = dev->platform_data->flisclk_ctrl(sd, 1);
-	if (ret) {
-		dev_err(&client->dev, "flisclk on failed %d\n", ret);
+	if (ret)
 		goto fail_clk;
-	}
 
 	/* Release reset */
 	ret = __gpio_ctrl(sd, 1);
-	if (ret) {
-		dev_err(&client->dev, "gpio on failed %d\n", ret);
+	if (ret)
 		goto fail_gpio;
-	}
 
 	/* Minumum delay is 8192 clock cycles before first i2c transaction,
 	 * which is 1.37 ms at the lowest allowed clock rate 6 MHz */
@@ -867,6 +1508,8 @@ static int __ov8858_s_power(struct v4l2_subdev *sd, int on)
 				return ret;
 			}
 		}
+		msleep(20);
+
 		return __ov8858_init(sd);
 	}
 
@@ -1555,6 +2198,14 @@ static int ov8858_s_stream(struct v4l2_subdev *sd, int enable)
 			goto out;
 		}
 		dev->streaming = 1;
+
+		/*set otp*/
+		//apply_otp(&ov8858_otp_struct);
+		ov8858_otp_apply(client);
+		#ifdef DUMP_OTP	
+		dev_err(&client->dev,"ov8858_s_stream on->dump_otp enable:%d.\n",enable);
+		dump_otp(client);
+		#endif
 	} else {
 		ret = ov8858_write_reg_array(client, ov8858_soft_standby);
 		if (ret != 0) {
@@ -1565,6 +2216,7 @@ static int ov8858_s_stream(struct v4l2_subdev *sd, int enable)
 		dev->fps_index = 0;
 		dev->fps = 0;
 	}
+	msleep(25);
 out:
 	mutex_unlock(&dev->input_lock);
 	return ret;
@@ -1694,6 +2346,14 @@ static int ov8858_s_config(struct v4l2_subdev *sd,
 	if (ret)
 		goto fail_detect;
 
+    /* stream on */
+	ov8858_write_reg(client, OV8858_8BIT, OV8858_STREAM_MODE, 1);
+	/* read otp */
+	//read_otp(client,&ov8858_otp_struct);
+	ov8858_otp_read(client);
+    /* stream off */
+	ov8858_write_reg(client, OV8858_8BIT, OV8858_STREAM_MODE, 0);
+
 	/* power off sensor */
 	ret = __ov8858_s_power(sd, 0);
 
@@ -1792,6 +2452,7 @@ static int ov8858_s_ctrl(struct v4l2_ctrl *ctrl)
 	 * doesn't need to be taken here.
 	 */
 
+	/* We only handle V4L2_CID_RUN_MODE for now. */
 	switch (ctrl->id) {
 	case V4L2_CID_RUN_MODE:
 		switch (ctrl->val) {
@@ -1813,6 +2474,12 @@ static int ov8858_s_ctrl(struct v4l2_ctrl *ctrl)
 		dev->fps_index = 0;
 
 		return 0;
+	case V4L2_CID_TEST_PATTERN:
+		dev_dbg(&client->dev,
+			"%s: V4L2_CID_TEST_PATTERN = %d, val = 0x%04X\n",
+			__func__, V4L2_CID_TEST_PATTERN, ctrl->val);
+		return ov8858_write_reg(client, OV8858_16BIT,
+					OV8858_TEST_PATTERN_REG, ctrl->val);
 	case V4L2_CID_FOCUS_ABSOLUTE:
 		if (dev->vcm_driver && dev->vcm_driver->t_focus_abs)
 			return dev->vcm_driver->t_focus_abs(&dev->sd,
@@ -2114,6 +2781,13 @@ static const struct v4l2_ctrl_config ctrls[] = {
 		.flags = V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE,
 	}, {
 		.ops = &ctrl_ops,
+		.id = V4L2_CID_TEST_PATTERN,
+		.name = "Test pattern",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.step = 1,
+		.max = 0xffff,
+	}, {
+		.ops = &ctrl_ops,
 		.id = V4L2_CID_FOCUS_ABSOLUTE,
 		.name = "Focus absolute",
 		.type = V4L2_CTRL_TYPE_INTEGER,
@@ -2313,6 +2987,7 @@ static int ov8858_probe(struct i2c_client *client,
 		return ret;
 	}
 
+        global_dev = dev;
 	return 0;
 
 out_free:

@@ -32,6 +32,7 @@
 #include <asm/byteorder.h>
 
 #include "hub.h"
+#include <linux/wakelock.h>
 
 #define USB_VENDOR_GENESYS_LOGIC		0x05e3
 #define HUB_QUIRK_CHECK_PORT_AUTOSUSPEND	0x01
@@ -2138,6 +2139,9 @@ void usb_disconnect(struct usb_device **pdev)
 	hub_free_dev(udev);
 
 	put_device(&udev->dev);
+
+	/* for H350 rild release tty */
+	msleep(1000);
 }
 
 #ifdef CONFIG_USB_ANNOUNCE_NEW_DEVICES
@@ -3119,6 +3123,8 @@ int usb_port_suspend(struct usb_device *udev, pm_message_t msg)
 	int		status;
 	bool		really_suspend = true;
 
+	pr_info("wgq[%s-%d] msg[%d] do_remote_wakeup[%d]\n",__func__,__LINE__,PMSG_IS_AUTO(msg),udev->do_remote_wakeup);
+
 	usb_lock_port(port_dev);
 
 	/* enable remote wakeup when appropriate; this lets the device
@@ -3130,7 +3136,7 @@ int usb_port_suspend(struct usb_device *udev, pm_message_t msg)
 	if (udev->do_remote_wakeup) {
 		status = usb_enable_remote_wakeup(udev);
 		if (status) {
-			dev_dbg(&udev->dev, "won't remote wakeup, status %d\n",
+			dev_info(&udev->dev, "won't remote wakeup, status %d\n",
 					status);
 			/* bail if autosuspend is requested */
 			if (PMSG_IS_AUTO(msg))
@@ -3178,7 +3184,7 @@ int usb_port_suspend(struct usb_device *udev, pm_message_t msg)
 		status = 0;
 	}
 	if (status) {
-		dev_dbg(hub->intfdev, "can't suspend port %d, status %d\n",
+		dev_info(hub->intfdev, "can't suspend port %d, status %d\n",
 				port1, status);
 
 		/* Try to enable USB3 LPM and LTM again */
@@ -3198,7 +3204,7 @@ int usb_port_suspend(struct usb_device *udev, pm_message_t msg)
 		if (!PMSG_IS_AUTO(msg))
 			status = 0;
 	} else {
-		dev_dbg(&udev->dev, "usb %ssuspend, wakeup %d\n",
+		dev_info(&udev->dev, "usb %ssuspend, wakeup %d\n",
 				(PMSG_IS_AUTO(msg) ? "auto-" : ""),
 				udev->do_remote_wakeup);
 		if (really_suspend) {
@@ -3238,7 +3244,7 @@ static int finish_port_resume(struct usb_device *udev)
 	u16	devstatus = 0;
 
 	/* caller owns the udev device lock */
-	dev_dbg(&udev->dev, "%s\n",
+	dev_info(&udev->dev, "%s\n",
 		udev->reset_resume ? "finish reset-resume" : "finish resume");
 
 	/* usb ch9 identifies four variants of SUSPENDED, based on what
@@ -3269,14 +3275,14 @@ static int finish_port_resume(struct usb_device *udev)
 
 		/* If a normal resume failed, try doing a reset-resume */
 		if (status && !udev->reset_resume && udev->persist_enabled) {
-			dev_dbg(&udev->dev, "retry with reset-resume\n");
+			dev_info(&udev->dev, "retry with reset-resume\n");
 			udev->reset_resume = 1;
 			goto retry_reset_resume;
 		}
 	}
 
 	if (status) {
-		dev_dbg(&udev->dev, "gone after usb resume? status %d\n",
+		dev_info(&udev->dev, "gone after usb resume? status %d\n",
 				status);
 	/*
 	 * There are a few quirky devices which violate the standard
@@ -3297,7 +3303,7 @@ static int finish_port_resume(struct usb_device *udev)
 		}
 
 		if (status)
-			dev_dbg(&udev->dev,
+			dev_info(&udev->dev,
 				"disable remote wakeup, status %d\n",
 				status);
 		status = 0;
@@ -3384,11 +3390,13 @@ int usb_port_resume(struct usb_device *udev, pm_message_t msg)
 	int		status;
 	u16		portchange, portstatus;
 
+	pr_info("wgq[%s-%d] msg[%d] did_runtime_put[%d]\n",__func__,__LINE__,PMSG_IS_AUTO(msg),port_dev->did_runtime_put);
+
 	if (port_dev->did_runtime_put) {
 		status = pm_runtime_get_sync(&port_dev->dev);
 		port_dev->did_runtime_put = false;
 		if (status < 0) {
-			dev_dbg(&udev->dev, "can't resume usb port, status %d\n",
+			dev_info(&udev->dev, "can't resume usb port, status %d\n",
 					status);
 			return status;
 		}
@@ -3408,11 +3416,11 @@ int usb_port_resume(struct usb_device *udev, pm_message_t msg)
 		status = usb_clear_port_feature(hub->hdev,
 				port1, USB_PORT_FEAT_SUSPEND);
 	if (status) {
-		dev_dbg(hub->intfdev, "can't resume port %d, status %d\n",
+		dev_info(hub->intfdev, "can't resume port %d, status %d\n",
 				port1, status);
 	} else {
 		/* drive resume for at least 20 msec */
-		dev_dbg(&udev->dev, "usb %sresume\n",
+		dev_info(&udev->dev, "usb %sresume\n",
 				(PMSG_IS_AUTO(msg) ? "auto-" : ""));
 		msleep(25);
 
@@ -3449,7 +3457,7 @@ int usb_port_resume(struct usb_device *udev, pm_message_t msg)
 	if (status == 0)
 		status = finish_port_resume(udev);
 	if (status < 0) {
-		dev_dbg(&udev->dev, "can't resume, status %d\n", status);
+		dev_info(&udev->dev, "can't resume, status %d\n", status);
 		hub_port_logical_disconnect(hub, port1);
 	} else  {
 		/* Try to enable USB2 hardware LPM */
@@ -3474,7 +3482,7 @@ int usb_remote_wakeup(struct usb_device *udev)
 
 	usb_lock_device(udev);
 	if (udev->state == USB_STATE_SUSPENDED) {
-		dev_dbg(&udev->dev, "usb %sresume\n", "wakeup-");
+		dev_info(&udev->dev, "usb %sresume\n", "wakeup-");
 		status = usb_autoresume_device(udev);
 		if (status == 0) {
 			/* Let the drivers do their thing, then... */
@@ -3508,6 +3516,8 @@ static int hub_suspend(struct usb_interface *intf, pm_message_t msg)
 	struct usb_device	*hdev = hub->hdev;
 	unsigned		port1;
 	int			status;
+
+	pr_info("wgq[%s-%d] msg[%d] \n",__func__,__LINE__,PMSG_IS_AUTO(msg));
 
 	/*
 	 * Warn if children aren't already suspended.
@@ -3561,6 +3571,7 @@ static int hub_resume(struct usb_interface *intf)
 {
 	struct usb_hub *hub = usb_get_intfdata(intf);
 
+	pr_info("wgq[%s-%d]\n",__func__,__LINE__);
 	dev_dbg(&intf->dev, "%s\n", __func__);
 	hub_activate(hub, HUB_RESUME);
 	return 0;
@@ -4790,6 +4801,7 @@ done:
  *		a firmware download)
  * caller already locked the hub
  */
+extern struct wake_lock xhci_wake_lock; 
 static void hub_port_connect_change(struct usb_hub *hub, int port1,
 					u16 portstatus, u16 portchange)
 		__must_hold(&port_dev->status_lock)
@@ -4805,6 +4817,8 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 		set_port_led(hub, port1, HUB_LED_AUTO);
 		hub->indicator[port1-1] = INDICATOR_AUTO;
 	}
+
+    wake_lock_timeout(&xhci_wake_lock,msecs_to_jiffies(5 * 1000));
 
 #ifdef	CONFIG_USB_OTG
 	/* during HNP, don't repeat the debounce */

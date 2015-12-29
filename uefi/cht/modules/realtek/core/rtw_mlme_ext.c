@@ -10127,14 +10127,15 @@ void start_clnt_join(_adapter* padapter)
 		}
 #endif
 		rtw_hal_set_hwreg(padapter, HW_VAR_SEC_CFG, (u8 *)(&val8));
-
-		#ifdef CONFIG_DEAUTH_BEFORE_CONNECT
+		DBG_871X("Do not issue deauth before assoc for WAPI test\n");
+		#if defined(CONFIG_DEAUTH_BEFORE_CONNECT) && !defined(CONFIG_WAPI_SUPPORT)
 		// Because of AP's not receiving deauth before
 		// AP may: 1)not response auth or 2)deauth us after link is complete
 		// issue deauth before issuing auth to deal with the situation
 
 		//	Commented by Albert 2012/07/21
 		//	For the Win8 P2P connection, it will be hard to have a successful connection if this Wi-Fi doesn't connect to it.
+		DBG_871X("Issue deauth before assoc\n");
 		{
 			#ifdef CONFIG_P2P
 			_queue *queue = &(padapter->mlmepriv.scanned_queue);
@@ -11061,7 +11062,6 @@ static void rtw_mlmeext_disconnect(_adapter *padapter)
 
 	//set_opmode_cmd(padapter, infra_client_with_mlme);
 
-#if 1
 	/*
 	 * For safety, prevent from keeping macid sleep.
 	 * If we can sure all power mode enter/leave are paired,
@@ -11075,7 +11075,6 @@ static void rtw_mlmeext_disconnect(_adapter *padapter)
 		if (psta)
 			rtw_hal_macid_wakeup(padapter, psta->mac_id);
 	}
-#endif	
 
 	rtw_hal_set_hwreg(padapter, HW_VAR_MLME_DISCONNECT, 0);
 	rtw_hal_set_hwreg(padapter, HW_VAR_BSSID, null_addr);
@@ -11580,15 +11579,26 @@ void linked_status_chk(_adapter *padapter, u8 from_timer)
 		#else
 		rx_chk_limit = 8;
 		#endif
+		//In LPS, driver may miss beacon for rx_chk.
+		//Therefore, rx_chk_limit should be increased.
+		if (from_timer) {
+			rx_chk_limit = 30;
+		}
 #ifdef CONFIG_P2P
 		if (!rtw_p2p_chk_state(&padapter->wdinfo, P2P_STATE_NONE))
 		{
-			link_count_limit = 3; // 8 sec
+			if(!from_timer)
+				link_count_limit = 3; // 8 sec
+			else
+				link_count_limit = 149; // 32 sec
 		}
 		else
 #endif // CONFIG_P2P
 		{
-			link_count_limit = 7; // 16 sec
+			if(!from_timer)
+				link_count_limit = 7; // 16 sec
+			else
+				link_count_limit = 149; // 60 sec
 		}		
 
 #ifdef CONFIG_TDLS
@@ -11627,12 +11637,11 @@ void linked_status_chk(_adapter *padapter, u8 from_timer)
 
 				if (rx_chk != _SUCCESS) {
 					/*
-					* If from_timer == 1, driver is in LPS mode.
-					* Therefore, linked_status_chk() do not need to send
-					* probereq for keeping alive
+					*  If from_timer ==1, driver is in LPS mode.
+					*  Therefore, linked_status_chk() do not need to send probereq for keeping alive
 					*/
-					if(!from_timer)
-						issue_probereq_ex(padapter, &pmlmeinfo->network.Ssid, psta->hwaddr, 0, 0, 3, 1);
+					if(!from_timer)					
+					issue_probereq_ex(padapter, &pmlmeinfo->network.Ssid, psta->hwaddr, 0, 0, 3, 1);
 				}
 
 				if ((tx_chk != _SUCCESS && pmlmeinfo->link_count++ == link_count_limit) || rx_chk != _SUCCESS) {
@@ -11651,16 +11660,19 @@ void linked_status_chk(_adapter *padapter, u8 from_timer)
 			#endif /* CONFIG_ACTIVE_KEEP_ALIVE_CHECK */
 			{
 				if (rx_chk != _SUCCESS) {
-					/*
-					* If from_timer == 1, driver is in LPS mode.
-					* Therefore, linked_status_chk() do not need to send
-					* probereq for keeping alive
-					*/
-					if (pmlmeext->retry == 0 && !from_timer) {
+					if (pmlmeext->retry == 0) {
 						#ifdef DBG_EXPIRATION_CHK
 						DBG_871X("issue_probereq to trigger probersp, retry=%d\n", pmlmeext->retry);
 						#endif
-						issue_probereq_ex(padapter, &pmlmeinfo->network.Ssid, pmlmeinfo->network.MacAddress, 0, 0, 0, 0);
+                        			/*
+			                         *  If from_timer ==1, driver is in LPS mode.
+                        			 *  Therefore, linked_status_chk() do not need to send probereq for keeping alive
+			                         */
+                        			if (!from_timer) { 
+							issue_probereq_ex(padapter, &pmlmeinfo->network.Ssid, pmlmeinfo->network.MacAddress, 0, 0, 3, 1);
+                        			}
+						//issue_probereq_ex(padapter, &pmlmeinfo->network.Ssid, pmlmeinfo->network.MacAddress, 0, 0, 0, 0);
+						//issue_probereq_ex(padapter, &pmlmeinfo->network.Ssid, pmlmeinfo->network.MacAddress, 0, 0, 0, 0);
 					}
 				}
 

@@ -24,7 +24,21 @@
 #include <linux/sysfs.h>
 #include <linux/init.h>
 #include <linux/gpio/consumer.h>
+
+#include <linux/kthread.h>
+#include <linux/delay.h>
+
+
 #include "mcd_acpi.h"
+
+
+struct modem_reset_info_t {
+	struct gpio_desc *gpio_power_on;
+	struct gpio_desc *gpio_reset;
+	struct mdm_ctrl_pmic_data *pmic_data;
+};
+
+struct modem_reset_info_t modem_reset_info;
 
 
 /* Modem data */
@@ -176,6 +190,60 @@ acpi_status get_acpi_param(acpi_handle handle, int type, char *id,
 	return status;
 }
 #endif
+static inline int mdm_ctrl_configure_gpio2(struct gpio_desc *gpio,
+					  int direction,
+					  int value)
+{
+	int ret = 0;
+
+	if (direction)
+		ret += gpiod_direction_output(gpio, value);
+	else
+		ret += gpiod_direction_input(gpio);
+
+	if (ret) {
+		pr_err(DRVNAME ": Unable to configure GPIO%d\n",
+						desc_to_gpio(gpio));
+		ret = -ENODEV;
+	}
+
+	return ret;
+}
+
+
+
+#ifndef SLEEP_MILLI_SEC
+#define SLEEP_MILLI_SEC(nMilliSec)\
+do { \
+long timeout = (nMilliSec) * HZ / 1000; \
+while (timeout > 0) { \
+timeout = schedule_timeout(timeout); \
+} \
+} while (0);
+#endif
+
+extern int pmic_io_power_on_mdm(void *data);
+extern int pmic_io_power_off_mdm(void *data);
+
+static int modem_reset_thread(void *data)
+{
+	struct modem_reset_info_t *modem_reset_info_ptr = (struct modem_reset_info_t *)data;
+
+	pr_info("enter modem_reset_thread\n");
+	pr_info("modem_reset_thread enter, gpio_reset(%d), power_on(%d)\n",desc_to_gpio(modem_reset_info_ptr->gpio_reset),desc_to_gpio(modem_reset_info_ptr->gpio_power_on));
+
+	gpiod_direction_output(modem_reset_info_ptr->gpio_reset, 0);
+	SLEEP_MILLI_SEC(5);
+	gpiod_direction_output(modem_reset_info_ptr->gpio_power_on, 0);
+
+	SLEEP_MILLI_SEC(1500);
+	gpiod_direction_output(modem_reset_info_ptr->gpio_reset, 1);
+	SLEEP_MILLI_SEC(5);
+	gpiod_direction_output(modem_reset_info_ptr->gpio_power_on, 1);
+
+	pr_info("modem_reset_thread exit \n");
+	return 0;
+}
 
 /*
  * Access ACPI resources/data to populate global object mcd_reg_info
@@ -204,7 +272,6 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 		pr_err("%s: can't allocate cpu_data memory\n", __func__);
 		return NULL;
 	}
-
 	pmic_data = kzalloc(sizeof(struct mdm_ctrl_pmic_data), GFP_KERNEL);
 	if (!pmic_data) {
 		pr_err("%s: can't allocate pmic_data memory\n", __func__);
@@ -296,12 +363,17 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 	/* set GPIOs Names */
 	cpu_data->gpio_rst_out_name = GPIO_RST_OUT;
 	cpu_data->gpio_pwr_on_name = GPIO_PWR_ON;
+	cpu_data->gpio_pwr_off_name = GPIO_PWR_OFF;
 	cpu_data->gpio_rst_bbn_name = GPIO_RST_BBN;
 	cpu_data->gpio_cdump_name = GPIO_CDUMP;
 
 	for (i = 0; i < ARRAY_SIZE(cpu_data->entries); i++)
+	{
 		cpu_data->entries[i] =
 			devm_gpiod_get_index(&pdev->dev, NULL, i);
+		//cht-cr-h350 bios totally has 6 entries for mdm, the last entry is PWR_OFF,
+		pr_err("kz.mcd  enteried[%d]:(gpio): %d  \n", i, desc_to_gpio( cpu_data->entries[i]) );
+	}
 
 	status = get_acpi_param(handle, ACPI_TYPE_PACKAGE, "EPWR", &out_obj);
 	if (ACPI_FAILURE(status)) {
@@ -319,7 +391,18 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 	mcd_reg_info->pmic_data = pmic_data;
 
 	nb_mdms = 1;
+#if 0
+	mdm_ctrl_configure_gpio2( cpu_data->entries[0], 1, 0);
+	pr_err("\r\nPOWER_ON=%d\r\n", desc_to_gpio( cpu_data->entries[0]) );
+	if (1) {
+		struct task_struct *modem_reset_thread_task;
 
+		modem_reset_info.gpio_power_on = cpu_data->entries[0];
+		modem_reset_info.gpio_reset = cpu_data->entries[2];
+		modem_reset_info.pmic_data = pmic_data;
+		modem_reset_thread_task = kthread_run(modem_reset_thread, &modem_reset_info, "kthread_run");
+	}
+#endif
 	return mcd_reg_info;
 
 free_mdm_info:
@@ -358,13 +441,15 @@ int mcd_finalize_cpu_data(struct mcd_base_info *mcd_reg_info)
 		}
 	} else if (mcd_reg_info->board_type == BOARD_AOB) {
 		cpu_data->gpio_pwr_on = cpu_data->entries[0];
-		cpu_data->gpio_cdump = cpu_data->entries[1];
-		cpu_data->gpio_rst_out = cpu_data->entries[2];
+//		cpu_data->gpio_cdump = cpu_data->entries[1];
+//		cpu_data->gpio_rst_out = cpu_data->entries[2];
 		cpu_data->gpio_rst_bbn = cpu_data->entries[3];
+		cpu_data->gpio_pwr_off = cpu_data->entries[5];
 
-		pr_info("%s: Setup GPIOs(PO:%d, RO:%d, RB:%d, CD:%d)\n",
+		pr_info("%s: kz.mcd Setup GPIOs(PON:%d, POFF:%d RO:%d, RB:%d, CD:%d)\n",
 				__func__,
 				desc_to_gpio(cpu_data->gpio_pwr_on),
+				desc_to_gpio(cpu_data->gpio_pwr_off),
 				desc_to_gpio(cpu_data->gpio_rst_out),
 				desc_to_gpio(cpu_data->gpio_rst_bbn),
 				desc_to_gpio(cpu_data->gpio_cdump));

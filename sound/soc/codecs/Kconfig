@@ -61,8 +61,9 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_PCM1792A if SPI_MASTER
 	select SND_SOC_PCM3008
 	select SND_SOC_RT5631 if I2C
-	select SND_SOC_RT5640 if I2C
-	select SND_SOC_RT5651 if I2C
+#	select SND_SOC_RT5640 if I2C
+	select SND_SOC_RT5645 if I2C
+#	select SND_SOC_RT5651 if I2C
 	select SND_SOC_SGTL5000 if I2C
 	select SND_SOC_SI476X if MFD_SI476X_CORE
 	select SND_SOC_SN95031 if INTEL_SCU_IPC
@@ -333,10 +334,14 @@ config SND_SOC_RT5631
 
 config SND_SOC_RT56XX
 	tristate
-	default y if SND_SOC_RT5640
-	default y if SND_SOC_RT5651
+#	default y if SND_SOC_RT5640
+#	default y if SND_SOC_RT5651
+#	default y if SND_SOC_RT5645
 
 config SND_SOC_RT5640
+	tristate
+
+config SND_SOC_RT5645
 	tristate
 
 config SND_SOC_RT5651

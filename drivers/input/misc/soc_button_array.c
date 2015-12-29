@@ -39,7 +39,8 @@ struct soc_button_info {
 
 static struct soc_button_info soc_button_tbl[] = {
 	{"power", 0, KEY_POWER, 0, 1, -1},
-	{"home", 1, KEY_HOMEPAGE, 0, 1, -1},
+// remove this because conflict with bluetooth gpio configuration	
+//	{"home", 1, KEY_HOMEPAGE, 0, 1, -1},
 	{"volume_up", 2, KEY_VOLUMEUP, 1, 0, -1},
 	{"volume_down", 3, KEY_VOLUMEDOWN, 1, 0, -1},
 	{"rotation_lock", 4, KEY_RO, 0, 0, -1},

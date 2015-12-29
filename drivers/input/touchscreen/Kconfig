@@ -971,5 +971,17 @@ config TOUCHSCREEN_FOCALTECH_FT5X06
 	  To compile this driver as a module, Choose M here: the
 	  module will be called ft5x06_ts.
 
+config TOUCHSCREEN_SILEAD_GSL1688
+	tristate "SILEAD GSL1688 touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have a FocalTech gsl1688 series
+	  touchscreen chip.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, Choose M here: the
+	  module will be called gsl1688_ts.
+
 source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
 endif

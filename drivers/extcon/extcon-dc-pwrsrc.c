@@ -77,6 +77,9 @@
 #define DET_STAT_CDP			0x2
 #define DET_STAT_DCP			0x3
 
+#define DC_CHRG_CCCV_REG            	0x33
+#define CHRG_CCCV_CHG_EN              	(1 << 7)
+
 #define DC_PS_BOOT_REASON_REG		0x2
 
 #define DC_PWRSRC_IRQ_CFG_REG		0x40
@@ -501,6 +504,10 @@ static int dc_xpwr_pwrsrc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, info);
 
+	ret = intel_soc_pmic_clearb(DC_CHRG_CCCV_REG, CHRG_CCCV_CHG_EN);
+	if (ret < 0)
+		dev_err(&info->pdev->dev, "pmic reg clear mask err:%d\n", ret);
+
 	dc_xpwr_pwrsrc_log_rsi(pdev, pwr_up_down_info,
 				DC_PS_BOOT_REASON_REG);
 
@@ -559,6 +566,18 @@ static int dc_xpwr_pwrsrc_probe(struct platform_device *pdev)
 					PWRSRC_GPIO_MUX_SEL_SOC);
 		dev_info(&info->pdev->dev, "%s: id_short=%d\n",
 				__func__, info->id_short);
+	} else {
+		info->extcon_nb.notifier_call = dc_pwrsrc_handle_extcon_event;
+		ret = extcon_register_interest(&info->cable_obj, NULL,
+					"USB-Host", &info->extcon_nb);
+		if (ret)
+			dev_err(&pdev->dev, "failed to register extcon notifier\n");
+
+		if (info->cable_obj.edev)
+			info->id_short = is_usb_host_mode(info->cable_obj.edev);
+		dev_info(&info->pdev->dev, "%s: id_short=%d\n",
+				__func__, info->id_short);
+
 	}
 
 	/* Unmask VBUS interrupt */

@@ -585,7 +585,8 @@ u8 rtw_wapi_check_for_drop(
 		}
 		else
 		{
-			_rtw_memcpy(pLastRecvPN,precv_hdr->WapiTempPN,16);
+			if (pLastRecvPN)
+				_rtw_memcpy(pLastRecvPN,precv_hdr->WapiTempPN,16);
 		}
 	}
 
@@ -661,10 +662,16 @@ void rtw_build_assoc_req_wapi_ie(_adapter *padapter, unsigned char *pframe, stru
 	if(!list_empty(&(pWapiInfo->wapiBKIDStoreList))){
 		list_for_each_entry(pWapiBKID, &pWapiInfo->wapiBKIDStoreList, list) {
 			bkidNum ++;
+			if ((WapiIELength+2+16) > 256)
+				return;
+			
 			_rtw_memcpy(pWapiInfo->wapiIE+WapiIELength+2, pWapiBKID->bkid,16);
 			WapiIELength += 16;
 		}
 	}
+	
+	if ((WapiIELength+2) > 256)
+		return;
 	_rtw_memcpy(pWapiInfo->wapiIE+WapiIELength, &bkidNum, 2);
 	WapiIELength += 2;
 
