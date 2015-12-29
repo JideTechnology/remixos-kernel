@@ -2271,6 +2271,7 @@ static void intel_disable_pipe(struct drm_i915_private *dev_priv,
 	struct drm_crtc *crtc = dev_priv->pipe_to_crtc_mapping[pipe];
 	struct drm_device *dev = crtc->dev;
 	int reg;
+	bool cht_dsi_cmd_mode = false;
 	u32 val;
 
 	/*
@@ -2293,14 +2294,19 @@ static void intel_disable_pipe(struct drm_i915_private *dev_priv,
 	for_each_encoder_on_crtc(dev, crtc, encoder) {
 		if (encoder->type == INTEL_OUTPUT_DSI) {
 			intel_dsi = enc_to_intel_dsi(&encoder->base);
-			if (intel_dsi && is_cmd_mode(intel_dsi))
+			if (intel_dsi && is_cmd_mode(intel_dsi)) {
+				cht_dsi_cmd_mode = IS_CHERRYVIEW(dev_priv->dev);
 				val = val & ~PIPECONF_MIPI_DSR_ENABLE;
+			}
 			break;
 		}
 	}
 
 	I915_WRITE(reg, val & ~PIPECONF_ENABLE);
-	intel_wait_for_pipe_off(dev_priv->dev, pipe);
+
+	/* Dont wait for pipe off, incase of CHT DSI CMD mode */
+	if (!cht_dsi_cmd_mode)
+		intel_wait_for_pipe_off(dev_priv->dev, pipe);
 }
 
 /*
@@ -10685,7 +10691,7 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	/* If page flip event flag is set, primary should be enabled */
 	if (page_flip_flags & DRM_MODE_PAGE_FLIP_EVENT) {
 		intel_crtc->pri_update = true;
-		intel_crtc->reg.cntr = DISPLAY_PLANE_ENABLE;
+		intel_crtc->reg.cntr |= DISPLAY_PLANE_ENABLE;
 		dev_priv->pipe_plane_stat |=
 			VLV_UPDATEPLANE_STAT_PRIM_PER_PIPE(intel_crtc->pipe);
 	}
@@ -11060,8 +11066,8 @@ int intel_set_disp_calc_flip(struct drm_mode_set_display *disp,
 			intel_crtc->scaling_src_size =
 				(((disp->panel_fitter.src_w - 1) << 16) |
 						(disp->panel_fitter.src_h - 1));
-
-			if (((mode->hdisplay * disp->panel_fitter.src_h) /
+			if (disp->panel_fitter.mode == PFIT_OFF);
+			else if (((mode->hdisplay * disp->panel_fitter.src_h) /
 						disp->panel_fitter.src_w) < mode->vdisplay)
 				pfit_mode |= PFIT_SCALING_LETTER;
 			else if (((mode->vdisplay * disp->panel_fitter.src_w) /
@@ -11313,10 +11319,19 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 				(pipe_stat & PIPE_ENABLE(PIPE_C) ||
 				(disp->update_flag &
 					DRM_MODE_SET_DISPLAY_UPDATE_ZORDER)))) {
+		int result;
 		intel_update_maxfifo(dev_priv, crtc, false);
 		dev_priv->wait_vbl = true;
+		/*
+		* Sometimes vblank is off at this time. Call
+		* drm_crtc_vblank_get to update vblcount to latest
+		* before vblcount is used, or wait_for_vblank may be missed.
+		*/
+		result = drm_crtc_vblank_get(crtc);
 		dev_priv->vblcount =
 			atomic_read(&dev->vblank[intel_crtc->pipe].count);
+		if (!result)
+			drm_crtc_vblank_put(crtc);
 	}
 
 
