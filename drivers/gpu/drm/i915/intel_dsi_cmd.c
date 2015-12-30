@@ -522,7 +522,7 @@ void wait_for_dpi_dbi_fifo_empty(struct intel_dsi *intel_dsi)
 			pipe = PIPE_B;
 	} while (--count > 0);
 }
-
+#if 0
 void wait_for_dpi_dbi_fifo_empty(struct intel_dsi *intel_dsi)
 {
 	struct drm_encoder *encoder = &intel_dsi->base.base;
@@ -550,6 +550,7 @@ void wait_for_dpi_dbi_fifo_empty(struct intel_dsi *intel_dsi)
 			pipe = PIPE_B;
 	} while (--count > 0);
 }
+#endif
 
 void wait_for_dsi_fifo_empty(struct intel_dsi *intel_dsi)
 {

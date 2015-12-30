@@ -203,6 +203,7 @@ static const struct drm_prop_enum_list ddr_freq_names[] = {
 	{1, "low"},
 };
 
+#if 0
 void
 intel_attach_force_ddr_low_freq_property(struct drm_connector *connector)
 {
@@ -226,11 +227,7 @@ intel_attach_force_ddr_low_freq_property(struct drm_connector *connector)
 	drm_object_attach_property(obj, prop, 0);
 }
 
-static const struct drm_prop_enum_list ddr_freq_names[] = {
-	{0, "default"},
-	{1, "low"},
-};
-
+#endif
 void
 intel_attach_force_ddr_low_freq_property(struct drm_connector *connector)
 {
