@@ -2536,6 +2536,7 @@ void mmc_rescan(struct work_struct *work)
 		int cd_sta = sunxi_mmc_debdetect(host);
 		 if((host->ops->get_cd)\
 			&&(host->rescan_pre_state^cd_sta)){
+				host->rescan_pre_state =  cd_sta;
 				pr_err("*%s detect cd change*\n",mmc_hostname(host));
 				wake_lock(&host->detect_wake_lock);
 				pr_err("*%s lock*\n",mmc_hostname(host));
@@ -2597,7 +2598,7 @@ void mmc_rescan(struct work_struct *work)
 		pr_err("*%s unlock*\n",mmc_hostname(host));
 	}
 	if (host->caps & MMC_CAP_NEEDS_POLL) {
-		host->rescan_pre_state = present;
+		//host->rescan_pre_state = present;
 		//wake_lock(&host->detect_wake_lock);
 		mmc_schedule_delayed_work(&host->detect, HZ);
 	}

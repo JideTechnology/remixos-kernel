@@ -350,6 +350,7 @@ void mmc_of_parse(struct mmc_host *host)
 
 	/* f_max is obtained from the optional "max-frequency" property */
 	of_property_read_u32(np, "max-frequency", &host->f_max);
+	of_property_read_u32(np, "min-frequency", &host->f_min);
 
 	/*
 	 * Configure CD and WP pins. They are both by default active low to
