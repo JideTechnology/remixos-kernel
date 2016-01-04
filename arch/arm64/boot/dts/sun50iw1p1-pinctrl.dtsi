@@ -273,7 +273,7 @@
 				allwinner,function = "io_disabled";
 				allwinner,muxsel = <7>;
 				allwinner,drive = <1>;
-				allwinner,pull = <1>;
+				allwinner,pull = <0>;
 			};
 
 			sdc1_pins_a: sdc1@0 {
