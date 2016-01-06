@@ -44,6 +44,7 @@
 #include <linux/uaccess.h>
 #include <linux/usb.h>
 #include <linux/usb/cdc.h>
+#include <linux/usb/hcd.h>
 #include <asm/byteorder.h>
 #include <asm/unaligned.h>
 #include <linux/list.h>
@@ -512,6 +513,29 @@ static void acm_softint(struct work_struct *work)
 	tty_port_tty_wakeup(&acm->port);
 }
 
+static void acm_cancel_all_urb(struct acm *acm, bool all_urbs)
+{
+	struct urb *out_urbs[ACM_NW];
+	struct urb *in_urbs[ACM_NR];
+	int i;
+
+	dev_dbg(&acm->control->dev, "%s\n", __func__);
+
+	/* OUT URBs cancellation */
+	if (all_urbs) {
+		memset(out_urbs, 0, sizeof(out_urbs));
+		for (i = 0; i < ACM_NW; i++)
+			out_urbs[i] = acm->wb[i].urb;
+		usb_hcd_all_urb_dequeue(out_urbs, ACM_NW, -ENOENT);
+	}
+
+	/* IN URBs cancellation */
+	memset(in_urbs, 0, sizeof(in_urbs));
+	for (i = 0; i < acm->rx_buflimit; i++)
+		in_urbs[i] = acm->read_urbs[i];
+	usb_hcd_all_urb_dequeue(in_urbs, acm->rx_buflimit, -ENOENT);
+}
+
 /*
  * TTY handlers
  */
@@ -558,7 +582,6 @@ static int acm_port_activate(struct tty_port *port, struct tty_struct *tty)
 {
 	struct acm *acm = container_of(port, struct acm, port);
 	int retval = -ENODEV;
-	int i;
 
 	pr_info("wgq[%s][acm%d]\n",__func__,acm->minor);
 	dev_dbg(&acm->control->dev, "%s\n", __func__);
@@ -611,8 +634,8 @@ static int acm_port_activate(struct tty_port *port, struct tty_struct *tty)
 	return 0;
 
 error_submit_read_urbs:
-	for (i = 0; i < acm->rx_buflimit; i++)
-		usb_kill_urb(acm->read_urbs[i]);
+	/* Cancel only IN URBs */
+	acm_cancel_all_urb(acm, false);
 	acm->ctrlout = 0;
 	acm_set_control(acm, acm->ctrlout);
 error_set_control:
@@ -642,7 +665,6 @@ static void acm_port_shutdown(struct tty_port *port)
 	struct acm *acm = container_of(port, struct acm, port);
 	struct urb *urb;
 	struct acm_wb *wb;
-	int i;
 	int pm_err;
 
 	pr_info("wgq[%s][acm%d]\n",__func__,acm->minor);
@@ -663,10 +685,8 @@ static void acm_port_shutdown(struct tty_port *port)
 		}
 
 		usb_kill_urb(acm->ctrlurb);
-		for (i = 0; i < ACM_NW; i++)
-			usb_kill_urb(acm->wb[i].urb);
-		for (i = 0; i < acm->rx_buflimit; i++)
-			usb_kill_urb(acm->read_urbs[i]);
+		/* Cancel all URBs */
+		acm_cancel_all_urb(acm, true);
 		acm->control->needs_remote_wakeup = 0;
 		if (!pm_err)
 			usb_autopm_put_interface(acm->control);
@@ -1583,16 +1603,13 @@ alloc_fail:
 
 static void stop_data_traffic(struct acm *acm)
 {
-	int i;
-
 	dev_dbg(&acm->control->dev, "%s\n", __func__);
 
+	/* Kill the control URB */
 	usb_kill_urb(acm->ctrlurb);
-	for (i = 0; i < ACM_NW; i++)
-		usb_kill_urb(acm->wb[i].urb);
-	for (i = 0; i < acm->rx_buflimit; i++)
-		usb_kill_urb(acm->read_urbs[i]);
-
+	/* Cancel all URBs */
+	acm_cancel_all_urb(acm, true);
+	/* Cancel the sync work */
 	cancel_work_sync(&acm->work);
 }
 
