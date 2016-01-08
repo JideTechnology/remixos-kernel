@@ -720,4 +720,40 @@ config INPUT_LTR303
 
 source "drivers/input/misc/BMG160/Kconfig"
 
+config INPUT_BMA2X2
+    tristate "Bosch Accelerometer Sensor"
+        depends on I2C 
+        help
+          Say Y here to use the bma250e Accelerometer Sensor.
+          from Bosch.
+
+          To compile this driver as a module, choose M here: the module
+          will be called bma2x2.
+
+source "drivers/input/misc/dyna/Kconfig"
+
+source "drivers/input/misc/bosch/Kconfig"
+
+config INPUT_MMC35240PJ
+    tristate "Memsic Ecompass Sensor"
+        depends on I2C 
+        help
+          Say Y here to use the MMC3524X Ecompass Sensor.
+          from Memsic.
+
+config INPUT_MMA8653FC
+		tristate “MMA8653FC”
+		depends on I2C && SYSFS
+		help
+		If you say yes here you get support for the MMA8653FC accelerometer.
+		This driver can also be built as a module. If so, the module will be
+		called mma8x5x.
+
+config INPUT_MXC4005XC_ACC
+	tristate "MEMSIC Accelerometer Sensor"
+	depends on I2C
+	help
+	Say Y here to use the MXC4005XC Accelerometer Sensor from MEMSIC.
+
+
 endif

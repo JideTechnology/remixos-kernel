@@ -73,3 +73,11 @@ obj-$(CONFIG_INPUT_LTR303)             += ltr303.o
 
 obj-$(CONFIG_SENSORS_BMG) += BMG160/
 obj-y += akm09911.o
+obj-$(CONFIG_INPUT_BMA2X2)              += bstclass.o
+obj-$(CONFIG_INPUT_BMA2X2)              += bma2x2.o
+
+obj-y += dyna/
+obj-y += bosch/
+obj-$(CONFIG_INPUT_MMC35240PJ)	        += mmc35240pj.o
+obj-$(CONFIG_INPUT_MMA8653FC)           += mma8x5x.o
+obj-$(CONFIG_INPUT_MXC4005XC_ACC) += mxc400x.o

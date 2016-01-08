@@ -1,0 +1,32 @@
+
+config DI_ACCEL
+	tristate "DynaImage accelerometer"
+	depends on I2C
+	help
+		This driver supports DynaImage accelerometer.
+
+config DI_3133
+	tristate "DynaImage DI3133 accelerometer input device driver"
+	depends on I2C
+	help
+		This driver supports the DI3133 accelerometer.
+
+config DI_AMBIENT_LIGHT
+	tristate "DynaImage ambient light sensor"
+	depends on I2C
+	help
+		This driver supports DynaImage ambient light sensor.
+
+config SENSORS_AL3320
+	tristate "DynaImage AL3320 input device driver"
+	depends on I2C
+	help
+	  This driver supports the AL3320 ambient light sensor.
+
+config DI_MISC
+	tristate "DynaImage misc"
+	depends on I2C
+	help
+	  This driver supports the DI5112 misc.
+
+

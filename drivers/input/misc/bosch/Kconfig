@@ -1,0 +1,43 @@
+#
+# Makefile for Bosch sensors driver.
+#
+config SENSORS_BMI160
+	tristate "BMI160 Sensor Support"
+		depends on I2C || SPI_MASTER
+			help
+				 If you say yes here, you get support for Bosch Sensortec's
+					 sensor driver of BMI160.
+
+config SENSORS_BMI160_I2C
+	tristate "support I2C bus communication"
+	depends on SENSORS_BMI160 && I2C
+	help
+	 If you say yes here, you get support Bosch Sensortec's BMI160 sensor hooked to an I2C bus.
+
+config SENSORS_BMI160_SPI
+tristate "support SPI bus communication"
+depends on SENSORS_BMI160 && SPI_MASTER
+	help
+	 If you say yes here, you get support Bosch Sensortec's BMI160 sensor hooked to an SPI bus.
+
+config BMI160_MAG_INTERFACE_SUPPORT
+tristate "BMI160 Sensor mag interface support"
+depends on SENSORS_BMI160
+	help
+	 If you say yes here, you get support for Bosch Sensortec's
+	 sensor driver of BMI160 with mag sensor support.
+
+config SENSORS_BMI160_ENABLE_INT1
+tristate "BMI160 sensor interrupt INT1 support"
+depends on SENSORS_BMI160
+	help
+	 If you say yes here, you get INT1 support for Bosch Sensortec
+	 sensors BMI160.
+
+config SENSORS_BMI160_ENABLE_INT2
+tristate "BMI160 sensor interrupt INT2 support"
+depends on SENSORS_BMI160
+	help
+	 If you say yes here, you get INT2 support for Bosch Sensortec
+	 sensors BMI160.
+
