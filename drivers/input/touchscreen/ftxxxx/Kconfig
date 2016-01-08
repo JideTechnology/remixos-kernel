@@ -1,0 +1,35 @@
+config CC_TOUCHSCREEN_FT5526
+	tristate "FocalTech FT5526 touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have a FocalTech FT5526 series
+	  touchscreen chip.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, Choose M here: the
+	  module will be called ftxxxx.
+	  
+config CC_TOUCHSCREEN_FT5626
+	tristate "FocalTech FT5626 touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have a FocalTech FT5626 series
+	  touchscreen chip.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, Choose M here: the
+	  module will be called ftxxxx.
+
+config CC_TOUCHSCREEN_FT5726
+        tristate "FocalTech FT5726 touchscreen"
+        depends on I2C
+        help
+          Say Y here if you have a FocalTech FT5726 series
+          touchscreen chip.
+
+          If unsure, say N.
+
+          To compile this driver as a module, Choose M here: the
+          module will be called ftxxxx.

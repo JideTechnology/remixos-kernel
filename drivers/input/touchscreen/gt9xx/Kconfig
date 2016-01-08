@@ -1,0 +1,24 @@
+config CC_TOUCHSCREEN_GT9271
+	tristate "goodix gt9271 touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have a Goodix GT9271 series
+	  touchscreen chip.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, Choose M here: the
+	  module will be called gt9xx.
+	  
+config CC_TOUCHSCREEN_GT9110
+	tristate "goodix gt9110 touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have a Goodix GT110 series
+	  touchscreen chip.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, Choose M here: the
+	  module will be called gt9xx.
+	

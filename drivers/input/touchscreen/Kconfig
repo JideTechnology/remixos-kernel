@@ -983,5 +983,19 @@ config TOUCHSCREEN_SILEAD_GSL1688
 	  To compile this driver as a module, Choose M here: the
 	  module will be called gsl1688_ts.
 
+config TOUCHSCREEN_SILEAD_GSL3680
+	tristate "SILEAD GSL3680 touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have a Silead gsl3680 series
+	  touchscreen chip.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, Choose M here: the
+	  module will be called gsl1688_ts.
+
 source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
+source "drivers/input/touchscreen/gt9xx/Kconfig"
+source "drivers/input/touchscreen/ftxxxx/Kconfig"
 endif
