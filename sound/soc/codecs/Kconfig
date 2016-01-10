@@ -64,6 +64,7 @@ config SND_SOC_ALL_CODECS
 #	select SND_SOC_RT5640 if I2C
 	select SND_SOC_RT5645 if I2C
 #	select SND_SOC_RT5651 if I2C
+	select SND_SOC_ES8316 if I2C
 	select SND_SOC_SGTL5000 if I2C
 	select SND_SOC_SI476X if MFD_SI476X_CORE
 	select SND_SOC_SN95031 if INTEL_SCU_IPC
@@ -573,6 +574,8 @@ config SND_SOC_WM9712
 config SND_SOC_WM9713
 	tristate
 
+config SND_SOC_ES8316
+	tristate
 # Amp
 config SND_SOC_LM4857
 	tristate

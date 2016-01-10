@@ -620,13 +620,25 @@ static struct platform_device cht_t_mach_dev = {
 	.id             = -1,
 	.num_resources  = 0,
 };
-
+#ifdef CONFIG_SND_SOC_RT5651
+static struct platform_device cht_cr_mach_dev = {
+	.name           = "cht_rt5651",
+	.id             = -1,
+	.num_resources  = 0,
+};
+#elif defined(CONFIG_SND_SOC_ES8316)
+static struct platform_device cht_cr_mach_dev = {
+        .name           = "cht_es8316",
+        .id             = -1,
+        .num_resources  = 0,
+};
+#else
 static struct platform_device cht_cr_mach_dev = {
 	.name           = "cht_rt5645",
 	.id             = -1,
 	.num_resources  = 0,
 };
-
+#endif
 void sst_init_lib_mem_mgr(struct intel_sst_drv *ctx)
 {
 	struct sst_mem_mgr *mgr = &ctx->lib_mem_mgr;

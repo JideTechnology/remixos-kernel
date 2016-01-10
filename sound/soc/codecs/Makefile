@@ -23,7 +23,7 @@ snd-soc-cs42l52-objs := cs42l52.o
 snd-soc-rt56xx-objs := rt56xx_ioctl.o
 snd-soc-rt5640-objs := rt5640.o rt5640_ioctl.o
 snd-soc-rt5642-objs := rt5640.o rt5640-dsp.o rt5640_ioctl.o
-snd-soc-rt5651-objs := rt5651.o rt5651_ioctl.o
+snd-soc-rt5651-objs := rt5651.o rt5651_ioctl.o rt56xx_ioctl.o
 snd-soc-rt5672-objs := rt5670.o rt5670-dsp.o rt5670_ioctl.o rt_codec_ioctl.o
 snd-soc-cs42l73-objs := cs42l73.o
 snd-soc-cs4270-objs := cs4270.o
@@ -132,6 +132,7 @@ snd-soc-wm9705-objs := wm9705.o
 snd-soc-wm9712-objs := wm9712.o
 snd-soc-wm9713-objs := wm9713.o
 snd-soc-wm-hubs-objs := wm_hubs.o
+snd-soc-es8316-objs := es8316.o
 
 # Amp
 snd-soc-max9877-objs := max9877.o
@@ -270,6 +271,7 @@ obj-$(CONFIG_SND_SOC_WM9712)	+= snd-soc-wm9712.o
 obj-$(CONFIG_SND_SOC_WM9713)	+= snd-soc-wm9713.o
 obj-$(CONFIG_SND_SOC_WM_ADSP)	+= snd-soc-wm-adsp.o
 obj-$(CONFIG_SND_SOC_WM_HUBS)	+= snd-soc-wm-hubs.o
+obj-$(CONFIG_SND_SOC_ES8316)	+= snd-soc-es8316.o
 
 # Amp
 obj-$(CONFIG_SND_SOC_MAX9877)	+= snd-soc-max9877.o
