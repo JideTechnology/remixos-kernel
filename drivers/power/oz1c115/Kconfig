@@ -1,0 +1,17 @@
+menuconfig OZ1C115
+	bool "O2Micro OZ1C115 support"
+	help
+	  This option enables OZ1C115 driver. If unsure, say Y.
+
+if OZ1C115
+config OZ1C115_CHARGER
+	bool "OZ1C115 charger driver"
+	help
+	  Say Y here to enable support for OZ1C115 charger.
+
+config OZ1C115_BATTERY
+	bool "OZ1C115 Fuel Gauge driver"
+	help
+	  Say Y here to enable support for OZ1C115 Fuel Gauge.
+
+endif # OZ1C115

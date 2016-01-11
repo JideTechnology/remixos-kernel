@@ -42,6 +42,11 @@ config RAW_CC_THROTTLE
 	help
 	  Say Y here to enable raw charge current throttling. This feature will
 	  expose n states where n is defined as (max_current_mA/100_mA)
+config FUEL_GAUGE_SM5702
+        tristate "SM5702 fuelgauge driver"
+        depends on I2C 
+        help
+          Say Y here to enable support for sm5702 FuelGauge.
 
 config POWER_SUPPLY_DEBUG
 	bool "Power supply debug"
@@ -382,6 +387,10 @@ config CHARGER_BQ2415X
 
 	  You'll need this driver to charge batteries on e.g. Nokia
 	  RX-51/N900.
+config SM5414_CHARGER
+	bool "SM5414 charger driver"
+	help
+	  Say Y here to enable support for SM5414 charger.
 
 config CHARGER_BQ24190
 	tristate "TI BQ24190 battery charger driver"
@@ -402,6 +411,10 @@ config CHARGER_SMB347
 	help
 	  Say Y to include support for Summit Microelectronics SMB347
 	  Battery Charger.
+config CHARGER_SM5702
+	tristate "SM5702 charger driver"
+	help
+	  Say Y here to enable support for sm5702 Charger.
 
 config CHARGER_TPS65090
 	tristate "TPS65090 battery charger driver"
@@ -434,6 +447,15 @@ config DC_XPWR_CHARGER
 	help
 	  Say Y here to enable support for Dollar Cove(Xpower) PMIC Charger.
 
+config CHARGER_MPS2617
+	bool "MPS2617 Charger driver"
+	help
+	  Say Y here to enable support for MPS2617 Charger.
+config CW2015_BATTERY
+	bool "CW2015 Fuel Gauge driver"
+	help
+	  Say Y here to enable support for CW2015 Fuel Gauge.
+source "drivers/power/oz1c115/Kconfig"
 config CHARGER_BQ24192
 	tristate "TI BQ24192/BQ24191/BQ24190 Charger"
 	select POWER_SUPPLY_CHARGER

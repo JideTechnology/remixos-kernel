@@ -39,6 +39,22 @@ config MFD_AS3722
 	  controllers, 11 LDOs, RTC, automatic battery, temperature and
 	  over current monitoring, GPIOs, ADC and a watchdog.
 
+config MFD_SM5702
+	tristate "Support for Siliconmitus SM5702 I/F PMIC"
+	depends on I2C
+	select MFD_CORE
+	default n
+	help
+	  If you say yes to this option, support will be included for the
+	  SM5702 I/F PMIC chip.
+config MFD_SM5701
+	tristate "Support for Siliconmitus SM5701 I/F PMIC"
+	depends on I2C
+	select MFD_CORE
+	default n
+	help
+	  If you say yes to this option, support will be included for the
+	  SM5701 I/F PMIC chip.
 config PMIC_ADP5520
 	bool "Analog Devices ADP5520/01 MFD PMIC Core Support"
 	depends on I2C=y
