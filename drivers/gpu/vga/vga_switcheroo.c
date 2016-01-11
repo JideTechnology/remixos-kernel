@@ -125,6 +125,7 @@ static DEFINE_MUTEX(vgasr_mutex);
  * 	(counting only vga clients, not audio clients)
  * @clients: list of registered clients
  * @handler: registered handler
+ * @handler_flags: flags of registered handler
  *
  * vga_switcheroo private data. Currently only one vga_switcheroo instance
  * per system is supported.
@@ -141,6 +142,7 @@ struct vgasr_priv {
 	struct list_head clients;
 
 	const struct vga_switcheroo_handler *handler;
+	enum vga_switcheroo_handler_flags_t handler_flags;
 };
 
 #define ID_BIT_AUDIO		0x100
@@ -189,13 +191,15 @@ static void vga_switcheroo_enable(void)
 /**
  * vga_switcheroo_register_handler() - register handler
  * @handler: handler callbacks
+ * @handler_flags: handler flags
  *
  * Register handler. Enable vga_switcheroo if two vga clients have already
  * registered.
  *
  * Return: 0 on success, -EINVAL if a handler was already registered.
  */
-int vga_switcheroo_register_handler(const struct vga_switcheroo_handler *handler)
+int vga_switcheroo_register_handler(const struct vga_switcheroo_handler *handler,
+				    enum vga_switcheroo_handler_flags_t handler_flags)
 {
 	mutex_lock(&vgasr_mutex);
 	if (vgasr_priv.handler) {
@@ -204,6 +208,7 @@ int vga_switcheroo_register_handler(const struct vga_switcheroo_handler *handler
 	}
 
 	vgasr_priv.handler = handler;
+	vgasr_priv.handler_flags = handler_flags;
 	if (vga_switcheroo_ready()) {
 		pr_info("enabled\n");
 		vga_switcheroo_enable();
@@ -221,6 +226,7 @@ EXPORT_SYMBOL(vga_switcheroo_register_handler);
 void vga_switcheroo_unregister_handler(void)
 {
 	mutex_lock(&vgasr_mutex);
+	vgasr_priv.handler_flags = 0;
 	vgasr_priv.handler = NULL;
 	if (vgasr_priv.active) {
 		pr_info("disabled\n");
@@ -230,6 +236,20 @@ void vga_switcheroo_unregister_handler(void)
 	mutex_unlock(&vgasr_mutex);
 }
 EXPORT_SYMBOL(vga_switcheroo_unregister_handler);
+
+/**
+ * vga_switcheroo_handler_flags() - obtain handler flags
+ *
+ * Helper for clients to obtain the handler flags bitmask.
+ *
+ * Return: Handler flags. A value of 0 means that no handler is registered
+ * or that the handler has no special capabilities.
+ */
+enum vga_switcheroo_handler_flags_t vga_switcheroo_handler_flags(void)
+{
+	return vgasr_priv.handler_flags;
+}
+EXPORT_SYMBOL(vga_switcheroo_handler_flags);
 
 static int register_client(struct pci_dev *pdev,
 			   const struct vga_switcheroo_client_ops *ops,
