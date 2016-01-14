@@ -399,9 +399,9 @@ int usb_reattach_modem(int para)
 	trace_printk("[%s]\n",__func__);
 	pr_info("[%s]\n",__func__);
 	pr_info("[%s], xhci_root_hub pointer:0x%x\n",__func__,xhci_root_hub);
-	wake_lock_timeout(&xhci_wake_lock,msecs_to_jiffies(3 * 60 * 1000));
+	wake_lock_timeout(&xhci_wake_lock,msecs_to_jiffies(90 * 1000));
 	if (xhci_root_hub != NULL) {
-		pm_runtime_set_autosuspend_delay(&xhci_root_hub->dev,3 * 60 * 1000);
+		pm_runtime_set_autosuspend_delay(&xhci_root_hub->dev,90 * 1000);
 		pm_runtime_get_sync(&xhci_root_hub->dev);
 		pm_runtime_put_sync(&xhci_root_hub->dev);
 	}
