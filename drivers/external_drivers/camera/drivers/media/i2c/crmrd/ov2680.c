@@ -405,20 +405,11 @@ static long __ov2680_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 	struct ov2680_device *dev = to_ov2680_sensor(sd);
 	u16 vts,hts;
 	int ret,exp_val;
-	
+
     //dev_dbg(&client->dev, "+++++++__ov2680_set_exposure coarse_itg %d, gain %d, digitgain %d++\n",coarse_itg, gain, digitgain);
 
 	hts = ov2680_res[dev->fmt_idx].pixels_per_line;
 	vts = ov2680_res[dev->fmt_idx].lines_per_frame;
-
-	/* group hold */
-	ret = ov2680_write_reg(client, OV2680_8BIT,
-                                       OV2680_GROUP_ACCESS, 0x00);
-	if (ret) {
-		dev_err(&client->dev, "%s: write %x error, aborted\n",
-			__func__, OV2680_GROUP_ACCESS);
-		return ret;
-	}
 
 	/* Increase the VTS to match exposure + MARGIN */
 	if (coarse_itg > vts - OV2680_INTEGRATION_TIME_MARGIN)
@@ -493,17 +484,6 @@ static long __ov2680_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 		}
 	}
 
-	/* End group */
-	ret = ov2680_write_reg(client, OV2680_8BIT,
-			       OV2680_GROUP_ACCESS, 0x10);
-	if (ret)
-		return ret;
-
-	/* Delay launch group */
-	ret = ov2680_write_reg(client, OV2680_8BIT,
-					   OV2680_GROUP_ACCESS, 0xa0);
-	if (ret)
-		return ret;
 	return ret;
 }
 
