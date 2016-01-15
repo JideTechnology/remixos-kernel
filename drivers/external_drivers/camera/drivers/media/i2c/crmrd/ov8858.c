@@ -51,6 +51,7 @@ static int last_res_idx;
 static int BG_Ratio_Typical = 0x144; /* read it from 0x7019 & 0x701A */
 static int RG_Ratio_Typical = 0x117; /* read it from 0x7018 & 0x701A */
 
+static unsigned char ov8858_lsc_array[242] = {0x58, 0x00};
 static struct ov8858_otp_struct *otp_ptr;
 
 #if 0
@@ -177,8 +178,10 @@ static int update_awb_gain(struct i2c_client *client)
 
 static int update_lenc(struct i2c_client *client)
 {
-	int i, ret = 0;
+	/* int i; */
+	int ret = 0;
 	u16 temp = 0;
+	struct i2c_msg lsc_msg;
 
 	ret |= ov8858_read_reg(client, OV8858_8BIT, 0x5000, &temp);
 	temp |= 0x80;
@@ -194,6 +197,7 @@ static int update_lenc(struct i2c_client *client)
 		return ret;
 	}
 
+#if 0
 	for (i = 0; i < 240; i++) {
 	#ifdef DUMP_OTP
 		dev_dbg(&client->dev, "ov8858_otp_read value of 0x%.4X is: 0x%.4X.\n",
@@ -206,6 +210,19 @@ static int update_lenc(struct i2c_client *client)
 			break;
 		}
 	}
+#else
+	lsc_msg.addr  = client->addr;
+	lsc_msg.flags = 0;
+	lsc_msg.len   = sizeof(ov8858_lsc_array) /
+		sizeof(ov8858_lsc_array[0]);
+	lsc_msg.buf   = &ov8858_lsc_array[0];
+
+	ret = i2c_transfer(client->adapter, &lsc_msg, 1);
+	if (ret == 1)
+		dev_info(&client->dev, "apply lsc otp data success!\n");
+	else
+		dev_err(&client->dev, "apply lsc otp data failed!\n");
+#endif
 
 	return ret;
 }
@@ -544,6 +561,7 @@ static int  __ov8858_read_otp_lenc(struct i2c_client *client)
 					"__ov8858_read_otp_lenc otp lenc data read failed\n");
 					return ret;
 			}
+			ov8858_lsc_array[i + 2] = otp_ptr->lenc[i];
 			checksum += otp_ptr->lenc[i];
 
 	#ifdef DUMP_OTP
