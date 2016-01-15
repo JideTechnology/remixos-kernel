@@ -45,6 +45,9 @@ static int ov8858_write_reg(struct i2c_client *client, u16 data_length, u16 reg,
 
 static unsigned int ctrl_value;
 
+static struct ov8858_resolution *last_res_tab;
+static int last_res_idx;
+
 static int BG_Ratio_Typical = 0x144; /* read it from 0x7019 & 0x701A */
 static int RG_Ratio_Typical = 0x117; /* read it from 0x7018 & 0x701A */
 
@@ -954,19 +957,6 @@ static int __ov8858_update_frame_timing(struct v4l2_subdev *sd,
 					u16 *hts, u16 *vts)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	int ret;
-
-
-	dev_dbg(&client->dev, "%s OV8858_TIMING_HTS=0x%04x\n",
-		__func__, *hts);
-
-	/* HTS = pixel_per_line / 2 */
-	ret = ov8858_write_reg(client, OV8858_16BIT,
-				OV8858_TIMING_HTS, *hts >> 1);
-	if (ret)
-		return ret;
-	dev_dbg(&client->dev, "%s OV8858_TIMING_VTS=0x%04x\n",
-		__func__, *vts);
 
 	return ov8858_write_reg(client, OV8858_16BIT, OV8858_TIMING_VTS, *vts);
 }
@@ -974,9 +964,10 @@ static int __ov8858_update_frame_timing(struct v4l2_subdev *sd,
 static int __ov8858_set_exposure(struct v4l2_subdev *sd, int exposure, int gain,
 				 int dig_gain, u16 *hts, u16 *vts)
 {
+	int ret     = 0;
+	u32 exp_val = 0;
 	struct ov8858_device *dev = to_ov8858_sensor(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	int exp_val, ret;
 
 	dev_dbg(&client->dev, "%s, exposure = %d, gain=%d, dig_gain=%d\n",
 		__func__, exposure, gain, dig_gain);
@@ -996,28 +987,27 @@ static int __ov8858_set_exposure(struct v4l2_subdev *sd, int exposure, int gain,
 	/* For ov8858, the low 4 bits are fraction bits and must be kept 0 */
 	exp_val = exposure << 4;
 	ret = ov8858_write_reg(client, OV8858_8BIT,
-			       OV8858_LONG_EXPO+2, exp_val & 0xFF);
+			       OV8858_LONG_EXPO + 2, exp_val & 0xFF);
 	if (ret)
 		return ret;
 
 	ret = ov8858_write_reg(client, OV8858_8BIT,
-			       OV8858_LONG_EXPO+1, (exp_val >> 8) & 0xFF);
+			       OV8858_LONG_EXPO + 1, (exp_val >> 8) & 0xFF);
 	if (ret)
 		return ret;
 
 	ret = ov8858_write_reg(client, OV8858_8BIT,
-			       OV8858_LONG_EXPO, (exp_val >> 16) & 0x0F);
+			       OV8858_LONG_EXPO, (exp_val >> 16) & 0xF);
 	if (ret)
 		return ret;
-
 
 	ret = ov8858_write_reg(client, OV8858_16BIT, OV8858_LONG_GAIN,
-				gain & 0x07ff);
+				gain & 0x7FF);
 	if (ret)
 		return ret;
 
-	dev->gain = gain;
-	dev->exposure = exposure;
+	dev->gain         = gain;
+	dev->exposure     = exposure;
 	dev->digital_gain = dig_gain;
 
 	return 0;
@@ -1440,9 +1430,13 @@ fail_power:
 
 static int power_down(struct v4l2_subdev *sd)
 {
+	int ret = 0;
 	struct ov8858_device *dev = to_ov8858_sensor(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	int ret;
+
+	last_res_tab = NULL;
+	last_res_idx = -1;
+
 	dev_dbg(&client->dev, "%s\n", __func__);
 
 	ret = dev->platform_data->flisclk_ctrl(sd, 0);
@@ -2069,9 +2063,15 @@ static int ov8858_s_mbus_fmt(struct v4l2_subdev *sd,
 	if (!dev->regs)
 		dev->regs = res->regs;
 
-	ret = ov8858_write_reg_array(client, dev->regs);
-	if (ret)
-		goto out;
+	if ((last_res_tab != dev->curr_res_table) ||
+			(last_res_idx != dev->fmt_idx)) {
+		ret = ov8858_write_reg_array(client, dev->regs);
+		if (ret)
+			goto out;
+	}
+
+	last_res_tab = (struct ov8858_resolution *)(dev->curr_res_table);
+	last_res_idx = dev->fmt_idx;
 
 	dev->pixels_per_line = res->fps_options[dev->fps_index].pixels_per_line;
 	dev->lines_per_frame = res->fps_options[dev->fps_index].lines_per_frame;

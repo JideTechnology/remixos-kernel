@@ -42,6 +42,10 @@
 
 static int h_flag = 0;
 static int v_flag = 0;
+
+static struct ov2680_resolution *last_res_tab;
+static int last_res_idx;
+
 static enum atomisp_bayer_order ov2680_bayer_order_mapping[] = {
 	atomisp_bayer_order_bggr,
 	atomisp_bayer_order_grbg,
@@ -1022,6 +1026,10 @@ static int power_down(struct v4l2_subdev *sd)
 
 	h_flag = 0;
 	v_flag = 0;
+
+	last_res_tab = NULL;
+	last_res_idx = -1;
+
 	dev_dbg(&client->dev, "ov2680 power_down.\n");
 	if (NULL == dev->platform_data) {
 		dev_err(&client->dev,
@@ -1181,6 +1189,7 @@ static int ov2680_s_mbus_fmt(struct v4l2_subdev *sd,
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct camera_mipi_info *ov2680_info = NULL;
 	int ret = 0;
+
 	dev_dbg(&client->dev, "+++++ov2680_s_mbus_fmt+++++l\n");
 	ov2680_info = v4l2_get_subdev_hostdata(sd);
 	if (ov2680_info == NULL)
@@ -1202,14 +1211,20 @@ static int ov2680_s_mbus_fmt(struct v4l2_subdev *sd,
 		mutex_unlock(&dev->input_lock);
 		return -EINVAL;
 	}
-	v4l2_info(client, "__s_mbus_fmt i=%d, w=%d, h=%d\n", dev->fmt_idx,
-		  fmt->width, fmt->height);
-	dev_dbg(&client->dev,  "__s_mbus_fmt i=%d, w=%d, h=%d\n", dev->fmt_idx,
-		  fmt->width, fmt->height);
 
-	ret = ov2680_write_reg_array(client, ov2680_res[dev->fmt_idx].regs);
-	if (ret)
-		dev_err(&client->dev, "ov2680 write resolution register err\n");
+	dev_dbg(&client->dev, "__s_mbus_fmt i = %d, w = %d, h = %d\n",
+			dev->fmt_idx, fmt->width, fmt->height);
+
+	if ((last_res_tab != ov2680_res) ||
+			(last_res_idx != dev->fmt_idx)) {
+		ret = ov2680_write_reg_array(client,
+				ov2680_res[dev->fmt_idx].regs);
+		if (ret)
+			dev_err(&client->dev, "ov2680 write resolution register err\n");
+	}
+
+	last_res_tab = ov2680_res;
+	last_res_idx = dev->fmt_idx;
 
 	ret = ov2680_get_intg_factor(client, ov2680_info,
 					&ov2680_res[dev->fmt_idx]);
@@ -1291,7 +1306,7 @@ static int ov2680_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct ov2680_device *dev = to_ov2680_sensor(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	int ret;
+	int ret = 0;
 
 	mutex_lock(&dev->input_lock);
 	if(enable )
