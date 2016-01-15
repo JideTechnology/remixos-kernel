@@ -62,7 +62,8 @@
 #include "gsl1688.h"
 
 #define GSL_REPORT_POINT_SLOT
-
+/*intel_panel_dis/en tp_iq*/
+struct i2c_client *client_dump = NULL;
 int gsl_set_pinctrl_state(struct device *dev,struct pinctrl_state *state);
 
 struct gsl_ts_platform_data {
@@ -1234,6 +1235,17 @@ static int gsl_ts_suspend(struct device *dev)
 	gpio_set_value(ddata->gpio_reset, 0);
 	return 0;
 }
+extern	void intel_panel_dis_tp_irq(void)
+{
+	disable_irq(client_dump->irq);
+	printk("TS dis_tp_irq\n");
+}
+extern	void intel_panel_en_tp_irq(void)
+{
+	enable_irq(client_dump->irq);
+	printk("TS en_tp_irq\n");
+}
+
 #endif //CONFIG_PM
 
 #ifdef CONFIG_OF
@@ -1457,6 +1469,8 @@ static int gsl_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
 	int err = 0;
 	struct device *dev;
 	struct i2c_dev *i2c_dev;
+/*zhongzheng*/
+	client_dump = client;
         /* struct gsl_ts_platform_data *gsl_pdata; */
 
 
