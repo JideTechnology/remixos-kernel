@@ -21,6 +21,11 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  */
+/*
+ * 2015-12-16 add android function,
+ *
+*/
+
 
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -50,6 +55,22 @@ MODULE_LICENSE(DRIVER_LICENSE);
 #define CURSOR_DEVICE_ID	0x06
 #define ERASER_DEVICE_ID	0x0A
 #define PAD_DEVICE_ID		0x0F
+
+
+#ifdef CONFIG_ANDROID
+/*
+//  ! ! ! ! ! ! ! 
+//  Need add a file /system/usr/idc/hanvon_pen.idc , mode 644
+//  Content is "touch.orientationAware = 1"
+//
+*/
+
+#define HANVON_DRIVE_NAME "hanvon_pen"
+
+// width < high
+#define DEFAULT_PORTRAIT 1
+
+#endif
 
 /* match vendor and interface info  */
 #define HANWANG_TABLET_DEVICE(vend, cl, sc, pr) \
@@ -99,6 +120,8 @@ static const struct hanwang_features features_array[] = {
 	  ART_MASTER_PKGLEN_MAX, 0x7f00, 0x4f60, 0x3f, 0x7f, 2048 },
 	{ 0x8401, "Hanwang Art Master HD 5012", HANWANG_ART_MASTER_HD,
 	  ART_MASTER_PKGLEN_MAX, 0x678e, 0x4150, 0x3f, 0x7f, 1024 },
+	{ 0x8522, "Hanwang III Plus0604", HANWANG_ART_MASTER_III,
+	  ART_MASTER_PKGLEN_MAX, 0x3d84, 0x2672, 0x3f, 0x7f, 1024 },
 };
 
 static const int hw_eventtypes[] = {
@@ -160,8 +183,13 @@ static void hanwang_parse_packet(struct hanwang *hanwang)
 			break;
 
 		default:	/* tool data packet */
+#ifdef DEFAULT_PORTRAIT			
+			x  =  hanwang->features->max_y - ((data[4] << 8) | data[5]);
+			y = (data[2] << 8) | data[3];
+#else
 			x = (data[2] << 8) | data[3];
 			y = (data[4] << 8) | data[5];
+#endif
 
 			switch (type) {
 			case HANWANG_ART_MASTER_III:
@@ -178,6 +206,10 @@ static void hanwang_parse_packet(struct hanwang *hanwang)
 				p = 0;
 				break;
 			}
+
+#ifdef CONFIG_ANDROID
+			input_report_key(input_dev, BTN_TOUCH,p?1:0);
+#endif 
 
 			input_report_abs(input_dev, ABS_X,
 						le16_to_cpup((__le16 *)&x));
@@ -345,7 +377,11 @@ static int hanwang_probe(struct usb_interface *intf, const struct usb_device_id 
 	usb_make_path(dev, hanwang->phys, sizeof(hanwang->phys));
 	strlcat(hanwang->phys, "/input0", sizeof(hanwang->phys));
 
+#ifdef CONFIG_ANDROID	
+	strlcpy(hanwang->name, HANVON_DRIVE_NAME, sizeof(hanwang->name));
+#else
 	strlcpy(hanwang->name, hanwang->features->name, sizeof(hanwang->name));
+#endif	
 	input_dev->name = hanwang->name;
 	input_dev->phys = hanwang->phys;
 	usb_to_input_id(dev, &input_dev->id);
@@ -364,14 +400,23 @@ static int hanwang_probe(struct usb_interface *intf, const struct usb_device_id 
 
 	for (i = 0; i < ARRAY_SIZE(hw_btnevents); ++i)
 		__set_bit(hw_btnevents[i], input_dev->keybit);
+#ifdef CONFIG_ANDROID        
+    __set_bit(BTN_TOUCH, input_dev->keybit);
+#endif
 
 	for (i = 0; i < ARRAY_SIZE(hw_mscevents); ++i)
 		__set_bit(hw_mscevents[i], input_dev->mscbit);
-
+#ifdef DEFAULT_PORTRAIT			
+	input_set_abs_params(input_dev, ABS_X,
+			     0, hanwang->features->max_y, 4, 0);
+	input_set_abs_params(input_dev, ABS_Y,
+			     0, hanwang->features->max_x, 4, 0);
+#else
 	input_set_abs_params(input_dev, ABS_X,
 			     0, hanwang->features->max_x, 4, 0);
 	input_set_abs_params(input_dev, ABS_Y,
 			     0, hanwang->features->max_y, 4, 0);
+#endif			     
 	input_set_abs_params(input_dev, ABS_TILT_X,
 			     0, hanwang->features->max_tilt_x, 0, 0);
 	input_set_abs_params(input_dev, ABS_TILT_Y,
@@ -432,4 +477,15 @@ static struct usb_driver hanwang_driver = {
 	.id_table	= hanwang_ids,
 };
 
-module_usb_driver(hanwang_driver);
+static int __init hanwang_init(void)
+{
+	return usb_register(&hanwang_driver);
+}
+
+static void __exit hanwang_exit(void)
+{
+	usb_deregister(&hanwang_driver);
+}
+
+module_init(hanwang_init);
+module_exit(hanwang_exit);
