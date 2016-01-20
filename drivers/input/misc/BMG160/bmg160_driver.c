@@ -73,6 +73,9 @@
 #define BMG_SELF_TEST 0
 
 #define BMG_SOFT_RESET_VALUE                0xB6
+#define  BMG160_BW_47Hz_U8X                 0x83
+#define  BMG160_BW_116Hz_U8X		    0x82
+#define  BMG160_BW_230Hz_U8X                0x81
 
 
 #ifdef BMG_USE_FIFO
@@ -515,6 +518,13 @@ static int bmg_set_soft_reset(struct i2c_client *client)
 	err = bmg_i2c_write(client, BMG160_BGW_SOFTRESET_ADDR, &data, 1);
 	return err;
 }
+static int bmg_set_bw(struct i2c_client *client)
+{
+	int err = 0;
+	unsigned char data = BMG160_BW_47Hz_U8X ;
+	err = bmg_i2c_write(client, BMG160_BW_ADDR, &data, 1);
+	return err;
+}
 
 static ssize_t bmg_show_chip_id(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -840,8 +850,6 @@ static ssize_t bmg_store_autosleepdur(struct device *dev,
 	BMG_CALL_API(set_autosleepdur)(autosleepdur, bandwidth);
 	return count;
 }
-
-#ifdef BMG_DEBUG
 static ssize_t bmg_store_softreset(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t count)
@@ -871,8 +879,6 @@ static ssize_t bmg_show_dumpreg(struct device *dev,
 	}
 	return count;
 }
-#endif
-
 #ifdef BMG_USE_FIFO
 static ssize_t bmg_show_fifo_mode(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -1181,7 +1187,7 @@ static DEVICE_ATTR(value, S_IRUGO,
 		bmg_show_value, NULL);
 static DEVICE_ATTR(range, S_IRUGO|S_IWUSR,
 		bmg_show_range, bmg_store_range);
-static DEVICE_ATTR(bandwidth, S_IRUGO|S_IWUSR,
+static DEVICE_ATTR(bandwidth,S_IRUGO|S_IWUSR ,
 		bmg_show_bandwidth, bmg_store_bandwidth);
 static DEVICE_ATTR(enable, S_IRUGO|S_IWUSR,
 		bmg_show_enable, bmg_store_enable);
@@ -1197,12 +1203,10 @@ static DEVICE_ATTR(sleepdur, S_IRUGO|S_IWUSR,
 		bmg_show_sleepdur, bmg_store_sleepdur);
 static DEVICE_ATTR(autosleepdur, S_IRUGO|S_IWUSR,
 		bmg_show_autosleepdur, bmg_store_autosleepdur);
-#ifdef BMG_DEBUG
 static DEVICE_ATTR(softreset, S_IRUGO|S_IWUSR,
-		NULL, bmg_store_softreset);
+	NULL, bmg_store_softreset);
 static DEVICE_ATTR(regdump, S_IRUGO,
 		bmg_show_dumpreg, NULL);
-#endif
 #ifdef BMG_USE_FIFO
 static DEVICE_ATTR(fifo_mode, S_IRUGO|S_IWUSR,
 		bmg_show_fifo_mode, bmg_store_fifo_mode);
@@ -1231,10 +1235,8 @@ static struct attribute *bmg_attributes[] = {
 	&dev_attr_selftest.attr,
 	&dev_attr_sleepdur.attr,
 	&dev_attr_autosleepdur.attr,
-#ifdef BMG_DEBUG
 	&dev_attr_softreset.attr,
 	&dev_attr_regdump.attr,
-#endif
 #ifdef BMG_USE_FIFO
 	&dev_attr_fifo_mode.attr,
 	&dev_attr_fifo_framecount.attr,
@@ -1307,7 +1309,6 @@ static int bmg_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		err = -EINVAL;
 		goto exit_err_clean;
 	}
-
 	/* do soft reset */
 	mdelay(5);
 
@@ -1337,6 +1338,14 @@ static int bmg_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		dev_err(&client->dev, "no memory available");
 		err = -ENOMEM;
 		goto exit_err_clean;
+	}
+	/*TS:BW_SET */
+	err = bmg_set_bw(client);
+	if (err < 0)
+	{
+	    dev_err(&client->dev,"bw_set fail\n");
+	    err = -EINVAL;
+	    goto exit_err_clean;
 	}
 
 	i2c_set_clientdata(client, client_data);
@@ -1594,6 +1603,7 @@ static const struct dev_pm_ops bmg160_pm_ops = {
         .suspend        = bmg_suspend,
         .resume         = bmg_resume,
 };
+
 
 
 static const struct acpi_device_id bmg160_acpi_match[] = {
