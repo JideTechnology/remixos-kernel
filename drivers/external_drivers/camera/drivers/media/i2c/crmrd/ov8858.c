@@ -1370,8 +1370,8 @@ static int __gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 		if (flag) {
 			dev_info(&client->dev, "ov8858 __gpio_ctrl->gpio_ctrl->gpio0_ctrl.\n");
 
-			ret =  dev->platform_data->gpio0_ctrl(sd, 1);
-			msleep(5);
+			/*ret =  dev->platform_data->gpio0_ctrl(sd, 1);
+			msleep(5);*/
 			ret =  dev->platform_data->gpio0_ctrl(sd, 0);
 			msleep(5);
 			ret =  dev->platform_data->gpio0_ctrl(sd, 1);
@@ -1379,6 +1379,7 @@ static int __gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 
 			if (dev->platform_data->gpio1_ctrl) {
 				dev_info(&client->dev, "ov8858 __gpio_ctrl->gpio_ctrl->gpio1_ctrl.\n");
+				ret = dev->platform_data->gpio1_ctrl(sd, 0);
 				ret |= dev->platform_data->gpio1_ctrl(sd, flag);
 			}
 		} else {
@@ -1386,7 +1387,7 @@ static int __gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 			ret =  dev->platform_data->gpio1_ctrl(sd, 0);
 		}
 
-		msleep(10);
+		msleep(20);
 		return ret;
 	}
 #endif
