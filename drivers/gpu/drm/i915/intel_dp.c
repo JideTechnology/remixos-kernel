@@ -35,8 +35,11 @@
 #include "intel_drv.h"
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
+#include <linux/wakelock.h>
 
 #define DP_LINK_CHECK_TIMEOUT	(10 * 1000)
+
+static struct wake_lock edp_vdd_wake_lock;
 
 struct dp_link_dpll {
 	int link_bw;
@@ -1355,6 +1358,9 @@ static void edp_panel_vdd_work(struct work_struct *__work)
 	drm_modeset_lock(&dev->mode_config.connection_mutex, NULL);
 	edp_panel_vdd_off_sync(intel_dp);
 	drm_modeset_unlock(&dev->mode_config.connection_mutex);
+
+	if (wake_lock_active(&edp_vdd_wake_lock))
+		wake_unlock(&edp_vdd_wake_lock);
 }
 
 static void edp_panel_vdd_off(struct intel_dp *intel_dp, bool sync)
@@ -1373,6 +1379,14 @@ static void edp_panel_vdd_off(struct intel_dp *intel_dp, bool sync)
 	if (sync) {
 		edp_panel_vdd_off_sync(intel_dp);
 	} else {
+
+		/*
+		* Add a wake lock to make sure the panel_vdd_work
+		* is called before sleep
+		*/
+		if (!wake_lock_active(&edp_vdd_wake_lock))
+			wake_lock(&edp_vdd_wake_lock);
+
 		/*
 		 * Queue the timer to fire a long
 		 * time from now (relative to the power down delay)
@@ -4843,6 +4857,12 @@ void intel_dp_encoder_destroy(struct drm_encoder *encoder)
 		edp_panel_vdd_off_sync(intel_dp);
 		drm_modeset_unlock(&dev->mode_config.connection_mutex);
 	}
+
+		if (wake_lock_active(&edp_vdd_wake_lock))
+			wake_unlock(&edp_vdd_wake_lock);
+
+		wake_lock_destroy(&edp_vdd_wake_lock);
+
 	kfree(intel_dig_port);
 }
 
@@ -5266,6 +5286,10 @@ intel_dp_init_connector(struct intel_digital_port *intel_dig_port,
 
 	INIT_DELAYED_WORK(&intel_dp->panel_vdd_work,
 			  edp_panel_vdd_work);
+
+	wake_lock_init(&edp_vdd_wake_lock,
+					WAKE_LOCK_SUSPEND,
+					"edp_vdd_wake_lock");
 
 	intel_connector_attach_encoder(intel_connector, intel_encoder);
 	drm_connector_register(connector);
