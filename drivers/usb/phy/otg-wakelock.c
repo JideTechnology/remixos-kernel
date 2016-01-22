@@ -44,6 +44,7 @@ struct otgwl_lock {
 	char name[40];
 	struct wake_lock wakelock;
 	bool held;
+	struct timer_list timer;
 };
 
 /*
@@ -62,11 +63,21 @@ static void otgwl_hold(struct otgwl_lock *lock)
 	}
 }
 
+
+static void otgwl_timer_drop(unsigned long data)
+{
+	struct otgwl_lock *lock = (struct otgwl_lock *)data;
+
+	if (lock->held) {
+		wake_unlock(&lock->wakelock);
+		lock->held = false;
+	}
+}
+
 static void otgwl_temporary_hold(struct otgwl_lock *lock)
 {
-	wake_lock_timeout(&lock->wakelock,
-			  msecs_to_jiffies(TEMPORARY_HOLD_TIME));
-	lock->held = false;
+	otgwl_hold(lock);
+	mod_timer(&lock->timer, jiffies+msecs_to_jiffies(TEMPORARY_HOLD_TIME));
 }
 
 static void otgwl_drop(struct otgwl_lock *lock)
@@ -154,6 +165,8 @@ static int __init otg_wakelock_init(void)
 	wake_lock_init(&vbus_lock.wakelock, WAKE_LOCK_SUSPEND,
 		       vbus_lock.name);
 
+	setup_timer(&vbus_lock.timer, otgwl_timer_drop,
+		 (unsigned long)&vbus_lock);
 	otgwl_nb.notifier_call = otgwl_otg_notifications;
 	ret = usb_register_notifier(otgwl_xceiv, &otgwl_nb);
 
