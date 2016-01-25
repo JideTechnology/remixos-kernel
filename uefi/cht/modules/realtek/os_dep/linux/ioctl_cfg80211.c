@@ -3289,7 +3289,13 @@ static int cfg80211_rtw_disconnect(struct wiphy *wiphy, struct net_device *ndev,
 
 	DBG_871X(FUNC_NDEV_FMT"\n", FUNC_NDEV_ARG(ndev));
 
-	padapter->mlmepriv.not_indic_disco = _TRUE;
+        /*
+         * Changes to comply with the new cfg80211 SME implementation.
+         * With a 3.14 kernel, the drivers needs to report the disconnect
+         * through the cfg80211 event handling
+         */
+
+	/* padapter->mlmepriv.not_indic_disco = _TRUE; */
 
 	rtw_set_to_roam(padapter, 0);
 
@@ -3307,7 +3313,7 @@ static int cfg80211_rtw_disconnect(struct wiphy *wiphy, struct net_device *ndev,
 		rtw_pwr_wakeup(padapter);		
 	}
 
-	padapter->mlmepriv.not_indic_disco = _FALSE;
+	/* padapter->mlmepriv.not_indic_disco = _FALSE; */
 
 	DBG_871X(FUNC_NDEV_FMT" return 0\n", FUNC_NDEV_ARG(ndev));
 	return 0;
