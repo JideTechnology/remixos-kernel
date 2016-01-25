@@ -47,7 +47,7 @@ struct linger {
 struct msghdr {
 	void		*msg_name;	/* ptr to socket address structure */
 	int		msg_namelen;	/* size of socket address structure */
-#if defined(CONFIG_PPPOLAC) || defined(CONFIG_PPPOPNS)
+#if IS_ENABLED(CONFIG_PPPOLAC) || IS_ENABLED(CONFIG_PPPOPNS)
 	struct iovec	*msg_iov;	/* scatter/gather array */
 	__kernel_size_t	msg_iovlen;	/* # elements in msg_iov */
 #endif
