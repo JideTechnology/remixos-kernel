@@ -433,7 +433,8 @@ int i915_gem_init_stolen(struct drm_device *dev)
 					 &reserved_size);
 		break;
 	default:
-		if (IS_BROADWELL(dev_priv) || IS_SKYLAKE(dev_priv))
+		if (IS_BROADWELL(dev_priv) ||
+		    IS_SKYLAKE(dev_priv) || IS_KABYLAKE(dev))
 			bdw_get_stolen_reserved(dev_priv, &reserved_base,
 						&reserved_size);
 		else
@@ -567,6 +568,9 @@ _i915_gem_object_create_stolen(struct drm_device *dev,
 						  stolen->start, stolen->size);
 	if (obj->pages == NULL)
 		goto cleanup;
+
+	obj->get_page.sg = obj->pages->sgl;
+	obj->get_page.last = 0;
 
 	i915_gem_object_pin_pages(obj);
 	obj->stolen = stolen;
