@@ -133,7 +133,11 @@ static int de_calc_overlay_scaler_para(unsigned int screen_id, unsigned char chn
 	for (j=0;j<chn;j++)
 	{
 		int gsu_sel = (j<vi_chn)?0:1;
-		if(yv12_d1_en[j][0]||yv12_d1_en[j][1]||yv12_d1_en[j][2]||yv12_d1_en[j][3]){
+		if ((j < vi_chn)
+			&& (yv12_d1_en[j][0]
+			|| yv12_d1_en[j][1]
+			|| yv12_d1_en[j][2]
+			|| yv12_d1_en[j][3])) {
 			pen[j] = de_rtmx_calc_chnrect(lay_en[j], layno, frame[j], crop[j], gsu_sel, p2p_para[j],
 										  layer[j], &bld_rect[j], &ovlw[j], &ovlh[j]);
 		}
