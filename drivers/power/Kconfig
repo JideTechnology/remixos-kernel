@@ -467,6 +467,17 @@ config CHARGER_BQ24192
 	  Say Y here if you know your platform has this chip for charging
 	  support.
 
+config CHARGER_BQ24297
+        tristate "TI BQ24297 Charger"
+        select POWER_SUPPLY_CHARGER
+        depends on I2C
+        help
+          BQ24297 is the charger chip for lithium-ion (Li+) batteries
+          in handheld and portable equipment.
+
+          Say Y here if you know your platform has this chip for charging
+          support.
+
 config WIRELESS_REZENCE
 	bool "Wireless Rezence Driver"
 	help

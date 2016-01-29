@@ -70,6 +70,7 @@ obj-$(CONFIG_CW2015_BATTERY)	+= cw2015_battery.o
 obj-$(CONFIG_OZ1C115)	+= oz1c115/
 obj-$(CONFIG_SM5414_CHARGER)	+= sm5414_charger.o
 obj-$(CONFIG_CHARGER_BQ24192)	+= bq24192_charger.o
+obj-$(CONFIG_CHARGER_BQ24297)	+= bq24297_charger.o
 obj-$(CONFIG_INTEL_FUEL_GAUGE)	+= intel_fuel_gauge.o
 obj-$(CONFIG_INTEL_FG_UIFACE)	+= intel_fg_uiface.o
 obj-$(CONFIG_INTEL_SOC_PMIC) 	+= intel_pmic_ccsm.o

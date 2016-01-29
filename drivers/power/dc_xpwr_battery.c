@@ -186,7 +186,12 @@
 
 #define THERM_CURVE_MAX_SAMPLES		18
 #define THERM_CURVE_MAX_VALUES		4
-#define XPWR_VBAT_VMAX_OFFSET		50
+
+#ifdef CONFIG_CHARGER_BQ24297
+	#define XPWR_VBAT_VMAX_OFFSET		150
+#else
+	#define XPWR_VBAT_VMAX_OFFSET		50
+#endif
 
 /* No of times we should retry on -EAGAIN error */
 #define NR_RETRY_CNT	3
@@ -870,11 +875,19 @@ static void fg_capacity_monitor(struct work_struct *work)
 	struct pmic_fg_info *info = container_of(work,
 		struct pmic_fg_info, capacity_monitor.work);
 
+#ifdef CONFIG_CHARGER_BQ24297
+	psy = power_supply_get_by_name ("bq24192_charger");
+	if (!psy) {
+		pr_err("Cannot find power supply: bq24192_charger\n");
+		return;
+	}
+#else
 	psy = power_supply_get_by_name ("dollar_cove_charger");
 	if (!psy) {
 		pr_err("Cannot find power supply: dollar_cove_charger\n");
 		return;
 	}
+#endif
 
 	r_capacity = pmic_fg_get_capacity(info);
 	if (r_capacity < 0) {
@@ -1403,6 +1416,11 @@ static int pmic_fg_probe(struct platform_device *pdev)
 	pmic_fg_init_irq(info);
 	pmic_fg_init_hw_regs(info);
 	schedule_delayed_work(&info->status_monitor, STATUS_MON_DELAY_JIFFIES);
+
+#ifdef CONFIG_CHARGER_BQ24297
+	schedule_delayed_work(&info->capacity_monitor, STATUS_MON_DELAY_JIFFIES);
+#endif
+
 	return 0;
 }
 
