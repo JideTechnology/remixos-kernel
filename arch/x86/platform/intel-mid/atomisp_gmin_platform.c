@@ -379,6 +379,16 @@ static struct gmin_subdev *gmin_subdev_add(struct v4l2_subdev *subdev)
                 gmin_subdevs[i].clock_src = 0;
                 gmin_subdevs[i].csi_port = 1;
                 gmin_subdevs[i].csi_lanes = 4;
+        }else if (0 == strcmp(dev->driver->acpi_match_table->id,"INT5040")){
+                gmin_subdevs[i].clock_num = 0;
+                gmin_subdevs[i].clock_src = 0;
+                gmin_subdevs[i].csi_port = 1;
+                gmin_subdevs[i].csi_lanes = 2;
+        }else if (0 == strcmp(dev->driver->acpi_match_table->id,"INT5648")){
+                gmin_subdevs[i].clock_num = 0;
+                gmin_subdevs[i].clock_src = 0;
+                gmin_subdevs[i].csi_port = 1;
+                gmin_subdevs[i].csi_lanes = 2;
         }else {
                 gmin_subdevs[i].clock_num = 2;
                 gmin_subdevs[i].clock_src = 0;
@@ -523,6 +533,10 @@ static int axp_v1p8_on(struct gmin_subdev *gs)
 		ret = axp_regulator_set(gs->fldo2_sel_reg, gs->fldo2_1p2v,
 				FLDO_CTRL_REG, gs->fldo2_ctrl_shift, true);
 
+	if (strcmp(dev->driver->acpi_match_table->id,"GCTI2355") == 0)
+		ret = axp_regulator_set(gs->eldo1_sel_reg, gs->eldo1_1p8v,
+				ELDO_CTRL_REG, gs->eldo1_ctrl_shift, true);
+				
 	ret = axp_regulator_set(gs->eldo2_sel_reg, gs->eldo2_1p8v,
 				ELDO_CTRL_REG, gs->eldo2_ctrl_shift, true);
 	return ret;
@@ -546,6 +560,11 @@ static int axp_v1p8_off(struct gmin_subdev *gs)
 			ELDO_CTRL_REG, gs->eldo1_ctrl_shift, false);
 	}
 
+	if (strcmp(dev->driver->acpi_match_table->id,"GCTI2355") == 0)
+	{
+		ret |= axp_regulator_set(gs->eldo1_sel_reg, gs->eldo1_1p8v,
+			ELDO_CTRL_REG, gs->eldo1_ctrl_shift, false);
+	}
 	
 	if (strcmp(dev->driver->acpi_match_table->id,"INT3477") ==0)
 	{
