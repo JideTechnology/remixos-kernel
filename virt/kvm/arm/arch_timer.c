@@ -143,7 +143,7 @@ static void kvm_timer_update_irq(struct kvm_vcpu *vcpu, bool new_level)
  * Check if there was a change in the timer state (should we raise or lower
  * the line level to the GIC).
  */
-static int kvm_timer_update_state(struct kvm_vcpu *vcpu)
+static void kvm_timer_update_state(struct kvm_vcpu *vcpu)
 {
 	struct arch_timer_cpu *timer = &vcpu->arch.timer_cpu;
 
@@ -154,12 +154,10 @@ static int kvm_timer_update_state(struct kvm_vcpu *vcpu)
 	 * until we call this function from kvm_timer_flush_hwstate.
 	 */
 	if (!vgic_initialized(vcpu->kvm))
-		return -ENODEV;
+	    return;
 
 	if (kvm_timer_should_fire(vcpu) != timer->irq.level)
 		kvm_timer_update_irq(vcpu, !timer->irq.level);
-
-	return 0;
 }
 
 /*
@@ -220,8 +218,7 @@ void kvm_timer_flush_hwstate(struct kvm_vcpu *vcpu)
 	bool phys_active;
 	int ret;
 
-	if (kvm_timer_update_state(vcpu))
-		return;
+	kvm_timer_update_state(vcpu);
 
 	/*
 	* If we enter the guest with the virtual input level to the VGIC

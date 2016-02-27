@@ -2143,10 +2143,10 @@ static void azx_remove(struct pci_dev *pci)
 	struct hda_intel *hda;
 
 	if (card) {
-		/* cancel the pending probing work */
+		/* flush the pending probing work */
 		chip = card->private_data;
 		hda = container_of(chip, struct hda_intel, chip);
-		cancel_work_sync(&hda->probe_work);
+		flush_work(&hda->probe_work);
 
 		snd_card_free(card);
 	}

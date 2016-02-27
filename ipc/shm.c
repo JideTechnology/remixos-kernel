@@ -156,12 +156,11 @@ static inline struct shmid_kernel *shm_lock(struct ipc_namespace *ns, int id)
 	struct kern_ipc_perm *ipcp = ipc_lock(&shm_ids(ns), id);
 
 	/*
-	 * Callers of shm_lock() must validate the status of the returned ipc
-	 * object pointer (as returned by ipc_lock()), and error out as
-	 * appropriate.
+	 * We raced in the idr lookup or with shm_destroy().  Either way, the
+	 * ID is busted.
 	 */
-	if (IS_ERR(ipcp))
-		return (void *)ipcp;
+	WARN_ON(IS_ERR(ipcp));
+
 	return container_of(ipcp, struct shmid_kernel, shm_perm);
 }
 
@@ -187,33 +186,18 @@ static inline void shm_rmid(struct ipc_namespace *ns, struct shmid_kernel *s)
 }
 
 
-static int __shm_open(struct vm_area_struct *vma)
+/* This is called by fork, once for every shm attach. */
+static void shm_open(struct vm_area_struct *vma)
 {
 	struct file *file = vma->vm_file;
 	struct shm_file_data *sfd = shm_file_data(file);
 	struct shmid_kernel *shp;
 
 	shp = shm_lock(sfd->ns, sfd->id);
-
-	if (IS_ERR(shp))
-		return PTR_ERR(shp);
-
 	shp->shm_atim = get_seconds();
 	shp->shm_lprid = task_tgid_vnr(current);
 	shp->shm_nattch++;
 	shm_unlock(shp);
-	return 0;
-}
-
-/* This is called by fork, once for every shm attach. */
-static void shm_open(struct vm_area_struct *vma)
-{
-	int err = __shm_open(vma);
-	/*
-	 * We raced in the idr lookup or with shm_destroy().
-	 * Either way, the ID is busted.
-	 */
-	WARN_ON_ONCE(err);
 }
 
 /*
@@ -276,14 +260,6 @@ static void shm_close(struct vm_area_struct *vma)
 	down_write(&shm_ids(ns).rwsem);
 	/* remove from the list of attaches of the shm segment */
 	shp = shm_lock(ns, sfd->id);
-
-	/*
-	 * We raced in the idr lookup or with shm_destroy().
-	 * Either way, the ID is busted.
-	 */
-	if (WARN_ON_ONCE(IS_ERR(shp)))
-		goto done; /* no-op */
-
 	shp->shm_lprid = task_tgid_vnr(current);
 	shp->shm_dtim = get_seconds();
 	shp->shm_nattch--;
@@ -291,7 +267,6 @@ static void shm_close(struct vm_area_struct *vma)
 		shm_destroy(ns, shp);
 	else
 		shm_unlock(shp);
-done:
 	up_write(&shm_ids(ns).rwsem);
 }
 
@@ -413,25 +388,17 @@ static int shm_mmap(struct file *file, struct vm_area_struct *vma)
 	struct shm_file_data *sfd = shm_file_data(file);
 	int ret;
 
-	/*
-	 * In case of remap_file_pages() emulation, the file can represent
-	 * removed IPC ID: propogate shm_lock() error to caller.
-	 */
-	ret =__shm_open(vma);
-	if (ret)
-		return ret;
-
 	ret = sfd->file->f_op->mmap(sfd->file, vma);
-	if (ret) {
-		shm_close(vma);
+	if (ret != 0)
 		return ret;
-	}
 	sfd->vm_ops = vma->vm_ops;
 #ifdef CONFIG_MMU
 	WARN_ON(!sfd->vm_ops->fault);
 #endif
 	vma->vm_ops = &shm_vm_ops;
-	return 0;
+	shm_open(vma);
+
+	return ret;
 }
 
 static int shm_release(struct inode *ino, struct file *file)
