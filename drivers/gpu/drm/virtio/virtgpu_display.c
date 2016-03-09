@@ -491,10 +491,16 @@ virtio_gpu_user_framebuffer_create(struct drm_device *dev,
 	return &virtio_gpu_fb->base;
 }
 
+static int virtio_gpu_atomic_commit(struct drm_device *drm,
+			       struct drm_atomic_state *state, bool async)
+{
+	return drm_atomic_helper_commit(drm, state, false);
+}
+
 static const struct drm_mode_config_funcs virtio_gpu_mode_funcs = {
 	.fb_create = virtio_gpu_user_framebuffer_create,
 	.atomic_check = drm_atomic_helper_check,
-	.atomic_commit = drm_atomic_helper_commit,
+	.atomic_commit = virtio_gpu_atomic_commit,
 };
 
 int virtio_gpu_modeset_init(struct virtio_gpu_device *vgdev)

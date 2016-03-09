@@ -199,14 +199,40 @@ static void virtio_gpu_3d_imageblit(struct fb_info *info,
 	schedule_delayed_work(&vfbdev->work, VIRTIO_GPU_FBCON_POLL_PERIOD);
 }
 
+static int virtio_gpu_3d_mmap(struct fb_info *info, struct vm_area_struct *vma)
+{
+	struct virtio_gpu_fbdev *vfbdev = info->par;
+	struct virtio_gpu_object *obj = gem_to_virtio_gpu_obj(vfbdev->vgfb.obj);
+
+	return ttm_fbdev_mmap(vma, &obj->tbo);
+}
+
+static int virtio_gpu_3d_pan_display(struct fb_var_screeninfo *var,
+				     struct fb_info *info)
+{
+	struct virtio_gpu_fbdev *vfbdev = info->par;
+	int ret;
+
+	ret = drm_fb_helper_pan_display(var, info);
+	if (ret)
+		return ret;
+
+	virtio_gpu_dirty_update(&vfbdev->vgfb, true, var->xoffset, var->yoffset,
+				var->xres, var->yres);
+	schedule_delayed_work(&vfbdev->work, VIRTIO_GPU_FBCON_POLL_PERIOD);
+
+	return 0;
+}
+
 static struct fb_ops virtio_gpufb_ops = {
 	.owner = THIS_MODULE,
+	.fb_mmap = virtio_gpu_3d_mmap,
 	.fb_check_var = drm_fb_helper_check_var,
 	.fb_set_par = drm_fb_helper_set_par, /* TODO: copy vmwgfx */
 	.fb_fillrect = virtio_gpu_3d_fillrect,
 	.fb_copyarea = virtio_gpu_3d_copyarea,
 	.fb_imageblit = virtio_gpu_3d_imageblit,
-	.fb_pan_display = drm_fb_helper_pan_display,
+	.fb_pan_display = virtio_gpu_3d_pan_display,
 	.fb_blank = drm_fb_helper_blank,
 	.fb_setcmap = drm_fb_helper_setcmap,
 	.fb_debug_enter = drm_fb_helper_debug_enter,
@@ -234,7 +260,7 @@ static int virtio_gpufb_create(struct drm_fb_helper *helper,
 	int ret;
 
 	mode_cmd.width = sizes->surface_width;
-	mode_cmd.height = sizes->surface_height;
+	mode_cmd.height = sizes->surface_height * 2;
 	mode_cmd.pitches[0] = mode_cmd.width * 4;
 	mode_cmd.pixel_format = drm_mode_legacy_fb_format(32, 24);
 
@@ -340,9 +366,12 @@ static int virtio_gpufb_create(struct drm_fb_helper *helper,
 
 	info->screen_base = obj->vmap;
 	info->screen_size = obj->gem_base.size;
+	info->fix.smem_len = obj->gem_base.size;
 	drm_fb_helper_fill_fix(info, fb->pitches[0], fb->depth);
 	drm_fb_helper_fill_var(info, &vfbdev->helper,
 			       sizes->fb_width, sizes->fb_height);
+
+	drm_vma_offset_remove(&obj->tbo.bdev->vma_manager, &obj->tbo.vma_node);
 
 	info->fix.mmio_start = 0;
 	info->fix.mmio_len = 0;
