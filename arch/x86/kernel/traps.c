@@ -318,6 +318,8 @@ typedef union {
 	s8 s8[16];
 } ssp_m128 __aligned(16);
 
+typedef unsigned int ssp_u32;
+
 static void ssp_abs_epi8(ssp_m128 *A)
 {
 	A->s8[0]  = (A->s8[0] < 0) ? -A->s8[0]  : A->s8[0];
@@ -403,6 +405,15 @@ static void ssp_alignr_epi8(ssp_m128 *ret, ssp_m128 *a, ssp_m128 *b,
 
 	for (i = 15 + ralign, j = 15; i >= ralign; i--, j--)
 		ret->u8[j] = (i < 32) ? tmp[i] : 0;
+}
+
+static unsigned int ssp_popcnt_32( unsigned int val )
+{
+    int i;
+    ssp_u32 cnt = 0;
+    for( i=0; i<31, val; ++i, val = val>>1 )
+        cnt += val & 0x1;
+    return cnt;
 }
 
 #define OPCODE_SIZE 6
@@ -543,6 +554,25 @@ dotraplinkage void do_invalid_op(struct pt_regs *regs, long error_code)
 			}
 			regs->ip += 5;
 		}
+	}
+	else if (opcode.byte[0] == 0xf3) {
+	    if (opcode.byte[1] == 0x0f && opcode.byte[2] == 0xb8) {
+	        if (opcode.byte[3] >= 0xc0) {
+                unsigned int srcIndex = opcode.byte[3] & 0x7;
+                unsigned int dstIndex = (opcode.byte[3] >> 3) & 0x7;
+
+                unsigned long* regTable[] = {
+                    &regs->ax, &regs->cx,
+                    &regs->dx, &regs->bx,
+                    &regs->sp, &regs->bp,
+                    &regs->si, &regs->di,
+                };
+
+                *regTable[dstIndex] = ssp_popcnt_32(*regTable[srcIndex]);
+                handled = 1;
+                regs->ip += 4;
+	        }
+	    }
 	}
 
 	if (!handled) {
