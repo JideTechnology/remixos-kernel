@@ -118,6 +118,19 @@ void setRegister(int index, struct pt_regs* regs, int extended, unsigned long va
 
 int decodeMemAddress(int opcode, struct pt_regs* regs, int rex, u8* extraBytes, unsigned long *memAddr);
 
+int getOp2MemValue(int opcode, struct pt_regs* regs, int rex, u8* extraBytes, unsigned long* value);
+int getOp2XMMValue(int opcode, struct pt_regs* regs, int rex, u8* extraBytes, ssp_m128* value);
+
+#define REX_B 0x41
+#define REX_X 0x42
+#define REX_R 0x44
+#define REX_W 0x48
+
+static inline
+int testREX(int rex, int mask) {
+    return (rex & mask) == mask;
+}
+
 
 /** @}
  *  @}

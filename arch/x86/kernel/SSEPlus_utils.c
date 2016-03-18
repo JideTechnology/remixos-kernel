@@ -167,8 +167,8 @@ int decodeMemAddress(int opcode, struct pt_regs* regs, int rex, u8* extraBytes, 
 		int opHigh = (extraBytes[0]>>3) & 0x7;
 		int opLow = extraBytes[0] & 0x7;
 		int multiplier = 1 << (extraBytes[0]>>6);
-		*memAddr = *getRegisterPtr(opLow, regs, rex & 0x41) +
-					*getRegisterPtr(opHigh, regs, rex & 0x42) * multiplier;
+		*memAddr = *getRegisterPtr(opLow, regs, testREX(rex, REX_B)) +
+					*getRegisterPtr(opHigh, regs, testREX(rex, REX_X)) * multiplier;
 		extraLength = 1;
 	}
 	else if (srcIndex == 0x5 && opcode < 0x40) {
@@ -176,7 +176,7 @@ int decodeMemAddress(int opcode, struct pt_regs* regs, int rex, u8* extraBytes, 
 		extraLength = 4;
 	}
 	else {
-		*memAddr = *getRegisterPtr(srcIndex, regs, rex & 0x41);
+		*memAddr = *getRegisterPtr(srcIndex, regs, testREX(rex, REX_B));
 		extraLength = 0;
 	}
 
@@ -184,6 +184,48 @@ int decodeMemAddress(int opcode, struct pt_regs* regs, int rex, u8* extraBytes, 
 		*memAddr += (s8)extraBytes[extraLength];
 		extraLength += 1;
 	}
+	else if (opcode & 0x80) {
+		*memAddr += *(s64*)&extraBytes[extraLength];
+		extraLength += 4;
+	}
 
 	return extraLength;
+}
+
+int getOp2MemValue(int opcode, struct pt_regs* regs, int rex, u8* extraBytes, unsigned long* value) {
+	if (opcode >= 0xc0) {
+		*value = *getRegisterPtr(opcode & 0x7, regs, testREX(rex, REX_B));
+		return 0;
+	}
+	else {
+		unsigned long memAddr = 0;
+		u8 data[sizeof(unsigned long)] = {0};
+		int extraLen = decodeMemAddress(opcode, regs, rex, extraBytes, &memAddr);
+
+		if (memAddr) {
+			copy_from_user((void *)data, (const void __user *)memAddr, sizeof(unsigned long));
+			*value = *(unsigned long*)data;
+			return extraLen;
+		}
+	}
+	return -1;
+}
+
+int getOp2XMMValue(int opcode, struct pt_regs* regs, int rex, u8* extraBytes, ssp_m128* value) {
+	if (opcode >= 0xc0) {
+		*value = getXMMRegister(opcode & 0x7, testREX(rex, REX_B));
+		return 0;
+	}
+	else {
+		unsigned long memAddr = 0;
+		u8 data[sizeof(ssp_m128)] = {0};
+		int extraLen = decodeMemAddress(opcode, regs, rex, extraBytes, &memAddr);
+
+		if (memAddr) {
+			copy_from_user((void *)data, (const void __user *)memAddr, sizeof(ssp_m128));
+			*value = *(ssp_m128*)data;
+			return extraLen;
+		}
+	}
+	return -1;
 }
