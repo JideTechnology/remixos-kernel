@@ -22,7 +22,7 @@ KASAN_SANITIZE_dumpstack_$(BITS).o := n
 
 CFLAGS_irq.o := -I$(src)/../include/asm/trace
 
-CFLAGS_REMOVE_SSEPlus_float_REF.o += -mno-sse -mno-mmx -mno-sse2
+CFLAGS_REMOVE_SSEPlus_float_REF.o += -mno-sse -mno-mmx -mno-sse2 -msoft-float
 
 obj-y			:= process_$(BITS).o signal.o
 obj-$(CONFIG_COMPAT)	+= signal_compat.o
