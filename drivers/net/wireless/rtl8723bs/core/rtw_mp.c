@@ -524,6 +524,7 @@ MPT_InitializeAdapter(
 
 #ifdef CONFIG_RTL8723B
 	rtl8723b_InitAntenna_Selection(pAdapter);
+	PHY_SetBBReg(pAdapter, 0x74, BIT7|BIT6|BIT5|BIT4, 0x2);
 	if (IS_HARDWARE_TYPE_8723B(pAdapter))
 	{
 
