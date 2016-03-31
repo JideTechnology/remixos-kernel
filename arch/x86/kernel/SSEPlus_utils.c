@@ -141,7 +141,7 @@ unsigned long* getRegisterPtr(int index, struct pt_regs* regs, int extended) {
 		&regs->sp, &regs->bp,
 		&regs->si, &regs->di,
 	};
-	unsigned long* regTable = regTable1;
+	unsigned long** regTable = regTable1;
 #ifdef CONFIG_X86_64
 	unsigned long* regTable2[] = {
 		&regs->r8, &regs->r9,
