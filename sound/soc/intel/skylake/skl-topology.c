@@ -129,17 +129,15 @@ static void skl_dump_mconfig(struct skl_sst *ctx,
 {
 	dev_dbg(ctx->dev, "Dumping config\n");
 	dev_dbg(ctx->dev, "Input Format:\n");
-	dev_dbg(ctx->dev, "channels = %d\n", mcfg->in_fmt.channels);
-	dev_dbg(ctx->dev, "s_freq = %d\n", mcfg->in_fmt.s_freq);
-	dev_dbg(ctx->dev, "ch_cfg = %d\n", mcfg->in_fmt.ch_cfg);
-	dev_dbg(ctx->dev, "valid bit depth = %d\n",
-			mcfg->in_fmt.valid_bit_depth);
+	dev_dbg(ctx->dev, "channels = %d\n", mcfg->in_fmt[0].channels);
+	dev_dbg(ctx->dev, "s_freq = %d\n", mcfg->in_fmt[0].s_freq);
+	dev_dbg(ctx->dev, "ch_cfg = %d\n", mcfg->in_fmt[0].ch_cfg);
+	dev_dbg(ctx->dev, "valid bit depth = %d\n", mcfg->in_fmt[0].valid_bit_depth);
 	dev_dbg(ctx->dev, "Output Format:\n");
-	dev_dbg(ctx->dev, "channels = %d\n", mcfg->out_fmt.channels);
-	dev_dbg(ctx->dev, "s_freq = %d\n", mcfg->out_fmt.s_freq);
-	dev_dbg(ctx->dev, "valid bit depth = %d\n",
-			mcfg->out_fmt.valid_bit_depth);
-	dev_dbg(ctx->dev, "ch_cfg = %d\n", mcfg->out_fmt.ch_cfg);
+	dev_dbg(ctx->dev, "channels = %d\n", mcfg->out_fmt[0].channels);
+	dev_dbg(ctx->dev, "s_freq = %d\n", mcfg->out_fmt[0].s_freq);
+	dev_dbg(ctx->dev, "valid bit depth = %d\n", mcfg->out_fmt[0].valid_bit_depth);
+	dev_dbg(ctx->dev, "ch_cfg = %d\n", mcfg->out_fmt[0].ch_cfg);
 }
 
 static void skl_tplg_update_params(struct skl_module_fmt *fmt,
@@ -171,8 +169,9 @@ static void skl_tplg_update_params_fixup(struct skl_module_cfg *m_cfg,
 	int in_fixup, out_fixup;
 	struct skl_module_fmt *in_fmt, *out_fmt;
 
-	in_fmt = &m_cfg->in_fmt;
-	out_fmt = &m_cfg->out_fmt;
+	/* Fixups will be applied to pin 0 only */
+	in_fmt = &m_cfg->in_fmt[0];
+	out_fmt = &m_cfg->out_fmt[0];
 
 	if (params->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		if (is_fe) {
@@ -209,18 +208,25 @@ static void skl_tplg_update_buffer_size(struct skl_sst *ctx,
 				struct skl_module_cfg *mcfg)
 {
 	int multiplier = 1;
+	struct skl_module_fmt *in_fmt, *out_fmt;
+
+
+	/* Since fixups is applied to pin 0 only, ibs, obs needs
+	 * change for pin 0 only
+	 */
+	in_fmt = &mcfg->in_fmt[0];
+	out_fmt = &mcfg->out_fmt[0];
 
 	if (mcfg->m_type == SKL_MODULE_TYPE_SRCINT)
 		multiplier = 5;
-
-	mcfg->ibs = (mcfg->in_fmt.s_freq / 1000) *
-				(mcfg->in_fmt.channels) *
-				(mcfg->in_fmt.bit_depth >> 3) *
+	mcfg->ibs = (in_fmt->s_freq / 1000) *
+				(mcfg->in_fmt->channels) *
+				(mcfg->in_fmt->bit_depth >> 3) *
 				multiplier;
 
-	mcfg->obs = (mcfg->out_fmt.s_freq / 1000) *
-				(mcfg->out_fmt.channels) *
-				(mcfg->out_fmt.bit_depth >> 3) *
+	mcfg->obs = (mcfg->out_fmt->s_freq / 1000) *
+				(mcfg->out_fmt->channels) *
+				(mcfg->out_fmt->bit_depth >> 3) *
 				multiplier;
 }
 
@@ -397,6 +403,58 @@ static int skl_tplg_mixer_dapm_pre_pmu_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int skl_tplg_bind_sinks(struct snd_soc_dapm_widget *w,
+				struct skl *skl,
+				struct skl_module_cfg *src_mconfig)
+{
+	struct snd_soc_dapm_path *p;
+	struct snd_soc_dapm_widget *sink = NULL, *next_sink = NULL;
+	struct skl_module_cfg *sink_mconfig;
+	struct skl_sst *ctx = skl->skl_sst;
+	int ret;
+
+	snd_soc_dapm_widget_for_each_sink_path(w, p) {
+		if (!p->connect)
+			continue;
+
+		dev_dbg(ctx->dev, "%s: src widget=%s\n", __func__, w->name);
+		dev_dbg(ctx->dev, "%s: sink widget=%s\n", __func__, p->sink->name);
+
+		next_sink = p->sink;
+		/*
+		 * here we will check widgets in sink pipelines, so that
+		 * can be any widgets type and we are only interested if
+		 * they are ones used for SKL so check that first
+		 */
+		if ((p->sink->priv != NULL) &&
+					is_skl_dsp_widget_type(p->sink)) {
+
+			sink = p->sink;
+			sink_mconfig = sink->priv;
+
+			/* Bind source to sink, mixin is always source */
+			ret = skl_bind_modules(ctx, src_mconfig, sink_mconfig);
+			if (ret)
+				return ret;
+
+			/* Start sinks pipe first */
+			if (sink_mconfig->pipe->state != SKL_PIPE_STARTED) {
+				if (sink_mconfig->pipe->conn_type !=
+							SKL_PIPE_CONN_TYPE_FE)
+					ret = skl_run_pipe(ctx,
+							sink_mconfig->pipe);
+				if (ret)
+					return ret;
+			}
+		}
+	}
+
+	if (!sink)
+		return skl_tplg_bind_sinks(next_sink, skl, src_mconfig);
+
+	return 0;
+}
+
 /*
  * A PGA represents a module in a pipeline. So in the Pre-PMU event of PGA
  * we need to do following:
@@ -408,73 +466,60 @@ static int skl_tplg_mixer_dapm_pre_pmu_event(struct snd_soc_dapm_widget *w,
  *   - Then run current pipe
  */
 static int skl_tplg_pga_dapm_pre_pmu_event(struct snd_soc_dapm_widget *w,
-							struct skl *skl)
+								struct skl *skl)
 {
-	struct snd_soc_dapm_path *p;
-	struct skl_dapm_path_list *path_list;
-	struct snd_soc_dapm_widget *source, *sink;
-	struct skl_module_cfg *src_mconfig, *sink_mconfig;
+	struct skl_module_cfg *src_mconfig;
 	struct skl_sst *ctx = skl->skl_sst;
 	int ret = 0;
 
-	source = w;
-	src_mconfig = source->priv;
+	src_mconfig = w->priv;
 
 	/*
 	 * find which sink it is connected to, bind with the sink,
 	 * if sink is not started, start sink pipe first, then start
 	 * this pipe
 	 */
-	snd_soc_dapm_widget_for_each_source_path(w, p) {
-		if (!p->connect)
-			continue;
-
-		dev_dbg(ctx->dev, "%s: src widget=%s\n", __func__, w->name);
-		dev_dbg(ctx->dev, "%s: sink widget=%s\n", __func__, p->sink->name);
-
-		/*
-		 * here we will check widgets in sink pipelines, so that
-		 * can be any widgets type and we are only interested if
-		 * they are ones used for SKL so check that first
-		 */
-		if ((p->sink->priv != NULL) &&
-					is_skl_dsp_widget_type(p->sink)) {
-
-			sink = p->sink;
-			src_mconfig = source->priv;
-			sink_mconfig = sink->priv;
-
-			/* Bind source to sink, mixin is always source */
-			ret = skl_bind_modules(ctx, src_mconfig, sink_mconfig);
-			if (ret)
-				return ret;
-
-			/* Start sinks pipe first */
-			if (sink_mconfig->pipe->state != SKL_PIPE_STARTED) {
-				ret = skl_run_pipe(ctx, sink_mconfig->pipe);
-				if (ret)
-					return ret;
-			}
-
-			path_list = kzalloc(
-					sizeof(struct skl_dapm_path_list),
-					GFP_KERNEL);
-			if (path_list == NULL)
-				return -ENOMEM;
-
-			/* Add connected path to one global list */
-			path_list->dapm_path = p;
-			list_add_tail(&path_list->node, &skl->dapm_path_list);
-			break;
-		}
-	}
-
-	/* Start source pipe last after starting all sinks */
-	ret = skl_run_pipe(ctx, src_mconfig->pipe);
+	ret = skl_tplg_bind_sinks(w, skl, src_mconfig);
 	if (ret)
 		return ret;
 
+	/* Start source pipe last after starting all sinks */
+	if (src_mconfig->pipe->conn_type != SKL_PIPE_CONN_TYPE_FE)
+		return skl_run_pipe(ctx, src_mconfig->pipe);
+
 	return 0;
+}
+
+static struct snd_soc_dapm_widget *skl_get_src_dsp_widget(
+		struct snd_soc_dapm_widget *w, struct skl *skl)
+{
+	struct snd_soc_dapm_path *p;
+	struct snd_soc_dapm_widget *src_w = NULL;
+	struct skl_sst *ctx = skl->skl_sst;
+
+	snd_soc_dapm_widget_for_each_source_path(w, p) {
+		src_w = p->source;
+		if (!p->connect)
+			continue;
+
+		dev_dbg(ctx->dev, "sink widget=%s\n", w->name);
+		dev_dbg(ctx->dev, "src widget=%s\n", p->source->name);
+
+		/*
+		 * here we will check widgets in sink pipelines, so that can
+		 * be any widgets type and we are only interested if they are
+		 * ones used for SKL so check that first
+		 */
+		if ((p->source->priv != NULL) &&
+					is_skl_dsp_widget_type(p->source)) {
+			return p->source;
+		}
+	}
+
+	if (src_w != NULL)
+		return skl_get_src_dsp_widget(src_w, skl);
+
+	return NULL;
 }
 
 /*
@@ -490,7 +535,6 @@ static int skl_tplg_mixer_dapm_post_pmu_event(struct snd_soc_dapm_widget *w,
 							struct skl *skl)
 {
 	int ret = 0;
-	struct snd_soc_dapm_path *p;
 	struct snd_soc_dapm_widget *source, *sink;
 	struct skl_module_cfg *src_mconfig, *sink_mconfig;
 	struct skl_sst *ctx = skl->skl_sst;
@@ -504,32 +548,18 @@ static int skl_tplg_mixer_dapm_post_pmu_event(struct snd_soc_dapm_widget *w,
 	 * one more sink before this sink got connected, Since source is
 	 * started, bind this sink to source and start this pipe.
 	 */
-	snd_soc_dapm_widget_for_each_sink_path(w, p) {
-		if (!p->connect)
-			continue;
-
-		dev_dbg(ctx->dev, "sink widget=%s\n", w->name);
-		dev_dbg(ctx->dev, "src widget=%s\n", p->source->name);
+	source = skl_get_src_dsp_widget(w, skl);
+	if (source != NULL) {
+		src_mconfig = source->priv;
+		sink_mconfig = sink->priv;
+		src_pipe_started = 1;
 
 		/*
-		 * here we will check widgets in sink pipelines, so that
-		 * can be any widgets type and we are only interested if
-		 * they are ones used for SKL so check that first
+		 * check pipe state, then no need to bind or start the
+		 * pipe
 		 */
-		if ((p->source->priv != NULL) &&
-					is_skl_dsp_widget_type(p->source)) {
-			source = p->source;
-			src_mconfig = source->priv;
-			sink_mconfig = sink->priv;
-			src_pipe_started = 1;
-
-			/*
-			 * check pipe state, then no need to bind or start
-			 * the pipe
-			 */
-			if (src_mconfig->pipe->state != SKL_PIPE_STARTED)
-				src_pipe_started = 0;
-		}
+		if (src_mconfig->pipe->state != SKL_PIPE_STARTED)
+			src_pipe_started = 0;
 	}
 
 	if (src_pipe_started) {
@@ -537,7 +567,8 @@ static int skl_tplg_mixer_dapm_post_pmu_event(struct snd_soc_dapm_widget *w,
 		if (ret)
 			return ret;
 
-		ret = skl_run_pipe(ctx, sink_mconfig->pipe);
+		if (sink_mconfig->pipe->conn_type != SKL_PIPE_CONN_TYPE_FE)
+			ret = skl_run_pipe(ctx, sink_mconfig->pipe);
 	}
 
 	return ret;
@@ -552,52 +583,35 @@ static int skl_tplg_mixer_dapm_post_pmu_event(struct snd_soc_dapm_widget *w,
 static int skl_tplg_mixer_dapm_pre_pmd_event(struct snd_soc_dapm_widget *w,
 							struct skl *skl)
 {
-	struct snd_soc_dapm_widget *source, *sink;
 	struct skl_module_cfg *src_mconfig, *sink_mconfig;
-	int ret = 0, path_found = 0;
-	struct skl_dapm_path_list *path_list, *tmp_list;
+	int ret = 0, i;
 	struct skl_sst *ctx = skl->skl_sst;
 
-	sink = w;
-	sink_mconfig = sink->priv;
+	sink_mconfig = w->priv;
 
 	/* Stop the pipe */
 	ret = skl_stop_pipe(ctx, sink_mconfig->pipe);
 	if (ret)
 		return ret;
 
-	/*
-	 * This list, dapm_path_list handling here does not need any locks
-	 * as we are under dapm lock while handling widget events.
-	 * List can be manipulated safely only under dapm widgets handler
-	 * routines
-	 */
-	list_for_each_entry_safe(path_list, tmp_list,
-				&skl->dapm_path_list, node) {
-		if (path_list->dapm_path->sink == sink) {
-			dev_dbg(ctx->dev, "Path found = %s\n",
-					path_list->dapm_path->name);
-			source = path_list->dapm_path->source;
-			src_mconfig = source->priv;
-			path_found = 1;
+	for (i = 0; i < sink_mconfig->max_in_queue; i++) {
+		if (sink_mconfig->m_in_pin[i].pin_state == SKL_PIN_BIND_DONE) {
+			src_mconfig = sink_mconfig->m_in_pin[i].tgt_mcfg;
+			if (!src_mconfig)
+				continue;
+			/*
+			 * If path_found == 1, that means pmd for source
+			 * pipe has not occurred, source is connected to
+			 * some other sink. so its responsibility of sink
+			 * to unbind itself from source.
+			 */
+			ret = skl_stop_pipe(ctx, src_mconfig->pipe);
+			if (ret < 0)
+				return ret;
 
-			list_del(&path_list->node);
-			kfree(path_list);
-			break;
+			ret = skl_unbind_modules(ctx,
+						src_mconfig, sink_mconfig);
 		}
-	}
-
-	/*
-	 * If path_found == 1, that means pmd for source pipe has
-	 * not occurred, source is connected to some other sink.
-	 * so its responsibility of sink to unbind itself from source.
-	 */
-	if (path_found) {
-		ret = skl_stop_pipe(ctx, src_mconfig->pipe);
-		if (ret < 0)
-			return ret;
-
-		ret = skl_unbind_modules(ctx, src_mconfig, sink_mconfig);
 	}
 
 	return ret;
@@ -626,6 +640,7 @@ static int skl_tplg_mixer_dapm_post_pmd_event(struct snd_soc_dapm_widget *w,
 	list_for_each_entry(w_module, &s_pipe->w_list, node) {
 		dst_module = w_module->w->priv;
 
+		skl_tplg_free_pipe_mcps(skl, dst_module);
 		if (src_module == NULL) {
 			src_module = dst_module;
 			continue;
@@ -653,45 +668,32 @@ static int skl_tplg_mixer_dapm_post_pmd_event(struct snd_soc_dapm_widget *w,
 static int skl_tplg_pga_dapm_post_pmd_event(struct snd_soc_dapm_widget *w,
 								struct skl *skl)
 {
-	struct snd_soc_dapm_widget *source, *sink;
 	struct skl_module_cfg *src_mconfig, *sink_mconfig;
-	int ret = 0, path_found = 0;
-	struct skl_dapm_path_list *path_list, *tmp_path_list;
+	int ret = 0, i;
 	struct skl_sst *ctx = skl->skl_sst;
 
-	source = w;
-	src_mconfig = source->priv;
+	src_mconfig = w->priv;
 
-	skl_tplg_free_pipe_mcps(skl, src_mconfig);
 	/* Stop the pipe since this is a mixin module */
 	ret = skl_stop_pipe(ctx, src_mconfig->pipe);
 	if (ret)
 		return ret;
 
-	list_for_each_entry_safe(path_list, tmp_path_list, &skl->dapm_path_list, node) {
-		if (path_list->dapm_path->source == source) {
-			dev_dbg(ctx->dev, "Path found = %s\n",
-					path_list->dapm_path->name);
-			sink = path_list->dapm_path->sink;
-			sink_mconfig = sink->priv;
-			path_found = 1;
-
-			list_del(&path_list->node);
-			kfree(path_list);
-			break;
+	for (i = 0; i < src_mconfig->max_out_queue; i++) {
+		if (src_mconfig->m_out_pin[i].pin_state == SKL_PIN_BIND_DONE) {
+			sink_mconfig = src_mconfig->m_out_pin[i].tgt_mcfg;
+			if (!sink_mconfig)
+				continue;
+			/*
+			 * This is a connecter and if path is found that means
+			 * unbind between source and sink has not happened yet
+			 */
+			ret = skl_stop_pipe(ctx, sink_mconfig->pipe);
+			if (ret < 0)
+				return ret;
+			ret = skl_unbind_modules(ctx, src_mconfig,
+							sink_mconfig);
 		}
-	}
-
-	/*
-	 * This is a connector and if path is found that means
-	 * unbind between source and sink has not happened yet
-	 */
-	if (path_found) {
-		ret = skl_stop_pipe(ctx, src_mconfig->pipe);
-		if (ret < 0)
-			return ret;
-
-		ret = skl_unbind_modules(ctx, src_mconfig, sink_mconfig);
 	}
 
 	return ret;
@@ -790,9 +792,9 @@ int skl_tplg_update_pipe_params(struct device *dev,
 	memcpy(pipe->p_params, params, sizeof(*params));
 
 	if (params->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		format = &mconfig->in_fmt;
+		format = &mconfig->in_fmt[0];
 	else
-		format = &mconfig->out_fmt;
+		format = &mconfig->out_fmt[0];
 
 	/* set the hw_params */
 	format->s_freq = params->s_freq;
@@ -809,6 +811,7 @@ int skl_tplg_update_pipe_params(struct device *dev,
 		break;
 
 	case SKL_DEPTH_24BIT:
+	case SKL_DEPTH_32BIT:
 		format->bit_depth = SKL_DEPTH_32BIT;
 		break;
 
@@ -846,7 +849,7 @@ skl_tplg_fe_get_cpr_module(struct snd_soc_dai *dai, int stream)
 		w = dai->playback_widget;
 		snd_soc_dapm_widget_for_each_sink_path(w, p) {
 			if (p->connect && p->sink->power &&
-					is_skl_dsp_widget_type(p->sink))
+					!is_skl_dsp_widget_type(p->sink))
 				continue;
 
 			if (p->sink->priv) {
@@ -859,7 +862,7 @@ skl_tplg_fe_get_cpr_module(struct snd_soc_dai *dai, int stream)
 		w = dai->capture_widget;
 		snd_soc_dapm_widget_for_each_source_path(w, p) {
 			if (p->connect && p->source->power &&
-					is_skl_dsp_widget_type(p->source))
+					!is_skl_dsp_widget_type(p->source))
 				continue;
 
 			if (p->source->priv) {
@@ -920,6 +923,9 @@ static int skl_tplg_be_fill_pipe_params(struct snd_soc_dai *dai,
 
 	memcpy(pipe->p_params, params, sizeof(*params));
 
+	if (link_type == NHLT_LINK_HDA)
+		return 0;
+
 	/* update the blob based on virtual bus_id*/
 	cfg = skl_get_ep_blob(skl, mconfig->vbus_id, link_type,
 					params->s_fmt, params->ch,
@@ -950,18 +956,13 @@ static int skl_tplg_be_set_src_pipe_params(struct snd_soc_dai *dai,
 		if (p->connect && is_skl_dsp_widget_type(p->source) &&
 						p->source->priv) {
 
-			if (!p->source->power) {
-				ret = skl_tplg_be_fill_pipe_params(
-						dai, p->source->priv,
-						params);
-				if (ret < 0)
-					return ret;
-			} else {
-				return -EBUSY;
-			}
+			ret = skl_tplg_be_fill_pipe_params(dai,
+						p->source->priv, params);
+			if (ret < 0)
+				return ret;
 		} else {
-			ret = skl_tplg_be_set_src_pipe_params(
-						dai, p->source,	params);
+			ret = skl_tplg_be_set_src_pipe_params(dai,
+						p->source, params);
 			if (ret < 0)
 				return ret;
 		}
@@ -980,15 +981,10 @@ static int skl_tplg_be_set_sink_pipe_params(struct snd_soc_dai *dai,
 		if (p->connect && is_skl_dsp_widget_type(p->sink) &&
 						p->sink->priv) {
 
-			if (!p->sink->power) {
-				ret = skl_tplg_be_fill_pipe_params(
-						dai, p->sink->priv, params);
-				if (ret < 0)
-					return ret;
-			} else {
-				return -EBUSY;
-			}
-
+			ret = skl_tplg_be_fill_pipe_params(dai,
+						p->sink->priv, params);
+			if (ret < 0)
+				return ret;
 		} else {
 			ret = skl_tplg_be_set_sink_pipe_params(
 						dai, p->sink, params);
@@ -1045,6 +1041,7 @@ static void skl_fill_module_pin_info(struct skl_dfw_module_pin *dfw_pin,
 		m_pin[i].id.instance_id = dfw_pin[i].instance_id;
 		m_pin[i].in_use = false;
 		m_pin[i].is_dynamic = is_dynamic;
+		m_pin[i].pin_state = SKL_PIN_UNBIND;
 	}
 }
 
@@ -1092,6 +1089,24 @@ static struct skl_pipe *skl_tplg_add_pipe(struct device *dev,
 	return ppl->pipe;
 }
 
+static void skl_tplg_fill_fmt(struct skl_module_fmt *dst_fmt,
+				struct skl_dfw_module_fmt *src_fmt,
+				int pins)
+{
+	int i;
+
+	for (i = 0; i < pins; i++) {
+		dst_fmt[i].channels  = src_fmt[i].channels;
+		dst_fmt[i].s_freq = src_fmt[i].freq;
+		dst_fmt[i].bit_depth = src_fmt[i].bit_depth;
+		dst_fmt[i].valid_bit_depth = src_fmt[i].valid_bit_depth;
+		dst_fmt[i].ch_cfg = src_fmt[i].ch_cfg;
+		dst_fmt[i].ch_map = src_fmt[i].ch_map;
+		dst_fmt[i].interleaving_style = src_fmt[i].interleaving_style;
+		dst_fmt[i].sample_type = src_fmt[i].sample_type;
+	}
+}
+
 /*
  * Topology core widget load callback
  *
@@ -1130,18 +1145,11 @@ static int skl_tplg_widget_load(struct snd_soc_component *cmpnt,
 	mconfig->max_in_queue = dfw_config->max_in_queue;
 	mconfig->max_out_queue = dfw_config->max_out_queue;
 	mconfig->is_loadable = dfw_config->is_loadable;
-	mconfig->in_fmt.channels = dfw_config->in_fmt.channels;
-	mconfig->in_fmt.s_freq = dfw_config->in_fmt.freq;
-	mconfig->in_fmt.bit_depth = dfw_config->in_fmt.bit_depth;
-	mconfig->in_fmt.valid_bit_depth =
-				dfw_config->in_fmt.valid_bit_depth;
-	mconfig->in_fmt.ch_cfg = dfw_config->in_fmt.ch_cfg;
-	mconfig->out_fmt.channels = dfw_config->out_fmt.channels;
-	mconfig->out_fmt.s_freq = dfw_config->out_fmt.freq;
-	mconfig->out_fmt.bit_depth = dfw_config->out_fmt.bit_depth;
-	mconfig->out_fmt.valid_bit_depth =
-				dfw_config->out_fmt.valid_bit_depth;
-	mconfig->out_fmt.ch_cfg = dfw_config->out_fmt.ch_cfg;
+	skl_tplg_fill_fmt(mconfig->in_fmt, dfw_config->in_fmt,
+						MODULE_MAX_IN_PINS);
+	skl_tplg_fill_fmt(mconfig->out_fmt, dfw_config->out_fmt,
+						MODULE_MAX_OUT_PINS);
+
 	mconfig->params_fixup = dfw_config->params_fixup;
 	mconfig->converter = dfw_config->converter;
 	mconfig->m_type = dfw_config->module_type;
@@ -1156,10 +1164,13 @@ static int skl_tplg_widget_load(struct snd_soc_component *cmpnt,
 	mconfig->time_slot = dfw_config->time_slot;
 	mconfig->formats_config.caps_size = dfw_config->caps.caps_size;
 
-	mconfig->m_in_pin = devm_kzalloc(bus->dev,
-				(mconfig->max_in_queue) *
-					sizeof(*mconfig->m_in_pin),
-				GFP_KERNEL);
+	if (dfw_config->is_loadable)
+		memcpy(mconfig->guid, dfw_config->uuid,
+					ARRAY_SIZE(dfw_config->uuid));
+
+	mconfig->m_in_pin = devm_kzalloc(bus->dev, (mconfig->max_in_queue) *
+						sizeof(*mconfig->m_in_pin),
+						GFP_KERNEL);
 	if (!mconfig->m_in_pin)
 		return -ENOMEM;
 

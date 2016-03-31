@@ -19,6 +19,7 @@
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/device.h>
+#include <linux/err.h>
 #include "../common/sst-dsp.h"
 #include "../common/sst-dsp-priv.h"
 #include "../common/sst-ipc.h"
@@ -77,7 +78,7 @@ static int skl_load_base_firmware(struct sst_dsp *ctx)
 	init_waitqueue_head(&skl->boot_wait);
 
 	if (ctx->fw == NULL) {
-		ret = request_firmware(&ctx->fw, "dsp_fw_release.bin", ctx->dev);
+		ret = request_firmware(&ctx->fw, ctx->fw_name, ctx->dev);
 		if (ret < 0) {
 			dev_err(ctx->dev, "Request firmware failed %d\n", ret);
 			skl_dsp_disable_core(ctx);
@@ -115,27 +116,28 @@ static int skl_load_base_firmware(struct sst_dsp *ctx)
 		dev_err(ctx->dev,
 			"Timeout waiting for ROM init done, reg:0x%x\n", reg);
 		ret = -EIO;
-		goto skl_load_base_firmware_failed;
+		goto transfer_firmware_failed;
 	}
 
 	ret = skl_transfer_firmware(ctx, ctx->fw->data, ctx->fw->size);
 	if (ret < 0) {
 		dev_err(ctx->dev, "Transfer firmware failed%d\n", ret);
-		goto skl_load_base_firmware_failed;
+		goto transfer_firmware_failed;
 	} else {
 		ret = wait_event_timeout(skl->boot_wait, skl->boot_complete,
 					msecs_to_jiffies(SKL_IPC_BOOT_MSECS));
 		if (ret == 0) {
 			dev_err(ctx->dev, "DSP boot failed, FW Ready timed-out\n");
 			ret = -EIO;
-			goto skl_load_base_firmware_failed;
+			goto transfer_firmware_failed;
 		}
 
 		dev_dbg(ctx->dev, "Download firmware successful%d\n", ret);
 		skl_dsp_set_state_locked(ctx, SKL_DSP_RUNNING);
 	}
 	return 0;
-
+transfer_firmware_failed:
+	ctx->cl_dev.ops.cl_cleanup_controller(ctx);
 skl_load_base_firmware_failed:
 	skl_dsp_disable_core(ctx);
 	release_firmware(ctx->fw);
@@ -175,10 +177,15 @@ static int skl_set_dsp_D3(struct sst_dsp *ctx)
 	dx.core_mask = SKL_DSP_CORE0_MASK;
 	dx.dx_mask = SKL_IPC_D3_MASK;
 	ret = skl_ipc_set_dx(&skl->ipc, SKL_INSTANCE_ID, SKL_BASE_FW_MODULE_ID, &dx);
-	if (ret < 0) {
-		dev_err(ctx->dev, "Failed to set DSP to D3 state\n");
-		return ret;
-	}
+	if (ret < 0)
+		dev_err(ctx->dev,
+			"D3 request to FW failed, continuing reset: %d", ret);
+
+	/* disable Interrupt */
+	ctx->cl_dev.ops.cl_cleanup_controller(ctx);
+	skl_cldma_int_disable(ctx);
+	skl_ipc_op_int_disable(ctx);
+	skl_ipc_int_disable(ctx);
 
 	ret = skl_dsp_disable_core(ctx);
 	if (ret < 0) {
@@ -186,12 +193,6 @@ static int skl_set_dsp_D3(struct sst_dsp *ctx)
 		ret = -EIO;
 	}
 	skl_dsp_set_state_locked(ctx, SKL_DSP_RESET);
-
-	/* disable Interrupt */
-	ctx->cl_dev.ops.cl_cleanup_controller(ctx);
-	skl_cldma_int_disable(ctx);
-	skl_ipc_op_int_disable(ctx);
-	skl_ipc_int_disable(ctx);
 
 	return ret;
 }
@@ -223,7 +224,7 @@ static struct sst_dsp_device skl_dev = {
 };
 
 int skl_sst_dsp_init(struct device *dev, void __iomem *mmio_base, int irq,
-		struct skl_dsp_loader_ops dsp_ops, struct skl_sst **dsp)
+		const char *fw_name, struct skl_dsp_loader_ops dsp_ops, struct skl_sst **dsp)
 {
 	struct skl_sst *skl;
 	struct sst_dsp *sst;
@@ -244,6 +245,7 @@ int skl_sst_dsp_init(struct device *dev, void __iomem *mmio_base, int irq,
 
 	sst = skl->dsp;
 
+	sst->fw_name = fw_name;
 	sst->addr.lpe = mmio_base;
 	sst->addr.shim = mmio_base;
 	sst_dsp_mailbox_init(sst, (SKL_ADSP_SRAM0_BASE + SKL_ADSP_W0_STAT_SZ),
@@ -259,15 +261,16 @@ int skl_sst_dsp_init(struct device *dev, void __iomem *mmio_base, int irq,
 	ret = sst->fw_ops.load_fw(sst);
 	if (ret < 0) {
 		dev_err(dev, "Load base fw failed : %d", ret);
-		return ret;
+		goto cleanup;
 	}
 
 	if (dsp)
 		*dsp = skl;
 
-	return 0;
+	return ret;
 
-	skl_ipc_free(&skl->ipc);
+cleanup:
+	skl_sst_dsp_cleanup(dev, skl);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(skl_sst_dsp_init);
@@ -275,7 +278,6 @@ EXPORT_SYMBOL_GPL(skl_sst_dsp_init);
 void skl_sst_dsp_cleanup(struct device *dev, struct skl_sst *ctx)
 {
 	skl_ipc_free(&ctx->ipc);
-	ctx->dsp->cl_dev.ops.cl_cleanup_controller(ctx->dsp);
 	ctx->dsp->ops->free(ctx->dsp);
 }
 EXPORT_SYMBOL_GPL(skl_sst_dsp_cleanup);

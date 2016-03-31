@@ -96,7 +96,7 @@ int skl_init_dsp(struct skl *skl)
 	}
 
 	ret = skl_sst_dsp_init(bus->dev, mmio_base, irq,
-			loader_ops, &skl->skl_sst);
+			skl->fw_name, loader_ops, &skl->skl_sst);
 	if (ret < 0)
 		return ret;
 
@@ -182,94 +182,6 @@ enum skl_bitdepth skl_get_bit_depth(int params)
 	}
 }
 
-static u32 skl_create_channel_map(enum skl_ch_cfg ch_cfg)
-{
-	u32 config;
-
-	switch (ch_cfg) {
-	case SKL_CH_CFG_MONO:
-		config =  (0xFFFFFFF0 | SKL_CHANNEL_LEFT);
-		break;
-
-	case SKL_CH_CFG_STEREO:
-		config = (0xFFFFFF00 | SKL_CHANNEL_LEFT
-			| (SKL_CHANNEL_RIGHT << 4));
-		break;
-
-	case SKL_CH_CFG_2_1:
-		config = (0xFFFFF000 | SKL_CHANNEL_LEFT
-			| (SKL_CHANNEL_RIGHT << 4)
-			| (SKL_CHANNEL_LFE << 8));
-		break;
-
-	case SKL_CH_CFG_3_0:
-		config =  (0xFFFFF000 | SKL_CHANNEL_LEFT
-			| (SKL_CHANNEL_CENTER << 4)
-			| (SKL_CHANNEL_RIGHT << 8));
-		break;
-
-	case SKL_CH_CFG_3_1:
-		config = (0xFFFF0000 | SKL_CHANNEL_LEFT
-			| (SKL_CHANNEL_CENTER << 4)
-			| (SKL_CHANNEL_RIGHT << 8)
-			| (SKL_CHANNEL_LFE << 12));
-		break;
-
-	case SKL_CH_CFG_QUATRO:
-		config = (0xFFFF0000 | SKL_CHANNEL_LEFT
-			| (SKL_CHANNEL_RIGHT << 4)
-			| (SKL_CHANNEL_LEFT_SURROUND << 8)
-			| (SKL_CHANNEL_RIGHT_SURROUND << 12));
-		break;
-
-	case SKL_CH_CFG_4_0:
-		config = (0xFFFF0000 | SKL_CHANNEL_LEFT
-			| (SKL_CHANNEL_CENTER << 4)
-			| (SKL_CHANNEL_RIGHT << 8)
-			| (SKL_CHANNEL_CENTER_SURROUND << 12));
-		break;
-
-	case SKL_CH_CFG_5_0:
-		config = (0xFFF00000 | SKL_CHANNEL_LEFT
-			| (SKL_CHANNEL_CENTER << 4)
-			| (SKL_CHANNEL_RIGHT << 8)
-			| (SKL_CHANNEL_LEFT_SURROUND << 12)
-			| (SKL_CHANNEL_RIGHT_SURROUND << 16));
-		break;
-
-	case SKL_CH_CFG_5_1:
-		config = (0xFF000000 | SKL_CHANNEL_CENTER
-			| (SKL_CHANNEL_LEFT << 4)
-			| (SKL_CHANNEL_RIGHT << 8)
-			| (SKL_CHANNEL_LEFT_SURROUND << 12)
-			| (SKL_CHANNEL_RIGHT_SURROUND << 16)
-			| (SKL_CHANNEL_LFE << 20));
-		break;
-
-	case SKL_CH_CFG_DUAL_MONO:
-		config = (0xFFFFFF00 | SKL_CHANNEL_LEFT
-			| (SKL_CHANNEL_LEFT << 4));
-		break;
-
-	case SKL_CH_CFG_I2S_DUAL_STEREO_0:
-		config = (0xFFFFFF00 | SKL_CHANNEL_LEFT
-			| (SKL_CHANNEL_RIGHT << 4));
-		break;
-
-	case SKL_CH_CFG_I2S_DUAL_STEREO_1:
-		config = (0xFFFF00FF | (SKL_CHANNEL_LEFT << 8)
-			| (SKL_CHANNEL_RIGHT << 12));
-		break;
-
-	default:
-		config =  0xFFFFFFFF;
-		break;
-
-	}
-
-	return config;
-}
-
 /*
  * Each module in DSP expects a base module configuration, which consists of
  * PCM format information, which we calculate in driver and resource values
@@ -280,7 +192,7 @@ static void skl_set_base_module_format(struct skl_sst *ctx,
 			struct skl_module_cfg *mconfig,
 			struct skl_base_cfg *base_cfg)
 {
-	struct skl_module_fmt *format = &mconfig->in_fmt;
+	struct skl_module_fmt *format = &mconfig->in_fmt[0];
 
 	base_cfg->audio_fmt.number_of_channels = (u8)format->channels;
 
@@ -293,10 +205,9 @@ static void skl_set_base_module_format(struct skl_sst *ctx,
 			format->bit_depth, format->valid_bit_depth,
 			format->ch_cfg);
 
-	base_cfg->audio_fmt.channel_map = skl_create_channel_map(
-					base_cfg->audio_fmt.ch_cfg);
+	base_cfg->audio_fmt.channel_map = format->ch_map;
 
-	base_cfg->audio_fmt.interleaving = SKL_INTERLEAVING_PER_CHANNEL;
+	base_cfg->audio_fmt.interleaving = format->interleaving_style;
 
 	base_cfg->cps = mconfig->mcps;
 	base_cfg->ibs = mconfig->ibs;
@@ -399,7 +310,7 @@ static void skl_setup_out_format(struct skl_sst *ctx,
 			struct skl_module_cfg *mconfig,
 			struct skl_audio_data_format *out_fmt)
 {
-	struct skl_module_fmt *format = &mconfig->out_fmt;
+	struct skl_module_fmt *format = &mconfig->out_fmt[0];
 
 	out_fmt->number_of_channels = (u8)format->channels;
 	out_fmt->s_freq = format->s_freq;
@@ -407,8 +318,9 @@ static void skl_setup_out_format(struct skl_sst *ctx,
 	out_fmt->valid_bit_depth = format->valid_bit_depth;
 	out_fmt->ch_cfg = format->ch_cfg;
 
-	out_fmt->channel_map = skl_create_channel_map(out_fmt->ch_cfg);
-	out_fmt->interleaving = SKL_INTERLEAVING_PER_CHANNEL;
+	out_fmt->channel_map = format->ch_map;
+	out_fmt->interleaving = format->interleaving_style;
+	out_fmt->sample_type = format->sample_type;
 
 	dev_dbg(ctx->dev, "copier out format chan=%d fre=%d bitdepth=%d\n",
 		out_fmt->number_of_channels, format->s_freq, format->bit_depth);
@@ -423,7 +335,7 @@ static void skl_set_src_format(struct skl_sst *ctx,
 			struct skl_module_cfg *mconfig,
 			struct skl_src_module_cfg *src_mconfig)
 {
-	struct skl_module_fmt *fmt = &mconfig->out_fmt;
+	struct skl_module_fmt *fmt = &mconfig->out_fmt[0];
 
 	skl_set_base_module_format(ctx, mconfig,
 		(struct skl_base_cfg *)src_mconfig);
@@ -440,7 +352,7 @@ static void skl_set_updown_mixer_format(struct skl_sst *ctx,
 			struct skl_module_cfg *mconfig,
 			struct skl_up_down_mixer_cfg *mixer_mconfig)
 {
-	struct skl_module_fmt *fmt = &mconfig->out_fmt;
+	struct skl_module_fmt *fmt = &mconfig->out_fmt[0];
 	int i = 0;
 
 	skl_set_base_module_format(ctx,	mconfig,
@@ -571,10 +483,10 @@ static int skl_get_queue_index(struct skl_module_pin *mpin,
  * In static, the pin_index is fixed based on module_id and instance id
  */
 static int skl_alloc_queue(struct skl_module_pin *mpin,
-			struct skl_module_inst_id id, int max)
+			struct skl_module_cfg *tgt_cfg, int max)
 {
 	int i;
-
+	struct skl_module_inst_id id = tgt_cfg->id;
 	/*
 	 * if pin in dynamic, find first free pin
 	 * otherwise find match module and instance id pin as topology will
@@ -583,16 +495,23 @@ static int skl_alloc_queue(struct skl_module_pin *mpin,
 	 */
 	for (i = 0; i < max; i++)  {
 		if (mpin[i].is_dynamic) {
-			if (!mpin[i].in_use) {
+			if (!mpin[i].in_use &&
+				mpin[i].pin_state == SKL_PIN_UNBIND) {
+
 				mpin[i].in_use = true;
 				mpin[i].id.module_id = id.module_id;
 				mpin[i].id.instance_id = id.instance_id;
+				mpin[i].tgt_mcfg = tgt_cfg;
 				return i;
 			}
 		} else {
 			if (mpin[i].id.module_id == id.module_id &&
-				mpin[i].id.instance_id == id.instance_id)
+				mpin[i].id.instance_id == id.instance_id &&
+				mpin[i].pin_state == SKL_PIN_UNBIND) {
+
+				mpin[i].tgt_mcfg = tgt_cfg;
 				return i;
+			}
 		}
 	}
 
@@ -606,6 +525,28 @@ static void skl_free_queue(struct skl_module_pin *mpin, int q_index)
 		mpin[q_index].id.module_id = 0;
 		mpin[q_index].id.instance_id = 0;
 	}
+	mpin[q_index].pin_state = SKL_PIN_UNBIND;
+	mpin[q_index].tgt_mcfg = NULL;
+}
+
+/* Module state will be set to unint, if all the out pin state is UNBIND */
+
+static void skl_clear_module_state(struct skl_module_pin *mpin, int max,
+						struct skl_module_cfg *mcfg)
+{
+	int i;
+	bool found = false;
+
+	for (i = 0; i < max; i++)  {
+		if (mpin[i].pin_state == SKL_PIN_UNBIND)
+			continue;
+		found = true;
+		break;
+	}
+
+	if (!found)
+		mcfg->m_state = SKL_MODULE_UNINIT;
+	return;
 }
 
 /*
@@ -682,37 +623,30 @@ int skl_unbind_modules(struct skl_sst *ctx,
 	struct skl_module_inst_id dst_id = dst_mcfg->id;
 	int in_max = dst_mcfg->max_in_queue;
 	int out_max = src_mcfg->max_out_queue;
-	int src_index, dst_index;
+	int src_index, dst_index, src_pin_state, dst_pin_state;
 
 	skl_dump_bind_info(ctx, src_mcfg, dst_mcfg);
-
-	if (src_mcfg->m_state != SKL_MODULE_BIND_DONE)
-		return 0;
-
-	/*
-	 * if intra module unbind, check if both modules are BIND,
-	 * then send unbind
-	 */
-	if ((src_mcfg->pipe->ppl_id != dst_mcfg->pipe->ppl_id) &&
-				dst_mcfg->m_state != SKL_MODULE_BIND_DONE)
-		return 0;
-	else if (src_mcfg->m_state < SKL_MODULE_INIT_DONE &&
-				 dst_mcfg->m_state < SKL_MODULE_INIT_DONE)
-		return 0;
 
 	/* get src queue index */
 	src_index = skl_get_queue_index(src_mcfg->m_out_pin, dst_id, out_max);
 	if (src_index < 0)
 		return -EINVAL;
 
-	msg.src_queue = src_mcfg->m_out_pin[src_index].pin_index;
+	msg.src_queue = src_index;
 
 	/* get dst queue index */
 	dst_index  = skl_get_queue_index(dst_mcfg->m_in_pin, src_id, in_max);
 	if (dst_index < 0)
 		return -EINVAL;
 
-	msg.dst_queue = dst_mcfg->m_in_pin[dst_index].pin_index;
+	msg.dst_queue = dst_index;
+
+	src_pin_state = src_mcfg->m_out_pin[src_index].pin_state;
+	dst_pin_state = dst_mcfg->m_in_pin[dst_index].pin_state;
+
+	if (src_pin_state != SKL_PIN_BIND_DONE ||
+		dst_pin_state != SKL_PIN_BIND_DONE)
+		return 0;
 
 	msg.module_id = src_mcfg->id.module_id;
 	msg.instance_id = src_mcfg->id.instance_id;
@@ -722,10 +656,15 @@ int skl_unbind_modules(struct skl_sst *ctx,
 
 	ret = skl_ipc_bind_unbind(&ctx->ipc, &msg);
 	if (!ret) {
-		src_mcfg->m_state = SKL_MODULE_UNINIT;
 		/* free queue only if unbind is success */
 		skl_free_queue(src_mcfg->m_out_pin, src_index);
 		skl_free_queue(dst_mcfg->m_in_pin, dst_index);
+
+		/*
+		 * check only if src module bind state, bind is
+		 * always from src -> sink
+		 */
+		skl_clear_module_state(src_mcfg->m_out_pin, out_max, src_mcfg);
 	}
 
 	return ret;
@@ -744,8 +683,6 @@ int skl_bind_modules(struct skl_sst *ctx,
 {
 	int ret;
 	struct skl_ipc_bind_unbind_msg msg;
-	struct skl_module_inst_id src_id = src_mcfg->id;
-	struct skl_module_inst_id dst_id = dst_mcfg->id;
 	int in_max = dst_mcfg->max_in_queue;
 	int out_max = src_mcfg->max_out_queue;
 	int src_index, dst_index;
@@ -756,18 +693,18 @@ int skl_bind_modules(struct skl_sst *ctx,
 		dst_mcfg->m_state < SKL_MODULE_INIT_DONE)
 		return 0;
 
-	src_index = skl_alloc_queue(src_mcfg->m_out_pin, dst_id, out_max);
+	src_index = skl_alloc_queue(src_mcfg->m_out_pin, dst_mcfg, out_max);
 	if (src_index < 0)
 		return -EINVAL;
 
-	msg.src_queue = src_mcfg->m_out_pin[src_index].pin_index;
-	dst_index = skl_alloc_queue(dst_mcfg->m_in_pin, src_id, in_max);
+	msg.src_queue = src_index;
+	dst_index = skl_alloc_queue(dst_mcfg->m_in_pin, src_mcfg, in_max);
 	if (dst_index < 0) {
 		skl_free_queue(src_mcfg->m_out_pin, src_index);
 		return -EINVAL;
 	}
 
-	msg.dst_queue = dst_mcfg->m_in_pin[dst_index].pin_index;
+	msg.dst_queue = dst_index;
 
 	dev_dbg(ctx->dev, "src queue = %d dst queue =%d\n",
 			 msg.src_queue, msg.dst_queue);
@@ -782,6 +719,8 @@ int skl_bind_modules(struct skl_sst *ctx,
 
 	if (!ret) {
 		src_mcfg->m_state = SKL_MODULE_BIND_DONE;
+		src_mcfg->m_out_pin[src_index].pin_state = SKL_PIN_BIND_DONE;
+		dst_mcfg->m_in_pin[dst_index].pin_state = SKL_PIN_BIND_DONE;
 	} else {
 		/* error case , if IPC fails, clear the queue index */
 		skl_free_queue(src_mcfg->m_out_pin, src_index);

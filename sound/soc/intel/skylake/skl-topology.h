@@ -36,6 +36,9 @@
 /* Maximum number of coefficients up down mixer module */
 #define UP_DOWN_MIXER_MAX_COEFF		6
 
+#define MODULE_MAX_IN_PINS	8
+#define MODULE_MAX_OUT_PINS	8
+
 enum skl_channel_index {
 	SKL_CHANNEL_LEFT = 0,
 	SKL_CHANNEL_RIGHT = 1,
@@ -55,12 +58,6 @@ enum skl_bitdepth {
 	SKL_DEPTH_INVALID
 };
 
-enum skl_interleaving {
-	/* [s1_ch1...s1_chN,...,sM_ch1...sM_chN] */
-	SKL_INTERLEAVING_PER_CHANNEL = 0,
-	/* [s1_ch1...sM_ch1,...,s1_chN...sM_chN] */
-	SKL_INTERLEAVING_PER_SAMPLE = 1,
-};
 
 enum skl_s_freq {
 	SKL_FS_8000 = 8000,
@@ -178,18 +175,29 @@ struct skl_module_fmt {
 	u32 bit_depth;
 	u32 valid_bit_depth;
 	u32 ch_cfg;
+	u32 interleaving_style;
+	u32 sample_type;
+	u32 ch_map;
 };
+
+struct skl_module_cfg;
 
 struct skl_module_inst_id {
 	u32 module_id;
 	u32 instance_id;
 };
 
+enum skl_module_pin_state {
+	SKL_PIN_UNBIND = 0,
+	SKL_PIN_BIND_DONE = 1,
+};
+
 struct skl_module_pin {
 	struct skl_module_inst_id id;
-	u8 pin_index;
 	bool is_dynamic;
 	bool in_use;
+	enum skl_module_pin_state pin_state;
+	struct skl_module_cfg *tgt_mcfg;
 };
 
 struct skl_specific_cfg {
@@ -238,9 +246,13 @@ enum skl_module_state {
 };
 
 struct skl_module_cfg {
+	char guid[SKL_UUID_STR_SZ];
 	struct skl_module_inst_id id;
-	struct skl_module_fmt in_fmt;
-	struct skl_module_fmt out_fmt;
+	u8 domain;
+	bool homogenous_inputs;
+	bool homogenous_outputs;
+	struct skl_module_fmt in_fmt[MODULE_MAX_IN_PINS];
+	struct skl_module_fmt out_fmt[MODULE_MAX_OUT_PINS];
 	u8 max_in_queue;
 	u8 max_out_queue;
 	u8 in_queue_mask;
@@ -269,11 +281,6 @@ struct skl_module_cfg {
 
 struct skl_pipeline {
 	struct skl_pipe *pipe;
-	struct list_head node;
-};
-
-struct skl_dapm_path_list {
-	struct snd_soc_dapm_path *dapm_path;
 	struct list_head node;
 };
 

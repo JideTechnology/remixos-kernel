@@ -137,6 +137,11 @@ static void skl_cldma_cleanup(struct sst_dsp  *ctx)
 
 	sst_dsp_shim_write(ctx, SKL_ADSP_REG_CL_SD_CBL, 0);
 	sst_dsp_shim_write(ctx, SKL_ADSP_REG_CL_SD_LVI, 0);
+
+	if (&ctx->cl_dev.dmab_data)
+		ctx->dsp_ops.free_dma_buf(ctx->dev, &ctx->cl_dev.dmab_data);
+	if (&ctx->cl_dev.dmab_bdl)
+		ctx->dsp_ops.free_dma_buf(ctx->dev, &ctx->cl_dev.dmab_bdl);
 }
 
 static int skl_cldma_wait_interruptible(struct sst_dsp *ctx)
@@ -174,6 +179,21 @@ static void skl_cldma_fill_buffer(struct sst_dsp *ctx, unsigned int size,
 	dev_dbg(ctx->dev, "buf_pos_index:%d, trigger:%d\n",
 			ctx->cl_dev.dma_buffer_offset, trigger);
 	dev_dbg(ctx->dev, "spib position: %d\n", ctx->cl_dev.curr_spib_pos);
+
+	/*
+	 * Check if the size exceeds buffer boundary. If it exceeds
+	 * max_buffer size, then copy till buffer size and then copy
+	 * remaining buffer from the start of ring buffer.
+	 */
+	if (ctx->cl_dev.dma_buffer_offset + size > ctx->cl_dev.bufsize) {
+		unsigned int size_b = ctx->cl_dev.bufsize -
+					ctx->cl_dev.dma_buffer_offset;
+		memcpy(ctx->cl_dev.dmab_data.area + ctx->cl_dev.dma_buffer_offset,
+			curr_pos, size_b);
+		size -= size_b;
+		curr_pos += size_b;
+		ctx->cl_dev.dma_buffer_offset = 0;
+	}
 
 	memcpy(ctx->cl_dev.dmab_data.area + ctx->cl_dev.dma_buffer_offset,
 			curr_pos, size);
