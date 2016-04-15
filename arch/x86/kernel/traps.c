@@ -366,7 +366,79 @@ dotraplinkage void do_invalid_op(struct pt_regs *regs, long error_code)
 			unsigned int dstIndex = (opcode.byte[3]>>3) & 0x7;
 			int op_len;
 
-			if ((op_len = getOp2XMMValue(opcode.byte[3], regs, prefixREX, &opcode.byte[4], &src)) != -1) {
+			if (opcode.byte[2] == 0x2a) {
+				unsigned long memAddr = 0;
+				int regIndex = (opcode.byte[3]>>3) & 0x7;
+				int op_len = 4 + decodeMemAddress(opcode.byte[3], regs, prefixREX, &opcode.byte[4], &memAddr);
+				u8 data[sizeof(ssp_m128)];
+
+				INSTR_NAME("movntdqa");
+
+				if (memAddr && !copy_from_user((void *)data, (const void __user *)memAddr, sizeof(ssp_m128))) {
+					ssp_m128 ret = ssp_stream_load_si128((ssp_m128*)data);
+					setXMMRegister(regIndex, testREX(prefixREX, REX_R), &ret);
+					handled = 1;
+					regs->ip += op_len;
+				}
+			}
+			else if (opcode.byte[2] == 0xf0 || opcode.byte[2] == 0xf1) {
+				unsigned long memAddr = 0;
+				int regIndex = (opcode.byte[3]>>3) & 0x7;
+				int op_bytes = testREX(prefixREX, REX_W) ? 8 : (prefix66 ? 2 : 4);
+				int op_len = 4 + decodeMemAddress(opcode.byte[3], regs, prefixREX, &opcode.byte[4], &memAddr);
+				u8 data[8];
+
+				INSTR_NAME("movbe");
+
+				if (memAddr && opcode.byte[2] == 0xf0) {
+					// dst reg
+					if (!copy_from_user((void *)data, (const void __user *)memAddr, op_bytes)) {
+						unsigned long* regValue = getRegisterPtr(regIndex, regs, testREX(prefixREX, REX_R));
+						switch (op_bytes) {
+						case 2:
+							*regValue &= ~0xffffUL;
+							*regValue |= swab16(*(u16*)data);
+							break;
+						case 4:
+							*regValue &= ~0xffffffffUL;
+							*regValue |= swab32(*(u32*)data);
+							break;
+						case 8:
+							*regValue = swab64(*(u64*)data);
+							break;
+						}
+						handled = 1;
+						regs->ip += op_len;
+					}
+					else {
+						pr_info("movbe copy_from_user failed. op_bytes=%d, op_len=%d, memAddr=%p\n",
+								op_bytes, op_len, (void*)memAddr);
+					}
+				}
+				else if (memAddr) {
+					// dst mem
+					switch (op_bytes) {
+					case 2:
+						*(u16*)data = swab16(*(u16*)getRegisterPtr(regIndex, regs, testREX(prefixREX, REX_R)));
+						break;
+					case 4:
+						*(u32*)data = swab32(*(u32*)getRegisterPtr(regIndex, regs, testREX(prefixREX, REX_R)));
+						break;
+					case 8:
+						*(u64*)data = swab64(*(u64*)getRegisterPtr(regIndex, regs, testREX(prefixREX, REX_R)));
+						break;
+					}
+					if (!copy_to_user((void __user *)memAddr, (void *)data, op_bytes)) {
+						handled = 1;
+						regs->ip += op_len;
+					}
+					else {
+						pr_info("movbe copy_to_user failed. op_bytes=%d, op_len=%d, memAddr=%p\n",
+								op_bytes, op_len, (void*)memAddr);
+					}
+				}
+			}
+			else if ((op_len = getOp2XMMValue(opcode.byte[3], regs, prefixREX, &opcode.byte[4], &src)) != -1) {
 				op_len += 4;
 				ret = getXMMRegister(dstIndex, testREX(prefixREX, REX_R));
 
@@ -615,78 +687,6 @@ dotraplinkage void do_invalid_op(struct pt_regs *regs, long error_code)
 					regs->ip += op_len;
 				}
 			}
-			else if (opcode.byte[2] == 0x2a) {
-				unsigned long memAddr = 0;
-				int regIndex = (opcode.byte[3]>>3) & 0x7;
-				int op_len = 4 + decodeMemAddress(opcode.byte[3], regs, prefixREX, &opcode.byte[4], &memAddr);
-				u8 data[sizeof(ssp_m128)];
-
-				INSTR_NAME("movntdqa");
-
-				if (memAddr && !copy_from_user((void *)data, (const void __user *)memAddr, sizeof(ssp_m128))) {
-					ssp_m128 ret = ssp_stream_load_si128((ssp_m128*)data);
-					setXMMRegister(regIndex, testREX(prefixREX, REX_R), &ret);
-					handled = 1;
-					regs->ip += op_len;
-				}
-			}
-			else if (opcode.byte[2] == 0xf0 || opcode.byte[2] == 0xf1) {
-				unsigned long memAddr = 0;
-				int regIndex = (opcode.byte[3]>>3) & 0x7;
-				int op_bytes = testREX(prefixREX, REX_W) ? 8 : (prefix66 ? 2 : 4);
-				int op_len = 4 + decodeMemAddress(opcode.byte[3], regs, prefixREX, &opcode.byte[4], &memAddr);
-				u8 data[8];
-
-				INSTR_NAME("movbe");
-
-				if (memAddr && opcode.byte[2] == 0xf0) {
-					// dst reg
-					if (!copy_from_user((void *)data, (const void __user *)memAddr, op_bytes)) {
-						unsigned long* regValue = getRegisterPtr(regIndex, regs, testREX(prefixREX, REX_R));
-						switch (op_bytes) {
-						case 2:
-							*regValue &= ~0xffffUL;
-							*regValue |= swab16(*(u16*)data);
-							break;
-						case 4:
-							*regValue &= ~0xffffffffUL;
-							*regValue |= swab32(*(u32*)data);
-							break;
-						case 8:
-							*regValue = swab64(*(u64*)data);
-							break;
-						}
-						handled = 1;
-						regs->ip += op_len;
-					}
-					else {
-						pr_info("movbe copy_from_user failed. op_bytes=%d, op_len=%d, memAddr=%p\n",
-								op_bytes, op_len, (void*)memAddr);
-					}
-				}
-				else if (memAddr) {
-					// dst mem
-					switch (op_bytes) {
-					case 2:
-						*(u16*)data = swab16(*(u16*)getRegisterPtr(regIndex, regs, testREX(prefixREX, REX_R)));
-						break;
-					case 4:
-						*(u32*)data = swab32(*(u32*)getRegisterPtr(regIndex, regs, testREX(prefixREX, REX_R)));
-						break;
-					case 8:
-						*(u64*)data = swab64(*(u64*)getRegisterPtr(regIndex, regs, testREX(prefixREX, REX_R)));
-						break;
-					}
-					if (!copy_to_user((void __user *)memAddr, (void *)data, op_bytes)) {
-						handled = 1;
-						regs->ip += op_len;
-					}
-					else {
-						pr_info("movbe copy_to_user failed. op_bytes=%d, op_len=%d, memAddr=%p\n",
-								op_bytes, op_len, (void*)memAddr);
-					}
-				}
-			}
 		}
 		else if (opcode.byte[1] == 0x3a) {
 			ssp_m128 a, b, ret;
@@ -881,7 +881,8 @@ dotraplinkage void do_invalid_op(struct pt_regs *regs, long error_code)
 				regs->ip += op_len;
 			}
 		}
-		else if (opcode.byte[1] == 0xb8) {
+		else if (opcode.byte[1] == 0xb8 && opcode.byte[2] >= 0xc0) {
+			// popcnt with memory addressing not supported yet
 			unsigned int srcIndex = opcode.byte[2] & 0x7;
 			unsigned int dstIndex = (opcode.byte[2] >> 3) & 0x7;
 			int op_bytes = testREX(prefixREX, REX_W) ? 8 : (prefix66 ? 2 : 4);
