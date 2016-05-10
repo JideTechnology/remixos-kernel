@@ -473,6 +473,17 @@ config ACPI_RESUME_POWER_BUTTON_EVENT
 	  of user action through a power/sleep button. Some user mode system
 	  has hard dependency on this event for system suspend and resume.
 
+config ACPI_FAKE_POWER_BUTTON_EVENT
+	bool "Fake Power Button Event on Resume For Android"
+	depends on ACPI_BUTTON
+	depends on ACPI_SLEEP
+	default n
+	help
+	  This enable a fake power button notification after system resume.
+	  The system might be waken up by any key event, Android system need a
+	  wakeup key to wake up the system. So we emulate a fake power button
+	  event just for android system.
+
 source "drivers/acpi/apei/Kconfig"
 
 config ACPI_EXTLOG
