@@ -132,6 +132,7 @@ targets += vdso32/note.o vdso32/vclock_gettime.o vdso32/system_call.o
 targets += vdso32/vclock_gettime.o
 
 KBUILD_AFLAGS_32 := $(filter-out -m64,$(KBUILD_AFLAGS)) -DBUILD_VDSO
+KBUILD_AFLAGS_32 := $(filter-out -mfentry,$(KBUILD_AFLAGS_32))
 $(obj)/vdso32.so.dbg: KBUILD_AFLAGS = $(KBUILD_AFLAGS_32)
 $(obj)/vdso32.so.dbg: asflags-$(CONFIG_X86_64) += -m32
 
