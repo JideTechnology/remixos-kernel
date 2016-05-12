@@ -57,8 +57,8 @@ static ulong ramoops_pmsg_size = MIN_MEM_SIZE;
 module_param_named(pmsg_size, ramoops_pmsg_size, ulong, 0400);
 MODULE_PARM_DESC(pmsg_size, "size of user space message log");
 
-static ulong mem_address;
-module_param(mem_address, ulong, 0400);
+static unsigned long long mem_address;
+module_param(mem_address, ullong, 0400);
 MODULE_PARM_DESC(mem_address,
 		"start of reserved RAM used to store oops/panic logs");
 
@@ -554,23 +554,27 @@ static int ramoops_parse_dt(struct platform_device *pdev,
 static int ramoops_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct ramoops_platform_data *pdata = platform_get_drvdata(pdev);
+	struct ramoops_platform_data *pdata;
 	struct ramoops_context *cxt = &oops_cxt;
 	size_t dump_mem_sz;
 	phys_addr_t paddr;
 	int err = -EINVAL;
 
-	if (dev->of_node && !pdata) {
-		pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+	if (dev->of_node) {
+		pdata = platform_get_drvdata(pdev);
 		if (!pdata) {
-			err = -ENOMEM;
-			goto fail_out;
+			pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+			if (!pdata) {
+				err = -ENOMEM;
+				goto fail_out;
+			}
 		}
 
 		err = ramoops_parse_dt(pdev, pdata);
 		if (err < 0)
 			goto fail_out;
-	}
+	} else
+		pdata = pdev->dev.platform_data;
 
 	/* Only a single ramoops area allowed at a time, so fail extra
 	 * probes.
