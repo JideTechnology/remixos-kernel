@@ -432,13 +432,6 @@ static void acpi_pm_finish(void)
 	pwr_btn_dev = bus_find_device(&acpi_bus_type, NULL, NULL,
 				      find_powerf_dev);
 	if (pwr_btn_dev) {
-#ifdef CONFIG_ACPI_RESUME_POWER_BUTTON_EVENT
-		struct acpi_device *device = to_acpi_device(pwr_btn_dev);
-		if (device->driver && device->driver->ops.notify) {
-			device->driver->ops.notify(device,
-						ACPI_BUTTON_NOTIFY_STATUS);
-		}
-#endif
 		pm_wakeup_event(pwr_btn_dev, 0);
 		put_device(pwr_btn_dev);
 	}
