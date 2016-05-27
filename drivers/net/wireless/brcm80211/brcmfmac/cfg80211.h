@@ -21,21 +21,18 @@
 #include <brcmu_d11.h>
 
 #define WL_NUM_SCAN_MAX			10
-#define WL_NUM_PMKIDS_MAX		MAXPMKID
 #define WL_TLV_INFO_MAX			1024
 #define WL_BSS_INFO_MAX			2048
 #define WL_ASSOC_INFO_MAX		512	/* assoc related fil max buf */
 #define WL_EXTRA_BUF_MAX		2048
 #define WL_ROAM_TRIGGER_LEVEL		-75
 #define WL_ROAM_DELTA			20
-#define WL_BEACON_TIMEOUT		3
 
-#define WL_SCAN_CHANNEL_TIME		40
-#define WL_SCAN_UNASSOC_TIME		40
-#define WL_SCAN_PASSIVE_TIME		120
-
-#define WL_ESCAN_BUF_SIZE		(1024 * 64)
-#define WL_ESCAN_TIMER_INTERVAL_MS	10000 /* E-Scan timeout */
+/* Keep BRCMF_ESCAN_BUF_SIZE below 64K (65536). Allocing over 64K can be
+ * problematic on some systems and should be avoided.
+ */
+#define BRCMF_ESCAN_BUF_SIZE		65000
+#define BRCMF_ESCAN_TIMER_INTERVAL_MS	10000	/* E-Scan timeout */
 
 #define WL_ESCAN_ACTION_START		1
 #define WL_ESCAN_ACTION_CONTINUE	2
@@ -75,8 +72,13 @@
 
 #define BRCMF_VNDR_IE_P2PAF_SHIFT	12
 
-#define BRCMF_MAX_DEFAULT_KEYS		4
+#define BRCMF_MAX_DEFAULT_KEYS		6
 
+/* beacon loss timeout defaults */
+#define BRCMF_DEFAULT_BCN_TIMEOUT_ROAM_ON	2
+#define BRCMF_DEFAULT_BCN_TIMEOUT_ROAM_OFF	4
+
+#define BRCMF_VIF_EVENT_TIMEOUT		msecs_to_jiffies(1500)
 
 /**
  * enum brcmf_scan_status - scan engine status
@@ -97,19 +99,6 @@ struct brcmf_cfg80211_conf {
 	u32 rts_threshold;
 	u32 retry_short;
 	u32 retry_long;
-	s32 tx_power;
-	struct ieee80211_channel channel;
-};
-
-/* basic structure of scan request */
-struct brcmf_cfg80211_scan_req {
-	struct brcmf_ssid_le ssid_le;
-};
-
-/* basic structure of information element */
-struct brcmf_cfg80211_ie {
-	u16 offset;
-	u8 buf[WL_TLV_INFO_MAX];
 };
 
 /* security information with currently associated ap */
@@ -118,19 +107,16 @@ struct brcmf_cfg80211_security {
 	u32 auth_type;
 	u32 cipher_pairwise;
 	u32 cipher_group;
-	u32 wpa_auth;
 };
 
 /**
  * struct brcmf_cfg80211_profile - profile information.
  *
- * @ssid: ssid of associated/associating ap.
  * @bssid: bssid of joined/joining ibss.
  * @sec: security information.
  * @key: key information
  */
 struct brcmf_cfg80211_profile {
-	struct brcmf_ssid ssid;
 	u8 bssid[ETH_ALEN];
 	struct brcmf_cfg80211_security sec;
 	struct brcmf_wsec_key key[BRCMF_MAX_DEFAULT_KEYS];
@@ -180,7 +166,6 @@ struct vif_saved_ie {
  * @ifp: lower layer interface pointer
  * @wdev: wireless device.
  * @profile: profile information.
- * @roam_off: roaming state.
  * @sme_state: SME state using enum brcmf_vif_status bits.
  * @pm_block: power-management blocked.
  * @list: linked list.
@@ -191,7 +176,6 @@ struct brcmf_cfg80211_vif {
 	struct brcmf_if *ifp;
 	struct wireless_dev wdev;
 	struct brcmf_cfg80211_profile profile;
-	s32 roam_off;
 	unsigned long sme_state;
 	bool pm_block;
 	struct vif_saved_ie saved_ie;
@@ -215,12 +199,6 @@ struct brcmf_cfg80211_assoc_ielen_le {
 	__le32 resp_len;
 };
 
-/* wpa2 pmk list */
-struct brcmf_cfg80211_pmk_list {
-	struct pmkid_list pmkids;
-	struct pmkid foo[MAXPMKID - 1];
-};
-
 /* dongle escan state */
 enum wl_escan_state {
 	WL_ESCAN_STATE_IDLE,
@@ -229,92 +207,11 @@ enum wl_escan_state {
 
 struct escan_info {
 	u32 escan_state;
-	u8 escan_buf[WL_ESCAN_BUF_SIZE];
+	u8 *escan_buf;
 	struct wiphy *wiphy;
 	struct brcmf_if *ifp;
 	s32 (*run)(struct brcmf_cfg80211_info *cfg, struct brcmf_if *ifp,
-		   struct cfg80211_scan_request *request, u16 action);
-};
-
-/**
- * struct brcmf_pno_param_le - PNO scan configuration parameters
- *
- * @version: PNO parameters version.
- * @scan_freq: scan frequency.
- * @lost_network_timeout: #sec. to declare discovered network as lost.
- * @flags: Bit field to control features of PFN such as sort criteria auto
- *	enable switch and background scan.
- * @rssi_margin: Margin to avoid jitter for choosing a PFN based on RSSI sort
- *	criteria.
- * @bestn: number of best networks in each scan.
- * @mscan: number of scans recorded.
- * @repeat: minimum number of scan intervals before scan frequency changes
- *	in adaptive scan.
- * @exp: exponent of 2 for maximum scan interval.
- * @slow_freq: slow scan period.
- */
-struct brcmf_pno_param_le {
-	__le32 version;
-	__le32 scan_freq;
-	__le32 lost_network_timeout;
-	__le16 flags;
-	__le16 rssi_margin;
-	u8 bestn;
-	u8 mscan;
-	u8 repeat;
-	u8 exp;
-	__le32 slow_freq;
-};
-
-/**
- * struct brcmf_pno_net_param_le - scan parameters per preferred network.
- *
- * @ssid: ssid name and its length.
- * @flags: bit2: hidden.
- * @infra: BSS vs IBSS.
- * @auth: Open vs Closed.
- * @wpa_auth: WPA type.
- * @wsec: wsec value.
- */
-struct brcmf_pno_net_param_le {
-	struct brcmf_ssid_le ssid;
-	__le32 flags;
-	__le32 infra;
-	__le32 auth;
-	__le32 wpa_auth;
-	__le32 wsec;
-};
-
-/**
- * struct brcmf_pno_net_info_le - information per found network.
- *
- * @bssid: BSS network identifier.
- * @channel: channel number only.
- * @SSID_len: length of ssid.
- * @SSID: ssid characters.
- * @RSSI: receive signal strength (in dBm).
- * @timestamp: age in seconds.
- */
-struct brcmf_pno_net_info_le {
-	u8 bssid[ETH_ALEN];
-	u8 channel;
-	u8 SSID_len;
-	u8 SSID[32];
-	__le16	RSSI;
-	__le16	timestamp;
-};
-
-/**
- * struct brcmf_pno_scanresults_le - result returned in PNO NET FOUND event.
- *
- * @version: PNO version identifier.
- * @status: indicates completion status of PNO scan.
- * @count: amount of brcmf_pno_net_info_le entries appended.
- */
-struct brcmf_pno_scanresults_le {
-	__le32 version;
-	__le32 status;
-	__le32 count;
+		   struct cfg80211_scan_request *request);
 };
 
 /**
@@ -334,18 +231,38 @@ struct brcmf_cfg80211_vif_event {
 };
 
 /**
+ * struct brcmf_cfg80211_wowl - wowl related information.
+ *
+ * @active: set on suspend, cleared on resume.
+ * @pre_pmmode: firmware PM mode at entering suspend.
+ * @nd: net dectect data.
+ * @nd_info: helper struct to pass to cfg80211.
+ * @nd_data_wait: wait queue to sync net detect data.
+ * @nd_data_completed: completion for net detect data.
+ * @nd_enabled: net detect enabled.
+ */
+struct brcmf_cfg80211_wowl {
+	bool active;
+	u32 pre_pmmode;
+	struct cfg80211_wowlan_nd_match *nd;
+	struct cfg80211_wowlan_nd_info *nd_info;
+	wait_queue_head_t nd_data_wait;
+	bool nd_data_completed;
+	bool nd_enabled;
+};
+
+/**
  * struct brcmf_cfg80211_info - dongle private data of cfg80211 interface
  *
  * @wiphy: wiphy object for cfg80211 interface.
+ * @ops: pointer to copy of ops as registered with wiphy object.
  * @conf: dongle configuration.
  * @p2p: peer-to-peer specific information.
  * @btcoex: Bluetooth coexistence information.
  * @scan_request: cfg80211 scan request object.
  * @usr_sync: mainly for dongle up/down synchronization.
  * @bss_list: bss_list holding scanned ap information.
- * @scan_req_int: internal scan request object.
  * @bss_info: bss information for cfg80211 layer.
- * @ie: information element object for internal purpose.
  * @conn_info: association info.
  * @pmk_list: wpa2 pmk list.
  * @scan_status: scan activity on the dongle.
@@ -364,25 +281,22 @@ struct brcmf_cfg80211_vif_event {
  * @escan_info: escan information.
  * @escan_timeout: Timer for catch scan timeout.
  * @escan_timeout_work: scan timeout worker.
- * @escan_ioctl_buf: dongle command buffer for escan commands.
  * @vif_list: linked list of vif instances.
  * @vif_cnt: number of vif instances.
  * @vif_event: vif event signalling.
- * @wowl_enabled; set during suspend, is wowl used.
- * @pre_wowl_pmmode: intermediate storage of pm mode during wowl.
+ * @wowl: wowl related information.
  */
 struct brcmf_cfg80211_info {
 	struct wiphy *wiphy;
+	struct cfg80211_ops *ops;
 	struct brcmf_cfg80211_conf *conf;
 	struct brcmf_p2p_info p2p;
 	struct brcmf_btcoex_info *btcoex;
 	struct cfg80211_scan_request *scan_request;
 	struct mutex usr_sync;
-	struct brcmf_cfg80211_scan_req scan_req_int;
 	struct wl_cfg80211_bss_info *bss_info;
-	struct brcmf_cfg80211_ie ie;
 	struct brcmf_cfg80211_connect_info conn_info;
-	struct brcmf_cfg80211_pmk_list *pmk_list;
+	struct brcmf_pmk_list_le pmk_list;
 	unsigned long scan_status;
 	struct brcmf_pub *pub;
 	u32 channel;
@@ -398,14 +312,12 @@ struct brcmf_cfg80211_info {
 	struct escan_info escan_info;
 	struct timer_list escan_timeout;
 	struct work_struct escan_timeout_work;
-	u8 *escan_ioctl_buf;
 	struct list_head vif_list;
 	struct brcmf_cfg80211_vif_event vif_event;
 	struct completion vif_disabled;
 	struct brcmu_d11inf d11inf;
-	bool wowl_enabled;
-	u32 pre_wowl_pmmode;
 	struct brcmf_assoclist_le assoclist;
+	struct brcmf_cfg80211_wowl wowl;
 };
 
 /**
@@ -492,8 +404,8 @@ bool brcmf_get_vif_state_any(struct brcmf_cfg80211_info *cfg,
 void brcmf_cfg80211_arm_vif_event(struct brcmf_cfg80211_info *cfg,
 				  struct brcmf_cfg80211_vif *vif);
 bool brcmf_cfg80211_vif_event_armed(struct brcmf_cfg80211_info *cfg);
-int brcmf_cfg80211_wait_vif_event_timeout(struct brcmf_cfg80211_info *cfg,
-					  u8 action, ulong timeout);
+int brcmf_cfg80211_wait_vif_event(struct brcmf_cfg80211_info *cfg,
+				  u8 action, ulong timeout);
 s32 brcmf_notify_escan_complete(struct brcmf_cfg80211_info *cfg,
 				struct brcmf_if *ifp, bool aborted,
 				bool fw_abort);

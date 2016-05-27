@@ -71,10 +71,10 @@
 #define P2P_AF_MED_DWELL_TIME		400
 #define P2P_AF_LONG_DWELL_TIME		1000
 #define P2P_AF_TX_MAX_RETRY		1
-#define P2P_AF_MAX_WAIT_TIME		2000
+#define P2P_AF_MAX_WAIT_TIME		msecs_to_jiffies(2000)
 #define P2P_INVALID_CHANNEL		-1
 #define P2P_CHANNEL_SYNC_RETRY		5
-#define P2P_AF_FRM_SCAN_MAX_WAIT	1500
+#define P2P_AF_FRM_SCAN_MAX_WAIT	msecs_to_jiffies(1500)
 #define P2P_DEFAULT_SLEEP_TIME_VSDB	200
 
 /* WiFi P2P Public Action Frame OUI Subtypes */
@@ -102,6 +102,7 @@
 #define P2PSD_ACTION_ID_GAS_CREQ	0x0c	/* GAS Comback Request AF */
 #define P2PSD_ACTION_ID_GAS_CRESP	0x0d	/* GAS Comback Response AF */
 
+#define BRCMF_P2P_DISABLE_TIMEOUT	msecs_to_jiffies(500)
 /**
  * struct brcmf_p2p_disc_st_le - set discovery state in firmware.
  *
@@ -625,11 +626,10 @@ exit:
  * @num_chans: number of channels to scan.
  * @chanspecs: channel parameters for @num_chans channels.
  * @search_state: P2P discover state to use.
- * @action: scan action to pass to firmware.
  * @bss_type: type of P2P bss.
  */
 static s32 brcmf_p2p_escan(struct brcmf_p2p_info *p2p, u32 num_chans,
-			   u16 chanspecs[], s32 search_state, u16 action,
+			   u16 chanspecs[], s32 search_state,
 			   enum p2p_bss_type bss_type)
 {
 	s32 ret = 0;
@@ -642,7 +642,6 @@ static s32 brcmf_p2p_escan(struct brcmf_p2p_info *p2p, u32 num_chans,
 	struct brcmf_cfg80211_vif *vif;
 	struct brcmf_p2p_scan_le *p2p_params;
 	struct brcmf_scan_params_le *sparams;
-	struct brcmf_ssid ssid;
 
 	memsize += num_chans * sizeof(__le16);
 	memblk = kzalloc(memsize, GFP_KERNEL);
@@ -655,16 +654,16 @@ static s32 brcmf_p2p_escan(struct brcmf_p2p_info *p2p, u32 num_chans,
 		ret = -EINVAL;
 		goto exit;
 	}
+	p2p_params = (struct brcmf_p2p_scan_le *)memblk;
+	sparams = &p2p_params->eparams.params_le;
 
 	switch (search_state) {
 	case WL_P2P_DISC_ST_SEARCH:
 		/*
 		 * If we in SEARCH STATE, we don't need to set SSID explictly
-		 * because dongle use P2P WILDCARD internally by default
+		 * because dongle use P2P WILDCARD internally by default, use
+		 * null ssid, which it is already due to kzalloc.
 		 */
-		/* use null ssid */
-		ssid.SSID_len = 0;
-		memset(ssid.SSID, 0, sizeof(ssid.SSID));
 		break;
 	case WL_P2P_DISC_ST_SCAN:
 		/*
@@ -673,8 +672,10 @@ static s32 brcmf_p2p_escan(struct brcmf_p2p_info *p2p, u32 num_chans,
 		 * P2P WILDCARD because we just do broadcast scan unless
 		 * setting SSID.
 		 */
-		ssid.SSID_len = BRCMF_P2P_WILDCARD_SSID_LEN;
-		memcpy(ssid.SSID, BRCMF_P2P_WILDCARD_SSID, ssid.SSID_len);
+		sparams->ssid_le.SSID_len =
+				cpu_to_le32(BRCMF_P2P_WILDCARD_SSID_LEN);
+		memcpy(sparams->ssid_le.SSID, BRCMF_P2P_WILDCARD_SSID,
+		       BRCMF_P2P_WILDCARD_SSID_LEN);
 		break;
 	default:
 		brcmf_err(" invalid search state %d\n", search_state);
@@ -687,11 +688,9 @@ static s32 brcmf_p2p_escan(struct brcmf_p2p_info *p2p, u32 num_chans,
 	/*
 	 * set p2p scan parameters.
 	 */
-	p2p_params = (struct brcmf_p2p_scan_le *)memblk;
 	p2p_params->type = 'E';
 
 	/* determine the scan engine parameters */
-	sparams = &p2p_params->eparams.params_le;
 	sparams->bss_type = DOT11_BSSTYPE_ANY;
 	if (p2p->cfg->active_scan)
 		sparams->scan_type = 0;
@@ -699,9 +698,6 @@ static s32 brcmf_p2p_escan(struct brcmf_p2p_info *p2p, u32 num_chans,
 		sparams->scan_type = 1;
 
 	eth_broadcast_addr(sparams->bssid);
-	if (ssid.SSID_len)
-		memcpy(sparams->ssid_le.SSID, ssid.SSID, ssid.SSID_len);
-	sparams->ssid_le.SSID_len = cpu_to_le32(ssid.SSID_len);
 	sparams->home_time = cpu_to_le32(P2PAPI_SCAN_HOME_TIME_MS);
 
 	/*
@@ -742,7 +738,7 @@ static s32 brcmf_p2p_escan(struct brcmf_p2p_info *p2p, u32 num_chans,
 
 	/* set the escan specific parameters */
 	p2p_params->eparams.version = cpu_to_le32(BRCMF_ESCAN_REQ_VERSION);
-	p2p_params->eparams.action =  cpu_to_le16(action);
+	p2p_params->eparams.action =  cpu_to_le16(WL_ESCAN_ACTION_START);
 	p2p_params->eparams.sync_id = cpu_to_le16(0x1234);
 	/* perform p2p scan on primary device */
 	ret = brcmf_fil_bsscfg_data_set(vif->ifp, "p2p_scan", memblk, memsize);
@@ -766,8 +762,7 @@ exit:
  */
 static s32 brcmf_p2p_run_escan(struct brcmf_cfg80211_info *cfg,
 			       struct brcmf_if *ifp,
-			       struct cfg80211_scan_request *request,
-			       u16 action)
+			       struct cfg80211_scan_request *request)
 {
 	struct brcmf_p2p_info *p2p = &cfg->p2p;
 	s32 err = 0;
@@ -827,7 +822,7 @@ static s32 brcmf_p2p_run_escan(struct brcmf_cfg80211_info *cfg,
 			num_nodfs++;
 		}
 		err = brcmf_p2p_escan(p2p, num_nodfs, chanspecs, search_state,
-				      action, P2PAPI_BSSCFG_DEVICE);
+				      P2PAPI_BSSCFG_DEVICE);
 		kfree(chanspecs);
 	}
 exit:
@@ -1096,8 +1091,7 @@ static s32 brcmf_p2p_act_frm_search(struct brcmf_p2p_info *p2p, u16 channel)
 		default_chan_list[2] = ch.chspec;
 	}
 	err = brcmf_p2p_escan(p2p, channel_cnt, default_chan_list,
-			      WL_P2P_DISC_ST_SEARCH, WL_ESCAN_ACTION_START,
-			      P2PAPI_BSSCFG_DEVICE);
+			      WL_P2P_DISC_ST_SEARCH, P2PAPI_BSSCFG_DEVICE);
 	kfree(default_chan_list);
 exit:
 	return err;
@@ -1272,7 +1266,7 @@ static void
 brcmf_p2p_stop_wait_next_action_frame(struct brcmf_cfg80211_info *cfg)
 {
 	struct brcmf_p2p_info *p2p = &cfg->p2p;
-	struct brcmf_if *ifp = cfg->escan_info.ifp;
+	struct brcmf_if *ifp = p2p->bss_idx[P2PAPI_BSSCFG_PRIMARY].vif->ifp;
 
 	if (test_bit(BRCMF_P2P_STATUS_SENDING_ACT_FRAME, &p2p->status) &&
 	    (test_bit(BRCMF_P2P_STATUS_ACTION_TX_COMPLETED, &p2p->status) ||
@@ -1366,6 +1360,11 @@ int brcmf_p2p_notify_action_frame_rx(struct brcmf_if *ifp,
 	s32 freq;
 	u16 mgmt_type;
 	u8 action;
+
+	if (e->datalen < sizeof(*rxframe)) {
+		brcmf_dbg(SCAN, "Event data to small. Ignore\n");
+		return 0;
+	}
 
 	ch.chspec = be16_to_cpu(rxframe->chanspec);
 	cfg->d11inf.decchspec(&ch);
@@ -1521,7 +1520,7 @@ static s32 brcmf_p2p_tx_action_frame(struct brcmf_p2p_info *p2p,
 	p2p->af_tx_sent_jiffies = jiffies;
 
 	timeout = wait_for_completion_timeout(&p2p->send_af_done,
-					msecs_to_jiffies(P2P_AF_MAX_WAIT_TIME));
+					      P2P_AF_MAX_WAIT_TIME);
 
 	if (test_bit(BRCMF_P2P_STATUS_ACTION_TX_COMPLETED, &p2p->status)) {
 		brcmf_dbg(TRACE, "TX action frame operation is success\n");
@@ -1864,6 +1863,11 @@ s32 brcmf_p2p_notify_rx_mgmt_p2p_probereq(struct brcmf_if *ifp,
 	brcmf_dbg(INFO, "Enter: event %d reason %d\n", e->event_code,
 		  e->reason);
 
+	if (e->datalen < sizeof(*rxframe)) {
+		brcmf_dbg(SCAN, "Event data to small. Ignore\n");
+		return 0;
+	}
+
 	ch.chspec = be16_to_cpu(rxframe->chanspec);
 	cfg->d11inf.decchspec(&ch);
 
@@ -1994,8 +1998,8 @@ int brcmf_p2p_ifchange(struct brcmf_cfg80211_info *cfg,
 		brcmf_cfg80211_arm_vif_event(cfg, NULL);
 		return err;
 	}
-	err = brcmf_cfg80211_wait_vif_event_timeout(cfg, BRCMF_E_IF_CHANGE,
-						    msecs_to_jiffies(1500));
+	err = brcmf_cfg80211_wait_vif_event(cfg, BRCMF_E_IF_CHANGE,
+					    BRCMF_VIF_EVENT_TIMEOUT);
 	brcmf_cfg80211_arm_vif_event(cfg, NULL);
 	if (!err)  {
 		brcmf_err("No BRCMF_E_IF_CHANGE event received\n");
@@ -2067,7 +2071,7 @@ static struct wireless_dev *brcmf_p2p_create_p2pdev(struct brcmf_p2p_info *p2p,
 	struct brcmf_if *p2p_ifp;
 	struct brcmf_if *pri_ifp;
 	int err;
-	u32 bssidx;
+	u32 bsscfgidx;
 
 	if (p2p->bss_idx[P2PAPI_BSSCFG_DEVICE].vif)
 		return ERR_PTR(-ENOSPC);
@@ -2096,8 +2100,8 @@ static struct wireless_dev *brcmf_p2p_create_p2pdev(struct brcmf_p2p_info *p2p,
 	}
 
 	/* wait for firmware event */
-	err = brcmf_cfg80211_wait_vif_event_timeout(p2p->cfg, BRCMF_E_IF_ADD,
-						    msecs_to_jiffies(1500));
+	err = brcmf_cfg80211_wait_vif_event(p2p->cfg, BRCMF_E_IF_ADD,
+					    BRCMF_VIF_EVENT_TIMEOUT);
 	brcmf_cfg80211_arm_vif_event(p2p->cfg, NULL);
 	brcmf_fweh_p2pdev_setup(pri_ifp, false);
 	if (!err) {
@@ -2113,13 +2117,13 @@ static struct wireless_dev *brcmf_p2p_create_p2pdev(struct brcmf_p2p_info *p2p,
 	memcpy(&p2p_vif->wdev.address, p2p->dev_addr, sizeof(p2p->dev_addr));
 
 	/* verify bsscfg index for P2P discovery */
-	err = brcmf_fil_iovar_int_get(pri_ifp, "p2p_dev", &bssidx);
+	err = brcmf_fil_iovar_int_get(pri_ifp, "p2p_dev", &bsscfgidx);
 	if (err < 0) {
 		brcmf_err("retrieving discover bsscfg index failed\n");
 		goto fail;
 	}
 
-	WARN_ON(p2p_ifp->bssidx != bssidx);
+	WARN_ON(p2p_ifp->bsscfgidx != bsscfgidx);
 
 	init_completion(&p2p->send_af_done);
 	INIT_WORK(&p2p->afx_hdl.afx_work, brcmf_p2p_afx_handler);
@@ -2186,8 +2190,8 @@ struct wireless_dev *brcmf_p2p_add_vif(struct wiphy *wiphy, const char *name,
 	}
 
 	/* wait for firmware event */
-	err = brcmf_cfg80211_wait_vif_event_timeout(cfg, BRCMF_E_IF_ADD,
-						    msecs_to_jiffies(1500));
+	err = brcmf_cfg80211_wait_vif_event(cfg, BRCMF_E_IF_ADD,
+					    BRCMF_VIF_EVENT_TIMEOUT);
 	brcmf_cfg80211_arm_vif_event(cfg, NULL);
 	if (!err) {
 		brcmf_err("timeout occurred\n");
@@ -2237,7 +2241,6 @@ int brcmf_p2p_del_vif(struct wiphy *wiphy, struct wireless_dev *wdev)
 	struct brcmf_cfg80211_info *cfg = wiphy_priv(wiphy);
 	struct brcmf_p2p_info *p2p = &cfg->p2p;
 	struct brcmf_cfg80211_vif *vif;
-	unsigned long jiffie_timeout = msecs_to_jiffies(1500);
 	bool wait_for_disable = false;
 	int err;
 
@@ -2270,7 +2273,7 @@ int brcmf_p2p_del_vif(struct wiphy *wiphy, struct wireless_dev *wdev)
 
 	if (wait_for_disable)
 		wait_for_completion_timeout(&cfg->vif_disabled,
-					    msecs_to_jiffies(500));
+					    BRCMF_P2P_DISABLE_TIMEOUT);
 
 	err = 0;
 	if (vif->wdev.iftype != NL80211_IFTYPE_P2P_DEVICE) {
@@ -2279,8 +2282,8 @@ int brcmf_p2p_del_vif(struct wiphy *wiphy, struct wireless_dev *wdev)
 	}
 	if (!err) {
 		/* wait for firmware event */
-		err = brcmf_cfg80211_wait_vif_event_timeout(cfg, BRCMF_E_IF_DEL,
-							    jiffie_timeout);
+		err = brcmf_cfg80211_wait_vif_event(cfg, BRCMF_E_IF_DEL,
+						    BRCMF_VIF_EVENT_TIMEOUT);
 		if (!err)
 			err = -EIO;
 		else
