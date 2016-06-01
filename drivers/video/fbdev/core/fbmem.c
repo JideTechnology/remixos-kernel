@@ -498,10 +498,12 @@ static int fb_show_logo_line(struct fb_info *info, int rotate,
 		fb_set_logo(info, logo, logo_new, fb_logo.depth);
 	}
 
-	image.dx = 0;
-	image.dy = y;
 	image.width = logo->width;
 	image.height = logo->height;
+	// region @jide display a centered boot logo
+	image.dx = (info->var.xres/2)-(image.width/2);
+	image.dy = (info->var.yres/2)-(image.height/2);
+	// endregion
 
 	if (rotate) {
 		logo_rotate = kmalloc(logo->width *
@@ -663,9 +665,9 @@ int fb_prepare_logo(struct fb_info *info, int rotate)
 int fb_show_logo(struct fb_info *info, int rotate)
 {
 	int y;
-
-	y = fb_show_logo_line(info, rotate, fb_logo.logo, 0,
-			      num_online_cpus());
+	// region @jide only display one logo
+	y = fb_show_logo_line(info, rotate, fb_logo.logo, 0, 1);
+	// endregion
 	y = fb_show_extra_logos(info, y, rotate);
 
 	return y;

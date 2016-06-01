@@ -17,9 +17,11 @@
 #include <asm/setup.h>
 #endif
 
-static bool nologo;
-module_param(nologo, bool, 0);
-MODULE_PARM_DESC(nologo, "Disables startup logo");
+// region @jide showlogo
+static bool showlogo;
+module_param(showlogo, bool, 0);
+// endregion
+MODULE_PARM_DESC(showlogo, "Enable startup logo");
 
 /*
  * Logos are located in the initdata, and will be freed in kernel_init.
@@ -44,8 +46,11 @@ const struct linux_logo * __init_refok fb_find_logo(int depth)
 {
 	const struct linux_logo *logo = NULL;
 
-	if (nologo || logos_freed)
+	// region @jide showlogoo
+	if (!showlogo || logos_freed) {
 		return NULL;
+	}
+	// endregion
 
 	if (depth >= 1) {
 #ifdef CONFIG_LOGO_LINUX_MONO
@@ -57,7 +62,7 @@ const struct linux_logo * __init_refok fb_find_logo(int depth)
 		logo = &logo_superh_mono;
 #endif
 	}
-	
+
 	if (depth >= 4) {
 #ifdef CONFIG_LOGO_LINUX_VGA16
 		/* Generic Linux logo */
@@ -72,7 +77,7 @@ const struct linux_logo * __init_refok fb_find_logo(int depth)
 		logo = &logo_superh_vga16;
 #endif
 	}
-	
+
 	if (depth >= 8) {
 #ifdef CONFIG_LOGO_LINUX_CLUT224
 		/* Generic Linux logo */
