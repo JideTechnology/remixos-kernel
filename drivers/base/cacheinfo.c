@@ -58,7 +58,9 @@ static int cache_setup_of_node(unsigned int cpu)
 	}
 	np = cpu_dev->of_node;
 	if (!np) {
-		pr_err("Failed to find cpu%d device node\n", cpu);
+        // region @jide hide the error message.
+		// pr_err("Failed to find cpu%d device node\n", cpu);
+        // endregion
 		return -ENOENT;
 	}
 
