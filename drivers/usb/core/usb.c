@@ -396,7 +396,7 @@ struct device_type usb_device_type = {
 /* Returns 1 if @usb_bus is WUSB, 0 otherwise */
 static unsigned usb_bus_is_wusb(struct usb_bus *bus)
 {
-	struct usb_hcd *hcd = container_of(bus, struct usb_hcd, self);
+	struct usb_hcd *hcd = bus_to_hcd(bus);
 	return hcd->wireless;
 }
 
@@ -1114,6 +1114,7 @@ static void __exit usb_exit(void)
 	bus_unregister(&usb_bus_type);
 	usb_acpi_unregister();
 	usb_debugfs_cleanup();
+	idr_destroy(&usb_bus_idr);
 }
 
 subsys_initcall(usb_init);
