@@ -166,9 +166,14 @@ int decodeMemAddress(int opcode, struct pt_regs* regs, int rex, u8* extraBytes, 
 	if (srcIndex == 0x4) {
 		int opHigh = (extraBytes[0]>>3) & 0x7;
 		int opLow = extraBytes[0] & 0x7;
-		int multiplier = 1 << (extraBytes[0]>>6);
-		*memAddr = *getRegisterPtr(opLow, regs, testREX(rex, REX_B)) +
-					*getRegisterPtr(opHigh, regs, testREX(rex, REX_X)) * multiplier;
+		if (opHigh == 0x4 && opLow == 0x04) {
+			*memAddr = *getRegisterPtr(opLow, regs, testREX(rex, REX_B));
+		}
+		else {
+			int multiplier = 1 << (extraBytes[0]>>6);
+			*memAddr = *getRegisterPtr(opLow, regs, testREX(rex, REX_B)) +
+						*getRegisterPtr(opHigh, regs, testREX(rex, REX_X)) * multiplier;
+		}
 		extraLength = 1;
 	}
 	else if (srcIndex == 0x5 && opcode < 0x40) {
