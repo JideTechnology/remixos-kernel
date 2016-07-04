@@ -1174,6 +1174,8 @@ void __vlv_set_power_well(struct drm_i915_private *dev_priv,
 extern void vlv_modify_rc6_promotion_timer(struct drm_i915_private *dev_priv,
 					    bool media_active);
 bool i915_is_device_suspended(struct drm_device *drm_dev);
+bool i915_is_device_suspending(struct drm_device *drm_dev);
+bool i915_is_device_resuming(struct drm_device *drm_dev);
 
 void intel_update_maxfifo(struct drm_i915_private *dev_priv,
 				struct drm_crtc *crtc, bool enable);

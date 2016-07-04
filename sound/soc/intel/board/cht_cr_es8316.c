@@ -46,13 +46,13 @@
 #define CHT_INTR_DEBOUNCE               0    //0  /* updated by everest-david  15-3-4*/
 #define CHT_HS_DEBOUNCE_DELAY           500//500       /* added by everest-david */
 #define CHT_HS_INSERT_DET_DELAY         400//600
-#define CHT_HS_REMOVE_DET_DELAY         50     //100  /* updated by everest-david  15-3-4*/   
+#define CHT_HS_REMOVE_DET_DELAY         40     //100  /* updated by everest-david  15-3-4*/   
 #define CHT_BUTTON_PRESS_DELAY          50
 #define CHT_BUTTON_RELEASE_DELAY        50
 #define CHT_HS_DET_POLL_INTRVL          50
 #define CHT_BUTTON_EN_DELAY             0
 
-#define CHT_HS_DET_RETRY_COUNT        4 
+#define CHT_HS_DET_RETRY_COUNT        8 
 #define CHT_HS_DEBOUNCE_RETRY_COUNT    3        /* added by everest-david */
 #define CHT_HS_BUTTON_PRESS_CHK_COUNT  3        /* added by everest-david */
 #define CHT_HS_BUTTON_RELEASE_CHK_COUNT 3       /* added by everest-david */
@@ -73,7 +73,9 @@ struct cht_mc_private {
 	struct delayed_work hs_button_press_work;
 	struct delayed_work hs_button_release_work;
 	struct delayed_work hs_debounce_work;          /* added by everest-david */
+	struct delayed_work	hs_poll_work;
 	struct mutex jack_mlock;
+	struct mutex poll_mlock;
 	/* To enable button press interrupts after a delay after HS detection.
 	 * This is to avoid spurious button press events during slow
 	 * HS insertion
@@ -95,7 +97,9 @@ struct cht_mc_private {
 	
 	int same_reg_cnt;
   int hs_reg_v;
-	
+  int poll_cnt;
+  int poll_status;
+	int poll_same_cnt;
 	bool process_button_events;
 };
 
@@ -159,12 +163,13 @@ static int es8316_headset_detect(struct snd_soc_codec *codec)
 	int status;
 
 	value = snd_soc_read(codec, ES8316_GPIO_FLAG);
-	switch (value & 0x06) {
-	case 0x00:
+	//printk("=== es8316_headset_detect: 0x%x\n",value);
+	switch (value) {
+	//case 0x24:
+	case 0x20:
 		status = SND_JACK_HEADPHONE;
 		break;
-	case 0x02:
-	case 0x04:
+	case 0x22:
 		status = SND_JACK_HEADSET;
 		break;
 	default:
@@ -188,8 +193,8 @@ static int cht_check_jack_type(struct snd_soc_jack *jack,
 	if (status) {
 		pr_debug("Jack insert intr");
 		snd_soc_write(codec,0x30,0x30); 
-		gpio_direction_output(341,0);
-		  
+		gpio_direction_output(368,0);
+				  
 		 pr_debug("Jack insert intr");
 		/* Do not process button events until accessory is
 		   detected as headset*/
@@ -228,7 +233,7 @@ static int cht_check_jack_type(struct snd_soc_jack *jack,
 	} else {
 		jack_type = 0;
 	}
-	pr_info("Jack type detected:%d", jack_type);
+	pr_info("Jack type detected:%d\n", jack_type);
 	return jack_type;
 }
 
@@ -239,21 +244,34 @@ static int cht_check_jack_type(struct snd_soc_jack *jack,
 static int cht_hs_detection(void *data)
 {
 	int status, jack_type = 0;
-	int ret;
+	int ret,value;
 	struct snd_soc_jack_gpio *gpio = &hs_gpio;
 	struct snd_soc_jack *jack = gpio->jack;
 	struct snd_soc_codec *codec = jack->codec;
 	struct cht_mc_private *ctx = container_of(jack,
 						struct cht_mc_private, jack);
+	
+	pr_info("Enter:%s", __func__);
 	/* Ack interrupt first */
 	mutex_lock(&ctx->jack_mlock);
+	
+	cancel_delayed_work_sync(&ctx->hs_insert_work);
+	cancel_delayed_work_sync(&ctx->hs_button_en_work);
+	cancel_delayed_work_sync(&ctx->hs_button_press_work);
+	cancel_delayed_work_sync(&ctx->hs_button_release_work);
+	cancel_delayed_work_sync(&ctx->hs_remove_work);
+	cancel_delayed_work_sync(&ctx->hs_debounce_work);
+	//cancel_delayed_work_sync(&ctx->hs_poll_work);
+
 	/* Initialize jack status with previous status.
 	   The delayed work will confirm the event and
 	   send updated status later */
+	   
 	jack_type = jack->status;
-	pr_info("Enter:%s", __func__);
-
+	value = snd_soc_read(codec, ES8316_GPIO_FLAG);
+	//printk("=== cht_hs_detection gpio flag: 0x%x\n",value);
 	if (!jack->status) {
+			//printk("=== jack->status = 0\n");
 			snd_soc_write(codec,0x30,0x30);       //mute dac when hp inserted
       		//snd_soc_write(codec,0x22,0x30);
 			ctx->hs_det_retry = CHT_HS_DET_RETRY_COUNT;        
@@ -277,6 +295,7 @@ static int cht_hs_detection(void *data)
 		/* jd status low indicates accessory has been disconnected.
 		   However, confirm the removal in the delayed work */
 		if (!status) {
+			printk("=== >status = 0\n");
 			/* Do not process button events while we make sure
 			   accessory is disconnected*/
 			ctx->process_button_events = false;
@@ -292,6 +311,7 @@ static int cht_hs_detection(void *data)
 				}
 		} else { /* Must be button event.
 			  * Confirm the event in delayed work */
+			  printk("=== >status = 1\n");
 			if (((jack->status & SND_JACK_HEADSET) == SND_JACK_HEADSET) &&
 					ctx->process_button_events) {
 				ret = schedule_delayed_work(&ctx->hs_button_press_work,
@@ -304,6 +324,17 @@ static int cht_hs_detection(void *data)
 					pr_info("%s:check BP/BR after %d msec",
 						__func__,
 						ctx->button_press_delay);
+			}
+			else
+				{
+					ret = schedule_delayed_work(&ctx->hs_remove_work,
+								msecs_to_jiffies(ctx->hs_remove_det_delay));
+					if (!ret) {
+							pr_info("byt_check_hs_remove_status already queued");		
+					}else	{
+					pr_info("%s:Check hs removal after %d msec",	__func__,
+							ctx->hs_remove_det_delay);	
+				}					
 			}
 		}
 	}
@@ -367,9 +398,15 @@ static void cht_check_hs_insert_status(struct work_struct *work)
 			cancel_delayed_work_sync(&ctx->hs_button_en_work);
 			cancel_delayed_work_sync(&ctx->hs_button_press_work);	
 			cancel_delayed_work_sync(&ctx->hs_button_release_work); 
+			cancel_delayed_work_sync(&ctx->hs_remove_work);
+			cancel_delayed_work_sync(&ctx->hs_debounce_work);
+			//cancel_delayed_work_sync(&ctx->hs_poll_work);			
 		} else {           /* if headset or headphone inserted*/
 			snd_soc_jack_report(jack, jack_type, gpio->report); //report Jack status to Frame-work   
-			gpio_direction_output(341, 0);
+			ret = schedule_delayed_work(&ctx->hs_poll_work,
+									msecs_to_jiffies(500));
+			gpio_direction_output(368, 0);
+			
 		}
 		ctx->same_reg_cnt = 0;
 		pr_info("jack report:%s,%d\n", __func__, __LINE__);
@@ -384,6 +421,7 @@ static void cht_check_hs_insert_status(struct work_struct *work)
 		 * Hence retry until headset is detected
 		 */
 		//ctx->hs_det_retry--;
+		ret = snd_soc_read(codec, ES8316_GPIO_FLAG);
 		schedule_delayed_work(&ctx->hs_insert_work,
 				msecs_to_jiffies(ctx->hs_det_poll_intrvl));
 		pr_info("%s:re-try hs detection after %d msec",
@@ -426,7 +464,11 @@ static void cht_check_hs_remove_status(struct work_struct *work)
 		/* Initialize jack_type with previous status.
 		   If the event was an invalid one, we return the preious state*/
 		jack_type = jack->status;
-		gpio_direction_output(341, 1); //1
+		ret = snd_soc_read(codec, 0x50);
+		if(ret == 0xaa) {
+			gpio_direction_output(368, 1); //1
+		}
+		
 		msleep(100);  
 		if (jack->status) {
 			/* jack is in connected state; look for removal event */
@@ -436,9 +478,13 @@ static void cht_check_hs_remove_status(struct work_struct *work)
 				pr_info("Jack remove event");
 				snd_soc_write(codec, 0x30,0x30);
 				ctx->process_button_events = false;
+				cancel_delayed_work_sync(&ctx->hs_insert_work);
 				cancel_delayed_work_sync(&ctx->hs_button_en_work);
-				cancel_delayed_work_sync(&ctx->hs_button_press_work);	
-				cancel_delayed_work_sync(&ctx->hs_button_release_work);	
+				cancel_delayed_work_sync(&ctx->hs_button_press_work);
+				cancel_delayed_work_sync(&ctx->hs_button_release_work);
+				//cancel_delayed_work_sync(&ctx->hs_remove_work);
+				cancel_delayed_work_sync(&ctx->hs_debounce_work);
+				//cancel_delayed_work_sync(&ctx->hs_poll_work);
 				jack_type = 0;
 				cht_set_mic_bias(codec, true);
 #ifdef MAINMIC_DMIC_USED 
@@ -480,9 +526,13 @@ static void cht_check_hs_remove_status(struct work_struct *work)
 		if(jack_type == 0)
 		{
 			ctx->process_button_events = false;
+			cancel_delayed_work_sync(&ctx->hs_insert_work);
 			cancel_delayed_work_sync(&ctx->hs_button_en_work);
-			cancel_delayed_work_sync(&ctx->hs_button_press_work);	
-			cancel_delayed_work_sync(&ctx->hs_button_release_work); 
+			cancel_delayed_work_sync(&ctx->hs_button_press_work);
+			cancel_delayed_work_sync(&ctx->hs_button_release_work);
+			//cancel_delayed_work_sync(&ctx->hs_remove_work);
+			cancel_delayed_work_sync(&ctx->hs_debounce_work);
+			//cancel_delayed_work_sync(&ctx->hs_poll_work);
 			jack_type = 0;
 			snd_soc_jack_report(jack, jack_type, gpio->report);
 			cht_set_mic_bias(codec, true);	
@@ -497,12 +547,13 @@ static void cht_check_hs_remove_status(struct work_struct *work)
 			snd_soc_write(codec,0x30,0x30);
 			/*Now, to schedule a debounce work-quenue to cancel the noise at remove moment*/
 			ret = schedule_delayed_work(&ctx->hs_debounce_work,
-					msecs_to_jiffies(ctx->hs_debounce_delay));
-
+					msecs_to_jiffies(ctx->hs_debounce_delay));	
 		} else
 		{
 			snd_soc_jack_report(jack, jack_type, gpio->report);
 		}
+		ret = schedule_delayed_work(&ctx->hs_poll_work,
+					msecs_to_jiffies(500));	
 	}                  
 	else
 	{
@@ -712,14 +763,70 @@ static void cht_hs_debounce_events(struct work_struct *work)
 
 	ret = snd_soc_read(codec, ES8316_GPIO_FLAG); 
 	if((ret & 0x06)==0x06){ //remove
-		gpio_direction_output(341, 0); //1 		
+		ret = snd_soc_read(codec, 0x50); 
+		if(ret == 0xaa) {
+			gpio_direction_output(368, 1); //1 		
+		}
 		printk("byt_hs_debounce_remove\n");	
 	}
 	else {       //inserted
-		gpio_direction_output(341, 0);
+		gpio_direction_output(368, 0);
 		printk("byt_hs_debounce_insert\n");
 	}	
 	snd_soc_write(codec,0x30,0x10);
+}
+
+static void cht_hs_poll_events(struct work_struct *work)
+{
+	 
+ 	int ret,status;
+	struct snd_soc_jack_gpio *gpio = &hs_gpio;
+	struct snd_soc_jack *jack = gpio->jack;
+	struct snd_soc_codec *codec = jack->codec;
+	struct cht_mc_private *ctx = snd_soc_card_get_drvdata(codec->card);
+	//pr_info("Enter:%s\n", __func__);
+	
+	mutex_lock(&ctx->poll_mlock);
+	status = es8316_headset_detect(codec);
+	if(ctx->poll_status == status){
+		ctx->poll_same_cnt++;
+	} else {
+		ctx->poll_same_cnt = 0;
+	}
+	if(!status){
+		//ret = schedule_delayed_work(&ctx->hs_remove_work,
+		//				msecs_to_jiffies(0));
+		if(ctx->poll_same_cnt > 2) {
+			snd_soc_jack_report(jack, status, gpio->report);
+			ctx->poll_same_cnt = 0;
+		} else {
+			if(ctx->poll_cnt < 10){
+				ret = schedule_delayed_work(&ctx->hs_poll_work,
+							msecs_to_jiffies(500));										ctx->poll_cnt++;
+			} else {
+				ctx->poll_cnt = 0;
+			}						
+		}	
+	}else {
+					if(jack->status != status){
+						if(ctx->poll_same_cnt>2) {
+							snd_soc_jack_report(jack, status, gpio->report);
+						}
+						//ret = schedule_delayed_work(&ctx->hs_insert_work,
+						//			msecs_to_jiffies(0));	
+					} 
+					if(ctx->poll_cnt<10){
+						ret = schedule_delayed_work(&ctx->hs_poll_work,
+									msecs_to_jiffies(500));	
+									ctx->poll_cnt++;
+						} else {
+									ctx->poll_cnt = 0;
+								}				
+	}
+	mutex_unlock(&ctx->poll_mlock);
+	//ret = schedule_delayed_work(&ctx->hs_poll_work,
+	//			msecs_to_jiffies(1000));
+	
 }
 
 /* Delayed work for enabling the overcurrent detection circuit
@@ -770,7 +877,7 @@ static int platform_clock_control(struct snd_soc_dapm_widget *w,
 	struct snd_soc_dapm_context *dapm = w->dapm;
 	struct snd_soc_card *card = dapm->card;
 	struct snd_soc_codec *codec;
-
+	
 	codec = cht_get_codec(card);
 	if (!codec) {
 		pr_err("Codec not found; Unable to set platform clock\n");
@@ -978,6 +1085,7 @@ static int cht_set_bias_level(struct snd_soc_card *card,
 static int cht_audio_init(struct snd_soc_pcm_runtime *runtime)
 {
 	int ret;
+ 	int ReadBuffer,ReadBuffer1,ReadBuffer2;
 	struct snd_soc_codec *codec;
 	struct snd_soc_card *card = runtime->card;
 	struct cht_mc_private *ctx = snd_soc_card_get_drvdata(runtime->card);
@@ -991,11 +1099,11 @@ static int cht_audio_init(struct snd_soc_pcm_runtime *runtime)
 	}
 	desc = devm_gpiod_get_index(codec->dev, NULL, 1);
 	if (!IS_ERR(desc)) {
-		hs_gpio.gpio = desc_to_gpio(desc);
+		hs_gpio.gpio = 307;//desc_to_gpio(desc);
 		devm_gpiod_put(codec->dev, desc);
 		pr_info("cht-cr GPIOs - JD/BP-int: %d\n", hs_gpio.gpio);
 	} else {
-		hs_gpio.gpio = 479;
+		hs_gpio.gpio = 307;
 		pr_err("Failed to get gpio desc for Jack det\n");
 	}
 	pr_err("hs codec gpio %d\n", hs_gpio.gpio);
@@ -1033,6 +1141,26 @@ static int cht_audio_init(struct snd_soc_pcm_runtime *runtime)
 		pr_err("unable to sync dapm\n");
 		return ret;
 	}
+
+	ReadBuffer = snd_soc_read(codec, ES8316_GPIO_DEBUNCE_INT_REG4E);
+       // printk("===probe ReadBuffer: 0x%x\n",ReadBuffer);
+        ReadBuffer1=ReadBuffer | 0xFE;
+        ReadBuffer2=ReadBuffer1 & 0x01;
+         if (ReadBuffer2 & 0x01)
+        {
+               // printk("===11111111 ReadBuffer2: 0x%x\n",ReadBuffer2);
+                snd_soc_write(codec, 0X4E, 0xF2);
+        }
+         else
+        {
+                //printk("===22222222 ReadBuffer2: 0x%x\n",ReadBuffer2);
+                snd_soc_write(codec, 0X4E, 0xF3);
+        }
+         mdelay(10);
+        snd_soc_write(codec, 0X4E, 0xF3);
+        ret = snd_soc_read(codec, 0x4F);
+        //printk("===read 0x4F reg: 0x%x\n", ret);
+
 
 	return ret;
 }
@@ -1280,7 +1408,7 @@ static int snd_cht_mc_probe(struct platform_device *pdev)
 		pr_err("allocation failed\n");
 		return -ENOMEM;
 	}
-	ret_val = gpio_request(341, "I2S_RESET_GPIO");
+	//ret_val = gpio_request(341, "I2S_RESET_GPIO");
 	if (ret_val)
 	{
 		pr_debug("request gpio fail\n");
@@ -1299,7 +1427,9 @@ static int snd_cht_mc_probe(struct platform_device *pdev)
 	drv->hs_debounce_delay = CHT_HS_DEBOUNCE_DELAY;     /*added by everest-david*/
 	drv->hs_debounce_retry = CHT_HS_DEBOUNCE_RETRY_COUNT;  /*added by everest-david*/
 	drv->process_button_events = false;
-
+	drv->poll_cnt = 0;
+	drv->poll_status = 0;
+	drv->poll_same_cnt = 0;
 	INIT_DELAYED_WORK(&drv->hs_insert_work, cht_check_hs_insert_status);
 	INIT_DELAYED_WORK(&drv->hs_remove_work, cht_check_hs_remove_status);
 	INIT_DELAYED_WORK(&drv->hs_button_press_work,
@@ -1307,7 +1437,10 @@ static int snd_cht_mc_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&drv->hs_button_release_work,
 			 cht_check_hs_button_release_status);
 	INIT_DELAYED_WORK(&drv->hs_button_en_work, cht_enable_hs_button_events);
-	INIT_DELAYED_WORK(&drv->hs_debounce_work, cht_hs_debounce_events);   /*added by everest-david*/	mutex_init(&drv->jack_mlock);
+	INIT_DELAYED_WORK(&drv->hs_debounce_work, cht_hs_debounce_events);   /*added by everest-david*/
+	INIT_DELAYED_WORK(&drv->hs_poll_work, cht_hs_poll_events);   /*added by everest-david for hampoo, 16-3-3*/	
+	mutex_init(&drv->jack_mlock);
+	mutex_init(&drv->poll_mlock);
 	/* register the soc card */
 	snd_soc_card_cht.dev = &pdev->dev;
 	snd_soc_card_set_drvdata(&snd_soc_card_cht, drv);
@@ -1332,6 +1465,7 @@ static void snd_cht_unregister_jack(struct cht_mc_private *ctx)
 	cancel_delayed_work_sync(&ctx->hs_button_release_work);
 	cancel_delayed_work_sync(&ctx->hs_remove_work);
 	cancel_delayed_work_sync(&ctx->hs_debounce_work);
+	cancel_delayed_work_sync(&ctx->hs_poll_work);
 	snd_soc_jack_free_gpios(&ctx->jack, 1, &hs_gpio);
 }
 

@@ -1,4 +1,4 @@
-config VIDEO_UNICAMERA
+config VIDEO_UNICAM
        tristate "intel unicamera sensor support"
        default m
        depends on I2C && VIDEO_V4L2

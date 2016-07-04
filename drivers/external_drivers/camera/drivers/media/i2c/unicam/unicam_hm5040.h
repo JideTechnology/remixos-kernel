@@ -1279,15 +1279,16 @@ static S_UNI_RESOLUTION hm5040_res_preview[] = {
 
 		.vts_fix=10,
 		.vts=1974,
-		
+
 	},
 };
 static S_UNI_DEVICE hm5040_unidev= {
+	.desc = "hm5040",
 	.version=0x1,
 	.minversion=125,//update if change, as buildid
 	.af_type=UNI_DEV_AF_DW9714,
 	.i2c_addr=0x1B,
-	
+
 	.idreg=0x2016,
 	.idval=0x03BB,
 	.idmask=0xffff,
@@ -1340,6 +1341,7 @@ static S_UNI_DEVICE hm5040_unidev= {
 	.hw_lane=2,
 	.hw_format=ATOMISP_INPUT_FORMAT_RAW_10,
 	.hw_bayer_order=atomisp_bayer_order_rggb,
+	.hw_sensor_type = RAW_CAMERA,
 	
 	.hw_reset_gpio=119,
 	.hw_reset_gpio_polarity=0,

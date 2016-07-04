@@ -273,10 +273,10 @@ static S_UNI_RESOLUTION gc2355_res_preview[] = {
 		.vts_fix=8,
 		.vts=1252,
 	},
-		
 };
 
 static S_UNI_DEVICE gc2355_unidev={
+	.desc = "gc2355",
 	.version=0x1,
 	.minversion=125,//update if change, as buildid
 	.af_type=UNI_DEV_AF_NONE,
@@ -332,6 +332,7 @@ static S_UNI_DEVICE gc2355_unidev={
 	.hw_lane=1,
 	.hw_format=ATOMISP_INPUT_FORMAT_RAW_10,
 	.hw_bayer_order=atomisp_bayer_order_gbrg,
+	.hw_sensor_type = RAW_CAMERA,
 
 	.hw_reset_gpio=120,
 	.hw_reset_gpio_polarity=0,

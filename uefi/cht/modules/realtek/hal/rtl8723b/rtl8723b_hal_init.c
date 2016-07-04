@@ -107,7 +107,7 @@ _BlockWrite(
 		ret = rtw_write32(padapter, (FW_8723B_START_ADDRESS + i * blockSize_p1), le32_to_cpu(*((u32*)(bufferPtr + i * blockSize_p1))));
 #endif
 		if(ret == _FAIL) {
-			printk("====>%s %d i:%d\n", __func__, __LINE__, i);
+	//		printk("====>%s %d i:%d\n", __func__, __LINE__, i);
 			goto exit;
 		}
 	}
@@ -170,7 +170,7 @@ _BlockWrite(
 			ret = rtw_write8(padapter, (FW_8723B_START_ADDRESS + offset + i), *(bufferPtr + offset + i));
 
 			if(ret == _FAIL) {
-				printk("====>%s %d i:%d\n", __func__, __LINE__, i);
+	//			printk("====>%s %d i:%d\n", __func__, __LINE__, i);
 				goto exit;
 			}
 		}

@@ -5236,7 +5236,7 @@ static void cherryview_set_cdclk(struct drm_device *dev, int new_cdclk)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 cmd, val, vco;
 
-	WARN_ON(valleyview_cur_cdclk(dev_priv) != dev_priv->vlv_cdclk_freq);
+	//WARN_ON(valleyview_cur_cdclk(dev_priv) != dev_priv->vlv_cdclk_freq);
 	dev_priv->vlv_cdclk_freq = new_cdclk;
 
 	/*
@@ -6066,6 +6066,20 @@ void intel_connector_dpms(struct drm_connector *connector, int mode)
 
 	intel_display_power_get(dev_priv, PIPE_A);
 
+if ( !(dev_priv->vbt.has_mipi) )
+{
+	if (mode == DRM_MODE_DPMS_ON  && intel_encoder->type ==INTEL_OUTPUT_EDP) {
+		intel_modeset_setup_hw_state(dev, true);
+	}
+
+	/* Only need to change hw state when actually enabled */
+	if (connector->encoder) {
+		intel_encoder_dpms(to_intel_encoder(connector->encoder),
+					   mode);
+	}
+}
+else
+{
 	/* Only need to change hw state when actually enabled */
 	if (connector->encoder) {
 		if (mode == DRM_MODE_DPMS_ON && dev_priv->is_first_modeset) {
@@ -6076,6 +6090,7 @@ void intel_connector_dpms(struct drm_connector *connector, int mode)
 					   mode);
 		}
 	}
+}
 
 	if (mode == DRM_MODE_DPMS_ON)
 		intel_modeset_check_state(connector->dev);
@@ -11043,6 +11058,7 @@ int intel_set_disp_calc_flip(struct drm_mode_set_display *disp,
 	struct drm_i915_set_plane_zorder *zorder;
 	int i, tmp_ret, ret = 0;
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 scaling_src_size = I915_READ(PIPESRC(intel_crtc->pipe));
 
 	/* Update the panel fitter */
 	if (disp->update_flag & DRM_MODE_SET_DISPLAY_UPDATE_PANEL_FITTER) {
@@ -11114,7 +11130,7 @@ int intel_set_disp_calc_flip(struct drm_mode_set_display *disp,
 				pfit_control |= pfit_mode;
 			}
 			intel_crtc->pfit_control = pfit_control;
-			if (pfit_control != pfitcontrol)
+			if (pfit_control != pfitcontrol || scaling_src_size != intel_crtc->scaling_src_size)
 				dev_priv->pfit_changed = true;
 		}
 
@@ -13169,9 +13185,9 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 enum pipe intel_get_pipe_from_connector(struct intel_connector *connector)
 {
 	struct drm_encoder *encoder = connector->base.encoder;
-	struct drm_device *dev = connector->base.dev;
+//	struct drm_device *dev = connector->base.dev;
 
-	WARN_ON(!drm_modeset_is_locked(&dev->mode_config.connection_mutex));
+//	WARN_ON(!drm_modeset_is_locked(&dev->mode_config.connection_mutex));
 
 	if (!encoder)
 		return INVALID_PIPE;

@@ -35,6 +35,13 @@ struct shmem_sb_info {
 	struct mempolicy *mpol;     /* default memory policy for mappings */
 };
 
+struct shmem_migrate_info {
+	void *dev_private_data;
+	int (*dev_migratepage)(struct address_space *mapping,
+			     struct page *newpage, struct page *page,
+			     enum migrate_mode mode, void *dev_priv_data);
+};
+
 static inline struct shmem_inode_info *SHMEM_I(struct inode *inode)
 {
 	return container_of(inode, struct shmem_inode_info, vfs_inode);

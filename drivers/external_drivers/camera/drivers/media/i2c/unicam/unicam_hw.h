@@ -2,16 +2,16 @@
 #define __UNICAM_HW_H__
 
 #ifndef UNI_NO_EXT
-//#include "unicam_hm8131.h"
-//#include "unicam_hm2056.h"
-//#include "unicam_m1040.h"
-//#include "unicam_ar0543.h"
-//#include "unicam_hm2051.h"
-//#include "unicam_ov8865.h"
+#include "unicam_hm8131.h"
+#include "unicam_hm2056.h"
+#include "unicam_m1040.h"
+#include "unicam_ar0543.h"
+#include "unicam_hm2051.h"
+#include "unicam_ov8865.h"
 #include "unicam_gc2355.h"
 #include "unicam_ov5648.h"
 #include "unicam_hm5040.h"
-//#include "unicam_gc0310.h"
+#include "unicam_gc0310.h"
 
 enum SENSOR_CAM_TYPE {
 	sensor_ppr_cam_type,
@@ -29,7 +29,7 @@ static struct match_data m_data[]={
 //	{"hm8131",&hm8131_unidev},//himax hm8131 8M
 //	{"ov8865",&ov8865_unidev},//ov8865 8M
 	{"ov5648",&ov5648_unidev},//ov ov5648 5M
-	{"hm5040",&hm5040_unidev},//himax hm5040 5M
+//	{"hm5040",&hm5040_unidev},//himax hm5040 5M
 	{},
 };
 

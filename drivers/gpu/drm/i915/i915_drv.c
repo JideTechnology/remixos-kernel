@@ -276,7 +276,7 @@ static const struct intel_device_info intel_valleyview_m_info = {
 	.display_mmio_offset = VLV_DISPLAY_BASE,
 	.has_fbc = 0, /* legal, last one wins */
 	.has_llc = 0, /* legal, last one wins */
-	.has_dpst = 1,
+	.has_dpst = 0,
 	GEN_DEFAULT_PIPEOFFSETS,
 	CURSOR_OFFSETS,
 };
@@ -308,7 +308,7 @@ static const struct intel_device_info intel_haswell_m_info = {
 	.is_mobile = 1,
 	.has_ddi = 1,
 	.has_fpga_dbg = 1,
-	.has_dpst = 1,
+	.has_dpst = 0,
 	.ring_mask = RENDER_RING | BSD_RING | BLT_RING | VEBOX_RING,
 	GEN_DEFAULT_PIPEOFFSETS,
 	IVB_CURSOR_OFFSETS,
@@ -332,7 +332,7 @@ static const struct intel_device_info intel_broadwell_m_info = {
 	.has_llc = 1,
 	.has_ddi = 1,
 	.has_fbc = 1,
-	.has_dpst = 1,
+	.has_dpst = 0,
 	GEN_DEFAULT_PIPEOFFSETS,
 	IVB_CURSOR_OFFSETS,
 };
@@ -365,7 +365,7 @@ static const struct intel_device_info intel_cherryview_info = {
 	.need_gfx_hws = 1, .has_hotplug = 1,
 	.ring_mask = RENDER_RING | BSD_RING | BLT_RING | VEBOX_RING,
 	.is_valleyview = 1,
-	.has_dpst = 1,
+	.has_dpst = 0,
 	.has_rs = 1,
 	.display_mmio_offset = VLV_DISPLAY_BASE,
 	GEN_CHV_PIPEOFFSETS,

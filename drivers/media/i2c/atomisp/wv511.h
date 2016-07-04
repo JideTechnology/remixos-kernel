@@ -49,3 +49,4 @@ struct wv511_device {
 
 
 #endif
+

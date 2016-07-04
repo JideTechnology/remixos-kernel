@@ -36,8 +36,7 @@
 #include "intel_drv.h"
 #include "intel_dsi.h"
 #include "i915_drv.h"
-extern	void intel_panel_dis_tp_irq(void);
-extern	void intel_panel_en_tp_irq(void);
+
 void
 intel_fixed_panel_mode(const struct drm_display_mode *fixed_mode,
 		       struct drm_display_mode *adjusted_mode)
@@ -647,6 +646,7 @@ intel_panel_actually_set_backlight(struct intel_connector *connector, u32 level)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	DRM_DEBUG_DRIVER("set backlight PWM = %d\n", level);
+
 	level = intel_panel_compute_brightness(connector, level);
 	dev_priv->display.set_backlight(connector, level);
 }
@@ -721,6 +721,7 @@ static void i965_disable_backlight(struct intel_connector *connector)
 	u32 tmp;
 
 	intel_panel_actually_set_backlight(connector, 0);
+
 	tmp = I915_READ(BLC_PWM_CTL2);
 	I915_WRITE(BLC_PWM_CTL2, tmp & ~BLM_PWM_ENABLE);
 }
@@ -770,7 +771,7 @@ static void vlv_disable_mipi_backlight(struct intel_connector *connector)
 	}
 
 	intel_panel_actually_set_backlight(connector, 0);
-	intel_panel_dis_tp_irq();
+
 	//if (intel_dsi->dev.dev_ops->disable_backlight)
 	//	intel_dsi->dev.dev_ops->disable_backlight(&intel_dsi->dev);
 	//printk("vlv_disable_mipi_backlight....\n");
@@ -800,8 +801,11 @@ void intel_panel_disable_backlight(struct intel_connector *connector)
 		DRM_DEBUG_DRIVER("Skipping backlight disable on vga switch\n");
 		return;
 	}
+
 	mutex_lock(&dev_priv->backlight_lock);
+
 	panel->backlight.enabled = false;
+
 	if (!dev_priv->vbt.has_mipi) {
 		dev_priv->display.disable_backlight(connector);
 		mutex_unlock(&dev_priv->backlight_lock);
@@ -814,6 +818,7 @@ void intel_panel_disable_backlight(struct intel_connector *connector)
 	 * in case of MIPI we use PMIC cals which cannot be done within
 	 * mutex
 	 */
+//	printk("intel_panel_disable_backlight....\n");
 	dev_priv->display.disable_backlight(connector);
 }
 
@@ -1092,7 +1097,7 @@ static void vlv_enable_mipi_backlight(struct intel_connector *connector)
 
 	 if (dev_priv->vbt.dsi.config->pmic_soc_blc) 
 	 	lpio_enable_backlight(dev); 
-	intel_panel_en_tp_irq();
+
 	//if (intel_dsi->dev.dev_ops->enable_backlight)
 	//	intel_dsi->dev.dev_ops->enable_backlight(&intel_dsi->dev);
 	//printk("vlv_enable_mipi_backlight..........\n");

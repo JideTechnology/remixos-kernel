@@ -25,6 +25,7 @@
 #include <linux/uaccess.h>
 #include <linux/suspend.h>
 
+#include <linux/syscore_ops.h>
 #include <asm/pmc_atom.h>
 
 #define	DRIVER_NAME	KBUILD_MODNAME
@@ -600,6 +601,28 @@ err:
 }
 #endif /* CONFIG_DEBUG_FS */
 
+#define	PMC_RTC_STS	(1 << 10)
+static void pmc_resume(void)
+{
+	u32 value;
+
+	if (!acpi_base_addr)
+		return;
+
+	value = inl(acpi_base_addr + 0);
+
+	value &= 0xFFFF;
+	pr_info("pmc: wakeup status[%x]\n", value);
+	if (value & PMC_RTC_STS)
+		pr_info("pmc: rtc might wake up system!\n");
+
+	return;
+}
+
+static struct syscore_ops pmc_syscore_ops = {
+	.resume = pmc_resume,
+};
+
 static int pmc_setup_dev(struct pci_dev *pdev)
 {
 	struct pmc_dev *pmc = &pmc_device;
@@ -672,6 +695,8 @@ static int __init pmc_atom_init(void)
 	int err = -ENODEV;
 	struct pci_dev *pdev = NULL;
 	const struct pci_device_id *ent;
+
+	register_syscore_ops(&pmc_syscore_ops);
 
 	/* We look for our device - PCU PMC
 	 * we assume that there is max. one device.

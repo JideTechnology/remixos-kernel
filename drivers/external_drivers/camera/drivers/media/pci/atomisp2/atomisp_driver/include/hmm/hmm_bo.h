@@ -84,7 +84,6 @@ enum hmm_bo_type {
 #ifdef CONFIG_ION
 	HMM_BO_ION,
 #endif
-	HMM_BO_LAST,
 };
 
 enum hmm_page_type {

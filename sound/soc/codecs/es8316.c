@@ -116,8 +116,9 @@ struct es8316_priv {
 	unsigned int dmic_amic;
 	unsigned int sysclk;
 	struct snd_pcm_hw_constraint_list *sysclk_constraints;
+	struct delayed_work pcm_pop_work;
 };
-
+struct snd_soc_codec *tron_codec;
 /*
 * es8316_reset
 * write value 0xff to reg0x00, the chip will be in reset mode
@@ -309,14 +310,14 @@ static const struct snd_kcontrol_new es8316_right_hpmux_controls =
 static const struct snd_kcontrol_new es8316_out_left_mix[] = {
 	SOC_DAPM_SINGLE("LLIN Switch", ES8316_HPMIX_SWITCH_REG14,
 			6, 1, 0),
-	SOC_DAPM_SINGLE("Left DAC Switch", 0x17,
-			6, 1, 0),
+	SOC_DAPM_SINGLE("Left DAC Switch", 0x30,
+			5, 1, 0),
 };
 static const struct snd_kcontrol_new es8316_out_right_mix[] = {
 	SOC_DAPM_SINGLE("RLIN Switch", ES8316_HPMIX_SWITCH_REG14,
 			2, 1, 0),
-	SOC_DAPM_SINGLE("Right DAC Switch", 0x17,
-			2, 1, 0),
+	SOC_DAPM_SINGLE("Right DAC Switch", 0x30,
+			5, 1, 0),
 };
 
 /* DAC data source mux */
@@ -407,14 +408,14 @@ static const struct snd_soc_dapm_widget es8316_dapm_widgets[] = {
                  2, 0, NULL, 0),
 */
          /* Ouput Driver */
-         SND_SOC_DAPM_PGA("HPVOL L", 0x33,
+         SND_SOC_DAPM_PGA("HPVOL L", SND_SOC_NOPM,
                  7, 1, NULL, 0),
-         SND_SOC_DAPM_PGA("HPVOL R", 0x34,
+         SND_SOC_DAPM_PGA("HPVOL R", SND_SOC_NOPM,
                  7, 1, NULL, 0),
  	/* Ouput Driver */
-         SND_SOC_DAPM_PGA("SPKVOL L", 0x33,
+         SND_SOC_DAPM_PGA("SPKVOL L", SND_SOC_NOPM,
                  7, 1, NULL, 0),
-         SND_SOC_DAPM_PGA("SPKVOL R", 0x34,
+         SND_SOC_DAPM_PGA("SPKVOL R", SND_SOC_NOPM,
                  7, 1, NULL, 0),
 
 		
@@ -724,29 +725,65 @@ static int es8316_set_dai_fmt(struct snd_soc_dai *codec_dai,
     return 0;
 }
 
+static void pcm_pop_work_events(struct work_struct *work)
+{
+	int ret;
+	//printk("es8316--------pcm_pop_work_events\n");
+	snd_soc_write(tron_codec,ES8316_CPHP_OUTEN_REG17,0x66);
+	ret=snd_soc_read(tron_codec, ES8316_GPIO_FLAG);
+	if((ret & 0x04)==0x04) {			
+	 	gpio_set_value(368, 1);
+	 	//printk("2222 gpio_set_value 1\n"); 
+	}	
+	es8316_init_reg=1;
+}
+
 static int es8316_pcm_startup(struct snd_pcm_substream *substream,
 			      struct snd_soc_dai *dai)
 {
 	struct snd_soc_codec *codec = dai->codec;
 	struct es8316_priv *es8316 = snd_soc_codec_get_drvdata(codec);
-        
-	DBG("Enter::%s----%d  es8316->sysclk=%d\n",__FUNCTION__,__LINE__,es8316->sysclk);
-
-	/* The set of sample rates that can be supported depends on the
-	 * MCLK supplied to the CODEC - enforce this.
-	 */
-	if (!es8316->sysclk) {
-		dev_err(codec->dev,
-			"No MCLK configured, call set_sysclk() on init\n");
-		return -EINVAL;
-	}
-
-	snd_pcm_hw_constraint_list(substream->runtime, 0,
-				   SNDRV_PCM_HW_PARAM_RATE,
-				   es8316->sysclk_constraints);
-
-	return 0;
+	bool playback = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK);
+  int ret;     
+	//printk("es8316_pcm_startup Enter::%s----%d  es8316->sysclk=%d\n",__FUNCTION__,__LINE__,es8316->sysclk);
+	if(playback)
+	{		
+		snd_soc_write(codec, 0x50, 0xAA);
+		 if(es8316_init_reg==0){
+         //printk("==================>>>>>>>>es8316_pcm_startup es8316_init_reg=0\n");
+         schedule_delayed_work(&es8316->pcm_pop_work,msecs_to_jiffies(100));
+        }
+        else{
+				ret = snd_soc_read(codec, ES8316_GPIO_FLAG);
+			if((ret & 0x04)==0x04)
+			{			
+				gpio_set_value(368, 1);
+				// printk("es8316_pcm_startup gpio_set_value 1\n");   
+				//msleep(250);                       	
+			}		
+ 		 }  
+	}		    	
+ 	return 0;
 }
+
+static void es8316_pcm_shutdown(struct snd_pcm_substream *substream,
+			    struct snd_soc_dai *dai)
+{
+		bool playback = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK);
+		struct snd_soc_codec *codec = dai->codec;
+		struct es8316_priv *es8316 = snd_soc_codec_get_drvdata(codec);
+		if(playback)
+	{		
+			snd_soc_write(codec, ES8316_DAC_SET1_REG30, 0x30);//close 功放 
+			gpio_set_value(368, 0);
+			snd_soc_write(codec, 0x50, 0xA0);
+ 			//printk("es8316_pcm_shutdown----gpio_set_value 0\n");   
+			//printk("%s playback\n",__FUNCTION__);
+	}   	
+ 	return 0;
+}
+
+
 static int es8316_pcm_hw_params(struct snd_pcm_substream *substream,
 				struct snd_pcm_hw_params *params,
 				struct snd_soc_dai *dai)
@@ -766,6 +803,7 @@ static int es8316_pcm_hw_params(struct snd_pcm_substream *substream,
  	u16 daclrckdiv_l = snd_soc_read(codec, ES8316_CLKMGR_DACDIV2_REG07) & 0x00;
 	u16 adclrckdiv_h = adcdiv & 0xf0;
 	u16 daclrckdiv_h = dacdiv & 0xf0;	
+	int ret;
  	adcdiv &= 0x0f;
  	dacdiv &= 0x0f;
 
@@ -826,54 +864,68 @@ static int es8316_pcm_hw_params(struct snd_pcm_substream *substream,
       * must do codec power on initialization at here becauses MCLK and I2S CLK always startup at here
      */
 		retv = snd_soc_read(codec, 0x14) ; 
-		pr_err("%s:%d,   retv=%x \n", __func__, __LINE__, retv);
-		if(es8316_init_reg>0){ 
+		//pr_err("%s:%d,   retv=%x \n", __func__, __LINE__, retv);
+		if(es8316_init_reg>0){ 		
+			//printk("===%s es8316_init_reg>0\n", __func__);	
 			snd_soc_write(codec, 0X17, 0x66);
 			snd_soc_write(codec, ES8316_DAC_SET1_REG30, 0x10);
+			ret = snd_soc_read(codec, ES8316_GPIO_FLAG);
+			if((ret & 0x04)==0x04) {
+			if(es8316_init_reg>0){
+ 			    gpio_set_value(368, 1);
+ 			   // printk("gpio_set_value 1\n");   
+ 			    //msleep(250);
+                        } 	
+			}	
+			
 		}else{
+			//printk("===%s es8316_init_reg=0\n", __func__);
 			snd_soc_write(codec, 0x01, 	0x7F);
 			snd_soc_write(codec, 0x2F,	0x00);
-			snd_soc_write(codec, 0X18, 	0x11);
+			snd_soc_write(codec, 0X18, 	0x00);
 			snd_soc_write(codec, 0X1b, 	0x30);
 			snd_soc_write(codec, 0X1a, 	0x10);
 			snd_soc_write(codec, 0X19, 	0x03);
-			msleep(10);
+			//msleep(10);
 			snd_soc_write(codec, 0X14,	0x88);
 			snd_soc_write(codec, 0X15, 	0x00);
 			snd_soc_write(codec, 0X16, 	0xbb);      
 			snd_soc_write(codec, 0x00,	0xC0);  //CHARGE PUMP DIVIDER
 			msleep(50);
 			snd_soc_write(codec, 0X17, 0x66);
-			snd_soc_write(codec, ES8316_DAC_SET1_REG30, 0x30);		
+			snd_soc_write(codec, ES8316_DAC_SET1_REG30, 0x00);		
 			snd_soc_write(codec, ES8316_GPIO_SEL_REG4D, 0x00);	//set gpio2 to GM SHORT
 			snd_soc_write(codec, ES8316_GPIO_DEBUNCE_INT_REG4E, 0xf3);  //maximum debance time, enable interrupt, low active
-			es8316_set_bias_level(codec, SND_SOC_BIAS_ON);
-			es8316_init_reg = 1;
+			es8316_set_bias_level(codec, SND_SOC_BIAS_ON);			
+			//es8316_init_reg = 1;
 		}
-		pr_err("%s:%d,   retv=%x \n", __func__, __LINE__, retv);
+		//pr_err("%s:%d,   retv=%x \n", __func__, __LINE__, retv);
 	}
 
 	//snd_soc_write(codec,ES8316_DAC_SET2_REG31, 0x20); 
 	retv = snd_soc_read(codec, ES8316_GPIO_FLAG);
-	pr_err("%s:%d,   retv=%x \n", __func__, __LINE__, retv);
+	//pr_err("%s:%d,   retv=%x \n", __func__, __LINE__, retv);
 	return 0;
 }
 
 static int es8316_mute(struct snd_soc_dai *dai, int mute)
 {
+	//printk("===enter %s\n", __func__);	
+	#if 0
 	struct snd_soc_codec *codec = dai->codec;
 	int ret;
 	dev_dbg(codec->dev, "%s %d\n", __func__, mute);
 	if (mute){ 	
-		snd_soc_write(codec, ES8316_DAC_SET1_REG30, 0x20);//close 功放 
-		gpio_set_value(341, 0);
+		//snd_soc_write(codec, ES8316_DAC_SET1_REG30, 0x20);//close 功放 
+		gpio_set_value(368, 0);
 	}else{
-		snd_soc_write(codec, ES8316_DAC_SET1_REG30, 0x00);
+		//snd_soc_write(codec, ES8316_DAC_SET1_REG30, 0x00);
 		ret = snd_soc_read(codec, ES8316_GPIO_FLAG);
 		if((ret & 0x04)==0x04)	{ //remove
-			gpio_set_value(341, 1);    	
+		gpio_set_value(368, 1);    	
 		}
 	}
+	#endif
 	return 0;
 }
 
@@ -897,9 +949,9 @@ static int es8316_set_bias_level(struct snd_soc_codec *codec,
 				snd_soc_write(codec, ES8316_CPHP_PDN2_REG1A, 0x10);		
 				snd_soc_write(codec, ES8316_CPHP_LDOCTL_REG1B, 0x30);
 				snd_soc_write(codec, ES8316_CPHP_PDN1_REG19, 0x03);
-				snd_soc_write(codec, ES8316_CPHP_ICAL_VOL_REG18, 0x11);
+				snd_soc_write(codec, ES8316_CPHP_ICAL_VOL_REG18, 0x00);
 				snd_soc_write(codec, ES8316_RESET_REG00, 0xC0);	
-				snd_soc_write(codec, ES8316_CPHP_OUTEN_REG17, 0x66);
+				//snd_soc_write(codec, ES8316_CPHP_OUTEN_REG17, 0x66);
 			}
 		break;
 	case SND_SOC_BIAS_STANDBY:
@@ -915,9 +967,9 @@ static int es8316_set_bias_level(struct snd_soc_codec *codec,
 				snd_soc_write(codec, ES8316_CPHP_PDN2_REG1A, 0x10);		
 				snd_soc_write(codec, ES8316_CPHP_LDOCTL_REG1B, 0x30);
 				snd_soc_write(codec, ES8316_CPHP_PDN1_REG19, 0x03);
-				snd_soc_write(codec, ES8316_CPHP_ICAL_VOL_REG18, 0x11);
+				snd_soc_write(codec, ES8316_CPHP_ICAL_VOL_REG18, 0x00);
 				snd_soc_write(codec, ES8316_RESET_REG00, 0xC0);	
-				snd_soc_write(codec, ES8316_CPHP_OUTEN_REG17, 0x66);	
+				//snd_soc_write(codec, ES8316_CPHP_OUTEN_REG17, 0x66);	
 			}
 		break;
 	case SND_SOC_BIAS_OFF:
@@ -950,11 +1002,12 @@ static int es8316_set_bias_level(struct snd_soc_codec *codec,
 	SNDRV_PCM_FMTBIT_S24_LE)
 
 static struct snd_soc_dai_ops es8316_ops = {
-	//.startup = es8316_pcm_startup,
+	.startup = es8316_pcm_startup,
 	.hw_params = es8316_pcm_hw_params,
 	.set_fmt = es8316_set_dai_fmt,
 	.set_sysclk = es8316_set_dai_sysclk,
 	.digital_mute = es8316_mute,
+	.shutdown = es8316_pcm_shutdown,
 };
 
 static struct snd_soc_dai_driver es8316_dai = {
@@ -1013,7 +1066,7 @@ static int es8316_init_regs(struct snd_soc_codec *codec)
 	snd_soc_write(codec, 0x14,0x88);  //MIXER
 	snd_soc_write(codec, 0x15,0x00);  //MIXER
 	snd_soc_write(codec, 0x16,0xAA);  //MIXER
-	snd_soc_write(codec, 0X18,0x11);  //CHARGE PUMP 
+	snd_soc_write(codec, 0X18,0x00);  //CHARGE PUMP 
 	snd_soc_write(codec, 0X31, 0x00); //CHARGE PUMP 	
 	snd_soc_write(codec, 0X29, 0xd2); //CHARGE PUMP 
 	snd_soc_write(codec, 0X2A, 0x08); //vmidlow = 10'b
@@ -1030,7 +1083,7 @@ static int es8316_init_regs(struct snd_soc_codec *codec)
 	snd_soc_write(codec, 0X52, 0x00);
 	//msleep(50);
 
-	snd_soc_write(codec, 0X18, 0x11);
+	snd_soc_write(codec, 0X18, 0x00);
 	snd_soc_write(codec, 0X1b, 0x30);
 	snd_soc_write(codec, 0X1a, 0x10);
 	snd_soc_write(codec, 0X19, 0x03);
@@ -1041,91 +1094,103 @@ static int es8316_init_regs(struct snd_soc_codec *codec)
 	return 0;
 }
 
-static int es8316_suspend(struct snd_soc_codec *codec, pm_message_t state)
+//static int es8316_suspend(struct snd_soc_codec *codec, pm_message_t state)
+static int es8316_suspend(struct device *dev)
 {
-	printk("SUSPEND\n");
-	// gpio_set_value(139, 0);
-	msleep(100);
+	//printk("%s suspend\n", __func__);
+	gpio_set_value(368, 0);
 	// snd_soc_write(codec, ES8316_CPHP_ICAL_VOL_REG18, 0x33);
 	if(es8316_init_reg>0){ 
 		/*if Codec has been initialized before, then enter into suspend directly */
-		snd_soc_write(codec, ES8316_CPHP_OUTEN_REG17, 0x00);
-		snd_soc_write(codec, 0x2f, 0x11);
-		snd_soc_write(codec, ES8316_CPHP_LDOCTL_REG1B, 0x03);
-		snd_soc_write(codec, ES8316_CPHP_PDN2_REG1A, 0x22);
-		snd_soc_write(codec, ES8316_CPHP_PDN1_REG19, 0x06);
-		snd_soc_write(codec, ES8316_HPMIX_SWITCH_REG14, 0x00);
-		snd_soc_write(codec, ES8316_HPMIX_PDN_REG15, 0x33);
-		snd_soc_write(codec, ES8316_HPMIX_VOL_REG16, 0x00);
-		snd_soc_update_bits(codec, ES8316_ADC_PDN_LINSEL_REG22, 0xC0, 0xc0);		
-		snd_soc_write(codec, ES8316_CLKMGR_CLKSW_REG01, 0x03);		
+		//printk("===%s es8316_init_reg > 0\n", __func__);
+		snd_soc_write(tron_codec, ES8316_CPHP_ICAL_VOL_REG18, 0x11);
+		mdelay(5);
+		snd_soc_write(tron_codec, ES8316_CPHP_OUTEN_REG17, 0x00);
+		snd_soc_write(tron_codec, 0x2f, 0x11);
+		snd_soc_write(tron_codec, ES8316_CPHP_LDOCTL_REG1B, 0x03);
+		snd_soc_write(tron_codec, ES8316_CPHP_PDN2_REG1A, 0x22);
+		snd_soc_write(tron_codec, ES8316_CPHP_PDN1_REG19, 0x06);
+		snd_soc_write(tron_codec, ES8316_HPMIX_SWITCH_REG14, 0x00);
+		snd_soc_write(tron_codec, ES8316_HPMIX_PDN_REG15, 0x33);
+		snd_soc_write(tron_codec, ES8316_HPMIX_VOL_REG16, 0x00);
+		snd_soc_update_bits(tron_codec, ES8316_ADC_PDN_LINSEL_REG22, 0xC0, 0xc0);		
+		snd_soc_write(tron_codec, ES8316_CLKMGR_CLKSW_REG01, 0x03);	
+		//snd_soc_write(tron_codec, 0x00,0x7f);  //CHARGE PUMP DIVIDER		
 	} else {
+	#if 0
 		/*if Codec  has not been initialized before,  enter into normal mode firstly, then enter into suspend at last */
-		//snd_soc_update_bits(codec, ES8316_ADC_PDN_LINSEL_REG22, 0xC0, 0x00);		
-		snd_soc_write(codec, 0x2F,	0x00);
-		snd_soc_write(codec, 0X18, 0x11);
-		snd_soc_write(codec, 0X1b, 0x30);
-		snd_soc_write(codec, 0X1a, 0x10);
-		snd_soc_write(codec, 0X19, 0x03);
-		snd_soc_write(codec, 0X14, 0x88);
-		snd_soc_write(codec, 0X15, 0x00);
-		snd_soc_write(codec, 0X16, 0xbb); 	 
-		snd_soc_write(codec, 0x00,0xC0);  //CHARGE PUMP DIVIDER
-		msleep(50);
-		snd_soc_write(codec, 0X17, 0x66);
+		//snd_soc_update_bits(codec, ES8316_ADC_PDN_LINSEL_REG22, 0xC0, 0x00);	
+		//printk("===%s es8316_init_reg = 0\n", __func__);	
+		snd_soc_write(tron_codec, 0x2F,	0x00);
+		snd_soc_write(tron_codec, 0X18, 0x11);
+		snd_soc_write(tron_codec, 0X1b, 0x30);
+		snd_soc_write(tron_codec, 0X1a, 0x10);
+		snd_soc_write(tron_codec, 0X19, 0x03);
+		snd_soc_write(tron_codec, 0X14, 0x88);
+		snd_soc_write(tron_codec, 0X15, 0x00);
+		snd_soc_write(tron_codec, 0X16, 0xbb); 	 
+		snd_soc_write(tron_codec, 0x00,0xC0);  //CHARGE PUMP DIVIDER
+		//msleep(50);
+		//snd_soc_write(tron_codec, 0X17, 0x66);
 		msleep(200);			
-		snd_soc_write(codec, ES8316_CPHP_OUTEN_REG17, 0x00);
-		snd_soc_write(codec, 0x2f, 0x11);
-		snd_soc_write(codec, ES8316_CPHP_LDOCTL_REG1B, 0x03);
-		snd_soc_write(codec, ES8316_CPHP_PDN2_REG1A, 0x22);
-		snd_soc_write(codec, ES8316_CPHP_PDN1_REG19, 0x06);
-		snd_soc_write(codec, ES8316_HPMIX_SWITCH_REG14, 0x00);
-		snd_soc_write(codec, ES8316_HPMIX_PDN_REG15, 0x33);
-		snd_soc_write(codec, ES8316_HPMIX_VOL_REG16, 0x00);
-		snd_soc_update_bits(codec, ES8316_ADC_PDN_LINSEL_REG22, 0xC0, 0xc0);		
-		snd_soc_write(codec, ES8316_CLKMGR_CLKSW_REG01, 0x03);		
+		snd_soc_write(tron_codec, ES8316_CPHP_OUTEN_REG17, 0x00);
+		snd_soc_write(tron_codec, 0x2f, 0x11);
+		snd_soc_write(tron_codec, ES8316_CPHP_LDOCTL_REG1B, 0x03);
+		snd_soc_write(tron_codec, ES8316_CPHP_PDN2_REG1A, 0x22);
+		snd_soc_write(tron_codec, ES8316_CPHP_PDN1_REG19, 0x06);
+		snd_soc_write(tron_codec, ES8316_HPMIX_SWITCH_REG14, 0x00);
+		snd_soc_write(tron_codec, ES8316_HPMIX_PDN_REG15, 0x33);
+		snd_soc_write(tron_codec, ES8316_HPMIX_VOL_REG16, 0x00);
+		snd_soc_update_bits(tron_codec, ES8316_ADC_PDN_LINSEL_REG22, 0xC0, 0xc0);		
+		snd_soc_write(tron_codec, ES8316_CLKMGR_CLKSW_REG01, 0x03);		
 		//es8316_init_reg = 1;
+		#endif
 	}
+	//snd_soc_write(tron_codec, 0X4E, 0xF0); 
 	return 0;
 }
 
-static int es8316_resume(struct snd_soc_codec *codec)
+//static int es8316_resume(struct snd_soc_codec *codec)
+static int es8316_resume(struct device *dev)
 {
 	int ret;
+	//printk("===%s resume\n", __func__);
 	if(es8316_init_reg>0){
-		printk("es8316 resume\n");
-		snd_soc_write(codec, ES8316_CLKMGR_CLKSW_REG01, 0x7f);
-		snd_soc_write(codec, ES8316_CPHP_ICAL_VOL_REG18, 0x11);
-		snd_soc_write(codec, ES8316_CPHP_LDOCTL_REG1B, 0x30);		
-		snd_soc_write(codec, ES8316_CPHP_PDN2_REG1A, 0x10);
-		snd_soc_write(codec, ES8316_CPHP_PDN1_REG19, 0x02);
-		snd_soc_write(codec, ES8316_HPMIX_SWITCH_REG14, 0x88);
-		snd_soc_write(codec, ES8316_HPMIX_PDN_REG15, 0x00);
-		snd_soc_write(codec, ES8316_HPMIX_VOL_REG16, 0xbb);
-		//snd_soc_update_bits(codec, ES8316_ADC_PDN_LINSEL_REG22, 0xc0, 0x00);
-		snd_soc_write(codec, 0x2f, 0x00);
-		snd_soc_write(codec, ES8316_CPHP_OUTEN_REG17, 0x66);
+		//printk("es8316 resume\n");
+		snd_soc_write(tron_codec, ES8316_CLKMGR_CLKSW_REG01, 0x7f);
+		snd_soc_write(tron_codec, ES8316_CPHP_ICAL_VOL_REG18, 0x11);
+		snd_soc_write(tron_codec, ES8316_CPHP_LDOCTL_REG1B, 0x30);		
+		snd_soc_write(tron_codec, ES8316_CPHP_PDN2_REG1A, 0x10);
+		snd_soc_write(tron_codec, ES8316_CPHP_PDN1_REG19, 0x02);
+		snd_soc_write(tron_codec, ES8316_HPMIX_SWITCH_REG14, 0x88);
+		snd_soc_write(tron_codec, ES8316_HPMIX_PDN_REG15, 0x00);
+		snd_soc_write(tron_codec, ES8316_HPMIX_VOL_REG16, 0xbb);		
+		snd_soc_update_bits(tron_codec, ES8316_ADC_PDN_LINSEL_REG22, 0xc0, 0x00);
+		snd_soc_write(tron_codec, 0x2f, 0x00);
+		snd_soc_write(tron_codec, ES8316_CPHP_OUTEN_REG17, 0x66);
 	} 
+	//snd_soc_write(tron_codec, 0X4E, 0xF3); 
 	return 0;
 }
 
 static int es8316_probe(struct snd_soc_codec *codec)
 {
 	int ret = 0;
+//	int ReadBuffer,ReadBuffer1,ReadBuffer2;
 	struct es8316_priv *es8316 = snd_soc_codec_get_drvdata(codec);
 	pr_debug("---%s--start--\n",__FUNCTION__);
-
+  	tron_codec = codec;
 	ret = snd_soc_codec_set_cache_io(codec, 8, 8, SND_SOC_I2C);
 	if (ret < 0){
 		return ret;
 	}
 	if (ret < 0) {
 		dev_err(codec->dev,"fail to reset audio (%d)\n", ret);
-		goto err;
+		return ret;
 	}
 	es8316_init_reg = 0;
 	//gpio_set_value(139, 0);
-	//snd_soc_write(codec, 0x00, 0xc3); 
+	snd_soc_write(codec, 0x00, 0xc2); 
 	//msleep(100);
 	//retv = snd_soc_read(codec, ES8316_CLKMGR_ADCDIV2_REG05) ; 
 	snd_soc_write(codec, 0x01, 0x7f); //setup adc volume
@@ -1175,7 +1240,7 @@ static int es8316_probe(struct snd_soc_codec *codec)
 	snd_soc_write(codec, 0X2E, 0x21);
 	/*alc set*/
 	snd_soc_write(codec, 0X4D, 0x00); 
-	snd_soc_write(codec, 0X4E, 0xF3); 
+	snd_soc_write(codec, 0X4E, 0xF0);
 	snd_soc_write(codec, 0X50, 0xA0); //adc ds mode, HPF enable
 	snd_soc_write(codec, 0X51, 0x00); //ALC ON,
 	snd_soc_write(codec, 0X52, 0x00);
@@ -1184,7 +1249,7 @@ static int es8316_probe(struct snd_soc_codec *codec)
 #elif defined(HS_TIMER)
 	hsdet_init();
 #endif
-err:	
+	INIT_DELAYED_WORK(&es8316->pcm_pop_work, pcm_pop_work_events);	
 	return ret;
 }
 
@@ -1197,10 +1262,10 @@ static int es8316_remove(struct snd_soc_codec *codec)
 static struct snd_soc_codec_driver soc_codec_dev_es8316 = {
 	.probe =	es8316_probe,
 	.remove =	es8316_remove,
-	.suspend =	es8316_suspend,
-	.resume =	es8316_resume,
+	//.suspend =	es8316_suspend,
+	//.resume =	es8316_resume,
 	.set_bias_level = es8316_set_bias_level,	
-	.idle_bias_off = true,
+	//.idle_bias_off = true,
 	.reg_cache_size = ARRAY_SIZE(es8316_reg_defaults),
 	.reg_word_size = sizeof(u8),
 	.reg_cache_default = es8316_reg_defaults,
@@ -1257,11 +1322,11 @@ static void es8316_i2c_shutdown(struct i2c_client *i2c)
 {
 	struct snd_soc_codec *codec;
 
-	if (!es8316_codec)
+	if (!tron_codec)
 		goto err;
-	codec = es8316_codec;
+	codec = tron_codec;
 	if(es8316_init_reg>0){
-		snd_soc_write(codec, ES8316_CPHP_ICAL_VOL_REG18, 0x33);
+		snd_soc_write(codec, ES8316_CPHP_ICAL_VOL_REG18, 0x00);
 		snd_soc_write(codec, ES8316_CPHP_OUTEN_REG17, 0x00);
 		snd_soc_write(codec, ES8316_CPHP_LDOCTL_REG1B, 0x03);
 		snd_soc_write(codec, ES8316_CPHP_PDN2_REG1A, 0x22);
@@ -1300,6 +1365,8 @@ static int es8316_i2c_probe(struct i2c_client *i2c_client,
 		return ret;
 	}
     
+	gpio_request(368,"SPK_OUT_SHUTDOWN");
+	gpio_direction_output(368, 0);
 	return ret;
 }
 
@@ -1317,10 +1384,17 @@ static const struct i2c_device_id es8316_i2c_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, es8316_i2c_id);
 
+static struct dev_pm_ops es8316_pm_ops = {
+	.suspend = es8316_suspend,
+	.resume  = es8316_resume,
+};
+
+
 static struct i2c_driver es8316_i2c_driver = {
 	.driver = {
 		.name = "es8316",
 		.owner = THIS_MODULE,
+		.pm = &es8316_pm_ops,
 	//	.acpi_match_table = ACPI_PTR(es8316_i2c_id),
 	},
 	.shutdown = es8316_i2c_shutdown,

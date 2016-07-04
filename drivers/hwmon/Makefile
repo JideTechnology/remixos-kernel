@@ -145,6 +145,8 @@ obj-$(CONFIG_SENSORS_WM8350)	+= wm8350-hwmon.o
 obj-$(CONFIG_INTEL_SOC_PMIC)	+= intel_wcove_bcu.o
 
 obj-$(CONFIG_PMBUS)		+= pmbus/
+obj-y					+= light/
+obj-$(CONFIG_SENSORS_BMA250)    += bma250_driver.o
 
 ccflags-$(CONFIG_HWMON_DEBUG_CHIP) := -DDEBUG
 

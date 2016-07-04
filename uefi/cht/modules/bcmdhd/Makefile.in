@@ -1,9 +1,0 @@
-ifneq ($(CONFIG_BCMDHD_PCIE),)
-        obj-$(CONFIG_BCMDHD)   := bcmdhd_pcie.o
-        bcmdhd_pcie-objs := bcmdhd_pcie_bin.o
-endif
-ifneq ($(CONFIG_BCMDHD_SDIO),)
-        obj-$(CONFIG_BCMDHD)   := bcmdhd.o
-        bcmdhd-objs := bcmdhd_bin.o
-endif
-

@@ -131,6 +131,24 @@
 #define OV5648_MWB_BLUE_GAIN_H		0x518A
 #define OV5648_MWB_GAIN_MAX		0x0fff
 
+
+#define VCM_ADDR           0x0c
+#define VCM_CODE_MSB       0x03
+#define VCM_CODE_LSB       0x04
+#define VCM_MAX_FOCUS_POS  1023
+
+#define OV5648_VCM_SLEW_STEP		0x30F0
+#define OV5648_VCM_SLEW_STEP_MAX	0x7
+#define OV5648_VCM_SLEW_STEP_MASK	0x7
+#define OV5648_VCM_CODE			0x30F2
+#define OV5648_VCM_SLEW_TIME		0x30F4
+#define OV5648_VCM_SLEW_TIME_MAX	0xffff
+#define OV5648_VCM_ENABLE		0x8000
+
+#define OV5648_MAX_FOCUS_POS	255
+#define OV5648_MAX_FOCUS_NEG	(-255)
+
+
 #define OV5648_START_STREAMING		0x01
 #define OV5648_STOP_STREAMING		0x00
 
@@ -203,9 +221,10 @@ struct ov5648_device {
 	u8 type;
 
 	char *camera_module;
-	struct camera_vcm_control *vcm_driver;
+	struct ov5648_vcm *vcm_driver;
 	struct otp_struct current_otp;
 	int pre_digitgain;
+	//struct v4l2_ctrl_handler ctrl_handler;
 };
 
 enum ov5648_tok_type {
@@ -841,5 +860,86 @@ struct ov5648_resolution ov5648_res_video[] = {
 static struct ov5648_resolution *ov5648_res = ov5648_res_preview;
 static int N_RES = N_RES_PREVIEW;
 //static int has_otp = -1;	/*0:has valid otp, 1:no valid otp */
+
+struct ov5648_vcm {
+	int (*power_up) (struct v4l2_subdev *sd);
+	int (*power_down) (struct v4l2_subdev *sd);
+	int (*init) (struct v4l2_subdev *sd);
+	int (*t_focus_vcm) (struct v4l2_subdev *sd, u16 val);
+	int (*t_focus_abs) (struct v4l2_subdev *sd, s32 value);
+	int (*t_focus_rel) (struct v4l2_subdev *sd, s32 value);
+	int (*q_focus_status) (struct v4l2_subdev *sd, s32 *value);
+	int (*q_focus_abs) (struct v4l2_subdev *sd, s32 *value);
+	int (*t_vcm_slew) (struct v4l2_subdev *sd, s32 value);
+	int (*t_vcm_timing) (struct v4l2_subdev *sd, s32 value);
+};
+
+
+//#define CONFIG_VIDEO_WV511
+#define CONFIG_VIDEO_DW9714
+#define WV511  0x11
+#define DW9714 0x14
+//#define VM149  0x49
+extern int dw9714_vcm_power_up(struct v4l2_subdev *sd);
+extern int dw9714_vcm_power_down(struct v4l2_subdev *sd);
+extern int dw9714_vcm_init(struct v4l2_subdev *sd);
+extern int dw9714_t_focus_vcm(struct v4l2_subdev *sd, u16 val);
+extern int dw9714_t_focus_abs(struct v4l2_subdev *sd, s32 value);
+extern int dw9714_t_focus_rel(struct v4l2_subdev *sd, s32 value);
+extern int dw9714_q_focus_status(struct v4l2_subdev *sd, s32 *value);
+extern int dw9714_q_focus_abs(struct v4l2_subdev *sd, s32 *value);
+extern int dw9714_t_vcm_slew(struct v4l2_subdev *sd, s32 value);
+extern int dw9714_t_vcm_timing(struct v4l2_subdev *sd, s32 value);
+#if 0
+extern int vm149_vcm_power_up(struct v4l2_subdev *sd);
+extern int vm149_vcm_power_down(struct v4l2_subdev *sd);
+extern int vm149_vcm_init(struct v4l2_subdev *sd);
+extern int vm149_t_focus_vcm(struct v4l2_subdev *sd, u16 val);
+extern int vm149_t_focus_abs(struct v4l2_subdev *sd, s32 value);
+extern int vm149_t_focus_rel(struct v4l2_subdev *sd, s32 value);
+extern int vm149_q_focus_status(struct v4l2_subdev *sd, s32 *value);
+extern int vm149_q_focus_abs(struct v4l2_subdev *sd, s32 *value);
+extern int vm149_t_vcm_slew(struct v4l2_subdev *sd, s32 value);
+extern int vm149_t_vcm_timing(struct v4l2_subdev *sd, s32 value);
+#endif
+
+extern int wv511_vcm_power_up(struct v4l2_subdev *sd);
+extern int wv511_vcm_power_down(struct v4l2_subdev *sd);
+extern int wv511_vcm_init(struct v4l2_subdev *sd);
+extern int wv511_t_focus_vcm(struct v4l2_subdev *sd, u16 val);
+extern int wv511_t_focus_abs(struct v4l2_subdev *sd, s32 value);
+extern int wv511_t_focus_rel(struct v4l2_subdev *sd, s32 value);
+extern int wv511_q_focus_status(struct v4l2_subdev *sd, s32 *value);
+extern int wv511_q_focus_abs(struct v4l2_subdev *sd, s32 *value);
+extern int wv511_t_vcm_slew(struct v4l2_subdev *sd, s32 value);
+extern int wv511_t_vcm_timing(struct v4l2_subdev *sd, s32 value);
+
+struct ov5648_vcm ov5648_vcms[] = {
+	[WV511] = {
+		.power_up = wv511_vcm_power_up,
+		.power_down = wv511_vcm_power_down,
+		.init = wv511_vcm_init,
+		.t_focus_vcm = wv511_t_focus_vcm,
+		.t_focus_abs = wv511_t_focus_abs,
+		.t_focus_rel = wv511_t_focus_rel,
+		.q_focus_status = wv511_q_focus_status,
+		.q_focus_abs = wv511_q_focus_abs,
+		.t_vcm_slew = wv511_t_vcm_slew,
+		.t_vcm_timing = wv511_t_vcm_timing,
+	},
+	[DW9714] = {
+		    .power_up = dw9714_vcm_power_up,
+		    .power_down = dw9714_vcm_power_down,
+		    .init = dw9714_vcm_init,
+		    .t_focus_vcm = dw9714_t_focus_vcm,
+		    .t_focus_abs = dw9714_t_focus_abs,
+		    .t_focus_rel = dw9714_t_focus_rel,
+		    .q_focus_status = dw9714_q_focus_status,
+		    .q_focus_abs = dw9714_q_focus_abs,
+		    .t_vcm_slew = dw9714_t_vcm_slew,
+		    .t_vcm_timing = dw9714_t_vcm_timing,
+		    },
+};
+
 
 #endif

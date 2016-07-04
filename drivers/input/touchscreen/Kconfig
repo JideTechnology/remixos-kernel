@@ -994,8 +994,20 @@ config TOUCHSCREEN_SILEAD_GSL3680
 
 	  To compile this driver as a module, Choose M here: the
 	  module will be called gsl1688_ts.
+config EMITOUCH_HANVON
+	tristate "HANVON0806 elect_touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have a hanvon touch chip.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, Choose M here: the
+	  module will be called hanvon.
 
 source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
 source "drivers/input/touchscreen/gt9xx/Kconfig"
 source "drivers/input/touchscreen/ftxxxx/Kconfig"
+source "drivers/input/touchscreen/silead/Kconfig"
+source "drivers/input/touchscreen/icn85xx/Kconfig"
 endif

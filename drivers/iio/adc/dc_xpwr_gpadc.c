@@ -76,7 +76,7 @@
 #define ADC_NON_BAT_CUR_DATAL_MASK	0x0F
 
 #define ADC_TS_PIN_CNRTL_REG           0x84
-#define ADC_TS_PIN_ON                  0x32
+#define ADC_TS_PIN_ON                  0xF2
 #define ADC_GP_CURSRC_MASK		0xC0
 #define ADC_GP_CURSRC_SHIFT		6
 #define ADC_VOLTS_PER_BIT		80

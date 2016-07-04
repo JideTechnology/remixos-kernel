@@ -1,0 +1,6 @@
+config TOUCHSCREEN_ICN85XX
+	tristate "icn85xx touchscreen"
+	depends on I2C
+	default n
+	help
+	  Say Y here if you have a icn85xx touchscreen.

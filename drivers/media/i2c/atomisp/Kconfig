@@ -31,7 +31,18 @@ config VIDEO_OV2680
 
          It currently only works with the atomisp driver.
 
-config VIDEO_OV5648
+config VIDEO_OV2680B
+       tristate "Omnivision OV2680B sensor support"
+       depends on I2C && VIDEO_V4L2
+       ---help---
+         This is a Video4Linux2 sensor-level driver for the Omnivision
+         OV2680 raw camera.
+
+         ov2680 is a 2M raw sensor.
+
+         It currently only works with the atomisp driver.
+
+config VIDEO_OV5648B
        tristate "Omnivision OV5648 sensor support"
        depends on I2C && VIDEO_V4L2
        ---help---

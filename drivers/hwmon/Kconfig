@@ -1026,6 +1026,7 @@ config SENSORS_PCF8591
 	  hardware.  If unsure, say N.
 
 source drivers/hwmon/pmbus/Kconfig
+source drivers/hwmon/light/Kconfig
 
 config SENSORS_SHT15
 	tristate "Sensiron humidity and temperature sensors. SHT15 and compat."
@@ -1555,6 +1556,12 @@ config SENSORS_MC13783_ADC
         depends on MFD_MC13XXX
         help
           Support for the A/D converter on MC13783 and MC13892 PMIC.
+
+config SENSORS_BMA250
+        bool "BMA250 Acceleration Sensor Driver"
+        depends on I2C
+        help
+         BMA250 Acceleration Sensor Driver implemented by Bosch-Sensortec.
 
 if ACPI
 

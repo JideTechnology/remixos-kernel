@@ -33,7 +33,7 @@
 
 #include "../host/xhci.h"
 #include "../host/xhci-intel-cap.h"
-
+#include <linux/wakelock.h>
 #include <asm/intel_em_config.h>
 #include "phy-intel-cht.h"
 
@@ -51,6 +51,7 @@
 static const char driver_name[] = "intel-cht-otg";
 
 static struct cht_otg *cht_otg_dev;
+struct wake_lock otg_wakelock;
 
 static int edev_state_to_id(struct extcon_dev *evdev)
 {
@@ -100,7 +101,6 @@ static int cht_otg_set_id_mux(struct cht_otg *otg_dev, int id)
 
 	hcd = bus_to_hcd(host);
 	xhci = hcd_to_xhci(hcd);
-
 	/* HACK: PHY used in Cherrytrail is shared by both host and device
 	 * controller, it requires both host and device controller to be D0
 	 * for any action related to PHY transition */
@@ -171,6 +171,9 @@ static int cht_otg_start_gadget(struct otg_fsm *fsm, int on)
 
 	if (!otg->gadget)
 		return -ENODEV;
+
+	/* Just switch the mux to host path */
+	retval = cht_otg_set_id_mux(otg_dev, on);
 
 	if (on)
 		cht_otg_device_start_watchdog(otg_dev);
@@ -609,6 +612,16 @@ static int cht_handle_extcon_otg_event(struct notifier_block *nb,
 
 	dev_info(cht_otg_dev->phy.dev, "[extcon notification]: USB-Host: %s\n",
 			id ? "Disconnected" : "connected");
+	
+    /*hold a wakelock when insert otg*/
+    if(id==0){
+        if(!wake_lock_active(&otg_wakelock))
+			wake_lock(&otg_wakelock);
+    }
+    else{
+        if(wake_lock_active(&otg_wakelock))
+			wake_unlock(&otg_wakelock);
+    }
 
 	/* update id value and schedule fsm work to start/stop host per id */
 	cht_otg_dev->fsm.id = id;
@@ -642,6 +655,7 @@ static int cht_otg_probe(struct platform_device *pdev)
 		kfree(cht_otg);
 		return -ENOMEM;
 	}
+    wake_lock_init(&otg_wakelock,0,"otg_wake_lock");
 
 	/* Set OTG state machine operations */
 	cht_otg->fsm.ops = &cht_otg_ops;
@@ -746,7 +760,8 @@ err1:
 
 static int cht_otg_remove(struct platform_device *pdev)
 {
-	debugfs_remove_recursive(cht_otg_dev->root);
+	wake_lock_destroy(&otg_wakelock);
+    debugfs_remove_recursive(cht_otg_dev->root);
 
 	cht_otg_stop(pdev);
 	extcon_unregister_interest(&cht_otg_dev->cable_nb);

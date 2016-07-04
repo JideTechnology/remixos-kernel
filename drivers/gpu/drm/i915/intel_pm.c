@@ -7155,10 +7155,31 @@ static void chv_dpio_cmn_power_well_enable(struct drm_i915_private *dev_priv,
 			   DPLL_REFA_CLK_ENABLE_VLV);
 		I915_WRITE(DPLL(PIPE_B), I915_READ(DPLL(PIPE_B)) |
 			   DPLL_REFA_CLK_ENABLE_VLV | DPLL_INTEGRATED_CRI_CLK_VLV);
+	if ( !(dev_priv->vbt.has_mipi) )
+		{
+		/* Enable Powerdown/mode signals from driver configuration */
+		I915_WRITE(DISPLAY_PHY_CONTROL, I915_READ(DISPLAY_PHY_CONTROL) |
+			  PHY_CHN0_DOUBLE_CHANNEL_POWERDOWN_OVERRIDE);
+		I915_WRITE(DISPLAY_PHY_CONTROL, I915_READ(DISPLAY_PHY_CONTROL) &
+			  ~(PHY_CHN0_DOUBLE_CHANNEL_POWERDOWN_LANE_MASK));
+		I915_WRITE(DISPLAY_PHY_CONTROL, I915_READ(DISPLAY_PHY_CONTROL) |
+			  PHY_CHN1_DOUBLE_CHANNEL_POWERDOWN_OVERRIDE);
+		I915_WRITE(DISPLAY_PHY_CONTROL, I915_READ(DISPLAY_PHY_CONTROL) &
+			  ~(PHY_CHN1_DOUBLE_CHANNEL_POWERDOWN_LANE_MASK));
+		}
 	} else {
 		phy = DPIO_PHY1;
 		I915_WRITE(DPLL(PIPE_C), I915_READ(DPLL(PIPE_C)) |
 			   DPLL_REFA_CLK_ENABLE_VLV | DPLL_INTEGRATED_CRI_CLK_VLV);
+
+	        if ( !(dev_priv->vbt.has_mipi) )
+                {
+		/* Enable Powerdown/mode signals from driver configuration */
+		I915_WRITE(DISPLAY_PHY_CONTROL, I915_READ(DISPLAY_PHY_CONTROL) |
+			  PHY_CHN0_SINGLE_CHANNEL_POWERDOWN_OVERRIDE);
+		I915_WRITE(DISPLAY_PHY_CONTROL, I915_READ(DISPLAY_PHY_CONTROL) &
+			  ~(PHY_CHN0_SINGLE_CHANNEL_POWERDOWN_LANE_MASK));
+		}
 	}
 	udelay(1); /* >10ns for cmnreset, >0ns for sidereset */
 	vlv_set_power_well(dev_priv, power_well, true);
@@ -7181,8 +7202,28 @@ static void chv_dpio_cmn_power_well_disable(struct drm_i915_private *dev_priv,
 
 	if (power_well->data == PUNIT_POWER_WELL_DPIO_CMN_BC) {
 		phy = DPIO_PHY0;
+              	if ( !(dev_priv->vbt.has_mipi) )
+                {
+		/* Disable Powerdown/mode signals from driver configuration */
+		I915_WRITE(DISPLAY_PHY_CONTROL, I915_READ(DISPLAY_PHY_CONTROL) |
+			  PHY_CHN0_DOUBLE_CHANNEL_POWERDOWN_LANE_MASK);
+		I915_WRITE(DISPLAY_PHY_CONTROL, I915_READ(DISPLAY_PHY_CONTROL) &
+			  ~(PHY_CHN0_DOUBLE_CHANNEL_POWERDOWN_OVERRIDE));
+		I915_WRITE(DISPLAY_PHY_CONTROL, I915_READ(DISPLAY_PHY_CONTROL) |
+			  PHY_CHN1_DOUBLE_CHANNEL_POWERDOWN_LANE_MASK);
+		I915_WRITE(DISPLAY_PHY_CONTROL, I915_READ(DISPLAY_PHY_CONTROL) &
+			  ~(PHY_CHN1_DOUBLE_CHANNEL_POWERDOWN_OVERRIDE));
+		}
 	} else {
 		phy = DPIO_PHY1;
+                if ( !(dev_priv->vbt.has_mipi) )
+                {
+		/* Disable Powerdown/mode signals from driver configuration */
+		I915_WRITE(DISPLAY_PHY_CONTROL, I915_READ(DISPLAY_PHY_CONTROL) |
+			  PHY_CHN0_SINGLE_CHANNEL_POWERDOWN_LANE_MASK);
+		I915_WRITE(DISPLAY_PHY_CONTROL, I915_READ(DISPLAY_PHY_CONTROL) &
+			 ~(PHY_CHN0_SINGLE_CHANNEL_POWERDOWN_OVERRIDE));
+		}
 	}
 
 	I915_WRITE(DISPLAY_PHY_CONTROL, I915_READ(DISPLAY_PHY_CONTROL) &

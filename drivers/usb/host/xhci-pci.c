@@ -517,7 +517,6 @@ static const struct hc_driver xhci_pci_hc_driver = {
 	.enable_device =	xhci_enable_device,
 	.update_hub_device =	xhci_update_hub_device,
 	.reset_device =		xhci_discover_or_reset_device,
-	.all_urb_dequeue =	xhci_all_urb_dequeue,
 
 	/*
 	 * scheduling support

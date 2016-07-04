@@ -60,10 +60,10 @@
 #endif
 
 #include "gsl1688.h"
+#include <linux/power_hal_sysfs.h>
 
 #define GSL_REPORT_POINT_SLOT
-/*intel_panel_dis/en tp_iq*/
-struct i2c_client *client_dump = NULL;
+
 int gsl_set_pinctrl_state(struct device *dev,struct pinctrl_state *state);
 
 struct gsl_ts_platform_data {
@@ -1205,7 +1205,7 @@ static void gsl_timer_sw_init(struct work_struct *work)
 #ifdef CONFIG_PM
 static int gsl_ts_resume(struct device *dev)
 {
-	struct i2c_client *client = ddata->client;
+/*	struct i2c_client *client = ddata->client;
 	struct gsl_ts_platform_data *gsl_pdata;
 	int ret;
 	printk("[GSL] : Resume START\n");
@@ -1216,11 +1216,11 @@ static int gsl_ts_resume(struct device *dev)
 	msleep(20);
 	check_mem_data(client);
         enable_irq(client->irq);
-	return 0;
+*/	return 0;
 }
 static int gsl_ts_suspend(struct device *dev)
 {
-	int ret;
+/*	int ret;
 	u8 buf[4] = {0x00};
 	struct i2c_client *client = ddata->client;
 	struct gsl_ts_platform_data *gsl_pdata;
@@ -1233,19 +1233,8 @@ static int gsl_ts_suspend(struct device *dev)
         gsl_write_interface(client,0xe4,buf,4);
         msleep(2);
 	gpio_set_value(ddata->gpio_reset, 0);
-	return 0;
+*/	return 0;
 }
-extern	void intel_panel_dis_tp_irq(void)
-{
-	disable_irq(client_dump->irq);
-	printk("TS dis_tp_irq\n");
-}
-extern	void intel_panel_en_tp_irq(void)
-{
-	enable_irq(client_dump->irq);
-	printk("TS en_tp_irq\n");
-}
-
 #endif //CONFIG_PM
 
 #ifdef CONFIG_OF
@@ -1461,6 +1450,51 @@ static int gsl_acpi_probe(struct gsl_ts_data *ts_data)
 	return 0;
 }
 
+int gsl_late_resume(void)
+{
+       struct i2c_client *client = ddata->client;
+
+       printk("[GSL] : late resume START\n");
+       gpio_set_value(ddata->gpio_reset, 1);
+       msleep(20);
+       gsl_reset_core(client);
+       gsl_start_core(client);
+       msleep(20);
+       check_mem_data(client);
+       enable_irq(client->irq);
+       return 0;
+}
+
+int gsl_early_suspend(void)
+{
+       u8 buf[4] = {0x00};
+       struct i2c_client *client = ddata->client;
+
+       printk("[GSL]: early suspend\n");
+       disable_irq(client->irq);
+
+       buf[0] = 0xb5;
+       gsl_write_interface(client,0xe4,buf,4);
+       msleep(2);
+       gpio_set_value(ddata->gpio_reset, 0);
+       return 0;
+}
+
+
+static ssize_t gsl1680_power_hal_suspend_store(struct device *dev,
+                                               struct device_attribute *attr,
+                                               const char *buf, size_t count)
+{
+       if (!strncmp(buf, POWER_HAL_SUSPEND_ON, POWER_HAL_SUSPEND_STATUS_LEN))
+               gsl_early_suspend();
+       else
+               gsl_late_resume();
+
+       return count;
+}
+static DEVICE_POWER_HAL_SUSPEND_ATTR(gsl1680_power_hal_suspend_store);
+
+
 //---------------------------------------------------------------
 static int gsl_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
@@ -1469,8 +1503,6 @@ static int gsl_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
 	int err = 0;
 	struct device *dev;
 	struct i2c_dev *i2c_dev;
-/*zhongzheng*/
-	client_dump = client;
         /* struct gsl_ts_platform_data *gsl_pdata; */
 
 
@@ -1607,6 +1639,14 @@ static int gsl_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
 		dev_err(&client->dev, "GSL_probe: request irq failed err = %d\n", err);
 		goto exit_irq_request_failed;
 	}
+       err = device_create_file(&client->dev, &dev_attr_power_HAL_suspend);
+       if (err < 0) {
+               dev_err(&client->dev, "unable to create suspend entry");
+       }
+
+       err = register_power_hal_suspend_device(&client->dev);
+       if (err < 0)
+               dev_err(&client->dev, "unable to register for power hal");
 
 	return 0;
 

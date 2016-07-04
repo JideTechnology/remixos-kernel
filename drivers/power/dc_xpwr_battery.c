@@ -79,6 +79,18 @@
 #define CHRG_CCCV_CV_4350MV		0x3		/* 4.35V */
 #define CHRG_CCCV_CHG_EN		(1 << 7)
 
+#define DC_CHRG_CNTL2_REG		0x34
+#define CNTL2_CC_TIMEOUT_MASK		0x3	/* 2 bits */
+#define CNTL2_CC_TIMEOUT_OFFSET		6	/* 6 Hrs */
+#define CNTL2_CC_TIMEOUT_LSB_RES	2	/* 2 Hrs */
+#define CNTL2_CC_TIMEOUT_12HRS		0x3	/* 12 Hrs */
+#define CNTL2_CHGLED_TYPEB		(1 << 4)
+#define CNTL2_CHG_OUT_TURNON		(1 << 5)
+#define CNTL2_PC_TIMEOUT_MASK		0xC0
+#define CNTL2_PC_TIMEOUT_OFFSET		40	/* 40 mins */
+#define CNTL2_PC_TIMEOUT_LSB_RES	10	/* 10 mins */
+#define CNTL2_PC_TIMEOUT_70MINS		0x3
+
 #define CV_4100				4100	/* 4100mV */
 #define CV_4150				4150	/* 4150mV */
 #define CV_4200				4200	/* 4200mV */
@@ -181,7 +193,7 @@
 #define STATUS_MON_FULL_DELAY_JIFFIES	(HZ * 30)	/*30sec */
 #define FULL_CAP_THLD			100	/* 100% capacity */
 //#define FULL_CAP_THLD			98	/* 98% capacity */
-#define BATT_DET_CAP_THLD		95	/* 95% capacity */
+#define BATT_DET_CAP_THLD		95
 #define DC_FG_INTR_NUM			6
 
 #define THERM_CURVE_MAX_SAMPLES		18
@@ -697,6 +709,8 @@ static int pmic_fg_battery_health(struct pmic_fg_info *info)
 		health = POWER_SUPPLY_HEALTH_DEAD;
 	else
 		health = POWER_SUPPLY_HEALTH_GOOD;
+	
+	health = POWER_SUPPLY_HEALTH_GOOD;
 
 health_read_fail:
 	return health;
@@ -713,6 +727,7 @@ static int pmic_fg_get_battery_property(struct power_supply *psy,
 	mutex_lock(&info->lock);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
+		//printk("===battery status:%d\n", info->status);
 		val->intval = info->status;
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
@@ -903,7 +918,7 @@ static void fg_capacity_monitor(struct work_struct *work)
 			pr_info("%s get current failed %d\n", __func__, ret);
 			goto err;
 		}
-		if (cur < 50) {
+		if (cur < 100) {
 			if (f_capacity < r_capacity) {
 				f_capacity = r_capacity;
 			} else  {

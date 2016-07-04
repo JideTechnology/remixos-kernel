@@ -46,11 +46,11 @@
 #endif
 
 #if UNICAM_DEBUG_LOG
-#define MYDBGNP(fmt,...) printk(fmt,##__VA_ARGS__)
-#define MYDBG(fmt,...) printk("%s"fmt,"unicam:",##__VA_ARGS__)
+#define MYDBGNP(fmt, ...) printk(fmt, ##__VA_ARGS__)
+#define MYDBG(fmt, ...) printk("%s" fmt, "unicam:", ##__VA_ARGS__)
 #else
-#define MYDBGNP(fmt,...) 
-#define MYDBG(fmt,...) 
+#define MYDBGNP(fmt, ...)
+#define MYDBG(fmt, ...)
 #endif
 
 
@@ -62,11 +62,15 @@
 #define MYDBGFMT(fmt,...)
 #endif
 
+#define OV5648_OTP
+//#define OV5648_OTP_DUMP 
+
 /* i2c read/write stuff */
 static int uni_read_reg(struct i2c_client *client,
 			   u16 data_length, u16 reg, u16 *val)
 {
-	int err;int i;
+	int err;
+	/* int i; */
 	struct i2c_msg msg[2];
 	unsigned char data[6];
 	struct v4l2_subdev *sd = i2c_get_clientdata(client);
@@ -150,14 +154,16 @@ static int uni_i2c_write(struct i2c_client *client, u16 len, u8 *data)
 		data++;
 	}
 
-//	if( dev->uni->flag & UNI_DEV_FLAG_DBGI2C ){
-//	MYDBG("i2c dbgw: %d,",len);
-//	for(i=0;i<len && i<10;i++)
-//		MYDBGNP(" %x ",data[i]);
-//	MYDBGNP("\n");
-//	}
-
-	msg.addr = client->addr;//dev->uni->i2c_addr?dev->uni->i2c_addr:client->addr;
+#if 0
+	if (dev->uni->flag & UNI_DEV_FLAG_DBGI2C) {
+		MYDBG("i2c dbgw: %d,", len);
+		for (i = 0; i < len && i < 10; i++)
+			MYDBGNP(" %x ", data[i]);
+		MYDBGNP("\n");
+	}
+#endif
+	/* dev->uni->i2c_addr?dev->uni->i2c_addr:client->addr; */
+	msg.addr = client->addr;
 	msg.flags = 0;
 	msg.len = len;
 	msg.buf = data;
@@ -233,7 +239,7 @@ static int uni_write_reg_array(struct i2c_client *client,
 	return err;
 }
 /*
-	tbd: 
+	tbd:
 */
 static int uni_get_intg_factor(struct i2c_client *client,
 				struct camera_mipi_info *info,
@@ -374,9 +380,11 @@ static int unicam_write_i2c_with_mask(struct i2c_client *client,u16 start_reg, u
 
 	MYDBG("%s start_reg:0x%x mask:0x%x value:0x%x\n",name,start_reg,mask,value);
 
-	if(mask == 0) return ret;// mask ==0, return OK.
+	if (mask == 0)
+		return ret; /* mask ==0, return OK. */
 
-	if(start_reg <0) return ret;//start_reg < 0, invalid. 
+	if (start_reg < 0)
+		return ret; /* start_reg < 0, invalid. */
 
 	sft = unicam_getLZeroBits(mask);
 	MYDBG("%s start_reg:0x%x mask:0x%x value:0x%x\n",name,start_reg,mask,value);
@@ -411,53 +419,426 @@ err:
 }
 
 
+//OTP Start
+#ifdef OV5648_OTP
+/* Add OTP operation
+*/
+#define BG_RATIO_TYPICAL  0x16E
+#define RG_RATIO_TYPICAL  0x189
+
+struct otp_struct {
+		u16 module_integrator_id;
+		u16 lens_id;
+		u16 rg_ratio;
+		u16 bg_ratio;
+		u16 user_data[2];
+		u16 light_rg;
+		u16 light_bg;
+		int r_gain;
+		int g_gain;
+		int b_gain;
+};
+
+/*
+ *Camera driver need to load AWB calibration data
+ *stored in OTP and write to gain registers after
+ *initialization of register settings.
+ * index: index of otp group. (1, 2, 3)
+ * return: 0, group index is empty
+ *		1, group index has invalid data
+ *		2, group index has valid data
+ */
+static int ov5648_check_otp(struct v4l2_subdev *sd, int index)
+{
+	int i;
+	u16 rg = 0, bg = 0, flag = 0;
+	struct sensor_data *dev = to_sensor_data(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+
+	/* clear otp buffer */
+	for (i = 0; i < 16; i++)
+		uni_write_reg(client, UNICAM_8BIT, 0x3d00 + i, 0x00);
+	
+	if(index == 1) //Group 1
+	{
+		//read otp bank 0
+	    uni_write_reg(client, UNICAM_8BIT,0x3d84,0xc0);	
+		uni_write_reg(client, UNICAM_8BIT,0x3d85,0x00); //OTP start address, bank 0
+		uni_write_reg(client, UNICAM_8BIT,0x3d86,0x0f); //OTP end address
+	    uni_write_reg(client, UNICAM_8BIT,0x3d81,0x01); //OTP Read Enabl
+		msleep(10); // delay 5ms
+		
+	    uni_read_reg(client, UNICAM_8BIT,0x3d05, &flag);	
+	    uni_read_reg(client, UNICAM_8BIT,0x3d07, &rg);	
+	    uni_read_reg(client, UNICAM_8BIT,0x3d08, &bg);	
+	}else if(index == 2)  //Group 2
+    {
+
+		//read otp bank 0
+	    uni_write_reg(client, UNICAM_8BIT,0x3d84,0xc0);	
+		uni_write_reg(client, UNICAM_8BIT,0x3d85,0x00); //OTP start address, bank 0
+		uni_write_reg(client, UNICAM_8BIT,0x3d86,0x0f); //OTP end address
+	    uni_write_reg(client, UNICAM_8BIT,0x3d81,0x01); //OTP Read Enable
+
+		msleep(10); // delay 5ms
+		
+	    uni_read_reg(client, UNICAM_8BIT,0x3d0e, &flag);	
+    	//read otp bank 1
+        uni_write_reg(client, UNICAM_8BIT,0x3d84,0xc0);	
+		uni_write_reg(client, UNICAM_8BIT,0x3d85,0x10); //OTP start address, bank 0
+		uni_write_reg(client, UNICAM_8BIT,0x3d86,0x1f); //OTP end address
+	    uni_write_reg(client, UNICAM_8BIT,0x3d81,0x01); //OTP Read Enable        
+		msleep(10); // delay 5ms
+
+	    uni_read_reg(client, UNICAM_8BIT,0x3d00, &rg);	
+	    uni_read_reg(client, UNICAM_8BIT,0x3d01, &bg);	
+
+    }else if(index == 3)  //Group 2
+    {
+    	//read otp bank 1
+        uni_write_reg(client, UNICAM_8BIT,0x3d84,0xc0);	
+		uni_write_reg(client, UNICAM_8BIT,0x3d85,0x10); //OTP start address, bank 0
+		uni_write_reg(client, UNICAM_8BIT,0x3d86,0x1f); //OTP end address
+	    uni_write_reg(client, UNICAM_8BIT,0x3d81,0x01); //OTP Read Enable        
+		msleep(10); // delay 5ms
+
+	    uni_read_reg(client, UNICAM_8BIT,0x3d07, &flag);	
+	    uni_read_reg(client, UNICAM_8BIT,0x3d09, &rg);	
+	    uni_read_reg(client, UNICAM_8BIT,0x3d0a, &bg);	
+
+    }
+	msleep(10); // delay 5ms
+
+#ifdef OV5648_OTP_DUMP 
+	for (i = 0; i < 16; i++)
+	{
+        uni_read_reg(client, UNICAM_8BIT,0x3d00 + i, &rg);	
+	 	printk("=================== ov5648 dump rg_temp=%d --0x%x ==================\n",rg,rg);
+		rg = 0;
+	}
+#endif
+
+	//disable otp read
+	uni_write_reg(client, UNICAM_8BIT, 0x3d81, 0x00);
+
+	/* clear otp buffer */
+	for (i = 0; i < 16; i++)
+		uni_write_reg(client, UNICAM_8BIT, 0x3d00 + i, 0x00);
+
+	flag = flag & 0x80;
+	if (flag)
+	{
+		return 1;
+	} else {
+	if (rg == 0 && bg == 0)
+		return 0;
+	else
+		return 2;
+	}
+	/*
+	return 0 empty 
+	return 1 invalid 
+	return 2 valid
+	*/
+}
+
+/* index: index of otp group. (1, 2, 3)
+ * return: 0,
+ */
+static int ov5648_read_otp(struct v4l2_subdev *sd,
+	    int index, struct otp_struct *otp_ptr)
+{
+	int i;
+	u16 temp;
+	
+	struct sensor_data *dev = to_sensor_data(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+
+	if (index == 1) {
+		/* read otp --Bank 0 */
+		uni_write_reg(client, UNICAM_8BIT, 0x3d84, 0xc0);
+		uni_write_reg(client, UNICAM_8BIT, 0x3d85, 0x00);
+		uni_write_reg(client, UNICAM_8BIT, 0x3d86, 0x0f);
+		uni_write_reg(client, UNICAM_8BIT, 0x3d81, 0x01);
+		msleep(10); // delay 5ms
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d05, &((*otp_ptr).module_integrator_id));
+		(*otp_ptr).module_integrator_id =
+			(*otp_ptr).module_integrator_id & 0x7f;
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d06, &((*otp_ptr).lens_id));
+		uni_read_reg(client, UNICAM_8BIT, 0x3d0b, &temp);
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d07, &((*otp_ptr).rg_ratio));
+		(*otp_ptr).rg_ratio =
+			((*otp_ptr).rg_ratio<<2) + ((temp>>6) & 0x03);
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d08, &((*otp_ptr).bg_ratio));
+		(*otp_ptr).bg_ratio =
+			((*otp_ptr).bg_ratio<<2) + ((temp>>4) & 0x03);
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d0c, &((*otp_ptr).light_rg));
+		(*otp_ptr).light_rg =
+			((*otp_ptr).light_rg<<2) + ((temp>>2) & 0x03);
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d0d, &((*otp_ptr).light_bg));
+		(*otp_ptr).light_bg =
+			((*otp_ptr).light_bg<<2) + (temp & 0x03);
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d09, &((*otp_ptr).user_data[0]));
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d0a, &((*otp_ptr).user_data[1]));
+	}else if (index == 2) {
+		/* read otp --Bank 0 */
+		uni_write_reg(client, UNICAM_8BIT, 0x3d84, 0xc0);
+		uni_write_reg(client, UNICAM_8BIT, 0x3d85, 0x00);
+		uni_write_reg(client, UNICAM_8BIT, 0x3d86, 0x0f);
+		uni_write_reg(client, UNICAM_8BIT, 0x3d81, 0x01);
+		msleep(10); // delay 5ms
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d0e, &((*otp_ptr).module_integrator_id));
+		(*otp_ptr).module_integrator_id =
+			(*otp_ptr).module_integrator_id & 0x7f;
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d0f, &((*otp_ptr).lens_id));
+		/* read otp --Bank 1 */
+		uni_write_reg(client, UNICAM_8BIT, 0x3d84, 0xc0);
+		uni_write_reg(client, UNICAM_8BIT, 0x3d85, 0x10);
+		uni_write_reg(client, UNICAM_8BIT, 0x3d86, 0x1f);
+		uni_write_reg(client, UNICAM_8BIT, 0x3d81, 0x01);
+		msleep(10); // delay 5ms
+		uni_read_reg(client, UNICAM_8BIT, 0x3d04, &temp);
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d00, &((*otp_ptr).rg_ratio));
+		(*otp_ptr).rg_ratio =
+			((*otp_ptr).rg_ratio<<2) + ((temp>>6) & 0x03);
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d01, &((*otp_ptr).bg_ratio));
+		(*otp_ptr).bg_ratio =
+			((*otp_ptr).bg_ratio<<2) + ((temp>>4) & 0x03);
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d05, &((*otp_ptr).light_rg));
+		(*otp_ptr).light_rg =
+			((*otp_ptr).light_rg<<2) + ((temp>>2) & 0x03);
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d06, &((*otp_ptr).light_bg));
+		(*otp_ptr).light_bg =
+			((*otp_ptr).light_bg<<2) + (temp & 0x03);
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d02, &((*otp_ptr).user_data[0]));
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d03, &((*otp_ptr).user_data[1]));
+	}else if (index == 3) {
+		/* read otp --Bank 1 */
+		uni_write_reg(client, UNICAM_8BIT, 0x3d84, 0xc0);
+		uni_write_reg(client, UNICAM_8BIT, 0x3d85, 0x10);
+		uni_write_reg(client, UNICAM_8BIT, 0x3d86, 0x1f);
+		uni_write_reg(client, UNICAM_8BIT, 0x3d81, 0x01);
+		msleep(10); // delay 5ms
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d07, &((*otp_ptr).module_integrator_id));
+		(*otp_ptr).module_integrator_id =
+			(*otp_ptr).module_integrator_id & 0x7f;
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d08, &((*otp_ptr).lens_id));
+		uni_read_reg(client, UNICAM_8BIT, 0x3d0d, &temp);
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d09, &((*otp_ptr).rg_ratio));
+		(*otp_ptr).rg_ratio =
+			((*otp_ptr).rg_ratio<<2) + ((temp>>6) & 0x03);
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d0a, &((*otp_ptr).bg_ratio));
+		(*otp_ptr).bg_ratio =
+			((*otp_ptr).bg_ratio<<2) + ((temp>>4) & 0x03);
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d0e, &((*otp_ptr).light_rg));
+		(*otp_ptr).light_rg =
+			((*otp_ptr).light_rg<<2) + ((temp>>2) & 0x03);
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d0f, &((*otp_ptr).light_bg));
+		(*otp_ptr).light_bg =
+			((*otp_ptr).light_bg<<2) + (temp & 0x03);
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d0b, &((*otp_ptr).user_data[0]));
+		uni_read_reg(client, UNICAM_8BIT,
+			0x3d0c, &((*otp_ptr).user_data[1]));
+	}
+	/* clear otp buffer */
+	for (i = 0; i < 16; i++)
+		uni_write_reg(client, UNICAM_8BIT, 0x3d00 + i, 0x00);
+
+	return 0;
+}
+/* call this function after OV5648 initialization
+ * return: 0 update success
+ *		1, no OTP
+ */
+static int ov5648_update_otp(struct v4l2_subdev *sd)
+{
+	struct otp_struct current_otp;
+	struct sensor_data *dev = to_sensor_data(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int i, ret;
+	int otp_index;
+	u16 temp;
+	int r_gain, g_gain, b_gain, g_gain_r, g_gain_b;
+	u16 rg = 1, bg = 1;
+
+	/* R/G and B/G of current camera module is read out from sensor OTP
+	 * check first OTP with valid data
+	 */
+	for(i = 1; i <= 3; i++) {
+		if (ov5648_check_otp(sd, i) == 2) {
+			otp_index = i;
+			break;
+		}
+	}
+	if(i > 3)
+	{  
+		//no valid wb OTP data
+	 	printk("=================== ov5648 no valid wb OTP data!==================");
+		return 1;
+	}
+	ov5648_read_otp(sd, otp_index, &current_otp);
+	
+	if (current_otp.light_rg == 0) {
+		/* no light source information in OTP */
+		rg = current_otp.rg_ratio;
+	} else {
+		/* light source information found in OTP */
+		rg = current_otp.rg_ratio * (current_otp.light_rg + 512) / 1024;
+	}
+	if (current_otp.light_bg == 0) {
+		/* no light source information in OTP */
+		bg = current_otp.bg_ratio;
+	} else {
+		/* light source information found in OTP */
+		bg = current_otp.bg_ratio * (current_otp.light_bg + 512) / 1024;
+	}
+	MYDBGEXP("_ov5648_: %s :rg:%x bg %x\n", __func__, rg, bg);
+	if (rg == 0)
+		rg = 1;
+	if (bg == 0)
+		bg = 1;
+	/*calculate G gain
+	 *0x400 = 1x gain
+	 */
+	if (bg < BG_RATIO_TYPICAL) {
+		if (rg < RG_RATIO_TYPICAL) {
+			/* current_otp.bg_ratio < BG_RATIO_TYPICAL &&
+			 * current_otp.rg_ratio < RG_RATIO_TYPICAL
+			 */
+			g_gain = 0x400;
+			b_gain = 0x400 * BG_RATIO_TYPICAL / bg;
+			r_gain = 0x400 * RG_RATIO_TYPICAL / rg;
+		} else {
+			/* current_otp.bg_ratio < BG_RATIO_TYPICAL &&
+			 * current_otp.rg_ratio >= RG_RATIO_TYPICAL
+			 */
+			r_gain = 0x400;
+			g_gain = 0x400 * rg / RG_RATIO_TYPICAL;
+			b_gain = g_gain * BG_RATIO_TYPICAL / bg;
+		}
+	} else {
+		if (rg < RG_RATIO_TYPICAL) {
+			/* current_otp.bg_ratio >= BG_RATIO_TYPICAL &&
+			 * current_otp.rg_ratio < RG_RATIO_TYPICAL
+			 */
+			b_gain = 0x400;
+			g_gain = 0x400 * bg / BG_RATIO_TYPICAL;
+			r_gain = g_gain * RG_RATIO_TYPICAL / rg;
+		} else {
+			/* current_otp.bg_ratio >= BG_RATIO_TYPICAL &&
+			 * current_otp.rg_ratio >= RG_RATIO_TYPICAL
+			 */
+			g_gain_b = 0x400 * bg / BG_RATIO_TYPICAL;
+			g_gain_r = 0x400 * rg / RG_RATIO_TYPICAL;
+			if (g_gain_b > g_gain_r) {
+				b_gain = 0x400;
+				g_gain = g_gain_b;
+				r_gain = g_gain * RG_RATIO_TYPICAL / rg;
+			} else {
+				r_gain = 0x400;
+				g_gain = g_gain_r;
+				b_gain = g_gain * BG_RATIO_TYPICAL / bg;
+			}
+		}
+	}
+
+	//write sensor wb gain to register
+	if (r_gain > 0x400) {
+		uni_write_reg(client, UNICAM_8BIT, 0x5186, r_gain>>8);
+		uni_write_reg(client, UNICAM_8BIT, 0x5187, r_gain & 0x00ff);
+	}
+	
+	if (g_gain > 0x400) {
+		uni_write_reg(client, UNICAM_8BIT, 0x5188, g_gain>>8);
+		uni_write_reg(client, UNICAM_8BIT, 0x5189, g_gain & 0x00ff);
+	}
+	
+	if (b_gain > 0x400) {
+		uni_write_reg(client, UNICAM_8BIT, 0x518a, b_gain>>8);
+		uni_write_reg(client, UNICAM_8BIT, 0x518b, b_gain & 0x00ff);
+	}
+	//write sensor wb gain success
+	
+	return ret;
+}
+
+#endif
+//OTP End
+
+
 static long __gc2355_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 				 int gain, int digitgain)
 {
 
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct sensor_data *dev = to_sensor_data(sd);
+	long ret = 0;
+	int dbgonce = 0;
+	int total_gain, ana_gain, global_gain, pre_gain;
 
-	int ret=0;
-	int exposegain_S;
-	int exposedigitgain_S;
-	static int dbgonce;
-	int useadgain=0;
-	int i;
-	int adgain_a,adgain_d;
-	int dgain_max,again_max;
-	int vts;
-	u16 temp;
-	int exp_val;
-	int total_gain,ana_gain,global_gain,pre_gain;
-	
 	mutex_lock(&dev->input_lock);
 
-//	vts=dev->cur_res[dev->fmt_idx].vts;
-//	if(coarse_itg+dev->cur_res[dev->fmt_idx].vts_fix > vts){
-//		vts = coarse_itg+dev->cur_res[dev->fmt_idx].vts_fix;
-//	}
+#if 0
+	vts = dev->cur_res[dev->fmt_idx].vts;
+	if (coarse_itg + dev->cur_res[dev->fmt_idx].vts_fix > vts)
+		vts = coarse_itg + dev->cur_res[dev->fmt_idx].vts_fix;
+#endif
 
-	MYDBGEXP("GC2355 exp: coarse gain digigain %d:%08x %d:%08x %d:%08x \n",coarse_itg,coarse_itg,gain,gain,digitgain,digitgain);
+	MYDBGEXP("GC2355 exp: coarse gain digigain %d:%08x %d:%08x %d:%08x\n",
+			coarse_itg, coarse_itg, gain,
+			gain, digitgain, digitgain);
 
 	ret = uni_write_reg_array(client, dev->uni->group_hold_start);
 	if (ret)
 		goto exposure_err;
 
 	/* set lines per frame */
-//	ret = unicam_write_i2c_with_mask(client,dev->uni->exposevts,dev->uni->exposevts_mask,vts,"set vts");
-//	if (ret)
-//		goto exposure_err;
+#if 0
+	ret = unicam_write_i2c_with_mask(client,
+		dev->uni->exposevts,
+		dev->uni->exposevts_mask,
+		vts,
+		"set vts");
+	if (ret)
+		goto exposure_err;
+#endif
 
-	MYDBGNP(" coarse ################5########## entry %s dev->uni->exposeanaloggain =0x%x, dev->uni->exposeanaloggain_mask =0x%x ,gain =0x%x \n", __func__, dev->uni->exposeanaloggain,dev->uni->exposeanaloggain_mask,gain);
+	MYDBGNP("coarse ################5########## entry %s dev->uni->exposeanaloggain = 0x%x, dev->uni->exposeanaloggain_mask = 0x%x, gain = 0x%x\n",
+			__func__,
+			dev->uni->exposeanaloggain,
+			dev->uni->exposeanaloggain_mask,
+			gain);
 	/* set exposure */
 	/* Lower four bit should be 0*/
 
     if (coarse_itg < 7) coarse_itg = 7;
     if (coarse_itg > 16383) coarse_itg = 16383;
-	
+
 	ret = uni_write_reg(client, UNICAM_8BIT,
-		0x03, (coarse_itg >> 8) & 0x003F);		
+		0x03, (coarse_itg >> 8) & 0x003F);
 	if (ret)
 		goto exposure_err;
 
@@ -525,8 +906,7 @@ exposure_err:
 	dev_err(&client->dev, "unicam write again err.\n");
 	mutex_unlock(&dev->input_lock);
 	return ret;
-	
-}	
+}
 
 static long __ov5648_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 				 int gain, int digitgain)
@@ -538,15 +918,11 @@ static long __ov5648_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 	int exposegain_S;
 	int exposedigitgain_S;
 	static int dbgonce;
-	int useadgain=0;
-	int i;
-	int adgain_a,adgain_d;
 	int dgain_max,again_max;
 	int vts;
-	u16 temp;
 	int exp_val;
-	
-//	mutex_lock(&dev->input_lock);
+
+    /* mutex_lock(&dev->input_lock); */
 
 	vts=dev->cur_res[dev->fmt_idx].vts;
 
@@ -581,7 +957,7 @@ static long __ov5648_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 //    if (coarse_itg < 7) coarse_itg = 7;
 //    if (coarse_itg > 16383) coarse_itg = 16383;
 	exp_val = coarse_itg << 4;
-			
+
 	ret = uni_write_reg(client, UNICAM_8BIT,
 		0x3502, exp_val & 0xFF);
 	if (ret)
@@ -618,7 +994,7 @@ static long __ov5648_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 		0x350A, (gain >> 8) & 0xff);
 	if (ret)
 		goto exposure_err;
-	
+
 	ret = uni_write_reg_array(client, dev->uni->group_hold_end);
 	if (ret)
 		goto exposure_err;
@@ -643,30 +1019,26 @@ static long __hm5040_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct sensor_data *dev = to_sensor_data(sd);
 
-	int ret=0;
-	int exposegain_S;
-	int exposedigitgain_S;
+	int ret = 0;
 	static int dbgonce;
-	int useadgain=0;
-	int i;
-	int adgain_a,adgain_d;
-	int dgain_max,again_max;
 	int vts;
-	u16 temp;
-	int exp_val;
-	int total_gain,ana_gain,global_gain,pre_gain,gain_tmp0,Reg_Cgain,Reg_Fgain;
-	
+	int gain_tmp0, Reg_Cgain, Reg_Fgain;
+
 	mutex_lock(&dev->input_lock);
 
-	MYDBGEXP("HM5040 exp: coarse gain digigain %d:%08x %d:%08x %d:%08x \n",coarse_itg,coarse_itg,gain,gain,digitgain,digitgain);
+	MYDBGEXP("HM5040 exp: coarse gain digigain %d:%08x %d:%08x %d:%08x\n",
+			coarse_itg, coarse_itg, gain,
+			gain, digitgain, digitgain);
 
-	//coarse_itg = 3665;
+	/* coarse_itg = 3665; */
 
-	MYDBGEXP("HM5040 exp: coarse gain digigain %d:%08x %d:%08x %d:%08x \n",coarse_itg,coarse_itg,gain,gain,digitgain,digitgain);
+	MYDBGEXP("HM5040 exp: coarse gain digigain %d:%08x %d:%08x %d:%08x\n",
+			coarse_itg, coarse_itg, gain,
+			gain, digitgain, digitgain);
 
-	vts=dev->cur_res[dev->fmt_idx].vts;
+	vts = dev->cur_res[dev->fmt_idx].vts;
 
-	MYDBGEXP("HM5040 vts: vts = %d:%08x  \n",vts);
+	MYDBGEXP("HM5040 vts: vts = %d:%08x\n", vts);
 
 	if(coarse_itg+dev->cur_res[dev->fmt_idx].vts_fix > vts){
 		vts = coarse_itg+dev->cur_res[dev->fmt_idx].vts_fix;
@@ -688,13 +1060,13 @@ static long __hm5040_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 	/* Lower four bit should be 0*/
 
 	/* set exposure time 33ms fps= 30 -> coarse = 1454 */
-	
+
 
     if (coarse_itg < 4) coarse_itg = 4;
     if (coarse_itg > 16383) coarse_itg = 16383;
-	
+
 	ret = uni_write_reg(client, UNICAM_8BIT,
-		0x0202, (coarse_itg >> 8) & 0x00FF);		
+		0x0202, (coarse_itg >> 8) & 0x00FF);
 	if (ret)
 		goto exposure_err;
 
@@ -704,59 +1076,63 @@ static long __hm5040_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 		goto exposure_err;
 
 
-	gain_tmp0=(gain >>4); 
-	
-	if(gain_tmp0 < 2) 
-	{ 
-	Reg_Cgain=0; 
-	Reg_Fgain=gain<<4; 
-	} 
-	else if(gain_tmp0 < 4) 
-	{ 
-	Reg_Cgain=0x80; 
-	Reg_Fgain=(gain>>1)<<4; 
-	} 
-	else if(gain_tmp0 < 8) 
-	{ 
-	Reg_Cgain=0xc0; 
-	Reg_Fgain=(gain>>2)<<4; 
-	} 
-	else if(gain_tmp0 < 16) 
-	{ 
-	Reg_Cgain=0xe0; 
-	Reg_Fgain=(gain>>3)<<4; 
-	}else{ 
-	Reg_Cgain=0xf0; 
-	Reg_Fgain=(gain>>4)<<4; 
-	} 
-	Reg_Cgain = Reg_Cgain & 0xFF; 
-	Reg_Fgain = Reg_Fgain ; 
-	ret=uni_write_reg(client, UNICAM_8BIT,0x0205,Reg_Cgain); 
-	if (ret)goto exposure_err; 
-	ret=uni_write_reg(client, UNICAM_8BIT,0x0204,Reg_Cgain>>8); 
-	if (ret)goto exposure_err; 
-	ret=uni_write_reg(client, UNICAM_8BIT,0x020f,Reg_Fgain&0xff); 
-	if (ret)goto exposure_err; 
-	ret=uni_write_reg(client, UNICAM_8BIT,0x020e,Reg_Fgain>>8); 
-	if (ret)goto exposure_err; 
-	ret=uni_write_reg(client, UNICAM_8BIT,0x0211,Reg_Fgain&0xff); 
-	if (ret)goto exposure_err; 
-	ret=uni_write_reg(client, UNICAM_8BIT,0x0210,Reg_Fgain>>8); 
-	if (ret)goto exposure_err; 
-	ret=uni_write_reg(client, UNICAM_8BIT,0x0213,Reg_Fgain&0xff); 
-	if (ret)goto exposure_err; 
-	ret=uni_write_reg(client, UNICAM_8BIT,0x0212,Reg_Fgain>>8); 
-	if (ret)goto exposure_err; 
-	ret=uni_write_reg(client, UNICAM_8BIT,0x0215,Reg_Fgain&0xff); 
-	if (ret)goto exposure_err; 
-	ret=uni_write_reg(client, UNICAM_8BIT,0x0214,Reg_Fgain>>8); 
-	if (ret)goto exposure_err; 
+	gain_tmp0 = gain >> 4;
+
+	if (gain_tmp0 < 2) {
+		Reg_Cgain = 0;
+		Reg_Fgain = gain << 4;
+	} else if (gain_tmp0 < 4) {
+		Reg_Cgain = 0x80;
+		Reg_Fgain = (gain >> 1) << 4;
+	} else if (gain_tmp0 < 8) {
+		Reg_Cgain = 0xc0;
+		Reg_Fgain = (gain >> 2) << 4;
+	} else if (gain_tmp0 < 16) {
+		Reg_Cgain = 0xe0;
+		Reg_Fgain = (gain >> 3) << 4;
+	} else {
+		Reg_Cgain = 0xf0;
+		Reg_Fgain = (gain >> 4) << 4;
+	}
+	Reg_Cgain = Reg_Cgain & 0xFF;
+	Reg_Fgain = Reg_Fgain;
+
+	ret = uni_write_reg(client, UNICAM_8BIT, 0x0205, Reg_Cgain);
+	if (ret)
+		goto exposure_err;
+	ret = uni_write_reg(client, UNICAM_8BIT, 0x0204, Reg_Cgain >> 8);
+	if (ret)
+		goto exposure_err;
+	ret = uni_write_reg(client, UNICAM_8BIT, 0x020f, Reg_Fgain & 0xff);
+	if (ret)
+		goto exposure_err;
+	ret = uni_write_reg(client, UNICAM_8BIT, 0x020e, Reg_Fgain >> 8);
+	if (ret)
+		goto exposure_err;
+	ret = uni_write_reg(client, UNICAM_8BIT, 0x0211, Reg_Fgain & 0xff);
+	if (ret)
+		goto exposure_err;
+	ret = uni_write_reg(client, UNICAM_8BIT, 0x0210, Reg_Fgain >> 8);
+	if (ret)
+		goto exposure_err;
+	ret = uni_write_reg(client, UNICAM_8BIT, 0x0213, Reg_Fgain & 0xff);
+	if (ret)
+		goto exposure_err;
+	ret = uni_write_reg(client, UNICAM_8BIT, 0x0212, Reg_Fgain >> 8);
+	if (ret)
+		goto exposure_err;
+	ret = uni_write_reg(client, UNICAM_8BIT, 0x0215, Reg_Fgain & 0xff);
+	if (ret)
+		goto exposure_err;
+	ret = uni_write_reg(client, UNICAM_8BIT, 0x0214, Reg_Fgain >> 8);
+	if (ret)
+		goto exposure_err;
 
 	ret = uni_write_reg_array(client, dev->uni->group_hold_end);
 	if (ret)
 		goto exposure_err;
 
-	dbgonce=1;
+	dbgonce = 1;
 	mutex_unlock(&dev->input_lock);
 	return ret;
 
@@ -764,7 +1140,6 @@ exposure_err:
 	dev_err(&client->dev, "unicam write again err.\n");
 	mutex_unlock(&dev->input_lock);
 	return ret;
-	
 }
 
 /*
@@ -787,7 +1162,6 @@ static long __uni_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 	int adgain_a,adgain_d;
 	int dgain_max,again_max;
 	int vts;
-	u16 temp;
 
 	mutex_lock(&dev->input_lock);
 
@@ -830,8 +1204,8 @@ static long __uni_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 
 	if(dev->uni->flag & UNI_DEV_FLAG_USEADGAIN ) useadgain=1;
 
-	//computer adgain
-	//a gain map 
+	/* computer adgain */
+	/* a gain map */
 	if(useadgain){
 		int mapval,useispgain;
 		int Lv,Rv,d_base;
@@ -880,13 +1254,17 @@ static long __uni_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 			gain=again_max;
 	}
 
-	if(digitgain>dgain_max){
-			MYDBGNP("use max dgain %d \n",digitgain);
-			digitgain=dgain_max;
+	if (digitgain > dgain_max) {
+		MYDBGNP("use max dgain %d\n", digitgain);
+		digitgain = dgain_max;
 	}
-	
+
 	/* set analog gain */
-	ret = unicam_write_i2c_with_mask(client,dev->uni->exposeanaloggain,dev->uni->exposeanaloggain_mask,gain,"set analog gain");
+	ret = unicam_write_i2c_with_mask(client,
+			dev->uni->exposeanaloggain,
+			dev->uni->exposeanaloggain_mask,
+			gain,
+			"set analog gain");
 
 	if (ret) {
 		dev_err(&client->dev, "unicam write again err.\n");
@@ -950,7 +1328,7 @@ static long uni_s_exposure(struct v4l2_subdev *sd,
 		return __hm5040_set_exposure(sd, exp, gain, digitgain);
 	default:
 		return __uni_set_exposure(sd, exp, gain, digitgain);
-	}	
+	}
 }
 
 static long uni_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
@@ -985,6 +1363,15 @@ static int uni_init(struct v4l2_subdev *sd)
 		dev_err(&client->dev, "unicam write register err.\n");
 		return ret;
 	}
+	
+#ifdef OV5648_OTP
+	if(dev->uni->idval == 0x5648)
+	{
+		uni_write_reg_array(client, dev->uni->stream_on );
+		ov5648_update_otp(sd);	
+		uni_write_reg_array(client, dev->uni->stream_off );
+	}
+#endif
 
 	mutex_unlock(&dev->input_lock);
 
@@ -1157,9 +1544,8 @@ static int uni_s_power(struct v4l2_subdev *sd, int on)
 {
 	int ret;
 
-	struct sensor_data *dev = to_sensor_data(sd);
-
-	MYDBGNP("################5########## entry %s iic 0x%x \n", __func__, dev->uni->i2c_addr);
+	MYDBGNP("################5########## entry %s iic 0x%x\n",
+			__func__, dev->uni->i2c_addr);
 
 	MYDBG("%s,%s\n",__func__,on?"on":"off");
 	if (on == 0)
@@ -1209,8 +1595,7 @@ static int distance(const S_UNI_RESOLUTION *res, u32 w, u32 h)
 	MYDBGFMT("%s match: %d \n",__func__,match);
 
 	if ((w_ratio < (int)(1 << RATIO_SHIFT_BITS))
-	    || (h_ratio < (int)(1 << RATIO_SHIFT_BITS))  ||
-		(match > LARGEST_ALLOWED_RATIO_MISMATCH))
+	    || (h_ratio < (int)(1 << RATIO_SHIFT_BITS)))
 		return -1;
 
 	return w_ratio + h_ratio;
@@ -1221,7 +1606,7 @@ static int nearest_resolution_index(struct v4l2_subdev *sd,
 {
 	struct sensor_data *dev = to_sensor_data(sd);
 	int i;
-	int idx = dev->n_res-1;
+	int idx = -1;
 	int dist;
 	int min_dist = INT_MAX;
 	const S_UNI_RESOLUTION *tmp_res = NULL;
@@ -1229,6 +1614,7 @@ static int nearest_resolution_index(struct v4l2_subdev *sd,
 	MYDBGFMT("%s, ###FMT###, n_res: %d, dev->mode: %d\n",__func__,dev->n_res, dev->mode);
 
 	for (i = 0; i < dev->n_res; i++) {
+		MYDBGFMT("%s i: %d  dist: %d line %d \n", __func__, i, dist, __LINE__);
 		if( dev->cur_res[i].res_type & UNI_DEV_RES_DEFAULT) {
 			idx = i;
 			break;
@@ -1236,6 +1622,7 @@ static int nearest_resolution_index(struct v4l2_subdev *sd,
 		if(dev->mode & dev->cur_res[i].res_type) {
 			tmp_res = &dev->cur_res[i];
 			dist = distance(tmp_res, w, h);
+			MYDBGFMT("%s i: %d  dist: %d line %d \n", __func__, i, dist, __LINE__);
 			if (dist == -1)
 				continue;
 			if (dist < min_dist) {
@@ -1253,8 +1640,12 @@ static int uni_try_mbus_fmt(struct v4l2_subdev *sd,
 {
 	struct sensor_data *dev = to_sensor_data(sd);
 	int idx;
+	int w, h;
 
 	MYDBGFMT("%s in i2c_addr=0x%x %d %d 0x%x\n",__func__,dev->uni->i2c_addr,fmt->width,fmt->height,fmt->code);
+
+	w = fmt->width;
+	h = fmt->height;
 
 	if (!fmt)
 		return -EINVAL;
@@ -1271,7 +1662,7 @@ static int uni_try_mbus_fmt(struct v4l2_subdev *sd,
 
 	fmt->code = V4L2_MBUS_FMT_SBGGR10_1X10;
 
-	MYDBGFMT("%s out %d %d 0x%x\n",__func__,fmt->width,fmt->height,fmt->code);
+	printk("bingo...%s() src %dx%d, out %dx%d, 0x%x\n", __func__, w, h, fmt->width, fmt->height, fmt->code);
 
 	return 0;
 }
@@ -1436,7 +1827,7 @@ static int uni_enum_mbus_fmt(struct v4l2_subdev *sd,
 				enum v4l2_mbus_pixelcode *code)
 {
 	struct sensor_data *dev = to_sensor_data(sd);
-    
+
 	MYDBG("%s %d\n",__func__,index);
 
 	*code = (dev->uni->hw_format==ATOMISP_INPUT_FORMAT_RAW_10)?V4L2_MBUS_FMT_SBGGR10_1X10:V4L2_MBUS_FMT_SGRBG8_1X8;
@@ -1508,38 +1899,52 @@ static int det_id(struct i2c_client *client)
 
 	MYDBG("i2c addr:  0x%x 0x%x\n",dev->uni->i2c_addr,client->addr);
 
-	if(len==0) return 0;
+	if (dev->uni->i2c_addr != client->addr) {
+		if (dev->uni->desc) {
+			MYDBG("client->addr != dev->uni->i2c_addr!\n");
+			return -ENODEV;
+		}
 
+		client->addr = dev->uni->i2c_addr;
+	}
 
-	if (dev->uni->i2c_addr == 0x3C)
-	{	
-		ret = gc_read_i2c_reg(client, 1, dev->uni->idreg, &vp);
-		val|= (vp & 0xff) << 8;
-		ret = gc_read_i2c_reg(client, 1, dev->uni->idreg+1, &vp);
-		val|= vp&0xff;
-		MYDBG("det_id 0x%x need 0x%x\n",val,dev->uni->idval);
+	if (len == 0)
+		return 0;
+
+	if (dev->uni->i2c_addr == 0x3C) {
+		ret  = gc_read_i2c_reg(client, 1,
+				dev->uni->idreg, &vp);
+		val |= (vp & 0xff) << 8;
+		ret  = gc_read_i2c_reg(client, 1,
+				dev->uni->idreg + 1, &vp);
+		val |= vp & 0xff;
+		MYDBG("det_id 0x%x need 0x%x\n",
+				val, dev->uni->idval);
 		return ret;
 	}
 
-	//read_reg have bug, overwrite entire int32 
-	if( dev->uni->flag & UNI_DEV_FLAG_1B_ACCESS ){
-		if(len==2){
-				MYDBG("2 1B access\n");
-				ret = uni_read_reg(client, UNICAM_8BIT,dev->uni->idreg, &vp);
-				val|= (vp & 0xff) << 8;
-				ret = uni_read_reg(client, UNICAM_8BIT,dev->uni->idreg+1, &vp);
-				val|= vp&0xff;
-		}else if(len==1){
-				ret = uni_read_reg(client, UNICAM_8BIT,dev->uni->idreg, &val);
+	/* read_reg have bug, overwrite entire int32 */
+	if (dev->uni->flag & UNI_DEV_FLAG_1B_ACCESS) {
+		if (len == 2) {
+			MYDBG("2 1B access\n");
+			ret = uni_read_reg(client, UNICAM_8BIT,
+					dev->uni->idreg, &vp);
+			val |= (vp & 0xff) << 8;
+			ret = uni_read_reg(client, UNICAM_8BIT,
+					dev->uni->idreg + 1, &vp);
+			val |= vp & 0xff;
+		} else if (len == 1) {
+			ret = uni_read_reg(client, UNICAM_8BIT,
+					dev->uni->idreg, &val);
 		}
-	}else{
-		ret=uni_read_reg(client,
+	} else {
+		ret = uni_read_reg(client,
 				   len, dev->uni->idreg, &val);
 	}
-	if(ret){
-				MYDBG("det_id fail i2c access\n");
+	if (ret) {
 
-				return -1;
+		MYDBG("det_id fail i2c access\n");
+		return -1;
 	}
 
 	MYDBG("det_id 0x%x need 0x%x\n",val,dev->uni->idval);
@@ -1573,7 +1978,11 @@ static int uni_s_config(struct v4l2_subdev *sd,
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret = 0;
 
-	MYDBGNP("################5########## entry %s  line = %d \n", __func__, __LINE__);
+	unsigned char old_addr = 0;
+
+	MYDBGNP("################5########## entry %s \
+			line = %d\n", __func__, __LINE__);
+
 	if (pdata == NULL) {
 		dev_err(&client->dev, "unicam platform_data err.\n");
 		return -ENODEV;
@@ -1613,12 +2022,15 @@ static int uni_s_config(struct v4l2_subdev *sd,
 
 	ret = dev->platform_data->csi_cfg(sd, 1);
 	if (ret) {
-		dev_err(&client->dev, "unicam csi_cfg err.\n");		
-		goto fail_csi_cfg;	
+		dev_err(&client->dev, "unicam csi_cfg err.\n");
+		goto fail_csi_cfg;
 	}
+
+	old_addr = client->addr;
 	ret = det_id(client);
 	if (ret) {
 		dev_err(&client->dev, "unicam_detect err s_config.\n");
+		client->addr = old_addr;
 		goto fail_csi_cfg;
 	}
 
@@ -1627,7 +2039,7 @@ static int uni_s_config(struct v4l2_subdev *sd,
 		dev_err(&client->dev, "unicam power-off err.\n");
 		goto fail_csi_cfg;
 	}
-	
+
 	mutex_unlock(&dev->input_lock);
 
 	return 0;
@@ -1681,7 +2093,7 @@ static int uni_s_parm(struct v4l2_subdev *sd,
 	struct sensor_data *dev = to_sensor_data(sd);
 	dev->parm_mode = param->parm.capture.capturemode;
 
-	MYDBGNP("\n##### entry %s:run_mode :%x\n", __func__, dev->run_mode);
+	MYDBGNP("\n##### entry %s:run_mode :%x\n", __func__, dev->parm_mode);
 
 	mutex_lock(&dev->input_lock);
 	switch (dev->parm_mode) {
@@ -1846,7 +2258,7 @@ static int unicam_q_exposure(struct v4l2_subdev *sd, s32 *value)
 		}
 		*value = val;
 		break;
-	}	
+	}
 
 	return ret;
 }
@@ -2135,11 +2547,11 @@ static const struct v4l2_subdev_sensor_ops uni_sensor_ops = {
 static const struct v4l2_subdev_video_ops uni_video_ops = {
 	.s_stream = uni_s_stream,
 	.s_parm = uni_s_parm,
-	.g_parm = uni_g_parm,	
+	.g_parm = uni_g_parm,
 	.try_mbus_fmt = uni_try_mbus_fmt,
-	.enum_framesizes = uni_enum_framesizes,	
+	.enum_framesizes = uni_enum_framesizes,
 	.enum_frameintervals = uni_enum_frameintervals,
-	.enum_mbus_fmt = uni_enum_mbus_fmt,	
+	.enum_mbus_fmt = uni_enum_mbus_fmt,
 	.s_mbus_fmt = uni_s_mbus_fmt,
 	.g_mbus_fmt = uni_g_mbus_fmt,
 	.g_frame_interval = uni_g_frame_interval,
@@ -2157,7 +2569,7 @@ static const struct v4l2_subdev_pad_ops uni_pad_ops = {
 	.enum_mbus_code = uni_enum_mbus_code,
 	.enum_frame_size = uni_enum_frame_size,
 	.get_fmt = uni_get_pad_format,
-	.set_fmt = uni_set_pad_format,		
+	.set_fmt = uni_set_pad_format,
 };
 
 static const struct v4l2_subdev_ops uni_ops = {
@@ -2207,7 +2619,7 @@ static int uni_remove(struct i2c_client *client)
 	struct sensor_data *dev = to_sensor_data(sd);
 	dev_dbg(&client->dev, "unicam_remove...\n");
 	MYDBGNP("unicam_remove...\n");
-	
+
 	if (dev->platform_data->platform_deinit)
 		dev->platform_data->platform_deinit();
 
@@ -2232,24 +2644,27 @@ static int uni_probe(struct i2c_client *client,
 	void *pdata = client->dev.platform_data;
 	static int unicam_data = 0;
 
-	MYDBG("uni_probe name: %s, unicam_data = %d \n",client->name, unicam_data);
+	MYDBG("uni_probe name: %s, unicam_data = %d\n",
+			client->name, unicam_data);
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev)
-		return NULL;
+		return -ENOMEM;
 
-	if(unicam_data == 0){
-		uni_data = m_data;
-	}else{
+	if (client->name &&
+			!strncmp(client->name, "front", 5))
 		uni_data = m_data_front;
-	}
+	else
+		uni_data = m_data;
 
-//	ret = request_firmware(&fw, UNI_FW_PATH, &client->dev);
-	if(1){
+	/* ret = request_firmware(&fw, UNI_FW_PATH, &client->dev); */
+	if (1) {
 		MYDBG("not find firmware PPR\n");
-		for(i=0;uni_data[i].uni!=NULL;i++){
+		for (i = 0; uni_data[i].uni != NULL; i++) {
 			dev->uni = uni_data[i].uni;
-			MYDBG("uni_probe name: uni_data[%d].name %s\n",i,uni_data[i].name);
+			MYDBG("uni_probe name: uni_data[%d].name %s\n",
+					i,
+					uni_data[i].name);
 			mutex_init(&dev->input_lock);
 			dev->fmt_idx = 0;
 			v4l2_i2c_subdev_init(&(dev->sd), client, &uni_ops);
@@ -2276,18 +2691,21 @@ static int uni_probe(struct i2c_client *client,
 
 			if (ret)
 				goto out_free;
-			snprintf(dev->sd.name, sizeof(dev->sd.name), "%s %d-%04x",
-					uni_data[i].name, i2c_adapter_id(client->adapter), client->addr);			
+				snprintf(dev->sd.name, sizeof(dev->sd.name),
+						"%s %d-%04x",
+						uni_data[i].name,
+						i2c_adapter_id(client->adapter),
+						client->addr);
 				break;
-		}		
-	}	
+		}
+	}
 #if 0
 		dev->uni=getuni(id->name);
 		if(dev->uni==NULL){
 			MYDBG("not find uni dev, break probe\n");
 			return -1;
 		}
-#endif		
+#endif
 		if(unicam_data == 0){
 			unicam_data = 1;
 		}else{
@@ -2301,8 +2719,8 @@ static int uni_probe(struct i2c_client *client,
 
 	dev->fmt_idx = 0;
 	dev->cur_res = dev->uni->ress;
-	dev->n_res =  dev->uni->ress_n; 			
-	dev->mode = UNI_DEV_RES_PREVIEW;	
+	dev->n_res =  dev->uni->ress_n;
+	dev->mode = UNI_DEV_RES_PREVIEW;
 
 	dev->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	dev->pad.flags = MEDIA_PAD_FL_SOURCE;
@@ -2323,15 +2741,15 @@ static int uni_probe(struct i2c_client *client,
 		//uni_remove(client);
 		dev_err(&client->dev, "vcm init failed.\n");
 	}
-	
+
 	return ret;
 
-out_free:	
+out_free:
 	atomisp_gmin_remove_subdev(&dev->sd);
 	v4l2_device_unregister_subdev(&dev->sd);
 	kfree(dev);
 
-	return ret;	
+	return ret;
 }
 
 
@@ -2339,17 +2757,19 @@ out_free:
 MODULE_DEVICE_TABLE(i2c, uni_id_ppr_cam);
 
 static struct acpi_device_id unicam_acpi_match[] = {
-	
-//	{"INT33F3"},
-//	{"HIMX8131"},	   
-//	{"OVTI8865"},	 
-//	{"INT33F0"},
-//	{"HIMX2051"},	  
-	{"INT5648"},	  
+#if 0
+	{"INT33F3"},
+	{"HIMX8131"},
+	{"OVTI8865"},
+	{"INT33F0"},
+	{"HIMX2051"},
+	{"XXGC0310"},
+#endif
+	{"INT3477"},
+	{"INT5648"},
 	{"INT5040"},
-//	{"XXGC0310"},
-	{"GCTI2355"},
 
+	{"GCTI2355"},
 	{},
 };
 MODULE_DEVICE_TABLE(acpi, unicam_acpi_match);
@@ -2358,7 +2778,7 @@ static struct i2c_driver uni_driver_ppr_cam = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = SENSOR_PPR_CAM,
-		.acpi_match_table = ACPI_PTR(unicam_acpi_match),		
+		.acpi_match_table = ACPI_PTR(unicam_acpi_match),
 	},
 	.probe = uni_probe,
 	.remove = uni_remove,

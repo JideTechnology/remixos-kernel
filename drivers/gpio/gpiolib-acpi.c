@@ -149,65 +149,68 @@ static acpi_status acpi_gpiochip_request_interrupt(struct acpi_resource *ares,
 		dev_err(chip->dev, "Failed to get GPIO descriptor\n");
 		return AE_ERROR;
 	}
-
-	ret = gpiochip_request_own_desc(desc, "ACPI:Event");
-	if (ret) {
-		dev_err(chip->dev, "Failed to request GPIO\n");
-		return AE_ERROR;
-	}
-
-	gpiod_direction_input(desc);
-
-	ret = gpiod_lock_as_irq(desc);
-	if (ret) {
-		dev_err(chip->dev, "Failed to lock GPIO as interrupt\n");
-		goto fail_free_desc;
-	}
-
-	irq = gpiod_to_irq(desc);
-	if (irq < 0) {
-		dev_err(chip->dev, "Failed to translate GPIO to IRQ\n");
-		goto fail_unlock_irq;
-	}
-
-	irqflags = IRQF_ONESHOT;
-	if (agpio->triggering == ACPI_LEVEL_SENSITIVE) {
-		if (agpio->polarity == ACPI_ACTIVE_HIGH)
-			irqflags |= IRQF_TRIGGER_HIGH;
-		else
-			irqflags |= IRQF_TRIGGER_LOW;
-	} else {
-		switch (agpio->polarity) {
-		case ACPI_ACTIVE_HIGH:
-			irqflags |= IRQF_TRIGGER_RISING;
-			break;
-		case ACPI_ACTIVE_LOW:
-			irqflags |= IRQF_TRIGGER_FALLING;
-			break;
-		default:
-			irqflags |= IRQF_TRIGGER_RISING |
-				    IRQF_TRIGGER_FALLING;
-			break;
+	if( desc_to_gpio(desc) != 336)
+	{
+		ret = gpiochip_request_own_desc(desc, "ACPI:Event");
+	
+		if (ret) {
+			dev_err(chip->dev, "Failed to request GPIO\n");
+			return AE_ERROR;
 		}
+
+		gpiod_direction_input(desc);
+
+		ret = gpiod_lock_as_irq(desc);
+		if (ret) {
+			dev_err(chip->dev, "Failed to lock GPIO as interrupt\n");
+			goto fail_free_desc;
+		}
+
+		irq = gpiod_to_irq(desc);
+		if (irq < 0) {
+			dev_err(chip->dev, "Failed to translate GPIO to IRQ\n");
+			goto fail_unlock_irq;
+		}
+
+		irqflags = IRQF_ONESHOT;
+		if (agpio->triggering == ACPI_LEVEL_SENSITIVE) {
+			if (agpio->polarity == ACPI_ACTIVE_HIGH)
+				irqflags |= IRQF_TRIGGER_HIGH;
+			else
+				irqflags |= IRQF_TRIGGER_LOW;
+		} else {
+			switch (agpio->polarity) {
+			case ACPI_ACTIVE_HIGH:
+				irqflags |= IRQF_TRIGGER_RISING;
+				break;
+			case ACPI_ACTIVE_LOW:
+				irqflags |= IRQF_TRIGGER_FALLING;
+				break;
+			default:
+				irqflags |= IRQF_TRIGGER_RISING |
+					    IRQF_TRIGGER_FALLING;
+				break;
+			}
+		}
+		event = kzalloc(sizeof(*event), GFP_KERNEL);
+		if (!event)
+			goto fail_unlock_irq;
+
+		event->handle = evt_handle;
+		event->irq = irq;
+		event->pin = pin;
+
+		ret = request_threaded_irq(event->irq, NULL, handler, irqflags,
+					   "ACPI:Event", event);
+		if (ret) {
+			dev_err(chip->dev, "Failed to setup interrupt handler for %d\n",
+				event->irq);
+			goto fail_free_event;
+		}
+
+		list_add_tail(&event->node, &acpi_gpio->events);
+	
 	}
-
-	event = kzalloc(sizeof(*event), GFP_KERNEL);
-	if (!event)
-		goto fail_unlock_irq;
-
-	event->handle = evt_handle;
-	event->irq = irq;
-	event->pin = pin;
-
-	ret = request_threaded_irq(event->irq, NULL, handler, irqflags,
-				   "ACPI:Event", event);
-	if (ret) {
-		dev_err(chip->dev, "Failed to setup interrupt handler for %d\n",
-			event->irq);
-		goto fail_free_event;
-	}
-
-	list_add_tail(&event->node, &acpi_gpio->events);
 	return AE_OK;
 
 fail_free_event:

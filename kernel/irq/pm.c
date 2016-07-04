@@ -101,6 +101,27 @@ void resume_device_irqs(void)
 EXPORT_SYMBOL_GPL(resume_device_irqs);
 
 /**
+ * dump_wakeup_irqs - dump info if any wake-up interrupts are pending
+ */
+void dump_wakeup_irqs(void)
+{
+	struct irq_desc *desc;
+	int irq;
+
+	for_each_irq_desc(irq, desc) {
+		if (irqd_is_wakeup_set(&desc->irq_data)) {
+			if (desc->istate & IRQS_PENDING) {
+				pr_info("Wakeup IRQ %d %s pending\n",
+					irq,
+					desc->action && desc->action->name ?
+					desc->action->name : "");
+			}
+			continue;
+		}
+	}
+}
+
+/**
  * check_wakeup_irqs - check if any wake-up interrupts are pending
  */
 int check_wakeup_irqs(void)

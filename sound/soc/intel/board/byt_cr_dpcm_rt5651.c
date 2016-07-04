@@ -40,7 +40,7 @@
 
 #include "byt_cr_board_configs.h"
 
-#define BYT_PLAT_CLK_3_HZ	25000000
+#define BYT_PLAT_CLK_3_HZ	19200000 // 25000000
 
 #define BYT_JD_INTR_DEBOUNCE            0
 
@@ -49,7 +49,7 @@
 #define PLAT_CLK_FORCE_OFF	2
 
 #define BYT_T_JACK_RECHECK	300 /* ms */
-#define BYT_N_JACK_RECHECK	5
+#define BYT_N_JACK_RECHECK	3
 #define BYT_T_BUTTONS_RECHECK	100 /* ms */
 
 /* 0 = 25MHz from crystal, 1 = 19.2MHz from PLL */
@@ -66,19 +66,19 @@ enum {
 #define RT5651_GPIO_NA		-1
 
 struct rt5651_gpios {
-	int jd_int_gpio;
+	//int jd_int_gpio;
 	int jd_int2_gpio;
-	int jd_buttons_gpio;
-	int debug_mux_gpio;
-	int alc105_reset_gpio;
+	//int jd_buttons_gpio;
+	//int debug_mux_gpio;
+	//int alc105_reset_gpio;
 };
 
 struct byt_drvdata {
 	struct snd_soc_jack jack;
 	struct delayed_work hs_jack_recheck;
-	struct delayed_work hs_buttons_recheck;
+	//struct delayed_work hs_buttons_recheck;
 	int t_jack_recheck;
-	int t_buttons_recheck;
+	//int t_buttons_recheck;
 	int jack_hp_count;
 	struct mutex jack_mlock;
 	struct rt5651_gpios gpios;
@@ -121,7 +121,7 @@ static inline void byt_set_mic_bias_ldo(struct snd_soc_codec *codec,
 
 /* HS-button handling */
 
-static int byt_hs_buttons_check(struct byt_drvdata *drvdata, bool is_recheck)
+/*static int byt_hs_buttons_check(struct byt_drvdata *drvdata, bool is_recheck)
 {
 	struct snd_soc_jack *jack = &drvdata->jack;
 	struct gpio_desc *desc;
@@ -154,9 +154,9 @@ static int byt_hs_buttons_check(struct byt_drvdata *drvdata, bool is_recheck)
 	}
 
 	return jack->status;
-}
+}*/
 
-static int byt_hs_buttons_interrupt(void *data)
+/*static int byt_hs_buttons_interrupt(void *data)
 {
 	struct byt_drvdata *drvdata = (struct byt_drvdata *)data;
 	int status;
@@ -172,9 +172,9 @@ static int byt_hs_buttons_interrupt(void *data)
 
 	mutex_unlock(&drvdata->jack_mlock);
 	return status;
-}
+}*/
 
-static void byt_hs_buttons_recheck(struct work_struct *work)
+/*static void byt_hs_buttons_recheck(struct work_struct *work)
 {
 	struct byt_drvdata *drvdata =
 		container_of(work, struct byt_drvdata, hs_buttons_recheck.work);
@@ -188,7 +188,7 @@ static void byt_hs_buttons_recheck(struct work_struct *work)
 	snd_soc_jack_report(jack, status, SND_JACK_BTN_0);
 
 	mutex_unlock(&drvdata->jack_mlock);
-}
+}*/
 
 /* HS-jack handling */
 
@@ -196,8 +196,11 @@ static void byt_hs_buttons_recheck(struct work_struct *work)
 static inline bool byt_hs_inserted(struct byt_drvdata *drvdata)
 {
 	bool val;
-	const struct gpio_desc *desc;
-
+	struct snd_soc_jack *jack = &drvdata->jack;
+	struct snd_soc_codec *codec = jack->codec;
+	//const struct gpio_desc *desc;
+     
+     #if 0
 	desc = gpio_to_desc(drvdata->gpios.jd_int2_gpio);
 	val = (bool)gpiod_get_value(desc);
 
@@ -207,8 +210,12 @@ static inline bool byt_hs_inserted(struct byt_drvdata *drvdata)
 
 	pr_info("%s: val = %d (pin = %d, active_low = %d)\n", __func__, val,
 		drvdata->gpios.jd_int_gpio, gpiod_is_active_low(desc));
-
+	#else
+      val = rt5651_check_jd_status(codec);
+	#endif
 	return val;
+	
+
 }
 
 static int byt_hs_jack_check(struct byt_drvdata *drvdata, bool is_recheck)
@@ -221,7 +228,7 @@ static int byt_hs_jack_check(struct byt_drvdata *drvdata, bool is_recheck)
 
 	inserted = byt_hs_inserted(drvdata);
 
-	if (inserted) {
+	if (!inserted) {
 		if (!(jack->status & SND_JACK_HEADPHONE)) {
 			status = rt5651_headset_detect(codec, true);
 			if (status == RT5651_HEADPHO_DET) {
@@ -312,12 +319,12 @@ static struct snd_soc_jack_gpio hs_gpio[] = {
 		.debounce_time          = BYT_JD_INTR_DEBOUNCE,
 		.jack_status_check      = byt_jack_interrupt,
 	},
-	{
+	/*{
 		.name                   = "byt-hs-but-int",
 		.report                 = SND_JACK_BTN_0,
 		.debounce_time          = BYT_JD_INTR_DEBOUNCE,
 		.jack_status_check      = byt_hs_buttons_interrupt,
-	},
+	},*/
 
 };
 
@@ -327,7 +334,7 @@ static inline struct snd_soc_codec *byt_get_codec(struct snd_soc_card *card)
 	struct snd_soc_codec *codec;
 
 	list_for_each_entry(codec, &card->codec_dev_list, card_list) {
-		if (!strstr(codec->name, "i2c-10EC5651:00"))
+		if (!strstr(codec->name, "i2c-10EC5651:01"))
 			continue;
 		else {
 			found = true;
@@ -346,9 +353,9 @@ static int byt_set_alc105(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_dapm_context *dapm = w->dapm;
 	struct snd_soc_card *card = dapm->card;
-	struct byt_drvdata *drvdata = snd_soc_card_get_drvdata(dapm->card);
+	//struct byt_drvdata *drvdata = snd_soc_card_get_drvdata(dapm->card);
 	struct snd_soc_codec *codec;
-	struct gpio_desc *desc;
+	//struct gpio_desc *desc;
 
 	pr_debug("%s: Enter.\n", __func__);
 
@@ -359,14 +366,14 @@ static int byt_set_alc105(struct snd_soc_dapm_widget *w,
 		return -EIO;
 	}
 
-	desc = gpio_to_desc(drvdata->gpios.alc105_reset_gpio);
+	/*desc = gpio_to_desc(drvdata->gpios.alc105_reset_gpio);
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
 		pr_debug("%s: ALC105 ON.\n", __func__);
 		gpiod_set_value(desc, 0);
 	} else {
 		pr_debug("%s: ALC105 OFF.\n", __func__);
 		gpiod_set_value(desc, 1);
-	}
+	}*/
 
 	return 0;
 }
@@ -391,12 +398,14 @@ static int byt_set_platform_clock(struct snd_soc_dapm_widget *w,
 				PLAT_CLK_FORCE_ON);
 
 		pr_debug("%s: Platform clk turned ON\n", __func__);
-		snd_soc_write(codec, RT5651_ADDA_CLK1, 0x0014);
+		snd_soc_write(codec, RT5651_ADDA_CLK1, 0x0015);
+		snd_soc_write(codec, RT5651_GLB_CLK, 0x4000);
 	} else {
 		/* Set codec clock source to internal clock before
 		   turning off the platform clock. Codec needs clock
 		   for Jack detection and button press */
-		snd_soc_write(codec, RT5651_ADDA_CLK1, 0x7774);
+		snd_soc_write(codec, RT5651_ADDA_CLK1, 0x1114);
+		snd_soc_write(codec, RT5651_GLB_CLK, 0x8000);
 		/* snd_soc_codec_set_sysclk(codec, RT5651_SCLK_S_RCCLK,
 				0, 0, SND_SOC_CLOCK_IN); */
 		vlv2_plat_configure_clock(VLV2_PLAT_CLK_AUDIO,
@@ -437,7 +446,7 @@ static const struct snd_soc_dapm_route byt_audio_map[] = {
 	/* Capture */
 
 	{"Headset Mic", NULL, "Platform Clock"},
-	{"IN1P", NULL, "Headset Mic"},
+	{"IN3P", NULL, "Headset Mic"},
 
 	{"Int Mic", NULL, "Platform Clock"},
 	{"LDO2", NULL, "Int Mic"},
@@ -455,7 +464,8 @@ static const struct snd_soc_dapm_route byt_audio_map[] = {
 };
 
 static const struct snd_soc_dapm_route byt_audio_map_default[] = {
-	{"IN3P", NULL, "micbias1"},
+	{"IN2P", NULL, "micbias1"},
+	{"IN2N", NULL, "micbias1"},
 };
 
 static const struct snd_kcontrol_new byt_mc_controls[] = {
@@ -553,7 +563,7 @@ static void byt_export_gpio(struct gpio_desc *desc, char *name)
 
 static int byt_init(struct snd_soc_pcm_runtime *runtime)
 {
-	int ret, dir, count;
+	int ret, count;//, dir;
 	struct snd_soc_codec *codec;
 	struct snd_soc_card *card = runtime->card;
 	struct byt_drvdata *drvdata = snd_soc_card_get_drvdata(runtime->card);
@@ -579,8 +589,8 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 
 	/* GPIOs */
 
-	desc = devm_gpiod_get_index(codec->dev, NULL, RT5651_GPIO_JD_INT);
-	if (!IS_ERR(desc)) {
+	//desc = devm_gpiod_get_index(codec->dev, NULL, RT5651_GPIO_JD_INT);
+	/*if (!IS_ERR(desc)) {
 		drvdata->gpios.jd_int_gpio = desc_to_gpio(desc);
 		byt_export_gpio(desc, "JD-int");
 
@@ -592,11 +602,11 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 	} else {
 		drvdata->gpios.jd_int_gpio = RT5651_GPIO_NA;
 		pr_err("%s: GPIOs - JD-int: Not present!\n", __func__);
-	}
+	}*/
 
 	desc = devm_gpiod_get_index(codec->dev, NULL, RT5651_GPIO_JD_INT2);
 	if (!IS_ERR(desc)) {
-		drvdata->gpios.jd_int2_gpio = desc_to_gpio(desc);
+		drvdata->gpios.jd_int2_gpio = 307;//desc_to_gpio(desc);
 		byt_export_gpio(desc, "JD-int2");
 
 		pr_info("%s: GPIOs - JD-int2: %d (pol = %d, val = %d)\n",
@@ -609,7 +619,7 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 		pr_warn("%s: GPIOs - JD-int2: Not present!\n", __func__);
 	}
 
-	desc = devm_gpiod_get_index(codec->dev, NULL, RT5651_GPIO_JACK_SWITCH);
+	/*desc = devm_gpiod_get_index(codec->dev, NULL, RT5651_GPIO_JACK_SWITCH);
 	if (!IS_ERR(desc)) {
 		drvdata->gpios.debug_mux_gpio = desc_to_gpio(desc);
 		byt_export_gpio(desc, "debug-mux");
@@ -633,9 +643,9 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 	} else {
 		drvdata->gpios.debug_mux_gpio = RT5651_GPIO_NA;
 		pr_warn("%s: GPIOs - Debug-mux: Not present!\n", __func__);
-	}
+	}*/
 
-	desc = devm_gpiod_get_index(codec->dev, NULL, RT5651_GPIO_ALC105_RESET);
+	/*desc = devm_gpiod_get_index(codec->dev, NULL, RT5651_GPIO_ALC105_RESET);
 	if (!IS_ERR(desc)) {
 		drvdata->gpios.alc105_reset_gpio = desc_to_gpio(desc);
 		byt_export_gpio(desc, "ALC105");
@@ -649,9 +659,9 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 	} else {
 		drvdata->gpios.alc105_reset_gpio = RT5651_GPIO_NA;
 		pr_warn("%s: GPIOs - ALC105 reset: Not present!\n", __func__);
-	}
+	}*/
 
-	desc = devm_gpiod_get_index(codec->dev, NULL, RT5651_GPIO_JD_BUTTONS);
+	/*desc = devm_gpiod_get_index(codec->dev, NULL, RT5651_GPIO_JD_BUTTONS);
 	if (!IS_ERR(desc)) {
 		drvdata->gpios.jd_buttons_gpio = desc_to_gpio(desc);
 		byt_export_gpio(desc, "JD-buttons");
@@ -665,7 +675,7 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 	} else {
 		drvdata->gpios.jd_buttons_gpio = RT5651_GPIO_NA;
 		pr_warn("%s: GPIOs - JD-buttons: Not present!\n", __func__);
-	}
+	}*/
 
 	/* BYT-CR Audio Jack */
 	count = 0;
@@ -675,16 +685,16 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 		count++;
 	}
 
-	if (drvdata->gpios.jd_buttons_gpio != RT5651_GPIO_NA) {
+	/*if (drvdata->gpios.jd_buttons_gpio != RT5651_GPIO_NA) {
 		hs_gpio[count].gpio = drvdata->gpios.jd_buttons_gpio;
 		hs_gpio[count].data = drvdata;
 		count++;
-	}
+	}*/
 
 	drvdata->t_jack_recheck = msecs_to_jiffies(BYT_T_JACK_RECHECK);
 	INIT_DELAYED_WORK(&drvdata->hs_jack_recheck, byt_hs_jack_recheck);
-	drvdata->t_buttons_recheck = msecs_to_jiffies(BYT_T_BUTTONS_RECHECK);
-	INIT_DELAYED_WORK(&drvdata->hs_buttons_recheck, byt_hs_buttons_recheck);
+	//drvdata->t_buttons_recheck = msecs_to_jiffies(BYT_T_BUTTONS_RECHECK);
+	//INIT_DELAYED_WORK(&drvdata->hs_buttons_recheck, byt_hs_buttons_recheck);
 	drvdata->jack_hp_count = 5;
 
 	if (!count) {
@@ -723,6 +733,11 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 		return ret;
 	}
 	return ret;
+}
+
+static int byt_compr_set_params(struct snd_compr_stream *cstream)
+{
+	return 0;
 }
 
 /* AIF1 */
@@ -776,6 +791,10 @@ static struct snd_soc_ops byt_8k_16k_ops = {
 	.hw_params = byt_aif1_hw_params,
 };
 
+static struct snd_soc_compr_ops byt_compr_ops = {
+	.set_params = byt_compr_set_params,
+};
+
 static struct snd_soc_dai_link byt_dailink[] = {
 	[BYT_DPCM_AUDIO] = {
 		.name = "Baytrail Audio Port",
@@ -789,6 +808,30 @@ static struct snd_soc_dai_link byt_dailink[] = {
 		.dynamic = 1,
 		.ops = &byt_aif1_ops,
 	},
+	[BYT_DPCM_DB] = {
+		.name = "Cherrytrail DB Audio Port",
+		.stream_name = "Deep Buffer Audio",
+		.cpu_dai_name = "Deepbuffer-cpu-dai",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.platform_name = "sst-platform",
+		.ignore_suspend = 1,
+		.dynamic = 1,
+		.ops = &byt_aif1_ops,
+		.dpcm_playback = 1,
+	},
+	[BYT_DPCM_COMPR] = {
+		.name = "Cherrytrail Compressed Port",
+		.stream_name = "Cherrytrail Compress",
+		.cpu_dai_name = "Compress-cpu-dai",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.platform_name = "sst-platform",
+		.ignore_suspend = 1,
+		.dynamic = 1,
+		.compr_ops = &byt_compr_ops,
+		.dpcm_playback = 1,
+	},
 	[BYT_DPCM_VOIP] = {
 		.name = "Baytrail VOIP Port",
 		.stream_name = "Baytrail Voip",
@@ -800,6 +843,27 @@ static struct snd_soc_dai_link byt_dailink[] = {
 		.ignore_suspend = 1,
 		.ops = &byt_8k_16k_ops,
 		.dynamic = 1,
+	},	
+	[BYT_DPCM_LL] = {
+		.name = "Cherrytrail LL Audio Port",
+		.stream_name = "Low Latency Audio",
+		.cpu_dai_name = "Lowlatency-cpu-dai",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.platform_name = "sst-platform",
+		.ignore_suspend = 1,
+		.dynamic = 1,
+		.ops = &byt_aif1_ops,
+	},
+	[BYT_DPCM_PROBE] = {
+		.name = "Cherrytrail Probe Port",
+		.stream_name = "Cherrytrail Probe",
+		.cpu_dai_name = "Probe-cpu-dai",
+		.platform_name = "sst-platform",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.playback_count = 8,
+		.capture_count = 8,
 	},
 
 	/* CODEC<->CODEC link */
@@ -822,7 +886,7 @@ static struct snd_soc_dai_link byt_dailink[] = {
 		.platform_name = "sst-platform",
 		.no_pcm = 1,
 		.codec_dai_name = "rt5651-aif1",
-		.codec_name = "i2c-10EC5651:00",
+		.codec_name = "i2c-10EC5651:01",
 		.ignore_suspend = 1,
 		.ops = &byt_be_ssp2_ops,
 	},
@@ -867,7 +931,8 @@ static int snd_byt_poweroff(struct device *dev)
 
 /* SoC card */
 static struct snd_soc_card snd_soc_card_byt_default = {
-	.name = "bytcr-rt5651",
+	//.name = "bytcr-rt5651",
+	.name = "cherrytrailaud",
 	.dai_link = byt_dailink,
 	.num_links = ARRAY_SIZE(byt_dailink),
 	.set_bias_level = byt_set_bias_level,
@@ -885,7 +950,7 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 	const struct snd_soc_dapm_route *routes;
 	const struct board_config *conf;
 
-	pr_debug("%s: Enter.\n", __func__);
+	printk("%s: Enter.\n", __func__);
 
 	drvdata = devm_kzalloc(&pdev->dev, sizeof(*drvdata), GFP_ATOMIC);
 	if (!drvdata) {
@@ -929,14 +994,14 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 				RT5651_JD_MASK, RT5651_JD_JD1_IN4P);
 	}
 
-	pr_debug("%s: Exit.\n", __func__);
+	printk("%s: Exit.\n", __func__);
 	return ret_val;
 }
 
 static void snd_byt_unregister_jack(struct byt_drvdata *drvdata)
 {
 	cancel_delayed_work_sync(&drvdata->hs_jack_recheck);
-	snd_soc_jack_free_gpios(&drvdata->jack, 2, hs_gpio);
+	snd_soc_jack_free_gpios(&drvdata->jack, 1, hs_gpio);
 }
 
 static int snd_byt_mc_remove(struct platform_device *pdev)
@@ -973,7 +1038,7 @@ static const struct dev_pm_ops snd_byt_mc_pm_ops = {
 static struct platform_driver snd_byt_mc_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
-		.name = "byt_rt5651",
+		.name = "cht_rt5651",
 		.pm = &snd_byt_mc_pm_ops,
 	},
 	.probe = snd_byt_mc_probe,

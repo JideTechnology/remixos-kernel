@@ -445,6 +445,19 @@ int usbnet_cdc_bind(struct usbnet *dev, struct usb_interface *intf)
 	if (status < 0)
 		return status;
 
+    /*ZTE hostless dongle send usb request begin*/
+	if (le16_to_cpu(dev->udev->descriptor.idVendor) == 0x19d2) {
+	    if ((le16_to_cpu(dev->udev->descriptor.idProduct) == 0x1405)
+			|| (0x1436 <= le16_to_cpu(dev->udev->descriptor.idProduct)
+			&& (0x1465 >= le16_to_cpu(dev->udev->descriptor.idProduct)))) {
+				status = usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
+					0xB0, 0xC0, 0x0007, 0x00, NULL, 0, 1000);
+				printk("cdc_bind status=%d, intf->altsetting->desc.bInterfaceNumber=%1x\n",
+					status, intf->altsetting->desc.bInterfaceNumber);
+		   }
+	}
+    /*ZTE hostless dongle send usb request end*/
+
 	status = usbnet_get_ethernet_addr(dev, info->ether->iMACAddress);
 	if (status < 0) {
 		usb_set_intfdata(info->data, NULL);

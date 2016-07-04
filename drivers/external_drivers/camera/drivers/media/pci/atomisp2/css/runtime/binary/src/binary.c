@@ -519,8 +519,11 @@ binary_init_info(struct ia_css_binary_xinfo *info, unsigned int i,
 		return IA_CSS_SUCCESS;
 
 	info->xmem_addr = sh_css_load_blob(blob, size);
-	if (!info->xmem_addr)
-		return IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
+
+	if (!info->xmem_addr){
+		printk("%s, stella fail to load blob @ %d cycle\n", __func__, i);
+		return IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;}
+	printk("%s, stella loaded blob @ %d cycle as base %0x\n", __func__, i, info->xmem_addr);
 	return IA_CSS_SUCCESS;
 }
 
@@ -538,8 +541,12 @@ ia_css_binary_init_infos(void)
 
 	all_binaries = sh_css_malloc(num_of_isp_binaries *
 						sizeof(*all_binaries));
-	if (all_binaries == NULL)
+
+	if (all_binaries == NULL){
+		printk("%s, stella failed to malloc all bin buffer\n", __func__);
 		return IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
+	}
+	printk("%s, stella malloc bin buf as %d*%ld\n", __func__, num_of_isp_binaries, sizeof(*all_binaries));
 
 	for (i = 0; i < num_of_isp_binaries; i++) {
 		enum ia_css_err ret;
@@ -556,6 +563,7 @@ ia_css_binary_init_infos(void)
 		binary_infos[binary->sp.pipeline.mode] = binary;
 		binary->blob = &sh_css_blob_info[i];
 		binary->mem_offsets = sh_css_blob_info[i].mem_offsets;
+		printk("%s, stella bin init success @ %d cycle\n", __func__, i);
 	}
 	return IA_CSS_SUCCESS;
 }

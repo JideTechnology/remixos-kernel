@@ -17,20 +17,20 @@
 
 enum {
 	NORMAL = 0,
-	CLUB,
-	DANCE,
-	LIVE,
-	POP,
-	ROCK,
-	OPPO,
-	TREBLE,
-	BASS,
+	SPK,
+	ADC,
 	MODE_NUM,
 };
 
-#define EQ_REG_NUM 16
+#define EQ_REG_NUM 21
+typedef struct  hweq_s {
+	unsigned int reg[EQ_REG_NUM];
+	unsigned int value[EQ_REG_NUM];
+	unsigned int ctrl;
+} hweq_t;
 
 int rt5651_ioctl_common(struct snd_hwdep *hw, struct file *file,
 			unsigned int cmd, unsigned long arg);
+int rt5651_update_eqmode(struct snd_soc_codec *codec, int mode);
 
 #endif /* __RT5651_IOCTL_H__ */

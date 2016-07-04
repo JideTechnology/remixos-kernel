@@ -1599,11 +1599,16 @@ ia_css_load_firmware(const struct ia_css_env *env,
 {
 	enum ia_css_err err;
 
-	if (env == NULL)
+	if (env == NULL) {
+		printk("bingo...%s(): env is NULL!\n", __func__);
 		return IA_CSS_ERR_INVALID_ARGUMENTS;
-	if (fw == NULL)
+	}
+	if (fw == NULL) {
+		printk("bingo...%s(): fw is NULL!\n", __func__);
 		return IA_CSS_ERR_INVALID_ARGUMENTS;
+	}
 
+	printk("bingo...%s(): enter!\n", __func__);
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "ia_css_load_firmware() enter\n");
 
 	ia_css_memory_access_init(&env->css_mem_env);
@@ -1622,6 +1627,7 @@ ia_css_load_firmware(const struct ia_css_env *env,
 	}
 
 	ia_css_unload_firmware(); /* in case we are called twice */
+	printk("bingo...%s(): sh_css_load_firmware()!\n", __func__);
 	err = sh_css_load_firmware(fw->data, fw->bytes);
 	if (err == IA_CSS_SUCCESS) {
 		err = ia_css_binary_init_infos();
@@ -1630,6 +1636,7 @@ ia_css_load_firmware(const struct ia_css_env *env,
 	}
 
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "ia_css_load_firmware() leave \n");
+	printk("bingo...%s(): out!\n", __func__);
 	return err;
 }
 
@@ -1693,10 +1700,14 @@ ia_css_init(const struct ia_css_env *env,
 	/* Check struct ia_css_init_dmem_cfg */
 	COMPILATION_ERROR_IF( sizeof(struct ia_css_sp_init_dmem_cfg)		!= SIZE_OF_IA_CSS_SP_INIT_DMEM_CFG_STRUCT	);
 
-	if (fw == NULL && !fw_explicitly_loaded)
+	if (fw == NULL && !fw_explicitly_loaded) {
+		printk("bingo...%s(): fw is NULL! fw_explicitly_loaded is false!\n", __func__);
 		return IA_CSS_ERR_INVALID_ARGUMENTS;
-	if (env == NULL)
+	}
+	if (env == NULL) {
+		printk("bingo...%s(): env is NULL!\n", __func__);
 	    return IA_CSS_ERR_INVALID_ARGUMENTS;
+	}
 
 	sh_css_printf = env->print_env.debug_print;
 

@@ -94,18 +94,36 @@ static void pmic_shutdown(struct i2c_client *client)
 
 static int pmic_suspend(struct device *dev)
 {
+//	int regValue;
+	
+//	regValue = pmic_i2c_readb(0x13);
+//	regValue &=~(1<<6);
+//	pmic_i2c_writeb(0x13,regValue);
 	disable_irq(pmic_i2c_client->irq);
+	pmic_i2c->print_wakeup = 1;
 	return 0;
 }
 
 static int pmic_resume(struct device *dev)
 {
+//	int regValue;
+	
+//	regValue = pmic_i2c_readb(0x13);
+//	regValue |=(1<<6);
+//	pmic_i2c_writeb(0x13,regValue);
 	enable_irq(pmic_i2c_client->irq);
 	return 0;
 }
 
+static void pmic_complete(struct device *dev)
+{
+	synchronize_irq(pmic_i2c_client->irq);
+	pmic_i2c->print_wakeup = 0;
+}
+
 static const struct dev_pm_ops pmic_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(pmic_suspend, pmic_resume)
+	.complete = pmic_complete,
 };
 
 static int pmic_i2c_lookup_gpio(struct device *dev, int acpi_index)

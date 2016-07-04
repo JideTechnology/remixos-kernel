@@ -73,7 +73,7 @@
 /* Format - ADC/DAC */
 #define RT5651_I2S1_SDP				0x70
 #define RT5651_I2S2_SDP				0x71
-/*#define RT5651_I2S3_SDP				0x72*/
+/* #define RT5651_I2S3_SDP				0x72 */
 #define RT5651_ADDA_CLK1			0x73
 #define RT5651_ADDA_CLK2			0x74
 #define RT5651_DMIC				0x75
@@ -193,6 +193,16 @@
 
 /* LOUT Control 2(0x05) */
 #define RT5651_EN_DFO				(0x1 << 15)
+
+
+/* MIC Over current threshold scale factor (0x15) */
+#define RT5651_MIC_OVCD_SF_MASK                 (0x3 << 8)
+#define RT5651_MIC_OVCD_SF_SFT                  8
+#define RT5651_MIC_OVCD_SF_0P5                  (0x0 << 8)
+#define RT5651_MIC_OVCD_SF_0P75                 (0x1 << 8)
+#define RT5651_MIC_OVCD_SF_1P0                  (0x2 << 8)
+#define RT5651_MIC_OVCD_SF_1P5                  (0x3 << 8)
+
 
 /* IN1 and IN2 Control (0x0d) */
 /* IN3 and IN4 Control (0x0e) */
@@ -562,7 +572,7 @@
 #define RT5651_M_BST2_RM_R_SFT		2
 #define RT5651_M_BST1_RM_R			(0x1 << 1)
 #define RT5651_M_BST1_RM_R_SFT		1
-#define RT5651_M_OM_R_RM_R			(0x1) /*SPEC ERROR ?????*/
+#define RT5651_M_OM_R_RM_R			(0x1) /* SPEC ERROR ????? */
 #define RT5651_M_OM_R_RM_R_SFT		0
 
 /* HPMIX Control (0x45) */
@@ -1432,7 +1442,7 @@
 #define RT5651_EQ_LPF_SFT			0
 #define RT5651_EQ_LPF_DIS			(0x0)
 #define RT5651_EQ_LPF_EN			(0x1)
-#define RT5651_EQ_CTRL_MASK			(0x7f)
+#define RT5651_EQ_CTRL_MASK			(0x01ff)
 
 /* Memory Test (0xb2) */
 #define RT5651_MT_MASK				(0x1 << 15)
@@ -1501,8 +1511,10 @@
 #define RT5651_JD_SFT				13
 #define RT5651_JD_DIS				(0x0 << 13)
 #define RT5651_JD_GPIO1				(0x1 << 13)
-#define RT5651_JD_JD1_IN4P			(0x2 << 13)/*TO Do: Need to check*/
-#define RT5651_JD_JD2_IN4N			(0x3 << 13)/*To Do: Need to check*/
+/* TODO: Need to check */
+#define RT5651_JD_JD1_IN4P			(0x2 << 13)
+/* TODO: Need to check */
+#define RT5651_JD_JD2_IN4N			(0x3 << 13)
 #define RT5651_JD_GPIO2			(0x2 << 13)
 #define RT5651_JD_GPIO3			(0x3 << 13)
 #define RT5651_JD_GPIO4				(0x4 << 13)
@@ -2139,5 +2151,7 @@ int rt5651_check_bp_status(struct snd_soc_codec *codec);
 void rt5651_enable_ovcd_interrupt(struct snd_soc_codec *codec, bool enable);
 void rt5651_config_ovcd_thld(struct snd_soc_codec *codec,
 						int base, int scale_factor);
+int rt5651_index_write(struct snd_soc_codec *codec,
+		unsigned int reg, unsigned int value);
 
 #endif /* __RT5651_H__ */

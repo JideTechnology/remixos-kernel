@@ -238,7 +238,7 @@ static void set_wake_locked(int wake)
 	gpio_set_value(bt_lpm.gpio_wake, wake);
 
 	if (!wake) {
-		WARN_ON(!bt_lpm.tty_dev);
+		//WARN_ON(!bt_lpm.tty_dev);
 		uart_disable(bt_lpm.tty_dev);
 	}
 }

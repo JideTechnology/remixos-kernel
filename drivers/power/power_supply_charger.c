@@ -658,6 +658,7 @@ static int trigger_algo(struct power_supply *psy)
 	struct charging_algo *algo;
 	struct ps_batt_chg_prof chrg_profile;
 	int cnt, ret;
+	int algo_stat = 0;
 
 	if (psy->type != POWER_SUPPLY_TYPE_BATTERY)
 		return 0;
@@ -686,8 +687,16 @@ static int trigger_algo(struct power_supply *psy)
 		return -EINVAL;
 	}
 
-	bat_prop.algo_stat = algo->get_next_cc_cv(bat_prop,
+	algo_stat = algo->get_next_cc_cv(bat_prop,
 						chrg_profile, &cc, &cv);
+	if( algo_stat == PSY_ALGO_STAT_FULL )
+	{
+		//printk("===current capacity:%d\n", get_ps_int_property(psy, POWER_SUPPLY_PROP_CAPACITY));
+		if(get_ps_int_property(psy, POWER_SUPPLY_PROP_CAPACITY) != 100 )
+			  algo_stat = bat_prop.algo_stat;
+	}
+	
+	bat_prop.algo_stat = algo_stat;
 
 	pr_info("%s:Algo_status:%d\n", __func__, bat_prop.algo_stat);
 

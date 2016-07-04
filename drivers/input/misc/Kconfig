@@ -718,6 +718,16 @@ config INPUT_LTR303
 		This driver can also be built as a module. If so, the module will be
 		called ltr303.
 
+		
+config INPUT_HALL_SWITCH
+		tristate “hall”
+		default y
+		help
+		If you say yes here you get support for the hall switch.
+		This driver can also be built as a module. If so, the module will be
+		called hall.	
+
+		
 source "drivers/input/misc/BMG160/Kconfig"
 
 config INPUT_BMA2X2

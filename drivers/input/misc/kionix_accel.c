@@ -1133,7 +1133,7 @@ static ssize_t kionix_accel_set_enable(struct device *dev, struct device_attribu
 	struct i2c_client *client = to_i2c_client(dev);
 	struct kionix_accel_driver *acceld = i2c_get_clientdata(client);
 	struct input_dev *input_dev = acceld->input_dev;
-	char *buf2;
+	char *buf2 = NULL;
 	const int enable_count = 1;
 	int err = 0;
 	long en = 0;
@@ -1149,8 +1149,10 @@ static ssize_t kionix_accel_set_enable(struct device *dev, struct device_attribu
 		/* Removes any leading negative sign */
 		while(*buf2 == '-')
 			buf2++;
-		if (strict_strtol(buf, 10, &en))
-			return -EINVAL;
+		if (strict_strtol(buf, 10, &en)) {
+			err = -EINVAL;
+			goto exit;
+		}
 		en = en ? 1 : 0;
 		printk("%s........RU.....en = %d\n",__func__, en);
 		if(en) 
@@ -1159,6 +1161,9 @@ static ssize_t kionix_accel_set_enable(struct device *dev, struct device_attribu
 			err = kionix_accel_disable(acceld);
 	}
 exit:
+	if (buf2)
+		kfree(buf2);
+
 	mutex_unlock(&input_dev->mutex);
 	return (err < 0) ? err : count;
 }
@@ -1180,7 +1185,7 @@ static ssize_t kionix_accel_set_delay(struct device *dev, struct device_attribut
 	struct i2c_client *client = to_i2c_client(dev);
 	struct kionix_accel_driver *acceld = i2c_get_clientdata(client);
 	struct input_dev *input_dev = acceld->input_dev;
-	char *buf2;
+	char *buf2 = NULL;
 	const int delay_count = 1;
 	unsigned long interval;
 	int err = 0;
@@ -1232,6 +1237,9 @@ static ssize_t kionix_accel_set_delay(struct device *dev, struct device_attribut
 	}
 
 exit:
+	if (buf2)
+		kfree(buf2);
+
 	mutex_unlock(&input_dev->mutex);
 
 	return (err < 0) ? err : count;
@@ -1254,7 +1262,7 @@ static ssize_t kionix_accel_set_direct(struct device *dev, struct device_attribu
 	struct i2c_client *client = to_i2c_client(dev);
 	struct kionix_accel_driver *acceld = i2c_get_clientdata(client);
 	struct input_dev *input_dev = acceld->input_dev;
-	char *buf2;
+	char *buf2 = NULL;
 	const int direct_count = 1;
 	unsigned long direction;
 	int err = 0;
@@ -1298,6 +1306,9 @@ static ssize_t kionix_accel_set_direct(struct device *dev, struct device_attribu
 	}
 
 exit:
+	if (buf2)
+		kfree(buf2);
+
 	mutex_unlock(&input_dev->mutex);
 
 	return (err < 0) ? err : count;

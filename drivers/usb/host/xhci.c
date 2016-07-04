@@ -86,6 +86,8 @@ void xhci_quiesce(struct xhci_hcd *xhci)
 	u32 halted;
 	u32 cmd;
 	u32 mask;
+	u32 i;
+	u32 cmdread;
 
 	mask = ~(XHCI_IRQS);
 	halted = readl(&xhci->op_regs->status) & STS_HALT;
@@ -94,6 +96,20 @@ void xhci_quiesce(struct xhci_hcd *xhci)
 
 	cmd = readl(&xhci->op_regs->command);
 	cmd &= mask;
+	if(1 == halted && cmd != 0)
+	{
+		cmd = 0;
+		for(i = 0;i < 50;i ++)
+		{
+			writel(cmd, &xhci->op_regs->command);
+			mdelay(200);
+			cmdread = readl(&xhci->op_regs->command);
+			if(0 == cmdread)
+			{
+				break;
+			}	
+		}
+	}
 	writel(cmd, &xhci->op_regs->command);
 }
 
@@ -119,6 +135,7 @@ int xhci_halt(struct xhci_hcd *xhci)
 	} else
 		xhci_warn(xhci, "Host not halted after %u microseconds.\n",
 				XHCI_MAX_HALT_USEC);
+	mdelay(20);
 	return ret;
 }
 
@@ -163,7 +180,8 @@ int xhci_reset(struct xhci_hcd *xhci)
 	u32 command;
 	u32 state;
 	int ret, i;
-
+	int j=0;
+	int retval,retval2;
 	state = readl(&xhci->op_regs->status);
 	if ((state & STS_HALT) == 0) {
 		xhci_warn(xhci, "Host controller not halted, aborting reset.\n");
@@ -176,10 +194,31 @@ int xhci_reset(struct xhci_hcd *xhci)
 	writel(command, &xhci->op_regs->command);
 
 	ret = xhci_handshake(xhci, &xhci->op_regs->command,
-			CMD_RESET, 0, 10 * 1000 * 1000);
+			CMD_RESET, 0, 1000);
 	if (ret)
-		return ret;
-
+	{
+		printk("%s:In usb controller  halt and reset procedure.\n",__func__);
+		for(j=0;j < 10;j++)
+		{
+			retval = xhci_halt(xhci);
+			if(retval)  
+			{
+				continue;
+			}
+			mdelay(200);
+			writel(command, &xhci->op_regs->command);
+			retval2 = xhci_handshake(xhci, &xhci->op_regs->command,
+			CMD_RESET, 0, 1000);
+			if(retval2 == 0)
+			{
+				goto normal_process;
+			}
+		}
+		ret = 0;
+		goto normal_process;
+	}
+	
+normal_process:
 	xhci_dbg_trace(xhci, trace_xhci_dbg_init,
 			 "Wait for controller to be ready for doorbell rings");
 	/*

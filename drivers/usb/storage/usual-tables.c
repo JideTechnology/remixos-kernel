@@ -55,6 +55,19 @@
 	.driver_info = (flags) \
 }
 
+/*hw dongle +*/
+#define HW_UNUSUAL_DEV(id_vendor, cl, sc, pr, \
+			vendorName, productName, useProtocol, useTransport, \
+			initFunction, flags) \
+{ \
+	.match_flags = USB_DEVICE_ID_MATCH_INT_INFO | USB_DEVICE_ID_MATCH_VENDOR, \
+	.idVendor = (id_vendor), \
+	.bInterfaceClass = (cl), \
+	.bInterfaceSubClass = (sc), \
+	.bInterfaceProtocol = (pr), \
+	.driver_info = (flags) | 0x800000 }
+/*hw dongle -*/
+
 struct usb_device_id usb_storage_usb_ids[] = {
 #	include "unusual_devs.h"
 	{ }		/* Terminating entry */
@@ -63,6 +76,9 @@ MODULE_DEVICE_TABLE(usb, usb_storage_usb_ids);
 
 #undef UNUSUAL_DEV
 #undef COMPLIANT_DEV
+/*hw dongle +*/
+#undef HW_UNUSUAL_DEV
+/*hw dongle -*/
 #undef USUAL_DEV
 #undef UNUSUAL_VENDOR_INTF
 
