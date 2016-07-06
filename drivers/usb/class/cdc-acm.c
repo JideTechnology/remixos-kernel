@@ -44,11 +44,12 @@
 #include <linux/uaccess.h>
 #include <linux/usb.h>
 #include <linux/usb/cdc.h>
-#include <linux/usb/hcd.h>
 #include <asm/byteorder.h>
 #include <asm/unaligned.h>
 #include <linux/list.h>
 #include <linux/debugfs.h>
+#include <linux/gpio.h>
+
 
 #include "cdc-acm.h"
 
@@ -513,29 +514,6 @@ static void acm_softint(struct work_struct *work)
 	tty_port_tty_wakeup(&acm->port);
 }
 
-static void acm_cancel_all_urb(struct acm *acm, bool all_urbs)
-{
-	struct urb *out_urbs[ACM_NW];
-	struct urb *in_urbs[ACM_NR];
-	int i;
-
-	dev_dbg(&acm->control->dev, "%s\n", __func__);
-
-	/* OUT URBs cancellation */
-	if (all_urbs) {
-		memset(out_urbs, 0, sizeof(out_urbs));
-		for (i = 0; i < ACM_NW; i++)
-			out_urbs[i] = acm->wb[i].urb;
-		usb_hcd_all_urb_dequeue(out_urbs, ACM_NW, -ENOENT);
-	}
-
-	/* IN URBs cancellation */
-	memset(in_urbs, 0, sizeof(in_urbs));
-	for (i = 0; i < acm->rx_buflimit; i++)
-		in_urbs[i] = acm->read_urbs[i];
-	usb_hcd_all_urb_dequeue(in_urbs, acm->rx_buflimit, -ENOENT);
-}
-
 /*
  * TTY handlers
  */
@@ -582,6 +560,7 @@ static int acm_port_activate(struct tty_port *port, struct tty_struct *tty)
 {
 	struct acm *acm = container_of(port, struct acm, port);
 	int retval = -ENODEV;
+	int i;
 
 	pr_info("wgq[%s][acm%d]\n",__func__,acm->minor);
 	dev_dbg(&acm->control->dev, "%s\n", __func__);
@@ -634,8 +613,8 @@ static int acm_port_activate(struct tty_port *port, struct tty_struct *tty)
 	return 0;
 
 error_submit_read_urbs:
-	/* Cancel only IN URBs */
-	acm_cancel_all_urb(acm, false);
+	for (i = 0; i < acm->rx_buflimit; i++)
+		usb_kill_urb(acm->read_urbs[i]);
 	acm->ctrlout = 0;
 	acm_set_control(acm, acm->ctrlout);
 error_set_control:
@@ -665,6 +644,7 @@ static void acm_port_shutdown(struct tty_port *port)
 	struct acm *acm = container_of(port, struct acm, port);
 	struct urb *urb;
 	struct acm_wb *wb;
+	int i;
 	int pm_err;
 
 	pr_info("wgq[%s][acm%d]\n",__func__,acm->minor);
@@ -685,8 +665,10 @@ static void acm_port_shutdown(struct tty_port *port)
 		}
 
 		usb_kill_urb(acm->ctrlurb);
-		/* Cancel all URBs */
-		acm_cancel_all_urb(acm, true);
+		for (i = 0; i < ACM_NW; i++)
+			usb_kill_urb(acm->wb[i].urb);
+		for (i = 0; i < acm->rx_buflimit; i++)
+			usb_kill_urb(acm->read_urbs[i]);
 		acm->control->needs_remote_wakeup = 0;
 		if (!pm_err)
 			usb_autopm_put_interface(acm->control);
@@ -1156,13 +1138,14 @@ static int acm_probe(struct usb_interface *intf,
 	struct device *tty_dev;
 	int rv = -ENOMEM;
 
-	if (usb_dev != NULL) {
-		dev_dbg(&intf->dev, "cdc acm probe\n");
-		if((usb_dev->descriptor.idVendor == 0x058b) && (usb_dev->descriptor.idProduct == 0x0041)) {
-			dev_dbg(&intf->dev, "skip_normal_probe\n");
-			return -ENODEV;
-		}
-	}
+    if (usb_dev != NULL) {
+        dev_dbg(&intf->dev, "cdc acm probe\n");
+        if((usb_dev->descriptor.idVendor == 0x058b) && (usb_dev->descriptor.idProduct == 0x0041) ||
+           (usb_dev->descriptor.idVendor == 0x8087) && (usb_dev->descriptor.idProduct == 0x07EF)) {
+            dev_dbg(&intf->dev, "skip_normal_probe\n");
+            return -ENODEV;
+        }
+    }
 
 	if (usb_dev != NULL){
 		usb_dev->persist_enabled = 0;
@@ -1177,14 +1160,15 @@ static int acm_probe(struct usb_interface *intf,
 
 	num_rx_buf = (quirks == SINGLE_RX_URB) ? 1 : ACM_NR;
 
-	if (usb_dev != NULL) {
-		printk ("%s:kz.ttyusb idVendor: 0x%x,   idProduct: 0x%x \n", __func__, usb_dev->descriptor.idVendor, usb_dev->descriptor.idProduct);
-		if (((usb_dev->descriptor.idVendor == 0x058b) && (usb_dev->descriptor.idProduct == 0x0041)) 
-				|| ((usb_dev->descriptor.idVendor == 0x8087) && (usb_dev->descriptor.idProduct == 0x07EF))) {
-			printk ("%s:kz skip fibcom upgrade vendor and product id \n", __func__);
-			return -ENODEV;
-		}
-	}
+    if (usb_dev != NULL) {
+        printk ("%s:kz.ttyusb idVendor: 0x%x,   idProduct: 0x%x \n", __func__,
+                    usb_dev->descriptor.idVendor, usb_dev->descriptor.idProduct);
+        if ((usb_dev->descriptor.idVendor == 0x058b) && (usb_dev->descriptor.idProduct == 0x0041) ||
+            (usb_dev->descriptor.idVendor == 0x8087) && (usb_dev->descriptor.idProduct == 0x07EF)) {
+            printk ("%s:kz skip fibcom upgrade vendor and product id \n", __func__);
+            return -ENODEV;
+        }
+    }
 
 	/* handle quirks deadly to normal probing*/
 	if (quirks == NO_UNION_NORMAL) {
@@ -1552,9 +1536,14 @@ skip_countries:
 		goto alloc_fail8;
 	}
 
-	usb_enable_autosuspend(usb_dev);
-    device_set_wakeup_enable(&usb_dev->dev, 1);
-    
+        /* L810 core dump (1519, f000) */
+        if((usb_dev->descriptor.idVendor == 0x1519) && (usb_dev->descriptor.idProduct == 0xf000)) {
+            dev_err(&intf->dev, "skip_autosuspend for coredump\n");
+        } else {
+            usb_enable_autosuspend(usb_dev);
+            device_set_wakeup_enable(&usb_dev->dev, 1);
+        }
+ 
 	if (!acm_debug_root)
 		acm_debug_root = debugfs_create_dir("acm",
 			usb_debug_root);
@@ -1603,13 +1592,16 @@ alloc_fail:
 
 static void stop_data_traffic(struct acm *acm)
 {
+	int i;
+
 	dev_dbg(&acm->control->dev, "%s\n", __func__);
 
-	/* Kill the control URB */
 	usb_kill_urb(acm->ctrlurb);
-	/* Cancel all URBs */
-	acm_cancel_all_urb(acm, true);
-	/* Cancel the sync work */
+	for (i = 0; i < ACM_NW; i++)
+		usb_kill_urb(acm->wb[i].urb);
+	for (i = 0; i < acm->rx_buflimit; i++)
+		usb_kill_urb(acm->read_urbs[i]);
+
 	cancel_work_sync(&acm->work);
 }
 
@@ -2019,9 +2011,30 @@ static const struct tty_operations acm_ops = {
 	.tiocmset =		acm_tty_tiocmset,
 };
 
+static irqreturn_t mdm_ctrl_reset_it(int irq, void *data)
+{
+    pr_info("Modem_Ctrl: callback function mdm_ctrl_reset_it )");
+    out:
+        return IRQ_HANDLED;
+}
+
+static irqreturn_t mdm_ctrl_coredump_it(int irq, void *data)
+{
+    pr_info("Modem_Ctrl: callback function mdm_ctrl_coredump_it)");
+    out:
+        return IRQ_HANDLED;
+}
+
+
 /*
  * Init / exit.
  */
+#define RESET_BB 343
+#define POWER_ON 348
+#define POWER_OFF 346
+#define W_DISABLE 358
+#define FIRMWARE_OPTION  347
+#define CORE_DUMP 342
 
 static int __init acm_init(void)
 {
@@ -2040,6 +2053,96 @@ static int __init acm_init(void)
 	acm_tty_driver->init_termios.c_cflag = B9600 | CS8 | CREAD |
 								HUPCL | CLOCAL;
 	tty_set_operations(acm_tty_driver, &acm_ops);
+
+	pr_info("Modem_Ctrl: IRQ request for GPIO (FIRMWARE_OPTION: %d)\n", FIRMWARE_OPTION);
+	retval = gpio_request(FIRMWARE_OPTION, "FIRMWARE_OPTION");
+	if (retval < 0)
+	{
+		pr_info("Modem_Ctrl: IRQ request failed for GPIO (FIRMWARE_OPTION)\n");
+		retval = -ENODEV;
+		//return retval;
+	}
+	gpio_direction_output(FIRMWARE_OPTION, 0);
+
+	pr_info("Modem_Ctrl: (FIRMWARE_OPTION) Assert\n");
+	msleep(100);
+	
+	retval = gpio_get_value(FIRMWARE_OPTION);
+	pr_info("Modem_Ctrl: set FIRMWARE_OPTION to 0, actual result:  %d)\n", retval);
+
+	pr_info("Modem_Ctrl: IRQ request for GPIO (POWER_OFF: %d)\n", POWER_OFF);
+	retval = gpio_request(POWER_OFF, "power_off");
+	if (retval < 0)
+	{
+		pr_info("Modem_Ctrl: IRQ request failed for GPIO (POWER_OFF)\n");
+		retval = -ENODEV;
+		//return retval;
+	}
+	gpio_direction_output(POWER_OFF, 1);
+
+	pr_info("Modem_Ctrl: (POWER_OFF) Assert\n");
+	msleep(100);
+	
+	retval = gpio_get_value(POWER_OFF);
+	pr_info("Modem_Ctrl: set POWER_OFF to 1, actual result:  %d)\n", retval);
+
+	pr_info("Modem_Ctrl: IRQ request for GPIO (RESET_BB: %d)\n", RESET_BB);
+	retval = gpio_request(RESET_BB, "ModemControl_RST_BB");
+	if (retval < 0)
+	{
+		pr_info("Modem_Ctrl: IRQ request failed for GPIO (RESET_BB)\n");
+		retval = -ENODEV;
+		//return retval;
+	}
+	gpio_direction_output(RESET_BB, 1);
+   msleep(100);
+   
+	retval = gpio_get_value(RESET_BB);
+	pr_info("Modem_Ctrl: set reset BB to 1, actual result is %d)\n", retval);
+
+	pr_info("Modem_Ctrl: IRQ request for GPIO (POWER_ON: %d)\n", POWER_ON);
+	retval = gpio_request(POWER_ON, "power_on");
+	if (retval < 0)
+	{
+		pr_info("Modem_Ctrl: IRQ request failed for GPIO (POWER_ON)\n");
+		retval = -ENODEV;
+		//return retval;
+	}
+	gpio_direction_output(POWER_ON, 1);
+
+	retval = gpio_get_value(POWER_ON);
+	pr_info("Modem_Ctrl: set POWER_ON to 1, actual result:	%d)\n", retval);
+
+   msleep(20);
+   
+	pr_info("Modem_Ctrl: IRQ request for GPIO (RST_OUT: %d)\n", W_DISABLE);
+	retval = gpio_request(W_DISABLE, "reset_out");
+	gpio_direction_output(W_DISABLE, 1);
+
+	retval = gpio_get_value(W_DISABLE);
+	pr_info("Modem_Ctrl: set W_DISABLE to 1, actual result:	%d)\n", retval);
+
+// if core dump gpio 160 is requested, touch will NOT work, enable it after root cause is found.
+	pr_info("Moem_Ctrl: IRQ request for GPIO (CORE_DUMP: %d)\n", CORE_DUMP);
+	retval = gpio_request(CORE_DUMP, "core_dump");
+	//gpio_direction_input(CORE_DUMP);
+	
+	retval =request_irq(CORE_DUMP,
+				mdm_ctrl_coredump_it,
+				IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND, "Modem_Ctrl",
+				NULL);
+	if (retval) {
+		pr_info("Moem_Ctrl: IRQ request failed for GPIO (CORE_DUMP)\n");
+		retval = -ENODEV;
+		//return retval;
+	}
+
+	pr_info("Modem_Ctrl: Finish Power On Modem\n");
+
+
+
+
+
 
 	retval = tty_register_driver(acm_tty_driver);
 	if (retval) {

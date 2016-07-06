@@ -8,7 +8,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-/* #define DEBUG */
+#define DEBUG
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>
@@ -24,15 +24,9 @@
 #include <sound/soc-dapm.h>
 #include <sound/initval.h>
 #include <sound/tlv.h>
-
-#define CONFIG_SND_BYT_MACHINE
-#ifndef CONFIG_SND_HWDEP
-#define CONFIG_SND_HWDEP
-#endif
-#ifdef CONFIG_SND_BYT_MACHINE
-#include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/acpi.h>
-#endif
+#include <linux/gpio.h>
 
 #define RTK_IOCTL
 #ifdef RTK_IOCTL
@@ -41,25 +35,19 @@
 #include "rt5651_ioctl.h"
 #endif
 #endif
+
 #include "rt5651.h"
 
-#define __NO_BIOS_SUPPORT_RT5651__
 #define RT5651_REG_RW 1 /* for debug */
 #define RT5651_DET_EXT_MIC 0
 #define HEADSET_DET_DELAY    200 /* Delay(ms) before reading over current
 				    status for headset detection */
-
+#define AUDIO_INIT 134
+#define USE_EQ
+#define JD1_FUNC
 #define USE_ASRC
 
-/* static int delay_work = 500;
-module_param(delay_work, int, 0644);
-static struct delayed_work enable_push_button_int_work;
-*/
 struct snd_soc_codec *rt5651_codec;
-
-#ifdef CONFIG_SND_BYT_MACHINE
-static u32 gpio_reset;
-#endif
 
 struct rt5651_init_reg {
 	u8 reg;
@@ -76,47 +64,40 @@ static struct rt5651_init_reg init_list[] = {
 	{RT5651_PRIV_DATA	, 0x3e00},
 	{RT5651_PRIV_INDEX	, 0x0015},
 	{RT5651_PRIV_DATA	, 0xab80},
-	/*Playback*/
+	/* Playback */
 	{RT5651_STO_DAC_MIXER	, 0x1212},
-	/*HP*/
-	/*{RT5651_HPO_MIXER	, 0x2000},*/ /* DAC -> HPO */
+	/* HP */
 	{RT5651_HPO_MIXER	, 0x4000}, /* HPVOL -> HPO */
 	{RT5651_HP_VOL		, 0x8888}, /* unmute HPVOL */
 	{RT5651_OUT_L3_MIXER	, 0x0278}, /* DACL1 -> OUTMIXL */
 	{RT5651_OUT_R3_MIXER	, 0x0278}, /* DACR1 -> OUTMIXR */
-	/*LOUT*/
-	{RT5651_LOUT_MIXER	, 0x3000},
-	{RT5651_LOUT_CTRL2	, 0x8000}, /* set Lineout to differential mode: Riyadh */
-	/*PDM*/
-	/* {RT5651_PDM_CTL	, 0xf000}, */
-	/*Capture*/
-	/*{RT5651_REC_L2_MIXER	, 0x006b}, */
-	/*{RT5651_REC_R2_MIXER	, 0x006b}, */
-	/*{RT5651_REC_L2_MIXER	, 0x0067}, */
-	/*{RT5651_REC_R2_MIXER	, 0x0067}, */
-	/*MIC*/
-#if 0 /* AMIC */
-	{RT5651_STO1_ADC_MIXER	, 0x3020}, /* To DO: Keep in platform define */
-#else /* DMIC */
-	{RT5651_STO1_ADC_MIXER	, 0x5042},
+	/* LOUT */
+	{RT5651_LOUT_MIXER	, 0xc000},
+	{RT5651_LOUT_CTRL1	, 0x8a8a},
+	//{RT5651_LOUT_CTRL2	, 0x8000}, /* Set LOUT to diff. mode */
+	/* MIC */
+	{RT5651_STO1_ADC_MIXER	, 0x3020},
+	/* {RT5651_STO1_ADC_MIXER	, 0x5042}, */ /* DMICS */
+
+	{RT5651_IN1_IN2		, 0x0140}, /* set IN1 boost 20db */
+//	{RT5651_IN3		, 0x1000}, /* set IN3 boost to 20db */
+	/* {RT5651_GPIO_CTRL1	, 0xc000}, */ /* enable gpio1, DMIC1 */
+	/* I2S2 */
+	/* {RT5651_GPIO_CTRL1	, 0x0000}, */ /* I2S-2 Pin -> I2S */
+	/* {RT5651_STO_DAC_MIXER	, 0x4242}, */
+	/* {RT5651_DAC2_CTRL	, 0x0c00}, */
+       {RT5651_DIG_INF_DATA    , 0x0080},
+
+#ifdef JD1_FUNC
+	//{RT5651_JD_CTRL2	, 0x0200}, // 0xbc jd is jd1 
+	{RT5651_IRQ_CTRL1	, 0x0200}, // 0xbd irq is jd1
+	{RT5651_GPIO_CTRL1	, 0x8000}, // irq on ,dmic off
+	{RT5651_GPIO_CTRL2	, 0x0004}, // output
+	{RT5651_PWR_ANLG2	, 0x0a04}, // jd power
+	{RT5651_A_JD_CTL1	, 0x0212}, // 20160301 jd 1_port 
 #endif
-/*	{RT5651_IN1_IN2		, 0x0540}, /* To Do: Cutomize Internal MIC set IN2 to differentail mode and boost 40db */
-	{RT5651_IN3		, 0x4000}, /* To Do: Cutomize external MIC set IN3 boost to 35db */
-/*	{RT5651_GPIO_CTRL1	, 0xc000},  */ /* enable gpio1, DMIC1 */
-	/*I2S2*/
-/*
-	{RT5651_GPIO_CTRL1	, 0x0000}, //I2S-2 Pin -> I2S
-	{RT5651_STO_DAC_MIXER	, 0x4242},
-	{RT5651_DAC2_CTRL	, 0x0c00},
-*/
-	{RT5651_JD_CTRL1	, 0x0000},
-	{RT5651_JD_CTRL2	, 0x0200},
-	{RT5651_IRQ_CTRL1	, 0x0200},
-	{RT5651_GPIO_CTRL1	, 0xc000}, /* DMIC*/
-	{RT5651_GPIO_CTRL2	, 0x0004},
-	{RT5651_PWR_ANLG2	, 0x0004},
-	{RT5651_ADC_BST_VOL	, 0x5000},
 };
+
 #define RT5651_INIT_REG_LEN ARRAY_SIZE(init_list)
 
 static int rt5651_reg_init(struct snd_soc_codec *codec)
@@ -147,10 +128,10 @@ static const u16 rt5651_reg[RT5651_DEVICE_ID + 1] = {
 	[RT5651_LOUT_CTRL1] = 0xc8c8,
 	[RT5651_INL1_INR1_VOL] = 0x0808,
 	[RT5651_INL2_INR2_VOL] = 0x0808,
-	[RT5651_DAC1_DIG_VOL] = 0xabac,
+	[RT5651_DAC1_DIG_VOL] = 0xafaf,
 	[RT5651_DAC2_DIG_VOL] = 0xafaf,
 	[RT5651_DAC2_CTRL] = 0x0c00,
-	[RT5651_ADC_DIG_VOL] = 0x5f5f, // 0x2f2f
+	[RT5651_ADC_DIG_VOL] = 0x2f2f,
 	[RT5651_ADC_DATA] = 0x2f2f,
 	[RT5651_STO1_ADC_MIXER] = 0x7860,
 	[RT5651_STO2_ADC_MIXER] = 0x7070,
@@ -192,14 +173,6 @@ static const u16 rt5651_reg[RT5651_DEVICE_ID + 1] = {
 	[RT5651_D_MISC] = 0x0010,
 	[RT5651_VENDOR_ID] = 0x10ec,
 	[RT5651_DEVICE_ID] = 0x6281,
-#if 0
-	[RT5651_JD_CTRL1] = 0x0000,
-	[RT5651_JD_CTRL2] = 0x0200,
-	[RT5651_GPIO_CTRL1] = 0x8000,
-	[RT5651_GPIO_CTRL2] = 0x0004,
-	[RT5651_IRQ_CTRL1] = 0x0200,
-	[RT5651_PWR_ANLG2] = 0x0004,
-#endif
 };
 
 static int rt5651_reset(struct snd_soc_codec *codec)
@@ -218,7 +191,7 @@ static int rt5651_reset(struct snd_soc_codec *codec)
  *
  * Returns 0 for success or negative error code.
  */
-static int rt5651_index_write(struct snd_soc_codec *codec,
+int rt5651_index_write(struct snd_soc_codec *codec,
 		unsigned int reg, unsigned int value)
 {
 	int ret;
@@ -441,33 +414,30 @@ static int rt5651_readable_register(
 	}
 }
 
-static void set_sys_clk(struct snd_soc_codec *codec, int sys_clk)
+static void set_sys_clk(struct snd_soc_codec *codec, int clk_id)
 {
-	pr_debug("%s sys_clk=%x\n", __func__, sys_clk);
-	switch (sys_clk) {
-	case RT5651_SCLK_S_RCCLK:
-		snd_soc_update_bits(codec, RT5651_GLB_CLK,
-				    RT5651_SCLK_SRC_MASK,
-				    RT5651_SCLK_SRC_RCCLK);
-		snd_soc_update_bits(codec, RT5651_PWR_ANLG2,
-				    RT5651_PWR_PLL, 0);
+	struct rt5651_priv *rt5651 = snd_soc_codec_get_drvdata(codec);
+	unsigned int reg_val = 0;
+
+	switch (clk_id) {
+	case RT5651_SCLK_S_MCLK:
+		reg_val |= RT5651_SCLK_SRC_MCLK;
 		break;
 	case RT5651_SCLK_S_PLL1:
-		snd_soc_update_bits(codec, RT5651_GLB_CLK,
-				    RT5651_SCLK_SRC_MASK,
-				    RT5651_SCLK_SRC_PLL1);
-		snd_soc_update_bits(codec, RT5651_PWR_ANLG2,
-				    RT5651_PWR_PLL, RT5651_PWR_PLL);
+		reg_val |= RT5651_SCLK_SRC_PLL1;
 		break;
-	case RT5651_SCLK_S_MCLK:
+	case RT5651_SCLK_S_RCCLK:
+		reg_val |= RT5651_SCLK_SRC_RCCLK;
+		break;
 	default:
-		snd_soc_update_bits(codec, RT5651_GLB_CLK,
-				    RT5651_SCLK_SRC_MASK,
-				    RT5651_SCLK_SRC_MCLK);
-		snd_soc_update_bits(codec, RT5651_PWR_ANLG2,
-				    RT5651_PWR_PLL, 0);
-		break;
+		dev_err(codec->dev, "Invalid clock id (%d)\n", clk_id);
+		return;
 	}
+
+	snd_soc_update_bits(codec, RT5651_GLB_CLK,
+		RT5651_SCLK_SRC_MASK, reg_val);
+
+	rt5651->sysclk_src = clk_id;
 }
 
 /**
@@ -482,6 +452,7 @@ static void set_sys_clk(struct snd_soc_codec *codec, int sys_clk)
 
 int rt5651_headset_detect(struct snd_soc_codec *codec, int jack_insert)
 {
+	int value;
 	struct rt5651_priv *rt5651 = snd_soc_codec_get_drvdata(codec);
 
 	if (jack_insert) {
@@ -497,16 +468,18 @@ int rt5651_headset_detect(struct snd_soc_codec *codec, int jack_insert)
 			RT5651_MIC1_OVCD_MASK | RT5651_MIC1_OVTH_MASK |
 			RT5651_PWR_CLK12M_MASK | RT5651_PWR_MB_MASK,
 			RT5651_MIC1_OVCD_EN | RT5651_MIC1_OVTH_600UA |
-			RT5651_PWR_MB_PU | RT5651_PWR_CLK12M_PU);
+			/*RT5651_PWR_MB_PU |*/ RT5651_PWR_CLK12M_PU);
 		snd_soc_update_bits(codec, RT5651_D_MISC,
 			0x1, 0x1);
 		msleep(HEADSET_DET_DELAY);
+		value = snd_soc_read(codec, RT5651_IRQ_CTRL2);
+
 		if (snd_soc_read(codec, RT5651_IRQ_CTRL2) & 0x8) {
 			rt5651->jack_type = RT5651_HEADPHO_DET;
 		} else {
 			rt5651->jack_type = RT5651_HEADSET_DET;
-			/*schedule_delayed_work(&enable_push_button_int_work,
-						msecs_to_jiffies(delay_work));*/
+			/* schedule_delayed_work(&enable_push_button_int_work,
+					msecs_to_jiffies(delay_work)); */
 		}
 		snd_soc_update_bits(codec, RT5651_IRQ_CTRL2,
 			RT5651_MB1_OC_CLR, 0);
@@ -514,6 +487,7 @@ int rt5651_headset_detect(struct snd_soc_codec *codec, int jack_insert)
 		snd_soc_update_bits(codec, RT5651_MICBIAS,
 			RT5651_MIC1_OVCD_MASK,
 			RT5651_MIC1_OVCD_DIS);
+
 		rt5651->jack_type = RT5651_NO_JACK;
 	}
 
@@ -536,13 +510,15 @@ EXPORT_SYMBOL(rt5651_config_ovcd_thld);
 
 int rt5651_check_jd_status(struct snd_soc_codec *codec)
 {
-	return snd_soc_read(codec, RT5651_INT_IRQ_ST) & 0x1000; /*0x0010 TODO: Check the mask bit */
+	/* TODO: Check the mask bit */
+	return snd_soc_read(codec, RT5651_INT_IRQ_ST) & 0x1000;
 }
 EXPORT_SYMBOL(rt5651_check_jd_status);
 
 int rt5651_check_bp_status(struct snd_soc_codec *codec)
 {
-	return  snd_soc_read(codec, RT5651_IRQ_CTRL2) & 0x8; /* TODO: Check the mask bit */
+	/* To DO: Check the mask bit */
+	return  snd_soc_read(codec, RT5651_IRQ_CTRL2) & 0x8;
 }
 EXPORT_SYMBOL(rt5651_check_bp_status);
 
@@ -646,7 +622,8 @@ static int rt5651_regctl_put(struct snd_kcontrol *kcontrol,
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	regctl_addr = ucontrol->value.integer.value[0];
 	if (ucontrol->value.integer.value[1] <= REGVAL_MAX)
-		snd_soc_write(codec, regctl_addr, ucontrol->value.integer.value[1]);
+		snd_soc_write(codec, regctl_addr,
+			ucontrol->value.integer.value[1]);
 	return 0;
 }
 #endif
@@ -731,8 +708,6 @@ static const struct snd_kcontrol_new rt5651_snd_controls[] = {
 	SOC_DOUBLE_TLV("ADC Boost Gain", RT5651_ADC_BST_VOL,
 			RT5651_ADC_L_BST_SFT, RT5651_ADC_R_BST_SFT,
 			3, 0, adc_bst_tlv),
-	SOC_DOUBLE("Mono ADC Capture Switch", RT5651_ADC_DATA,
-			RT5651_L_MUTE_SFT, RT5651_R_MUTE_SFT, 1, 1),
 
 #ifdef RT5651_REG_RW
 	{
@@ -760,7 +735,8 @@ static int set_dmic_clk(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	struct rt5651_priv *rt5651 = snd_soc_codec_get_drvdata(codec);
-	int div[] = {2, 3, 4, 6, 8, 12}, idx = -EINVAL, i, rate, red, bound, temp;
+	int div[] = {2, 3, 4, 6, 8, 12}, idx = -EINVAL, i, rate, red, bound,
+						temp;
 
 	rate = rt5651->lrck[rt5651->aif_pu] << 8;
 	red = 3000000 * 12;
@@ -793,10 +769,10 @@ static int check_sysclk1_source(struct snd_soc_dapm_widget *source,
 
 	val = snd_soc_read(source->codec, RT5651_GLB_CLK);
 	val &= RT5651_SCLK_SRC_MASK;
-	if (val == RT5651_SCLK_SRC_PLL1)
+	//if (val == RT5651_SCLK_SRC_PLL1)
 		return 1;
-	else
-		return 0;
+	//else
+		//return 0;
 }
 
 /* Digital Mixer */
@@ -930,9 +906,9 @@ static const struct snd_kcontrol_new rt5651_out_r_mix[] = {
 };
 
 static const struct snd_kcontrol_new rt5651_hpo_mix[] = {
-	SOC_DAPM_SINGLE("HPO MIX DAC1 Switch", RT5651_HPO_MIXER,
+	SOC_DAPM_SINGLE("DAC1 Switch", RT5651_HPO_MIXER,
 			RT5651_M_DAC1_HM_SFT, 1, 1),
-	SOC_DAPM_SINGLE("HPO MIX HPVOL Switch", RT5651_HPO_MIXER,
+	SOC_DAPM_SINGLE("HPVOL Switch", RT5651_HPO_MIXER,
 			RT5651_M_HPVOL_HM_SFT, 1, 1),
 };
 
@@ -948,7 +924,7 @@ static const struct snd_kcontrol_new rt5651_lout_mix[] = {
 };
 
 /* Stereo ADC source */
-static const char * const rt5651_stereo1_adc1_src[] = {"DIG MIX", "ADC"};
+static const char * const rt5651_stereo1_adc1_src[] = {"DD MIX", "ADC"};
 
 static const SOC_ENUM_SINGLE_DECL(
 	rt5651_stereo1_adc1_enum, RT5651_STO1_ADC_MIXER,
@@ -960,7 +936,7 @@ static const struct snd_kcontrol_new rt5651_sto1_adc_l1_mux =
 static const struct snd_kcontrol_new rt5651_sto1_adc_r1_mux =
 	SOC_DAPM_ENUM("Stereo1 ADC R1 source", rt5651_stereo1_adc1_enum);
 
-static const char * const rt5651_stereo1_adc2_src[] = {"DMIC", "DIG MIX"};
+static const char * const rt5651_stereo1_adc2_src[] = {"DMIC", "DD MIX"};
 
 static const SOC_ENUM_SINGLE_DECL(
 	rt5651_stereo1_adc2_enum, RT5651_STO1_ADC_MIXER,
@@ -973,7 +949,7 @@ static const struct snd_kcontrol_new rt5651_sto1_adc_r2_mux =
 	SOC_DAPM_ENUM("Stereo1 ADC R2 source", rt5651_stereo1_adc2_enum);
 
 /* Mono ADC source */
-static const char * const rt5651_sto2_adc_l1_src[] = {"DIG MIX", "ADCL"};
+static const char * const rt5651_sto2_adc_l1_src[] = {"DD MIXL", "ADCL"};
 
 static const SOC_ENUM_SINGLE_DECL(
 	rt5651_sto2_adc_l1_enum, RT5651_STO1_ADC_MIXER,
@@ -982,7 +958,7 @@ static const SOC_ENUM_SINGLE_DECL(
 static const struct snd_kcontrol_new rt5651_sto2_adc_l1_mux =
 	SOC_DAPM_ENUM("Stereo2 ADC1 left source", rt5651_sto2_adc_l1_enum);
 
-static const char * const rt5651_sto2_adc_l2_src[] = {"DMIC L", "DIG MIX"};
+static const char * const rt5651_sto2_adc_l2_src[] = {"DMIC L", "DD MIXL"};
 
 static const SOC_ENUM_SINGLE_DECL(
 	rt5651_sto2_adc_l2_enum, RT5651_STO1_ADC_MIXER,
@@ -991,7 +967,7 @@ static const SOC_ENUM_SINGLE_DECL(
 static const struct snd_kcontrol_new rt5651_sto2_adc_l2_mux =
 	SOC_DAPM_ENUM("Stereo2 ADC2 left source", rt5651_sto2_adc_l2_enum);
 
-static const char * const rt5651_sto2_adc_r1_src[] = {"DIG MIX", "ADCR"};
+static const char * const rt5651_sto2_adc_r1_src[] = {"DD MIXR", "ADCR"};
 
 static const SOC_ENUM_SINGLE_DECL(
 	rt5651_sto2_adc_r1_enum, RT5651_STO1_ADC_MIXER,
@@ -1000,7 +976,7 @@ static const SOC_ENUM_SINGLE_DECL(
 static const struct snd_kcontrol_new rt5651_sto2_adc_r1_mux =
 	SOC_DAPM_ENUM("Stereo2 ADC1 right source", rt5651_sto2_adc_r1_enum);
 
-static const char * const rt5651_sto2_adc_r2_src[] = {"DMIC R", "DIG MIX"};
+static const char * const rt5651_sto2_adc_r2_src[] = {"DMIC R", "DD MIXR"};
 
 static const SOC_ENUM_SINGLE_DECL(
 	rt5651_sto2_adc_r2_enum, RT5651_STO1_ADC_MIXER,
@@ -1027,16 +1003,18 @@ static const struct snd_kcontrol_new rt5651_dac_r2_mux =
 	SOC_DAPM_ENUM("DAC2 right channel source", rt5651_dac_r2_enum);
 
 /* IF2_ADC channel source */
+
 static const char * const rt5651_adc_src[] = {"IF1 ADC1", "IF1 ADC2"};
 
-static const SOC_ENUM_SINGLE_DECL(rt5651_if2_adc_src_enum, RT5651_DIG_INF_DATA,
-				RT5651_IF2_ADC_SRC_SFT, rt5651_adc_src);
+static const SOC_ENUM_SINGLE_DECL(rt5651_if2_adc_src_enum,
+				RT5651_DIG_INF_DATA, RT5651_IF2_ADC_SRC_SFT,
+				rt5651_adc_src);
 
 static const struct snd_kcontrol_new rt5651_if2_adc_src_mux =
 	SOC_DAPM_ENUM("IF2 ADC channel source", rt5651_if2_adc_src_enum);
 
 /* PDM select */
-static const char * const rt5651_pdm_sel[] = {"DIG MIX", "Stereo DAC MIX"};
+static const char * const rt5651_pdm_sel[] = {"DD MIX", "Stereo DAC MIX"};
 
 static const SOC_ENUM_SINGLE_DECL(
 	rt5651_pdm_l_sel_enum, RT5651_PDM_CTL,
@@ -1055,23 +1033,17 @@ static const struct snd_kcontrol_new rt5651_pdm_r_mux =
 static void hp_amp_power(struct snd_soc_codec *codec, int on)
 {
 	static int hp_amp_power_count;
-	int i;
 
 	if (on) {
-		/*WA to sync regmap*/
-		codec->cache_bypass = 1;
-		for (i = 0; i <= RT5651_DEVICE_ID; i++)
-			snd_soc_read(codec, i);
-
-		codec->cache_bypass = 0;
-
 		if (hp_amp_power_count <= 0) {
 			/* depop parameters */
 			snd_soc_update_bits(codec, RT5651_DEPOP_M2,
 				RT5651_DEPOP_MASK, RT5651_DEPOP_MAN);
 			snd_soc_update_bits(codec, RT5651_DEPOP_M1,
-				RT5651_HP_CP_MASK | RT5651_HP_SG_MASK | RT5651_HP_CB_MASK,
-				RT5651_HP_CP_PU | RT5651_HP_SG_DIS | RT5651_HP_CB_PU);
+				RT5651_HP_CP_MASK | RT5651_HP_SG_MASK |
+				RT5651_HP_CB_MASK,
+				RT5651_HP_CP_PU | RT5651_HP_SG_DIS |
+				RT5651_HP_CB_PU);
 			rt5651_index_write(codec, RT5651_HP_DCC_INT1, 0x9f00);
 			/* headphone amp power on */
 			snd_soc_update_bits(codec, RT5651_PWR_ANLG1,
@@ -1080,15 +1052,19 @@ static void hp_amp_power(struct snd_soc_codec *codec, int on)
 				RT5651_PWR_HV_L | RT5651_PWR_HV_R,
 				RT5651_PWR_HV_L | RT5651_PWR_HV_R);
 			snd_soc_update_bits(codec, RT5651_PWR_ANLG1,
-				RT5651_PWR_HP_L | RT5651_PWR_HP_R | RT5651_PWR_HA,
-				RT5651_PWR_HP_L | RT5651_PWR_HP_R | RT5651_PWR_HA);
+				RT5651_PWR_HP_L | RT5651_PWR_HP_R |
+				RT5651_PWR_HA | RT5651_PWR_LM,
+				RT5651_PWR_HP_L | RT5651_PWR_HP_R |
+				RT5651_PWR_HA | RT5651_PWR_LM);
 			msleep(50);
 			snd_soc_update_bits(codec, RT5651_PWR_ANLG1,
 				RT5651_PWR_FV1 | RT5651_PWR_FV2,
 				RT5651_PWR_FV1 | RT5651_PWR_FV2);
+
 			snd_soc_update_bits(codec, RT5651_CHARGE_PUMP,
 				RT5651_PM_HP_MASK, RT5651_PM_HP_HV);
-			rt5651_index_update_bits(codec, RT5651_CHOP_DAC_ADC, 0x0200, 0x0200);
+			rt5651_index_update_bits(codec, RT5651_CHOP_DAC_ADC,
+						0x0200, 0x0200);
 			snd_soc_update_bits(codec, RT5651_DEPOP_M1,
 				RT5651_HP_CO_MASK | RT5651_HP_SG_MASK,
 				RT5651_HP_CO_EN | RT5651_HP_SG_EN);
@@ -1097,7 +1073,8 @@ static void hp_amp_power(struct snd_soc_codec *codec, int on)
 	} else {
 		hp_amp_power_count--;
 		if (hp_amp_power_count <= 0) {
-			rt5651_index_update_bits(codec, RT5651_CHOP_DAC_ADC, 0x0200, 0x0);
+			rt5651_index_update_bits(codec, RT5651_CHOP_DAC_ADC,
+						0x0200, 0x0);
 			snd_soc_update_bits(codec, RT5651_DEPOP_M1,
 				RT5651_HP_SG_MASK | RT5651_HP_L_SMT_MASK |
 				RT5651_HP_R_SMT_MASK, RT5651_HP_SG_DIS |
@@ -1111,8 +1088,8 @@ static void hp_amp_power(struct snd_soc_codec *codec, int on)
 				RT5651_HP_CO_DIS | RT5651_HP_CP_PD |
 				RT5651_HP_SG_EN | RT5651_HP_CB_PD);
 			snd_soc_update_bits(codec, RT5651_PWR_ANLG1,
-				RT5651_PWR_HP_L | RT5651_PWR_HP_R | RT5651_PWR_HA,
-				0);
+				RT5651_PWR_HP_L | RT5651_PWR_HP_R |
+				RT5651_PWR_HA | RT5651_PWR_LM, 0);
 		}
 	}
 }
@@ -1133,7 +1110,8 @@ static void rt5651_pmu_depop(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, RT5651_DEPOP_M1,
 		RT5651_RSTN_MASK, RT5651_RSTN_EN);
 	snd_soc_update_bits(codec, RT5651_DEPOP_M1,
-		RT5651_RSTN_MASK | RT5651_HP_L_SMT_MASK | RT5651_HP_R_SMT_MASK,
+		RT5651_RSTN_MASK | RT5651_HP_L_SMT_MASK |
+		RT5651_HP_R_SMT_MASK,
 		RT5651_RSTN_DIS | RT5651_HP_L_SMT_EN | RT5651_HP_R_SMT_EN);
 	snd_soc_update_bits(codec, RT5651_HP_VOL,
 		RT5651_L_MUTE | RT5651_R_MUTE, 0);
@@ -1176,13 +1154,17 @@ static void rt5651_pmd_depop(struct snd_soc_codec *codec)
 }
 
 static int rt5651_hp_event(struct snd_soc_dapm_widget *w,
-		struct snd_kcontrol *kcontrol, int event)
+	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		rt5651_pmu_depop(codec);
+		#ifdef USE_EQ
+		rt5651_update_eqmode(codec, NORMAL);
+		snd_soc_write(codec,RT5651_ALC_1,0x2226); //ALC 
+		#endif
 		break;
 
 	case SND_SOC_DAPM_PRE_PMD:
@@ -1197,42 +1179,47 @@ static int rt5651_hp_event(struct snd_soc_dapm_widget *w,
 }
 
 static int rt5651_lout_event(struct snd_soc_dapm_widget *w,
-		struct snd_kcontrol *kcontrol, int event)
+	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		hp_amp_power(codec, 1);
+		#ifdef USE_EQ
+		rt5651_update_eqmode(codec, SPK);
+		snd_soc_write(codec,RT5651_ALC_2,0x1FE8);  
+		snd_soc_write(codec,RT5651_ALC_3,0x0100); 
+		snd_soc_write(codec,RT5651_ALC_1,0x6226); //ALC 
+	//	snd_soc_write(codec,RT5651_LOUT_CTRL1,0x9191); 
+		#endif
 		snd_soc_update_bits(codec, RT5651_LOUT_CTRL1,
 			RT5651_L_MUTE | RT5651_R_MUTE, 0);
-#ifdef CONFIG_SND_BYT_MACHINE
-		gpio_set_value(gpio_reset, 1); //1
-#endif
+		mdelay(150);
+		gpio_direction_output(368,1);
 		break;
 
 	case SND_SOC_DAPM_PRE_PMD:
-#ifdef CONFIG_SND_BYT_MACHINE
-		gpio_set_value(gpio_reset, 0);
-#endif
+		gpio_direction_output(368,0);
 		snd_soc_update_bits(codec, RT5651_LOUT_CTRL1,
 			RT5651_L_MUTE | RT5651_R_MUTE,
 			RT5651_L_MUTE | RT5651_R_MUTE);
+		#ifdef USE_EQ
+		rt5651_update_eqmode(codec, NORMAL);
+		snd_soc_write(codec,RT5651_ALC_1,0x2226); //ALC 
+		#endif
 		hp_amp_power(codec, 0);
 		break;
 
 	default:
 		return 0;
 	}
-
 	return 0;
 }
 
 static int rt5651_bst1_event(struct snd_soc_dapm_widget *w,
-		struct snd_kcontrol *kcontrol, int event)
+	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		snd_soc_update_bits(codec, RT5651_PWR_ANLG2,
@@ -1247,59 +1234,65 @@ static int rt5651_bst1_event(struct snd_soc_dapm_widget *w,
 	default:
 		return 0;
 	}
-
 	return 0;
 }
 
 static int rt5651_bst2_event(struct snd_soc_dapm_widget *w,
-		struct snd_kcontrol *kcontrol, int event)
+	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
-		pr_debug("%s SND_SOC_DAPM_POST_PMU\n", __func__);
 		snd_soc_update_bits(codec, RT5651_PWR_ANLG2,
 			RT5651_PWR_BST2_OP2, RT5651_PWR_BST2_OP2);
+				#ifdef USE_EQ
+		//rt5651_update_eqmode(codec, ADC);
+		#endif
 		break;
 
 	case SND_SOC_DAPM_PRE_PMD:
 		snd_soc_update_bits(codec, RT5651_PWR_ANLG2,
 			RT5651_PWR_BST2_OP2, 0);
+						#ifdef USE_EQ
+		//rt5651_update_eqmode(codec, NORMAL);
+		#endif
 		break;
 
 	default:
 		return 0;
 	}
-
 	return 0;
 }
 
 static int rt5651_bst3_event(struct snd_soc_dapm_widget *w,
-		struct snd_kcontrol *kcontrol, int event)
+	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		snd_soc_update_bits(codec, RT5651_PWR_ANLG2,
 			RT5651_PWR_BST3_OP2, RT5651_PWR_BST3_OP2);
+						#ifdef USE_EQ
+	//	rt5651_update_eqmode(codec, ADC);
+		#endif
 		break;
 
 	case SND_SOC_DAPM_PRE_PMD:
 		snd_soc_update_bits(codec, RT5651_PWR_ANLG2,
 			RT5651_PWR_BST3_OP2, 0);
+						#ifdef USE_EQ
+	//	rt5651_update_eqmode(codec, NORMAL);
+		#endif
 		break;
 
 	default:
 		return 0;
 	}
-
 	return 0;
 }
 
 static int rt5651_pdml_event(struct snd_soc_dapm_widget *w,
-		struct snd_kcontrol *kcontrol, int event)
+	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
 
@@ -1322,7 +1315,7 @@ static int rt5651_pdml_event(struct snd_soc_dapm_widget *w,
 }
 
 static int rt5651_pdmr_event(struct snd_soc_dapm_widget *w,
-		struct snd_kcontrol *kcontrol, int event)
+	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
 
@@ -1368,12 +1361,13 @@ static int rt5651_asrc_event(struct snd_soc_dapm_widget *w,
 static const struct snd_soc_dapm_widget rt5651_dapm_widgets[] = {
 #ifdef USE_ASRC
 	SND_SOC_DAPM_SUPPLY_S("ASRC Enable", 1, SND_SOC_NOPM, 0, 0,
-		rt5651_asrc_event, SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
+		rt5651_asrc_event, SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_PRE_PMD),
 #endif
 	SND_SOC_DAPM_SUPPLY("PLL1", RT5651_PWR_ANLG2,
 			RT5651_PWR_PLL_BIT, 0, NULL, 0),
 	/* Input Side */
-	/* micbias To do: Do we need this if MICVDD is already there*/
+	/* micbias */
 	SND_SOC_DAPM_SUPPLY("LDO2", RT5651_PWR_ANLG1,
 			RT5651_PWR_LDO_BIT, 0, NULL, 0),
 	SND_SOC_DAPM_MICBIAS("micbias1", RT5651_PWR_ANLG2,
@@ -1412,10 +1406,10 @@ static const struct snd_soc_dapm_widget rt5651_dapm_widgets[] = {
 		RT5651_PWR_IN2_R_BIT, 0, NULL, 0),
 
 	/* REC Mixer */
-	SND_SOC_DAPM_MIXER("RECMIXL", RT5651_PWR_MIXER, RT5651_PWR_RM_L_BIT, 0,
-			rt5651_rec_l_mix, ARRAY_SIZE(rt5651_rec_l_mix)),
-	SND_SOC_DAPM_MIXER("RECMIXR", RT5651_PWR_MIXER, RT5651_PWR_RM_R_BIT, 0,
-			rt5651_rec_r_mix, ARRAY_SIZE(rt5651_rec_r_mix)),
+	SND_SOC_DAPM_MIXER("RECMIXL", RT5651_PWR_MIXER, RT5651_PWR_RM_L_BIT,
+			0, rt5651_rec_l_mix, ARRAY_SIZE(rt5651_rec_l_mix)),
+	SND_SOC_DAPM_MIXER("RECMIXR", RT5651_PWR_MIXER, RT5651_PWR_RM_R_BIT,
+			0, rt5651_rec_r_mix, ARRAY_SIZE(rt5651_rec_r_mix)),
 	/* ADCs */
 	SND_SOC_DAPM_ADC("ADC L", NULL, SND_SOC_NOPM, 0, 0),
 	SND_SOC_DAPM_ADC("ADC R", NULL, SND_SOC_NOPM, 0, 0),
@@ -1424,34 +1418,34 @@ static const struct snd_soc_dapm_widget rt5651_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY("ADC R Power", RT5651_PWR_DIG1,
 			RT5651_PWR_ADC_R_BIT, 0, NULL, 0),
 	/* ADC Mux */
-	SND_SOC_DAPM_MUX("Stereo ADC L2 Mux", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("Stereo1 ADC L2 Mux", SND_SOC_NOPM, 0, 0,
 				&rt5651_sto1_adc_l2_mux),
-	SND_SOC_DAPM_MUX("Stereo ADC R2 Mux", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("Stereo1 ADC R2 Mux", SND_SOC_NOPM, 0, 0,
 				&rt5651_sto1_adc_r2_mux),
-	SND_SOC_DAPM_MUX("Stereo ADC L1 Mux", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("Stereo1 ADC L1 Mux", SND_SOC_NOPM, 0, 0,
 				&rt5651_sto1_adc_l1_mux),
-	SND_SOC_DAPM_MUX("Stereo ADC R1 Mux", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("Stereo1 ADC R1 Mux", SND_SOC_NOPM, 0, 0,
 				&rt5651_sto1_adc_r1_mux),
-	SND_SOC_DAPM_MUX("Mono ADC L2 Mux", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("Stereo2 ADC L2 Mux", SND_SOC_NOPM, 0, 0,
 				&rt5651_sto2_adc_l2_mux),
-	SND_SOC_DAPM_MUX("Mono ADC L1 Mux", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("Stereo2 ADC L1 Mux", SND_SOC_NOPM, 0, 0,
 				&rt5651_sto2_adc_l1_mux),
-	SND_SOC_DAPM_MUX("Mono ADC R1 Mux", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("Stereo2 ADC R1 Mux", SND_SOC_NOPM, 0, 0,
 				&rt5651_sto2_adc_r1_mux),
-	SND_SOC_DAPM_MUX("Mono ADC R2 Mux", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MUX("Stereo2 ADC R2 Mux", SND_SOC_NOPM, 0, 0,
 				&rt5651_sto2_adc_r2_mux),
 	/* ADC Mixer */
 	SND_SOC_DAPM_SUPPLY("stereo1 filter", RT5651_PWR_DIG2,
 		RT5651_PWR_ADC_STO1_F_BIT, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY("stereo2 filter", RT5651_PWR_DIG2,
 		RT5651_PWR_ADC_STO2_F_BIT, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER("Stereo ADC MIXL", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MIXER("Stereo1 ADC MIXL", SND_SOC_NOPM, 0, 0,
 		rt5651_sto1_adc_l_mix, ARRAY_SIZE(rt5651_sto1_adc_l_mix)),
-	SND_SOC_DAPM_MIXER("Stereo ADC MIXR", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MIXER("Stereo1 ADC MIXR", SND_SOC_NOPM, 0, 0,
 		rt5651_sto1_adc_r_mix, ARRAY_SIZE(rt5651_sto1_adc_r_mix)),
-	SND_SOC_DAPM_MIXER("Mono ADC MIXL", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MIXER("Stereo2 ADC MIXL", SND_SOC_NOPM, 0, 0,
 		rt5651_sto2_adc_l_mix, ARRAY_SIZE(rt5651_sto2_adc_l_mix)),
-	SND_SOC_DAPM_MIXER("Mono ADC MIXR", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MIXER("Stereo2 ADC MIXR", SND_SOC_NOPM, 0, 0,
 		rt5651_sto2_adc_r_mix, ARRAY_SIZE(rt5651_sto2_adc_r_mix)),
 
 	/* Digital Interface */
@@ -1469,14 +1463,17 @@ static const struct snd_soc_dapm_widget rt5651_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA("IF2 DAC", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_PGA("IF2 DAC L", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_PGA("IF2 DAC R", SND_SOC_NOPM, 0, 0, NULL, 0),
-	SND_SOC_DAPM_MUX("IF2 ADC", SND_SOC_NOPM, 0, 0, &rt5651_if2_adc_src_mux),
+	SND_SOC_DAPM_MUX("IF2 ADC", SND_SOC_NOPM, 0, 0,
+			&rt5651_if2_adc_src_mux),
 
 	/* Digital Interface Select */
 
 	SND_SOC_DAPM_MUX_E("PDM L Mux", SND_SOC_NOPM, 0, 0, &rt5651_pdm_l_mux,
-		rt5651_pdml_event, SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMU),
+		rt5651_pdml_event, SND_SOC_DAPM_PRE_PMD |
+		SND_SOC_DAPM_POST_PMU),
 	SND_SOC_DAPM_MUX_E("PDM R Mux", SND_SOC_NOPM, 0, 0, &rt5651_pdm_r_mux,
-		rt5651_pdmr_event, SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMU),
+		rt5651_pdmr_event, SND_SOC_DAPM_PRE_PMD |
+		SND_SOC_DAPM_POST_PMU),
 	/* Audio Interface */
 	SND_SOC_DAPM_AIF_IN("AIF1RX", "AIF1 Playback", 0, SND_SOC_NOPM, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("AIF1TX", "AIF1 Capture", 0, SND_SOC_NOPM, 0, 0),
@@ -1512,9 +1509,9 @@ static const struct snd_soc_dapm_widget rt5651_dapm_widgets[] = {
 		rt5651_sto_dac_l_mix, ARRAY_SIZE(rt5651_sto_dac_l_mix)),
 	SND_SOC_DAPM_MIXER("Stereo DAC MIXR", SND_SOC_NOPM, 0, 0,
 		rt5651_sto_dac_r_mix, ARRAY_SIZE(rt5651_sto_dac_r_mix)),
-	SND_SOC_DAPM_MIXER("DIG MIXL", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MIXER("DD MIXL", SND_SOC_NOPM, 0, 0,
 		rt5651_dd_dac_l_mix, ARRAY_SIZE(rt5651_dd_dac_l_mix)),
-	SND_SOC_DAPM_MIXER("DIG MIXR", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_MIXER("DD MIXR", SND_SOC_NOPM, 0, 0,
 		rt5651_dd_dac_r_mix, ARRAY_SIZE(rt5651_dd_dac_r_mix)),
 
 	/* DACs */
@@ -1557,9 +1554,11 @@ static const struct snd_soc_dapm_widget rt5651_dapm_widgets[] = {
 		rt5651_lout_mix, ARRAY_SIZE(rt5651_lout_mix)),
 
 	SND_SOC_DAPM_PGA_S("HP amp", 1, SND_SOC_NOPM, 0, 0,
-		rt5651_hp_event, SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMU),
+		rt5651_hp_event, SND_SOC_DAPM_PRE_PMD |
+		SND_SOC_DAPM_POST_PMU),
 	SND_SOC_DAPM_PGA_S("LOUT amp", 1, SND_SOC_NOPM, 0, 0,
-		rt5651_lout_event, SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMU),
+		rt5651_lout_event, SND_SOC_DAPM_PRE_PMD |
+		SND_SOC_DAPM_POST_PMU),
 
 	/* Output Lines */
 	SND_SOC_DAPM_OUTPUT("HPOL"),
@@ -1579,7 +1578,7 @@ static const struct snd_soc_dapm_route rt5651_dapm_routes[] = {
 	{"I2S1", NULL, "ASRC Enable"},
 	{"I2S2", NULL, "ASRC Enable"},
 #endif
-/*	{ OUT, VIA, IN}, */
+	/* { OUT, VIA, IN}, */
 	{"IN1P", NULL, "LDO2"},
 	{"IN2P", NULL, "LDO2"},
 	{"IN3P", NULL, "LDO2"},
@@ -1615,54 +1614,53 @@ static const struct snd_soc_dapm_route rt5651_dapm_routes[] = {
 	{"DMIC L1", NULL, "DMIC CLK"},
 	{"DMIC R1", NULL, "DMIC CLK"},
 
-	{"Stereo ADC L2 Mux", "DMIC", "DMIC L1"},
-	{"Stereo ADC L2 Mux", "DIG MIX", "DIG MIXL"},
-	{"Stereo ADC L1 Mux", "ADC", "ADC L"},
-	{"Stereo ADC L1 Mux", "DIG MIX", "DIG MIXL"},
+	{"Stereo1 ADC L2 Mux", "DMIC", "DMIC L1"},
+	{"Stereo1 ADC L2 Mux", "DD MIX", "DD MIXL"},
+	{"Stereo1 ADC L1 Mux", "ADC", "ADC L"},
+	{"Stereo1 ADC L1 Mux", "DD MIX", "DD MIXL"},
 
-	{"Stereo ADC R1 Mux", "ADC", "ADC R"},
-	{"Stereo ADC R1 Mux", "DIG MIX", "DIG MIXR"},
-	{"Stereo ADC R2 Mux", "DMIC", "DMIC R1"},
-	{"Stereo ADC R2 Mux", "DIG MIX", "DIG MIXR"},
+	{"Stereo1 ADC R1 Mux", "ADC", "ADC R"},
+	{"Stereo1 ADC R1 Mux", "DD MIX", "DD MIXR"},
+	{"Stereo1 ADC R2 Mux", "DMIC", "DMIC R1"},
+	{"Stereo1 ADC R2 Mux", "DD MIX", "DD MIXR"},
 
-	{"Mono ADC L2 Mux", "DMIC L", "DMIC L1"},
-	{"Mono ADC L2 Mux", "DIG MIX", "DIG MIXL"},
-	{"Mono ADC L1 Mux", "DIG MIX", "DIG MIXL"},
-	{"Mono ADC L1 Mux", "ADCL", "ADC L"},
+	{"Stereo2 ADC L2 Mux", "DMIC L", "DMIC L1"},
+	{"Stereo2 ADC L2 Mux", "DD MIXL", "DD MIXL"},
+	{"Stereo2 ADC L1 Mux", "DD MIXL", "DD MIXL"},
+	{"Stereo2 ADC L1 Mux", "ADCL", "ADC L"},
 
-	{"Mono ADC R1 Mux", "DIG MIX", "DIG MIXR"},
-	{"Mono ADC R1 Mux", "ADCR", "ADC R"},
-	{"Mono ADC R2 Mux", "DMIC R", "DMIC R1"},
-	{"Mono ADC R2 Mux", "DIG MIX", "DIG MIXR"},
+	{"Stereo2 ADC R1 Mux", "DD MIXR", "DD MIXR"},
+	{"Stereo2 ADC R1 Mux", "ADCR", "ADC R"},
+	{"Stereo2 ADC R2 Mux", "DMIC R", "DMIC R1"},
+	{"Stereo2 ADC R2 Mux", "DD MIXR", "DD MIXR"},
 
-	{"Stereo ADC MIXL", "ADC1 Switch", "Stereo ADC L1 Mux"},
-	{"Stereo ADC MIXL", "ADC2 Switch", "Stereo ADC L2 Mux"},
-	{"Stereo ADC MIXL", NULL, "stereo1 filter"},
-	{"Stereo ADC MIXL", NULL, "stereo2 filter"},
+	{"Stereo1 ADC MIXL", "ADC1 Switch", "Stereo1 ADC L1 Mux"},
+	{"Stereo1 ADC MIXL", "ADC2 Switch", "Stereo1 ADC L2 Mux"},
+	{"Stereo1 ADC MIXL", NULL, "stereo1 filter"},
+	{"Stereo1 ADC MIXL", NULL, "stereo2 filter"},
 	{"stereo1 filter", NULL, "PLL1", check_sysclk1_source},
 
-	{"Stereo ADC MIXR", "ADC1 Switch", "Stereo ADC R1 Mux"},
-	{"Stereo ADC MIXR", "ADC2 Switch", "Stereo ADC R2 Mux"},
-	{"Stereo ADC MIXR", NULL, "stereo1 filter"},
+	{"Stereo1 ADC MIXR", "ADC1 Switch", "Stereo1 ADC R1 Mux"},
+	{"Stereo1 ADC MIXR", "ADC2 Switch", "Stereo1 ADC R2 Mux"},
+	{"Stereo1 ADC MIXR", NULL, "stereo1 filter"},
 	{"stereo1 filter", NULL, "PLL1", check_sysclk1_source},
 
-	{"Mono ADC MIXL", "ADC1 Switch", "Mono ADC L1 Mux"},
-	{"Mono ADC MIXL", "ADC2 Switch", "Mono ADC L2 Mux"},
-	{"Mono ADC MIXL", NULL, "stereo2 filter"},
+	{"Stereo2 ADC MIXL", "ADC1 Switch", "Stereo2 ADC L1 Mux"},
+	{"Stereo2 ADC MIXL", "ADC2 Switch", "Stereo2 ADC L2 Mux"},
+	{"Stereo2 ADC MIXL", NULL, "stereo2 filter"},
 	{"stereo2 filter", NULL, "PLL1", check_sysclk1_source},
 
-	{"Mono ADC MIXR", "ADC1 Switch", "Mono ADC R1 Mux"},
-	{"Mono ADC MIXR", "ADC2 Switch", "Mono ADC R2 Mux"},
-	{"Mono ADC MIXR", NULL, "stereo2 filter"},
+	{"Stereo2 ADC MIXR", "ADC1 Switch", "Stereo2 ADC R1 Mux"},
+	{"Stereo2 ADC MIXR", "ADC2 Switch", "Stereo2 ADC R2 Mux"},
+	{"Stereo2 ADC MIXR", NULL, "stereo2 filter"},
 	{"stereo2 filter", NULL, "PLL1", check_sysclk1_source},
 
-	{"IF1 ADC2", NULL, "Mono ADC MIXL"},
-	{"IF1 ADC2", NULL, "Mono ADC MIXR"},
-	{"IF1 ADC1", NULL, "Stereo ADC MIXL"},
-	{"IF1 ADC1", NULL, "Stereo ADC MIXR"},
+	{"IF1 ADC2", NULL, "Stereo2 ADC MIXL"},
+	{"IF1 ADC2", NULL, "Stereo2 ADC MIXR"},
+	{"IF1 ADC1", NULL, "Stereo1 ADC MIXL"},
+	{"IF1 ADC1", NULL, "Stereo1 ADC MIXR"},
 
 	{"IF1 ADC1", NULL, "I2S1"},
-	{"IF1 ADC2", NULL, "I2S1"},
 
 	{"IF2 ADC", "IF1 ADC1", "IF1 ADC1"},
 	{"IF2 ADC", "IF1 ADC2", "IF1 ADC2"},
@@ -1684,9 +1682,9 @@ static const struct snd_soc_dapm_route rt5651_dapm_routes[] = {
 	{"IF2 DAC L", NULL, "IF2 DAC"},
 	{"IF2 DAC R", NULL, "IF2 DAC"},
 
-	{"DAC MIXL", "Stereo ADC Switch", "Stereo ADC MIXL"},
+	{"DAC MIXL", "Stereo ADC Switch", "Stereo1 ADC MIXL"},
 	{"DAC MIXL", "INF1 Switch", "IF1 DAC1 L"},
-	{"DAC MIXR", "Stereo ADC Switch", "Stereo ADC MIXR"},
+	{"DAC MIXR", "Stereo ADC Switch", "Stereo1 ADC MIXR"},
 	{"DAC MIXR", "INF1 Switch", "IF1 DAC1 R"},
 
 	{"Audio DSP", NULL, "DAC MIXL"},
@@ -1712,9 +1710,9 @@ static const struct snd_soc_dapm_route rt5651_dapm_routes[] = {
 	{"Stereo DAC MIXR", NULL, "Stero2 DAC Power"},
 
 	{"PDM L Mux", "Stereo DAC MIX", "Stereo DAC MIXL"},
-	{"PDM L Mux", "DIG MIX", "DAC MIXL"},
+	{"PDM L Mux", "DD MIX", "DAC MIXL"},
 	{"PDM R Mux", "Stereo DAC MIX", "Stereo DAC MIXR"},
-	{"PDM R Mux", "DIG MIX", "DAC MIXR"},
+	{"PDM R Mux", "DD MIX", "DAC MIXR"},
 
 	{"DAC L1", NULL, "Stereo DAC MIXL"},
 	{"DAC L1", NULL, "PLL1", check_sysclk1_source},
@@ -1723,15 +1721,15 @@ static const struct snd_soc_dapm_route rt5651_dapm_routes[] = {
 	{"DAC R1", NULL, "PLL1", check_sysclk1_source},
 	{"DAC R1", NULL, "DAC R1 Power"},
 
-	{"DIG MIXL", "DAC L1 Switch", "DAC MIXL"},
-	{"DIG MIXL", "DAC L2 Switch", "DAC L2 Volume"},
-	{"DIG MIXL", "DAC R2 Switch", "DAC R2 Volume"},
-	{"DIG MIXL", NULL, "Stero2 DAC Power"},
+	{"DD MIXL", "DAC L1 Switch", "DAC MIXL"},
+	{"DD MIXL", "DAC L2 Switch", "DAC L2 Volume"},
+	{"DD MIXL", "DAC R2 Switch", "DAC R2 Volume"},
+	{"DD MIXL", NULL, "Stero2 DAC Power"},
 
-	{"DIG MIXR", "DAC R1 Switch", "DAC MIXR"},
-	{"DIG MIXR", "DAC R2 Switch", "DAC R2 Volume"},
-	{"DIG MIXR", "DAC L2 Switch", "DAC L2 Volume"},
-	{"DIG MIXR", NULL, "Stero2 DAC Power"},
+	{"DD MIXR", "DAC R1 Switch", "DAC MIXR"},
+	{"DD MIXR", "DAC R2 Switch", "DAC R2 Volume"},
+	{"DD MIXR", "DAC L2 Switch", "DAC L2 Volume"},
+	{"DD MIXR", NULL, "Stero2 DAC Power"},
 
 	{"OUT MIXL", "BST1 Switch", "BST1"},
 	{"OUT MIXL", "BST2 Switch", "BST2"},
@@ -1750,10 +1748,10 @@ static const struct snd_soc_dapm_route rt5651_dapm_routes[] = {
 	{"OUTVOL L", NULL, "OUT MIXL"},
 	{"OUTVOL R", NULL, "OUT MIXR"},
 
-	{"HPOL MIX", "HPO MIX DAC1 Switch", "DAC L1"},
-	{"HPOL MIX", "HPO MIX HPVOL Switch", "HPOVOL L"},
-	{"HPOR MIX", "HPO MIX DAC1 Switch", "DAC R1"},
-	{"HPOR MIX", "HPO MIX HPVOL Switch", "HPOVOL R"},
+	{"HPOL MIX", "DAC1 Switch", "DAC L1"},
+	{"HPOL MIX", "HPVOL Switch", "HPOVOL L"},
+	{"HPOR MIX", "DAC1 Switch", "DAC R1"},
+	{"HPOR MIX", "HPVOL Switch", "HPOVOL R"},
 
 	{"LOUT MIX", "DAC L1 Switch", "DAC L1"},
 	{"LOUT MIX", "DAC R1 Switch", "DAC R1"},
@@ -1775,7 +1773,7 @@ static const struct snd_soc_dapm_route rt5651_dapm_routes[] = {
 
 static int get_sdp_info(struct snd_soc_codec *codec, int dai_id)
 {
-	int ret = 0;
+	int ret = 0, val;
 
 	if (codec == NULL)
 		return -EINVAL;
@@ -1785,12 +1783,15 @@ static int get_sdp_info(struct snd_soc_codec *codec, int dai_id)
 	case RT5651_AIF2:
 		ret |= RT5651_U_IF1;
 		ret |= RT5651_U_IF2;
+
 		break;
+
 	default:
 		ret = -EINVAL;
 		break;
 	}
-	pr_debug("get_sdp_info return %d\n", ret);
+	pr_debug("%s: get_sdp_info return %d\n", __func__, ret);
+
 	return ret;
 }
 
@@ -1814,23 +1815,22 @@ static int get_clk_info(int sclk, int rate)
 static int rt5651_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params, struct snd_soc_dai *dai)
 {
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_codec *codec = dai->codec;
 	struct rt5651_priv *rt5651 = snd_soc_codec_get_drvdata(codec);
 	unsigned int val_len = 0, val_clk, mask_clk, dai_sel;
 	int pre_div, bclk_ms, frame_size;
 
-	pr_info("enter %s\n", __func__);
 	rt5651->lrck[dai->id] = params_rate(params);
 	pre_div = get_clk_info(rt5651->sysclk, rt5651->lrck[dai->id]);
-	pr_info("rt5651->lrck[%d]=%d rt5651->sysclk=%d pre_div=%d\n", dai->id,
-				rt5651->lrck[dai->id], rt5651->sysclk, pre_div);
 	if (pre_div < 0) {
 		dev_err(codec->dev, "Unsupported clock setting\n");
 		return -EINVAL;
 	}
 	frame_size = snd_soc_params_to_frame_size(params);
 	if (frame_size < 0) {
-		dev_err(codec->dev, "Unsupported frame size: %d\n", frame_size);
+		dev_err(codec->dev, "Unsupported frame size: %d\n",
+			frame_size);
 		return -EINVAL;
 	}
 	bclk_ms = frame_size > 32 ? 1 : 0;
@@ -1840,8 +1840,9 @@ static int rt5651_hw_params(struct snd_pcm_substream *substream,
 		rt5651->bclk[dai->id], rt5651->lrck[dai->id]);
 	dev_dbg(dai->dev, "bclk_ms is %d and pre_div is %d for iis %d\n",
 				bclk_ms, pre_div, dai->id);
+	// params_format(params) = SNDRV_PCM_FORMAT_S16_LE;//force setting data length
 
-	switch (params_format(params)) {
+	switch (2) {
 	case SNDRV_PCM_FORMAT_S16_LE:
 		break;
 	case SNDRV_PCM_FORMAT_S20_3LE:
@@ -1856,25 +1857,24 @@ static int rt5651_hw_params(struct snd_pcm_substream *substream,
 	default:
 		return -EINVAL;
 	}
-
 	dai_sel = get_sdp_info(codec, dai->id);
 	if (dai_sel < 0) {
 		dev_err(codec->dev, "Failed to get sdp info: %d\n", dai_sel);
 		return -EINVAL;
 	}
+
 	if (dai_sel & RT5651_U_IF1) {
 		mask_clk = RT5651_I2S_PD1_MASK;
 		val_clk = pre_div << RT5651_I2S_PD1_SFT;
 		snd_soc_update_bits(codec, RT5651_I2S1_SDP,
 			RT5651_I2S_DL_MASK, val_len);
-		snd_soc_update_bits(codec, RT5651_ADDA_CLK1, mask_clk, val_clk);
 	}
+
 	if (dai_sel & RT5651_U_IF2) {
 		mask_clk = RT5651_I2S_BCLK_MS2_MASK | RT5651_I2S_PD2_MASK;
 		val_clk = pre_div << RT5651_I2S_PD2_SFT;
 		snd_soc_update_bits(codec, RT5651_I2S2_SDP,
 			RT5651_I2S_DL_MASK, val_len);
-		snd_soc_update_bits(codec, RT5651_ADDA_CLK1, mask_clk, val_clk);
 	}
 
 	return 0;
@@ -1954,22 +1954,24 @@ static int rt5651_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 }
 
 static int rt5651_set_sysclk(struct snd_soc_codec *codec,
-			     int clk_id, int source, unsigned int freq, int dir)
+			int clk_id, int source, unsigned int freq, int dir)
 {
 	struct rt5651_priv *rt5651 = snd_soc_codec_get_drvdata(codec);
 
-	set_sys_clk(codec, clk_id);
 	if (freq == rt5651->sysclk && clk_id == rt5651->sysclk_src)
 		return 0;
 
-	if (freq == 19200000) {
-		snd_soc_write(codec, 0x86, 0x23d7);
-		snd_soc_write(codec, 0x87, 0x23d7);
-	}
-	rt5651->sysclk = freq;
-	rt5651->sysclk_src = clk_id;
+	set_sys_clk(codec, clk_id);
 
-	dev_dbg(codec->dev, "Sysclk is %dHz and clock id is %d\n", freq, clk_id);
+	//if (freq == 19200000) {
+	//	snd_soc_write(codec, RT5651_PLL_MODE_4, 0x23d7);
+	//	snd_soc_write(codec, RT5651_PLL_MODE_5, 0x23d7);
+	//}
+
+	rt5651->sysclk = freq;
+
+	dev_dbg(codec->dev, "Sysclk is %dHz and clock id is %d\n", freq,
+		clk_id);
 
 	return 0;
 }
@@ -1995,7 +1997,8 @@ static int rt5651_pll_calc(const unsigned int freq_in,
 	const unsigned int freq_out, struct rt5651_pll_code *pll_code)
 {
 	int max_n = RT5651_PLL_N_MAX, max_m = RT5651_PLL_M_MAX;
-	int n = 0, m = 0, red, n_t, m_t, in_t, out_t, red_t = abs(freq_out - freq_in);
+	int red, n_t, m_t, in_t, out_t, red_t = abs(freq_out - freq_in);
+	int n = 0, m = 0;
 	bool bypass = false;
 
 	if (RT5651_PLL_INP_MAX < freq_in || RT5651_PLL_INP_MIN > freq_in)
@@ -2091,12 +2094,16 @@ static int rt5651_set_dai_pll(struct snd_soc_dai *dai, int pll_id, int source,
 	dev_dbg(codec->dev, "bypass=%d m=%d n=%d k=2\n", pll_code.m_bp,
 		(pll_code.m_bp ? 0 : pll_code.m_code), pll_code.n_code);
 
+	snd_soc_write(codec, RT5651_PLL_CTRL1,0x2a82);
+	snd_soc_write(codec, RT5651_PLL_CTRL2,0xf000);
+	/*
 	snd_soc_write(codec, RT5651_PLL_CTRL1,
 		pll_code.n_code << RT5651_PLL_N_SFT | pll_code.k_code);
+
 	snd_soc_write(codec, RT5651_PLL_CTRL2,
 		(pll_code.m_bp ? 0 : pll_code.m_code) << RT5651_PLL_M_SFT |
 		pll_code.m_bp << RT5651_PLL_M_BP_SFT);
-
+		*/
 	rt5651->pll_in = freq_in;
 	rt5651->pll_out = freq_out;
 	rt5651->pll_src = source;
@@ -2124,7 +2131,7 @@ static ssize_t rt5651_index_show(struct device *dev,
 	int cnt = 0, i;
 
 	cnt += sprintf(buf, "RT5651 index register\n");
-	for (i = 0; i < 0xff; i++) {
+	for (i = 0; i < 0xb4; i++) {
 		if (cnt + RT5651_REG_DISP_LEN >= PAGE_SIZE)
 			break;
 		val = rt5651_index_read(codec, i);
@@ -2153,12 +2160,12 @@ static ssize_t rt5651_codec_show(struct device *dev,
 	codec->cache_bypass = 1;
 	cnt += sprintf(buf, "RT5651 codec register\n");
 	for (i = 0; i <= RT5651_DEVICE_ID; i++) {
-		if (cnt + 22 >= PAGE_SIZE)
+		if (cnt + 23 >= PAGE_SIZE)
 			break;
 		val = snd_soc_read(codec, i);
 		if (!val)
 			continue;
-		cnt += snprintf(buf + cnt, 22,
+		cnt += snprintf(buf + cnt, 23,
 				"#rng%02x  #rv%04x  #rd0\n", i, val);
 	}
 
@@ -2179,7 +2186,7 @@ static ssize_t rt5651_codec_store(struct device *dev,
 	unsigned int val = 0, addr = 0;
 	int i;
 
-	pr_debug("register \"%s\" count=%d\n", buf, count);
+	pr_debug("register \"%s\" count=%d\n", buf, (int)count);
 	for (i = 0; i < count; i++) {	/*address */
 		if (*(buf + i) <= '9' && *(buf + i) >= '0')
 			addr = (addr << 4) | (*(buf + i) - '0');
@@ -2234,7 +2241,7 @@ static int rt5651_set_bias_level(struct snd_soc_codec *codec,
 				RT5651_PWR_BG | RT5651_PWR_VREF2,
 				RT5651_PWR_VREF1 | RT5651_PWR_MB |
 				RT5651_PWR_BG | RT5651_PWR_VREF2);
-			msleep(20);
+			usleep_range(10000, 20000);
 			snd_soc_update_bits(codec, RT5651_PWR_ANLG1,
 				RT5651_PWR_FV1 | RT5651_PWR_FV2,
 				RT5651_PWR_FV1 | RT5651_PWR_FV2);
@@ -2243,15 +2250,19 @@ static int rt5651_set_bias_level(struct snd_soc_codec *codec,
 			snd_soc_cache_sync(codec);
 			rt5651_index_sync(codec);
 			snd_soc_update_bits(codec, RT5651_PWR_ANLG1,
-				RT5651_PWR_LDO_DVO_MASK, RT5651_PWR_LDO_DVO_1_2V);
+					RT5651_PWR_LDO_DVO_MASK,
+					RT5651_PWR_LDO_DVO_1_2V);
 			snd_soc_update_bits(codec, RT5651_D_MISC, 0x1, 0x1);
 #ifdef USE_ASRC
-			snd_soc_update_bits(codec, RT5651_D_MISC, 0xc00, 0xc00);
+			snd_soc_update_bits(codec, RT5651_D_MISC, 0xc00,
+					0xc00);
 #endif
+
 		}
+		
 		break;
 
-	case SND_SOC_BIAS_OFF:
+	case SND_SOC_BIAS_OFF:		
 		set_sys_clk(codec, RT5651_SCLK_S_RCCLK);
 		snd_soc_write(codec, RT5651_D_MISC, 0x0010);
 		snd_soc_write(codec, RT5651_PWR_DIG1, 0x0000);
@@ -2259,7 +2270,7 @@ static int rt5651_set_bias_level(struct snd_soc_codec *codec,
 		snd_soc_write(codec, RT5651_PWR_VOL, 0x0000);
 		snd_soc_write(codec, RT5651_PWR_MIXER, 0x0000);
 		snd_soc_write(codec, RT5651_PWR_ANLG1, 0x0000);
-/*		snd_soc_write(codec, RT5651_PWR_ANLG2, 0x0000);*/
+		//snd_soc_write(codec, RT5651_PWR_ANLG2, 0x0000);
 		break;
 
 	default:
@@ -2281,19 +2292,19 @@ static int rt5651_probe(struct snd_soc_codec *codec)
 {
 	struct rt5651_priv *rt5651 = snd_soc_codec_get_drvdata(codec);
 	int ret;
+	int value;
 #ifdef RTK_IOCTL
 #if defined(CONFIG_SND_HWDEP) || defined(CONFIG_SND_HWDEP_MODULE)
 	struct rt56xx_ops *ioctl_ops = rt56xx_get_ioctl_ops();
 #endif
 #endif
-
-	pr_info("enter %s\n", __func__);
 	ret = snd_soc_codec_set_cache_io(codec, 8, 16, SND_SOC_I2C);
 	if (ret != 0) {
 		dev_err(codec->dev, "Failed to set cache I/O: %d\n", ret);
 		return ret;
 	}
 
+	value = snd_soc_read(codec, RT5651_DEVICE_ID);
 	if (0x6281 != snd_soc_read(codec, RT5651_DEVICE_ID)) {
 		dev_err(codec->dev, "Can't find 5651 codec\n");
 		return -ENODEV;
@@ -2305,7 +2316,7 @@ static int rt5651_probe(struct snd_soc_codec *codec)
 		RT5651_PWR_BG | RT5651_PWR_VREF2,
 		RT5651_PWR_VREF1 | RT5651_PWR_MB |
 		RT5651_PWR_BG | RT5651_PWR_VREF2);
-	msleep(20);
+	usleep_range(10000, 20000);
 	snd_soc_update_bits(codec, RT5651_PWR_ANLG1,
 		RT5651_PWR_FV1 | RT5651_PWR_FV2,
 		RT5651_PWR_FV1 | RT5651_PWR_FV2);
@@ -2317,6 +2328,7 @@ static int rt5651_probe(struct snd_soc_codec *codec)
 	rt5651_set_bias_level(codec, SND_SOC_BIAS_OFF);
 	rt5651->codec = codec;
 	rt5651->jack_type = RT5651_NO_JACK;
+	gpio_direction_output(368,0);
 
 #ifdef RTK_IOCTL
 #if defined(CONFIG_SND_HWDEP) || defined(CONFIG_SND_HWDEP_MODULE)
@@ -2342,22 +2354,14 @@ static int rt5651_probe(struct snd_soc_codec *codec)
 		return ret;
 	}
 	rt5651_codec = codec;
-	/*INIT_DELAYED_WORK(&enable_push_button_int_work,
-					do_enable_push_button_int);*/
-#ifdef CONFIG_SND_BYT_MACHINE
-//	gpio_reset = acpi_get_gpio("\\_SB.GPO2", 21);
-//	printk("@@@@@@@@gpio_reset = %d \n", gpio_reset);
-	gpio_reset = 341;
-	if (gpio_reset >= 0)
-		gpio_set_value(gpio_reset, 0);
-#endif
-
+	/* INIT_DELAYED_WORK(&enable_push_button_int_work,
+					do_enable_push_button_int); */
+	snd_soc_dapm_force_enable_pin(&codec->dapm, "micbias1");
 	return 0;
 }
 
 static int rt5651_remove(struct snd_soc_codec *codec)
 {
-	/* cancel_delayed_work_sync(&enable_push_button_int_work); */
 	rt5651_set_bias_level(codec, SND_SOC_BIAS_OFF);
 	return 0;
 }
@@ -2366,11 +2370,13 @@ static int rt5651_remove(struct snd_soc_codec *codec)
 static int rt5651_suspend(struct snd_soc_codec *codec)
 {
 	rt5651_set_bias_level(codec, SND_SOC_BIAS_OFF);
+	gpio_direction_output(368,0);
 	return 0;
 }
 
 static int rt5651_resume(struct snd_soc_codec *codec)
 {
+	//gpio_direction_output(368,1); fix resume noise zengmin
 	rt5651_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 	return 0;
 }
@@ -2456,7 +2462,9 @@ static struct snd_soc_codec_driver soc_codec_dev_rt5651 = {
 
 static const struct i2c_device_id rt5651_i2c_id[] = {
 	{"rt5651", 0},
-	{"10EC5651:00", 0}, /* TODO: Add new entry in ACPI */
+	{"10EC5651:01", 0},
+	{"10EC5651", 0},
+	{"i2c-10EC5651:00:1c"},
 	{}
 };
 MODULE_DEVICE_TABLE(i2c, rt5651_i2c_id);
@@ -2465,12 +2473,12 @@ static int rt5651_i2c_probe(struct i2c_client *i2c,
 		    const struct i2c_device_id *id)
 {
 	struct rt5651_priv *rt5651;
-	pr_info("enter %s\n", __func__);
-	pr_debug("i2c->addr before %x\n", i2c->addr);
-	/* Harcode i2c platform data */
-	i2c->addr = 0x1a;
 	int ret;
-	pr_info("i2c->addr after %x\n", i2c->addr);
+
+	/* Set I2C platform data */
+	pr_debug("%s: i2c->addr before: %x\n", __func__, i2c->addr);
+	i2c->addr = 0x1a;
+	pr_debug("%s: i2c->addr after: %x\n", __func__, i2c->addr);
 
 	rt5651 = kzalloc(sizeof(struct rt5651_priv), GFP_KERNEL);
 	if (NULL == rt5651)
@@ -2481,9 +2489,10 @@ static int rt5651_i2c_probe(struct i2c_client *i2c,
 	ret = snd_soc_register_codec(&i2c->dev, &soc_codec_dev_rt5651,
 			rt5651_dai, ARRAY_SIZE(rt5651_dai));
 	if (ret < 0) {
-		pr_debug("snd_soc_register_codec failed %s\n", __func__);
+		pr_debug("%s: snd_soc_register_codec failed %s\n", __func__);
 		kfree(rt5651);
 	}
+	gpio_request(368,"SPK_OUT_SHUTDOWN");
 	return ret;
 }
 
@@ -2498,18 +2507,21 @@ static void rt5651_i2c_shutdown(struct i2c_client *client)
 {
 	struct rt5651_priv *rt5651 = i2c_get_clientdata(client);
 	struct snd_soc_codec *codec = rt5651->codec;
+	gpio_direction_output(368,0);
 
 	if (codec != NULL)
 		rt5651_set_bias_level(codec, SND_SOC_BIAS_OFF);
 }
+static struct acpi_device_id rt5651_acpi_match[] = {
+	{ "10EC5651", 0 },
+	{ },
+};
 
-#ifdef __NO_BIOS_SUPPORT_RT5651__
-struct i2c_board_info rt5651_info = {I2C_BOARD_INFO("rt5651", 0x1a)};
-#endif
 struct i2c_driver rt5651_i2c_driver = {
 	.driver = {
-		.name = "rt5651",
+		.name = "10EC5651:01",
 		.owner = THIS_MODULE,
+		//.acpi_match_table = ACPI_PTR(rt5651_acpi_match),
 	},
 	.probe = rt5651_i2c_probe,
 	.remove   = rt5651_i2c_remove,
@@ -2519,14 +2531,6 @@ struct i2c_driver rt5651_i2c_driver = {
 
 static int __init rt5651_modinit(void)
 {
-#ifdef __NO_BIOS_SUPPORT_RT5651__
-	struct i2c_adapter *adap;
-	struct i2c_client *client;
-
-	adap = i2c_get_adapter(1);
-	client = i2c_new_device(adap, &rt5651_info);
-#endif
-	pr_debug("enter %s\n", __func__);
 	return i2c_add_driver(&rt5651_i2c_driver);
 }
 module_init(rt5651_modinit);

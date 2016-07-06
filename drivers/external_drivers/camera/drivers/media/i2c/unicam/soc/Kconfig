@@ -1,0 +1,10 @@
+config VIDEO_GC0310
+        tristate "GalaxyCore GC0310 sensor support"
+        depends on I2C && VIDEO_V4L2
+        ---help---
+          This is a Video4Linux2 sensor-level driver for the GalaxyCore
+          GC0310 soc camera.
+
+          GalaxyCore is a 0.3M soc sensor.
+
+          It currently only works with the atomisp driver.

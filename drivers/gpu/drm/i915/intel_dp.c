@@ -963,6 +963,8 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 				       adjusted_mode);
 	}
 
+//	adjusted_mode->crtc_clock = 164200;
+
 	if (adjusted_mode->flags & DRM_MODE_FLAG_DBLCLK)
 		return false;
 
@@ -1318,7 +1320,7 @@ static void edp_panel_vdd_off_sync(struct intel_dp *intel_dp)
 	u32 pp;
 	u32 pp_stat_reg, pp_ctrl_reg;
 
-	WARN_ON(!drm_modeset_is_locked(&dev->mode_config.connection_mutex));
+//	WARN_ON(!drm_modeset_is_locked(&dev->mode_config.connection_mutex));
 
 	if (!intel_dp->want_panel_vdd && edp_is_vdd_on(intel_dp)) {
 		struct intel_digital_port *intel_dig_port =
@@ -2910,8 +2912,7 @@ static void chv_pre_enable_dp(struct intel_encoder *encoder)
 		to_intel_crtc(encoder->base.crtc);
 	enum dpio_channel ch = vlv_dport_to_channel(dport);
 	int pipe = intel_crtc->pipe;
-	int data, i;
-	u32 val;
+	u32 val, stagger;
 
 	mutex_lock(&dev_priv->dpio_lock);
 
@@ -2941,21 +2942,39 @@ static void chv_pre_enable_dp(struct intel_encoder *encoder)
 	val |= (DPIO_PCS_TX_LANE2_RESET | DPIO_PCS_TX_LANE1_RESET);
 	vlv_dpio_write(dev_priv, pipe, VLV_PCS23_DW0(ch), val);
 
-	/* Program Tx lane latency optimal setting*/
-	for (i = 0; i < 4; i++) {
-		/* Set the latency optimal bit */
-		data = (i == 1) ? 0x0 : 0x6;
-		vlv_dpio_write(dev_priv, pipe, CHV_TX_DW11(ch, i),
-				data << DPIO_FRC_LATENCY_SHFIT);
-
-		/* Set the upar bit */
-		data = (i == 1) ? 0x0 : 0x1;
-		vlv_dpio_write(dev_priv, pipe, CHV_TX_DW14(ch, i),
-				data << DPIO_UPAR_SHIFT);
-	}
-
 	/* Data lane stagger programming */
-	/* FIXME: Fix up value only after power analysis */
+	if (intel_crtc->config.port_clock > 270000)
+		stagger = 0x18;
+	else if (intel_crtc->config.port_clock > 135000)
+		stagger = 0xd;
+	else if (intel_crtc->config.port_clock > 67500)
+		stagger = 0x7;
+	else if (intel_crtc->config.port_clock > 33750)
+		stagger = 0x4;
+	else
+		stagger = 0x2;
+
+	val = vlv_dpio_read(dev_priv, pipe, VLV_PCS01_DW11(ch));
+	val |= DPIO_TX2_STAGGER_MASK(0x1f);
+	vlv_dpio_write(dev_priv, pipe, VLV_PCS01_DW11(ch), val);
+
+	val = vlv_dpio_read(dev_priv, pipe, VLV_PCS23_DW11(ch));
+	val |= DPIO_TX2_STAGGER_MASK(0x1f);
+	vlv_dpio_write(dev_priv, pipe, VLV_PCS23_DW11(ch), val);
+
+	vlv_dpio_write(dev_priv, pipe, VLV_PCS01_DW12(ch),
+			DPIO_LANESTAGGER_STRAP(stagger) |
+			DPIO_LANESTAGGER_STRAP_OVRD |
+			DPIO_TX1_STAGGER_MASK(0x1f) |
+			DPIO_TX1_STAGGER_MULT(6) |
+			DPIO_TX2_STAGGER_MULT(0));
+
+	vlv_dpio_write(dev_priv, pipe, VLV_PCS23_DW12(ch),
+			DPIO_LANESTAGGER_STRAP(stagger) |
+			DPIO_LANESTAGGER_STRAP_OVRD |
+			DPIO_TX1_STAGGER_MASK(0x1f) |
+			DPIO_TX1_STAGGER_MULT(7) |
+			DPIO_TX2_STAGGER_MULT(5));
 
 	mutex_unlock(&dev_priv->dpio_lock);
 
@@ -3268,6 +3287,7 @@ static uint32_t intel_chv_signal_levels(struct intel_dp *intel_dp)
 	enum dpio_channel ch = vlv_dport_to_channel(dport);
 	enum pipe pipe = intel_crtc->pipe;
 	int i;
+	//train_set = DP_TRAIN_VOLTAGE_SWING_800 | DP_TRAIN_PRE_EMPHASIS_3_5;
 
 	switch (train_set & DP_TRAIN_PRE_EMPHASIS_MASK) {
 	case DP_TRAIN_PRE_EMPHASIS_0:
@@ -3338,6 +3358,8 @@ static uint32_t intel_chv_signal_levels(struct intel_dp *intel_dp)
 	default:
 		return 0;
 	}
+
+//	printk("[%s]deemph_reg_value = %d, margin_reg_value = %d--- \n",__func__,deemph_reg_value, margin_reg_value);
 
 	mutex_lock(&dev_priv->dpio_lock);
 

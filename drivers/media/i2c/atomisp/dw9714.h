@@ -4,7 +4,8 @@
 #include <linux/atomisp_platform.h>
 #include <linux/types.h>
 
-#define DW9714_NAME		"dw9714"
+
+#define DW9714_VCM_ADDR	0x0c
 
 enum dw9714_tok_type {
 	DW9714_8BIT  = 0x0001,
@@ -21,48 +22,24 @@ struct dw9714_vcm_settings {
 enum dw9714_vcm_mode {
 	DW9714_DIRECT = 0x1,	/* direct control */
 	DW9714_LSC = 0x2,	/* linear slope control */
-	DW9714_DLC = 0x4,	/* dual level control */
-};
-
-struct dw9714_device;
-
-#define DW9714_NAME_LEN 10
-struct dw9714_chip_features {
-	char name[DW9714_NAME_LEN];
-	int supported_modes;
-	int (*set_vcm_mode)(struct dw9714_device *dev);
-};
-
-struct dw9714_control {
-	struct v4l2_queryctrl qc;
-	int (*query)(struct v4l2_subdev *sd, s32 *value,
-		struct dw9714_device *dev);
-	int (*tweak)(struct v4l2_subdev *sd, s32 value,
-		struct dw9714_device *dev);
+	DW9714_DLC = 0x3,	/* dual level control */
 };
 
 /* dw9714 device structure */
 struct dw9714_device {
-	struct i2c_client *client;
-	struct mutex input_lock;
-
-	struct camera_vcm_control vcm_ctrl;
 	struct dw9714_vcm_settings vcm_settings;
 	struct timespec timestamp_t_focus_abs;
 	enum dw9714_vcm_mode vcm_mode;
 	s16 number_of_steps;
 	bool initialized;		/* true if dw9714 is detected */
 	s32 focus;			/* Current focus value */
+	struct timespec focus_time;	/* Time when focus was last time set */
+	__u8 buffer[4];			/* Used for i2c transactions */
 	const struct camera_af_platform_data *platform_data;
-
-	int (*set_vcm_mode)(struct dw9714_device *dev);
 };
 
 #define DW9714_INVALID_CONFIG	0xffffffff
-#define DW9714_MAX_FOCUS_NEG   -1023
-#define DW9714_MAX_FOCUS_POS	1023
-#define DW9714_SLEW_STEP_MAX	0x3f
-#define DW9714_SLEW_TIME_MAX	0x1f
+#define DW9714_MAX_FOCUS_POS	1024
 
 /* MCLK[1:0] = 01 T_SRC[4:0] = 00001 S[3:0] = 0111 */
 #define DELAY_PER_STEP_NS	1000000

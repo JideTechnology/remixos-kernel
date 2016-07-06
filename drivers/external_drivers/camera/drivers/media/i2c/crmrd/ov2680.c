@@ -40,9 +40,6 @@
 
 #include "ov2680.h"
 
-static int h_flag = 0;
-static int v_flag = 0;
-
 static struct ov2680_resolution *last_res_tab;
 static int last_res_idx;
 
@@ -67,8 +64,9 @@ static int ov2680_read_reg(struct i2c_client *client,
 		return -ENODEV;
 	}
 
-	if (data_length != OV2680_8BIT && data_length != OV2680_16BIT
-					&& data_length != OV2680_32BIT) {
+	if ((data_length != OV2680_8BIT) &&
+			(data_length != OV2680_16BIT) &&
+			(data_length != OV2680_32BIT)) {
 		dev_err(&client->dev, "%s error, invalid data length\n",
 			__func__);
 		return -EINVAL;
@@ -76,26 +74,27 @@ static int ov2680_read_reg(struct i2c_client *client,
 
 	memset(msg, 0 , sizeof(msg));
 
-	msg[0].addr = client->addr;
-	msg[0].flags = 0;
-	msg[0].len = I2C_MSG_LENGTH;
-	msg[0].buf = data;
+	msg[0].addr  = client->addr;
+	msg[0].flags = 0; /* write */
+	msg[0].len   = I2C_MSG_LENGTH;
+	msg[0].buf   = data;
 
 	/* high byte goes out first */
-	data[0] = (u8)(reg >> 8);
-	data[1] = (u8)(reg & 0xff);
+	data[0]      = (u8)(reg >> 8);
+	data[1]      = (u8)(reg & 0xff);
 
-	msg[1].addr = client->addr;
-	msg[1].len = data_length;
+	msg[1].addr  = client->addr;
 	msg[1].flags = I2C_M_RD;
-	msg[1].buf = data;
+	msg[1].len   = data_length;
+	msg[1].buf   = data;
 
 	err = i2c_transfer(client->adapter, msg, 2);
 	if (err != 2) {
 		if (err >= 0)
 			err = -EIO;
-		dev_err(&client->dev,
-			"read from offset 0x%x error %d", reg, err);
+
+		dev_err(&client->dev, "read from offset 0x%x error %d",
+				reg, err);
 		return err;
 	}
 
@@ -107,7 +106,8 @@ static int ov2680_read_reg(struct i2c_client *client,
 		*val = be16_to_cpu(*(u16 *)&data[0]);
 	else
 		*val = be32_to_cpu(*(u32 *)&data[0]);
-	//dev_dbg(&client->dev,  "++++i2c read adr%x = %x\n", reg,*val);
+
+	/* dev_dbg(&client->dev,  "++++i2c read adr%x = %x\n", reg,*val); */
 	return 0;
 }
 
@@ -117,13 +117,15 @@ static int ov2680_i2c_write(struct i2c_client *client, u16 len, u8 *data)
 	const int num_msg = 1;
 	int ret;
 
-	msg.addr = client->addr;
+	msg.addr  = client->addr;
 	msg.flags = 0;
-	msg.len = len;
-	msg.buf = data;
-	ret = i2c_transfer(client->adapter, &msg, 1);
-	//dev_dbg(&client->dev,  "+++i2c write reg=%x->%x\n", data[0]*256 +data[1],data[2]);
-	return ret == num_msg ? 0 : -EIO;
+	msg.len   = len;
+	msg.buf   = data;
+	ret       = i2c_transfer(client->adapter, &msg, 1);
+
+	/* dev_dbg(&client->dev, "+++i2c write reg = %x->%x\n",
+	 * data[0] * 256 + data[1], data[2]); */
+	return (ret == num_msg) ? 0 : -EIO;
 }
 
 static int ov2680_write_reg(struct i2c_client *client, u16 data_length,
@@ -134,7 +136,8 @@ static int ov2680_write_reg(struct i2c_client *client, u16 data_length,
 	u16 *wreg = (u16 *)data;
 	const u16 len = data_length + sizeof(u16); /* 16-bit address + data */
 
-	if (data_length != OV2680_8BIT && data_length != OV2680_16BIT) {
+	if ((data_length != OV2680_8BIT) &&
+			(data_length != OV2680_16BIT)) {
 		dev_err(&client->dev,
 			"%s error, invalid data_length\n", __func__);
 		return -EINVAL;
@@ -202,11 +205,13 @@ static int __ov2680_buf_reg_array(struct i2c_client *client,
 		size = 1;
 		ctrl->buffer.data[ctrl->index] = (u8)next->val;
 		break;
+
 	case OV2680_16BIT:
 		size = 2;
 		data16 = (u16 *)&ctrl->buffer.data[ctrl->index];
 		*data16 = cpu_to_be16((u16)next->val);
 		break;
+
 	default:
 		return -EINVAL;
 	}
@@ -234,7 +239,7 @@ static int __ov2680_write_reg_is_consecutive(struct i2c_client *client,
 	if (ctrl->index == 0)
 		return 1;
 
-	return ctrl->buffer.addr + ctrl->index == next->reg;
+	return (ctrl->buffer.addr + ctrl->index) == next->reg;
 }
 
 static int ov2680_write_reg_array(struct i2c_client *client,
@@ -243,7 +248,9 @@ static int ov2680_write_reg_array(struct i2c_client *client,
 	const struct ov2680_reg *next = reglist;
 	struct ov2680_write_ctrl ctrl;
 	int err;
-	//dev_dbg(&client->dev,  "++++write reg array\n");
+
+	/* dev_dbg(&client->dev, "++++write reg array\n"); */
+
 	ctrl.index = 0;
 	for (; next->type != OV2680_TOK_TERM; next++) {
 		switch (next->type & OV2680_TOK_MASK) {
@@ -251,20 +258,22 @@ static int ov2680_write_reg_array(struct i2c_client *client,
 			err = __ov2680_flush_reg_array(client, &ctrl);
 			if (err)
 				return err;
+
 			msleep(next->val);
 			break;
+
 		default:
 			/*
 			 * If next address is not consecutive, data needs to be
 			 * flushed before proceed.
 			 */
-			//dev_dbg(&client->dev,  "+++ov2680_write_reg_array reg=%x->%x\n", next->reg,next->val);
-			if (!__ov2680_write_reg_is_consecutive(client, &ctrl,
-								next)) {
+			if (!__ov2680_write_reg_is_consecutive(client,
+						&ctrl, next)) {
 				err = __ov2680_flush_reg_array(client, &ctrl);
-			if (err)
-				return err;
+				if (err)
+					return err;
 			}
+
 			err = __ov2680_buf_reg_array(client, &ctrl, next);
 			if (err) {
 				dev_err(&client->dev, "%s: write error, aborted\n",
@@ -276,50 +285,6 @@ static int ov2680_write_reg_array(struct i2c_client *client,
 	}
 
 	return __ov2680_flush_reg_array(client, &ctrl);
-}
-static int ov2680_g_focal(struct v4l2_subdev *sd, s32 *val)
-{
-
-	*val = (OV2680_FOCAL_LENGTH_NUM << 16) | OV2680_FOCAL_LENGTH_DEM;
-	return 0;
-}
-
-static int ov2680_g_fnumber(struct v4l2_subdev *sd, s32 *val)
-{
-	/*const f number for ov2680*/
-
-	*val = (OV2680_F_NUMBER_DEFAULT_NUM << 16) | OV2680_F_NUMBER_DEM;
-	return 0;
-}
-
-static int ov2680_g_fnumber_range(struct v4l2_subdev *sd, s32 *val)
-{
-
-	*val = (OV2680_F_NUMBER_DEFAULT_NUM << 24) |
-		(OV2680_F_NUMBER_DEM << 16) |
-		(OV2680_F_NUMBER_DEFAULT_NUM << 8) | OV2680_F_NUMBER_DEM;
-	return 0;
-}
-
-static int ov2680_g_bin_factor_x(struct v4l2_subdev *sd, s32 *val)
-{
-	struct ov2680_device *dev = to_ov2680_sensor(sd);
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-
-	dev_dbg(&client->dev,  "++++ov2680_g_bin_factor_x\n");
-	*val = ov2680_res[dev->fmt_idx].bin_factor_x;
-
-	return 0;
-}
-
-static int ov2680_g_bin_factor_y(struct v4l2_subdev *sd, s32 *val)
-{
-	struct ov2680_device *dev = to_ov2680_sensor(sd);
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-
-	*val = ov2680_res[dev->fmt_idx].bin_factor_y;
-	dev_dbg(&client->dev,  "++++ov2680_g_bin_factor_y\n");
-	return 0;
 }
 
 
@@ -395,9 +360,9 @@ static int ov2680_get_intg_factor(struct i2c_client *client,
 	buf->output_height = reg_val;
 
 	buf->binning_factor_x = res->bin_factor_x ?
-					(res->bin_factor_x*2) : 1;
+					(res->bin_factor_x * 2) : 1;
 	buf->binning_factor_y = res->bin_factor_y ?
-					(res->bin_factor_y*2) : 1;
+					(res->bin_factor_y * 2) : 1;
 	return 0;
 }
 
@@ -410,7 +375,8 @@ static long __ov2680_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 	u16 vts,hts;
 	int ret,exp_val;
 
-    //dev_dbg(&client->dev, "+++++++__ov2680_set_exposure coarse_itg %d, gain %d, digitgain %d++\n",coarse_itg, gain, digitgain);
+	dev_dbg(&client->dev, "%s(): coarse_itg %d, gain %d, digitgain %d.\n",
+			__func__, coarse_itg, gain, digitgain);
 
 	hts = ov2680_res[dev->fmt_idx].pixels_per_line;
 	vts = ov2680_res[dev->fmt_idx].lines_per_frame;
@@ -461,6 +427,7 @@ static long __ov2680_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 			__func__, OV2680_AGC_H);
 		return ret;
 	}
+
 	/* Digital gain */
 	if (digitgain) {
 		ret = ov2680_write_reg(client, OV2680_16BIT,
@@ -522,13 +489,8 @@ static long ov2680_s_exposure(struct v4l2_subdev *sd,
 	return ov2680_set_exposure(sd, coarse_itg, analog_gain, digital_gain);
 }
 
-
-
-
-
 static long ov2680_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
-
 	switch (cmd) {
 	case ATOMISP_IOC_S_EXPOSURE:
 		return ov2680_s_exposure(sd, arg);
@@ -539,307 +501,316 @@ static long ov2680_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 	return 0;
 }
 
-/* This returns the exposure time being used. This should only be used
-   for filling in EXIF data, not for actual image processing. */
-static int ov2680_q_exposure(struct v4l2_subdev *sd, s32 *value)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	u16 reg_v, reg_v2;
-	int ret;
-
-	/* get exposure */
-	ret = ov2680_read_reg(client, OV2680_8BIT,
-					OV2680_EXPOSURE_L,
-					&reg_v);
-	if (ret)
-		goto err;
-
-	ret = ov2680_read_reg(client, OV2680_8BIT,
-					OV2680_EXPOSURE_M,
-					&reg_v2);
-	if (ret)
-		goto err;
-
-	reg_v += reg_v2 << 8;
-	ret = ov2680_read_reg(client, OV2680_8BIT,
-					OV2680_EXPOSURE_H,
-					&reg_v2);
-	if (ret)
-		goto err;
-
-	*value = reg_v + (((u32)reg_v2 << 16));
-err:
-	return ret;
-}
-
 static enum v4l2_mbus_pixelcode
-ov2680_translate_bayer_order(enum atomisp_bayer_order code)
+ov2680_translate_bayer_order(struct i2c_client *client,
+		enum atomisp_bayer_order code)
 {
 	switch (code) {
 	case atomisp_bayer_order_rggb:
+		dev_dbg(&client->dev, "%s(): bayer order is RGGB!\n", __func__);
 		return V4L2_MBUS_FMT_SRGGB10_1X10;
+
 	case atomisp_bayer_order_grbg:
+		dev_dbg(&client->dev, "%s(): bayer order is GRBG!\n", __func__);
 		return V4L2_MBUS_FMT_SGRBG10_1X10;
+
 	case atomisp_bayer_order_bggr:
+		dev_dbg(&client->dev, "%s(): bayer order is BGGR!\n", __func__);
 		return V4L2_MBUS_FMT_SBGGR10_1X10;
+
 	case atomisp_bayer_order_gbrg:
+		dev_dbg(&client->dev, "%s(): bayer order is GBRG!\n", __func__);
 		return V4L2_MBUS_FMT_SGBRG10_1X10;
 	}
 	return 0;
 }
 
-static int ov2680_v_flip(struct v4l2_subdev *sd, s32 value)
+static int ov2680_s_flip(struct v4l2_subdev *sd)
 {
 	struct ov2680_device *dev = to_ov2680_sensor(sd);
 	struct camera_mipi_info *ov2680_info = NULL;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
-	u16 val;
+	u16 val = 0;
 	u8 index;
-	dev_dbg(&client->dev, "@%s: value:%d\n", __func__, value);
+
+	dev_dbg(&client->dev, "@%s: dev->hflip is %d, dev->vflip is %d.\n",
+			__func__, dev->hflip, dev->vflip);
+
 	ret = ov2680_read_reg(client, OV2680_8BIT, OV2680_FLIP_REG, &val);
 	if (ret)
 		return ret;
-	if (value) {
+
+	if (dev->vflip)
 		val |= OV2680_FLIP_MIRROR_BIT_ENABLE;
-	} else {
+	else
 		val &= ~OV2680_FLIP_MIRROR_BIT_ENABLE;
-	}
+
 	ret = ov2680_write_reg(client, OV2680_8BIT,
 			OV2680_FLIP_REG, val);
-	if (ret)
-		return ret;
-	index = (v_flag>0?OV2680_FLIP_BIT:0) | (h_flag>0?OV2680_MIRROR_BIT:0);
-	ov2680_info = v4l2_get_subdev_hostdata(sd);
-	if (ov2680_info) {
-		ov2680_info->raw_bayer_order = ov2680_bayer_order_mapping[index];
-		dev->format.code = ov2680_translate_bayer_order(
-			ov2680_info->raw_bayer_order);
-	}
-	return ret;
-}
-
-static int ov2680_h_flip(struct v4l2_subdev *sd, s32 value)
-{
-	struct ov2680_device *dev = to_ov2680_sensor(sd);
-	struct camera_mipi_info *ov2680_info = NULL;
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	int ret;
-	u16 val;
-	u8 index;
-	dev_dbg(&client->dev, "@%s: value:%d\n", __func__, value);
 
 	ret = ov2680_read_reg(client, OV2680_8BIT, OV2680_MIRROR_REG, &val);
 	if (ret)
 		return ret;
-	if (value) {
+
+	if (dev->hflip)
 		val |= OV2680_FLIP_MIRROR_BIT_ENABLE;
-	} else {
+	else
 		val &= ~OV2680_FLIP_MIRROR_BIT_ENABLE;
-	}
+
 	ret = ov2680_write_reg(client, OV2680_8BIT,
 			OV2680_MIRROR_REG, val);
 	if (ret)
 		return ret;
-	index = (v_flag>0?OV2680_FLIP_BIT:0) | (h_flag>0?OV2680_MIRROR_BIT:0);
+
+	index = ((dev->hflip > 0) ? OV2680_MIRROR_BIT : 0) |
+		((dev->vflip > 0) ? OV2680_FLIP_BIT : 0);
+
 	ov2680_info = v4l2_get_subdev_hostdata(sd);
 	if (ov2680_info) {
 		ov2680_info->raw_bayer_order = ov2680_bayer_order_mapping[index];
-		dev->format.code = ov2680_translate_bayer_order(
+		dev->format.code = ov2680_translate_bayer_order(client,
 			ov2680_info->raw_bayer_order);
 	}
 	return ret;
 }
-struct ov2680_control ov2680_controls[] = {
+
+static const char *const ov2680_ctrl_run_mode_menu[] = {
+	NULL,
+	"Video",
+	"Still capture",
+	"Continuous capture",
+	"Preview",
+};
+
+static const struct v4l2_ctrl_ops ov2680_ctrl_ops;
+
+static const struct v4l2_ctrl_config ov2680_ctrl_run_mode = {
+	.ops   = &ov2680_ctrl_ops,
+	.id    = V4L2_CID_RUN_MODE,
+	.name  = "run mode",
+	.type  = V4L2_CTRL_TYPE_MENU,
+	.min   = 1,
+	.def   = 4,
+	.max   = 4,
+	.qmenu = ov2680_ctrl_run_mode_menu,
+};
+
+static const struct v4l2_ctrl_config ov2680_ctrls[] = {
 	{
-		.qc = {
-			.id = V4L2_CID_EXPOSURE_ABSOLUTE,
-			.type = V4L2_CTRL_TYPE_INTEGER,
-			.name = "exposure",
-			.minimum = 0x0,
-			.maximum = 0xffff,
-			.step = 0x01,
-			.default_value = 0x00,
-			.flags = 0,
-		},
-		.query = ov2680_q_exposure,
+		.ops  = &ov2680_ctrl_ops,
+		.id   = V4L2_CID_EXPOSURE_ABSOLUTE,
+		.name = "exposure",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min  = 0x0,
+		.max  = 0xffff,
+		.step = 0x01,
+		.flags = V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE,
 	},
 	{
-		.qc = {
-			.id = V4L2_CID_FOCAL_ABSOLUTE,
-			.type = V4L2_CTRL_TYPE_INTEGER,
-			.name = "focal length",
-			.minimum = OV2680_FOCAL_LENGTH_DEFAULT,
-			.maximum = OV2680_FOCAL_LENGTH_DEFAULT,
-			.step = 0x01,
-			.default_value = OV2680_FOCAL_LENGTH_DEFAULT,
-			.flags = 0,
-		},
-		.query = ov2680_g_focal,
+		.ops  = &ov2680_ctrl_ops,
+		.id   = V4L2_CID_FOCAL_ABSOLUTE,
+		.name = "focal length",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min  = OV2680_FOCAL_LENGTH_DEFAULT,
+		.max  = OV2680_FOCAL_LENGTH_DEFAULT,
+		.def  = OV2680_FOCAL_LENGTH_DEFAULT,
+		.step = 0x01,
+		.flags = V4L2_CTRL_FLAG_READ_ONLY,
 	},
 	{
-		.qc = {
-			.id = V4L2_CID_FNUMBER_ABSOLUTE,
-			.type = V4L2_CTRL_TYPE_INTEGER,
-			.name = "f-number",
-			.minimum = OV2680_F_NUMBER_DEFAULT,
-			.maximum = OV2680_F_NUMBER_DEFAULT,
-			.step = 0x01,
-			.default_value = OV2680_F_NUMBER_DEFAULT,
-			.flags = 0,
-		},
-		.query = ov2680_g_fnumber,
+		.ops  = &ov2680_ctrl_ops,
+		.id   = V4L2_CID_FNUMBER_ABSOLUTE,
+		.name = "f-number",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min  = OV2680_F_NUMBER_DEFAULT,
+		.max  = OV2680_F_NUMBER_DEFAULT,
+		.def  = OV2680_F_NUMBER_DEFAULT,
+		.step = 0x01,
+		.flags = V4L2_CTRL_FLAG_READ_ONLY,
 	},
 	{
-		.qc = {
-			.id = V4L2_CID_FNUMBER_RANGE,
-			.type = V4L2_CTRL_TYPE_INTEGER,
-			.name = "f-number range",
-			.minimum = OV2680_F_NUMBER_RANGE,
-			.maximum =  OV2680_F_NUMBER_RANGE,
-			.step = 0x01,
-			.default_value = OV2680_F_NUMBER_RANGE,
-			.flags = 0,
-		},
-		.query = ov2680_g_fnumber_range,
+		.ops  = &ov2680_ctrl_ops,
+		.id   = V4L2_CID_FNUMBER_RANGE,
+		.name = "f-number range",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min  = OV2680_F_NUMBER_RANGE,
+		.max  = OV2680_F_NUMBER_RANGE,
+		.def  = OV2680_F_NUMBER_RANGE,
+		.step = 0x01,
+		.flags = V4L2_CTRL_FLAG_READ_ONLY,
 	},
 	{
-		.qc = {
-			.id = V4L2_CID_BIN_FACTOR_HORZ,
-			.type = V4L2_CTRL_TYPE_INTEGER,
-			.name = "horizontal binning factor",
-			.minimum = 0,
-			.maximum = OV2680_BIN_FACTOR_MAX,
-			.step = 1,
-			.default_value = 0,
-			.flags = 0,
-		},
-		.query = ov2680_g_bin_factor_x,
+		.ops  = &ov2680_ctrl_ops,
+		.id   = V4L2_CID_BIN_FACTOR_HORZ,
+		.name = "horizontal binning factor",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min  = 0,
+		.max  = OV2680_BIN_FACTOR_MAX,
+		.step = 0x01,
+		.flags = V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE,
 	},
 	{
-		.qc = {
-			.id = V4L2_CID_BIN_FACTOR_VERT,
-			.type = V4L2_CTRL_TYPE_INTEGER,
-			.name = "vertical binning factor",
-			.minimum = 0,
-			.maximum = OV2680_BIN_FACTOR_MAX,
-			.step = 1,
-			.default_value = 0,
-			.flags = 0,
-		},
-		.query = ov2680_g_bin_factor_y,
+		.ops  = &ov2680_ctrl_ops,
+		.id   = V4L2_CID_BIN_FACTOR_VERT,
+		.name = "vertical binning factor",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min  = 0,
+		.max  = OV2680_BIN_FACTOR_MAX,
+		.step = 0x01,
+		.flags = V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE,
 	},
 	{
-		.qc = {
-			.id = V4L2_CID_VFLIP,
-			.type = V4L2_CTRL_TYPE_BOOLEAN,
-			.name = "Flip",
-			.minimum = 0,
-			.maximum = 1,
-			.step = 1,
-			.default_value = 0,
-		},
-		.tweak = ov2680_v_flip,
+		.ops  = &ov2680_ctrl_ops,
+		.id   = V4L2_CID_VFLIP,
+		.name = "vflip",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.min  = false,
+		.max  = true,
+		.step = 0x01,
 	},
 	{
-		.qc = {
-			.id = V4L2_CID_HFLIP,
-			.type = V4L2_CTRL_TYPE_BOOLEAN,
-			.name = "Mirror",
-			.minimum = 0,
-			.maximum = 1,
-			.step = 1,
-			.default_value = 0,
-		},
-		.tweak = ov2680_h_flip,
+		.ops  = &ov2680_ctrl_ops,
+		.id   = V4L2_CID_HFLIP,
+		.name = "hflip",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.min  = false,
+		.max  = true,
+		.step = 0x01,
 	},
 };
-#define N_CONTROLS (ARRAY_SIZE(ov2680_controls))
-
-static struct ov2680_control *ov2680_find_control(u32 id)
-{
-	int i;
-
-	for (i = 0; i < N_CONTROLS; i++)
-		if (ov2680_controls[i].qc.id == id)
-			return &ov2680_controls[i];
-	return NULL;
-}
-
-static int ov2680_queryctrl(struct v4l2_subdev *sd, struct v4l2_queryctrl *qc)
-{
-	struct ov2680_control *ctrl = ov2680_find_control(qc->id);
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct ov2680_device *dev = to_ov2680_sensor(sd);
-	dev_dbg(&client->dev, "++++ov2680_queryctrl \n");
-	if (ctrl == NULL)
-		return -EINVAL;
-
-	mutex_lock(&dev->input_lock);
-	*qc = ctrl->qc;
-	mutex_unlock(&dev->input_lock);
-
-	return 0;
-}
 
 /* ov2680 control set/get */
-static int ov2680_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
+static int ov2680_g_ctrl(struct v4l2_ctrl *ctrl)
 {
-	struct ov2680_control *s_ctrl;
-	struct ov2680_device *dev = to_ov2680_sensor(sd);
-	int ret;
+	struct ov2680_device *dev = container_of(ctrl->handler,
+			struct ov2680_device, ctrl_handler);
+	struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
+
+	int ret    = 0;
+	u16 reg_v  = 0;
+	u16 reg_v2 = 0;
 
 	if (!ctrl)
 		return -EINVAL;
 
-	s_ctrl = ov2680_find_control(ctrl->id);
-	if ((s_ctrl == NULL) || (s_ctrl->query == NULL))
-		return -EINVAL;
+	switch (ctrl->id) {
+	case V4L2_CID_EXPOSURE_ABSOLUTE:
+		/* get exposure */
+		ret = ov2680_read_reg(client, OV2680_8BIT,
+						OV2680_EXPOSURE_L,
+						&reg_v);
+		if (ret)
+			goto err;
 
-	mutex_lock(&dev->input_lock);
-	ret = s_ctrl->query(sd, &ctrl->value);
-	mutex_unlock(&dev->input_lock);
+		ret = ov2680_read_reg(client, OV2680_8BIT,
+						OV2680_EXPOSURE_M,
+						&reg_v2);
+		if (ret)
+			goto err;
 
+		reg_v += reg_v2 << 8;
+		ret    = ov2680_read_reg(client, OV2680_8BIT,
+						OV2680_EXPOSURE_H,
+						&reg_v2);
+		if (ret)
+			goto err;
+
+		ctrl->val = reg_v + (((u32)reg_v2 << 16));
+		break;
+
+	case V4L2_CID_FOCAL_ABSOLUTE:
+		ctrl->val = (OV2680_FOCAL_LENGTH_NUM << 16) |
+			OV2680_FOCAL_LENGTH_DEM;
+		break;
+
+	case V4L2_CID_FNUMBER_ABSOLUTE:
+		ctrl->val = (OV2680_F_NUMBER_DEFAULT_NUM << 16) |
+			OV2680_F_NUMBER_DEM;
+		break;
+
+	case V4L2_CID_FNUMBER_RANGE:
+		ctrl->val = (OV2680_F_NUMBER_DEFAULT_NUM << 24) |
+			(OV2680_F_NUMBER_DEM << 16) |
+			(OV2680_F_NUMBER_DEFAULT_NUM << 8) |
+			OV2680_F_NUMBER_DEM;
+		break;
+
+	case V4L2_CID_BIN_FACTOR_HORZ:
+		ctrl->val = ov2680_res[dev->fmt_idx].bin_factor_x;
+		break;
+
+	case V4L2_CID_BIN_FACTOR_VERT:
+		ctrl->val = ov2680_res[dev->fmt_idx].bin_factor_y;
+		break;
+
+	case V4L2_CID_VFLIP:
+		ctrl->val = (dev->vflip) ? true : false;
+		break;
+
+	case V4L2_CID_HFLIP:
+		ctrl->val = (dev->hflip) ? true : false;
+		break;
+
+	default:
+		break;
+	}
+
+err:
 	return ret;
 }
 
-static int ov2680_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
+static int ov2680_s_ctrl(struct v4l2_ctrl *ctrl)
 {
-	struct ov2680_control *octrl = ov2680_find_control(ctrl->id);
-	struct ov2680_device *dev = to_ov2680_sensor(sd);
-	int ret;
+	int ret = 0;
+	struct ov2680_device *dev = container_of(ctrl->handler,
+			struct ov2680_device, ctrl_handler);
 
-	if ((octrl == NULL) || (octrl->tweak == NULL))
-		return -EINVAL;
-
-	switch(ctrl->id)
+	switch (ctrl->id)
 	{
-		case V4L2_CID_VFLIP:
-			if(ctrl->value)
-				v_flag=1;
-			else
-				v_flag=0;
+	case V4L2_CID_RUN_MODE:
+		switch (ctrl->val) {
+		case ATOMISP_RUN_MODE_VIDEO:
+			dev->curr_res_table     = ov2680_res_video;
+			dev->entries_curr_table = ARRAY_SIZE(ov2680_res_video);
 			break;
-		case V4L2_CID_HFLIP:
-			if(ctrl->value)
-				h_flag=1;
-			else
-				h_flag=0;
-			break;
-		default:break;
-	};
 
-	mutex_lock(&dev->input_lock);
-	ret = octrl->tweak(sd, ctrl->value);
-	mutex_unlock(&dev->input_lock);
+		case ATOMISP_RUN_MODE_STILL_CAPTURE:
+			dev->curr_res_table     = ov2680_res_still;
+			dev->entries_curr_table = ARRAY_SIZE(ov2680_res_still);
+			break;
+
+		default:
+			dev->curr_res_table     = ov2680_res_preview;
+			dev->entries_curr_table =
+				ARRAY_SIZE(ov2680_res_preview);
+			break;
+		}
+
+		dev->fmt_idx   = 0;
+		dev->fps_index = 0;
+		break;
+
+	case V4L2_CID_VFLIP:
+		dev->vflip = (ctrl->val) ? 1 : 0;
+		break;
+
+	case V4L2_CID_HFLIP:
+		dev->hflip = (ctrl->val) ? 1 : 0;
+		break;
+
+	default:
+		ret = -EINVAL;
+		break;
+	};
 
 	return ret;
 }
 
 static int ov2680_init_registers(struct v4l2_subdev *sd)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
 
 	ret = ov2680_write_reg(client, OV2680_8BIT, OV2680_SW_RESET, 0x01);
 	ret |= ov2680_write_reg_array(client, ov2680_global_setting);
@@ -866,7 +837,7 @@ static int ov2680_init(struct v4l2_subdev *sd)
 	mutex_unlock(&dev->input_lock);
 
 	if (ret)
-		dev_err(&client->dev,"ov2680 ov2680_init failed.\n");
+		dev_err(&client->dev, "ov2680 ov2680_init failed.\n");
 
 	msleep(200);
 	return ret;
@@ -880,43 +851,54 @@ static int power_ctrl(struct v4l2_subdev *sd, bool flag)
 	if (!dev || !dev->platform_data)
 		return -ENODEV;
 
+#if 0
 	/* Non-gmin platforms use the legacy callback */
 	if (dev->platform_data->power_ctrl)
 	{
-		//dev_dbg(&client->dev,"ov2680 power_ctrl power_ctrl....\n");
-		//return dev->platform_data->power_ctrl(sd, flag);
+		dev_dbg(&client->dev, "ov2680 power_ctrl power_ctrl.\n");
+		return dev->platform_data->power_ctrl(sd, flag);
 	}
+#endif
 
 	if (flag) {
+		dev_dbg(&client->dev,
+				"ov2680 power_ctrl v1p8_ctrl up.\n");
 
-		dev_dbg(&client->dev,"ov2680 power_ctrl v1p8_ctrl up.\n");
 		ret |= dev->platform_data->v1p8_ctrl(sd, 1);
 		if (ret != 0)
-			dev_dbg(&client->dev,"ov2680 power_ctrl v1p8_ctrl up failed.\n");
+			dev_dbg(&client->dev,
+					"ov2680 power_ctrl v1p8_ctrl up failed.\n");
 
-		dev_dbg(&client->dev,"ov2680 power_ctrl v2p8_ctrl up.\n");
+		dev_dbg(&client->dev,
+				"ov2680 power_ctrl v2p8_ctrl up.\n");
 		ret |= dev->platform_data->v2p8_ctrl(sd, 1);
 		usleep_range(10000, 15000);
 
 		if (ret != 0)
-			dev_err(&client->dev,"ov2680 power_ctrl v2p8_ctrl failed.\n");
+			dev_err(&client->dev,
+					"ov2680 power_ctrl v2p8_ctrl failed.\n");
 	}
 
 	if (!flag || ret) {
 
-		dev_dbg(&client->dev,"ov2680 power_ctrl v1p8_ctrl down.\n");
+		dev_dbg(&client->dev,
+				"ov2680 power_ctrl v1p8_ctrl down.\n");
 		ret |= dev->platform_data->v1p8_ctrl(sd, 0);
 		if (ret != 0)
-			dev_err(&client->dev,"ov2680 power_ctrl v1p8_ctrl down failed.\n");
+			dev_err(&client->dev,
+					"ov2680 power_ctrl v1p8_ctrl down failed.\n");
 
-		dev_dbg(&client->dev,"ov2680 power_ctrl v2p8_ctrl down.\n");
+		dev_dbg(&client->dev,
+				"ov2680 power_ctrl v2p8_ctrl down.\n");
 		ret |= dev->platform_data->v2p8_ctrl(sd, 0);
 		if (ret != 0)
-			dev_err(&client->dev,"ov2680 power_ctrl v2p8_ctrl down failed.\n");
+			dev_err(&client->dev,
+					"ov2680 power_ctrl v2p8_ctrl down failed.\n");
 	}
 
 	if (ret != 0)
-		dev_err(&client->dev,"ov2680 power_ctrl failed.");
+		dev_err(&client->dev,
+				"ov2680 power_ctrl failed.");
 	return ret;
 }
 
@@ -976,7 +958,7 @@ static int power_up(struct v4l2_subdev *sd)
 	if (ret)
 	{
 		dev_err(&client->dev,
-			"ov2680 power_up power_ctrl failed,go to fail_power.....\n");
+			"ov2680 power_up power_ctrl failed, go to fail_power!\n");
 		goto fail_power;
 	}
 
@@ -990,7 +972,7 @@ static int power_up(struct v4l2_subdev *sd)
 		if (ret)
 		{
 			dev_err(&client->dev,
-				"ov2680 power_up gpio_ctrl failed,go to fail_power.....\n");
+				"ov2680 power_up gpio_ctrl failed, go to fail_power!\n");
 			goto fail_power;
 		}
 	}
@@ -1000,7 +982,7 @@ static int power_up(struct v4l2_subdev *sd)
 	if (ret)
 	{
 		dev_err(&client->dev,
-			"ov2680 power_up flisclk_ctrl failed,go to fail_power.....\n");
+			"ov2680 power_up flisclk_ctrl failed, go to fail_power!\n");
 		goto fail_clk;
 	}
 
@@ -1023,9 +1005,6 @@ static int power_down(struct v4l2_subdev *sd)
 	struct ov2680_device *dev = to_ov2680_sensor(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret = 0;
-
-	h_flag = 0;
-	v_flag = 0;
 
 	last_res_tab = NULL;
 	last_res_idx = -1;
@@ -1157,26 +1136,30 @@ static int get_resolution_index(int w, int h)
 static int ov2680_try_mbus_fmt(struct v4l2_subdev *sd,
 			struct v4l2_mbus_framefmt *fmt)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int idx = 0;
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov2680_device *dev = to_ov2680_sensor(sd);
 
 	if (!fmt)
 		return -EINVAL;
 
-	dev_dbg(&client->dev, "+ %s idx %d width %d height %d,dev->mode is:0x%x.\n", __func__, idx,
-		  fmt->width, fmt->height,dev->run_mode);
+	dev_dbg(&client->dev,
+			"+ %s idx %d width %d height %d, dev->mode is:0x%x.\n",
+			__func__, idx, fmt->width, fmt->height, dev->run_mode);
 	idx = nearest_resolution_index(fmt->width, fmt->height);
 	if (idx == -1) {
 		/* return the largest resolution */
-		fmt->width = ov2680_res[N_RES - 1].width;
+		fmt->width  = ov2680_res[N_RES - 1].width;
 		fmt->height = ov2680_res[N_RES - 1].height;
 	} else {
-		fmt->width = ov2680_res[idx].width;
+		fmt->width  = ov2680_res[idx].width;
 		fmt->height = ov2680_res[idx].height;
 	}
-	dev_dbg(&client->dev, "- %s idx %d width %d height %d\n", __func__, idx,
-		  fmt->width, fmt->height);
+
+	dev_dbg(&client->dev,
+			"- %s idx %d width %d height %d\n",
+			__func__, idx, fmt->width, fmt->height);
+
 	fmt->code = V4L2_MBUS_FMT_SBGGR10_1X10;
 
 	return 0;
@@ -1191,6 +1174,7 @@ static int ov2680_s_mbus_fmt(struct v4l2_subdev *sd,
 	int ret = 0;
 
 	dev_dbg(&client->dev, "+++++ov2680_s_mbus_fmt+++++l\n");
+
 	ov2680_info = v4l2_get_subdev_hostdata(sd);
 	if (ov2680_info == NULL)
 		return -EINVAL;
@@ -1204,8 +1188,9 @@ static int ov2680_s_mbus_fmt(struct v4l2_subdev *sd,
 
 	dev->fmt_idx = get_resolution_index(fmt->width,
 					      fmt->height);
-	dev_dbg(&client->dev, "+++++get_resolution_index=%d+++++l dev->run_mode:0x%x.\n",
-			dev->fmt_idx,dev->run_mode);
+	dev_dbg(&client->dev,
+			"+++++get_resolution_index= %d +++++l dev->run_mode:0x%x.\n",
+			dev->fmt_idx, dev->run_mode);
 	if (dev->fmt_idx == -1) {
 		dev_dbg(&client->dev, "get resolution fail\n");
 		mutex_unlock(&dev->input_lock);
@@ -1220,7 +1205,8 @@ static int ov2680_s_mbus_fmt(struct v4l2_subdev *sd,
 		ret = ov2680_write_reg_array(client,
 				ov2680_res[dev->fmt_idx].regs);
 		if (ret)
-			dev_err(&client->dev, "ov2680 write resolution register err\n");
+			dev_err(&client->dev,
+					"ov2680 write resolution register err\n");
 	}
 
 	last_res_tab = ov2680_res;
@@ -1229,28 +1215,24 @@ static int ov2680_s_mbus_fmt(struct v4l2_subdev *sd,
 	ret = ov2680_get_intg_factor(client, ov2680_info,
 					&ov2680_res[dev->fmt_idx]);
 	if (ret) {
-		dev_err(&client->dev, "failed to get integration_factor\n");
+		dev_err(&client->dev,
+				"failed to get integration_factor\n");
 		goto err;
 	}
 
-	/*recall flip functions to avoid flip registers
+	/* recall flip functions to avoid flip registers
 	 * were overrided by default setting
 	 */
-	if (h_flag)
-		ov2680_h_flip(sd, h_flag);
-	if (v_flag)
-		ov2680_v_flip(sd, v_flag);
+	ov2680_s_flip(sd);
 
-	v4l2_info(client,"\n%s idx %d \n", __func__, dev->fmt_idx);
+	v4l2_info(client, "\n%s idx %d\n",
+			__func__, dev->fmt_idx);
 
-	/*ret = startup(sd);
-	if (ret)
-		dev_dbg(&client->dev, "ov2680 startup err\n");
-	*/
 err:
 	mutex_unlock(&dev->input_lock);
 	return ret;
 }
+
 static int ov2680_g_mbus_fmt(struct v4l2_subdev *sd,
 			     struct v4l2_mbus_framefmt *fmt)
 {
@@ -1259,9 +1241,9 @@ static int ov2680_g_mbus_fmt(struct v4l2_subdev *sd,
 	if (!fmt)
 		return -EINVAL;
 
-	fmt->width = ov2680_res[dev->fmt_idx].width;
+	fmt->width  = ov2680_res[dev->fmt_idx].width;
 	fmt->height = ov2680_res[dev->fmt_idx].height;
-	fmt->code = V4L2_MBUS_FMT_SBGGR10_1X10;
+	fmt->code   = V4L2_MBUS_FMT_SBGGR10_1X10;
 
 	return 0;
 }
@@ -1280,15 +1262,15 @@ static int ov2680_detect(struct i2c_client *client)
 	ret = ov2680_read_reg(client, OV2680_8BIT,
 					OV2680_SC_CMMN_CHIP_ID_H, &high);
 	if (ret) {
-		dev_err(&client->dev, "sensor_id_high = 0x%x\n", high);
+		dev_err(&client->dev, "sensor_id_high = 0x%.2X.\n", high);
 		return -ENODEV;
 	}
 	ret = ov2680_read_reg(client, OV2680_8BIT,
 					OV2680_SC_CMMN_CHIP_ID_L, &low);
-	id = ((((u16) high) << 8) | (u16) low);
+	id = ((((u16)high) << 8) | (u16)low);
 
 	if (id != OV2680_ID) {
-		dev_err(&client->dev, "sensor ID error 0x%x\n", id);
+		dev_err(&client->dev, "sensor ID error 0x%.4X!\n", id);
 		return -ENODEV;
 	}
 
@@ -1296,9 +1278,9 @@ static int ov2680_detect(struct i2c_client *client)
 					OV2680_SC_CMMN_SUB_ID, &high);
 	revision = (u8) high & 0x0f;
 
-	dev_dbg(&client->dev, "sensor_revision id  = 0x%x\n", id);
-	dev_dbg(&client->dev, "detect ov2680 success\n");
-	dev_dbg(&client->dev, "################5##########\n");
+	dev_info(&client->dev, "sensor_revision id = 0x%.4X!\n", id);
+	dev_info(&client->dev, "detect ov2680 success\n");
+	dev_info(&client->dev, "################5##########\n");
 	return 0;
 }
 
@@ -1309,23 +1291,14 @@ static int ov2680_s_stream(struct v4l2_subdev *sd, int enable)
 	int ret = 0;
 
 	mutex_lock(&dev->input_lock);
-	if(enable )
-		dev_dbg(&client->dev, "ov2680_s_stream one \n");
+	if (enable)
+		dev_dbg(&client->dev, "ov2680_s_stream one\n");
 	else
-		dev_dbg(&client->dev, "ov2680_s_stream off \n");
+		dev_dbg(&client->dev, "ov2680_s_stream off\n");
 
 	ret = ov2680_write_reg(client, OV2680_8BIT, OV2680_SW_STREAM,
 				enable ? OV2680_START_STREAMING :
 				OV2680_STOP_STREAMING);
-#if 0
-	/* restore settings */
-	ov2680_res = ov2680_res_preview;
-	N_RES = N_RES_PREVIEW;
-#endif
-
-	//otp valid at stream on state
-	//if(!dev->otp_data)
-	//	dev->otp_data = ov2680_otp_read(sd);
 
 	mutex_unlock(&dev->input_lock);
 
@@ -1341,10 +1314,10 @@ static int ov2680_enum_framesizes(struct v4l2_subdev *sd,
 	if (index >= N_RES)
 		return -EINVAL;
 
-	fsize->type = V4L2_FRMSIZE_TYPE_DISCRETE;
-	fsize->discrete.width = ov2680_res[index].width;
+	fsize->type            = V4L2_FRMSIZE_TYPE_DISCRETE;
+	fsize->discrete.width  = ov2680_res[index].width;
 	fsize->discrete.height = ov2680_res[index].height;
-	fsize->reserved[0] = ov2680_res[index].used;
+	fsize->reserved[0]     = ov2680_res[index].used;
 
 	return 0;
 }
@@ -1371,7 +1344,6 @@ static int ov2680_enum_mbus_fmt(struct v4l2_subdev *sd,
 				enum v4l2_mbus_pixelcode *code)
 {
 	*code = V4L2_MBUS_FMT_SBGGR10_1X10;
-
 	return 0;
 }
 
@@ -1480,10 +1452,12 @@ static int ov2680_s_parm(struct v4l2_subdev *sd,
 		ov2680_res = ov2680_res_video;
 		N_RES = N_RES_VIDEO;
 		break;
+
 	case CI_MODE_STILL_CAPTURE:
 		ov2680_res = ov2680_res_still;
 		N_RES = N_RES_STILL;
 		break;
+
 	default:
 		ov2680_res = ov2680_res_preview;
 		N_RES = N_RES_PREVIEW;
@@ -1523,13 +1497,12 @@ static int ov2680_enum_frame_size(struct v4l2_subdev *sd,
 	if (index >= N_RES)
 		return -EINVAL;
 
-	fse->min_width = ov2680_res[index].width;
+	fse->min_width  = ov2680_res[index].width;
 	fse->min_height = ov2680_res[index].height;
-	fse->max_width = ov2680_res[index].width;
+	fse->max_width  = ov2680_res[index].width;
 	fse->max_height = ov2680_res[index].height;
 
 	return 0;
-
 }
 
 static struct v4l2_mbus_framefmt *__ov2680_get_pad_format(struct ov2680_device
@@ -1551,8 +1524,10 @@ static struct v4l2_mbus_framefmt *__ov2680_get_pad_format(struct ov2680_device
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
 		return v4l2_subdev_get_try_format(fh, pad);
+
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		return &sensor->format;
+
 	default:
 		return NULL;
 	}
@@ -1595,53 +1570,67 @@ static int ov2680_g_skip_frames(struct v4l2_subdev *sd, u32 *frames)
 	return 0;
 }
 
-static const struct v4l2_subdev_video_ops ov2680_video_ops = {
-	.s_stream = ov2680_s_stream,
-	.g_parm = ov2680_g_parm,
-	.s_parm = ov2680_s_parm,
-	.enum_framesizes = ov2680_enum_framesizes,
-	.enum_frameintervals = ov2680_enum_frameintervals,
-	.enum_mbus_fmt = ov2680_enum_mbus_fmt,
-	.try_mbus_fmt = ov2680_try_mbus_fmt,
-	.g_mbus_fmt = ov2680_g_mbus_fmt,
-	.s_mbus_fmt = ov2680_s_mbus_fmt,
-	.g_frame_interval = ov2680_g_frame_interval,
-};
-
-static const struct v4l2_subdev_sensor_ops ov2680_sensor_ops = {
-		.g_skip_frames	= ov2680_g_skip_frames,
+static const struct v4l2_ctrl_ops ov2680_ctrl_ops = {
+	.s_ctrl              = ov2680_s_ctrl,
+	.g_volatile_ctrl     = ov2680_g_ctrl,
 };
 
 static const struct v4l2_subdev_core_ops ov2680_core_ops = {
-	.s_power = ov2680_s_power,
-	.queryctrl = ov2680_queryctrl,
-	.g_ctrl = ov2680_g_ctrl,
-	.s_ctrl = ov2680_s_ctrl,
-	.ioctl = ov2680_ioctl,
+/* #ifndef CONFIG_GMIN_INTEL_MID
+	.g_chip_ident        = ov2680_g_chip_ident,
+#endif */
+	.queryctrl           = v4l2_subdev_queryctrl,
+	.g_ctrl              = v4l2_subdev_g_ctrl,
+	.s_ctrl              = v4l2_subdev_s_ctrl,
+	.s_power             = ov2680_s_power,
+	.ioctl               = ov2680_ioctl,
+	/* .init                = ov2680_init, */
+};
+
+static const struct v4l2_subdev_video_ops ov2680_video_ops = {
+	.s_stream            = ov2680_s_stream,
+	.g_parm              = ov2680_g_parm,
+	.s_parm              = ov2680_s_parm,
+	.enum_framesizes     = ov2680_enum_framesizes,
+	.enum_frameintervals = ov2680_enum_frameintervals,
+	.enum_mbus_fmt       = ov2680_enum_mbus_fmt,
+	.try_mbus_fmt        = ov2680_try_mbus_fmt,
+	.g_mbus_fmt          = ov2680_g_mbus_fmt,
+	.s_mbus_fmt          = ov2680_s_mbus_fmt,
+	.g_frame_interval    = ov2680_g_frame_interval,
+	/* .s_frame_interval    = ov2680_s_frame_interval, */
 };
 
 static const struct v4l2_subdev_pad_ops ov2680_pad_ops = {
-	.enum_mbus_code = ov2680_enum_mbus_code,
-	.enum_frame_size = ov2680_enum_frame_size,
-	.get_fmt = ov2680_get_pad_format,
-	.set_fmt = ov2680_set_pad_format,
+	.enum_mbus_code      = ov2680_enum_mbus_code,
+	.enum_frame_size     = ov2680_enum_frame_size,
+	.get_fmt             = ov2680_get_pad_format,
+	.set_fmt             = ov2680_set_pad_format,
+};
+
+static const struct v4l2_subdev_sensor_ops ov2680_sensor_ops = {
+	.g_skip_frames	     = ov2680_g_skip_frames,
 };
 
 static const struct v4l2_subdev_ops ov2680_ops = {
-	.core = &ov2680_core_ops,
-	.video = &ov2680_video_ops,
-	.pad = &ov2680_pad_ops,
-	.sensor = &ov2680_sensor_ops,
+	.core                = &ov2680_core_ops,
+	.video               = &ov2680_video_ops,
+	.pad                 = &ov2680_pad_ops,
+	.sensor              = &ov2680_sensor_ops,
+};
+
+static const struct media_entity_operations ov_entity_ops = {
+	.link_setup = NULL,
 };
 
 static int ov2680_remove(struct i2c_client *client)
 {
 	struct v4l2_subdev *sd = i2c_get_clientdata(client);
 	struct ov2680_device *dev = to_ov2680_sensor(sd);
+
 	dev_dbg(&client->dev, "ov2680_remove...\n");
 
 	dev->platform_data->csi_cfg(sd, 0);
-
 	v4l2_device_unregister_subdev(sd);
 	media_entity_cleanup(&dev->sd.entity);
 	kfree(dev);
@@ -1653,11 +1642,21 @@ static int ov2680_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
 	struct ov2680_device *dev;
-	int ret;
+	int i, ret;
 	void *pdata;
 
-	printk("++++ov2680_probe++++\n");
 	dev_info(&client->dev, "++++ov2680_probe++++\n");
+
+	/* Fixme, for plug-and-play */
+	if (client &&
+			(client->addr != OV2680_I2C_ADDR)) {
+		dev_err(&client->dev,
+				"%s(): 0x%.2X isn't equal to OV2680_I2C_ADDR!\n",
+				__func__,
+				client->addr);
+		return -EINVAL;
+	}
+
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev) {
 		dev_err(&client->dev, "out of memory\n");
@@ -1679,7 +1678,7 @@ static int ov2680_probe(struct i2c_client *client,
 	if (!pdata) {
 		ret = -EINVAL;
 		goto out_free;
-        }
+	}
 
 	ret = ov2680_s_config(&dev->sd, client->irq, pdata);
 	if (ret)
@@ -1689,10 +1688,35 @@ static int ov2680_probe(struct i2c_client *client,
 	if (ret)
 		goto out_free;
 
-	dev->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
-	dev->pad.flags = MEDIA_PAD_FL_SOURCE;
-	dev->format.code = V4L2_MBUS_FMT_SBGGR10_1X10;
+	dev->sd.flags      |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+	dev->pad.flags      = MEDIA_PAD_FL_SOURCE;
+	dev->format.code    = V4L2_MBUS_FMT_SBGGR10_1X10;
+	dev->sd.entity.ops  = &ov_entity_ops;
 	dev->sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV_SENSOR;
+
+	ret = v4l2_ctrl_handler_init(&dev->ctrl_handler,
+			ARRAY_SIZE(ov2680_ctrls) + 1);
+	if (ret) {
+		ov2680_remove(client);
+		return ret;
+	}
+
+	dev->ctrl = v4l2_ctrl_new_custom(&dev->ctrl_handler,
+					     &ov2680_ctrl_run_mode, NULL);
+
+	for (i = 0; i < ARRAY_SIZE(ov2680_ctrls); i++)
+		v4l2_ctrl_new_custom(&dev->ctrl_handler,
+				&ov2680_ctrls[i], NULL);
+
+	if (dev->ctrl_handler.error) {
+		ov2680_remove(client);
+		return dev->ctrl_handler.error;
+	}
+
+	dev->ctrl_handler.lock = &dev->input_lock;
+	dev->sd.ctrl_handler   = &dev->ctrl_handler;
+
+	v4l2_ctrl_handler_setup(&dev->ctrl_handler);
 
 	ret = media_entity_init(&dev->sd.entity, 1, &dev->pad, 0);
 	if (ret)
@@ -1704,10 +1728,13 @@ static int ov2680_probe(struct i2c_client *client,
 	dev_dbg(&client->dev, "+++ ov2680_probe success.\n");
 
 	return ret;
+
 out_free:
-	dev_dbg(&client->dev, "+++ out free \n");
+	dev_dbg(&client->dev, "+++ out free\n");
+	atomisp_gmin_remove_subdev(&dev->sd);
 	v4l2_device_unregister_subdev(&dev->sd);
 	kfree(dev);
+
 	return ret;
 }
 
@@ -1717,29 +1744,26 @@ static struct acpi_device_id ov2680_acpi_match[] = {
 };
 MODULE_DEVICE_TABLE(acpi, ov2680_acpi_match);
 
-
 MODULE_DEVICE_TABLE(i2c, ov2680_id);
 static struct i2c_driver ov2680_driver = {
 	.driver = {
-		.owner = THIS_MODULE,
-		.name = OV2680_NAME,
+		.owner            = THIS_MODULE,
+		.name             = OV2680_NAME,
 		.acpi_match_table = ACPI_PTR(ov2680_acpi_match),
 
 	},
-	.probe = ov2680_probe,
-	.remove = ov2680_remove,
-	.id_table = ov2680_id,
+	.probe                = ov2680_probe,
+	.remove               = ov2680_remove,
+	.id_table             = ov2680_id,
 };
 
 static int init_ov2680(void)
 {
-	//printk("====ov2680_init_mod=====.\n");
 	return i2c_add_driver(&ov2680_driver);
 }
 
 static void exit_ov2680(void)
 {
-
 	i2c_del_driver(&ov2680_driver);
 }
 
@@ -1749,4 +1773,3 @@ module_exit(exit_ov2680);
 MODULE_AUTHOR("Jacky Wang <Jacky_wang@ovt.com>");
 MODULE_DESCRIPTION("A low-level driver for OmniVision 2680 sensors");
 MODULE_LICENSE("GPL");
-

@@ -48,6 +48,7 @@
 #include <linux/kref.h>
 #include <linux/pm_qos.h>
 #include <linux/bitops.h>
+#include <linux/shmem_fs.h>
 #ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
 	#include "hdmi_audio_if.h"
 #endif
@@ -1944,6 +1945,10 @@ struct drm_i915_private {
 	uint32_t request_uniq;
 
 	bool shutdown_in_progress;
+
+#ifdef CONFIG_MIGRATION
+	struct shmem_migrate_info migrate_info;
+#endif
 	/*
 	 * NOTE: This is the dri1/ums dungeon, don't add stuff here. Your patch
 	 * will be rejected. Instead look for a better place.

@@ -41,7 +41,7 @@ static struct intel_dsi_device intel_dsi_devices[] = {
 		.dev_ops = &vbt_generic_dsi_display_ops,
 	},
 };
-
+#define        BLK_EN                          401
 #define        PMIC_ACCESS_RETRY_TIMES         3
 int dsi_soc_pmic_readb(int reg)
 {
@@ -505,6 +505,7 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 
 	if (dev_priv->display.enable_backlight)
 		dev_priv->display.enable_backlight(intel_connector);
+	gpio_direction_output(BLK_EN,1);
 }
 
 static void intel_dsi_pre_disable(struct intel_encoder *encoder)
@@ -517,7 +518,7 @@ static void intel_dsi_pre_disable(struct intel_encoder *encoder)
 	int pipe = intel_crtc->pipe;
 
 	DRM_DEBUG_KMS("\n");
-
+	gpio_direction_output(BLK_EN,0);
 	if (is_cmd_mode(intel_dsi)) {
 		dev->driver->disable_vblank(dev, pipe);
 
@@ -1333,6 +1334,8 @@ bool intel_dsi_init(struct drm_device *dev)
 	connector = &intel_connector->base;
 
 	drm_encoder_init(dev, encoder, &intel_dsi_funcs, DRM_MODE_ENCODER_DSI);
+    
+    gpio_request(BLK_EN,"blk_en");
 
 	/* XXX: very likely not all of these are needed */
 	intel_encoder->hot_plug = intel_dsi_hot_plug;
@@ -1393,8 +1396,8 @@ bool intel_dsi_init(struct drm_device *dev)
 		DRM_DEBUG_KMS("no fixed mode\n");
 		goto err;
 	}
-
-	if (dev_priv->vbt.dsi.seq_version < 3) {
+	
+       if (dev_priv->vbt.dsi.seq_version < 3) {
 		if (dev_priv->vbt.dsi.config->pmic_soc_blc) {
 			intel_dsi->dev.dev_ops->power_on =
 						intel_dsi_soc_power_on;

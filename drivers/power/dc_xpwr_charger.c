@@ -337,11 +337,11 @@ static inline int pmic_chrg_set_cv(struct pmic_chrg_info *info, int cv)
 	if (ret < 0)
 		goto set_cv_fail;
 
-	if (cv < CV_4100)
+	if (cv <= CV_4100)
 		reg_val = CHRG_CCCV_CV_4100MV;
-	else if (cv < CV_4150)
+	else if (cv <= CV_4150)
 		reg_val = CHRG_CCCV_CV_4150MV;
-	else if (cv < CV_4200)
+	else if (cv <= CV_4200)
 		reg_val = CHRG_CCCV_CV_4200MV;
 	else
 		reg_val = CHRG_CCCV_CV_4350MV;
@@ -517,6 +517,7 @@ static int get_charger_health(struct pmic_chrg_info *info)
 		health = POWER_SUPPLY_HEALTH_GOOD;
 		info->is_charger_enabled = 1;
 	}
+	health = POWER_SUPPLY_HEALTH_GOOD;
 health_read_fail:
 	info->chrg_health = health;
 	return health;
@@ -990,6 +991,11 @@ static int pmic_chrg_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+
+	ret = pmic_chrg_reg_readb(info, VBUS_ISPOUT_VHOLD_SET_MASK);
+	ret &=~(7<<0);
+	pmic_chrg_reg_writeb(info, VBUS_ISPOUT_VHOLD_SET_MASK, ret);
+	
 	info->pdev = pdev;
 	info->pdata = pdev->dev.platform_data;
 	if (!info->pdata)

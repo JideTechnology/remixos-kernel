@@ -1,0 +1,19 @@
+config SND_SOC_RT5651
+	tristate "SOC Machine Audio driver for Intel(R) Anchor8 device"
+	depends on X86
+	default n
+	help
+	  This adds support for ASoC machine driver for Intel(R) Anchor8 device
+          based on the BYT-CR platform and RT5651 codec.
+          Say Y if you have such a device
+          If unsure select "N".
+
+config SND_SOC_ES8316
+	tristate "SOC Machine Audio driver for Intel(R) Anchor8 device"
+	depends on X86
+	default n
+	help
+	  This adds support for ASoC machine driver for Intel(R) Anchor8 device
+          based on the BYT-CR platform and RT5651 codec.
+          Say Y if you have such a device
+          If unsure select "N".

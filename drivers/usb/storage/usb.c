@@ -53,6 +53,7 @@
 #include <linux/errno.h>
 #include <linux/freezer.h>
 #include <linux/module.h>
+#include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/kthread.h>
 #include <linux/mutex.h>
@@ -130,6 +131,19 @@ MODULE_PARM_DESC(quirks, "supplemental list of device IDs and their quirks");
 	.initFunction = init_function,	\
 }
 
+/*hw dongle +*/
+#define HW_UNUSUAL_DEV(idVendor, cl, sc, pr, \
+		vendor_name, product_name, use_protocol, use_transport, \
+		init_function, Flags) \
+{ \
+	.vendorName = vendor_name, \
+	.productName = product_name, \
+	.useProtocol = use_protocol, \
+	.useTransport = use_transport, \
+	.initFunction = init_function, \
+}
+/*hw dongle -*/
+
 static struct us_unusual_dev us_unusual_dev_list[] = {
 #	include "unusual_devs.h"
 	{ }		/* Terminating entry */
@@ -140,6 +154,9 @@ static struct us_unusual_dev for_dynamic_ids =
 
 #undef UNUSUAL_DEV
 #undef COMPLIANT_DEV
+/*hw dongle +*/
+#undef HW_UNUSUAL_DEV
+/*hw dongle -*/
 #undef USUAL_DEV
 #undef UNUSUAL_VENDOR_INTF
 
@@ -623,6 +640,27 @@ static int get_device_info(struct us_data *us, const struct usb_device_id *id,
 	return 0;
 }
 
+
+/* Get the Huawei transport settings */
+static void get_hw_transport(struct us_data *us)
+{
+	switch (us->protocol) {
+	case USB_PR_CBI:
+		us->transport_name = "Control/Bulk/Interrupt";
+		us->transport = usb_stor_CB_transport;
+		us->transport_reset = usb_stor_CB_reset;
+		us->max_lun = 7;
+		break;
+
+	case USB_PR_BULK:
+		us->transport_name = "Bulk";
+		us->transport = usb_stor_Bulk_transport;
+		us->transport_reset = usb_stor_Bulk_reset;
+		break;
+	}
+}
+
+
 /* Get the transport settings */
 static void get_transport(struct us_data *us)
 {
@@ -817,6 +855,10 @@ static void quiesce_and_remove_host(struct us_data *us)
 {
 	struct Scsi_Host *host = us_to_host(us);
 
+	/* Kill all transfer first. Otherwise, it will cause scsi-host
+	 * remove blocking about 30sec. */
+	usb_stor_stop_transport(us);
+
 	/* If the device is really gone, cut short reset delays */
 	if (us->pusb_dev->state == USB_STATE_NOTATTACHED) {
 		set_bit(US_FLIDX_DISCONNECTING, &us->dflags);
@@ -937,9 +979,14 @@ int usb_stor_probe1(struct us_data **pus,
 		goto BadDevice;
 
 	/* Get standard transport and protocol settings */
-	get_transport(us);
-	get_protocol(us);
-
+	/* Adding patch from Huawei for dongle EC306 to switch to modem mode successfully*/
+	if (id->idVendor == 0x12d1) {
+		get_hw_transport(us);
+		get_protocol(us);
+	} else {
+		get_transport(us);
+		get_protocol(us);
+	}
 	/* Give the caller a chance to fill in specialized transport
 	 * or protocol settings.
 	 */

@@ -28,7 +28,7 @@ obj-$(CONFIG_TOUCHSCREEN_DA9052)	+= da9052_tsi.o
 obj-$(CONFIG_TOUCHSCREEN_DYNAPRO)	+= dynapro.o
 obj-$(CONFIG_TOUCHSCREEN_EDT_FT5X06)	+= edt-ft5x06.o
 obj-$(CONFIG_TOUCHSCREEN_HAMPSHIRE)	+= hampshire.o
-obj-$(CONFIG_TOUCHSCREEN_GT9XX)		+= gt9xx.o
+#obj-$(CONFIG_TOUCHSCREEN_GT9XX)		+= gt9xx.o
 obj-$(CONFIG_TOUCHSCREEN_GUNZE)		+= gunze.o
 obj-$(CONFIG_TOUCHSCREEN_EETI)		+= eeti_ts.o
 obj-$(CONFIG_TOUCHSCREEN_ELO)		+= elo.o
@@ -82,12 +82,15 @@ obj-$(CONFIG_TOUCHSCREEN_FOCALTECH_FT5X06)	+= ft5x06_ts.o
 
 obj-$(CONFIG_TOUCHSCREEN_SILEAD_GSL1688)	+= gsl1688.o
 obj-$(CONFIG_TOUCHSCREEN_SILEAD_GSL3680)	+= gsl1688.o
-obj-y += gsl_point_id.o
-$(obj)/gsl_point_id.o: $(srctree)/$(obj)/gsl_point_id
-	cp $(srctree)/$(obj)/gsl_point_id $(obj)/gsl_point_id.o
+obj-$(CONFIG_EMITOUCH_HANVON)			+= hanvon_0868_i2c_w.o
+#obj-y += gsl_point_id.o
+#$(obj)/gsl_point_id.o: $(srctree)/$(obj)/gsl_point_id
+#	cp $(srctree)/$(obj)/gsl_point_id $(obj)/gsl_point_id.o
+obj-$(CONFIG_TOUCHSCREEN_SILEAD) += silead/
 obj-$(CONFIG_CC_TOUCHSCREEN_GT9271) += gt9xx/
 obj-$(CONFIG_CC_TOUCHSCREEN_GT9110) += gt9xx/
 obj-$(CONFIG_CC_TOUCHSCREEN_FT5526) += ftxxxx/
 obj-$(CONFIG_CC_TOUCHSCREEN_FT5626) += ftxxxx/
 obj-$(CONFIG_CC_TOUCHSCREEN_FT5726) += ftxxxx/
+obj-$(CONFIG_TOUCHSCREEN_ICN85XX) 		+= icn85xx/
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX) += synaptics_dsx/

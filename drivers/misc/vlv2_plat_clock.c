@@ -198,7 +198,13 @@ static int vlv2_plat_clk_probe(struct platform_device *pdev)
 
 	/* Initialize all clocks as disabled */
 	for (i = 0; i < MAX_CLK_COUNT; i++)
-		vlv2_plat_configure_clock(i, CLK_CONFG_FORCE_OFF);
+		//vlv2_plat_configure_clock(i, CLK_CONFG_FORCE_OFF);
+	{
+		if(3 == i)
+			continue;
+		else
+			vlv2_plat_configure_clock(i, CLK_CONFG_FORCE_OFF);
+	}
 
 	dev_info(&pdev->dev, "vlv2_plat_clk initialized\n");
 	return 0;
@@ -223,7 +229,13 @@ static int vlv2_resume(struct platform_device *device)
 
 	/* Initialize all clocks as disabled */
 	for (i = 0; i < MAX_CLK_COUNT; i++)
-		vlv2_plat_configure_clock(i, CLK_CONFG_FORCE_OFF);
+//		vlv2_plat_configure_clock(i, CLK_CONFG_FORCE_OFF);
+	{
+		if(3 == i)
+			continue;
+		else
+			vlv2_plat_configure_clock(i, CLK_CONFG_FORCE_OFF);
+	}
 
 	return 0;
 }

@@ -541,13 +541,20 @@ static int sst_platform_get_resources(const char *hid,
 	}
 }
 
-#if IS_ENABLED(CONFIG_SND_INTEL_HDMI)
+//#if IS_ENABLED(CONFIG_SND_INTEL_HDMI)
+#if 1
 struct platform_device byt_hdmi_dev = {
 	.name           = "hdmi-audio",
 	.id             = -1,
 	.num_resources  = 0,
 };
 #endif
+
+struct platform_device bcmdhd_dev = {
+	.name           = "bcmdhd_wlan",
+	.id             = -1,
+	.num_resources  = 0,
+};
 
 int sst_acpi_probe(struct platform_device *pdev)
 {
@@ -558,11 +565,16 @@ int sst_acpi_probe(struct platform_device *pdev)
 	int i, ret = 0;
 	struct intel_sst_drv *ctx;
 
-#if IS_ENABLED(CONFIG_SND_INTEL_HDMI)
+//#if IS_ENABLED(CONFIG_SND_INTEL_HDMI)
+#if 1
 	ret = platform_device_register(&byt_hdmi_dev);
 	if (ret < 0)
 		pr_debug("%s: Could not register HDMI device\n", __func__);
 #endif
+
+	ret = platform_device_register(&bcmdhd_dev);
+	if (ret < 0)
+		pr_debug("%s: Could not register bcmdhd device\n", __func__);
 
 	ret = acpi_bus_get_device(handle, &device);
 	if (ret) {

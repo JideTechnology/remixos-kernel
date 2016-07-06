@@ -1,0 +1,2017 @@
+/*
+ * Support for gc0310 Camera Sensor.
+ *
+ * Copyright (c) 2012 Intel Corporation. All Rights Reserved.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License version
+ * 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <linux/module.h>
+#include <linux/types.h>
+#include <linux/kernel.h>
+#include <linux/mm.h>
+#include <linux/string.h>
+#include <linux/errno.h>
+#include <linux/init.h>
+#include <linux/kmod.h>
+#include <linux/device.h>
+#include <linux/delay.h>
+#include <linux/fs.h>
+#include <linux/init.h>
+#include <linux/slab.h>
+#include <linux/i2c.h>
+#include <linux/gpio.h>
+#include <linux/firmware.h>
+#include <linux/videodev2.h>
+#include <media/v4l2-device.h>
+#ifdef CONFIG_GMIN_INTEL_MID
+#include <linux/acpi.h>
+#include <linux/atomisp_gmin_platform.h>
+#else
+#include <media/v4l2-chip-ident.h>
+#endif
+
+#include "gc0310.h"
+
+#define UNICAM_DEBUG_LOG 1
+
+#if UNICAM_DEBUG_LOG
+#define MYDBGNP(fmt,...) printk(fmt,##__VA_ARGS__)
+#define MYDBG(fmt,...) printk("%s"fmt,"unicam:",##__VA_ARGS__)
+#else
+#define MYDBGNP(fmt,...) 
+#define MYDBG(fmt,...) 
+#endif
+
+
+#define to_gc0310_sensor(sd) container_of(sd, struct gc0310_device, sd)
+
+static int gc0310_read_reg(struct i2c_client *client,
+			   u16 data_length, u8 reg, u8 *val)
+{
+	int err;
+	struct i2c_msg msg[2];
+	unsigned char data[1];
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	if (!client->adapter) {
+		dev_err(&client->dev, "%s error, no client->adapter\n",
+			__func__);
+		return -ENODEV;
+	}
+
+	if (data_length != GC0310_8BIT) {
+		dev_err(&client->dev, "%s error, invalid data length\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	memset(msg, 0 , sizeof(msg));
+
+	msg[0].addr = client->addr;
+	msg[0].flags = 0;
+	msg[0].len = 1;
+	msg[0].buf = data;
+
+	/* high byte goes out first */
+	data[0] = (u8)(reg & 0xff);
+
+	msg[1].addr = client->addr;
+	msg[1].len = data_length;
+	msg[1].flags = I2C_M_RD;
+	msg[1].buf = data;
+
+	err = i2c_transfer(client->adapter, msg, 2);
+	if (err != 2) {
+		if (err >= 0)
+			err = -EIO;
+		dev_err(&client->dev,
+			"read from offset 0x%x error %d", reg, err);
+		return err;
+	}
+
+	*val = 0;
+	/* high byte comes first */
+	if (data_length == GC0310_8BIT)
+		*val = (u8)data[0];
+
+	return 0;
+}
+
+static int gc0310_i2c_write(struct i2c_client *client, u16 len, u8 *data)
+{
+	struct i2c_msg msg;
+	const int num_msg = 1;
+	int ret;
+
+	msg.addr = client->addr;
+	msg.flags = 0;
+	msg.len = len;
+	msg.buf = data;
+	ret = i2c_transfer(client->adapter, &msg, 1);
+
+	return ret == num_msg ? 0 : -EIO;
+}
+
+static int gc0310_write_reg(struct i2c_client *client, u16 data_length,
+							u8 reg, u8 val)
+{
+	int ret;
+	unsigned char data[2] = {0};
+	u8 *wreg = (u8 *)data;
+	const u16 len = data_length + sizeof(u8); /* 8-bit address + data */
+
+	if (data_length != GC0310_8BIT) {
+		dev_err(&client->dev,
+			"%s error, invalid data_length\n", __func__);
+		return -EINVAL;
+	}
+
+	/* high byte goes out first */
+	*wreg = (u8)(reg & 0xff);
+
+	if (data_length == GC0310_8BIT) {
+		data[1] = (u8)(val);
+	}
+
+	ret = gc0310_i2c_write(client, len, data);
+	if (ret)
+		dev_err(&client->dev,
+			"write error: wrote 0x%x to offset 0x%x error %d",
+			val, reg, ret);
+
+	return ret;
+}
+
+/*
+ * gc0310_write_reg_array - Initializes a list of gc0310 registers
+ * @client: i2c driver client structure
+ * @reglist: list of registers to be written
+ *
+ * Initializes a list of gc0310 registers. The list of registers is
+ * terminated by GC0310_TOK_TERM.
+ */
+static int gc0310_write_reg_array(struct i2c_client *client,
+			    const struct gc0310_reg *reglist)
+{
+	const struct gc0310_reg *next = reglist;
+	int err;
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	for (; next->length != GC0310_TOK_TERM; next++) {
+		if (next->length == GC0310_TOK_DELAY) {
+			msleep(next->val);
+		} else {
+			err = gc0310_write_reg(client, next->length, next->reg,
+						next->val);
+			/* REVISIT: Do we need this delay? */
+			udelay(10);
+			if (err) {
+				dev_err(&client->dev, "%s err. aborted\n",
+					__func__);
+				return err;
+			}
+		}
+	}
+
+	return 0;
+}
+
+/* Horizontal flip the image. */
+static int gc0310_g_hflip(struct v4l2_subdev *sd, s32 *val)
+{
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	return 0;
+}
+
+static int gc0310_g_vflip(struct v4l2_subdev *sd, s32 *val)
+{
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	return 0;
+}
+
+/* Horizontal flip the image. */
+static int gc0310_t_hflip(struct v4l2_subdev *sd, int value)
+{
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	return 0;
+}
+
+/* Vertically flip the image */
+static int gc0310_t_vflip(struct v4l2_subdev *sd, int value)
+{
+	return 0;
+}
+
+static int gc0310_s_freq(struct v4l2_subdev *sd, int value)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	u16 reg_val;
+	int ret;
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+	switch (value) {
+	case V4L2_CID_POWER_LINE_FREQUENCY_DISABLED:
+		ret = gc0310_write_reg_array(client, gc0310_frequency_disabled_table);
+		if (ret)
+			return -EINVAL;
+		break;
+	case V4L2_CID_POWER_LINE_FREQUENCY_50HZ:
+		ret = gc0310_write_reg_array(client, gc0310_frequency_50hz_table);
+		if (ret)
+			return -EINVAL;
+		break;
+	case V4L2_CID_POWER_LINE_FREQUENCY_60HZ:
+		ret = gc0310_write_reg_array(client, gc0310_frequency_60hz_table);
+		if (ret)
+			return -EINVAL;
+		break;
+	case V4L2_CID_POWER_LINE_FREQUENCY_AUTO:
+		ret = gc0310_write_reg_array(client, gc0310_frequency_auto_table);
+		if (ret)
+			return -EINVAL;
+		break;
+	default:
+		dev_err(&client->dev, "Invalid freq value %d\n", value);
+		return -EINVAL;
+	}
+	
+	return 0;
+}
+
+static int gc0310_g_scene(struct v4l2_subdev *sd, s32 *value)
+{
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	return 0;
+}
+
+static int gc0310_s_scene(struct v4l2_subdev *sd, int value)
+{
+	
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int ret;
+
+	MYDBGNP("################5########## entry %s value %d \n", __func__,value);
+
+	switch (value) {
+	case V4L2_SCENE_MODE_NONE:
+		MYDBGNP("################5########## entry %s value %d 11111\n", __func__,value);
+		ret = gc0310_write_reg_array(client, gc0310_night_mode_off_table);
+		if (ret)
+			return -EINVAL;
+		break;
+	case V4L2_SCENE_MODE_NIGHT:
+		MYDBGNP("################5########## entry %s value %d 22222\n", __func__,value);
+		ret = gc0310_write_reg_array(client, gc0310_night_mode_on_table);
+		if (ret)
+			return -EINVAL;
+		break;
+	case V4L2_SCENE_MODE_BACKLIGHT:
+	case V4L2_SCENE_MODE_BEACH_SNOW:
+	case V4L2_SCENE_MODE_CANDLE_LIGHT:
+	case V4L2_SCENE_MODE_DAWN_DUSK:
+	case V4L2_SCENE_MODE_FALL_COLORS:
+	case V4L2_SCENE_MODE_FIREWORKS:
+	case V4L2_SCENE_MODE_LANDSCAPE:
+	case V4L2_SCENE_MODE_PARTY_INDOOR:
+	case V4L2_SCENE_MODE_PORTRAIT:
+	case V4L2_SCENE_MODE_SPORTS:
+	case V4L2_SCENE_MODE_SUNSET:
+	case V4L2_SCENE_MODE_TEXT:
+		MYDBGNP("################5########## entry %s value %d 11111\n", __func__,value);
+		ret = gc0310_write_reg_array(client, gc0310_night_mode_off_table);
+		if (ret)
+			return -EINVAL;
+		break;	
+	default:
+		MYDBGNP("################5########## entry %s value %d 11111\n", __func__,value);
+		ret = gc0310_write_reg_array(client, gc0310_night_mode_off_table);
+		if (ret)
+			return -EINVAL;
+		dev_err(&client->dev, "gc0310_s_scene: %d\n", value);
+		break;
+	}
+	return 0;
+}
+
+static int gc0310_g_wb(struct v4l2_subdev *sd, s32 *value)
+{
+	struct gc0310_device *dev = to_gc0310_sensor(sd);
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	*value = dev->wb_mode;
+	return 0;
+}
+
+static int gc0310_s_wb(struct v4l2_subdev *sd, int value)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct gc0310_device *dev = to_gc0310_sensor(sd);
+	int ret;
+
+	MYDBGNP("################5########## entry %s value= %d \n", __func__,value);
+
+	switch (value) {
+	case V4L2_WHITE_BALANCE_MANUAL:
+		ret = gc0310_write_reg_array(client, gc0310_AWB_manual);
+		if (ret)
+			return -EINVAL;
+		break;
+	case V4L2_WHITE_BALANCE_AUTO:
+		ret = gc0310_write_reg_array(client, gc0310_AWB_auto);
+		if (ret)
+			return -EINVAL;
+		break;
+	case V4L2_WHITE_BALANCE_INCANDESCENT:
+		ret = gc0310_write_reg_array(client, gc0310_AWB_incandescent);
+		if (ret)
+			return -EINVAL;
+		break;
+	case V4L2_WHITE_BALANCE_FLUORESCENT:
+	case V4L2_WHITE_BALANCE_FLUORESCENT_H:
+		ret = gc0310_write_reg_array(client, gc0310_AWB_fluorescent);
+		if (ret)
+			return -EINVAL;
+		break;
+	case V4L2_WHITE_BALANCE_CLOUDY:
+		ret = gc0310_write_reg_array(client, gc0310_AWB_cloudy);
+		if (ret)
+			return -EINVAL;
+		break;
+	case V4L2_WHITE_BALANCE_DAYLIGHT:
+		ret = gc0310_write_reg_array(client, gc0310_AWB_sunny);
+		if (ret)
+			return -EINVAL;
+		break;
+	default:
+		dev_err(&client->dev, "gc0310_s_wb: %d\n", value);
+		return -EINVAL;
+	}
+
+	if (ret)
+		return ret;
+
+	dev->wb_mode = value;
+	return 0;
+}
+
+static int gc0310_get_sysclk(struct v4l2_subdev *sd, int *sysclk)
+{
+#if 0
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	u16 reg_val;
+	int pre_div0, pre_div2x, div_loop, sp_div, sys_div, vco;
+	int pre_div2x_map[] = {2, 3, 4, 5, 6, 8, 12, 16};
+	int ret;
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+			GC0310_REG_PLL_CTRL, &reg_val);
+	if (ret)
+		return -EINVAL;
+
+	pre_div0 = ((reg_val >> 4) & 0x01) + 1;
+
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+			GC0310_REG_PLL_PRE_DIV, &reg_val);
+	if (ret)
+		return -EINVAL;
+
+	reg_val &= 0x07;
+	pre_div2x = pre_div2x_map[reg_val];
+
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+				GC0310_REG_PLL_MULT_H, &reg_val);
+	if (ret)
+		return -EINVAL;
+
+	div_loop = (reg_val & 0x01) << 8;
+
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+				GC0310_REG_PLL_MULT_L, &reg_val);
+	if (ret)
+		return -EINVAL;
+
+	div_loop += reg_val;
+
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+				GC0310_REG_PLL_SP_DIV, &reg_val);
+	if (ret)
+		return -EINVAL;
+
+	sp_div = (reg_val & 0x07) + 1;
+
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+				GC0310_REG_PLL_SYS_DIV, &reg_val);
+	if (ret)
+		return -EINVAL;
+
+	sys_div = (reg_val & 0x0f) + 1;
+
+	vco = GC0310_XVCLK * div_loop * 2 / pre_div0 / pre_div2x;
+	*sysclk = vco / sp_div / sys_div;
+#endif
+	return 0;
+}
+
+static int gc0310_g_exposure(struct v4l2_subdev *sd, s32 *value)
+{
+
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	u16 reg_v, reg_v2, hts, hts_v2;
+	u32 exp_val, sysclk;
+	int ret;
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+	return 0;
+
+	#if 0
+	*value = GC0310_EXPOSURE_DEFAULT_VAL;
+
+	/* get exposure */
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_REG_EXPOSURE_2,
+					&reg_v);
+	if (ret)
+		return -EINVAL;
+
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_REG_EXPOSURE_1,
+					&reg_v2);
+	if (ret)
+		return -EINVAL;
+
+	reg_v = (reg_v >> 4) | (reg_v2 << 4);
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_REG_EXPOSURE_0,
+					&reg_v2);
+	if (ret)
+		return -EINVAL;
+
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_REG_HTS_H,
+					&hts);
+	if (ret)
+		return -EINVAL;
+
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_REG_HTS_L,
+					&hts_v2);
+	if (ret)
+		return -EINVAL;
+
+	hts = (hts << 8) | hts_v2;
+
+	ret = gc0310_get_sysclk(sd, &sysclk);
+	if (ret || !sysclk)
+		return 0;
+
+	/* transfer exposure time to us */
+	exp_val = ((reg_v | (((u32)reg_v2 << 12))) * hts)  * 1000 / (sysclk*10);
+
+	/* FIX ME! The exposure value could be 0 in some cases*/
+	if (exp_val)
+		*value = exp_val;
+	#endif
+
+	return ret;
+}
+
+static long gc0310_s_exposure(struct v4l2_subdev *sd,
+			       struct atomisp_exposure *exposure)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	u16 hts, hts_v2, gain;
+	u32 exp, exp_v2, sysclk;
+	int ret;
+	
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	return 0;
+
+#if 0
+
+	/* set exposure */
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_REG_HTS_H,
+					&hts);
+	if (ret)
+		return ret;
+
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_REG_HTS_L,
+					&hts_v2);
+	if (ret)
+		return ret;
+
+	hts = (hts << 8) | hts_v2;
+
+	ret = gc0310_get_sysclk(sd, &sysclk);
+	if (ret || !sysclk)
+		return 0;
+
+	exp = exposure->integration_time[0] * sysclk / 1000;
+
+	exp_v2 = exp >> 8;
+	ret = gc0310_write_reg(client, GC0310_8BIT,
+			GC0310_REG_EXPOSURE_0, exp_v2);
+	if (ret)
+		return -EINVAL;
+
+	exp_v2 = (exp & 0xff0) >> 4;
+	ret = gc0310_write_reg(client, GC0310_8BIT,
+			GC0310_REG_EXPOSURE_1, exp_v2);
+	if (ret)
+		return -EINVAL;
+
+	exp_v2 = (exp & 0x0f) << 4;
+	ret = gc0310_write_reg(client, GC0310_8BIT,
+			GC0310_REG_EXPOSURE_2, exp_v2);
+	if (ret)
+		return -EINVAL;
+
+	/* set gain */
+	gain = exposure->gain[0] >> 8;
+	ret = gc0310_write_reg(client, GC0310_8BIT,
+			GC0310_REG_GAIN_0, gain);
+	if (ret)
+		return -EINVAL;
+
+	gain =  exposure->gain[0] & 0xff;
+	ret = gc0310_write_reg(client, GC0310_8BIT,
+			GC0310_REG_GAIN_0, gain);
+#endif
+	return ret;
+}
+
+static int gc0310_s_ev(struct v4l2_subdev *sd, int value)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int ret;
+
+	MYDBGNP("################5########## entry %s value %d\n", __func__, value);
+
+	switch (value) {
+	case -3:
+		ret = gc0310_write_reg_array(client, gc0310_exposure_neg3);
+		if (ret)
+			return -EINVAL;
+		break;
+
+	case -2:
+		ret = gc0310_write_reg_array(client, gc0310_exposure_neg2);
+		if (ret)
+			return -EINVAL;
+		break;
+	case -1:
+		ret = gc0310_write_reg_array(client, gc0310_exposure_neg1);
+		if (ret)
+			return -EINVAL;
+		break;
+	case 0:
+		ret = gc0310_write_reg_array(client, gc0310_exposure_zero);
+		if (ret)
+			return -EINVAL;
+		break;
+	case 1:
+		ret = gc0310_write_reg_array(client, gc0310_exposure_pos1);
+		if (ret)
+			return -EINVAL;
+		break;
+	case 2:
+		ret = gc0310_write_reg_array(client, gc0310_exposure_pos2);
+		if (ret)
+			return -EINVAL;
+		break;
+	case 3:
+		ret = gc0310_write_reg_array(client, gc0310_exposure_pos3);
+		if (ret)
+			return -EINVAL;
+		break;
+	default:
+		dev_err(&client->dev, "gc0310_s_ev: %d\n", value);
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
+static int gc0310_g_exposure_mode(struct v4l2_subdev *sd, s32 *value)
+{
+
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	u16 reg_v;
+	int ret;
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	/* get exposure mode */
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_REG_EXPOSURE_AUTO,
+					&reg_v);
+	if (ret)
+		return ret;
+
+	*value = reg_v & GC0310_EXPOSURE_MANUAL_MASK;
+	return 0;
+}
+
+static int gc0310_s_exposure_mode(struct v4l2_subdev *sd, int value)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int ret;
+	u16 reg_v;
+
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_REG_EXPOSURE_AUTO,
+					&reg_v);
+	if (ret)
+		return ret;
+
+	switch (value) {
+	case V4L2_EXPOSURE_AUTO:
+		reg_v &= 0xfe;
+		ret = gc0310_write_reg(client, GC0310_8BIT,
+					GC0310_REG_EXPOSURE_AUTO, reg_v);
+		if (ret)
+			return -EINVAL;
+		break;
+	case V4L2_EXPOSURE_MANUAL:
+		reg_v |= 0x01;
+		ret = gc0310_write_reg(client, GC0310_8BIT,
+					GC0310_REG_EXPOSURE_AUTO, reg_v);
+		if (ret)
+			return -EINVAL;
+		break;
+	default:
+		dev_err(&client->dev,
+				"Failed to set unsupported exposure mode!\n");
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
+static int gc0310_g_ae_lock(struct v4l2_subdev *sd, s32 *value)
+{
+	struct gc0310_device *dev = to_gc0310_sensor(sd);
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	*value = dev->ae_lock;
+	return 0;
+}
+
+static int gc0310_s_ae_lock(struct v4l2_subdev *sd, int value)
+{
+	struct gc0310_device *dev = to_gc0310_sensor(sd);
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	dev->ae_lock = value;
+	return 0;
+}
+static int gc0310_s_color_effect(struct v4l2_subdev *sd, int effect)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct gc0310_device *dev = to_gc0310_sensor(sd);
+	int ret = 0;
+
+	MYDBGNP("################5########## entry %s effect=%d \n", __func__,effect);
+
+	if (dev->color_effect == effect)
+		return 0;
+
+	switch (effect) {
+	case V4L2_COLORFX_NONE:
+		ret = gc0310_write_reg_array(client, gc0310_normal_effect);
+		break;
+	case V4L2_COLORFX_SEPIA:
+		ret = gc0310_write_reg_array(client, gc0310_sepia_effect);
+		break;
+	case V4L2_COLORFX_NEGATIVE:
+		ret = gc0310_write_reg_array(client, gc0310_negative_effect);
+		break;
+	case V4L2_COLORFX_BW:
+		ret = gc0310_write_reg_array(client, gc0310_bw_effect);
+		break;
+	case V4L2_COLORFX_SKY_BLUE:
+		ret = gc0310_write_reg_array(client, gc0310_blue_effect);
+		break;
+	case V4L2_COLORFX_GRASS_GREEN:
+		ret = gc0310_write_reg_array(client, gc0310_green_effect);
+		break;
+	default:
+		dev_err(&client->dev, "invalid color effect.\n");
+		return -ERANGE;
+	}
+
+	if (ret)
+		return ret;
+
+	dev->color_effect = effect;
+	return 0;
+}
+
+static int gc0310_g_color_effect(struct v4l2_subdev *sd, int *effect)
+{
+	struct gc0310_device *dev = to_gc0310_sensor(sd);
+
+	*effect = dev->color_effect;
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	return 0;
+}
+
+static int gc0310_s_test_pattern(struct v4l2_subdev *sd)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct gc0310_device *dev = to_gc0310_sensor(sd);
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+	return 0;
+
+#if 0
+	return gc0310_write_reg(client, GC0310_8BIT, GC0310_REG_TEST_PATTERN,
+		(u16)(dev->tp_mode->val));
+#endif
+	
+}
+
+static int gc0310_g_fnumber(struct v4l2_subdev *sd, s32 *value)
+{
+	/*const f number for imx*/
+	*value = (GC0310_F_NUMBER_DEFAULT_NUM << 16) | GC0310_F_NUMBER_DEM;
+	return 0;
+}
+
+static int gc0310_get_intg_factor(struct i2c_client *client,
+				struct camera_mipi_info *info,
+				const struct gc0310_res_struct *res)
+{
+	struct atomisp_sensor_mode_data *buf = &info->data;
+	u16 val;
+	u8 reg_val;
+	int ret;
+	unsigned int hori_blanking;
+	unsigned int vert_blanking;
+	unsigned int sh_delay;
+
+	if (info == NULL)
+		return -EINVAL;
+
+	/* pixel clock calculattion */
+	buf->vt_pix_clk_freq_mhz = 14400000; // 19.2MHz
+	pr_info("vt_pix_clk_freq_mhz=%d\n", buf->vt_pix_clk_freq_mhz);
+
+	/* get integration time */
+	buf->coarse_integration_time_min = GC0310_COARSE_INTG_TIME_MIN;
+	buf->coarse_integration_time_max_margin =
+					GC0310_COARSE_INTG_TIME_MAX_MARGIN;
+
+	buf->fine_integration_time_min = GC0310_FINE_INTG_TIME_MIN;
+	buf->fine_integration_time_max_margin =
+					GC0310_FINE_INTG_TIME_MAX_MARGIN;
+
+	buf->fine_integration_time_def = GC0310_FINE_INTG_TIME_MIN;
+
+
+#if 1
+
+	/* get the cropping and output resolution to ISP for this mode. */
+	ret = gc0310_read_reg(client, GC0310_8BIT, GC0310_REG_H_START, &reg_val);
+	if (ret)
+		return ret;
+	buf->crop_horizontal_start = reg_val;
+
+	ret = gc0310_read_reg(client, GC0310_8BIT, GC0310_REG_V_START, &reg_val);
+	if (ret)
+		return ret;
+	buf->crop_vertical_start = reg_val;
+
+	val = 0;
+	ret = gc0310_read_reg(client, GC0310_8BIT, GC0310_REG_WIDTH_H, &reg_val);
+	val = reg_val;
+	val = val << 8;
+	ret = gc0310_read_reg(client, GC0310_8BIT, GC0310_REG_WIDTH_L, &reg_val);
+	val += reg_val;
+	if (ret)
+		return ret;
+	buf->output_width = val;
+	buf->crop_horizontal_end = buf->crop_horizontal_start + val - 1;
+
+	val = 0;
+	ret = gc0310_read_reg(client, GC0310_8BIT, GC0310_REG_HEIGHT_H, &reg_val);
+	val = reg_val;
+	val = val << 8;
+	ret = gc0310_read_reg(client, GC0310_8BIT, GC0310_REG_HEIGHT_L, &reg_val);
+	val += reg_val;
+	if (ret)
+		return ret;
+	buf->output_height = val;
+	buf->crop_vertical_end = buf->crop_vertical_start + val - 1;
+	buf->frame_length_lines = res->lines_per_frame;
+	buf->line_length_pck = res->pixels_per_line;
+	buf->read_mode = res->bin_mode;
+	buf->binning_factor_x = 1;
+	buf->binning_factor_y = 1;
+#else
+	/* get the cropping and output resolution to ISP for this mode. */
+	/* Getting crop_horizontal_start */
+	ret =  gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_H_CROP_START_H, &reg_val);
+	if (ret)
+		return ret;
+	val = (reg_val & 0xFF) << 8;
+	ret =  gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_H_CROP_START_L, &reg_val);
+	if (ret)
+		return ret;
+	buf->crop_horizontal_start = val | (reg_val & 0xFF);
+	pr_info("crop_horizontal_start=%d\n", buf->crop_horizontal_start);
+
+	/* Getting crop_vertical_start */
+	ret =  gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_V_CROP_START_H, &reg_val);
+	if (ret)
+		return ret;
+	val = (reg_val & 0xFF) << 8;
+	ret =  gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_V_CROP_START_L, &reg_val);
+	if (ret)
+		return ret;
+	buf->crop_vertical_start = val | (reg_val & 0xFF);
+	pr_info("crop_vertical_start=%d\n", buf->crop_vertical_start);
+
+	/* Getting output_width */
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_H_OUTSIZE_H, &reg_val);
+	if (ret)
+		return ret;
+	val = (reg_val & 0xFF) << 8;
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_H_OUTSIZE_L, &reg_val);
+	if (ret)
+		return ret;
+	buf->output_width = val | (reg_val & 0xFF);
+	pr_info("output_width=%d\n", buf->output_width);
+
+	/* Getting output_height */
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_V_OUTSIZE_H, &reg_val);
+	if (ret)
+		return ret;
+	val = (reg_val & 0xFF) << 8;
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_V_OUTSIZE_L, &reg_val);
+	if (ret)
+		return ret;
+	buf->output_height = val | (reg_val & 0xFF);
+	pr_info("output_height=%d\n", buf->output_height);
+
+	buf->crop_horizontal_end = buf->crop_horizontal_start + buf->output_width - 1;
+	buf->crop_vertical_end = buf->crop_vertical_start + buf->output_height - 1;
+	pr_info("crop_horizontal_end=%d\n", buf->crop_horizontal_end);
+	pr_info("crop_vertical_end=%d\n", buf->crop_vertical_end);
+
+	/* Getting line_length_pck */
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_H_BLANKING_H, &reg_val);
+	if (ret)
+		return ret;
+	val = (reg_val & 0xFF) << 8;
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_H_BLANKING_L, &reg_val);
+	if (ret)
+		return ret;
+	hori_blanking = val | (reg_val & 0xFF);
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_SH_DELAY, &reg_val);
+	if (ret)
+		return ret;
+	sh_delay = reg_val;
+	buf->line_length_pck = buf->output_width + hori_blanking + sh_delay + 4;
+	pr_info("hori_blanking=%d sh_delay=%d line_length_pck=%d\n", hori_blanking, sh_delay, buf->line_length_pck);
+
+	/* Getting frame_length_lines */
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_V_BLANKING_H, &reg_val);
+	if (ret)
+		return ret;
+	val = (reg_val & 0xFF) << 8;
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+					GC0310_V_BLANKING_L, &reg_val);
+	if (ret)
+		return ret;
+	vert_blanking = val | (reg_val & 0xFF);
+	buf->frame_length_lines = buf->output_height + vert_blanking;
+	pr_info("vert_blanking=%d frame_length_lines=%d\n", vert_blanking, buf->frame_length_lines);
+
+	buf->binning_factor_x = res->bin_factor_x ?
+					res->bin_factor_x : 1;
+	buf->binning_factor_y = res->bin_factor_y ?
+					res->bin_factor_y : 1;
+
+#endif
+	return 0;
+}
+
+
+static long gc0310_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
+{
+	
+	switch (cmd) {
+	case ATOMISP_IOC_S_EXPOSURE:
+		return gc0310_s_exposure(sd, arg);
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int power_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+	int ret;
+	struct gc0310_device *dev = to_gc0310_sensor(sd);
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->power_ctrl)
+		return dev->platform_data->power_ctrl(sd, flag);
+
+#ifdef CONFIG_GMIN_INTEL_MID
+	if (flag) {
+		ret = dev->platform_data->v2p8_ctrl(sd, 1);
+		if (ret == 0) {
+			ret = dev->platform_data->v1p8_ctrl(sd, 1);
+			if (ret)
+				ret = dev->platform_data->v2p8_ctrl(sd, 0);
+		}
+	} else {
+		ret = dev->platform_data->v2p8_ctrl(sd, 0);
+		ret = dev->platform_data->v1p8_ctrl(sd, 0);
+	}
+#else
+	ret = -EINVAL;
+#endif
+	return ret;
+}
+
+static int gpio_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+	int ret;
+	struct gc0310_device *dev = to_gc0310_sensor(sd);
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->gpio_ctrl)
+		return dev->platform_data->gpio_ctrl(sd, flag);
+
+	/* GPIO0 == "reset" (active low), GPIO1 == "power down" */
+	if (flag) {
+		/* Pulse reset, then release power down */
+		ret = dev->platform_data->gpio0_ctrl(sd, 0);
+		usleep_range(5000, 10000);
+		ret |= dev->platform_data->gpio0_ctrl(sd, 1);
+		usleep_range(10000, 15000);
+		ret |= dev->platform_data->gpio1_ctrl(sd, 0);
+		usleep_range(10000, 15000);
+	} else {
+		ret = dev->platform_data->gpio1_ctrl(sd, 1);
+		ret |= dev->platform_data->gpio0_ctrl(sd, 0);
+	}
+	return ret;
+}
+
+
+static int power_up(struct v4l2_subdev *sd)
+{
+	struct gc0310_device *dev = to_gc0310_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int ret;
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	if (NULL == dev->platform_data) {
+		dev_err(&client->dev, "no camera_sensor_platform_data");
+		return -ENODEV;
+	}
+
+	/* power control */
+	ret = power_ctrl(sd, 1);
+	if (ret)
+		goto fail_power;
+
+	/* gpio ctrl */
+	ret = gpio_ctrl(sd, 1);
+	if (ret)
+		dev_err(&client->dev, "gpio failed\n");
+
+	/* flis clock control */
+	ret = dev->platform_data->flisclk_ctrl(sd, 1);
+	if (ret)
+		goto fail_clk;
+
+	return 0;
+
+fail_clk:
+	dev->platform_data->flisclk_ctrl(sd, 0);
+fail_power:
+	dev->platform_data->power_ctrl(sd, 0);
+	dev_err(&client->dev, "sensor power-up failed\n");
+
+	return ret;
+}
+
+static int power_down(struct v4l2_subdev *sd)
+{
+	struct gc0310_device *dev = to_gc0310_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int ret;
+	if (NULL == dev->platform_data) {
+		dev_err(&client->dev, "no camera_sensor_platform_data");
+		return -ENODEV;
+	}
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	/* Wait for 1 frame + 512 XVCLK cycle.*/
+	msleep(50);
+
+	ret = dev->platform_data->flisclk_ctrl(sd, 0);
+	if (ret)
+		dev_err(&client->dev, "flisclk failed\n");
+
+	/* gpio ctrl */
+	ret = gpio_ctrl(sd, 0);
+	if (ret)
+		dev_err(&client->dev, "gpio failed 1\n");
+
+	/* power control */
+	ret = power_ctrl(sd, 0);
+	if (ret)
+		dev_err(&client->dev, "vprog failed.\n");
+
+	return ret;
+}
+
+static int gc0310_s_power(struct v4l2_subdev *sd, int power)
+{
+	if (power == 0)
+		return power_down(sd);
+
+	if (power_up(sd))
+		return -EINVAL;
+
+	return 0;
+}
+
+#define LARGEST_ALLOWED_RATIO_MISMATCH 600
+static int distance(struct gc0310_res_struct const *res, u32 w, u32 h)
+{
+	unsigned int w_ratio;
+	unsigned int h_ratio;
+	int match;
+	unsigned int allowed_ratio_mismatch = LARGEST_ALLOWED_RATIO_MISMATCH;
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	if (w == 0)
+		return -1;
+	w_ratio = (res->width << 13) / w;
+	if (h == 0)
+		return -1;
+	h_ratio = (res->height << 13) / h;
+	if (h_ratio == 0)
+		return -1;
+	match   = abs(((w_ratio << 13) / h_ratio) - ((int)8192));
+
+	if ((w_ratio < (int)8192) || (h_ratio < (int)8192)  ||
+		(match > allowed_ratio_mismatch))
+		return -1;
+
+	return w_ratio + h_ratio;
+}
+
+/* Return the nearest higher resolution index */
+static int nearest_resolution_index(struct v4l2_subdev *sd, u32 w, u32 h)
+{
+	int i;
+	int idx = -1;
+	int dist;
+	int min_dist = INT_MAX;
+	const struct gc0310_res_struct *tmp_res = NULL;
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	for (i = 0; i < N_RES; i++) {
+		tmp_res = &gc0310_res[i];
+		dist = distance(tmp_res, w, h);
+		if (dist == -1)
+			continue;
+		if (dist < min_dist) {
+			min_dist = dist;
+			idx = i;
+		}
+	}
+	return idx;
+}
+
+static int gc0310_try_mbus_fmt(struct v4l2_subdev *sd,
+				struct v4l2_mbus_framefmt *fmt)
+{
+	struct gc0310_device *dev = to_gc0310_sensor(sd);
+	int idx;
+
+
+	mutex_lock(&dev->input_lock);
+
+	idx = nearest_resolution_index(sd, fmt->width, fmt->height);
+
+	MYDBGNP("################5########## entry %s idx =%d\n", __func__, idx);
+
+	if (idx == -1)
+		idx = N_RES - 1;
+
+	MYDBGNP("################5########## entry %s idx =%d\n", __func__, idx);
+
+	fmt->width = gc0310_res[idx].width;
+	fmt->height = gc0310_res[idx].height;
+	fmt->code = V4L2_MBUS_FMT_UYVY8_1X16;
+
+	mutex_unlock(&dev->input_lock);
+
+	return 0;
+}
+
+static int gc0310_g_mbus_fmt(struct v4l2_subdev *sd,
+				struct v4l2_mbus_framefmt *fmt)
+{
+	struct gc0310_device *dev = to_gc0310_sensor(sd);
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	if (!fmt)
+		return -EINVAL;
+
+	fmt->width = gc0310_res[dev->fmt_idx].width;
+	fmt->height = gc0310_res[dev->fmt_idx].height;
+	fmt->code = V4L2_MBUS_FMT_UYVY8_1X16;
+
+	return 0;
+}
+
+static int gc0310_s_mbus_fmt(struct v4l2_subdev *sd,
+			      struct v4l2_mbus_framefmt *fmt)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct gc0310_device *dev = to_gc0310_sensor(sd);
+	int res_index;
+	struct camera_mipi_info *mipi_info = NULL;
+	u32 width = fmt->width;
+	u32 height = fmt->height;
+	int ret;
+	mipi_info = v4l2_get_subdev_hostdata(sd);
+	if (mipi_info == NULL) {
+		dev_err(&client->dev, "%s: can not find mipi info!!!\n",
+							__func__);
+		return -EINVAL;
+	}
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	mutex_lock(&dev->input_lock);
+
+	res_index = nearest_resolution_index(sd, width, height);
+	if (res_index == -1)
+		res_index = N_RES - 1;
+
+	ret = gc0310_write_reg_array(client, gc0310_VGA_init);
+
+	mipi_info->num_lanes = gc0310_res[res_index].lanes;
+
+	ret = gc0310_get_intg_factor(client, mipi_info,
+					&gc0310_res[res_index]);
+	if (ret)
+		dev_err(&client->dev, "failed to get integration_factor\n");
+
+	/*
+	 * gc0310 - we don't poll for context switch
+	 * because it does not happen with streaming disabled.
+	 */
+	dev->fmt_idx = res_index;
+	fmt->width = gc0310_res[res_index].width;
+	fmt->height = gc0310_res[res_index].height;
+	fmt->code = V4L2_MBUS_FMT_UYVY8_1X16;
+
+	mutex_unlock(&dev->input_lock);
+	return ret;
+}
+
+static int gc0310_detect(struct i2c_client *client)
+{
+	struct i2c_adapter *adapter = client->adapter;
+	u8 high, low;
+	int ret;
+	u16 id;
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	MYDBGNP("%s S\n", __func__);
+	if (!i2c_check_functionality(adapter, I2C_FUNC_I2C))
+		return -ENODEV;
+
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+					0xf0, &high);
+	if (ret) {
+		dev_err(&client->dev, "read sensor_id_high failed\n");
+		return -ENODEV;
+	}
+	ret = gc0310_read_reg(client, GC0310_8BIT,
+					0xf1, &low);
+	if (ret) {
+		dev_err(&client->dev, "read sensor_id_low failed\n");
+		return -ENODEV;
+	}
+	id = ((((u16) high) << 8) | (u16) low);
+	MYDBGNP("sensor ID = 0x%x\n", id);
+
+	if (id != GC0310_MOD_ID) {
+		dev_err(&client->dev, "sensor ID error, read id = 0x%x, target id = 0x%x\n", id, GC0310_MOD_ID);
+		return -ENODEV;
+	}
+
+	dev_dbg(&client->dev, "detect gc0310 success\n");
+
+	MYDBGNP("%s E\n", __func__);
+
+	return 0;
+}
+
+static int
+gc0310_s_config(struct v4l2_subdev *sd, int irq, void *platform_data)
+{
+	struct gc0310_device *dev = to_gc0310_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+//	u8 sensor_revision;
+//	u16 sensor_id = 0;
+	int ret;
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	if (NULL == platform_data)
+		return -ENODEV;
+
+	dev->platform_data =
+	    (struct camera_sensor_platform_data *)platform_data;
+
+	mutex_lock(&dev->input_lock);
+
+	if (dev->platform_data->platform_init) {
+		ret = dev->platform_data->platform_init(client);
+		if (ret) {
+			dev_err(&client->dev, "platform init err\n");
+			goto platform_init_failed;
+		}
+	}
+
+	ret = power_down(sd);
+	if (ret) {
+		dev_err(&client->dev, "power_off failed");
+		goto fail_power_off;
+	}
+
+	ret = power_up(sd);
+	if (ret) {
+		dev_err(&client->dev, "power_up failed");
+		goto fail_power_on;
+	}
+
+	ret = dev->platform_data->csi_cfg(sd, 1);
+	if (ret)
+		goto fail_csi_cfg;
+
+	/* config & detect sensor */
+//	ret = gc0310_detect(client, &sensor_id, &sensor_revision);
+	ret = gc0310_detect(client);
+	if (ret) {
+		dev_err(&client->dev, "gc0310_detect err s_config.\n");
+		goto fail_csi_cfg;
+	}
+
+//	dev->sensor_id = sensor_id;
+//	dev->sensor_revision = sensor_revision;
+
+	ret = power_down(sd);
+	if (ret)
+		dev_err(&client->dev, "sensor power-gating failed\n");
+
+	mutex_unlock(&dev->input_lock);
+	return ret;
+
+fail_csi_cfg:
+	dev->platform_data->csi_cfg(sd, 0);
+fail_power_on:
+	power_down(sd);
+	dev_err(&client->dev, "sensor power-gating failed\n");
+fail_power_off:
+	if (dev->platform_data->platform_deinit)
+		dev->platform_data->platform_deinit();
+platform_init_failed:
+	mutex_unlock(&dev->input_lock);
+
+	return ret;
+}
+
+static int gc0310_s_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct gc0310_device *dev = container_of(
+		ctrl->handler, struct gc0310_device, ctrl_handler);
+	struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
+	int ret = 0;
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	switch (ctrl->id) {
+	case V4L2_CID_EXPOSURE:
+		dev_dbg(&client->dev, "%s: CID_EXPOSURE:%d.\n",
+			__func__, ctrl->val);
+		ret = gc0310_s_ev(&dev->sd, ctrl->val);
+		break;
+	case V4L2_CID_EXPOSURE_AUTO:
+		dev_dbg(&client->dev, "%s: CID_EXPOSURE_AUTO:%d.\n",
+			__func__, ctrl->val);
+		ret = gc0310_s_exposure_mode(&dev->sd, ctrl->val);
+		break;
+	case V4L2_CID_3A_LOCK:
+		dev_dbg(&client->dev, "%s: CID_3A_LOCK:%d.\n",
+			__func__, ctrl->val);
+		ret = gc0310_s_ae_lock(&dev->sd, ctrl->val);
+		break;
+	case V4L2_CID_COLORFX:
+		dev_dbg(&client->dev, "%s: CID_3A_LOCK:%d.\n",
+			__func__, ctrl->val);
+		ret = gc0310_s_color_effect(&dev->sd, ctrl->val);
+		break;
+	case V4L2_CID_VFLIP:
+		dev_dbg(&client->dev, "%s: CID_VFLIP:%d.\n",
+			__func__, ctrl->val);
+		ret = gc0310_t_vflip(&dev->sd, ctrl->val);
+		break;
+	case V4L2_CID_HFLIP:
+		dev_dbg(&client->dev, "%s: CID_HFLIP:%d.\n",
+			__func__, ctrl->val);
+		ret = gc0310_t_hflip(&dev->sd, ctrl->val);
+		break;
+	case V4L2_CID_POWER_LINE_FREQUENCY:
+		dev_dbg(&client->dev, "%s: CID_POWER_LINE_FREQUENCY:%d.\n",
+			__func__, ctrl->val);
+		ret = gc0310_s_freq(&dev->sd, ctrl->val);
+		break;
+	case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
+		dev_dbg(&client->dev, "%s: CID_WHITE_BALANCE:%d.\n",
+			__func__, ctrl->val);
+		ret = gc0310_s_wb(&dev->sd, ctrl->val);
+		break;
+	case V4L2_CID_SCENE_MODE:
+		dev_dbg(&client->dev, "%s: CID_SCENE_MODE:%d.\n",
+			__func__, ctrl->val);
+		ret = gc0310_s_scene(&dev->sd, ctrl->val);
+		break;
+	case V4L2_CID_TEST_PATTERN:
+		dev_dbg(&client->dev, "%s: CID_CID_TEST_PATTERN:%d.\n",
+			__func__, ctrl->val);
+		ret = gc0310_s_test_pattern(&dev->sd);
+		break;
+	}
+
+	return ret;
+}
+
+static int gc0310_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct gc0310_device *dev = container_of(
+		ctrl->handler, struct gc0310_device, ctrl_handler);
+	int ret = 0;
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	switch (ctrl->id) {
+	case V4L2_CID_EXPOSURE_ABSOLUTE:
+		ret = gc0310_g_exposure(&dev->sd, &ctrl->val);
+		break;
+	case V4L2_CID_EXPOSURE_AUTO:
+		ret = gc0310_g_exposure_mode(&dev->sd, &ctrl->val);
+		break;
+
+	case V4L2_CID_3A_LOCK:
+		ret = gc0310_g_ae_lock(&dev->sd, &ctrl->val);
+		break;
+	case V4L2_CID_COLORFX:
+		ret = gc0310_g_color_effect(&dev->sd, &ctrl->val);
+		break;
+	case V4L2_CID_SCENE_MODE:
+		ret = gc0310_g_scene(&dev->sd, &ctrl->val);
+		break;
+	case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
+		ret = gc0310_g_wb(&dev->sd, &ctrl->val);
+		break;
+	case V4L2_CID_VFLIP:
+		ret = gc0310_g_vflip(&dev->sd, &ctrl->val);
+		break;
+	case V4L2_CID_HFLIP:
+		ret = gc0310_g_hflip(&dev->sd, &ctrl->val);
+		break;
+	case V4L2_CID_FNUMBER_ABSOLUTE:
+		ret = gc0310_g_fnumber(&dev->sd, &ctrl->val);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
+
+static const struct v4l2_ctrl_ops ctrl_ops = {
+
+	.s_ctrl = gc0310_s_ctrl,
+	.g_volatile_ctrl = gc0310_g_volatile_ctrl
+};
+
+static const struct v4l2_ctrl_config gc0310_controls[] = {
+	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_EXPOSURE,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "exposure biasx",
+		.min = -2,
+		.max = 2,
+		.step = 0x01,
+		.def = 0x00,
+	},
+	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_EXPOSURE_ABSOLUTE,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "exposure",
+		.min = 0x0,
+		.max = 0xffff,
+		.step = 0x01,
+		.def = 0x00,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+	},
+	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_EXPOSURE_AUTO,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "exposure mode",
+		.min = 0,
+		.max = 3,
+		.step = 1,
+		.def = 0,
+		.flags = 0,
+	},
+	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_3A_LOCK,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "exposure mode",
+		.min = 0,
+		.max = SHRT_MAX,
+		.step = 1,
+		.def = 0,
+		.flags = 0,
+	},
+	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_COLORFX,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "color effect",
+		.min = 0,
+		.max = SHRT_MAX,
+		.step = 1,
+		.def = 0,
+		.flags = 0,
+	},
+/*	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_HOT_PIXEL,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "hot pixel",
+		.min = 0,
+		.max = SHRT_MAX,
+		.step = 1,
+		.def = 0,
+		.flags = 0,
+	},*/
+	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_VFLIP,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "Flip",
+		.min = 0,
+		.max = 1,
+		.step = 1,
+		.def = 0,
+	},
+	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_HFLIP,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.name = "Mirror",
+		.min = 0,
+		.max = 1,
+		.step = 1,
+		.def = 0,
+	},
+	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_HFLIP,
+		.name = "Horizontal Flip",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 0,
+		.max = 1,
+		.step = 1,
+		.def = 0,
+		.flags = 0,
+	},
+	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_VFLIP,
+		.name = "Vertical Flip",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 0,
+		.max = 1,
+		.step = 1,
+		.def = 0,
+		.flags = 0,
+	},
+	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_POWER_LINE_FREQUENCY,
+		.name = "frequency",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 0,
+		.max = SHRT_MAX,
+		.step = 1,
+		.def = 0,
+		.flags = 0,
+	},
+	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE,
+		.name = "white balance",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 0,
+		.max = SHRT_MAX,
+		.step = 1,
+		.def = 0,
+		.flags = 0,
+	},
+	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_SCENE_MODE,
+		.name = "Vertical Flip",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 0,
+		.max = SHRT_MAX,
+		.step = 1,
+		.def = 0,
+		.flags = 0,
+	},
+	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_FNUMBER_ABSOLUTE,
+		.name = "focal number",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = GC0310_F_NUMBER_DEFAULT,
+		.max = GC0310_F_NUMBER_DEFAULT,
+		.step = 1,
+		.def = GC0310_F_NUMBER_DEFAULT,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
+	},
+};
+
+
+static int gc0310_s_stream(struct v4l2_subdev *sd, int enable)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct gc0310_device *dev = to_gc0310_sensor(sd);
+	int ret;
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	MYDBGNP("%s %s\n",__func__,enable?"on":"off");
+	mutex_lock(&dev->input_lock);
+
+	ret = gc0310_write_reg_array(client, enable ? gc0310_stream_on: gc0310_stream_off);
+
+	mutex_unlock(&dev->input_lock);
+	return ret;
+}
+
+
+
+static int
+gc0310_enum_framesizes(struct v4l2_subdev *sd, struct v4l2_frmsizeenum *fsize)
+{
+	unsigned int index = fsize->index;
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	if (index >= N_RES)
+		return -EINVAL;
+
+
+	fsize->type = V4L2_FRMSIZE_TYPE_DISCRETE;
+	fsize->discrete.width = gc0310_res[index].width;
+	fsize->discrete.height = gc0310_res[index].height;
+
+	fsize->reserved[0] = gc0310_res[index].used;
+
+	return 0;
+}
+
+static int gc0310_enum_frameintervals(struct v4l2_subdev *sd,
+				       struct v4l2_frmivalenum *fival)
+{
+	unsigned int index = fival->index;
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	if (index >= N_RES)
+		return -EINVAL;
+
+	fival->type = V4L2_FRMIVAL_TYPE_DISCRETE;
+	fival->discrete.numerator = 1;
+	fival->discrete.denominator = gc0310_res[index].fps;
+
+	return 0;
+}
+
+#ifndef CONFIG_GMIN_INTEL_MID /* FIXME! */
+static int
+gc0310_g_chip_ident(struct v4l2_subdev *sd, struct v4l2_dbg_chip_ident *chip)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+
+	return v4l2_chip_ident_i2c_client(client, chip, V4L2_IDENT_GC0310, 0);
+}
+#endif
+static int gc0310_enum_mbus_code(struct v4l2_subdev *sd,
+				  struct v4l2_subdev_fh *fh,
+				  struct v4l2_subdev_mbus_code_enum *code)
+{
+
+		MYDBGNP("################5########## entry %s \n", __func__);
+
+	if (code->index)
+		return -EINVAL;
+	code->code = V4L2_MBUS_FMT_UYVY8_1X16;
+	return 0;
+}
+
+static int gc0310_enum_frame_size(struct v4l2_subdev *sd,
+	struct v4l2_subdev_fh *fh,
+	struct v4l2_subdev_frame_size_enum *fse)
+{
+	unsigned int index = fse->index;
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	if (index >= N_RES)
+		return -EINVAL;
+
+	fse->min_width = gc0310_res[index].width;
+	fse->min_height = gc0310_res[index].height;
+	fse->max_width = gc0310_res[index].width;
+	fse->max_height = gc0310_res[index].height;
+
+	return 0;
+}
+
+static int
+gc0310_get_pad_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
+		       struct v4l2_subdev_format *fmt)
+{
+	struct gc0310_device *snr = to_gc0310_sensor(sd);
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	switch (fmt->which) {
+	case V4L2_SUBDEV_FORMAT_TRY:
+		fmt->format = *v4l2_subdev_get_try_format(fh, fmt->pad);
+		break;
+	case V4L2_SUBDEV_FORMAT_ACTIVE:
+		fmt->format = snr->format;
+	}
+
+	return 0;
+}
+
+static int
+gc0310_set_pad_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
+		       struct v4l2_subdev_format *fmt)
+{
+	struct gc0310_device *snr = to_gc0310_sensor(sd);
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE)
+		snr->format = fmt->format;
+
+	return 0;
+}
+
+/* set focus zone */
+static int
+gc0310_set_selection(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
+			     struct v4l2_subdev_selection *sel)
+{
+	return 0;
+}
+
+static int gc0310_g_parm(struct v4l2_subdev *sd,
+			struct v4l2_streamparm *param)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	if (!param)
+		return -EINVAL;
+
+	if (param->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) {
+		dev_err(&client->dev,  "unsupported buffer type.\n");
+		return -EINVAL;
+	}
+
+	memset(param, 0, sizeof(*param));
+	param->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	return 0;
+}
+
+static int gc0310_s_parm(struct v4l2_subdev *sd,
+			struct v4l2_streamparm *param)
+{
+	struct gc0310_device *dev = to_gc0310_sensor(sd);
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	mutex_lock(&dev->input_lock);
+	dev->run_mode = param->parm.capture.capturemode;
+	mutex_unlock(&dev->input_lock);
+
+	return 0;
+}
+
+static int gc0310_g_frame_interval(struct v4l2_subdev *sd,
+				   struct v4l2_subdev_frame_interval *interval)
+{
+	struct gc0310_device *dev = to_gc0310_sensor(sd);
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	interval->interval.numerator = 1;
+	interval->interval.denominator = gc0310_res[dev->fmt_idx].fps;
+
+	return 0;
+}
+
+static int
+gc0310_g_skip_frames(struct v4l2_subdev *sd, u32 *frames)
+{
+	struct gc0310_device *dev = to_gc0310_sensor(sd);
+	*frames = gc0310_res[dev->fmt_idx].skip_frames;
+	return 0;
+}
+
+static const struct v4l2_subdev_video_ops gc0310_video_ops = {
+	.try_mbus_fmt = gc0310_try_mbus_fmt,
+	.g_mbus_fmt = gc0310_g_mbus_fmt,
+	.s_mbus_fmt = gc0310_s_mbus_fmt,
+	.s_parm = gc0310_s_parm,
+	.g_parm = gc0310_g_parm,
+	.s_stream = gc0310_s_stream,
+	.enum_framesizes = gc0310_enum_framesizes,
+	.enum_frameintervals = gc0310_enum_frameintervals,
+	.g_frame_interval = gc0310_g_frame_interval,
+};
+
+static const struct v4l2_subdev_sensor_ops gc0310_sensor_ops = {
+	.g_skip_frames	= gc0310_g_skip_frames,
+};
+
+static const struct v4l2_subdev_core_ops gc0310_core_ops = {
+#ifndef CONFIG_GMIN_INTEL_MID /* FIXME! for non-gmin*/
+	.g_chip_ident = gc0310_g_chip_ident,
+#endif
+	.queryctrl = v4l2_subdev_queryctrl,
+	.g_ctrl = v4l2_subdev_g_ctrl,
+	.s_ctrl = v4l2_subdev_s_ctrl,
+	.s_power = gc0310_s_power,
+	.ioctl = gc0310_ioctl,
+};
+static const struct v4l2_subdev_pad_ops gc0310_pad_ops = {
+	.enum_mbus_code = gc0310_enum_mbus_code,
+	.enum_frame_size = gc0310_enum_frame_size,
+	.get_fmt = gc0310_get_pad_format,
+	.set_fmt = gc0310_set_pad_format,
+	.set_selection = gc0310_set_selection,
+};
+
+static const struct v4l2_subdev_ops gc0310_ops = {
+	.core = &gc0310_core_ops,
+	.video = &gc0310_video_ops,
+	.sensor = &gc0310_sensor_ops,
+	.pad = &gc0310_pad_ops,
+};
+
+static const struct media_entity_operations gc0310_entity_ops = {
+	.link_setup = NULL,
+};
+
+static int gc0310_remove(struct i2c_client *client)
+{
+	struct v4l2_subdev *sd = i2c_get_clientdata(client);
+	struct gc0310_device *dev = container_of(sd,
+					struct gc0310_device, sd);
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	dev->platform_data->csi_cfg(sd, 0);
+
+	release_firmware(dev->firmware);
+	v4l2_device_unregister_subdev(sd);
+#ifdef CONFIG_GMIN_INTEL_MID
+	atomisp_gmin_remove_subdev(sd);
+#endif
+	media_entity_cleanup(&dev->sd.entity);
+	kfree(dev);
+
+	return 0;
+}
+
+static int __gc0310_init_ctrl_handler(struct gc0310_device *dev)
+{
+	struct v4l2_ctrl_handler *hdl;
+	int i;
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	hdl = &dev->ctrl_handler;
+
+	v4l2_ctrl_handler_init(&dev->ctrl_handler, ARRAY_SIZE(gc0310_controls));
+
+	for (i = 0; i < ARRAY_SIZE(gc0310_controls); i++)
+		v4l2_ctrl_new_custom(&dev->ctrl_handler,
+				&gc0310_controls[i], NULL);
+
+	dev->tp_mode = v4l2_ctrl_find(&dev->ctrl_handler,
+				V4L2_CID_TEST_PATTERN);
+
+	if (dev->ctrl_handler.error)
+		return dev->ctrl_handler.error;
+
+	dev->ctrl_handler.lock = &dev->input_lock;
+	dev->sd.ctrl_handler = hdl;
+	v4l2_ctrl_handler_setup(&dev->ctrl_handler);
+
+	return 0;
+}
+
+static int gc0310_probe(struct i2c_client *client,
+			const struct i2c_device_id *id)
+{
+	struct v4l2_subdev *sd = i2c_get_clientdata(client);
+	struct gc0310_device *dev = container_of(sd,
+					struct gc0310_device, sd);
+	int ret = 0;
+#ifdef CONFIG_GMIN_INTEL_MID
+	void *pdata;
+#endif
+
+	MYDBGNP("################5########## entry %s \n", __func__);
+
+	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+	if (!dev) {
+		dev_err(&client->dev, "out of memory\n");
+		return -ENOMEM;
+	}
+
+	mutex_init(&dev->input_lock);
+
+	v4l2_i2c_subdev_init(&(dev->sd), client, &gc0310_ops);
+#ifdef CONFIG_GMIN_INTEL_MID
+	pdata = client->dev.platform_data;
+	if (ACPI_COMPANION(&client->dev))
+		pdata = gmin_camera_platform_data(&dev->sd,
+						  ATOMISP_INPUT_FORMAT_YUV422_8,
+						  0);
+	if (pdata)
+		ret = gc0310_s_config(&dev->sd, client->irq, pdata);
+	if (!pdata || ret)
+		goto out_free;
+
+	ret = atomisp_register_i2c_module(&dev->sd, pdata, SOC_CAMERA);
+	if (ret)
+		goto out_free;
+#else
+
+	if (client->dev.platform_data) {
+		ret = gc0310_s_config(&dev->sd, client->irq,
+				       client->dev.platform_data);
+		if (ret)
+			goto out_free;
+	}
+#endif
+	ret = __gc0310_init_ctrl_handler(dev);
+	if (ret)
+		goto out_ctrl_handler_free;
+
+	dev->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+	dev->pad.flags = MEDIA_PAD_FL_SOURCE;
+	dev->format.code = V4L2_MBUS_FMT_UYVY8_1X16;
+	dev->sd.entity.ops = &gc0310_entity_ops;
+	dev->sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV_SENSOR;
+	dev->ae_lock = 0;
+	dev->color_effect = 0;
+	dev->hot_pixel = 0;
+	ret = media_entity_init(&dev->sd.entity, 1, &dev->pad, 0);
+	if (ret)
+		gc0310_remove(client);
+
+	return ret;
+
+out_ctrl_handler_free:
+	v4l2_ctrl_handler_free(&dev->ctrl_handler);
+
+out_free:
+	v4l2_device_unregister_subdev(&dev->sd);
+	kfree(dev);
+	return ret;
+}
+
+MODULE_DEVICE_TABLE(i2c, gc0310_id);
+#ifdef CONFIG_GMIN_INTEL_MID
+static struct acpi_device_id gc0310_acpi_match[] = {
+	{ "XXGC0310" },
+	{},
+};
+MODULE_DEVICE_TABLE(acpi, gc0310_acpi_match);
+#endif
+
+static struct i2c_driver gc0310_driver = {
+	.driver = {
+		.owner = THIS_MODULE,
+		.name = GC0310_NAME,
+#ifdef CONFIG_GMIN_INTEL_MID
+		.acpi_match_table = ACPI_PTR(gc0310_acpi_match),
+#endif
+	},
+	.probe = gc0310_probe,
+	.remove = __exit_p(gc0310_remove),
+	.id_table = gc0310_id,
+};
+
+static __init int gc0310_init_mod(void)
+{
+	return i2c_add_driver(&gc0310_driver);
+}
+
+static __exit void gc0310_exit_mod(void)
+{
+	i2c_del_driver(&gc0310_driver);
+}
+
+module_init(gc0310_init_mod);
+module_exit(gc0310_exit_mod);
+
+MODULE_DESCRIPTION("A low-level driver for Omnivision GC0310 sensors");
+MODULE_LICENSE("GPL");

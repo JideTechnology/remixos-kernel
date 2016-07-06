@@ -58,6 +58,8 @@ int gpiod_to_irq(const struct gpio_desc *desc);
 /* Convert between the old gpio_ and new gpiod_ interfaces */
 struct gpio_desc *gpio_to_desc(unsigned gpio);
 int desc_to_gpio(const struct gpio_desc *desc);
+int gpio_chip_hwgpio(const struct gpio_desc *desc);
+
 
 #else /* CONFIG_GPIOLIB */
 

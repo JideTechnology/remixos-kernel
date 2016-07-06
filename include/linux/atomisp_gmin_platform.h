@@ -26,8 +26,19 @@ int atomisp_register_i2c_module(struct v4l2_subdev *subdev,
 struct v4l2_subdev *atomisp_gmin_find_subdev(struct i2c_adapter *adapter,
 					     struct i2c_board_info *board_info);
 int atomisp_gmin_remove_subdev(struct v4l2_subdev *sd);
-int gmin_get_config_var(struct device *dev, const char *var, char *out, size_t *out_len);
+
+#ifdef CONFIG_VIDEO_CAMERA_PLUG_AND_PLAY
+int gmin_get_config_var(struct device *dev, const char *var,
+		char *out, size_t *out_len, const char *drv_name);
+int gmin_get_var_int(struct device *dev, const char *var,
+		int def, const char *drv_name);
+int camera_init_device(void);
+#else
+int gmin_get_config_var(struct device *dev, const char *var,
+		char *out, size_t *out_len);
 int gmin_get_var_int(struct device *dev, const char *var, int def);
+#endif /* CONFIG_VIDEO_CAMERA_PLUG_AND_PLAY */
+
 int camera_sensor_csi(struct v4l2_subdev *sd, u32 port,
                       u32 lanes, u32 format, u32 bayer_order, int flag);
 struct camera_sensor_platform_data *gmin_camera_platform_data(

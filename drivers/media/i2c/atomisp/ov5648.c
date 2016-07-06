@@ -580,33 +580,82 @@ err:
 	return ret;
 }
 
-static int ov5648_vcm_power_up(struct v4l2_subdev *sd)
+int ov5648_vcm_power_up(struct v4l2_subdev *sd)
 {
 	struct ov5648_device *dev = to_ov5648_sensor(sd);
-	struct camera_sensor_platform_data *pdata = dev->platform_data;
-	struct camera_vcm_control *vcm;
-
-	if (!dev->vcm_driver)
-		if (pdata && pdata->get_vcm_ctrl)
-			dev->vcm_driver =
-				pdata->get_vcm_ctrl(&dev->sd,
-						dev->camera_module);
-
-	vcm = dev->vcm_driver;
-	if (vcm && vcm->ops && vcm->ops->power_up)
-		return vcm->ops->power_up(sd, vcm);
-
+	if (dev->vcm_driver && dev->vcm_driver->power_up)
+		return dev->vcm_driver->power_up(sd);
 	return 0;
 }
 
-static int ov5648_vcm_power_down(struct v4l2_subdev *sd)
+int ov5648_vcm_power_down(struct v4l2_subdev *sd)
 {
 	struct ov5648_device *dev = to_ov5648_sensor(sd);
-	struct camera_vcm_control *vcm = dev->vcm_driver;
+	if (dev->vcm_driver && dev->vcm_driver->power_down)
+		return dev->vcm_driver->power_down(sd);
+	return 0;
+}
 
-	if (vcm && vcm->ops && vcm->ops->power_down)
-		return vcm->ops->power_down(sd, vcm);
+int ov5648_vcm_init(struct v4l2_subdev *sd)
+{
+	struct ov5648_device *dev = to_ov5648_sensor(sd);
+	if (dev->vcm_driver && dev->vcm_driver->init)
+		return dev->vcm_driver->init(sd);
+	return 0;
+}
 
+int ov5648_t_focus_vcm(struct v4l2_subdev *sd, u16 val)
+{
+	struct ov5648_device *dev = to_ov5648_sensor(sd);
+	if (dev->vcm_driver && dev->vcm_driver->t_focus_vcm)
+		return dev->vcm_driver->t_focus_vcm(sd, val);
+	return 0;
+}
+
+int ov5648_t_focus_abs(struct v4l2_subdev *sd, s32 value)
+{
+	struct ov5648_device *dev = to_ov5648_sensor(sd);
+	if (dev->vcm_driver && dev->vcm_driver->t_focus_abs)
+		return dev->vcm_driver->t_focus_abs(sd, value);
+	return 0;
+}
+int ov5648_t_focus_rel(struct v4l2_subdev *sd, s32 value)
+{
+	struct ov5648_device *dev = to_ov5648_sensor(sd);
+	if (dev->vcm_driver && dev->vcm_driver->t_focus_rel)
+		return dev->vcm_driver->t_focus_rel(sd, value);
+	return 0;
+}
+
+int ov5648_q_focus_status(struct v4l2_subdev *sd, s32 *value)
+{
+	struct ov5648_device *dev = to_ov5648_sensor(sd);
+	if (dev->vcm_driver && dev->vcm_driver->q_focus_status)
+		return dev->vcm_driver->q_focus_status(sd, value);
+	return 0;
+}
+
+int ov5648_q_focus_abs(struct v4l2_subdev *sd, s32 *value)
+{
+	struct ov5648_device *dev = to_ov5648_sensor(sd);
+	if (dev->vcm_driver && dev->vcm_driver->q_focus_abs)
+		return dev->vcm_driver->q_focus_abs(sd, value);
+	return 0;
+}
+
+int ov5648_t_vcm_slew(struct v4l2_subdev *sd, s32 value)
+{
+	struct ov5648_device *dev = to_ov5648_sensor(sd);
+	if (dev->vcm_driver && dev->vcm_driver->t_vcm_slew)
+		return dev->vcm_driver->t_vcm_slew(sd, value);
+	return 0;
+}
+
+int ov5648_t_vcm_timing(struct v4l2_subdev *sd, s32 value)
+{
+	struct ov5648_device *dev = to_ov5648_sensor(sd);
+	if (dev->vcm_driver && dev->vcm_driver->t_vcm_timing)
+		return dev->vcm_driver->t_vcm_timing(sd, value);
 	return 0;
 }
 
@@ -710,6 +759,72 @@ struct ov5648_control ov5648_controls[] = {
 	},
 	{
 		.qc = {
+			.id = V4L2_CID_FOCUS_ABSOLUTE,
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.name = "focus move absolute",
+			.minimum = 0,
+			.maximum = VCM_MAX_FOCUS_POS,
+			.step = 1,
+			.default_value = 0,
+			.flags = 0,
+		},
+		.tweak = ov5648_t_focus_abs,
+		.query = ov5648_q_focus_abs,
+	},
+	{
+		.qc = {
+			.id = V4L2_CID_FOCUS_RELATIVE,
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.name = "focus move relative",
+			.minimum = OV5648_MAX_FOCUS_NEG,
+			.maximum = OV5648_MAX_FOCUS_POS,
+			.step = 1,
+			.default_value = 0,
+			.flags = 0,
+		},
+		.tweak = ov5648_t_focus_rel,
+	},
+	{
+		.qc = {
+			.id = V4L2_CID_FOCUS_STATUS,
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.name = "focus status",
+			.minimum = 0,
+			.maximum = 100, /* allow enum to grow in the future */
+			.step = 1,
+			.default_value = 0,
+			.flags = 0,
+		},
+		.query = ov5648_q_focus_status,
+	},
+	{
+		.qc = {
+			.id = V4L2_CID_VCM_SLEW,
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.name = "vcm slew",
+			.minimum = 0,
+			.maximum = OV5648_VCM_SLEW_STEP_MAX,
+			.step = 1,
+			.default_value = 0,
+			.flags = 0,
+		},
+		.tweak = ov5648_t_vcm_slew,
+	},
+	{
+		.qc = {
+			.id = V4L2_CID_VCM_TIMEING,
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.name = "vcm step time",
+			.minimum = 0,
+			.maximum = OV5648_VCM_SLEW_TIME_MAX,
+			.step = 1,
+			.default_value = 0,
+			.flags = 0,
+		},
+		.tweak = ov5648_t_vcm_timing,
+	},
+	{
+		.qc = {
 			.id = V4L2_CID_BIN_FACTOR_HORZ,
 			.type = V4L2_CTRL_TYPE_INTEGER,
 			.name = "horizontal binning factor",
@@ -775,14 +890,9 @@ static int ov5648_queryctrl(struct v4l2_subdev *sd, struct v4l2_queryctrl *qc)
 {
 	struct ov5648_control *ctrl = ov5648_find_control(qc->id);
 	struct ov5648_device *dev = to_ov5648_sensor(sd);
-	struct camera_vcm_control *vcm = dev->vcm_driver;
 
-	if (ctrl == NULL) {
-		if (vcm && vcm->ops && vcm->ops->queryctrl)
-			return vcm->ops->queryctrl(sd, qc, vcm);
-
+	if (ctrl == NULL)
 		return -EINVAL;
-	}
 
 	mutex_lock(&dev->input_lock);
 	*qc = ctrl->qc;
@@ -796,21 +906,13 @@ static int ov5648_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 {
 	struct ov5648_control *s_ctrl;
 	struct ov5648_device *dev = to_ov5648_sensor(sd);
-	struct camera_vcm_control *vcm = dev->vcm_driver;
 	int ret;
 
 	if (!ctrl)
 		return -EINVAL;
 
 	s_ctrl = ov5648_find_control(ctrl->id);
-	if (s_ctrl == NULL) {
-		if (vcm && vcm->ops && vcm->ops->g_ctrl)
-			return vcm->ops->g_ctrl(sd, ctrl, vcm);
-
-		return -EINVAL;
-	}
-
-	if (s_ctrl->query == NULL)
+	if ((s_ctrl == NULL) || (s_ctrl->query == NULL))
 		return -EINVAL;
 
 	mutex_lock(&dev->input_lock);
@@ -824,17 +926,9 @@ static int ov5648_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 {
 	struct ov5648_control *octrl = ov5648_find_control(ctrl->id);
 	struct ov5648_device *dev = to_ov5648_sensor(sd);
-	struct camera_vcm_control *vcm = dev->vcm_driver;
 	int ret;
 
-	if (octrl == NULL) {
-		if (vcm && vcm->ops && vcm->ops->g_ctrl)
-			return vcm->ops->s_ctrl(sd, ctrl, vcm);
-
-		return -EINVAL;
-	}
-
-	if (octrl->tweak == NULL)
+	if ((octrl == NULL) || (octrl->tweak == NULL))
 		return -EINVAL;
 
 	switch(ctrl->id)
@@ -876,7 +970,6 @@ static int ov5648_init(struct v4l2_subdev *sd)
 	ret = ov5648_write_reg_array(client, ov5648_global_settings);
 	if (ret) {
 		dev_err(&client->dev, "ov5648 write global settings err.\n");
-		mutex_unlock(&dev->input_lock);
 		return ret;
 	}
 
@@ -1364,9 +1457,11 @@ static int ov5648_s_power(struct v4l2_subdev *sd, int on)
 	dev_dbg(&client->dev, "@%s:\n", __func__);
 	if (on == 0) {
 		ret = power_down(sd);
-		ret |= ov5648_vcm_power_down(sd);
+		if (dev->vcm_driver && dev->vcm_driver->power_down)
+			ret |= dev->vcm_driver->power_down(sd);
 	} else {
-		ret = ov5648_vcm_power_up(sd);
+		if (dev->vcm_driver && dev->vcm_driver->power_up)
+			ret = dev->vcm_driver->power_up(sd);
 		if (ret)
 			return ret;
 
@@ -1387,7 +1482,7 @@ static int ov5648_s_power(struct v4l2_subdev *sd, int on)
  * res->width/height smaller than w/h wouldn't be considered.
  * Returns the value of gap or -1 if fail.
  */
-#define LARGEST_ALLOWED_RATIO_MISMATCH 900
+#define LARGEST_ALLOWED_RATIO_MISMATCH 800
 static int distance(struct ov5648_resolution *res, u32 w, u32 h)
 {
 	unsigned int w_ratio = ((res->width << 13) / w);
@@ -1975,6 +2070,17 @@ static int ov5648_probe(struct i2c_client *client,
 	ret = atomisp_register_i2c_module(&dev->sd, pdata, RAW_CAMERA);
 	if (ret)
 		goto out_free;
+		
+#ifdef CONFIG_VIDEO_WV511
+	dev->vcm_driver = &ov5648_vcms[WV511];
+	dev->vcm_driver->init(&dev->sd);
+	dev_err(&client->dev, "CONFIG_VIDEO_WV511\n");
+#elif defined (CONFIG_VIDEO_DW9714)
+		/*set default vcm driver*/
+	dev_info(&client->dev, "Set default VCM driver\n");
+	dev->vcm_driver = &ov5648_vcms[DW9714];
+	dev->vcm_driver->init(&dev->sd);
+#endif
 
 	dev->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	dev->pad.flags = MEDIA_PAD_FL_SOURCE;
@@ -1994,7 +2100,7 @@ out_free:
 }
 
 static struct acpi_device_id ov5648_acpi_match[] = {
-	{"XXOV5648"},
+	{"INT5648"},
 	{},
 };
 MODULE_DEVICE_TABLE(acpi, ov5648_acpi_match);

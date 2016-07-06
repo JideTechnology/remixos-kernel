@@ -2500,12 +2500,17 @@ static int ov8858_s_ctrl(struct v4l2_ctrl *ctrl)
 		dev->fps_index = 0;
 
 		return 0;
+#if 0
 	case V4L2_CID_TEST_PATTERN:
 		dev_dbg(&client->dev,
 			"%s: V4L2_CID_TEST_PATTERN = %d, val = 0x%04X\n",
 			__func__, V4L2_CID_TEST_PATTERN, ctrl->val);
 		return ov8858_write_reg(client, OV8858_16BIT,
 					OV8858_TEST_PATTERN_REG, ctrl->val);
+#else
+	case V4L2_CID_TEST_PATTERN:
+		return 0;
+#endif
 	case V4L2_CID_FOCUS_ABSOLUTE:
 		if (dev->vcm_driver && dev->vcm_driver->t_focus_abs)
 			return dev->vcm_driver->t_focus_abs(&dev->sd,
@@ -2535,7 +2540,7 @@ static int ov8858_g_ctrl(struct v4l2_ctrl *ctrl)
 	struct ov8858_device *dev = container_of(
 		ctrl->handler, struct ov8858_device, ctrl_handler);
 	struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
-	int r_odd, r_even;
+	/* int r_odd, r_even; */
 	int i = dev->fmt_idx;
 
 	switch (ctrl->id) {
@@ -2544,6 +2549,7 @@ static int ov8858_g_ctrl(struct v4l2_ctrl *ctrl)
 			return dev->vcm_driver->q_focus_status(&dev->sd,
 							       &(ctrl->val));
 		return 0;
+#if 0
 	case V4L2_CID_BIN_FACTOR_HORZ:
 		r_odd = ov8858_get_register_8bit(&dev->sd, OV8858_H_INC_ODD,
 						 dev->curr_res_table[i].regs);
@@ -2567,6 +2573,14 @@ static int ov8858_g_ctrl(struct v4l2_ctrl *ctrl)
 			return r_even;
 		ctrl->val = fls(r_odd + (r_even)) - 2;
 		return 0;
+#else
+	case V4L2_CID_BIN_FACTOR_HORZ:
+		ctrl->val = dev->curr_res_table[i].bin_factor_x;
+		break;
+	case V4L2_CID_BIN_FACTOR_VERT:
+		ctrl->val = dev->curr_res_table[i].bin_factor_y;
+		break;
+#endif
 	case V4L2_CID_HFLIP:
 		ctrl->val = dev->hflip;
 		break;
@@ -2919,6 +2933,16 @@ static int ov8858_probe(struct i2c_client *client,
 
 	dev_dbg(&client->dev, "%s:\n", __func__);
 
+	/* Fixme, for plug-and-play */
+	if (client &&
+			(client->addr != OV8858_I2C_ADDR)) {
+		dev_err(&client->dev,
+				"%s():  0x%.2X isn't equal to OV8858_I2C_ADDR!\n",
+				__func__,
+				client->addr);
+		return -EINVAL;
+	}
+
 	/* allocate sensor device & init sub device */
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev) {
@@ -3020,6 +3044,7 @@ static int ov8858_probe(struct i2c_client *client,
 	return 0;
 
 out_free:
+	atomisp_gmin_remove_subdev(&dev->sd);
 	v4l2_device_unregister_subdev(&dev->sd);
 	kfree(dev);
 	return ret;

@@ -1800,7 +1800,6 @@ int xhci_update_hub_device(struct usb_hcd *hcd, struct usb_device *hdev,
 			struct usb_tt *tt, gfp_t mem_flags);
 int xhci_urb_enqueue(struct usb_hcd *hcd, struct urb *urb, gfp_t mem_flags);
 int xhci_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status);
-int xhci_all_urb_dequeue(struct usb_hcd *hcd, struct urb *urb_list[], int count, int status);
 int xhci_add_endpoint(struct usb_hcd *hcd, struct usb_device *udev, struct usb_host_endpoint *ep);
 int xhci_drop_endpoint(struct usb_hcd *hcd, struct usb_device *udev, struct usb_host_endpoint *ep);
 void xhci_endpoint_reset(struct usb_hcd *hcd, struct usb_host_endpoint *ep);

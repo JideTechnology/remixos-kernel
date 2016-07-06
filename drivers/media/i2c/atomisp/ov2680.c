@@ -1221,10 +1221,10 @@ static int ov2680_detect(struct i2c_client *client)
 					OV2680_SC_CMMN_CHIP_ID_L, &low);
 	id = ((((u16) high) << 8) | (u16) low);
 
-	if (id != OV2680_ID) {
-		dev_err(&client->dev, "sensor ID error 0x%x\n", id);
-		return -ENODEV;
-	}
+	//if (id != OV2680_ID) {
+		//dev_err(&client->dev, "sensor ID error 0x%x\n", id);
+		//return -ENODEV;
+	//}
 
 	ret = ov2680_read_reg(client, OV2680_8BIT,
 					OV2680_SC_CMMN_SUB_ID, &high);
@@ -1641,7 +1641,7 @@ out_free:
 }
 
 static struct acpi_device_id ov2680_acpi_match[] = {
-	{"XXOV2680"},
+	{"OVTI2680"},
 	{},
 };
 MODULE_DEVICE_TABLE(acpi, ov2680_acpi_match);

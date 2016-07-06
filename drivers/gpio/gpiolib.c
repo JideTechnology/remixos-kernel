@@ -146,10 +146,11 @@ static inline void desc_set_label(struct gpio_desc *d, const char *label)
 /*
  * Return the GPIO number of the passed descriptor relative to its chip
  */
-static int gpio_chip_hwgpio(const struct gpio_desc *desc)
+int gpio_chip_hwgpio(const struct gpio_desc *desc)
 {
 	return desc - &desc->chip->desc[0];
 }
+EXPORT_SYMBOL_GPL(gpio_chip_hwgpio);
 
 /**
  * Convert a GPIO number to its descriptor

@@ -1645,29 +1645,6 @@ int usb_hcd_unlink_urb (struct urb *urb, int status)
 	return retval;
 }
 
-void usb_hcd_all_urb_dequeue(struct urb *urb_list[],
-		int count, int status)
-{
-	struct usb_hcd *hcd;
-	struct urb *urb;
-	struct usb_device *udev;
-
-	/* Check if the list is not empty */
-	if (urb_list[0]) {
-		urb = urb_list[0];
-		udev = urb->dev;
-	} else {
-		printk(KERN_ERR "urb_list empty\n");
-		return;
-	}
-
-	usb_get_dev(udev);
-	hcd = bus_to_hcd(urb->dev->bus);
-	hcd->driver->all_urb_dequeue(hcd, urb_list,
-			count, status);
-	usb_put_dev(udev);
-}
-
 /*-------------------------------------------------------------------------*/
 
 static void __usb_hcd_giveback_urb(struct urb *urb)

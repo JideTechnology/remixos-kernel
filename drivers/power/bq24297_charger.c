@@ -15,8 +15,7 @@
  * General Public License for more details.
  *
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- * Author: Ramakrishna Pallala <ramakrishna.pallala@intel.com>
- * Author: Raj Pandey <raj.pandey@intel.com>
+ * Author: chenjian <chenjian0915@thundersoft.com>
  */
 
 #include <linux/module.h>
@@ -31,6 +30,7 @@
 #include <linux/seq_file.h>
 #include <linux/power_supply.h>
 #include <linux/power/bq24297_charger.h>
+#include <linux/mfd/intel_soc_pmic.h>
 #include <linux/pm_runtime.h>
 #include <linux/io.h>
 #include <linux/sched.h>
@@ -88,6 +88,36 @@
 #define INPUT_SRC_CUR_LMT5		0x5	/* 1500mA */
 #define INPUT_SRC_CUR_LMT6		0x6	/* 2000mA */
 #define INPUT_SRC_CUR_LMT7		0x7	/* 3000mA */
+
+#define DC_CHRG_VLTFC_REG		0x38
+#define CHRG_VLTFC_N5C			0xCA	/* -5 DegC */
+
+#define DC_CHRG_VHTFC_REG		0x39
+#define CHRG_VHTFC_60C			0x12	/* 60 DegC */
+
+#define DC_PWRSRC_IRQ_CFG_REG		0x40
+#define PWRSRC_IRQ_CFG_VBUS_LOW		(1 << 2)
+#define PWRSRC_IRQ_CFG_VBUS_HIGH	(1 << 3)
+#define PWRSRC_IRQ_CFG_VBUS_OVP		(1 << 4)
+#define PWRSRC_IRQ_CFG_SVBUS_LOW	(1 << 5)
+#define PWRSRC_IRQ_CFG_SVBUS_HIGH	(1 << 6)
+#define PWRSRC_IRQ_CFG_SVBUS_OVP	(1 << 7)
+
+#define DC_BAT_IRQ_CFG_REG		0x41
+#define BAT_IRQ_CFG_CHRG_DONE		(1 << 2)
+#define BAT_IRQ_CFG_CHRG_START		(1 << 3)
+#define BAT_IRQ_CFG_BAT_SAFE_EXIT	(1 << 4)
+#define BAT_IRQ_CFG_BAT_SAFE_ENTER	(1 << 5)
+#define BAT_IRQ_CFG_BAT_DISCON		(1 << 6)
+#define BAT_IRQ_CFG_BAT_CONN		(1 << 7)
+#define BAT_IRQ_CFG_BAT_MASK		0xFC
+
+#define DC_TEMP_IRQ_CFG_REG		0x42
+#define TEMP_IRQ_CFG_QWBTU		(1 << 0)
+#define TEMP_IRQ_CFG_WBTU		(1 << 1)
+#define TEMP_IRQ_CFG_QWBTO		(1 << 2)
+#define TEMP_IRQ_CFG_WBTO		(1 << 3)
+#define TEMP_IRQ_CFG_MASK		0xf
 
 /*
  * D1, D2, D3 can be used to set min sys voltage limit
@@ -204,6 +234,32 @@
 #define BQ24192I_IC_VERSION			0x3
 #define BQ24296_IC_VERSION			0x4
 #define BQ24297_IC_VERSION			0xC
+
+#define DC_CHRG_CCCV_REG                0x33
+#define CHRG_CCCV_CC_MASK               0xf             /* 4 bits */
+#define CHRG_CCCV_CC_BIT_POS            0
+#define CHRG_CCCV_CC_OFFSET             200             /* 200mA */
+#define CHRG_CCCV_CC_LSB_RES            200             /* 200mA */
+#define CHRG_CCCV_ITERM_20P             (1 << 4)        /* 20% of CC */
+#define CHRG_CCCV_CV_MASK               0x60            /* 2 bits */
+#define CHRG_CCCV_CV_BIT_POS            5
+#define CHRG_CCCV_CV_4100MV             0x0             /* 4.10V */
+#define CHRG_CCCV_CV_4150MV             0x1             /* 4.15V */
+#define CHRG_CCCV_CV_4200MV             0x2             /* 4.20V */
+#define CHRG_CCCV_CV_4350MV             0x3             /* 4.35V */
+#define CHRG_CCCV_CHG_EN                (1 << 7)
+
+#define DC_CHRG_CNTL2_REG		0x34
+#define CNTL2_CC_TIMEOUT_MASK		0x3	/* 2 bits */
+#define CNTL2_CC_TIMEOUT_OFFSET		6	/* 6 Hrs */
+#define CNTL2_CC_TIMEOUT_LSB_RES	2	/* 2 Hrs */
+#define CNTL2_CC_TIMEOUT_12HRS		0x3	/* 12 Hrs */
+#define CNTL2_CHGLED_TYPEB		(1 << 4)
+#define CNTL2_CHG_OUT_TURNON		(1 << 5)
+#define CNTL2_PC_TIMEOUT_MASK		0xC0
+#define CNTL2_PC_TIMEOUT_OFFSET		40	/* 40 mins */
+#define CNTL2_PC_TIMEOUT_LSB_RES	10	/* 10 mins */
+#define CNTL2_PC_TIMEOUT_70MINS		0x3
 
 #define BQ24192_MAX_MEM		12
 #define NR_RETRY_CNT		3
@@ -337,6 +393,50 @@ static enum power_supply_property bq24192_usb_props[] = {
 #define BYTCR_CHRG_CUR_NOLIMIT  1800
 #define BYTCR_CHRG_CUR_MEDIUM   1400
 #define BYTCR_CHRG_CUR_LOW      1000
+
+static int pmic_chrg_reg_readb(struct bq24192_chip *chip, int reg)
+{
+        int ret;
+
+        ret = intel_soc_pmic_readb(reg);
+        if (ret < 0)
+                pr_err("pmic reg read err:%d\n", ret);
+
+        return ret;
+}
+
+static int pmic_chrg_reg_writeb(struct bq24192_chip *chip, int reg, u8 val)
+{
+        int ret;
+
+        ret = intel_soc_pmic_writeb(reg, val);
+        if (ret < 0)
+                pr_err("pmic reg write err:%d\n", ret);
+
+        return ret;
+}
+
+static int pmic_chrg_reg_setb(struct bq24192_chip *chip, int reg, u8 mask)
+{
+        int ret;
+
+        ret = intel_soc_pmic_setb(reg, mask);
+        if (ret < 0)
+                pr_err("pmic reg set mask err:%d\n", ret);
+
+        return ret;
+}
+
+static int pmic_chrg_reg_clearb(struct bq24192_chip *chip, int reg, u8 mask)
+{
+        int ret;
+
+        ret = intel_soc_pmic_clearb(reg, mask);
+        if (ret < 0)
+                pr_err("pmic reg set mask err:%d\n", ret);
+
+        return ret;
+}
 
 static struct ps_batt_chg_prof byt_ps_batt_chrg_prof;
 static struct power_supply_throttle byt_throttle_states[] = {
@@ -1299,6 +1399,17 @@ static inline int bq24192_enable_charging(
 
 	dev_warn(&chip->client->dev, "%s:%d %d\n", __func__, __LINE__, val);
 
+    if (val)
+	{
+		ret = pmic_chrg_reg_setb(chip,
+						DC_CHRG_CCCV_REG, CHRG_CCCV_CHG_EN);
+		ret = pmic_chrg_reg_setb(chip,
+						DC_CHRG_CNTL2_REG, CNTL2_CHG_OUT_TURNON);
+    }
+	else
+		ret = pmic_chrg_reg_clearb(chip,
+                        DC_CHRG_CCCV_REG, CHRG_CCCV_CHG_EN);
+
 	ret = bq24192_read_reg(chip->client, BQ24192_POWER_ON_CFG_REG);
 	if (ret < 0) {
 		dev_err(&chip->client->dev,
@@ -1463,6 +1574,18 @@ static enum bq24192_chrgr_stat bq24192_is_charging(struct bq24192_chip *chip)
 	return chip->chgr_stat;
 }
 
+static int pmic_chrg_enable_charging(struct pmic_chrg_info *info, bool enable)
+{
+        int ret;
+		if (enable)
+			ret = pmic_chrg_reg_setb(info,
+                        DC_CHRG_CCCV_REG, CHRG_CCCV_CHG_EN);
+        else
+			ret = pmic_chrg_reg_clearb(info,
+                        DC_CHRG_CCCV_REG, CHRG_CCCV_CHG_EN);
+        return ret;
+}
+
 static int bq24192_usb_set_property(struct power_supply *psy,
 					enum power_supply_property psp,
 					const union power_supply_propval *val)
@@ -1490,9 +1613,7 @@ static int bq24192_usb_set_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_ENABLE_CHARGING:
 #if 0
-		bq24192_enable_hw_term(chip, val->intval);
 		ret = bq24192_enable_charging(chip, val->intval);
-
 		if (ret < 0)
 			dev_err(&chip->client->dev,
 				"Error(%d) in %s charging", ret,
@@ -2418,6 +2539,20 @@ static void otg_irq_worker(struct work_struct *work)
 		notify_otg_coming(chip, otg_state);
 }
 #endif
+static void pmic_chrg_init_hw_regs(void)
+{
+	/* program temperature thresholds */
+	intel_soc_pmic_writeb(DC_CHRG_VLTFC_REG, CHRG_VLTFC_N5C);
+	intel_soc_pmic_writeb(DC_CHRG_VHTFC_REG, CHRG_VHTFC_60C);
+
+	/* do not turn-off charger o/p after charge cycle ends */
+	intel_soc_pmic_setb(DC_CHRG_CNTL2_REG, CNTL2_CHG_OUT_TURNON);
+
+	/* enable interrupts */
+	intel_soc_pmic_setb(DC_BAT_IRQ_CFG_REG, BAT_IRQ_CFG_BAT_MASK);
+	intel_soc_pmic_setb(DC_TEMP_IRQ_CFG_REG, TEMP_IRQ_CFG_MASK);
+}
+
 static int bq24192_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
@@ -2496,6 +2631,7 @@ static int bq24192_probe(struct i2c_client *client,
 #ifdef DEBUG
 	bq24192_dump_registers(chip);
 #endif
+	pmic_chrg_init_hw_regs();
 
 	bq24192_init_config(chip);
 

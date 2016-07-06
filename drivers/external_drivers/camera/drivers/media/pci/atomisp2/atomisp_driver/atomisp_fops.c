@@ -789,12 +789,14 @@ static int atomisp_open(struct file *file)
 
 	/* Deferred firmware loading case. */
 	if (isp->css_env.isp_css_fw.bytes == 0) {
+		printk("bingo...%s(): isp->css_env.isp_css_fw.bytes == 0! call atomisp_load_firmware()!\n", __func__);
 		isp->firmware = atomisp_load_firmware(isp);
 		if (!isp->firmware) {
 			dev_err(isp->dev, "Failed to load ISP firmware.\n");
 			ret = -ENOENT;
 			goto error;
 		}
+		printk("bingo...%s(): call atomisp_css_load_firmware()!\n", __func__);
 		ret = atomisp_css_load_firmware(isp);
 		if (ret) {
 			dev_err(isp->dev, "Failed to init css.\n");
@@ -853,6 +855,7 @@ dev_init:
 	}
 
 	/* Init ISP */
+	printk("bingo...%s(): call atomisp_css_init(isp)!\n", __func__);
 	if (atomisp_css_init(isp)) {
 		ret = -EINVAL;
 		/* Need to clean up CSS init if it fails. */

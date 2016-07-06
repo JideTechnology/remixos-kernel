@@ -43,7 +43,7 @@ static inline bool __is_battery_full
 	pr_devel("%s:current=%d pse_mod_bprof->chrg_term_ma =%d voltage_now=%d full_cond=%d",
 			__func__, cur, iterm, volt * 100, (FULL_CV_MIN * cv));
 
-	return ((cur > 0) && (cur <= iterm) &&
+	return ((cur >= 0) && (cur <= iterm) &&
 	((volt * 100)  >= (FULL_CV_MIN * cv)));
 
 }
@@ -163,10 +163,10 @@ static enum psy_algo_stat pse_get_next_cc_cv(struct batt_props bat_prop,
 		algo_stat = PSY_ALGO_STAT_CHARGE;
 	}
 
-	if (bat_prop.voltage_now > *cv) {
-		algo_stat = PSY_ALGO_STAT_NOT_CHARGE;
-		return algo_stat;
-	}
+	//if (bat_prop.voltage_now > *cv) {
+	//	algo_stat = PSY_ALGO_STAT_NOT_CHARGE;
+	//	return algo_stat;
+	//}
 
 	if (algo_stat == PSY_ALGO_STAT_FULL)
 		return algo_stat;

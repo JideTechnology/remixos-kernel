@@ -177,6 +177,7 @@ typedef struct _S_UNI_DEVICE_ {
 	INT32 hw_lane;
 	INT32 hw_format;
 	INT32 hw_bayer_order;
+	INT32 hw_sensor_type;
 
 	INT32 hw_reset_gpio;
 	INT32 hw_reset_gpio_polarity;

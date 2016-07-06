@@ -15,6 +15,7 @@
 #define EM_CONFIG_OEM0_NAME "OEM0"
 #define EM_CONFIG_OEM1_NAME "OEM1"
 
+#define BATTERY_FULL_VOLTAGE 4200
 #ifdef DEBUG
 static void dump_chrg_profile(const struct ps_pse_mod_prof *chrg_prof);
 #endif
@@ -75,6 +76,41 @@ static int em_config_get_charge_profile(struct ps_pse_mod_prof *chrg_prof)
 		memcpy(&(chrg_prof->turbo),
 			((char *)&chrg_prof_temp) + BATTID_STR_LEN,
 			sizeof(struct em_config_oem0_data) - BATTID_STR_LEN);
+		
+		//chrg_prof->batt_id = "INTN0001";
+		chrg_prof->battery_type = 2;
+		chrg_prof->capacity = 5130;
+		chrg_prof->voltage_max = BATTERY_FULL_VOLTAGE;
+		chrg_prof->chrg_term_ma = 250;
+		chrg_prof->low_batt_mV = 3450;
+		chrg_prof->disch_tmp_ul = 60;
+		chrg_prof->disch_tmp_ll = -20;
+		chrg_prof->temp_mon_ranges = 3;
+
+		chrg_prof->temp_mon_range[0].temp_up_lim = 45;
+		chrg_prof->temp_mon_range[0].full_chrg_vol = BATTERY_FULL_VOLTAGE;
+		chrg_prof->temp_mon_range[0].full_chrg_cur = 2400;
+		chrg_prof->temp_mon_range[0].maint_chrg_vol_ll = BATTERY_FULL_VOLTAGE;
+		chrg_prof->temp_mon_range[0].maint_chrg_vol_ul = BATTERY_FULL_VOLTAGE;
+		chrg_prof->temp_mon_range[0].maint_chrg_cur = 1800;
+
+		chrg_prof->temp_mon_range[1].temp_up_lim = 23;
+		chrg_prof->temp_mon_range[1].full_chrg_vol = BATTERY_FULL_VOLTAGE;
+		chrg_prof->temp_mon_range[1].full_chrg_cur = 1000;
+		chrg_prof->temp_mon_range[1].maint_chrg_vol_ll = BATTERY_FULL_VOLTAGE;
+		chrg_prof->temp_mon_range[1].maint_chrg_vol_ul = BATTERY_FULL_VOLTAGE;
+		chrg_prof->temp_mon_range[1].maint_chrg_cur = 1000;
+
+		chrg_prof->temp_mon_range[2].temp_up_lim = 10;
+		chrg_prof->temp_mon_range[2].full_chrg_vol = BATTERY_FULL_VOLTAGE;
+		chrg_prof->temp_mon_range[2].full_chrg_cur = 500;
+		chrg_prof->temp_mon_range[2].maint_chrg_vol_ll = BATTERY_FULL_VOLTAGE;
+		chrg_prof->temp_mon_range[2].maint_chrg_vol_ul = BATTERY_FULL_VOLTAGE;
+		chrg_prof->temp_mon_range[2].maint_chrg_cur = 500;
+
+		chrg_prof->temp_low_lim = 0;
+
+		
 #ifdef DEBUG
 		dump_chrg_profile(chrg_prof);
 #endif

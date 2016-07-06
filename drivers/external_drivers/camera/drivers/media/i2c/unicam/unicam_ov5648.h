@@ -187,48 +187,54 @@ static  int ov5648_adgain_p[] = {
 /*
  * Register settings for various resolution
  */
-/*B720P(1296X736) 30fps 2lane 10Bit (Binning)*/
-S_UNI_REG ov5648_720p_30fps_2lanes[] = {
+/*Quarter Size(1296X972) 30fps 2lane 10Bit (Binning)*/
+S_UNI_REG ov5648_1296_972_30fps_2lanes[] = {
+	// 1296x972 30fps 2 lane
+	// 19.2 M, PCLK84.48 MIPI 422.4Mbps/lane
+
+	{UNICAM_8BIT, 0x0100, 0x00},
+	{UNICAM_8BIT, 0x3501, 0x3d}, // exposure
+	{UNICAM_8BIT, 0x3502, 0x00}, // exposure
 	{UNICAM_8BIT, 0x3708, 0x66},
 	{UNICAM_8BIT, 0x3709, 0x52},
 	{UNICAM_8BIT, 0x370c, 0xcf},
-	{UNICAM_8BIT, 0x3800, 0x00},/* xstart = 0 */
-	{UNICAM_8BIT, 0x3801, 0x00},/*;xstart10 */
-	{UNICAM_8BIT, 0x3802, 0x00},/* ystart = 226 */
-	{UNICAM_8BIT, 0x3803, 0xe2},/* ystart ;fe */
-	{UNICAM_8BIT, 0x3804, 0x0a},/* xend = 2607 */
-	{UNICAM_8BIT, 0x3805, 0x2f},/* xend */
-	{UNICAM_8BIT, 0x3806, 0x06},/* yend = 1701 */
-	{UNICAM_8BIT, 0x3807, 0xa5},/* yend */
-	{UNICAM_8BIT, 0x3808, 0x05},/* x output size = 1296 */
-	{UNICAM_8BIT, 0x3809, 0x10},/*;x output size 00 */
-	{UNICAM_8BIT, 0x380a, 0x02},/* y output size = 736 */
-	{UNICAM_8BIT, 0x380b, 0xe0},/*;y output size d0 */
-	{UNICAM_8BIT, 0x380c, 0x09},/* hts = 1864  2400 */
-	{UNICAM_8BIT, 0x380d, 0x60},/* hts 48 */
-	{UNICAM_8BIT, 0x380e, 0x04},/* vts = 754; 1120 */
-	{UNICAM_8BIT, 0x380f, 0x60},/* vts f2 */
-	{UNICAM_8BIT, 0x3810, 0x00},/* isp x win (offset)= 0 */
-	{UNICAM_8BIT, 0x3811, 0x00},/* isp x win;08 */
-	{UNICAM_8BIT, 0x3812, 0x00},/* isp y win (offset)= 0 */
-	{UNICAM_8BIT, 0x3813, 0x00},/* isp y win;02 */
-	{UNICAM_8BIT, 0x3814, 0x31},/* x inc */
-	{UNICAM_8BIT, 0x3815, 0x31},/* y inc */
-	{UNICAM_8BIT, 0x3817, 0x00},/* hsync start */
-	{UNICAM_8BIT, 0x3820, 0x08},/* flip off; v bin off */
-	{UNICAM_8BIT, 0x3821, 0x06},/* mirror off; h bin on */
-	{UNICAM_8BIT, 0x4004, 0x02},/* black line number */
-	{UNICAM_8BIT, 0x4005, 0x18},/* blc level trigger */
-	{UNICAM_8BIT, 0x4837, 0x17},/* MIPI global timing ;2f;18 */
-
-	{UNICAM_8BIT, 0x350b, 0x80},/* gain 8x */
-	{UNICAM_8BIT, 0x3501, 0x2d},/* exposure */
-	{UNICAM_8BIT, 0x3502, 0xc0},/* exposure */
-	/*;add 19.2MHz 30fps */
-
-	{UNICAM_8BIT, 0x380e, 0x02},
-	{UNICAM_8BIT, 0x380f, 0xf2},
-	{UNICAM_8BIT, 0x3034, 0x1a},/* mipi 10bit mode */
+	{UNICAM_8BIT, 0x3800, 0x00}, // xstart = 0
+	{UNICAM_8BIT, 0x3801, 0x00}, // x start
+	{UNICAM_8BIT, 0x3802, 0x00}, // y start = 0
+	{UNICAM_8BIT, 0x3803, 0x00}, // y start
+	{UNICAM_8BIT, 0x3804, 0x0a}, // xend = 2623
+	{UNICAM_8BIT, 0x3805, 0x3f}, // xend
+	{UNICAM_8BIT, 0x3806, 0x07}, // yend = 1955
+	{UNICAM_8BIT, 0x3807, 0xa3}, // yend
+	{UNICAM_8BIT, 0x3808, 0x05}, // x output size = 1296
+	// 23 Company Confidential
+	// For OmniVision Internal Only
+	// Camera Module Application Notes
+	{UNICAM_8BIT, 0x3809, 0x10}, // x output size
+	{UNICAM_8BIT, 0x380a, 0x03}, // y output size = 972
+	{UNICAM_8BIT, 0x380b, 0xcc}, // y output size
+	{UNICAM_8BIT, 0x380c, 0x09},
+	{UNICAM_8BIT, 0x380d, 0x60},
+	{UNICAM_8BIT, 0x380e, 0x04},
+	{UNICAM_8BIT, 0x380f, 0x60},
+	{UNICAM_8BIT, 0x3810, 0x00}, // isp x win = 8
+	{UNICAM_8BIT, 0x3811, 0x08}, // isp x win
+	{UNICAM_8BIT, 0x3812, 0x00}, // isp y win = 4
+	{UNICAM_8BIT, 0x3813, 0x04}, // isp y win
+	{UNICAM_8BIT, 0x3814, 0x31}, // x inc
+	{UNICAM_8BIT, 0x3815, 0x31}, // y inc
+	{UNICAM_8BIT, 0x3817, 0x00}, // hsync start
+	{UNICAM_8BIT, 0x3820, 0x08}, // flip off, v bin off
+	{UNICAM_8BIT, 0x3821, 0x07}, // mirror on, h bin on
+	{UNICAM_8BIT, 0x4004, 0x02}, // black line number
+	{UNICAM_8BIT, 0x4005, 0x18}, // blc level trigger
+	{UNICAM_8BIT, 0x350b, 0x80}, // gain = 8x
+	{UNICAM_8BIT, 0x4837, 0x17}, // MIPI global timing
+	{UNICAM_8BIT, 0x0100, 0x01},
+	//PLLfor 19.2M
+	{UNICAM_8BIT, 0x380e, 0x03}, // 0x02,
+	{UNICAM_8BIT, 0x380f, 0xe8}, // 0xf2,
+	{UNICAM_8BIT, 0x3034, 0x1a}, /* mipi 10bit mode */
 	{UNICAM_8BIT, 0x3035, 0x21},
 	{UNICAM_8BIT, 0x3036, 0x58},
 	{UNICAM_8BIT, 0x3037, 0x02},
@@ -457,10 +463,10 @@ S_UNI_REG ov5648_5M_15fps_2lanes[] = {
 static S_UNI_RESOLUTION ov5648_res_preview[] = {
     /* Add for CTS test only, begin */
 	{
-	 .desc = "ov5648_720P_30fps",
+	 .desc = "ov5648_1296_972_30fps",
 	 .res_type = UNI_DEV_RES_PREVIEW|UNI_DEV_RES_VIDEO|UNI_DEV_RES_STILL,
 	 .width = 1296,
-	 .height = 736,
+	 .height = 972,
 	 .fps = 30,
 	 .pixels_per_line = 2400,
 	 .lines_per_frame = 1120,
@@ -468,50 +474,20 @@ static S_UNI_RESOLUTION ov5648_res_preview[] = {
 	 .bin_factor_y = 2,
 	 .bin_mode = 1,
 	 .skip_frames = 3,
-   	 .regs = ov5648_720p_30fps_2lanes,
-	 .regs_n= (ARRAY_SIZE(ov5648_720p_30fps_2lanes)),
+	 .regs = ov5648_1296_972_30fps_2lanes,
+	 .regs_n= (ARRAY_SIZE(ov5648_1296_972_30fps_2lanes)),
 	 .vt_pix_clk_freq_mhz = 84480000,
 
 	 .crop_horizontal_start=0,
-	 .crop_vertical_start=226,
-	 .crop_horizontal_end=2607,
-	 .crop_vertical_end=1701,
+	 .crop_vertical_start=0,
+	 .crop_horizontal_end=2623,
+	 .crop_vertical_end=1955,
 	 .output_width=1296,
-	 .output_height=736,
+	 .output_height=972,
 	 .used = 0,
 	 .vts_fix=8,
-	 .vts=1186,
+	 .vts=1120,
 	},
-    /* Add for CTS test only, begin */
-/*	{
-		.desc = "ov5648_1304_976_30fps",
-		.res_type = UNI_DEV_RES_PREVIEW|UNI_DEV_RES_VIDEO|UNI_DEV_RES_STILL,
-		.width = 1320,
-		.height = 992,
-		.fps = 30,
-		.pixels_per_line = 2400,
-		.lines_per_frame = 1120,
-		.bin_factor_x = 2,
-		.bin_factor_y = 2,
-		.bin_mode = 1,
-		.skip_frames = 3,
-		.regs = ov5648_1304_976_30fps_2lanes,
-		.regs_n= (ARRAY_SIZE(ov5648_1304_976_30fps_2lanes)),
-		
-		.vt_pix_clk_freq_mhz=84480000,
-		.crop_horizontal_start=0,
-		.crop_vertical_start=0,
-		.crop_horizontal_end=2623,
-		.crop_vertical_end=1955,
-		.output_width=1304,
-		.output_height=976,
-		.used = 0,
-
-		.vts_fix=8,
-		.vts=1120,
-		
-	},
-*/
 	{
 		.desc = "ov5648_1080p_30fps",
 		.res_type = UNI_DEV_RES_PREVIEW|UNI_DEV_RES_VIDEO|UNI_DEV_RES_STILL,
@@ -526,7 +502,7 @@ static S_UNI_RESOLUTION ov5648_res_preview[] = {
 		.skip_frames = 1,
 		.regs = ov5648_1080p_30fps_2lanes,
 		.regs_n= (ARRAY_SIZE(ov5648_1080p_30fps_2lanes)),
-		
+
 		.vt_pix_clk_freq_mhz=84480000,
 		.crop_horizontal_start=320,
 		.crop_vertical_start=418,
@@ -538,7 +514,7 @@ static S_UNI_RESOLUTION ov5648_res_preview[] = {
 
 		.vts_fix=8,
 		.vts=1120,
-		
+
 	},
 	{
 		.desc = "ov5648_5M_15fps",
@@ -554,7 +530,7 @@ static S_UNI_RESOLUTION ov5648_res_preview[] = {
 		.skip_frames = 3,
 		.regs = ov5648_5M_15fps_2lanes,
 		.regs_n= (ARRAY_SIZE(ov5648_5M_15fps_2lanes)),
-	
+
 		.vt_pix_clk_freq_mhz=84480000,
 		.crop_horizontal_start=0,
 		.crop_vertical_start=0,
@@ -566,15 +542,16 @@ static S_UNI_RESOLUTION ov5648_res_preview[] = {
 
 		.vts_fix=8,
 		.vts=1984,
-		
+
 	},
 };
 static S_UNI_DEVICE ov5648_unidev= {
+	.desc = "ov5648",
 	.version=0x1,
 	.minversion=125,//update if change, as buildid
 	.af_type=UNI_DEV_AF_DW9714,
 	.i2c_addr=0x36,
-	
+
 	.idreg=0x300A,
 	.idval=0x5648,
 	.idmask=0xffff,
@@ -591,7 +568,7 @@ static S_UNI_DEVICE ov5648_unidev= {
 	.exposefine_mask=0,
 	.exposevts=0x380e,
 	.exposevts_mask=0xffff,
-			
+
 	.exposecoarse_mask=0xfffff,
 	.exposeanaloggain_mask=0x4ff,
 	.exposedigitgain_mask=0,
@@ -603,8 +580,8 @@ static S_UNI_DEVICE ov5648_unidev= {
 	.exposeadgain_step=0,
 	.exposeadgain_isp1gain=0,
 	.exposeadgain_param1gain=0,
- 
-	
+
+
 	.global_setting=ov5648_global_setting,
 	.global_setting_n=(ARRAY_SIZE(ov5648_global_setting)),
 	.stream_off=ov5648_stream_off,
@@ -615,8 +592,8 @@ static S_UNI_DEVICE ov5648_unidev= {
 	.group_hold_start_n=(ARRAY_SIZE(ov5648_group_hold_start)),
 	.group_hold_end=ov5648_group_hold_end,
 	.group_hold_end_n=(ARRAY_SIZE(ov5648_group_hold_end)),
-	
-	
+
+
 	.ress=ov5648_res_preview,
 	.ress_n=(ARRAY_SIZE(ov5648_res_preview)),
 	.coarse_integration_time_min=1,
@@ -627,7 +604,7 @@ static S_UNI_DEVICE ov5648_unidev= {
 	.hw_lane=2,
 	.hw_format=ATOMISP_INPUT_FORMAT_RAW_10,
 	.hw_bayer_order=atomisp_bayer_order_bggr,
-	
+
 	.hw_reset_gpio=119,
 	.hw_reset_gpio_polarity=0,
 	.hw_reset_delayms=20,

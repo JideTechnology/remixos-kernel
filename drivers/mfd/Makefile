@@ -179,3 +179,4 @@ intel-soc-pmic-objs		:= intel_soc_pmic_core.o intel_soc_pmic_i2c.o
 intel-soc-pmic-objs 		+= intel_soc_pmic_crc.o intel_soc_pmic_dc.o intel_soc_pmic_dc_ti.o
 intel-soc-pmic-objs 		+= intel_soc_pmic_wc.o
 obj-$(CONFIG_INTEL_SOC_PMIC)	+= intel-soc-pmic.o
+obj-$(CONFIG_INTEL_MID_GPS)	+= intel_mid_gps.o

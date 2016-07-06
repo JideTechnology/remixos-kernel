@@ -1,0 +1,30 @@
+#
+# Light sensors
+#
+# When adding new entries keep the list in alphabetical order
+
+menu "Light sensors"
+
+
+config SENSORS_CM3218
+	depends on I2C
+	tristate "CM3218 driver"
+	help
+	 Say Y here if you use cm3218.
+	 This option enables ambient light sensor using
+	 Capella cm3218 device driver.
+
+	 To compile this driver as a module, choose M here:
+	 the module will be called cm3218.
+
+config SENSORS_CM36283
+	depends on I2C
+	tristate "CM36283 driver"
+	help
+	 Say Y here if you use cm36283.
+	 This option enables ambient light sensor using
+	 Capella cm36283 device driver.
+
+	 To compile this driver as a module, choose M here:
+	 the module will be called cm36283.
+endmenu

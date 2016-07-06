@@ -18,6 +18,7 @@ config SND_SOC_INTEL_ANCHOR8
 	tristate "SOC Machine Audio driver for Intel(R) Anchor8 device"
 	depends on X86
 	select SND_SOC_RT5651
+#	select SND_SOC_ES8316
 	select SND_SST_PLATFORM
 	select SND_SST_MACHINE
 	select SND_INTEL_SST

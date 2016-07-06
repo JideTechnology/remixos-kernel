@@ -437,7 +437,7 @@ static inline struct snd_soc_codec *cht_get_codec(struct snd_soc_card *card)
 
 	list_for_each_entry(codec, &card->codec_dev_list, card_list) {
 		printk("codec->name = %s \n", codec->name);
-		if (!strstr(codec->name, "rt5651.1-001a")) {
+		if (!strstr(codec->name, "i2c-10EC5651:01")) {
 			pr_debug("codec was %s", codec->name);
 			continue;
 		} else {
@@ -672,7 +672,7 @@ static int cht_audio_init(struct snd_soc_pcm_runtime *runtime)
 
 	desc = devm_gpiod_get_index(codec->dev, NULL, 0);
 	if (!IS_ERR(desc)) {
-		codec_gpio = desc_to_gpio(desc);
+		codec_gpio = 307;//desc_to_gpio(desc);
 		devm_gpiod_put(codec->dev, desc);
 
 		ret = gpiod_export(desc, true);
@@ -685,7 +685,7 @@ static int cht_audio_init(struct snd_soc_pcm_runtime *runtime)
 				__func__, codec_gpio, pol, val);
 
 	} else {
-		codec_gpio = 479;
+		codec_gpio = 307;
 		pr_err("%s: GPIOs - JD/BP-int: Not present!\n", __func__);
 	}
 
@@ -869,7 +869,7 @@ static struct snd_soc_dai_link cht_dailink[] = {
 		.cpu_dai_name = "ssp2-port",
 		.platform_name = "sst-platform",
 		.codec_dai_name = "rt5651-aif1",
-		.codec_name = "rt5651.1-001a",
+		.codec_name = "i2c-10EC5651:01",
 		.dai_fmt = SND_SOC_DAIFMT_DSP_B | SND_SOC_DAIFMT_IB_NF
 			| SND_SOC_DAIFMT_CBS_CFS,
 		.params = &cht_dai_params,
@@ -903,7 +903,7 @@ static struct snd_soc_dai_link cht_dailink[] = {
 		.platform_name = "sst-platform",
 		.no_pcm = 1,
 		.codec_dai_name = "rt5651-aif1",
-		.codec_name = "rt5651.1-001a",
+		.codec_name = "i2c-10EC5651:01",
 		.be_hw_params_fixup = cht_codec_fixup,
 		.ignore_suspend = 1,
 		.ops = &cht_be_ssp2_ops,

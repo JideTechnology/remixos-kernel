@@ -92,6 +92,13 @@ static int mdm_ctrl_cold_boot(struct mdm_info *mdm)
 
 	pr_warn(DRVNAME ": Cold boot requested");
 
+#if 0
+        /*+ 20160310 rsq added for l810 porting */
+        pr_warn(DRVNAME ": Return directly for l810 porting only");
+        return ret;
+        /*- 20160310 rsq added for l810 porting */
+#endif
+
 	/* Set the current modem state */
 	mdm_ctrl_set_state(mdm, MDM_CTRL_STATE_COLD_BOOT);
 

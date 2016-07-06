@@ -1,0 +1,12 @@
+config TOUCHSCREEN_SILEAD
+	tristate "SILEAD I2C Touchscreen"
+	depends on I2C && INPUT
+	help
+	  Say Y here if you have SILEAD gslx68x series I2C touch screen,
+	  such as GSL2681, connected to your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called gslx68x.
+

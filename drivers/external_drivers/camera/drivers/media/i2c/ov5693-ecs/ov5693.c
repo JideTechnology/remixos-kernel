@@ -2094,7 +2094,11 @@ static int ov5693_probe(struct i2c_client *client,
 	 * address of 0x10 which doesn't appear on schematics, and
 	 * some BIOS versions haven't gotten the memo.  Work around
 	 * via config. */
+#ifdef CONFIG_VIDEO_CAMERA_PLUG_AND_PLAY
+	i2c = gmin_get_var_int(&client->dev, "I2CAddr", -1, NULL);
+#else
 	i2c = gmin_get_var_int(&client->dev, "I2CAddr", -1);
+#endif /* CONFIG_VIDEO_CAMERA_PLUG_AND_PLAY */
 	if (i2c != -1) {
 		dev_info(&client->dev,
 		"Overriding firmware-provided I2C address (0x%x) with 0x%x\n",

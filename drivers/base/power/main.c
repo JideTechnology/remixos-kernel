@@ -736,6 +736,7 @@ static void dpm_resume_early(pm_message_t state)
 void dpm_resume_start(pm_message_t state)
 {
 	dpm_resume_noirq(state);
+	dump_wakeup_irqs();
 	dpm_resume_early(state);
 }
 EXPORT_SYMBOL_GPL(dpm_resume_start);

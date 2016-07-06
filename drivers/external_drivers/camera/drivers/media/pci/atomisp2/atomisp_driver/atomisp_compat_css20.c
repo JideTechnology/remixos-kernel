@@ -931,17 +931,32 @@ int atomisp_css_init(struct atomisp_device *isp)
 	unsigned int mmu_base_addr;
 	int ret;
 	enum ia_css_err err;
+	int i;
+	int retry = 40;
 
 	ret = hmm_get_mmu_base_addr(&mmu_base_addr);
 	if (ret)
 		return ret;
 
 	/* Init ISP */
-	err = ia_css_init(&isp->css_env.isp_css_env, NULL,
-			  (uint32_t)mmu_base_addr, IA_CSS_IRQ_TYPE_PULSE);
-	if (err != IA_CSS_SUCCESS) {
-		dev_err(isp->dev, "css init failed --- bad firmware?\n");
-		return -EINVAL;
+	for (i = 0; i < retry; i++) {
+		err = ia_css_init(&isp->css_env.isp_css_env, NULL,
+				  (uint32_t)mmu_base_addr, IA_CSS_IRQ_TYPE_PULSE);
+		if (err != IA_CSS_SUCCESS) {
+			if (i < retry - 1) {
+				printk("bingo...%s(): i is %d, msleep(50) and continue!\n",
+						__func__, i);
+				msleep(50);
+				continue;
+			}
+
+			dev_err(isp->dev, "i is %d, css init failed --- bad firmware?\n", i);
+			dump_stack();
+			return -EINVAL;
+		} else {
+			printk("bingo...%s(): call ia_css_init() success!\n", __func__);
+			break;
+		}
 	}
 	ia_css_enable_isys_event_queue(true);
 
@@ -982,6 +997,7 @@ int atomisp_css_load_firmware(struct atomisp_device *isp)
 {
 	enum ia_css_err err;
 
+	printk("bingo...%s().\n", __func__);
 	/* set css env */
 	isp->css_env.isp_css_fw.data = (void *)isp->firmware->data;
 	isp->css_env.isp_css_fw.bytes = isp->firmware->size;
@@ -1017,6 +1033,7 @@ int atomisp_css_load_firmware(struct atomisp_device *isp)
 	isp->css_env.isp_css_env.print_env.error_print = atomisp_css2_err_print;
 
 	/* load isp fw into ISP memory */
+	printk("bingo...%s(): call ia_css_load_firmware()!\n", __func__);
 	err = ia_css_load_firmware(&isp->css_env.isp_css_env,
 				   &isp->css_env.isp_css_fw);
 	if (err != IA_CSS_SUCCESS) {

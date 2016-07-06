@@ -774,7 +774,18 @@ static int atomisp_subdev_probe(struct atomisp_device *isp)
 	int ret, raw_index = -1;
 #else
 	int raw_index = -1;
-#endif
+#ifdef CONFIG_VIDEO_CAMERA_PLUG_AND_PLAY
+	int ret;
+#endif /* CONFIG_VIDEO_CAMERA_PLUG_AND_PLAY */
+#endif /* CONFIG_GMIN_INTEL_MID */
+
+#ifdef CONFIG_VIDEO_CAMERA_PLUG_AND_PLAY
+	ret = camera_init_device();
+	if (ret) {
+		dev_err(isp->dev, "failed to init the camera devices!\n");
+		return 0;
+	}
+#endif /* CONFIG_VIDEO_CAMERA_PLUG_AND_PLAY */
 
 	pdata = atomisp_get_platform_data();
 	if (pdata == NULL) {
@@ -1357,13 +1368,19 @@ static int atomisp_pci_probe(struct pci_dev *dev,
 			isp->dfs = &dfs_config_byt;
 			isp->hpll_freq = HPLL_FREQ_1600MHZ;
 		}
-#ifdef CONFIG_GMIN_INTEL_MID
+
 		/* HPLL frequency is known to be device-specific, but we don't
 		 * have specs yet for exactly how it varies.  Default to
 		 * BYT-CR but let provisioning set it via EFI variable */
+#ifdef CONFIG_GMIN_INTEL_MID
+#ifdef CONFIG_VIDEO_CAMERA_PLUG_AND_PLAY
+		isp->hpll_freq = gmin_get_var_int(&dev->dev, "HpllFreq",
+					HPLL_FREQ_2000MHZ, NULL);
+#else
 		isp->hpll_freq = gmin_get_var_int(&dev->dev, "HpllFreq",
 					HPLL_FREQ_2000MHZ);
-#endif
+#endif /* CONFIG_VIDEO_CAMERA_PLUG_AND_PLAY */
+#endif /* CONFIG_GMIN_INTEL_MID */
 
 		/*
 		 * for BYT/CHT we are put isp into D3cold to avoid pci registers access
@@ -1437,6 +1454,8 @@ static int atomisp_pci_probe(struct pci_dev *dev,
 
 	/* Load isp firmware from user space */
 	if (!defer_fw_load) {
+		printk("bingo...%s(): defer_fw_load is 0, call atomisp_load_firmware()!\n",
+				__func__);
 		isp->firmware = atomisp_load_firmware(isp);
 		if (!isp->firmware) {
 			err = -ENOENT;
@@ -1448,6 +1467,7 @@ static int atomisp_pci_probe(struct pci_dev *dev,
 			dev_dbg(&dev->dev, "Firmware version check failed\n");
 			goto fw_validation_fail;
 		}
+		printk("bingo...%s(): load firmware complete!\n", __func__);
 	}
 
 	pci_set_master(dev);

@@ -384,6 +384,13 @@ static irqreturn_t pmic_irq_thread(int irq, void *data)
 		if (pmic_regmap_read(&pmic->irq_regmap[i].status) > 0) {
 			pmic_regmap_write(&pmic->irq_regmap[i].ack,
 				pmic->irq_regmap[i].ack.mask);
+			/*if (pmic->print_wakeup) {
+				pr_info("pmic: device[%s] irq[%d] might"
+					" wake up system!\n",
+					pmic->cell_dev[i].name,
+					pmic->irq_base + i);
+			}*/
+
 			handle_nested_irq(pmic->irq_base + i);
 		}
 	}
@@ -391,6 +398,10 @@ static irqreturn_t pmic_irq_thread(int irq, void *data)
 	pmic_regmap_flush();
 
 	mutex_unlock(&pmic->irq_lock);
+
+	/* Just print once after wakeup */
+	if (pmic->print_wakeup)
+		pmic->print_wakeup = 0;
 
 	return IRQ_HANDLED;
 }

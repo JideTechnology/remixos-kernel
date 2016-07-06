@@ -1268,3 +1268,12 @@ config VEXPRESS_CONFIG
 	help
 	  Platform configuration infrastructure for the ARM Ltd.
 	  Versatile Express.
+
+config INTEL_MID_GPS
+	tristate "Intel MID GPS driver"
+	default n
+	help
+	  Select this driver to enable kernel interface for GPS devices
+	  used in Intel MID platforms.
+	  This driver exports GPIO to user space GPS software
+	  that use a standard tty to communicate with the GPS device.

@@ -393,7 +393,7 @@ static void gtp_touch_down(struct goodix_ts_data* ts,s32 id,s32 x,s32 y,s32 w)
     input_report_abs(ts->input_dev, ABS_MT_WIDTH_MAJOR, w);
 #else
     input_report_key(ts->input_dev, BTN_TOUCH, 1);
-    input_report_abs(ts->input_dev, ABS_MT_POSITION_X, x);
+    input_report_abs(ts->input_dev, ABS_MT_POSITION_X, 1920-x);
     input_report_abs(ts->input_dev, ABS_MT_POSITION_Y, y);
     input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, w);
     input_report_abs(ts->input_dev, ABS_MT_WIDTH_MAJOR, w);
@@ -490,7 +490,7 @@ static void gtp_pen_down(s32 x, s32 y, s32 w, s32 id)
     input_report_abs(ts->pen_dev, ABS_MT_TOUCH_MAJOR, w);
 #else
     input_report_key(ts->pen_dev, BTN_TOUCH, 1);
-    input_report_abs(ts->pen_dev, ABS_MT_POSITION_X, x);
+    input_report_abs(ts->pen_dev, ABS_MT_POSITION_X, 1920-x);
     input_report_abs(ts->pen_dev, ABS_MT_POSITION_Y, y);
     input_report_abs(ts->pen_dev, ABS_MT_PRESSURE, w);
     input_report_abs(ts->pen_dev, ABS_MT_TOUCH_MAJOR, w);
@@ -1162,7 +1162,6 @@ static s8 gtp_enter_sleep(struct goodix_ts_data * ts)
         }
     }
 #endif
-
     GTP_GPIO_OUTPUT(gtp_int_gpio, 0);
     msleep(5);
     
@@ -1710,7 +1709,7 @@ static s8 gtp_request_io_port(struct goodix_ts_data *ts)
         GTP_GPIO_AS_INT(gtp_int_gpio);  
         ts->client->irq = gpio_to_irq(gtp_int_gpio);
     } */
-
+    ret = GTP_GPIO_REQUEST(gtp_int_gpio, "gtp_int");
 	GTP_GPIO_AS_INT(gtp_int_gpio); 
 	ts->client->irq = gpio_to_irq(gtp_int_gpio);
 	GTP_INFO("IRQ number = %d",ts->client->irq);
@@ -1720,6 +1719,8 @@ static s8 gtp_request_io_port(struct goodix_ts_data *ts)
         GTP_ERROR("Failed to request GPIO:%d, ERRNO:%d",(s32)gtp_rst_gpio,ret);
         ret = -ENODEV;
     }
+
+	
 
     GTP_GPIO_AS_INPUT(gtp_rst_gpio);
 
@@ -2646,6 +2647,7 @@ Output:
 *******************************************************/
 static void goodix_ts_resume(struct goodix_ts_data *ts)
 {
+    const u8 irq_table[] = GTP_IRQ_TAB;
     s8 ret = -1; 
     GTP_DEBUG_FUNC();
     if (ts->enter_update) {
@@ -2675,6 +2677,8 @@ static void goodix_ts_resume(struct goodix_ts_data *ts)
 
     if (ts->use_irq)
     {
+      //  gpiod_lock_as_irq(gpio_to_desc(GTP_INT_PORT));
+        irq_set_irq_type(ts->client->irq, irq_table[ts->int_trigger_type]);
         gtp_irq_enable(ts);
     }
     else
@@ -2689,7 +2693,7 @@ static void goodix_ts_resume(struct goodix_ts_data *ts)
 }
 
 
-#if   defined(CONFIG_FB)	
+#if 0//   defined(CONFIG_FB)	
 /* frame buffer notifier block control the suspend/resume procedure */
 static int gtp_fb_notifier_callback(struct notifier_block *noti, unsigned long event, void *data)
 {
@@ -2768,7 +2772,7 @@ static void gtp_early_resume(struct early_suspend *h)
 
 static int gtp_register_powermanger(struct goodix_ts_data *ts)
 {
-#if   defined(CONFIG_FB)
+#if 0//   defined(CONFIG_FB)
 	ts->notifier.notifier_call = gtp_fb_notifier_callback;
 	fb_register_client(&ts->notifier);
 	
@@ -2784,7 +2788,7 @@ static int gtp_register_powermanger(struct goodix_ts_data *ts)
 
 static int gtp_unregister_powermanger(struct goodix_ts_data *ts)
 {
-#if   defined(CONFIG_FB)
+#if  0// defined(CONFIG_FB)
 		fb_unregister_client(&ts->notifier);
 		
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
@@ -3076,11 +3080,41 @@ static struct i2c_driver goodix_ts_driver = {
 #ifdef CONFIG_ACPI
 		.acpi_match_table = ACPI_PTR(goodix_acpi_match),
 #endif
-#if !defined(CONFIG_FB) && defined(CONFIG_PM)
+#if /*!defined(CONFIG_FB) && */defined(CONFIG_PM)
 		.pm		  = &gtp_pm_ops,
 #endif
     },
 };
+
+
+static int register_i2c_client(void)
+{        
+    int ret = 0;
+    int i2c_bus_num = 5;
+    
+    struct i2c_adapter *adapter;
+    struct i2c_client *client;
+
+    struct i2c_board_info info = {
+        I2C_BOARD_INFO(GTP_I2C_NAME, 0x14),        
+    };
+
+    adapter = i2c_get_adapter(i2c_bus_num);
+    if(!adapter) {
+        printk("Can't get adapter form i2c_bus_num[%d]",i2c_bus_num);
+        return -ENODEV;
+    }
+
+    client = i2c_new_device(adapter, &info);
+    if(!client) {
+        printk("Can't register i2c client!");
+        kfree(adapter);
+        return -ENODEV;
+    }
+
+    return ret;
+}
+
 
 /*******************************************************    
 Function:
@@ -3096,6 +3130,11 @@ static int __init goodix_ts_init(void)
 
     GTP_DEBUG_FUNC();   
     GTP_INFO("GTP driver installing...");
+	
+    ret = register_i2c_client();
+    if (ret < 0)
+        return ret;
+	
     goodix_wq = create_singlethread_workqueue("goodix_wq");
     if (!goodix_wq)
     {
