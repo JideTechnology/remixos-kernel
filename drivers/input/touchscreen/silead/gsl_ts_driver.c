@@ -156,6 +156,7 @@ static u16 y_old[MAX_CONTACTS+1] = {0};
 static u16 x_new = 0;
 static u16 y_new = 0;
 
+#define ACTIVE_PEN  //主动笔矫正代码，有主动笔功能，需要打开这个宏
 
 
 static int gslX680_init(void)
@@ -302,6 +303,82 @@ static int gsl_ts_read(struct i2c_client *client, u8 addr, u8 *pdata, unsigned i
 	return i2c_master_recv(client, pdata, datalen);
 }
 
+
+#ifdef ACTIVE_PEN
+static void GSL_Adjust_Freq(struct i2c_client *client)
+{
+	
+	u32 cpu_start, cpu_end, ret;
+	u8 buf[4];
+
+	buf[3] = 0x01;
+	buf[2] = 0xfe;
+	buf[1] = 0x02;
+	buf[0] = 0x00;
+	
+	gsl_ts_write(client,0xf0,buf,4);
+	buf[3] = 0xff;
+	buf[2] = 0xff;
+	buf[1] = 0xff;
+	buf[0] = 0xff;	
+	gsl_ts_write(client, 0x04, buf, 4);
+	
+	buf[3] = 0;
+	buf[2] = 0;
+	buf[1] = 0;
+	buf[0] = 0x09;	
+	gsl_ts_write(client, 0x08, buf, 4);
+	
+	msleep(200);
+	buf[3] = 0x01;
+	buf[2] = 0xfe;
+	buf[1] = 0x02;
+	buf[0] = 0x00;
+	gsl_ts_write(client, 0xf0, buf, 4);
+	
+	gsl_ts_read(client, 0, buf, 4);
+	gsl_ts_read(client, 0, buf, 4);
+	
+	
+	cpu_start = (buf[3]<<24) + (buf[2]<<16) + (buf[1]<<8) + buf[0];
+
+	printk("#########cpu_start = 0x%x  #########\n", cpu_start);
+
+	
+	msleep(1000);
+	buf[3] = 0x01;
+	buf[2] = 0xfe;
+	buf[1] = 0x02;
+	buf[0] = 0x00;
+	gsl_ts_write(client, 0xf0, buf, 4);
+	
+	gsl_ts_read(client, 0, buf, 4);
+	gsl_ts_read(client, 0, buf, 4);
+	
+	cpu_end = (buf[3]<<24) + (buf[2]<<16) + (buf[1]<<8) + buf[0];
+	printk("#########cpu_end = 0x%x  #########\n", cpu_end);
+
+	ret = (cpu_start - cpu_end)/226;
+	
+	printk("#########ret = 0x%x  #########\n", ret);
+	
+	
+	buf[3] = 0x00;
+	buf[2] = 0x00;
+	buf[1] = 0x00;
+	buf[0] = 0x03;
+	gsl_ts_write(client, 0xf0, buf, 4);
+	
+	buf[3] = (u8)((ret>>24)&0xff);
+	buf[2] = (u8)((ret>>16)&0xff);
+	buf[1] = (u8)((ret>>8)&0xff);
+	buf[0] = (u8)(ret&0xff);
+	gsl_ts_write(client, 0x7c, buf, 4);
+
+	return 1;
+}
+#endif
+
 static __inline__ void fw2buf(u8 *buf, const u32 *fw)
 {
 	u32 *u32_buf = (int *)buf;
@@ -443,6 +520,9 @@ static void init_chip(struct i2c_client *client)
 	reset_chip(client);
 	gsl_load_fw(client);			
 	startup_chip(client);	
+#ifdef ACTIVE_PEN
+	GSL_Adjust_Freq(client);
+#endif
 	reset_chip(client);	
 	startup_chip(client);	
 }
