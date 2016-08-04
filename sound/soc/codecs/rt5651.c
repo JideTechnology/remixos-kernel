@@ -2507,6 +2507,7 @@ static void rt5651_i2c_shutdown(struct i2c_client *client)
 {
 	struct rt5651_priv *rt5651 = i2c_get_clientdata(client);
 	struct snd_soc_codec *codec = rt5651->codec;
+	gpio_direction_output(368,0);
 
 	if (codec != NULL)
 		rt5651_set_bias_level(codec, SND_SOC_BIAS_OFF);

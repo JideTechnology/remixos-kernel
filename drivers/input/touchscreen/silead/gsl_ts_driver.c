@@ -73,94 +73,6 @@ static u8 gsl_psensor_data[8]={0};
 struct gsl_ts *ts_ps;
 #endif
 
-#define PEN_Adjust_Freq
-
-#ifdef PEN_Adjust_Freq
-static void GSL_Adjust_Freq(struct i2c_client *client)
-{
-	u32 cpu_start, cpu_end, ret;
-	u8 buf[4];
-
-	printk("gsl pen test\n");
-
-	buf[3] = 0x01;
-	buf[2] = 0xfe;
-	buf[1] = 0x02;
-	buf[0] = 0x00;
-	
-	//gsl_write_interface(client,0xf0,buf,4);
-	i2c_smbus_write_i2c_block_data(client,0xf0,4,buf);
-	buf[3] = 0xff;
-	buf[2] = 0xff;
-	buf[1] = 0xff;
-	buf[0] = 0xff;	
-	//gsl_write_interface(client, 0x04, buf, 4);
-	i2c_smbus_write_i2c_block_data(client,0x04,4,buf);
-	
-	buf[3] = 0;
-	buf[2] = 0;
-	buf[1] = 0;
-	buf[0] = 0x09;	
-	//gsl_write_interface(client, 0x08, buf, 4);
-	i2c_smbus_write_i2c_block_data(client,0x08,4,buf);
-	
-	//msleep(200);
-	mdelay(200);
-	buf[3] = 0x01;
-	buf[2] = 0xfe;
-	buf[1] = 0x02;
-	buf[0] = 0x00;
-	//gsl_write_interface(client, 0xf0, buf, 4);
-	
-	//gsl_read_interface(client, 0, buf, 4);
-	i2c_smbus_write_i2c_block_data(client, 0xf0, 4, buf);
-	i2c_smbus_read_i2c_block_data(client, 0, 4, buf);
-	i2c_smbus_read_i2c_block_data(client, 0, 4, buf);
-	
-	
-	cpu_start = (buf[3]<<24) + (buf[2]<<16) + (buf[1]<<8) + buf[0];
-	printk(" gsl pen cpu_start = 0x%x",cpu_start);
-	//msleep(1000);
-	mdelay(1000);
-	buf[3] = 0x01;
-	buf[2] = 0xfe;
-	buf[1] = 0x02;
-	buf[0] = 0x00;
-	//gsl_write_interface(client, 0xf0, buf, 4);
-	
-	//gsl_read_interface(client, 0, buf, 4);
-	i2c_smbus_write_i2c_block_data(client, 0xf0, 4, buf);
-	i2c_smbus_read_i2c_block_data(client, 0, 4, buf);
-	i2c_smbus_read_i2c_block_data(client, 0, 4, buf);
-	
-	
-	cpu_end = (buf[3]<<24) + (buf[2]<<16) + (buf[1]<<8) + buf[0];
-	printk(" gsl pen cpu_end = 0x%x",cpu_end);
-
-	
-	ret = (cpu_start - cpu_end)/226;
-
-	printk("gsl pen  ret =0x%x",ret);
-	
-	buf[3] = 0x00;
-	buf[2] = 0x00;
-	buf[1] = 0x00;
-	buf[0] = 0x03;
-	//gsl_write_interface(client, 0xf0, buf, 4);
-	i2c_smbus_write_i2c_block_data(client, 0xf0, 4, buf);
-	
-	buf[3] = (u8)((ret>>24)&0xff);
-	buf[2] = (u8)((ret>>16)&0xff);
-	buf[1] = (u8)((ret>>8)&0xff);
-	buf[0] = (u8)(ret&0xff);
-
-	//gsl_write_interface(client, 0x7c, buf, 4);
-	i2c_smbus_write_i2c_block_data(client, 0x7c, 4, buf);
-	
-
-	return 1;
-}
-#endif
 
 
 #ifdef HAVE_TOUCH_KEY
@@ -175,19 +87,18 @@ struct key_data {
 };
 
 const u16 key_array[]={
-//                                      KEY_BACK,
+                                      KEY_BACK,
                                       KEY_HOME,
-//                                      KEY_MENU,
-//                                      KEY_SEARCH,
+                                      KEY_MENU,
+                                      KEY_SEARCH,
                                      }; 
 #define MAX_KEY_NUM     (sizeof(key_array)/sizeof(key_array[0]))
 
 struct key_data gsl_key_data[MAX_KEY_NUM] = {
-	{KEY_HOME, 2800, 3500, 2800, 3500},
-//	{KEY_BACK, 2048, 2048, 2048, 2048},
-//	{KEY_HOME, 600, 650, 1940, 1970},	
-//	{KEY_MENU, 2048, 2048, 2048, 2048},
-//	{KEY_SEARCH, 2048, 2048, 2048, 2048},
+	{KEY_BACK, 2048, 2048, 2048, 2048},
+	{KEY_HOME, 2028, 2068, 2028, 2068},	
+	{KEY_MENU, 2048, 2048, 2048, 2048},
+	{KEY_SEARCH, 2048, 2048, 2048, 2048},
 };
 #endif
 
@@ -245,6 +156,7 @@ static u16 y_old[MAX_CONTACTS+1] = {0};
 static u16 x_new = 0;
 static u16 y_new = 0;
 
+#define ACTIVE_PEN  //主动笔矫正代码，有主动笔功能，需要打开这个宏
 
 
 static int gslX680_init(void)
@@ -391,6 +303,82 @@ static int gsl_ts_read(struct i2c_client *client, u8 addr, u8 *pdata, unsigned i
 	return i2c_master_recv(client, pdata, datalen);
 }
 
+
+#ifdef ACTIVE_PEN
+static void GSL_Adjust_Freq(struct i2c_client *client)
+{
+	
+	u32 cpu_start, cpu_end, ret;
+	u8 buf[4];
+
+	buf[3] = 0x01;
+	buf[2] = 0xfe;
+	buf[1] = 0x02;
+	buf[0] = 0x00;
+	
+	gsl_ts_write(client,0xf0,buf,4);
+	buf[3] = 0xff;
+	buf[2] = 0xff;
+	buf[1] = 0xff;
+	buf[0] = 0xff;	
+	gsl_ts_write(client, 0x04, buf, 4);
+	
+	buf[3] = 0;
+	buf[2] = 0;
+	buf[1] = 0;
+	buf[0] = 0x09;	
+	gsl_ts_write(client, 0x08, buf, 4);
+	
+	msleep(200);
+	buf[3] = 0x01;
+	buf[2] = 0xfe;
+	buf[1] = 0x02;
+	buf[0] = 0x00;
+	gsl_ts_write(client, 0xf0, buf, 4);
+	
+	gsl_ts_read(client, 0, buf, 4);
+	gsl_ts_read(client, 0, buf, 4);
+	
+	
+	cpu_start = (buf[3]<<24) + (buf[2]<<16) + (buf[1]<<8) + buf[0];
+
+	printk("#########cpu_start = 0x%x  #########\n", cpu_start);
+
+	
+	msleep(1000);
+	buf[3] = 0x01;
+	buf[2] = 0xfe;
+	buf[1] = 0x02;
+	buf[0] = 0x00;
+	gsl_ts_write(client, 0xf0, buf, 4);
+	
+	gsl_ts_read(client, 0, buf, 4);
+	gsl_ts_read(client, 0, buf, 4);
+	
+	cpu_end = (buf[3]<<24) + (buf[2]<<16) + (buf[1]<<8) + buf[0];
+	printk("#########cpu_end = 0x%x  #########\n", cpu_end);
+
+	ret = (cpu_start - cpu_end)/226;
+	
+	printk("#########ret = 0x%x  #########\n", ret);
+	
+	
+	buf[3] = 0x00;
+	buf[2] = 0x00;
+	buf[1] = 0x00;
+	buf[0] = 0x03;
+	gsl_ts_write(client, 0xf0, buf, 4);
+	
+	buf[3] = (u8)((ret>>24)&0xff);
+	buf[2] = (u8)((ret>>16)&0xff);
+	buf[1] = (u8)((ret>>8)&0xff);
+	buf[0] = (u8)(ret&0xff);
+	gsl_ts_write(client, 0x7c, buf, 4);
+
+	return 1;
+}
+#endif
+
 static __inline__ void fw2buf(u8 *buf, const u32 *fw)
 {
 	u32 *u32_buf = (int *)buf;
@@ -531,10 +519,9 @@ static void init_chip(struct i2c_client *client)
 	clr_reg(client);
 	reset_chip(client);
 	gsl_load_fw(client);			
-	startup_chip(client);
-	
-#ifdef PEN_Adjust_Freq
-		GSL_Adjust_Freq(client);
+	startup_chip(client);	
+#ifdef ACTIVE_PEN
+	GSL_Adjust_Freq(client);
 #endif
 	reset_chip(client);	
 	startup_chip(client);	
@@ -592,7 +579,7 @@ static int char_to_int(char ch)
 //static int gsl_config_read_proc(char *page, char **start, off_t off, int count, int *eof, void *data)
 static int gsl_config_read_proc(struct seq_file *m,void *v)
 {
-	char temp_data[5] = {0};
+	unsigned char temp_data[5] = {0};
 	unsigned int tmp=0;
 	if('v'==gsl_read[0]&&'s'==gsl_read[1])
 	{
@@ -659,8 +646,8 @@ static int gsl_config_read_proc(struct seq_file *m,void *v)
 static int gsl_config_write_proc(struct file *file, const char *buffer, unsigned long count, void *data)
 {
 	u8 buf[8] = {0};
-	char temp_buf[CONFIG_LEN];
-	char *path_buf;
+	unsigned char temp_buf[CONFIG_LEN];
+	unsigned char *path_buf;
 	int tmp = 0;
 	int tmp1 = 0;
 	print_info("[tp-gsl][%s] \n",__func__);
@@ -1044,11 +1031,10 @@ static void gslX680_ts_worker(struct work_struct *work)
 		}
 		id_state_old_flag[i] = id_state_flag[i];
 	}
+#ifndef REPORT_DATA_ANDROID_4_0
 	if(0 == touches)
 	{	
-#ifndef REPORT_DATA_ANDROID_4_0
 		input_mt_sync(ts->input);
-#endif
 	#ifdef HAVE_TOUCH_KEY
 		if(key_state_flag)
 		{
@@ -1058,6 +1044,7 @@ static void gslX680_ts_worker(struct work_struct *work)
 		}
 	#endif			
 	}
+#endif
 #ifdef HAVE_TOUCH_KEY
 		if(key_state_flag)
 		{
@@ -1782,6 +1769,8 @@ static int  gsl_ts_init(void)
 		fw_size =  ARRAY_SIZE(GSLX680_FW_PA02);
     }
 #endif
+		SCREEN_MAX_X =1280;
+		SCREEN_MAX_Y =1920;
 		//i2c_set_pull_strength(1, 2);
 		gsl_config_data_id = gsl_config_data_id_CHT;
 		GSLX680_FW =  GSLX680_FW_CHT;

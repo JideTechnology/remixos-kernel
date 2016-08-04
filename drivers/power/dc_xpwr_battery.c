@@ -189,8 +189,8 @@
 /* each LSB is equal to 1mA */
 #define ADC_TO_PMICTEMP(a)		(a - 267)
 
-#define STATUS_MON_DELAY_JIFFIES	(HZ * 60)	/*60 sec */
-#define STATUS_MON_FULL_DELAY_JIFFIES	(HZ * 30)	/*30sec */
+#define STATUS_MON_DELAY_JIFFIES	(HZ * 10)	/*60 sec */
+#define STATUS_MON_FULL_DELAY_JIFFIES	(HZ * 10)	/*30sec */
 #define FULL_CAP_THLD			100	/* 100% capacity */
 //#define FULL_CAP_THLD			98	/* 98% capacity */
 #define BATT_DET_CAP_THLD		95

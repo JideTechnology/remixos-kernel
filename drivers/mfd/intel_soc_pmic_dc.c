@@ -41,15 +41,14 @@
 #define MAX_CV 		 4200
 #define MAX_CC 		 2000
 
-//Yanghua M10QI Battery profile.
-#define BATTERY_CAPACITY 6500
+
+#define BATTERY_CAPACITY 6405
 #define BATTERY_RDC1 0xC0
-#define BATTERY_RDC0 0x78
+#define BATTERY_RDC0 0x49
 static int fg_bat_curve[] = {
-	0,		0,		0,		0,		0,		0,		0,		1,		2,		3,	
-	5,		12, 	19, 	33, 	45, 	50, 	54, 	57, 	61, 	67, 
-	72, 	77, 	81, 	85, 	91, 	95, 	98, 	100,	100,	100,
-	100,	100,
+	0, 	0, 	0, 	0, 	0, 	0, 	0, 	1, 	2, 	3, 	4, 	12,
+	19,	32,	44,	49,	54,	57,	61,	66,	71,	76,	81,	85,
+	90,	95,	98,	100,100,100,100,100,
 };
 
 /*If need PMIC support power button event report, define it*/

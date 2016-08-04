@@ -55,8 +55,8 @@ static void hall_switch_worker(struct work_struct *work)
 	if (new_value != value)
 		return;
 
-	if (!value && !tp_state)
-		return;
+	//if (!value && !tp_state)
+	//	return;
 
 
 

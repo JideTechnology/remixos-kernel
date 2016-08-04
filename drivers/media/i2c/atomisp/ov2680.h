@@ -29,6 +29,7 @@
 #include <linux/spinlock.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-device.h>
+#include <media/v4l2-ctrls.h>
 #include <linux/v4l2-mediabus.h>
 #include <media/media-entity.h>
 
@@ -42,10 +43,10 @@
 #define I2C_MSG_LENGTH		0x2
 #define I2C_RETRY_COUNT		5
 
-#define OV2680_FOCAL_LENGTH_NUM	334	/*3.34mm*/
-#define OV2680_FOCAL_LENGTH_DEM	100
-#define OV2680_F_NUMBER_DEFAULT_NUM	24
-#define OV2680_F_NUMBER_DEM	10
+#define OV2680_FOCAL_LENGTH_NUM	            248	/* 3.34mm -> 2.48mm */
+#define OV2680_FOCAL_LENGTH_DEM	            100
+#define OV2680_F_NUMBER_DEFAULT_NUM	        24
+#define OV2680_F_NUMBER_DEM	                10
 
 #define OV2680_BIN_FACTOR_MAX 4
 
@@ -78,8 +79,9 @@
  * bits 15-8: min f-number numerator
  * bits 7-0: min f-number denominator
  */
-#define OV2680_F_NUMBER_RANGE 0x180a180a
-#define OV2680_ID	0x2680
+#define OV2680_F_NUMBER_RANGE               0x180a180a
+#define OV2680_ID		                    0x2680
+#define OV2680_I2C_ADDR	                    0x36
 
 #define OV2680_FINE_INTG_TIME_MIN 0
 #define OV2680_FINE_INTG_TIME_MAX_MARGIN 0
@@ -171,31 +173,31 @@ struct ov2680_format {
 	struct ov2680_reg *regs;
 };
 
-struct ov2680_control {
-		struct v4l2_queryctrl qc;
-		int (*query)(struct v4l2_subdev *sd, s32 *value);
-		int (*tweak)(struct v4l2_subdev *sd, s32 value);
-	};
+/*
+ * ov2680 device structure.
+ */
+struct ov2680_device {
+	struct v4l2_subdev sd;
+	struct media_pad pad;
+	struct v4l2_mbus_framefmt format;
+	struct mutex input_lock;
 
+	struct camera_sensor_platform_data *platform_data;
+	struct timespec timestamp_t_focus_abs;
+	int vt_pix_clk_freq_mhz;
+	int fmt_idx;
+	int run_mode;
+	int fps_index;
+	u8 res;
+	u8 type;
+	u8 hflip;
+	u8 vflip;
 
-
-	/*
-	 * ov2680 device structure.
-	 */
-	struct ov2680_device {
-		struct v4l2_subdev sd;
-		struct media_pad pad;
-		struct v4l2_mbus_framefmt format;
-		struct mutex input_lock;
-
-		struct camera_sensor_platform_data *platform_data;
-		struct timespec timestamp_t_focus_abs;
-		int vt_pix_clk_freq_mhz;
-		int fmt_idx;
-		int run_mode;
-		u8 res;
-		u8 type;
-	};
+	int entries_curr_table;
+	const struct ov2680_resolution *curr_res_table;
+	struct v4l2_ctrl_handler ctrl_handler;
+	struct v4l2_ctrl *ctrl;
+};
 
 	enum ov2680_tok_type {
 		OV2680_8BIT  = 0x0001,
@@ -220,7 +222,8 @@ struct ov2680_control {
 		u32 val;	/* @set value for read/mod/write, @mask */
 	};
 
-	#define to_ov2680_sensor(x) container_of(x, struct ov2680_device, sd)
+#define to_ov2680_sensor(x) container_of(x, \
+		struct ov2680_device, sd)
 
 	#define OV2680_MAX_WRITE_BUF_SIZE	30
 
