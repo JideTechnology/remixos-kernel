@@ -90,8 +90,8 @@
 
 #define DC_XPWR_CHARGE_CUR_DCP		2500
 #define DC_XPWR_CHARGE_CUR_CDP		1500
-#define DC_XPWR_CHARGE_CUR_SDP_500	2500
-#define DC_XPWR_CHARGE_CUR_SDP_100	2500
+#define DC_XPWR_CHARGE_CUR_SDP_500	500
+#define DC_XPWR_CHARGE_CUR_SDP_100	100
 
 #define DC_PWRSRC_INTR_NUM		4
 #define PWRSRC_DRV_NAME			"dollar_cove_pwrsrc"
@@ -277,7 +277,7 @@ static int handle_chrg_det_event(struct dc_pwrsrc_info *info)
 	info->is_sdp = false;
 
 	if (chrg_type == DET_STAT_SDP) {
-		dev_info(&info->pdev->dev,
+		dev_dbg(&info->pdev->dev,
 				"SDP cable connecetd\n");
 		notify_otg = true;
 		vbus_mask = 1;
@@ -306,18 +306,12 @@ static int handle_chrg_det_event(struct dc_pwrsrc_info *info)
 		cable_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_CDP;
 		cable_props.ma = DC_XPWR_CHARGE_CUR_CDP;
 	} else if (chrg_type == DET_STAT_DCP) {
-		dev_info(&info->pdev->dev,
+		dev_dbg(&info->pdev->dev,
 				"DCP cable connecetd\n");
-		notify_otg = true;
-		vbus_mask = 1;
 		notify_charger = true;
-		info->is_sdp = true;
 		cable_props.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
-		cable_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_SDP;
-		if (info->pdata->chrg_usb_compliance)
-			cable_props.ma = DC_XPWR_CHARGE_CUR_SDP_100;
-		else
-			cable_props.ma = DC_XPWR_CHARGE_CUR_SDP_500;		
+		cable_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_DCP;
+		cable_props.ma = DC_XPWR_CHARGE_CUR_DCP;
 	} else {
 		dev_warn(&info->pdev->dev,
 			"disconnect or unknown or ID event\n");
