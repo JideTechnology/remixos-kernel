@@ -124,6 +124,7 @@ struct dc_pwrsrc_info {
 	struct wake_lock	wakelock;
 	bool is_sdp;
 	bool id_short;
+	struct delayed_work retry_check_wrk;
 };
 
 static char *pwr_up_down_info[] = {
@@ -193,6 +194,33 @@ static int handle_pwrsrc_event(struct dc_pwrsrc_info *info)
 	return 0;
 }
 
+static int flag = 1;
+static int flag_cancel_work = 0;
+static void retry_check_worker(struct work_struct *work)
+{
+	struct dc_pwrsrc_info *info = container_of(work,
+		struct dc_pwrsrc_info, retry_check_wrk.work);
+	
+	int ret;
+ 	printk("set and mask retry check bit\n");
+	ret = intel_soc_pmic_readb(0x2C);
+	ret &= ~(1<<0);
+	intel_soc_pmic_writeb(0x2c, ret);
+	mdelay(10);
+	ret = intel_soc_pmic_readb(0x2C);
+	ret |= (1<<0);
+	intel_soc_pmic_writeb(0x2c, ret);
+	
+	if( !flag_cancel_work )
+	{
+		cancel_delayed_work(&info->retry_check_wrk);
+		flag_cancel_work = 1;
+	}
+
+	return;
+}
+
+
 static int handle_chrg_det_event(struct dc_pwrsrc_info *info)
 {
 	static bool notify_otg, notify_charger;
@@ -216,6 +244,9 @@ static int handle_chrg_det_event(struct dc_pwrsrc_info *info)
 			wake_locked = true;
 		}
 	} else {
+		if( !flag_cancel_work )
+			cancel_delayed_work(&info->retry_check_wrk);
+		flag = 1;
 		dev_dbg(&info->pdev->dev, "VBUS NOT present\n");
 		vbus_attach = false;
 		cable_props.ma = 0;
@@ -258,6 +289,13 @@ static int handle_chrg_det_event(struct dc_pwrsrc_info *info)
 			cable_props.ma = DC_XPWR_CHARGE_CUR_SDP_100;
 		else
 			cable_props.ma = DC_XPWR_CHARGE_CUR_SDP_500;
+		if( flag  )
+		{
+			flag = 0;
+			flag_cancel_work = 0;
+			printk("start retry check charger after 10s\n");
+			schedule_delayed_work(&info->retry_check_wrk, 1000*10);
+		}
 	} else if (chrg_type == DET_STAT_CDP) {
 		dev_dbg(&info->pdev->dev,
 				"CDP cable connecetd\n");
@@ -594,6 +632,8 @@ static int dc_xpwr_pwrsrc_probe(struct platform_device *pdev)
 			dev_warn(&info->pdev->dev,
 				"error in PWRSRC evt handling\n");
 	}
+
+	INIT_DELAYED_WORK(&info->retry_check_wrk, &retry_check_worker);
 	return 0;
 
 intr_reg_failed:

@@ -696,6 +696,10 @@ static int pmic_chrg_usb_get_property(struct power_supply *psy,
 			val->intval = 0;
 			break;
 		}
+		ret = pmic_chrg_reg_readb(info, DC_PS_STAT_REG);
+		if (!(ret & PS_STAT_VBUS_PRESENT)) 
+			info->online = 0;
+
 		val->intval = info->online;
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
