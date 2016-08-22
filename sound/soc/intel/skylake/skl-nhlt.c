@@ -40,11 +40,13 @@ struct nhlt_acpi_table *skl_nhlt_init(struct device *dev)
 	obj = acpi_evaluate_dsm(handle, OSC_UUID, 1, 1, NULL);
 	if (obj && obj->type == ACPI_TYPE_BUFFER) {
 		nhlt_ptr = (struct nhlt_resource_desc  *)obj->buffer.pointer;
-		nhlt_table = (struct nhlt_acpi_table *)
-				memremap(nhlt_ptr->min_addr, nhlt_ptr->length,
-				MEMREMAP_WB);
-		ACPI_FREE(obj);
-		return nhlt_table;
+		if (nhlt_ptr->min_addr != NULL && nhlt_ptr->length != 0) {
+			nhlt_table = (struct nhlt_acpi_table *)
+					memremap(nhlt_ptr->min_addr, nhlt_ptr->length,
+					MEMREMAP_WB);
+			ACPI_FREE(obj);
+			return nhlt_table;
+		}
 	}
 
 	dev_err(dev, "device specific method to extract NHLT blob failed\n");
