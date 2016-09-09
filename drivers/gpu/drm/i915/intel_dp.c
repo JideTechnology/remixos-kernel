@@ -4933,12 +4933,14 @@ static void intel_edp_panel_vdd_sanitize(struct intel_dp *intel_dp)
 
 void intel_dp_encoder_reset(struct drm_encoder *encoder)
 {
-	struct intel_dp *intel_dp;
+	struct drm_i915_private *dev_priv = to_i915(encoder->dev);
+	struct intel_dp *intel_dp = enc_to_intel_dp(encoder);
+
+	if (!HAS_DDI(dev_priv))
+		intel_dp->DP = I915_READ(intel_dp->output_reg);
 
 	if (to_intel_encoder(encoder)->type != INTEL_OUTPUT_EDP)
 		return;
-
-	intel_dp = enc_to_intel_dp(encoder);
 
 	pps_lock(intel_dp);
 
@@ -5011,9 +5013,6 @@ intel_dp_hpd_pulse(struct intel_digital_port *intel_dig_port, bool long_hpd)
 	intel_display_power_get(dev_priv, power_domain);
 
 	if (long_hpd) {
-		/* indicate that we need to restart link training */
-		intel_dp->train_set_valid = false;
-
 		if (!intel_digital_port_connected(dev_priv, intel_dig_port))
 			goto mst_fail;
 
