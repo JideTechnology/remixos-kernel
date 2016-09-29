@@ -1805,7 +1805,7 @@ static sint aes_decipher(u8 *key, uint	hdrlen,
                             );
 
 	        aes128k128d(key, ctr_preload, aes_out);
-        	bitwise_xor(aes_out, &pframe[payload_index], chain_buffer);
+		bitwise_xor(aes_out, &pframe[payload_index], chain_buffer);
 
 	        for (j=0; j<16;j++)
 			 pframe[payload_index++] = chain_buffer[j];
