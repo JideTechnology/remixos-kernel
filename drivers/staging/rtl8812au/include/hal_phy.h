@@ -45,14 +45,17 @@
 
 #define	RF6052_MAX_PATH				2
 
-/*--------------------------Define Parameters-------------------------------*/
-typedef enum _BAND_TYPE{
-	BAND_ON_2_4G = 0,
-	BAND_ON_5G,
-	BAND_ON_BOTH,
-	BANDMAX
-}BAND_TYPE,*PBAND_TYPE;
+//
+// Antenna detection method, i.e., using single tone detection or RSSI reported from each antenna detected.
+// Added by Roger, 2013.05.22.
+//
+#define ANT_DETECT_BY_SINGLE_TONE	BIT0
+#define ANT_DETECT_BY_RSSI				BIT1
+#define IS_ANT_DETECT_SUPPORT_SINGLE_TONE(__Adapter)		((GET_HAL_DATA(__Adapter)->AntDetection) & ANT_DETECT_BY_SINGLE_TONE)
+#define IS_ANT_DETECT_SUPPORT_RSSI(__Adapter)		((GET_HAL_DATA(__Adapter)->AntDetection) & ANT_DETECT_BY_RSSI)
 
+
+/*--------------------------Define Parameters-------------------------------*/
 typedef	enum _RF_TYPE{
 	RF_TYPE_MIN = 0, 	// 0
 	RF_8225=1,			// 1 11b/g RF for verification only
@@ -62,13 +65,6 @@ typedef	enum _RF_TYPE{
 	RF_PSEUDO_11N=5,	// 5, It is a temporality RF.
 	RF_TYPE_MAX
 }RF_TYPE_E,*PRF_TYPE_E;
-
-typedef enum _RF_PATH{
-	RF_PATH_A = 0,
-	RF_PATH_B,
-	RF_PATH_C,
-	RF_PATH_D
-}RF_PATH, *PRF_PATH;
 
 #define	TX_1S			0
 #define	TX_2S			1
@@ -128,7 +124,9 @@ typedef enum _WIRELESS_MODE {
 	WIRELESS_MODE_AUTO = 0x08,
 	WIRELESS_MODE_N_24G = 0x10,
 	WIRELESS_MODE_N_5G = 0x20,
-	WIRELESS_MODE_AC_5G = 0x40
+	WIRELESS_MODE_AC_5G = 0x40,
+	WIRELESS_MODE_AC_24G  = 0x80,
+	WIRELESS_MODE_AC_ONLY  = 0x100,
 } WIRELESS_MODE;
 
 typedef enum _SwChnlCmdID{

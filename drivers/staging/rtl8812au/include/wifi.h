@@ -48,6 +48,7 @@
 #define WLAN_MIN_ETHFRM_LEN	60
 #define WLAN_MAX_ETHFRM_LEN	1514
 #define WLAN_ETHHDR_LEN		14
+#define WLAN_WMM_LEN		24
 
 #define P80211CAPTURE_VERSION	0x80211001
 
@@ -81,8 +82,10 @@ enum WIFI_FRAME_SUBTYPE {
     WIFI_AUTH           = (BIT(7) | BIT(5) | BIT(4) | WIFI_MGT_TYPE),
     WIFI_DEAUTH         = (BIT(7) | BIT(6) | WIFI_MGT_TYPE),
     WIFI_ACTION         = (BIT(7) | BIT(6) | BIT(4) | WIFI_MGT_TYPE),
+    WIFI_ACTION_NOACK = (BIT(7) | BIT(6) | BIT(5) | WIFI_MGT_TYPE),
 
     // below is for control frame
+    WIFI_NDPA         = (BIT(6) | BIT(4) | WIFI_CTRL_TYPE),
     WIFI_PSPOLL         = (BIT(7) | BIT(5) | WIFI_CTRL_TYPE),
     WIFI_RTS            = (BIT(7) | BIT(5) | BIT(4) | WIFI_CTRL_TYPE),
     WIFI_CTS            = (BIT(7) | BIT(6) | WIFI_CTRL_TYPE),
@@ -167,6 +170,8 @@ enum WIFI_REASON_CODE	{
 enum WIFI_STATUS_CODE {
 	_STATS_SUCCESSFUL_			= 0,
 	_STATS_FAILURE_				= 1,
+	_STATS_SEC_DISABLED_			= 5,
+	_STATS_NOT_IN_SAME_BSS_		= 7,
 	_STATS_CAP_FAIL_			= 10,
 	_STATS_NO_ASOC_				= 11,
 	_STATS_OTHER_				= 12,
@@ -176,6 +181,10 @@ enum WIFI_STATUS_CODE {
 	_STATS_AUTH_TIMEOUT_		= 16,
 	_STATS_UNABLE_HANDLE_STA_	= 17,
 	_STATS_RATE_FAIL_			= 18,
+	_STATS_REFUSED_TEMPORARILY_ = 30,
+	_STATS_DECLINE_REQ_			= 37,
+	_STATS_INVALID_PARAMETERS_	= 38,
+	_STATS_INVALID_RSNIE_			= 72,
 };
 
 /* Status codes (IEEE 802.11-2007, 7.3.1.9, Table 7-23) */
@@ -436,6 +445,18 @@ __inline static int IS_MCAST(unsigned char *da)
 		return _FALSE;
 }
 
+__inline static unsigned char * get_ra(unsigned char *pframe)
+{
+	unsigned char 	*ra;
+	ra = GetAddr1Ptr(pframe);
+	return ra;
+}
+__inline static unsigned char * get_ta(unsigned char *pframe)
+{
+	unsigned char 	*ta;
+	ta = GetAddr2Ptr(pframe);
+	return ta;
+}
 
 __inline static unsigned char * get_da(unsigned char *pframe)
 {
@@ -486,7 +507,7 @@ __inline static unsigned char * get_sa(unsigned char *pframe)
 
 __inline static unsigned char * get_hdr_bssid(unsigned char *pframe)
 {
-	unsigned char 	*sa;
+	unsigned char 	*sa = NULL;
 	unsigned int	to_fr_ds	= (GetToDs(pframe) << 1) | GetFrDs(pframe);
 
 	switch (to_fr_ds) {
@@ -501,9 +522,6 @@ __inline static unsigned char * get_hdr_bssid(unsigned char *pframe)
 			break;
 		case 0x03:	// ToDs=1, FromDs=1
 			sa = GetAddr1Ptr(pframe);
-			break;
-		default:
-			sa =NULL; //???????
 			break;
 	}
 
@@ -572,7 +590,9 @@ __inline static int IsFrameTypeCtrl(unsigned char *pframe)
 //#define EID_BSSCoexistence			72 // 20/40 BSS Coexistence
 //#define EID_BSSIntolerantChlReport	73
 #define _RIC_Descriptor_IE_			75
-
+#ifdef CONFIG_IEEE80211W
+#define _MME_IE_					76 //802.11w Management MIC element
+#endif //CONFIG_IEEE80211W
 #define _LINK_ID_IE_					101
 #define _CH_SWITCH_TIMING_		104
 #define _PTI_BUFFER_STATUS_		106
@@ -654,6 +674,7 @@ typedef	enum _ELEMENT_ID{
 	EID_WAPI					= 68,
 	EID_VHTCapability 			= 191, // Based on 802.11ac D2.0
 	EID_VHTOperation 			= 192, // Based on 802.11ac D2.0
+	EID_AID						= 197, /* Based on 802.11ac D4.0 */
 	EID_OpModeNotification		= 199, // Based on 802.11ac D3.0
 }ELEMENT_ID, *PELEMENT_ID;
 
@@ -706,6 +727,9 @@ typedef	enum _ELEMENT_ID{
 #define _WEP_WPA_MIXED_PRIVACY_ 6	// WEP + WPA
 */
 
+#ifdef CONFIG_IEEE80211W
+#define _MME_IE_LENGTH_  18
+#endif //CONFIG_IEEE80211W
 /*-----------------------------------------------------------------------------
 				Below is the definition for WMM
 ------------------------------------------------------------------------------*/
@@ -726,6 +750,7 @@ typedef	enum _ELEMENT_ID{
 
 #define GetOrderBit(pbuf)	(((*(unsigned short *)(pbuf)) & le16_to_cpu(_ORDER_)) != 0)
 
+#define ACT_CAT_VENDOR				0x7F/* 127 */
 
 /**
  * struct rtw_ieee80211_bar - HT Block Ack Request
@@ -915,17 +940,33 @@ typedef enum _HT_CAP_AMPDU_FACTOR {
 	MAX_AMPDU_FACTOR_64K	= 3,
 }HT_CAP_AMPDU_FACTOR;
 
+
+typedef enum _HT_CAP_AMPDU_DENSITY {
+	AMPDU_DENSITY_VALUE_0 = 0 , /* For no restriction */
+	AMPDU_DENSITY_VALUE_1 = 1 , /* For 1/4 us */
+	AMPDU_DENSITY_VALUE_2 = 2 , /* For 1/2 us */
+	AMPDU_DENSITY_VALUE_3 = 3 , /* For 1 us */
+	AMPDU_DENSITY_VALUE_4 = 4 , /* For 2 us */
+	AMPDU_DENSITY_VALUE_5 = 5 , /* For 4 us */
+	AMPDU_DENSITY_VALUE_6 = 6 , /* For 8 us */
+	AMPDU_DENSITY_VALUE_7 = 7 , /* For 16 us */
+} HT_CAP_AMPDU_DENSITY;
+
 /* 802.11n HT capabilities masks */
+#define IEEE80211_HT_CAP_LDPC_CODING		0x0001
 #define IEEE80211_HT_CAP_SUP_WIDTH		0x0002
 #define IEEE80211_HT_CAP_SM_PS			0x000C
 #define IEEE80211_HT_CAP_GRN_FLD		0x0010
 #define IEEE80211_HT_CAP_SGI_20			0x0020
 #define IEEE80211_HT_CAP_SGI_40			0x0040
 #define IEEE80211_HT_CAP_TX_STBC			0x0080
-#define IEEE80211_HT_CAP_RX_STBC		0x0300
+#define IEEE80211_HT_CAP_RX_STBC_1R		0x0100
+#define IEEE80211_HT_CAP_RX_STBC_2R		0x0200
+#define IEEE80211_HT_CAP_RX_STBC_3R		0x0300
 #define IEEE80211_HT_CAP_DELAY_BA		0x0400
 #define IEEE80211_HT_CAP_MAX_AMSDU		0x0800
 #define IEEE80211_HT_CAP_DSSSCCK40		0x1000
+#define RTW_IEEE80211_HT_CAP_40MHZ_INTOLERANT	((u16) BIT(14))
 /* 802.11n HT capability AMPDU settings */
 #define IEEE80211_HT_CAP_AMPDU_FACTOR		0x03
 #define IEEE80211_HT_CAP_AMPDU_DENSITY		0x1C
@@ -938,6 +979,11 @@ typedef enum _HT_CAP_AMPDU_FACTOR {
 #define IEEE80211_HT_CAP_MCS_TX_RX_DIFF		0x02
 #define IEEE80211_HT_CAP_MCS_TX_STREAMS		0x0C
 #define IEEE80211_HT_CAP_MCS_TX_UEQM		0x10
+/* 802.11n HT capability TXBF capability */
+#define IEEE80211_HT_CAP_TXBF_RX_NDP		0x00000008
+#define IEEE80211_HT_CAP_TXBF_TX_NDP		0x00000010
+#define IEEE80211_HT_CAP_TXBF_EXPLICIT_COMP_STEERING_CAP	0x00000400
+
 /* 802.11n HT IE masks */
 #define IEEE80211_HT_IE_CHA_SEC_OFFSET		0x03
 #define IEEE80211_HT_IE_CHA_SEC_NONE	 	0x00
@@ -947,6 +993,42 @@ typedef enum _HT_CAP_AMPDU_FACTOR {
 #define IEEE80211_HT_IE_HT_PROTECTION		0x0003
 #define IEEE80211_HT_IE_NON_GF_STA_PRSNT	0x0004
 #define IEEE80211_HT_IE_NON_HT_STA_PRSNT	0x0010
+
+/* 802.11ac VHT Capabilities */
+#define IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_3895                  0x00000000
+#define IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_7991                  0x00000001
+#define IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_11454                 0x00000002
+#define IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160MHZ                0x00000004
+#define IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160_80PLUS80MHZ       0x00000008
+#define IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_MASK                  0x0000000C
+#define IEEE80211_VHT_CAP_RXLDPC                                0x00000010
+#define IEEE80211_VHT_CAP_SHORT_GI_80                           0x00000020
+#define IEEE80211_VHT_CAP_SHORT_GI_160                          0x00000040
+#define IEEE80211_VHT_CAP_TXSTBC                                0x00000080
+#define IEEE80211_VHT_CAP_RXSTBC_1                              0x00000100
+#define IEEE80211_VHT_CAP_RXSTBC_2                              0x00000200
+#define IEEE80211_VHT_CAP_RXSTBC_3                              0x00000300
+#define IEEE80211_VHT_CAP_RXSTBC_4                              0x00000400
+#define IEEE80211_VHT_CAP_RXSTBC_MASK                           0x00000700
+#define IEEE80211_VHT_CAP_SU_BEAMFORMER_CAPABLE                 0x00000800
+#define IEEE80211_VHT_CAP_SU_BEAMFORMEE_CAPABLE                 0x00001000
+#define IEEE80211_VHT_CAP_BEAMFORMEE_STS_SHIFT                  13
+#define IEEE80211_VHT_CAP_BEAMFORMEE_STS_MASK                   \
+                (7 << IEEE80211_VHT_CAP_BEAMFORMEE_STS_SHIFT)
+#define IEEE80211_VHT_CAP_SOUNDING_DIMENSIONS_SHIFT             16
+#define IEEE80211_VHT_CAP_SOUNDING_DIMENSIONS_MASK              \
+                (7 << IEEE80211_VHT_CAP_SOUNDING_DIMENSIONS_SHIFT)
+#define IEEE80211_VHT_CAP_MU_BEAMFORMER_CAPABLE                 0x00080000
+#define IEEE80211_VHT_CAP_MU_BEAMFORMEE_CAPABLE                 0x00100000
+#define IEEE80211_VHT_CAP_VHT_TXOP_PS                           0x00200000
+#define IEEE80211_VHT_CAP_HTC_VHT                               0x00400000
+#define IEEE80211_VHT_CAP_MAX_A_MPDU_LENGTH_EXPONENT_SHIFT      23
+#define IEEE80211_VHT_CAP_MAX_A_MPDU_LENGTH_EXPONENT_MASK       \
+                (7 << IEEE80211_VHT_CAP_MAX_A_MPDU_LENGTH_EXPONENT_SHIFT)
+#define IEEE80211_VHT_CAP_VHT_LINK_ADAPTATION_VHT_UNSOL_MFB     0x08000000
+#define IEEE80211_VHT_CAP_VHT_LINK_ADAPTATION_VHT_MRQ_MFB       0x0c000000
+#define IEEE80211_VHT_CAP_RX_ANTENNA_PATTERN                    0x10000000
+#define IEEE80211_VHT_CAP_TX_ANTENNA_PATTERN                    0x20000000
 
 /* block-ack parameters */
 #define IEEE80211_ADDBA_PARAM_POLICY_MASK 0x0002
@@ -1312,7 +1394,25 @@ enum P2P_PS_MODE
 #define ICMPV6_MCAST_MAC(mac)	((mac[0]==0x33)&&(mac[1]==0x33)&&(mac[2]!=0xff))
 #endif	// CONFIG_TX_MCAST2UNI
 
+#ifdef CONFIG_IOCTL_CFG80211
+/* Regulatroy Domain */
+struct regd_pair_mapping {
+	u16 reg_dmnenum;
+	u16 reg_5ghz_ctl;
+	u16 reg_2ghz_ctl;
+};
 
+struct rtw_regulatory {
+	char alpha2[2];
+	u16 country_code;
+	u16 max_power_level;
+	u32 tp_scale;
+	u16 current_rd;
+	u16 current_rd_ext;
+	int16_t power_limit;
+	struct regd_pair_mapping *regpair;
+};
+#endif
 
 #ifdef CONFIG_WAPI_SUPPORT
 #ifndef IW_AUTH_WAPI_VERSION_1

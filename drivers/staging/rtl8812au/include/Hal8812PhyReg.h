@@ -33,10 +33,12 @@
 // BB Register Definition
 
 #define rCCAonSec_Jaguar		0x838
+#define rPwed_TH_Jaguar			0x830
 
 // BW and sideband setting
 #define rBWIndication_Jaguar		0x834
-#define rL1PeakTH_Jaguar		0x848
+#define rL1PeakTH_Jaguar			0x848
+#define rFPGA0_XA_LSSIReadBack	0x8a0	/*Tranceiver LSSI Readback*/
 #define rRFMOD_Jaguar			0x8ac	//RF mode
 #define rADC_Buf_Clk_Jaguar		0x8c4
 #define rRFECTRL_Jaguar			0x900
@@ -279,14 +281,19 @@
 #define RF_TXLOK_Jaguar				0x08	//
 #define RF_TXAPK_Jaguar				0x0B
 #define RF_CHNLBW_Jaguar 			0x18	// RF channel and BW switch
-#define RF_TxLCTank_Jaguar          	0x54
-#define RF_APK_Jaguar				0x63
-#define bRF_CHNLBW_MOD_AG_Jaguar	0x70300
-#define bRF_CHNLBW_BW 				0xc00
 #define RF_RCK1_Jaguar				0x1c	//
 #define RF_RCK2_Jaguar				0x1d
 #define RF_RCK3_Jaguar   			0x1e
+#define RF_ModeTableAddr			0x30
+#define RF_ModeTableData0			0x31
+#define RF_ModeTableData1			0x32
+#define RF_TxLCTank_Jaguar          	0x54
+#define RF_APK_Jaguar				0x63
 #define RF_LCK						0xB4
+#define RF_WeLut_Jaguar				0xEF
+
+#define bRF_CHNLBW_MOD_AG_Jaguar	0x70300
+#define bRF_CHNLBW_BW 				0xc00
 
 
 //
@@ -305,6 +312,9 @@
 #define RF_TXPA_G3					0x33	// RF TX PA control
 #define RF_0x52 						0x52
 #define RF_WE_LUT					0xEF
+
+#define RF_TX_GAIN_OFFSET_8812A(_val) ((abs((_val)) << 1) | (((_val) > 0) ? BIT0 : 0))
+#define RF_TX_GAIN_OFFSET_8821A(_val) ((abs((_val)) << 1) | (((_val) > 0) ? BIT0 : 0))
 
 //
 //Bit Mask
@@ -414,6 +424,8 @@
 #define rFPGA0_AdDaClockEn			0x888	// enable ad/da clock1 for dual-phy
 #define rFPGA0_AnalogParameter4	0x88c
 #define rFPGA0_XB_LSSIReadBack		0x8a4
+#define rFPGA0_XCD_RFPara	0x8b4
+
 //
 // 4. Page9(0x900)
 //
@@ -428,9 +440,11 @@
 //
 #define rCCK0_System				0xa00
 #define rCCK0_AFESetting				0xa04	// Disable init gain now // Select RX path by RSSI
+#define	rCCK0_DSPParameter2			0xa1c	//SQ threshold
 #define rCCK0_TxFilter1				0xa20
 #define rCCK0_TxFilter2				0xa24
 #define rCCK0_DebugPort				0xa28	//debug port and Tx filter3
+#define	rCCK0_FalseAlarmReport			0xa2c	//0xa2d	useless now 0xa30-a4f channel report
 
 //
 // PageB(0xB00)
@@ -711,6 +725,7 @@
 #define bMaskHWord                	0xffff0000
 #define bMaskLWord                		0x0000ffff
 #define bMaskDWord                	0xffffffff
+#define bMaskH3Bytes				0xffffff00
 #define bMask12Bits				0xfff
 #define bMaskH4Bits				0xf0000000
 #define bMaskOFDM_D			0xffc00000
