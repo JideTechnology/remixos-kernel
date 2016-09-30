@@ -52,7 +52,6 @@
 	#include <linux/if_arp.h>
 	#include <linux/rtnetlink.h>
 	#include <linux/delay.h>
-	#include <linux/proc_fs.h>	// Necessary because we use the proc fs
 	#include <linux/interrupt.h>	// for struct tasklet_struct
 	#include <linux/ip.h>
 	#include <linux/kthread.h>
@@ -63,6 +62,12 @@
 	#include <linux/tqueue.h>
 #endif
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0))
+	#include <uapi/linux/limits.h>
+#else
+	#include <linux/limits.h>
+#endif
+
 #ifdef RTK_DMP_PLATFORM
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,12))
 	#include <linux/pageremap.h>
@@ -70,9 +75,15 @@
 	#include <asm/io.h>
 #endif
 
+#ifdef CONFIG_NET_RADIO
+	#define CONFIG_WIRELESS_EXT
+#endif
+
+	/* Monitor mode */
+	#include <net/ieee80211_radiotap.h>
+
 #ifdef CONFIG_IOCTL_CFG80211
-//	#include <linux/ieee80211.h>
-        #include <net/ieee80211_radiotap.h>
+/*	#include <linux/ieee80211.h> */
 	#include <net/cfg80211.h>
 #endif //CONFIG_IOCTL_CFG80211
 
@@ -87,7 +98,7 @@
 
 #ifdef CONFIG_EFUSE_CONFIG_FILE
 	#include <linux/fs.h>
-#endif //CONFIG_EFUSE_CONFIG_FILE
+#endif
 
 #ifdef CONFIG_USB_HCI
 	#include <linux/usb.h>
@@ -97,6 +108,14 @@
 	#include <linux/usb/ch9.h>
 #endif
 #endif
+
+#ifdef CONFIG_BT_COEXIST_SOCKET_TRX
+	#include <net/sock.h>
+	#include <net/tcp.h>
+	#include <linux/udp.h>
+	#include <linux/in.h>
+	#include <linux/netlink.h>
+#endif //CONFIG_BT_COEXIST_SOCKET_TRX
 
 #ifdef CONFIG_USB_HCI
 	typedef struct urb *  PURB;
@@ -352,6 +371,13 @@ static inline void rtw_netif_stop_queue(struct net_device *pnetdev)
 #else
 	netif_stop_queue(pnetdev);
 #endif
+}
+
+static inline void rtw_merge_string(char *dst, int dst_len, const char *src1, const char *src2)
+{
+	int	len = 0;
+	len += snprintf(dst+len, dst_len - len, "%s", src1);
+	len += snprintf(dst+len, dst_len - len, "%s", src2);
 }
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27))

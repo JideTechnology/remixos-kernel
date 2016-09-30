@@ -71,6 +71,7 @@ _func_enter_;
 	psta->no_ht_gf_set = 0;
 	psta->no_ht_set = 0;
 	psta->ht_20mhz_set = 0;
+	psta->ht_40mhz_intolerant = 0;
 #endif
 
 #ifdef CONFIG_TX_MCAST2UNI
@@ -145,6 +146,9 @@ _func_enter_;
 	pstapriv->expire_to = 3; // 3*2 = 6 sec
 #else
 	pstapriv->expire_to = 60;// 60*2 = 120 sec = 2 min, expire after no any traffic.
+#endif
+#ifdef CONFIG_ATMEL_RC_PATCH
+	_rtw_memset(  pstapriv->atmel_rc_pattern, 0, ETH_ALEN);
 #endif
 	pstapriv->max_num_sta = NUM_STA;
 
@@ -332,7 +336,6 @@ _func_enter_;
 
 	//_enter_critical_bh(&(pfree_sta_queue->lock), &irqL);
 	_enter_critical_bh(&(pstapriv->sta_hash_lock), &irqL2);
-
 	if (_rtw_queue_empty(pfree_sta_queue) == _TRUE)
 	{
 		//_exit_critical_bh(&(pfree_sta_queue->lock), &irqL);
@@ -388,15 +391,11 @@ _func_enter_;
 		pstapriv->asoc_sta_count , hwaddr[0], hwaddr[1], hwaddr[2],hwaddr[3],hwaddr[4],hwaddr[5]));
 
 		init_addba_retry_timer(pstapriv->padapter, psta);
-
+#ifdef CONFIG_IEEE80211W
+		init_dot11w_expire_timer(pstapriv->padapter, psta);
+#endif /* CONFIG_IEEE80211W */
 #ifdef CONFIG_TDLS
-		psta->padapter = pstapriv->padapter;
-		init_TPK_timer(pstapriv->padapter, psta);
-		init_ch_switch_timer(pstapriv->padapter, psta);
-		init_base_ch_timer(pstapriv->padapter, psta);
-		init_off_ch_timer(pstapriv->padapter, psta);
-		init_handshake_timer(pstapriv->padapter, psta);
-		init_tdls_alive_timer(pstapriv->padapter, psta);
+		rtw_init_tdls_timer(pstapriv->padapter, psta);
 #endif //CONFIG_TDLS
 
 		//for A-MPDU Rx reordering buffer control
@@ -416,6 +415,7 @@ _func_enter_;
 			preorder_ctrl->wend_b= 0xffff;
 			//preorder_ctrl->wsize_b = (NR_RECVBUFF-2);
 			preorder_ctrl->wsize_b = 64;//64;
+			preorder_ctrl->ampdu_size = RX_AMPDU_SIZE_INVALID;
 
 			_rtw_init_queue(&preorder_ctrl->pending_recvframe_queue);
 
@@ -426,7 +426,9 @@ _func_enter_;
 		//init for DM
 		psta->rssi_stat.UndecoratedSmoothedPWDB = (-1);
 		psta->rssi_stat.UndecoratedSmoothedCCK = (-1);
-
+#ifdef CONFIG_ATMEL_RC_PATCH
+		psta->flag_atmel_rc = 0;
+#endif
 		/* init for the sequence number of received management frame */
 		psta->RxMgmtFrameSeqNum = 0xffff;
 
@@ -458,12 +460,18 @@ u32	rtw_free_stainfo(_adapter *padapter , struct sta_info *psta)
 	struct	xmit_priv	*pxmitpriv= &padapter->xmitpriv;
 	struct	sta_priv *pstapriv = &padapter->stapriv;
 	struct hw_xmit *phwxmit;
-
+	int pending_qcnt[4];
 
 _func_enter_;
 
 	if (psta == NULL)
 		goto exit;
+
+	_enter_critical_bh(&(pstapriv->sta_hash_lock), &irqL0);
+	rtw_list_delete(&psta->hash_list);
+	RT_TRACE(_module_rtl871x_sta_mgt_c_,_drv_err_,("\n free number_%d stainfo  with hwaddr = 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x  \n",pstapriv->asoc_sta_count , psta->hwaddr[0], psta->hwaddr[1], psta->hwaddr[2],psta->hwaddr[3],psta->hwaddr[4],psta->hwaddr[5]));
+	pstapriv->asoc_sta_count --;
+	_exit_critical_bh(&(pstapriv->sta_hash_lock), &irqL0);
 
 
 	_enter_critical_bh(&psta->lock, &irqL0);
@@ -490,6 +498,7 @@ _func_enter_;
 	rtw_list_delete(&(pstaxmitpriv->vo_q.tx_pending));
 	phwxmit = pxmitpriv->hwxmits;
 	phwxmit->accnt -= pstaxmitpriv->vo_q.qcnt;
+	pending_qcnt[0] = pstaxmitpriv->vo_q.qcnt;
 	pstaxmitpriv->vo_q.qcnt = 0;
 	//_exit_critical_bh(&(pxmitpriv->vo_pending.lock), &irqL0);
 
@@ -499,6 +508,7 @@ _func_enter_;
 	rtw_list_delete(&(pstaxmitpriv->vi_q.tx_pending));
 	phwxmit = pxmitpriv->hwxmits+1;
 	phwxmit->accnt -= pstaxmitpriv->vi_q.qcnt;
+	pending_qcnt[1] = pstaxmitpriv->vi_q.qcnt;
 	pstaxmitpriv->vi_q.qcnt = 0;
 	//_exit_critical_bh(&(pxmitpriv->vi_pending.lock), &irqL0);
 
@@ -508,6 +518,7 @@ _func_enter_;
 	rtw_list_delete(&(pstaxmitpriv->be_q.tx_pending));
 	phwxmit = pxmitpriv->hwxmits+2;
 	phwxmit->accnt -= pstaxmitpriv->be_q.qcnt;
+	pending_qcnt[2] = pstaxmitpriv->be_q.qcnt;
 	pstaxmitpriv->be_q.qcnt = 0;
 	//_exit_critical_bh(&(pxmitpriv->be_pending.lock), &irqL0);
 
@@ -517,29 +528,26 @@ _func_enter_;
 	rtw_list_delete(&(pstaxmitpriv->bk_q.tx_pending));
 	phwxmit = pxmitpriv->hwxmits+3;
 	phwxmit->accnt -= pstaxmitpriv->bk_q.qcnt;
+	pending_qcnt[3] = pstaxmitpriv->bk_q.qcnt;
 	pstaxmitpriv->bk_q.qcnt = 0;
 	//_exit_critical_bh(&(pxmitpriv->bk_pending.lock), &irqL0);
 
-	_exit_critical_bh(&pxmitpriv->lock, &irqL0);
+	rtw_os_wake_queue_at_free_stainfo(padapter, pending_qcnt);
 
-	rtw_list_delete(&psta->hash_list);
-	RT_TRACE(_module_rtl871x_sta_mgt_c_,_drv_err_,("\n free number_%d stainfo  with hwaddr = 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x  \n",pstapriv->asoc_sta_count , psta->hwaddr[0], psta->hwaddr[1], psta->hwaddr[2],psta->hwaddr[3],psta->hwaddr[4],psta->hwaddr[5]));
-	pstapriv->asoc_sta_count --;
+	_exit_critical_bh(&pxmitpriv->lock, &irqL0);
 
 
 	// re-init sta_info; 20061114 // will be init in alloc_stainfo
 	//_rtw_init_sta_xmit_priv(&psta->sta_xmitpriv);
 	//_rtw_init_sta_recv_priv(&psta->sta_recvpriv);
-
+#ifdef CONFIG_IEEE80211W
+	_cancel_timer_ex(&psta->dot11w_expire_timer);
+#endif /* CONFIG_IEEE80211W */
 	_cancel_timer_ex(&psta->addba_retry_timer);
 
 #ifdef CONFIG_TDLS
-	_cancel_timer_ex(&psta->TPK_timer);
-	_cancel_timer_ex(&psta->option_timer);
-	_cancel_timer_ex(&psta->base_ch_timer);
-	_cancel_timer_ex(&psta->off_ch_timer);
-	_cancel_timer_ex(&psta->alive_timer1);
-	_cancel_timer_ex(&psta->alive_timer2);
+	psta->tdls_sta_state = TDLS_STATE_NONE;
+	rtw_free_tdls_timer(psta);
 #endif //CONFIG_TDLS
 
 	//for A-MPDU Rx reordering buffer control, cancel reordering_ctrl_timer
@@ -600,7 +608,9 @@ _func_enter_;
 	_exit_critical_bh(&pstapriv->auth_list_lock, &irqL0);
 
 	psta->expire_to = 0;
-
+#ifdef CONFIG_ATMEL_RC_PATCH
+	psta->flag_atmel_rc = 0;
+#endif
 	psta->sleepq_ac_len = 0;
 	psta->qos_info = 0;
 
@@ -636,7 +646,9 @@ _func_enter_;
 	 _rtw_spinlock_free(&psta->lock);
 
 	//_enter_critical_bh(&(pfree_sta_queue->lock), &irqL0);
+	_enter_critical_bh(&(pstapriv->sta_hash_lock), &irqL0);
 	rtw_list_insert_tail(&psta->list, get_list_head(pfree_sta_queue));
+	_exit_critical_bh(&(pstapriv->sta_hash_lock), &irqL0);
 	//_exit_critical_bh(&(pfree_sta_queue->lock), &irqL0);
 
 exit:
@@ -656,6 +668,9 @@ void rtw_free_all_stainfo(_adapter *padapter)
 	struct sta_info *psta = NULL;
 	struct	sta_priv *pstapriv = &padapter->stapriv;
 	struct sta_info* pbcmc_stainfo =rtw_get_bcmc_stainfo( padapter);
+	u8 free_sta_num = 0;
+	char free_sta_list[NUM_STA];
+	int stainfo_offset;
 
 _func_enter_;
 
@@ -676,12 +691,26 @@ _func_enter_;
 			plist = get_next(plist);
 
 			if(pbcmc_stainfo!=psta)
-				rtw_free_stainfo(padapter , psta);
+			{
+				rtw_list_delete(&psta->hash_list);
+				//rtw_free_stainfo(padapter , psta);
+				stainfo_offset = rtw_stainfo_offset(pstapriv, psta);
+				if (stainfo_offset_valid(stainfo_offset)) {
+					free_sta_list[free_sta_num++] = stainfo_offset;
+				}
+			}
 
 		}
 	}
 
 	_exit_critical_bh(&pstapriv->sta_hash_lock, &irqL);
+
+
+	for (index = 0; index < free_sta_num; index++)
+	{
+		psta = rtw_get_stainfo_by_offset(pstapriv, free_sta_list[index]);
+		rtw_free_stainfo(padapter , psta);
+	}
 
 exit:
 
@@ -766,10 +795,10 @@ _func_enter_;
 		RT_TRACE(_module_rtl871x_sta_mgt_c_,_drv_err_,("rtw_alloc_stainfo fail"));
 		goto exit;
 	}
-
-	// default broadcast & multicast use macid 1
-	psta->mac_id = 1;
-
+#ifdef CONFIG_BEAMFORMING
+	psta->txbf_gid = 63;
+	psta->txbf_paid = 0;
+#endif
 	ptxservq= &(psta->sta_xmitpriv.be_q);
 
 /*

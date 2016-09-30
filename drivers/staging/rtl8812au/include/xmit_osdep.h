@@ -72,6 +72,7 @@ struct sta_xmit_priv;
 struct xmit_frame;
 struct xmit_buf;
 
+extern int _rtw_xmit_entry(_pkt *pkt, _nic_hdl pnetdev);
 extern int rtw_xmit_entry(_pkt *pkt, _nic_hdl pnetdev);
 
 #endif
@@ -90,5 +91,9 @@ extern sint rtw_endofpktfile (struct pkt_file *pfile);
 
 extern void rtw_os_pkt_complete(_adapter *padapter, _pkt *pkt);
 extern void rtw_os_xmit_complete(_adapter *padapter, struct xmit_frame *pxframe);
+
+void rtw_os_wake_queue_at_free_stainfo(_adapter *padapter, int *qcnt_freed);
+
+void dump_os_queue(void *sel, _adapter *padapter);
 
 #endif //__XMIT_OSDEP_H_

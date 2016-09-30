@@ -7,7 +7,7 @@ EXTRA_CFLAGS += -Wall
 #EXTRA_CFLAGS += -pedantic
 #EXTRA_CFLAGS += -Wshadow -Wpointer-arith -Wcast-qual -Wstrict-prototypes -Wmissing-prototypes
 
-EXTRA_CFLAGS += -I$(src)/include -I$(src)/hal -g
+EXTRA_CFLAGS += -I$(src)/include -I$(src)/hal
 
 ccflags-y += -D__CHECK_ENDIAN__
 
@@ -165,13 +165,13 @@ EXTRA_CFLAGS += -DCONFIG_RTW_SDIO_PM_KEEP_POWER
 endif
 
 ifeq ($(CONFIG_PLATFORM_I386_PC), y)
-SUBARCH := $(shell uname -m | sed -e s/i.86/i386/)
+SUBARCH ?= $(shell uname -m | sed -e s/i.86/i386/)
 ARCH ?= $(SUBARCH)
 CROSS_COMPILE ?=
-KVER  := $(shell uname -r)
-KSRC := /lib/modules/$(KVER)/build
-MODDESTDIR := /lib/modules/$(KVER)/kernel/drivers/net/wireless/
-INSTALL_PREFIX :=
+KVER ?= $(shell uname -r)
+KSRC ?= /lib/modules/$(KVER)/build
+MODDESTDIR ?= /lib/modules/$(KVER)/kernel/drivers/net/wireless/
+INSTALL_PREFIX ?=
 endif
 
 ifneq ($(KERNELRELEASE),)

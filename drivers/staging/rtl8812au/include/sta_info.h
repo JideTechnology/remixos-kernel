@@ -22,9 +22,29 @@
 
 
 #define IBSS_START_MAC_ID	2
-#define NUM_STA 32
+#define NUM_STA MACID_NUM_SW_LIMIT
 #define NUM_ACL 16
 
+#ifdef CONFIG_TDLS
+#define MAX_ALLOWED_TDLS_STA_NUM	4
+#endif
+
+enum sta_info_update_type {
+	STA_INFO_UPDATE_NONE = 0,
+	STA_INFO_UPDATE_BW = BIT(0),
+	STA_INFO_UPDATE_RATE = BIT(1),
+	STA_INFO_UPDATE_PROTECTION_MODE = BIT(2),
+	STA_INFO_UPDATE_CAP = BIT(3),
+	STA_INFO_UPDATE_HT_CAP = BIT(4),
+	STA_INFO_UPDATE_VHT_CAP = BIT(5),
+	STA_INFO_UPDATE_ALL = STA_INFO_UPDATE_BW
+							|STA_INFO_UPDATE_RATE
+							|STA_INFO_UPDATE_PROTECTION_MODE
+							|STA_INFO_UPDATE_CAP
+							|STA_INFO_UPDATE_HT_CAP
+							|STA_INFO_UPDATE_VHT_CAP,
+	STA_INFO_UPDATE_MAX
+};
 
 //if mode ==0, then the sta is allowed once the addr is hit.
 //if mode ==1, then the sta is rejected once the addr is non-hit.
@@ -48,6 +68,7 @@ typedef struct _RSSI_STA{
 	s32	UndecoratedSmoothedPWDB;
 	s32	UndecoratedSmoothedCCK;
 	s32	UndecoratedSmoothedOFDM;
+	u32	OFDM_pkt;
 	u64	PacketMap;
 	u8	ValidBit;
 }RSSI_STA, *PRSSI_STA;
@@ -62,7 +83,7 @@ struct	stainfo_stats	{
 		u64 rx_probersp_uo_pkts;
 	u64 rx_ctrl_pkts;
 	u64 rx_data_pkts;
-
+	u64 rx_data_qos_pkts[TID_NUM];
 	u64	last_rx_mgnt_pkts;
 		u64 last_rx_beacon_pkts;
 		u64 last_rx_probereq_pkts;
@@ -71,14 +92,17 @@ struct	stainfo_stats	{
 		u64 last_rx_probersp_uo_pkts;
 	u64	last_rx_ctrl_pkts;
 	u64	last_rx_data_pkts;
-
+	u64 last_rx_data_qos_pkts[TID_NUM];
+#ifdef CONFIG_TDLS
+	u64 rx_tdls_disc_rsp_pkts;
+	u64 last_rx_tdls_disc_rsp_pkts;
+#endif
 	u64	rx_bytes;
 	u64	rx_drops;
 
 	u64	tx_pkts;
 	u64	tx_bytes;
 	u64  tx_drops;
-
 };
 
 #ifdef CONFIG_TDLS
@@ -109,13 +133,23 @@ struct sta_info {
 	uint mac_id;
 	uint qos_option;
 	u8	hwaddr[ETH_ALEN];
+	u16 hwseq;
 
 	uint	ieee8021x_blocked;	//0: allowed, 1:blocked
 	uint	dot118021XPrivacy; //aes, tkip...
 	union Keytype	dot11tkiptxmickey;
 	union Keytype	dot11tkiprxmickey;
 	union Keytype	dot118021x_UncstKey;
-	union pn48		dot11txpn;			// PN48 used for Unicast xmit.
+	union pn48		dot11txpn;			// PN48 used for Unicast xmit
+#ifdef CONFIG_GTK_OL
+	u8 kek[RTW_KEK_LEN];
+	u8 kck[RTW_KCK_LEN];
+	u8 replay_ctr[RTW_REPLAY_CTR_LEN];
+#endif //CONFIG_GTK_OL
+#ifdef CONFIG_IEEE80211W
+	union pn48		dot11wtxpn;			// PN48 used for Unicast mgmt xmit.
+	_timer dot11w_expire_timer;
+#endif //CONFIG_IEEE80211W
 	union pn48		dot11rxpn;			// PN48 used for Unicast recv.
 
 
@@ -129,42 +163,47 @@ struct sta_info {
 
 	u8	raid;
 	u8 	init_rate;
-	u32	ra_mask;
+	u64	ra_mask;
 	u8	wireless_mode;	// NETWORK_TYPE
+	u8	bw_mode;
+
+	u8	ldpc;
+	u8	stbc;
+
+#ifdef CONFIG_BEAMFORMING
+	u16 txbf_paid;
+	u16 txbf_gid;
+#endif
 
 	struct stainfo_stats sta_stats;
 
 #ifdef CONFIG_TDLS
 	u32	tdls_sta_state;
-	u8	dialog;
 	u8	SNonce[32];
 	u8	ANonce[32];
 	u32	TDLS_PeerKey_Lifetime;
 	u16	TPK_count;
 	_timer	TPK_timer;
 	struct TDLS_PeerKey	tpk;
-	u16	stat_code;
-	u8	off_ch;
+#ifdef CONFIG_TDLS_CH_SW
 	u16	ch_switch_time;
 	u16	ch_switch_timeout;
-	u8	option;
-	_timer	option_timer;
-	_timer	base_ch_timer;
-	_timer	off_ch_timer;
-
+	//u8	option;
+	_timer	ch_sw_timer;
+	_timer	delay_timer;
+#endif
 	_timer handshake_timer;
-	_timer alive_timer1;
-	_timer alive_timer2;
-	u8 timer_flag;
 	u8 alive_count;
-#endif //CONFIG_TDLS
+	_timer	pti_timer;
+	u8	TDLS_RSNIE[20];	/* Save peer's RSNIE, used for sending TDLS_SETUP_RSP */
+#endif /* CONFIG_TDLS */
 
 	//for A-MPDU TX, ADDBA timeout check
 	_timer addba_retry_timer;
 
 	//for A-MPDU Rx reordering buffer control
-	struct recv_reorder_ctrl recvreorder_ctrl[16];
-
+	struct recv_reorder_ctrl recvreorder_ctrl[TID_NUM];
+	ATOMIC_T continual_no_rx_packet[TID_NUM];
 	//for A-MPDU Tx
 	//unsigned char		ampdu_txen_bitmap;
 	u16	BA_starting_seqctrl[16];
@@ -218,9 +257,13 @@ struct sta_info {
 	u8 no_ht_gf_set;
 	u8 no_ht_set;
 	u8 ht_20mhz_set;
+	u8 ht_40mhz_intolerant;
 #endif	// CONFIG_NATIVEAP_MLME
 
-	unsigned int tx_ra_bitmap;
+#ifdef CONFIG_ATMEL_RC_PATCH
+	u8 flag_atmel_rc;
+#endif
+
 	u8 qos_info;
 
 	u8 max_sp_len;
@@ -270,7 +313,7 @@ struct sta_info {
 	//for DM
 	RSSI_STA	 rssi_stat;
 
-	//
+	//ODM_STA_INFO_T
 	// ================ODM Relative Info=======================
 	// Please be care, dont declare too much structure here. It will cost memory * STA support num.
 	//
@@ -281,7 +324,6 @@ struct sta_info {
 	u8		bValid;				// record the sta status link or not?
 	//u8		WirelessMode;		//
 	u8		IOTPeer;			// Enum value.	HT_IOT_PEER_E
-	u8		rssi_level;			//for Refresh RA mask
 	// ODM Write
 	//1 PHY_STATUS_INFO
 	u8		RSSI_Path[4];		//
@@ -289,6 +331,7 @@ struct sta_info {
 	u8		RXEVM[4];
 	u8		RXSNR[4];
 
+	u8		rssi_level;			//for Refresh RA mask
 	// ODM Write
 	//1 TX_INFO (may changed by IC)
 	//TX_INFO_T		pTxInfo;				// Define in IC folder. Move lower layer.
@@ -313,8 +356,14 @@ struct sta_info {
 #define sta_rx_data_pkts(sta) \
 	(sta->sta_stats.rx_data_pkts)
 
+#define sta_rx_data_qos_pkts(sta, i) \
+	(sta->sta_stats.rx_data_qos_pkts[i])
+
 #define sta_last_rx_data_pkts(sta) \
 	(sta->sta_stats.last_rx_data_pkts)
+
+#define sta_last_rx_data_qos_pkts(sta, i) \
+	(sta->sta_stats.last_rx_data_qos_pkts[i])
 
 #define sta_rx_mgnt_pkts(sta) \
 	(sta->sta_stats.rx_mgnt_pkts)
@@ -420,6 +469,10 @@ struct	sta_priv {
 	u16 max_num_sta;
 
 	struct wlan_acl_pool acl_list;
+#endif
+
+#ifdef CONFIG_ATMEL_RC_PATCH
+	u8 atmel_rc_pattern [6];
 #endif
 
 };
