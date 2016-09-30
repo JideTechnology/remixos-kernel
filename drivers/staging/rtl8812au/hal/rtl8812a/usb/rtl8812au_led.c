@@ -49,10 +49,8 @@ SwLedOn_8812AU(
 	u8	LedCfg;
 	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(padapter);
 
-	if( (padapter->bSurpriseRemoved == _TRUE) || ( padapter->bDriverStopped == _TRUE))
-	{
+	if (RTW_CANNOT_RUN(padapter))
 		return;
-	}
 
 	if(	RT_GetInterfaceSelection(padapter) == INTF_SEL2_MINICARD ||
 		RT_GetInterfaceSelection(padapter) == INTF_SEL3_USB_Solo ||
@@ -95,8 +93,8 @@ SwLedOn_8812AU(
 				}
 				else
 				{
-					LedCfg = rtw_read8(padapter, REG_LEDCFG2);
-					rtw_write8(padapter, REG_LEDCFG2, (LedCfg&0xe0)|BIT7|BIT6|BIT5); // SW control led0 on.
+					LedCfg = rtw_read8(padapter, REG_LEDCFG2) & 0xe0;
+					rtw_write8(padapter, REG_LEDCFG2, LedCfg|BIT7|BIT6|BIT5); // SW control led0 on.
 					RT_TRACE(_module_rtl8712_led_c_,_drv_info_,("SwLedOn LED0 Addr 0x%x,  0x%x\n", REG_LEDCFG2, rtw_read32(padapter, REG_LEDCFG2)));
 				}
 				break;
@@ -135,10 +133,8 @@ SwLedOff_8812AU(
 	u8	LedCfg;
 	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(padapter);
 
-	if(padapter->bSurpriseRemoved == _TRUE)
-	{
+	if (RTW_CANNOT_RUN(padapter))
 		return;
-	}
 
 	if(	RT_GetInterfaceSelection(padapter) == INTF_SEL2_MINICARD ||
 		RT_GetInterfaceSelection(padapter) == INTF_SEL3_USB_Solo ||
@@ -201,10 +197,7 @@ SwLedOff_8812AU(
 				{
 					LedCfg = rtw_read8(padapter, REG_LEDCFG2);
 					LedCfg &= 0xe0; // Set to software control.
-					if(IS_HARDWARE_TYPE_8723A(padapter))
-						rtw_write8(padapter, REG_LEDCFG2, (LedCfg|BIT3|BIT7|BIT5));
-					else
-						rtw_write8(padapter, REG_LEDCFG2, (LedCfg|BIT3|BIT7|BIT6|BIT5));
+					rtw_write8(padapter, REG_LEDCFG2, (LedCfg|BIT3|BIT7|BIT6|BIT5));
 					RT_TRACE(_module_rtl8712_led_c_,_drv_info_,("SwLedOff LED0 0x%x\n", rtw_read32(padapter, REG_LEDCFG2)));
 				}
 				break;
@@ -243,10 +236,9 @@ SwLedOn_8821AU(
 {
 	u8	LedCfg;
 
-	if( (Adapter->bSurpriseRemoved == _TRUE) || ( Adapter->bDriverStopped == _TRUE))
-	{
+	if (RTW_CANNOT_RUN(Adapter))
 		return;
-	}
+
 
 	if(	RT_GetInterfaceSelection(Adapter) == INTF_SEL2_MINICARD ||
 		RT_GetInterfaceSelection(Adapter) == INTF_SEL3_USB_Solo ||
@@ -287,9 +279,10 @@ SwLedOn_8821AU(
 			case LED_PIN_LED2:
 				if(IS_HARDWARE_TYPE_8821U(Adapter))
 				{
-					LedCfg = rtw_read8(Adapter, REG_LEDCFG2);
-					rtw_write8(Adapter, REG_LEDCFG2, ((LedCfg&0x20) & (~BIT3))|BIT5); // SW control led0 on.
+					LedCfg = rtw_read8(Adapter, REG_LEDCFG2) & 0x20;
+					rtw_write8(Adapter, REG_LEDCFG2, (LedCfg & ~(BIT3))|BIT5); // SW control led0 on.
 					RT_TRACE(_module_rtl8712_led_c_,_drv_info_,("8821 SwLedOn LED2 0x%x\n", rtw_read32(Adapter, REG_LEDCFG0)));
+					//DBG_871X("8821 SwLedOn LED2 0x%x\n", rtw_read32(Adapter, REG_LEDCFG0));
 				}
 
 				break;
@@ -315,10 +308,8 @@ SwLedOff_8821AU(
 	HAL_DATA_TYPE *pHalData = GET_HAL_DATA(Adapter);
 	u8	LedCfg;
 
-	if(Adapter->bSurpriseRemoved == _TRUE)
-	{
+	if (RTW_CANNOT_RUN(Adapter))
 		return;
-	}
 
 	if(	RT_GetInterfaceSelection(Adapter) == INTF_SEL2_MINICARD ||
 		RT_GetInterfaceSelection(Adapter) == INTF_SEL3_USB_Solo ||
@@ -377,6 +368,7 @@ SwLedOff_8821AU(
 					LedCfg = rtw_read8(Adapter, REG_LEDCFG2);
 					LedCfg &= 0x20; // Set to software control.
 					rtw_write8(Adapter, REG_LEDCFG2, (LedCfg|BIT3|BIT5));
+					//DBG_871X("8821 SwLedOn LED2 0x%x\n", rtw_read32(Adapter, REG_LEDCFG0));
 					RT_TRACE(_module_rtl8712_led_c_,_drv_info_,("8821  SwLedOff LED2 0x%x\n", rtw_read32(Adapter, REG_LEDCFG0)));
 				 }
 

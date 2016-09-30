@@ -93,9 +93,19 @@ void _dynamic_check_timer_handlder (void *FunctionContext)
 	_adapter *adapter = (_adapter *)FunctionContext;
 
 #if (MP_DRIVER == 1)
-if (adapter->registrypriv.mp_mode == 1)
-	return;
+	if (adapter->registrypriv.mp_mode == 1 && adapter->mppriv.mp_dm ==0) //for MP ODM dynamic Tx power tracking
+	{
+		//DBG_871X("_dynamic_check_timer_handlder mp_dm =0 return \n");
+		_set_timer(&adapter->mlmepriv.dynamic_chk_timer, 2000);
+		return;
+	}
 #endif
+
+#ifdef CONFIG_CONCURRENT_MODE
+	if(adapter->pbuddy_adapter)
+		rtw_dynamic_check_timer_handlder(adapter->pbuddy_adapter);
+#endif //CONFIG_CONCURRENT_MODE
+
 	rtw_dynamic_check_timer_handlder(adapter);
 
 	_set_timer(&adapter->mlmepriv.dynamic_chk_timer, 2000);
@@ -118,6 +128,10 @@ void rtw_init_mlme_timer(_adapter *padapter)
 	//_init_timer(&(pmlmepriv->sitesurveyctrl.sitesurvey_ctrl_timer), padapter->pnetdev, sitesurvey_ctrl_handler, padapter);
 	_init_timer(&(pmlmepriv->scan_to_timer), padapter->pnetdev, _rtw_scan_timeout_handler, padapter);
 
+	#ifdef CONFIG_DFS_MASTER
+	_init_timer(&(pmlmepriv->dfs_master_timer), padapter->pnetdev, rtw_dfs_master_timer_hdl, padapter);
+	#endif
+
 	_init_timer(&(pmlmepriv->dynamic_chk_timer), padapter->pnetdev, _dynamic_check_timer_handlder, padapter);
 
 	#ifdef CONFIG_SET_SCAN_DENY_TIMER
@@ -136,11 +150,17 @@ extern void rtw_indicate_wx_disassoc_event(_adapter *padapter);
 
 void rtw_os_indicate_connect(_adapter *adapter)
 {
-
+	struct mlme_priv *pmlmepriv = &(adapter->mlmepriv);
 _func_enter_;
 
 #ifdef CONFIG_IOCTL_CFG80211
-	rtw_cfg80211_indicate_connect(adapter);
+	if ( (check_fwstate(pmlmepriv, WIFI_ADHOC_MASTER_STATE)==_TRUE ) ||
+		(check_fwstate(pmlmepriv, WIFI_ADHOC_STATE)==_TRUE ) )
+	{
+		rtw_cfg80211_ibss_indicate_connect(adapter);
+	}
+	else
+		rtw_cfg80211_indicate_connect(adapter);
 #endif //CONFIG_IOCTL_CFG80211
 
 	rtw_indicate_wx_assoc_event(adapter);
@@ -161,7 +181,7 @@ extern void indicate_wx_scan_complete_event(_adapter *padapter);
 void rtw_os_indicate_scan_done( _adapter *padapter, bool aborted)
 {
 #ifdef CONFIG_IOCTL_CFG80211
-	rtw_cfg80211_indicate_scan_done(wdev_to_priv(padapter->rtw_wdev), aborted);
+	rtw_cfg80211_indicate_scan_done(padapter, aborted);
 #endif
 	indicate_wx_scan_complete_event(padapter);
 }
@@ -172,6 +192,11 @@ void rtw_reset_securitypriv( _adapter *adapter )
 	u8	backupPMKIDIndex = 0;
 	u8	backupTKIPCountermeasure = 0x00;
 	u32	backupTKIPcountermeasure_time = 0;
+	// add for CONFIG_IEEE80211W, none 11w also can use
+	_irqL irqL;
+	struct mlme_ext_priv	*pmlmeext = &adapter->mlmeextpriv;
+
+	_enter_critical_bh(&adapter->security_key_mutex, &irqL);
 
 	if(adapter->securitypriv.dot11AuthAlgrthm == dot11AuthAlgrthm_8021X)//802.1x
 	{
@@ -187,7 +212,10 @@ void rtw_reset_securitypriv( _adapter *adapter )
 		backupPMKIDIndex = adapter->securitypriv.PMKIDIndex;
 		backupTKIPCountermeasure = adapter->securitypriv.btkip_countermeasure;
 		backupTKIPcountermeasure_time = adapter->securitypriv.btkip_countermeasure_time;
-
+#ifdef CONFIG_IEEE80211W
+		//reset RX BIP packet number
+		pmlmeext->mgnt_80211w_IPN_rx = 0;
+#endif //CONFIG_IEEE80211W
 		_rtw_memset((unsigned char *)&adapter->securitypriv, 0, sizeof (struct security_priv));
 		//_init_timer(&(adapter->securitypriv.tkip_timer),adapter->pnetdev, rtw_use_tkipkey_handler, adapter);
 
@@ -219,11 +247,15 @@ void rtw_reset_securitypriv( _adapter *adapter )
 		psec_priv->ndisencryptstatus = Ndis802_11WEPDisabled;
 		//}
 	}
+	// add for CONFIG_IEEE80211W, none 11w also can use
+	_exit_critical_bh(&adapter->security_key_mutex, &irqL);
+
+	DBG_871X(FUNC_ADPT_FMT" - End to Disconnect\n", FUNC_ADPT_ARG(adapter));
 }
 
 void rtw_os_indicate_disconnect( _adapter *adapter )
 {
-   //RT_PMKID_LIST   backupPMKIDList[ NUM_PMKID_CACHE ];
+	//RT_PMKID_LIST   backupPMKIDList[ NUM_PMKID_CACHE ];
 
 _func_enter_;
 
@@ -238,7 +270,8 @@ _func_enter_;
 #ifdef RTK_DMP_PLATFORM
 	_set_workitem(&adapter->mlmepriv.Linkdown_workitem);
 #endif
-	 rtw_reset_securitypriv( adapter );
+	 //modify for CONFIG_IEEE80211W, none 11w also can use the same command
+	 rtw_reset_securitypriv_cmd(adapter);
 
 _func_exit_;
 
@@ -259,16 +292,18 @@ _func_enter_;
 	{
 		RT_TRACE(_module_mlme_osdep_c_,_drv_info_,("rtw_report_sec_ie, authmode=%d\n", authmode));
 
-		buff = rtw_malloc(IW_CUSTOM_MAX);
-
-		_rtw_memset(buff,0,IW_CUSTOM_MAX);
-
-		p=buff;
+		buff = rtw_zmalloc(IW_CUSTOM_MAX);
+		if (NULL == buff) {
+			DBG_871X(FUNC_ADPT_FMT ": alloc memory FAIL!!\n",
+				FUNC_ADPT_ARG(adapter));
+			return;
+		}
+		p = buff;
 
 		p+=sprintf(p,"ASSOCINFO(ReqIEs=");
 
 		len = sec_ie[1]+2;
-		len =  (len < IW_CUSTOM_MAX) ? len:IW_CUSTOM_MAX;
+		len = (len < IW_CUSTOM_MAX) ? len:IW_CUSTOM_MAX;
 
 		for(i=0;i<len;i++){
 			p+=sprintf(p,"%02x",sec_ie[i]);
@@ -286,10 +321,10 @@ _func_enter_;
 		wireless_send_event(adapter->pnetdev,IWEVCUSTOM,&wrqu,buff);
 #endif
 
-		if(buff)
-		    rtw_mfree(buff, IW_CUSTOM_MAX);
-
+		rtw_mfree(buff, IW_CUSTOM_MAX);
 	}
+
+exit:
 
 _func_exit_;
 
@@ -313,6 +348,22 @@ void _addba_timer_hdl(void *FunctionContext)
 	struct sta_info *psta = (struct sta_info *)FunctionContext;
 	addba_timer_hdl(psta);
 }
+
+#ifdef CONFIG_IEEE80211W
+
+void _sa_query_timer_hdl (void *FunctionContext)
+{
+	struct sta_info *psta = (struct sta_info *)FunctionContext;
+
+	sa_query_timer_hdl(psta);
+}
+
+void init_dot11w_expire_timer(_adapter *padapter, struct sta_info *psta)
+{
+	_init_timer(&psta->dot11w_expire_timer, padapter->pnetdev, _sa_query_timer_hdl, psta);
+}
+
+#endif //CONFIG_IEEE80211W
 
 void init_addba_retry_timer(_adapter *padapter, struct sta_info *psta)
 {
@@ -340,33 +391,11 @@ void init_mlme_ext_timer(_adapter *padapter)
 
 	_init_timer(&pmlmeext->survey_timer, padapter->pnetdev, _survey_timer_hdl, padapter);
 	_init_timer(&pmlmeext->link_timer, padapter->pnetdev, _link_timer_hdl, padapter);
+
 	//_init_timer(&pmlmeext->ADDBA_timer, padapter->pnetdev, _addba_timer_hdl, padapter);
 
 	//_init_timer(&pmlmeext->reauth_timer, padapter->pnetdev, _reauth_timer_hdl, padapter);
 	//_init_timer(&pmlmeext->reassoc_timer, padapter->pnetdev, _reassoc_timer_hdl, padapter);
-}
-
-u8 rtw_handle_tkip_countermeasure(_adapter* padapter)
-{
-	u8 status = _SUCCESS;
-	u32 cur_time = 0;
-
-	if (padapter->securitypriv.btkip_countermeasure == _TRUE) {
-		cur_time = rtw_get_current_time();
-
-		if( (cur_time - padapter->securitypriv.btkip_countermeasure_time) > 60 * HZ )
-		{
-			padapter->securitypriv.btkip_countermeasure = _FALSE;
-			padapter->securitypriv.btkip_countermeasure_time = 0;
-		}
-		else
-		{
-			status = _FAIL;
-		}
-	}
-
-	return status;
-
 }
 
 #ifdef CONFIG_AP_MODE
@@ -447,11 +476,7 @@ static int mgnt_netdev_open(struct net_device *pnetdev)
 
 	init_usb_anchor(&phostapdpriv->anchored);
 
-	if(!rtw_netif_queue_stopped(pnetdev))
-		rtw_netif_start_queue(pnetdev);
-	else
-		rtw_netif_wake_queue(pnetdev);
-
+	rtw_netif_wake_queue(pnetdev);
 
 	netif_carrier_on(pnetdev);
 
@@ -469,8 +494,7 @@ static int mgnt_netdev_close(struct net_device *pnetdev)
 
 	netif_carrier_off(pnetdev);
 
-	if (!rtw_netif_queue_stopped(pnetdev))
-		rtw_netif_stop_queue(pnetdev);
+	rtw_netif_stop_queue(pnetdev);
 
 	//rtw_write16(phostapdpriv->padapter, 0x0116, 0x3f3f);
 

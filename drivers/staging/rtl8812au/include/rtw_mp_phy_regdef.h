@@ -166,6 +166,7 @@
 #define		rFPGA1_TxBlock				0x904	// Useless now
 #define		rFPGA1_DebugSelect			0x908	// Useless now
 #define		rFPGA1_TxInfo				0x90c	// Useless now // Status report??
+#define 	rS0S1_PathSwitch			0x948
 
 //
 // 5. PageA(0xA00)
@@ -1013,11 +1014,12 @@
 #define		bMaskByte1		0xff00
 #define		bMaskByte2		0xff0000
 #define		bMaskByte3		0xff000000
-#define		bMaskHWord		0xffff0000
+#define		bMaskHWord	0xffff0000
 #define		bMaskLWord		0x0000ffff
-#define		bMaskDWord		0xffffffff
+#define		bMaskDWord	0xffffffff
 #define		bMaskH4Bits		0xf0000000
-#define 	bMaskOFDM_D		0xffc00000
+#define		bMaskH3Bytes	0xffffff00
+#define 		bMaskOFDM_D	0xffc00000
 #define		bMaskCCK		0x3f3f3f3f
 #define		bMask12Bits		0xfff
 
@@ -1078,7 +1080,7 @@
 #define RCR_AB			BIT(3)				// accept broadcast
 #define RCR_ACRC32		BIT(5)				// accept error packet
 #define RCR_9356SEL		BIT(6)
-#define RCR_AICV		BIT(12)				// Accept ICV error packet
+#define RCR_AICV		BIT(9)				// Accept ICV error packet
 #define RCR_RXFTH0		(BIT(13)|BIT(14)|BIT(15))	// Rx FIFO threshold
 #define RCR_ADF			BIT(18)				// Accept Data(frame type) frame
 #define RCR_ACF			BIT(19)				// Accept control frame

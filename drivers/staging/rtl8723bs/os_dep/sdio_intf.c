@@ -329,6 +329,7 @@ static struct adapter *rtw_sdio_if1_init(struct dvobj_priv *dvobj, const struct 
 	int status = _FAIL;
 	struct net_device *pnetdev;
 	struct adapter *padapter = NULL;
+	PSDIO_DATA psdio = &dvobj->intf_data;
 
 	if ((padapter = (struct adapter *)vzalloc(sizeof(*padapter))) == NULL) {
 		goto exit;
@@ -393,7 +394,7 @@ static struct adapter *rtw_sdio_if1_init(struct dvobj_priv *dvobj, const struct 
 
 	/* 3 8. get WLan MAC address */
 	/*  set mac addr */
-	rtw_macaddr_cfg(padapter->eeprompriv.mac_addr);
+	rtw_macaddr_cfg(&psdio->func->dev, padapter->eeprompriv.mac_addr);
 
 	rtw_hal_disable_interrupt(padapter);
 
@@ -480,11 +481,12 @@ static int rtw_drv_init(
 		switch (func->device) {
 		case 0x0523:
 		case 0x0623:
+		case 0x0626:
 		case 0xb723:
 			break;
 		default:
-			pr_info("RTL8723BS: Found unrecognized vendor 0x%x, device 0x%x\n",
-				func->vendor, func->device);
+			pr_info("RTL8723BS: Found unrecognized device 0x%x for vendor 0x%x\n",
+				func->device, func->vendor);
 			goto exit;
 		}
 		break;

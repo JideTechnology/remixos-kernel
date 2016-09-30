@@ -54,9 +54,16 @@ void rtl8812_sreset_xmit_status_check(_adapter *padapter)
 			else{
 				diff_time = rtw_get_passing_time_ms(psrtpriv->last_tx_complete_time);
 				if (diff_time > 4000) {
+					u32 ability = 0;
+
 					//padapter->Wifi_Error_Status = WIFI_TX_HANG;
-					DBG_871X("%s tx hang\n", __FUNCTION__);
-					rtw_hal_sreset_reset(padapter);
+					ability = rtw_phydm_ability_get(padapter);
+
+					DBG_871X("%s tx hang %s\n", __FUNCTION__,
+						(ability & ODM_BB_ADAPTIVITY)? "ODM_BB_ADAPTIVITY" : "");
+
+					if (!(ability & ODM_BB_ADAPTIVITY))
+						rtw_hal_sreset_reset(padapter);
 				}
 			}
 		}

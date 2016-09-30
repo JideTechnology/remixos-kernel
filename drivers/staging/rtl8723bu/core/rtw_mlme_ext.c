@@ -9378,7 +9378,7 @@ void site_survey(_adapter *padapter)
 		u8 cur_ch_offset;
 
 		#ifdef CONFIG_IOCTL_CFG80211
-		else if(padapter->pbuddy_adapter
+		if(padapter->pbuddy_adapter
 			&& pbuddy_adapter->wdinfo.driver_interface == DRIVER_CFG80211
 			&& adapter_wdev_data(pbuddy_adapter)->p2p_enabled
 			&& rtw_p2p_chk_state(&pbuddy_adapter->wdinfo, P2P_STATE_LISTEN)
@@ -11069,7 +11069,7 @@ void _linked_info_dump(_adapter *padapter)
 {
 	int i;
 	struct mlme_ext_priv    *pmlmeext = &padapter->mlmeextpriv;
-     	struct mlme_ext_info    *pmlmeinfo = &(pmlmeext->mlmext_info);
+	struct mlme_ext_info    *pmlmeinfo = &(pmlmeext->mlmext_info);
 	u8 mac_id;
 	int UndecoratedSmoothedPWDB;
 	struct dvobj_priv *pdvobj = adapter_to_dvobj(padapter);
