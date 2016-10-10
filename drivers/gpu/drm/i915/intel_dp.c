@@ -4487,20 +4487,20 @@ static bool g4x_digital_port_connected(struct drm_i915_private *dev_priv,
 	return I915_READ(PORT_HOTPLUG_STAT) & bit;
 }
 
-static bool vlv_digital_port_connected(struct drm_i915_private *dev_priv,
-				       struct intel_digital_port *port)
+static bool gm45_digital_port_connected(struct drm_i915_private *dev_priv,
+					struct intel_digital_port *port)
 {
 	u32 bit;
 
 	switch (port->port) {
 	case PORT_B:
-		bit = PORTB_HOTPLUG_LIVE_STATUS_VLV;
+		bit = PORTB_HOTPLUG_LIVE_STATUS_GM45;
 		break;
 	case PORT_C:
-		bit = PORTC_HOTPLUG_LIVE_STATUS_VLV;
+		bit = PORTC_HOTPLUG_LIVE_STATUS_GM45;
 		break;
 	case PORT_D:
-		bit = PORTD_HOTPLUG_LIVE_STATUS_VLV;
+		bit = PORTD_HOTPLUG_LIVE_STATUS_GM45;
 		break;
 	default:
 		MISSING_CASE(port->port);
@@ -4552,8 +4552,8 @@ bool intel_digital_port_connected(struct drm_i915_private *dev_priv,
 		return cpt_digital_port_connected(dev_priv, port);
 	else if (IS_BROXTON(dev_priv))
 		return bxt_digital_port_connected(dev_priv, port);
-	else if (IS_VALLEYVIEW(dev_priv) || IS_CHERRYVIEW(dev_priv))
-		return vlv_digital_port_connected(dev_priv, port);
+	else if (IS_GM45(dev_priv))
+		return gm45_digital_port_connected(dev_priv, port);
 	else
 		return g4x_digital_port_connected(dev_priv, port);
 }
@@ -5984,9 +5984,9 @@ fail:
 	return false;
 }
 
-void
-intel_dp_init(struct drm_device *dev,
-	      i915_reg_t output_reg, enum port port)
+bool intel_dp_init(struct drm_device *dev,
+		   i915_reg_t output_reg,
+		   enum port port)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_digital_port *intel_dig_port;
@@ -5996,7 +5996,7 @@ intel_dp_init(struct drm_device *dev,
 
 	intel_dig_port = kzalloc(sizeof(*intel_dig_port), GFP_KERNEL);
 	if (!intel_dig_port)
-		return;
+		return false;
 
 	intel_connector = intel_connector_alloc();
 	if (!intel_connector)
@@ -6054,7 +6054,7 @@ intel_dp_init(struct drm_device *dev,
 	if (!intel_dp_init_connector(intel_dig_port, intel_connector))
 		goto err_init_connector;
 
-	return;
+	return true;
 
 err_init_connector:
 	drm_encoder_cleanup(encoder);
@@ -6062,8 +6062,7 @@ err_encoder_init:
 	kfree(intel_connector);
 err_connector_alloc:
 	kfree(intel_dig_port);
-
-	return;
+	return false;
 }
 
 void intel_dp_mst_suspend(struct drm_device *dev)
